@@ -1,7 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Table, Button} from "react-bootstrap";
+import {Button} from "react-bootstrap";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
@@ -30,6 +30,12 @@ import {
 } from "../selectorsAnuga";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
+// TASK-1764 (epic-1758 W1) — chassis PanelHeader for the panel header
+// (cascade-safe sv-panel-header-close ×-chip, replaces the .sv-legend-close span).
+// The 3-radio visibility group + the react-bootstrap member/invitation Tables
+// stay bespoke (flagged gaps). No test pins the close button class; the
+// #membership-panel id + inner row classes the tests query are untouched.
+import {PanelHeader, Table as ChassisTable} from '../../SimpleView/components/primitives';
 
 const ROLES = [
     {value: 1, label: 'Viewer'},
@@ -164,21 +170,21 @@ class MembershipPanelClass extends React.Component {
         // owner/manager action; suppress it when we can't trust per-row perms.
         if (!this.props.canAdd || this.props.permsLoadFailed) return null;
         return (
-            <div className="membership-visibility">
-                <div className="membership-section-title">
+            <div className="sv-membership-visibility">
+                <div className="sv-membership-section-title">
                     <Message msgId="hydrata.anuga.projectVisibility" />
                 </div>
-                <div className="membership-visibility-options">
+                <div className="sv-membership-visibility-options">
                     {VISIBILITY_OPTIONS.map(opt => (
-                        <div key={opt.value} className="membership-visibility-option-row">
+                        <div key={opt.value} className="sv-membership-visibility-option-row">
                             <Button
                                 bsSize="xsmall"
-                                className={`membership-btn-sm membership-visibility-btn ${this.props.visibility === opt.value ? 'active' : ''}`}
+                                className={`sv-membership-btn-sm sv-membership-visibility-btn ${this.props.visibility === opt.value ? 'active' : ''}`}
                                 onClick={() => this.handleVisibilityChange(opt.value)}
                             >
                                 {opt.label}
                             </Button>
-                            <span className="membership-visibility-desc">{opt.description}</span>
+                            <span className="sv-membership-visibility-desc">{opt.description}</span>
                         </div>
                     ))}
                 </div>
@@ -191,7 +197,7 @@ class MembershipPanelClass extends React.Component {
             <tr className="membership-owner-row">
                 <td>{this.props.ownerUsername}</td>
                 <td>
-                    <span className="badge-role badge-owner">
+                    <span className="sv-badge-role sv-badge-owner">
                         Owner
                     </span>
                 </td>
@@ -220,7 +226,7 @@ class MembershipPanelClass extends React.Component {
                     {canChangeRole ? (
                         <select
                             value={membership.role}
-                            className="scenario-select membership-role-select change-role-btn"
+                            className="sv-scenario-select sv-membership-role-select change-role-btn"
                             onChange={(e) => this.handleRoleChange(membership.id, e.target.value)}
                         >
                             {ROLES.map(r => (
@@ -228,7 +234,7 @@ class MembershipPanelClass extends React.Component {
                             ))}
                         </select>
                     ) : (
-                        <span className={`badge-role ${membership.role >= 4 ? 'badge-manager' : membership.role >= 3 ? 'badge-editor' : 'badge-viewer'}`}>
+                        <span className={`sv-badge-role ${membership.role >= 4 ? 'sv-badge-manager' : membership.role >= 3 ? 'sv-badge-editor' : 'sv-badge-viewer'}`}>
                             {membership.role_label}
                         </span>
                     )}
@@ -238,7 +244,7 @@ class MembershipPanelClass extends React.Component {
                         <Button
                             bsStyle="danger"
                             bsSize="xsmall"
-                            className="membership-btn-remove remove-member-btn"
+                            className="sv-membership-btn-remove remove-member-btn"
                             onClick={() => this.handleRemoveMember(membership.id, membership.username)}
                         >
                             <span className="glyphicon glyphicon-trash" aria-hidden="true" />
@@ -259,18 +265,18 @@ class MembershipPanelClass extends React.Component {
 
         return (
             <div className="membership-invite-form invite-member">
-                <div className="membership-section-title">
+                <div className="sv-membership-section-title">
                     Invite by email
                 </div>
                 {formDisabled ? (
-                    <div className="alert alert-info membership-invite-disabled">
+                    <div className="alert alert-info sv-membership-invite-disabled">
                         Invitations are disabled on this site.
                     </div>
                 ) : null}
-                <div className="membership-add-form-row">
+                <div className="sv-membership-add-form-row">
                     <input
                         type="email"
-                        className="data-title-input membership-search-input invite-email-input"
+                        className="sv-data-title-input sv-membership-search-input invite-email-input"
                         placeholder="Email address"
                         value={this.state.inviteEmail}
                         disabled={formDisabled}
@@ -278,7 +284,7 @@ class MembershipPanelClass extends React.Component {
                         onKeyDown={(e) => { if (e.key === 'Enter') this.handleSendInvitation(); }}
                     />
                     <select
-                        className="scenario-select membership-role-select invite-role-select"
+                        className="sv-scenario-select sv-membership-role-select invite-role-select"
                         value={this.state.inviteRole}
                         disabled={formDisabled}
                         onChange={(e) => this.setState({inviteRole: parseInt(e.target.value, 10)})}
@@ -290,7 +296,7 @@ class MembershipPanelClass extends React.Component {
                     <Button
                         bsStyle="success"
                         bsSize="xsmall"
-                        className="membership-btn-sm invite-submit-btn"
+                        className="sv-membership-btn-sm invite-submit-btn"
                         disabled={formDisabled || !this.state.inviteEmail.trim()}
                         onClick={this.handleSendInvitation}
                     >
@@ -310,12 +316,12 @@ class MembershipPanelClass extends React.Component {
 
         return (
             <div className="membership-invitations-section">
-                <div className="membership-section-title">
+                <div className="sv-membership-section-title">
                     Pending invitations
                 </div>
-                <Table className="scenario-table membership-invitations-table">
+                <ChassisTable surface="dark" extraClassName="sv-scenario-table membership-invitations-table">
                     <thead>
-                        <tr className="scenario-table-header">
+                        <tr className="sv-scenario-table-header">
                             <th>Email</th>
                             <th>Role</th>
                             <th/>
@@ -326,7 +332,7 @@ class MembershipPanelClass extends React.Component {
                             <tr key={inv.id} className="membership-invitation-row">
                                 <td>{inv.email}</td>
                                 <td>
-                                    <span className="badge-role badge-viewer">
+                                    <span className="sv-badge-role sv-badge-viewer">
                                         {inv.role_label}
                                     </span>
                                 </td>
@@ -335,7 +341,7 @@ class MembershipPanelClass extends React.Component {
                                         <Button
                                             bsSize="xsmall"
                                             bsStyle="default"
-                                            className="membership-btn-sm resend-invitation-btn"
+                                            className="sv-membership-btn-sm resend-invitation-btn"
                                             onClick={() => {
                                                 this.props.resendInvitationRequest(inv.id);
                                                 trackEvent('button', 'click', 'membership-resend-invitation');
@@ -348,7 +354,7 @@ class MembershipPanelClass extends React.Component {
                                     <Button
                                         bsStyle="danger"
                                         bsSize="xsmall"
-                                        className="membership-btn-remove revoke-invitation-btn"
+                                        className="sv-membership-btn-remove revoke-invitation-btn"
                                         onClick={() => {
                                             this.props.revokeInvitationRequest(inv.id);
                                             trackEvent('button', 'click', 'membership-revoke-invitation');
@@ -361,25 +367,23 @@ class MembershipPanelClass extends React.Component {
                             </tr>
                         ))}
                     </tbody>
-                </Table>
+                </ChassisTable>
             </div>
         );
     }
 
     render() {
         return (
-            <div id="membership-panel" className="simple-view-panel anuga-panel">
-                <div className="menu-rows-container">
-                    <div className="row menu-row-header membership-header-row">
-                        <Message msgId="hydrata.anuga.members" />
-                        <span
-                            className="btn glyphicon glyphicon-remove legend-close"
-                            onClick={() => {
-                                this.props.setMembershipPanel(false);
-                                trackEvent('button', 'click', 'membership-panel-close');
-                            }}
-                        />
-                    </div>
+            <div id="membership-panel" className="simple-view-panel sv-anuga-panel">
+                <div className="sv-menu-rows-container">
+                    <PanelHeader
+                        extraClassName="sv-menu-row-header sv-membership-header-row"
+                        title={<Message msgId="hydrata.anuga.members" />}
+                        onClose={() => {
+                            this.props.setMembershipPanel(false);
+                            trackEvent('button', 'click', 'membership-panel-close');
+                        }}
+                    />
                     {/*
                       V2P-24 read-only fallback banner — when permsLoadFailed=true
                       (V2P-20 /my-perms/ retry exhausted) the panel still renders
@@ -387,7 +391,7 @@ class MembershipPanelClass extends React.Component {
                       Owners must still SEE who's a member after a transient 5xx.
                     */}
                     {this.props.permsLoadFailed ? (
-                        <div className="alert alert-warning membership-perms-warning">
+                        <div className="alert alert-warning sv-membership-perms-warning">
                             <Message msgId="hydrata.anuga.permsUnavailable.message" />
                         </div>
                     ) : null}
@@ -395,27 +399,27 @@ class MembershipPanelClass extends React.Component {
                         removeMemberConfirm and visibilityConfirm are mutually
                         exclusive in normal use; both are guarded separately. */}
                     {this.state.removeMemberConfirm?.visible ? (
-                        <div className="membership-confirm-overlay">
+                        <div className="sv-membership-confirm-overlay">
                             <p>{`Remove ${this.state.removeMemberConfirm.username} from project?`}</p>
-                            <div className="membership-confirm-buttons">
+                            <div className="sv-membership-confirm-buttons">
                                 <Button bsSize="small" onClick={this.cancelRemoveMember}>Cancel</Button>
                                 <Button bsStyle="danger" bsSize="small" className="membership-confirm-remove-btn" onClick={this.confirmRemoveMember}>Remove</Button>
                             </div>
                         </div>
                     ) : null}
                     {this.state.visibilityConfirm?.visible ? (
-                        <div className="membership-confirm-overlay">
+                        <div className="sv-membership-confirm-overlay">
                             <p>This will expose all project data to anonymous users. Continue?</p>
-                            <div className="membership-confirm-buttons">
+                            <div className="sv-membership-confirm-buttons">
                                 <Button bsSize="small" onClick={this.cancelVisibilityChange}>Cancel</Button>
                                 <Button bsStyle="danger" bsSize="small" className="membership-confirm-visibility-btn" onClick={this.confirmVisibilityChange}>Make Public</Button>
                             </div>
                         </div>
                     ) : null}
                     {this.renderVisibilitySection()}
-                    <Table className="scenario-table">
+                    <ChassisTable surface="dark" extraClassName="sv-scenario-table">
                         <thead>
-                            <tr className="scenario-table-header">
+                            <tr className="sv-scenario-table-header">
                                 <th><Message msgId="hydrata.anuga.memberUser" /></th>
                                 <th><Message msgId="hydrata.anuga.memberRole" /></th>
                                 <th/>
@@ -425,7 +429,7 @@ class MembershipPanelClass extends React.Component {
                             {this.renderOwnerRow()}
                             {this.props.memberships?.map(m => this.renderMemberRow(m))}
                         </tbody>
-                    </Table>
+                    </ChassisTable>
                     {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
                     {this.renderInviteSection()}
                     {/* TASK-860 — pending invitations list */}

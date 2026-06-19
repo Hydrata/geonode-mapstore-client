@@ -6,7 +6,6 @@ import {
     refreshLayers,
     moveNode
 } from '../../../../../MapStore2/web/client/actions/layers';
-import {show} from '../../../../../MapStore2/web/client/actions/notifications';
 import {zoomToExtent, CHANGE_MAP_VIEW} from "../../../../../MapStore2/web/client/actions/map";
 import {getNode} from '../../../../../MapStore2/web/client/utils/LayersUtils';
 import {saveDirectContent} from "@js/actions/gnsave";
@@ -494,12 +493,9 @@ const resolveAnugaGroup = (metadata, layerConfig) => {
 const HANDLED_IDS_STORAGE_PREFIX = 'hydrata_handled_completion_ids_';
 export const HANDLED_IDS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-const NEW_LAYERS_NOTIFICATION = {
-    message: "hydrata.anuga.newLayersMessage",
-    title: "hydrata.anuga.newLayersTitle",
-    uid: 1000,
-    position: "tc"
-};
+// TASK-1650 (W1.5): NEW_LAYERS_NOTIFICATION removed — both show() firings
+// (buildTerrainAddSequence + taskCompleteLayerEpic) were info toasts on
+// auto-added layers. Error/warning toasts are dispatched separately and kept.
 
 const handledIdsStorageKey = (mapId) => `${HANDLED_IDS_STORAGE_PREFIX}${mapId}`;
 
@@ -688,7 +684,8 @@ const buildTerrainAddSequence = (metadata, action$, store, currentNames) => {
             return Rx.Observable.of(refreshLayers(wmsLayers));
         }),
         ...stampedLayers.map(l => Rx.Observable.of(addLayer(l))),
-        Rx.Observable.of(show(NEW_LAYERS_NOTIFICATION)),
+        // TASK-1650 (W1.5): info toast removed — auto-added input layers are
+        // visible in the Inputs panel; the toast added noise with no action.
         ...(isFirstUpload && firstLayer?.bbox?.bounds
             ? [
                 Rx.Observable.of(zoomToExtent(firstLayer.bbox.bounds, firstLayer.bbox.crs, 20)),
@@ -916,11 +913,6 @@ export const taskCompleteLayerEpic = (action$, store) => {
                 observables.push(Rx.Observable.of(initAnuga()));
             }
             const refreshedEndpoints = new Set();
-            // ISSUE 4 (TASK-1427): emit the "save your project" toast at most ONCE
-            // per TM_SET_PROCESSES batch regardless of how many layer_create processes
-            // complete simultaneously. Without the flag, creating 6 default input
-            // layers at project init fires 6 consecutive toasts.
-            let layerNotificationQueued = false;
             newlyCompleted.forEach(p => {
                 const dispatch = modelClassDispatch[p.metadata?.model_class];
                 if (p.process_type === 'terrain_create' && Array.isArray(p.metadata?.mapstore_layers)) {
@@ -940,11 +932,8 @@ export const taskCompleteLayerEpic = (action$, store) => {
                             ? Object.assign({}, baseLayerConfig, { group: resolvedGroup })
                             : baseLayerConfig;
                         observables.push(Rx.Observable.of(addLayer(layerConfig)));
-                        // Debounce: only queue the notification once per batch.
-                        if (!layerNotificationQueued) {
-                            observables.push(Rx.Observable.of(show(NEW_LAYERS_NOTIFICATION)));
-                            layerNotificationQueued = true;
-                        }
+                        // TASK-1650 (W1.5): info toast removed — auto-added
+                        // input layers appear in the Inputs panel immediately.
                     }
                 } else if (dispatch?.addAction) {
                     observables.push(Rx.Observable.of(dispatch.addAction()));

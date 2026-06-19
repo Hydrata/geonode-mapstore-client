@@ -7,6 +7,7 @@ import {
     setUpdatingBmp,
     showBmpForm
 } from '../../actionsSwamm';
+import { PanelHeader } from '../../../SimpleView/components/primitives';
 
 const BmpChooserModal = ({ candidates, onSelect, onClose }) => {
     if (!candidates || candidates.length === 0) return null;
@@ -28,24 +29,15 @@ const BmpChooserModal = ({ candidates, onSelect, onClose }) => {
                 style={{
                     minWidth: 320,
                     maxWidth: 500,
-                    padding: 0,
-                    backgroundColor: '#063167'
+                    padding: 0
                 }}
                 onClick={e => e.stopPropagation()}
             >
-                <div className="simple-view-panel-header" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px'
-                }}>
-                    <span>Select a BMP</span>
-                    <button
-                        className="legend-close"
-                        onClick={onClose}
-                        style={{position: 'static'}}
-                    >&times;</button>
-                </div>
+                <PanelHeader
+                    title={<span>Select a BMP</span>}
+                    onClose={onClose}
+                    closeLabel="Close BMP chooser"
+                />
                 <div style={{ padding: '8px 12px', maxHeight: 300, overflowY: 'auto' }}>
                     {candidates.map(bmp => (
                         <div
@@ -55,12 +47,12 @@ const BmpChooserModal = ({ candidates, onSelect, onClose }) => {
                                 cursor: 'pointer',
                                 padding: '8px',
                                 marginBottom: 4,
-                                borderRadius: 4,
-                                backgroundColor: 'rgba(255,255,255,0.1)'
+                                borderRadius: 'var(--sv-card-radius, 4px)',
+                                backgroundColor: 'var(--sv-row-hover-bg, rgba(255,255,255,0.10))'
                             }}
                             onClick={() => onSelect(bmp)}
-                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--sv-input-bg, rgba(255,255,255,0.22))'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg, rgba(255,255,255,0.10))'; }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>

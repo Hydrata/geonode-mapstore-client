@@ -1,5 +1,5 @@
 import React from "react";
-import {Table} from "react-bootstrap";
+import {Card, Table} from "../../../SimpleView/components/primitives";
 import {formatMoney, formatCurrency} from "../../../Utils/utils";
 
 const computeProjectedCost = (targetRequired, actual, costPerUnit) => {
@@ -20,8 +20,13 @@ const renderProjectedCost = (targetRequired, actual, costPerUnit) => {
 const SummaryTable = ({ selectedTarget }) => {
     const sd = selectedTarget?.speedDialData;
     return (
-        <div id={"swamm-bmp-chart-summary"}>
-            <Table bordered condensed hover className={"text-right"} aria-label="Dashboard summary">
+        <Card
+            variant="chart"
+            extraClassName="swamm-bmp-chart-summary"
+            style={{margin: '10px'}}
+            bodyStyle={{padding: 0}}
+        >
+            <Table surface="light" extraClassName="text-right sv-swamm-summary-table" style={{tableLayout: 'auto'}} aria-label="Dashboard summary">
                 <thead>
                     <tr>
                         <th>Summary</th>
@@ -83,7 +88,7 @@ const SummaryTable = ({ selectedTarget }) => {
                     </tr>
                 </tbody>
             </Table>
-        </div>
+        </Card>
     );
 };
 

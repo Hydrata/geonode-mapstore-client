@@ -243,7 +243,7 @@ class AnugaScenarioMenuClass extends React.Component {
   // (lines 138-148) already toggles setAnugaScenarioMenu + start/stopAnugaScenarioPolling
   // when the user clicks the same tab again or switches to another top-tab,
   // so panel-level close is redundant. stopAnugaScenarioPolling + handleClose
-  // are dropped here; the legend-close <span> in renderHeader is dropped too.
+  // are dropped here; the sv-legend-close <span> in renderHeader is dropped too.
   // setAnugaScenarioMenu + stopAnugaScenarioPolling props are preserved in
   // propTypes/mapDispatchToProps because they are still needed by the run-now
   // chain (handleRunClick → setAnugaScenarioMenu(false)).
@@ -430,18 +430,18 @@ class AnugaScenarioMenuClass extends React.Component {
       const hasSelected = !!(selectedScenario && selectedScenario.id);
       const canDuplicateNow = canCreate && hasSelected;
       // Use the shared SectionHeader primitive (also used by anugaInputMenu /
-      // InputSection / swammInputMenu) instead of a hand-written .row.menu-row
-      // .menu-row-header className chain. extraClassName preserves the per-site
-      // anuga-section-header and scenario-menu-header CSS hooks.
+      // InputSection / swammInputMenu) instead of a hand-written .row.sv-menu-row
+      // .sv-menu-row-header className chain. extraClassName preserves the per-site
+      // sv-anuga-section-header and sv-scenario-menu-header CSS hooks.
       return (
-          <SectionHeader extraClassName="anuga-section-header scenario-menu-header">
+          <SectionHeader extraClassName="sv-anuga-section-header sv-scenario-menu-header">
               <Message msgId="hydrata.anuga.scenarios" />
-              <span id={"scenario-header-actions"} className="scenario-header-actions">
+              <span id={"scenario-header-actions"} className="sv-scenario-header-actions">
                   {canCreate ?
                       <Button
                           bsStyle={'success'}
                           bsSize={'xsmall'}
-                          className="anuga-btn anuga-btn-new-scenario"
+                          className="sv-anuga-btn anuga-btn-new-scenario"
                           onClick={this.handleNewScenario}
                       >
                           <Message msgId="hydrata.anuga.newScenario" />
@@ -450,7 +450,7 @@ class AnugaScenarioMenuClass extends React.Component {
                   }
                   <Button
                       bsSize={'xsmall'}
-                      className={"anuga-btn anuga-btn-compare" + (compareMode ? ' is-active' : '')}
+                      className={"sv-anuga-btn sv-anuga-btn-compare" + (compareMode ? ' is-active' : '')}
                       onClick={this.handleToggleCompareMode}
                       title={compareMode
                           ? this.tr('hydrata.anuga.exitCompareModeTooltip', 'Exit compare mode')
@@ -463,7 +463,7 @@ class AnugaScenarioMenuClass extends React.Component {
                       <Button
                           bsStyle={'success'}
                           bsSize={'xsmall'}
-                          className="anuga-btn anuga-btn-run-compare"
+                          className="sv-anuga-btn anuga-btn-run-compare"
                           onClick={this.handleExecuteCompare}
                       >
                           <Message msgId="hydrata.anuga.run" />
@@ -472,7 +472,7 @@ class AnugaScenarioMenuClass extends React.Component {
                   }
                   <Button
                       bsSize={'xsmall'}
-                      className={"anuga-btn anuga-btn-duplicate-header"
+                      className={"sv-anuga-btn sv-anuga-btn-duplicate-header"
               + (canDuplicateNow ? '' : ' disabled')}
                       disabled={!canDuplicateNow}
                       onClick={() => {
@@ -498,17 +498,17 @@ class AnugaScenarioMenuClass extends React.Component {
       || this.tr('hydrata.anuga.thisScenario', 'this scenario');
       return (
           <span
-              className={"anuga-scenario-confirm-dialog" + (isOpen ? " is-open" : "")}
+              className={"sv-anuga-scenario-confirm-dialog" + (isOpen ? " is-open" : "")}
               role="alertdialog"
               aria-label={this.tr('hydrata.anuga.confirmActionAriaLabel', 'Confirm scenario action')}
               aria-hidden={isOpen ? undefined : true}
           >
-              <span className="anuga-scenario-confirm-text">
+              <span className="sv-anuga-scenario-confirm-text">
                   {bodyMsgId ? <Message msgId={bodyMsgId} msgParams={{name}} /> : null}
               </span>
               <button
                   type="button"
-                  className="save-confirm-btn confirm"
+                  className="sv-save-confirm-btn confirm"
                   onClick={this.performConfirm}
               >
                   {confirmLabelMsgId
@@ -517,7 +517,7 @@ class AnugaScenarioMenuClass extends React.Component {
               </button>
               <button
                   type="button"
-                  className="save-confirm-btn cancel"
+                  className="sv-save-confirm-btn cancel"
                   onClick={this.cancelConfirm}
               >
                   <Message msgId="hydrata.anuga.cancel" />
@@ -531,14 +531,14 @@ class AnugaScenarioMenuClass extends React.Component {
       return (
           <span
               className={
-                  "menu-row-delete-confirm anuga-build-validation-dialog"
+                  "sv-menu-row-delete-confirm anuga-build-validation-dialog"
           + (buildValidationError ? " is-open" : "")
               }
               role="alertdialog"
               aria-label={this.tr('hydrata.anuga.buildValidationAriaLabel', 'Build validation error')}
               aria-hidden={buildValidationError ? undefined : true}
           >
-              <span className="menu-row-delete-confirm-text">
+              <span className="sv-menu-row-delete-confirm-text">
                   {buildValidationError ?
                       <Message msgId={`hydrata.anuga.validateMissingField.${buildValidationError}`} />
                       : null
@@ -546,7 +546,7 @@ class AnugaScenarioMenuClass extends React.Component {
               </span>
               <button
                   type="button"
-                  className="save-confirm-btn confirm"
+                  className="sv-save-confirm-btn confirm"
                   onClick={this.dismissBuildValidation}
               >
                   <Message msgId="hydrata.anuga.ok" />
@@ -562,17 +562,17 @@ class AnugaScenarioMenuClass extends React.Component {
       return (
           <div
               id={'anuga-scenario-menu'}
-              className={'simple-view-panel anuga-panel simple-view-panel--miller anuga-scenario-miller'}
+              className={'simple-view-panel sv-anuga-panel simple-view-panel--miller sv-anuga-scenario-miller'}
           >
-              <div className={'menu-rows-container'}>
+              <div className={'sv-menu-rows-container'}>
                   {this.renderHeader()}
                   {/* ISSUE 32 (TASK-1429): View results button shown on run completion */}
                   {isComplete && selectedScenario?.latest_run ? (
-                      <div className="anuga-view-results-bar">
+                      <div className="sv-anuga-view-results-bar">
                           <Button
                               bsStyle={'success'}
                               bsSize={'xsmall'}
-                              className="anuga-btn anuga-btn-view-results"
+                              className="sv-anuga-btn sv-anuga-btn-view-results"
                               onClick={() => this.handleViewResults(selectedScenario)}
                           >
                               <span className="glyphicon glyphicon-eye-open" aria-hidden="true" />

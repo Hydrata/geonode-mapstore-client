@@ -52,7 +52,29 @@ class ProcessDetail extends React.Component {
                     <div className="sv-tm-error-message">{process.error_message}</div>
                 ) : null}
 
+                {/* TASK-1651 (W1.5): terrain export "Ready – Download" affordance.
+                    Shown when process_type=terrain_export, status=complete, and a
+                    presigned URL is in metadata. The auto-download attempt in the
+                    epic may be blocked by the browser (non-gesture context), so
+                    this explicit button is the guaranteed delivery path. */}
+                {process.process_type === 'terrain_export'
+                    && process.status === 'complete'
+                    && process.metadata?.download_url
+                    ? (
+                        <div className="sv-tm-detail-actions">
+                            <a
+                                href={process.metadata.download_url}
+                                download={process.metadata.filename || 'terrain.tif'}
+                                className="btn btn-xs sv-tm-download-cta"
+                                style={{textDecoration: 'none'}}
+                            >
+                                <span className="glyphicon glyphicon-download-alt" style={{marginRight: 4}} />
+                                Ready — Download
+                            </a>
+                        </div>
+                    ) : null}
                 <div className="sv-tm-detail-actions">
+
                     <Button bsSize="xsmall" bsStyle="default"
                         onClick={() => this.props.onToggleLog(!showLog)}>
                         <Message msgId="hydrata.taskMonitor.log" />

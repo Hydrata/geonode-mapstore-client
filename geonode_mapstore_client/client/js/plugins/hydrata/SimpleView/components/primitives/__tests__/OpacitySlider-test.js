@@ -7,13 +7,13 @@ import {OpacitySlider} from '../OpacitySlider';
  * TASK-1007 W3 primitive, tested in W4 (TASK-1008).
  *
  * Covers the contract of the presentation-only `OpacitySlider`:
- *   A. Mounts cleanly with no props (default opacity, no `glyph-hidden`).
+ *   A. Mounts cleanly with no props (default opacity, no `sv-glyph-hidden`).
  *   B. `opacity` prop maps to the nouislider `start` via (opacity ?? 1) * 100.
- *   C. `hidden` prop toggles the `glyph-hidden` class (R04 always-mounted —
+ *   C. `hidden` prop toggles the `sv-glyph-hidden` class (R04 always-mounted —
  *      the nouislider instance is NEVER unmounted, only CSS-hidden).
  *   D. `onChange` is wired through to nouislider AND receives an *array*
  *      (nouislider's native callback shape, not a 0..1 numeric).
- *   E. Wrapper click stopPropagation (so the parent menu-row doesn't toggle
+ *   E. Wrapper click stopPropagation (so the parent sv-menu-row doesn't toggle
  *      when the user drags the slider).
  *   F. Inline styles (width 150px; margin-bottom 0; margin-top 2px).
  *
@@ -51,19 +51,19 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
 
         it('wrapper carries the four base classes', () => {
             ReactDOM.render(<OpacitySlider />, container);
-            const wrapper = container.querySelector('.menu-row-slider-subrow');
+            const wrapper = container.querySelector('.sv-menu-row-slider-subrow');
             expect(wrapper).toExist();
             const cls = wrapper.className;
             expect(cls).toInclude('mapstore-slider');
-            expect(cls).toInclude('dataset-transparency');
-            expect(cls).toInclude('with-tooltip');
-            expect(cls).toInclude('menu-row-slider-subrow');
+            expect(cls).toInclude('sv-dataset-transparency');
+            expect(cls).toInclude('sv-with-tooltip');
+            expect(cls).toInclude('sv-menu-row-slider-subrow');
         });
 
-        it('wrapper does NOT have glyph-hidden when hidden prop is absent', () => {
+        it('wrapper does NOT have sv-glyph-hidden when hidden prop is absent', () => {
             ReactDOM.render(<OpacitySlider />, container);
-            const wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toNotInclude('glyph-hidden');
+            const wrapper = container.querySelector('.sv-menu-row-slider-subrow');
+            expect(wrapper.className).toNotInclude('sv-glyph-hidden');
         });
 
         it('default opacity of 1 -> nouislider start at 100', () => {
@@ -109,32 +109,32 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
         });
     });
 
-    describe('C. hidden prop toggles glyph-hidden class (R04 always-mounted)', () => {
+    describe('C. hidden prop toggles sv-glyph-hidden class (R04 always-mounted)', () => {
 
-        it('hidden=true appends glyph-hidden to the wrapper class', () => {
+        it('hidden=true appends sv-glyph-hidden to the wrapper class', () => {
             ReactDOM.render(<OpacitySlider hidden />, container);
-            const wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toInclude('glyph-hidden');
+            const wrapper = container.querySelector('.sv-menu-row-slider-subrow');
+            expect(wrapper.className).toInclude('sv-glyph-hidden');
         });
 
-        it('hidden=false leaves glyph-hidden off the wrapper class', () => {
+        it('hidden=false leaves sv-glyph-hidden off the wrapper class', () => {
             ReactDOM.render(<OpacitySlider hidden={false} />, container);
-            const wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toNotInclude('glyph-hidden');
+            const wrapper = container.querySelector('.sv-menu-row-slider-subrow');
+            expect(wrapper.className).toNotInclude('sv-glyph-hidden');
         });
 
         it('flipping hidden across re-renders flips the class (always-mounted)', () => {
             ReactDOM.render(<OpacitySlider hidden={false} opacity={0.4} />, container);
-            let wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toNotInclude('glyph-hidden');
+            let wrapper = container.querySelector('.sv-menu-row-slider-subrow');
+            expect(wrapper.className).toNotInclude('sv-glyph-hidden');
             // Re-render into the SAME container — primitive remains mounted
             ReactDOM.render(<OpacitySlider hidden opacity={0.4} />, container);
-            wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toInclude('glyph-hidden');
+            wrapper = container.querySelector('.sv-menu-row-slider-subrow');
+            expect(wrapper.className).toInclude('sv-glyph-hidden');
             // And flip back — confirms it is a CSS toggle, not a remount
             ReactDOM.render(<OpacitySlider hidden={false} opacity={0.4} />, container);
-            wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toNotInclude('glyph-hidden');
+            wrapper = container.querySelector('.sv-menu-row-slider-subrow');
+            expect(wrapper.className).toNotInclude('sv-glyph-hidden');
         });
 
         it('the slider (.noUi-target) is in the DOM regardless of hidden', () => {
@@ -193,7 +193,7 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
             const outerOnClick = () => { outerCalls += 1; };
 
             // Mount the primitive nested inside an outer div that has its
-            // own onClick — mirrors the real menu-row parent that would
+            // own onClick — mirrors the real sv-menu-row parent that would
             // otherwise toggle the row when the user grabs the slider.
             ReactDOM.render(
                 <div onClick={outerOnClick}>
@@ -201,7 +201,7 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
                 </div>,
                 container
             );
-            const wrapper = container.querySelector('.menu-row-slider-subrow');
+            const wrapper = container.querySelector('.sv-menu-row-slider-subrow');
             expect(wrapper).toExist();
 
             // Synthesize a bubbling click — same shape React expects to see
@@ -216,19 +216,19 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
 
         it('width is 150px', () => {
             ReactDOM.render(<OpacitySlider opacity={0.5} />, container);
-            const wrapper = container.querySelector('.menu-row-slider-subrow');
+            const wrapper = container.querySelector('.sv-menu-row-slider-subrow');
             expect(wrapper.style.width).toBe('150px');
         });
 
         it('marginBottom is 0 (TASK-1010 polish — relaxed from -10px so the bigger circular knob does not clip into the next row)', () => {
             ReactDOM.render(<OpacitySlider opacity={0.5} />, container);
-            const wrapper = container.querySelector('.menu-row-slider-subrow');
+            const wrapper = container.querySelector('.sv-menu-row-slider-subrow');
             expect(wrapper.style.marginBottom).toBe('0px');
         });
 
         it('marginTop is 2px', () => {
             ReactDOM.render(<OpacitySlider opacity={0.5} />, container);
-            const wrapper = container.querySelector('.menu-row-slider-subrow');
+            const wrapper = container.querySelector('.sv-menu-row-slider-subrow');
             expect(wrapper.style.marginTop).toBe('2px');
         });
     });

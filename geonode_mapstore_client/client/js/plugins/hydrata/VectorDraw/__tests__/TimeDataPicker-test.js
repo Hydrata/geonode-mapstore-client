@@ -26,7 +26,7 @@ describe('TASK-795 TimeDataPicker', () => {
 
     beforeEach(() => {
         container = document.createElement('div');
-        container.className = 'vector-draw-popup';
+        container.className = 'sv-vector-draw-popup';
         document.body.appendChild(container);
         lastChange = null;
     });

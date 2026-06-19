@@ -221,6 +221,8 @@
         "noFrictionRastersAvailable": "Aucun raster de friction disponible",
         "nodes": "Nœuds",
         "none": "Aucun",
+        "culverts": "Ponceaux",
+        "culvertPlaceholder": "Outils de ponceaux — dessinez des ponceaux sur la carte.",
         "projectVisibility": "Visibilité",
         "publish": "Publier",
         "publishPrefix": "Publier :",
@@ -267,6 +269,8 @@
         "uploadFrictionRasterTooltip": "Téléverser un raster de friction GeoTIFF (n de Manning)",
         "uploadTerrainTooltip": "Téléverser un nouveau terrain *.tiff",
         "globalDemTooltip": "Ajouter un Terrain depuis le MNT mondial Copernicus GLO-30 (tracé bbox)",
+        "combinedSurfaceTooltip": "Surface combinée",
+        "combinedSurfacePanelTitle": "Surface combinée",
         "terrainBboxPanelTitle": "MNT mondial Copernicus GLO-30",
         "terrainBboxTitleLabel": "Titre",
         "terrainBboxDefaultTitle": "MNT Copernicus GLO-30",
@@ -523,6 +527,9 @@
         "statusComplete": "Terminé",
         "statusError": "Erreur",
         "statusCancelled": "Annulée"
+      },
+      "terrainWorkbench": {
+        "terrain": "Terrain"
       }
     },
     "gnhome": {

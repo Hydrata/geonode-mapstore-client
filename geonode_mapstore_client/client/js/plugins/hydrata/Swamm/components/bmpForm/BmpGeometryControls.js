@@ -37,14 +37,14 @@ const BmpGeometryControls = ({
                                 </span>
                                 <button
                                     type={'button'}
-                                    className={'swamm-button'}
+                                    className={'sv-swamm-button'}
                                     onClick={() => setTypeChangeConfirmVisible(false)}>
                                 Cancel
                                 </button>
                                 <button
                                     type={'button'}
-                                    className={'swamm-button swamm-type-change-confirm-btn'}
-                                    style={{backgroundColor: "darkorange"}}
+                                    className={'sv-swamm-button swamm-type-change-confirm-btn'}
+                                    style={{backgroundColor: "var(--sv-btn-warn, darkorange)"}}
                                     onClick={() => {
                                         setTypeChangeConfirmVisible(false);
                                         setChangingBmpType(true);
@@ -55,7 +55,7 @@ const BmpGeometryControls = ({
                         ) : (
                             <button
                                 type={'button'}
-                                className={'swamm-button'}
+                                className={'sv-swamm-button'}
                                 onClick={() => setTypeChangeConfirmVisible(true)}>
                             Edit Type
                             </button>
@@ -72,7 +72,7 @@ const BmpGeometryControls = ({
                         {storedBmpForm?.outlet_fid ?
                             <button
                                 type={'button'}
-                                className={'swamm-button'}
+                                className={'sv-swamm-button'}
                                 onClick={() => {
                                     toggleLayer(bmpOutletLayer?.id, true);
                                     onDrawBmpStep1(bmpOutletLayer?.name, storedBmpForm?.outlet_fid);
@@ -81,9 +81,9 @@ const BmpGeometryControls = ({
                             </button> :
                             <button
                                 type={'button'}
-                                style={{backgroundColor: "darkgreen"}}
+                                style={{backgroundColor: "var(--sv-btn-save, rgba(40,167,69,0.85))"}}
                                 disabled={(!storedBmpForm?.group_profile_id || !storedBmpForm.bmpName)}
-                                className="swamm-button default"
+                                className="sv-swamm-button default"
                                 onClick={() => {
                                     toggleLayer(bmpOutletLayer?.id, true);
                                     onDrawBmpStep1(bmpOutletLayer?.name, null);
@@ -108,7 +108,7 @@ const BmpGeometryControls = ({
                                 </div>
                                 <button
                                     type={'button'}
-                                    className={'swamm-button'}
+                                    className={'sv-swamm-button'}
                                     onClick={() => {
                                         toggleLayer(bmpFootprintLayer?.id, true);
                                         onDrawBmpStep1(bmpFootprintLayer?.name, storedBmpForm?.footprint_fid);
@@ -120,8 +120,8 @@ const BmpGeometryControls = ({
                             <button
                                 type={'button'}
                                 disabled={!requiresFootprint || !storedBmpForm?.group_profile_id || !storedBmpForm.bmpName}
-                                className="swamm-button default"
-                                style={{backgroundColor: requiresFootprint ? "darkgreen" : undefined}}
+                                className="sv-swamm-button default"
+                                style={{backgroundColor: requiresFootprint ? "var(--sv-btn-save, rgba(40,167,69,0.85))" : undefined}}
                                 title={!requiresFootprint ? "This BMP type does not need a footprint area" : undefined}
                                 onClick={() => {
                                     toggleLayer(bmpFootprintLayer?.id, true);
@@ -142,7 +142,7 @@ const BmpGeometryControls = ({
                                 </div>
                                 <button
                                     type={'button'}
-                                    className={'swamm-button'}
+                                    className={'sv-swamm-button'}
                                     onClick={() => {
                                         toggleLayer(bmpWatershedLayer?.id, true);
                                         onDrawBmpStep1(bmpWatershedLayer?.name, storedBmpForm?.watershed_fid);
@@ -153,8 +153,8 @@ const BmpGeometryControls = ({
                             </React.Fragment> :
                             <button
                                 disabled={!requiresWatershed || watershedIsFootprint || !storedBmpForm?.group_profile_id || !storedBmpForm.bmpName}
-                                className="swamm-button default"
-                                style={{backgroundColor: requiresWatershed && !watershedIsFootprint ? "darkgreen" : undefined}}
+                                className="sv-swamm-button default"
+                                style={{backgroundColor: requiresWatershed && !watershedIsFootprint ? "var(--sv-btn-save, rgba(40,167,69,0.85))" : undefined}}
                                 title={!requiresWatershed
                                     ? "This BMP type does not need a watershed area"
                                     : watershedIsFootprint

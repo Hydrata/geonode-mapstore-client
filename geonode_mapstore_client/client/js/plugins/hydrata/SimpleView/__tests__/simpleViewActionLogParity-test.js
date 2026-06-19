@@ -285,10 +285,10 @@ describe('TASK-1008 (W4) SimpleView Redux action-log parity', () => {
                 </Provider>,
                 container,
                 () => {
-                    // Visibility glyph uses .glyph-active when visibility===true.
+                    // Visibility glyph uses .sv-glyph-active when visibility===true.
                     // It is the FIRST glyph in the locked 4-icon toolbar
                     // (vis | zoom | edit | delete).
-                    const visGlyph = container.querySelector('.menu-row-glyph.glyph-active');
+                    const visGlyph = container.querySelector('.sv-menu-row-glyph.sv-glyph-active');
                     expect(visGlyph).toExist();
                     visGlyph.click();
                     const recorded = store.__recorded()

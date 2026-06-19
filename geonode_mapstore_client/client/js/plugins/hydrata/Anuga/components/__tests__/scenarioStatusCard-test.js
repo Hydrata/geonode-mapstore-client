@@ -27,7 +27,7 @@ describe('Wave 3A — ScenarioStatusCard', () => {
 
     it('returns null when scenario is null', (done) => {
         ReactDOM.render(<ScenarioStatusCard scenario={null} />, container, () => {
-            expect(container.querySelector('.anuga-scenario-status-card')).toNotExist();
+            expect(container.querySelector('.sv-anuga-scenario-status-card')).toNotExist();
             done();
         });
     });
@@ -37,12 +37,12 @@ describe('Wave 3A — ScenarioStatusCard', () => {
             <ScenarioStatusCard scenario={{id: 1, status: 'built'}} />,
             container,
             () => {
-                const card = container.querySelector('.anuga-scenario-status-card');
+                const card = container.querySelector('.sv-anuga-scenario-status-card');
                 expect(card).toExist();
-                expect(card.className).toInclude('anuga-scenario-status-card--built');
-                expect(container.querySelector('.scenario-status-pill')).toExist();
+                expect(card.className).toInclude('sv-anuga-scenario-status-card--built');
+                expect(container.querySelector('.sv-scenario-status-pill')).toExist();
                 // Built status has no progress bar.
-                expect(container.querySelector('.anuga-scenario-status-card-progress')).toNotExist();
+                expect(container.querySelector('.sv-anuga-scenario-status-card-progress')).toNotExist();
                 done();
             }
         );
@@ -58,9 +58,9 @@ describe('Wave 3A — ScenarioStatusCard', () => {
             <ScenarioStatusCard scenario={s} />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-status-card--computing')).toExist();
-                expect(container.querySelector('.anuga-scenario-status-card-progress')).toExist();
-                const eta = container.querySelector('.anuga-scenario-status-card-eta');
+                expect(container.querySelector('.sv-anuga-scenario-status-card--computing')).toExist();
+                expect(container.querySelector('.sv-anuga-scenario-status-card-progress')).toExist();
+                const eta = container.querySelector('.sv-anuga-scenario-status-card-eta');
                 expect(eta).toExist();
                 expect(eta.className).toNotInclude('is-stopped');
                 done();
@@ -78,7 +78,7 @@ describe('Wave 3A — ScenarioStatusCard', () => {
             <ScenarioStatusCard scenario={s} />,
             container,
             () => {
-                const eta = container.querySelector('.anuga-scenario-status-card-eta');
+                const eta = container.querySelector('.sv-anuga-scenario-status-card-eta');
                 expect(eta).toExist();
                 expect(eta.className).toInclude('is-stopped');
                 done();
@@ -96,7 +96,7 @@ describe('Wave 3A — ScenarioStatusCard', () => {
             <ScenarioStatusCard scenario={s} />,
             container,
             () => {
-                const eta = container.querySelector('.anuga-scenario-status-card-eta');
+                const eta = container.querySelector('.sv-anuga-scenario-status-card-eta');
                 expect(eta).toExist();
                 expect(eta.className).toInclude('is-stopped');
                 done();
@@ -109,7 +109,7 @@ describe('Wave 3A — ScenarioStatusCard', () => {
             <ScenarioStatusCard scenario={{id: 1, status: 'created'}} />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-status-card')).toExist();
+                expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
                 done();
             }
         );
@@ -120,7 +120,7 @@ describe('Wave 3A — ScenarioStatusCard', () => {
             <ScenarioStatusCard scenario={{id: 1, status: 'complete'}} />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-status-card--complete')).toExist();
+                expect(container.querySelector('.sv-anuga-scenario-status-card--complete')).toExist();
                 done();
             }
         );
@@ -131,7 +131,7 @@ describe('Wave 3A — ScenarioStatusCard', () => {
             <ScenarioStatusCard scenario={{id: 1, status: 'queued'}} />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-status-card--queued')).toExist();
+                expect(container.querySelector('.sv-anuga-scenario-status-card--queued')).toExist();
                 done();
             }
         );
@@ -147,7 +147,7 @@ describe('Wave 3A — ScenarioStatusCard', () => {
             <ScenarioStatusCard scenario={s} />,
             container,
             () => {
-                const fill = container.querySelector('.anuga-scenario-status-card-progress-fill');
+                const fill = container.querySelector('.sv-anuga-scenario-status-card-progress-fill');
                 expect(fill).toExist();
                 expect(fill.className).toInclude('is-error');
                 done();

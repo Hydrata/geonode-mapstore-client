@@ -15,7 +15,9 @@ import {
     getSupportedLocales,
     setSupportedLocales
 } from '@mapstore/framework/utils/LocaleUtils';
-import { getState } from '@mapstore/framework/utils/StateUtils';
+import { getState, getStore } from '@mapstore/framework/utils/StateUtils';
+import { userSelector } from '@mapstore/framework/selectors/security';
+import { error as errorNotification } from '@mapstore/framework/actions/notifications';
 import { generateActionTrigger } from '@mapstore/framework/epics/jsapi';
 import { LOCATION_CHANGE } from 'connected-react-router';
 import { setRegGeoserverRule } from '@mapstore/framework/utils/LayersUtils';
@@ -67,6 +69,96 @@ export function getVersion() {
     return 'dev';
 }
 
+// TASK-1587 W1.9 / TASK-1801: global session-expiry guard.
+//
+// When a LOGGED-IN user's session lapses (e.g. an overnight tab), every API
+// call starts returning 401 with user_id=None. The FE had no global handler,
+// so a terrain "combine" (and any other call) failed silently while the app
+// kept polling 401s forever with no sign the user had been logged out.
+//
+// This is an axios RESPONSE interceptor rejection handler. It must NOT hijack
+// the EXPECTED anonymous-user 401s — anonymous visitors get 401 on protected
+// project endpoints BY DESIGN (the TASK-1700 paywall). The discriminator is
+// "is there a currently-authenticated user in security state?": if there is no
+// user, a 401 is expected and we pass it through byte-equivalent to today.
+//
+// Login is triggered with the app's existing mechanism: a redirect to
+// /account/login/?next=<current-location> (same pattern as Router.jsx and
+// gnresource.js), so the user lands back where they were after re-auth.
+
+// Endpoints we must never treat as a session-expiry 401, to avoid redirect
+// loops (a 401 from the login/token/refresh flow itself is part of normal auth
+// negotiation, not a lapsed session).
+const AUTH_ENDPOINT_RE = /(\/account\/login|\/o\/token|\/o\/authorize|\/api\/o\/|\/refresh|\/account\/logout)/;
+
+// Debounce flag so a burst of parallel 401s (the terrain poller fires several
+// at once) shows ONE prompt + ONE redirect, not dozens. Module-level: the
+// first 401 wins and latches; the page is navigating away anyway.
+let sessionExpiryHandled = false;
+
+// Reset hook for tests only — the latch is intentionally sticky in production.
+export function _resetSessionExpiryLatch() {
+    sessionExpiryHandled = false;
+}
+
+/**
+ * Rejection handler for the global axios response interceptor.
+ *
+ * Dependencies are injected so the handler can be driven in isolation by a
+ * karma test without bootstrapping the whole app (mock the user accessor, the
+ * dispatch, and the redirect). In production initializeApp wires the real
+ * MapStore singletons.
+ *
+ * @param {object} error the axios rejection (raw `{response:{status}}` or the
+ *   MapStore-reshaped `{...response, originalError}` — we read both shapes,
+ *   matching js/epics/gnresource.js).
+ * @param {object} deps
+ * @param {function} deps.getUser  returns the current security user (falsy = anonymous)
+ * @param {function} deps.dispatch redux dispatch for the user-visible notification
+ * @param {function} deps.redirect navigates the browser to the login URL
+ * @returns {Promise} always a rejected promise with the ORIGINAL error, so
+ *   existing per-call error handling is unchanged.
+ */
+export function handleApiError(error, { getUser, dispatch, redirect } = {}) {
+    // Read status defensively from both error shapes (see gnresource.js:239).
+    const status = error?.response?.status ?? error?.status;
+    // Scope strictly to 401. Leave 403 (and everything else) alone.
+    if (status !== 401) {
+        return Promise.reject(error);
+    }
+    // Never act on the auth flow itself, or we loop the login redirect.
+    const requestUrl = error?.config?.url || error?.response?.config?.url || '';
+    if (AUTH_ENDPOINT_RE.test(requestUrl)) {
+        return Promise.reject(error);
+    }
+    // The crux: only a LOGGED-IN user hitting a 401 is a lapsed session.
+    // Anonymous (no user) 401s are the expected paywall — pass through
+    // byte-equivalent to pre-TASK-1801 behaviour.
+    const user = typeof getUser === 'function' ? getUser() : undefined;
+    if (!user) {
+        return Promise.reject(error);
+    }
+    // Authenticated user + 401 = session expired. Debounce: first one latches.
+    if (!sessionExpiryHandled) {
+        sessionExpiryHandled = true;
+        if (typeof dispatch === 'function') {
+            dispatch(errorNotification({
+                title: 'Session expired',
+                message: 'Your session has expired — please log in again.',
+                autoDismiss: 0,
+                position: 'tc'
+            }));
+        }
+        if (typeof redirect === 'function') {
+            const nextUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+            redirect(`/account/login/?next=${encodeURIComponent(nextUrl)}`);
+        }
+    }
+    // Always still reject with the original error so existing per-call error
+    // handling (epics, catch blocks) is completely unchanged.
+    return Promise.reject(error);
+}
+
 export function initializeApp() {
 
     // Set X-CSRFToken in axios;
@@ -99,6 +191,18 @@ export function initializeApp() {
             }
             return config;
         }
+    );
+    // TASK-1587 W1.9 / TASK-1801: global session-expiry guard. Wires the real
+    // MapStore singletons into handleApiError (see its docblock above). Reads
+    // the user from security state; dispatches via the persisted store;
+    // redirects with window.location. Pass-through for anonymous 401s.
+    axios.interceptors.response.use(
+        response => response,
+        error => handleApiError(error, {
+            getUser: () => userSelector(getState()),
+            dispatch: (action) => getStore()?.dispatch?.(action),
+            redirect: (loginUrl) => { window.location.href = loginUrl; }
+        })
     );
     // Set proxy and authentication from geonode config
     ['proxyUrl', 'useAuthenticationRules', 'authenticationRules'].forEach(key=> {

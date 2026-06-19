@@ -221,6 +221,8 @@
         "noFrictionRastersAvailable": "No friction rasters available",
         "nodes": "Nodos",
         "none": "Ninguno",
+        "culverts": "Alcantarillas",
+        "culvertPlaceholder": "Herramientas de alcantarillas — dibuje alcantarillas en el mapa.",
         "projectVisibility": "Visibilidad",
         "publish": "Publicar",
         "publishPrefix": "Publicar:",
@@ -267,6 +269,8 @@
         "uploadFrictionRasterTooltip": "Upload a friction raster GeoTIFF (Manning's-n)",
         "uploadTerrainTooltip": "Subir un nuevo archivo *.tiff de Terrain",
         "globalDemTooltip": "Añadir un Terrain desde el MDE mundial Copernicus GLO-30 (dibujo de bbox)",
+        "combinedSurfaceTooltip": "Superficie combinada",
+        "combinedSurfacePanelTitle": "Superficie combinada",
         "terrainBboxPanelTitle": "MDE mundial Copernicus GLO-30",
         "terrainBboxTitleLabel": "Título",
         "terrainBboxDefaultTitle": "MDE Copernicus GLO-30",
@@ -523,6 +527,9 @@
         "statusComplete": "Completo",
         "statusError": "Error",
         "statusCancelled": "Cancelada"
+      },
+      "terrainWorkbench": {
+        "terrain": "Terreno"
       }
     },
     "gnhome": {

@@ -76,9 +76,9 @@ describe('W6 PreviewSection — progress bar (TASK-1421)', () => {
                 onStart={() => {}}
             />
         );
-        const track = div.querySelector('.anuga-mesh-preview-progress-bar-track');
+        const track = div.querySelector('.sv-anuga-mesh-preview-progress-bar-track');
         expect(track).toExist();
-        const fill = div.querySelector('.anuga-mesh-preview-progress-bar-fill');
+        const fill = div.querySelector('.sv-anuga-mesh-preview-progress-bar-fill');
         expect(fill).toExist();
         expect(fill.style.width).toBe('42%');
     });
@@ -92,7 +92,7 @@ describe('W6 PreviewSection — progress bar (TASK-1421)', () => {
                 onStart={() => {}}
             />
         );
-        const detail = div.querySelector('.anuga-mesh-preview-progress-detail');
+        const detail = div.querySelector('.sv-anuga-mesh-preview-progress-detail');
         expect(detail).toExist();
         expect(detail.textContent).toContain('Preparing inputs');
     });
@@ -106,7 +106,7 @@ describe('W6 PreviewSection — progress bar (TASK-1421)', () => {
                 onStart={() => {}}
             />
         );
-        const pctEl = div.querySelector('.anuga-mesh-preview-progress-pct');
+        const pctEl = div.querySelector('.sv-anuga-mesh-preview-progress-pct');
         expect(pctEl).toExist();
         expect(pctEl.textContent).toBe('75%');
     });
@@ -119,7 +119,7 @@ describe('W6 PreviewSection — progress bar (TASK-1421)', () => {
                 onStart={() => {}}
             />
         );
-        const btn = div.querySelector('.anuga-mesh-preview-btn');
+        const btn = div.querySelector('.sv-anuga-mesh-preview-btn');
         expect(btn.textContent).toContain('Previewing...');
         expect(btn.disabled).toBe(true);
     });
@@ -137,7 +137,7 @@ describe('W6 PreviewSection — progress bar (TASK-1421)', () => {
                 onStart={() => {}}
             />
         );
-        const banner = div.querySelector('.anuga-mesh-preview-too-large');
+        const banner = div.querySelector('.sv-anuga-mesh-preview-too-large');
         expect(banner).toExist();
         expect(banner.textContent).toContain('Mesh too large to preview on map');
         expect(banner.textContent).toContain('250,000');
@@ -158,7 +158,7 @@ describe('W6 PreviewSection — progress bar (TASK-1421)', () => {
                 onStart={() => {}}
             />
         );
-        const metrics = div.querySelector('.anuga-mesh-preview-metrics');
+        const metrics = div.querySelector('.sv-anuga-mesh-preview-metrics');
         expect(metrics).toExist();
         expect(metrics.textContent).toContain('22,727');
         expect(metrics.textContent).toContain('min angle: 14.3°');
@@ -177,7 +177,7 @@ describe('W6 PreviewSection — progress bar (TASK-1421)', () => {
                 onStart={() => {}}
             />
         );
-        const warn = div.querySelector('.anuga-mesh-preview-warn');
+        const warn = div.querySelector('.sv-anuga-mesh-preview-warn');
         expect(warn).toExist();
         expect(warn.textContent).toContain('3 sliver(s)');
     });
@@ -350,7 +350,7 @@ describe('W6 MeshWorkflow — integration (TASK-1421, TASK-1424)', () => {
                 hasScenario
             />
         );
-        const fill = div.querySelector('.anuga-mesh-preview-progress-bar-fill');
+        const fill = div.querySelector('.sv-anuga-mesh-preview-progress-bar-fill');
         expect(fill).toExist();
         expect(fill.style.width).toBe('60%');
     });

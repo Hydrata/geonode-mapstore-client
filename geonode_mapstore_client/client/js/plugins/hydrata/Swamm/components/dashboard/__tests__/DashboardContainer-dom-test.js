@@ -75,6 +75,18 @@ describe('TASK-743 DashboardContainer DOM', () => {
         expect(container.querySelector('[role="radiogroup"]')).toNotExist();
     });
 
+    // TASK-1668 — the empty case is the shared <EmptyState> primitive, not a
+    // bespoke div. Pin the primitive hook so the conformance can't silently
+    // regress to a hand-rolled block.
+    it('renders the empty case via the EmptyState primitive (sv-empty-state)', () => {
+        const { container } = mountWithProviders(<SwammBmpChart />, {
+            state: { swamm: { targets: [] } }
+        });
+        const empty = container.querySelector('.sv-empty-state');
+        expect(empty).toExist();
+        expect(empty.textContent).toInclude('No pollutant loading targets configured');
+    });
+
     it('renders the "no targets configured" message when state.swamm has no targets key at all', () => {
         const { container } = mountWithProviders(<SwammBmpChart />, {
             state: { swamm: {} }
@@ -109,10 +121,31 @@ describe('TASK-743 DashboardContainer DOM', () => {
         expect(container.querySelector('[role="radiogroup"]')).toExist();
         expect(container.querySelector('#swamm-bmp-chart-col-two')).toExist();
         // The toggle buttons exist; "Table" button reflects the active state.
-        const buttons = Array.from(container.querySelectorAll('#swamm-bmp-chart-header button'));
+        // TASK-1761: header migrated to the PanelHeader chassis primitive
+        // (class .sv-panel-header.sv-swamm-bmp-chart-header) — the Chart/Table
+        // toggles ride PanelHeader's action-chip slot.
+        const header = container.querySelector('.sv-panel-header.sv-swamm-bmp-chart-header');
+        expect(header).toExist();
+        const buttons = Array.from(header.querySelectorAll('button'));
         const labels = buttons.map(b => b.textContent.trim());
         expect(labels).toContain('Chart');
         expect(labels).toContain('Table');
+    });
+
+    // TASK-1761 — the dashboard header is now the PanelHeader chassis primitive.
+    // Pin the cascade-safe close chip (sv-panel-header-close, NOT sv-legend-close)
+    // so the chassis adoption can't silently regress to the absolute-positioned
+    // .sv-legend-close that overlapped the title.
+    it('renders the dashboard header via PanelHeader with a cascade-safe close chip', () => {
+        const target = makeTarget(9, 'Header Target');
+        const { container } = mountWithProviders(<SwammBmpChart />, {
+            state: { swamm: { targets: [target], selectedTargetId: 9, dashboardView: 'chart' } }
+        });
+        const header = container.querySelector('.sv-panel-header.sv-swamm-bmp-chart-header');
+        expect(header).toExist();
+        // The header close chip is the chassis-safe one, never .sv-legend-close.
+        expect(header.querySelector('.sv-panel-header-close')).toExist();
+        expect(header.querySelector('.sv-legend-close')).toNotExist();
     });
 
     it('dispatches HIDE_SWAMM_BMP_CHART when the footer Close button is clicked', () => {

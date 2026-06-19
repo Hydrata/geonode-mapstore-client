@@ -46,14 +46,14 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
 // Analytics event names (trackEvent third argument) are preserved 1:1 with
 // the legacy ScenarioTableRow.js per the file-level guarantee.
 const SPINNER_RUN_CONTROL = {
-    className: 'scenario-action-run disabled',
+    className: 'sv-scenario-action-run disabled',
     spinner: true,
     gateOnCanRun: false
 };
 
 const RUN_CONTROL_BY_STATUS = {
     built: {
-        className: 'scenario-action-run',
+        className: 'sv-scenario-action-run',
         msgId: 'hydrata.anuga.run',
         trackEvent: 'anuga-scenario-menu-run',
         onClickHandler: 'onRunClick',
@@ -61,7 +61,7 @@ const RUN_CONTROL_BY_STATUS = {
         gateOnCanRun: true
     },
     complete: {
-        className: 'scenario-action-download',
+        className: 'sv-scenario-action-download',
         iconGlyph: 'glyphicon-download',
         trackEvent: 'anuga-scenario-menu-download',
         download: true,
@@ -69,7 +69,7 @@ const RUN_CONTROL_BY_STATUS = {
         gateOnCanRun: false
     },
     error: {
-        className: 'scenario-action-retry',
+        className: 'sv-scenario-action-retry',
         msgId: 'hydrata.anuga.retry',
         trackEvent: 'anuga-scenario-menu-retry',
         onClickHandler: 'onRetryClick',
@@ -77,7 +77,7 @@ const RUN_CONTROL_BY_STATUS = {
         gateOnCanRun: true
     },
     cancelled: {
-        className: 'scenario-action-rerun',
+        className: 'sv-scenario-action-rerun',
         msgId: 'hydrata.anuga.run',
         trackEvent: 'anuga-scenario-menu-rerun',
         onClickHandler: 'onRunClick',
@@ -89,7 +89,7 @@ const RUN_CONTROL_BY_STATUS = {
     processing: SPINNER_RUN_CONTROL,
     building: SPINNER_RUN_CONTROL,
     created: {
-        className: 'scenario-action-build',
+        className: 'sv-scenario-action-build',
         msgId: 'hydrata.anuga.build',
         trackEvent: 'anuga-scenario-menu-build',
         onClickHandler: 'onBuildClick',
@@ -111,7 +111,7 @@ function renderRunControl({scenario, canRunScenario, onBuildClick, onRunClick, o
     const handlers = {onBuildClick, onRunClick, onRetryClick};
     const isUnsaved = !!scenario?.unsaved;
     const extraDisabled = entry.disableWhenNotUnsaved && !isUnsaved ? ' disabled' : '';
-    const className = 'anuga-btn scenario-action-toolbar-btn ' + entry.className + extraDisabled;
+    const className = 'sv-anuga-btn sv-scenario-action-toolbar-btn ' + entry.className + extraDisabled;
 
     if (entry.spinner) {
         return (
@@ -218,12 +218,12 @@ const ScenarioActionToolbar = ({
     const isBuildEnabled = !!scenario?.unsaved && !isCancellable;
 
     return (
-        <div className="scenario-action-toolbar">
+        <div className="sv-scenario-action-toolbar">
             {showBuildBtn ?
                 <Button
                     bsStyle={'success'}
                     bsSize={'xsmall'}
-                    className={"anuga-btn scenario-action-toolbar-btn scenario-action-build"
+                    className={"sv-anuga-btn sv-scenario-action-toolbar-btn sv-scenario-action-build"
             + (isBuildEnabled ? '' : ' disabled')}
                     onClick={() => {
                         if (onBuildClick) onBuildClick(scenario);
@@ -237,8 +237,8 @@ const ScenarioActionToolbar = ({
             <Button
                 bsStyle={isArchived ? 'success' : 'warning'}
                 bsSize={'xsmall'}
-                className={"anuga-btn scenario-action-toolbar-btn "
-          + (isArchived ? 'anuga-btn-unarchive scenario-action-unarchive' : 'anuga-btn-archive scenario-action-archive')
+                className={"sv-anuga-btn sv-scenario-action-toolbar-btn "
+          + (isArchived ? 'sv-anuga-btn-unarchive sv-scenario-action-unarchive' : 'sv-anuga-btn-archive sv-scenario-action-archive')
           + (showArchive ? '' : ' is-hidden')
           + (isArchiveDisabled ? ' disabled' : '')}
                 disabled={isArchiveDisabled}
@@ -265,8 +265,8 @@ const ScenarioActionToolbar = ({
             <Button
                 bsStyle={'danger'}
                 bsSize={'xsmall'}
-                className={"anuga-btn-delete scenario-action-toolbar-btn "
-          + (isCancellable ? 'scenario-action-cancel-run' : 'scenario-action-delete')
+                className={"sv-anuga-btn-delete sv-scenario-action-toolbar-btn "
+          + (isCancellable ? 'sv-scenario-action-cancel-run' : 'sv-scenario-action-delete')
           + (showDeleteOrCancel ? '' : ' is-hidden')}
                 onClick={() => {
                     if (isCancellable) {

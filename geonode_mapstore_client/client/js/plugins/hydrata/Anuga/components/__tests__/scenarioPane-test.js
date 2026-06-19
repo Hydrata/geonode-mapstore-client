@@ -37,7 +37,10 @@ const baseScenario = {
     duration: 1800
 };
 
-const terrainOpts = [{id: 3, title: 'Default Terrain'}, {id: 4, title: 'Other Terrain'}];
+// status: 'ready' — the scenario terrain picker now filters to runnable
+// (status === 'ready') terrains, mirroring the BE Terrain.objects.filter(status='ready')
+// gate (TASK-1587 W1.9 UAT, gmc d7595f750). A fixture without it is excluded.
+const terrainOpts = [{id: 3, title: 'Default Terrain', status: 'ready'}, {id: 4, title: 'Other Terrain', status: 'ready'}];
 const boundaryOpts = [{id: 4, title: 'Default Boundary'}];
 const inflowOpts = [{id: 5, title: 'Default Inflow'}];
 const rainfallOpts = [{id: 6, title: 'Default Rainfall'}];
@@ -71,9 +74,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const rail = container.querySelector('.anuga-scenario-category-rail');
+                    const rail = container.querySelector('.sv-anuga-scenario-category-rail');
                     expect(rail).toExist();
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     expect(items.length).toBe(3);
                     done();
                 }
@@ -86,9 +89,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const sections = container.querySelectorAll('.anuga-scenario-category-section');
+                    const sections = container.querySelectorAll('.sv-anuga-scenario-category-section');
                     expect(sections.length).toBe(2);
-                    const labels = container.querySelectorAll('.anuga-scenario-category-section-label');
+                    const labels = container.querySelectorAll('.sv-anuga-scenario-category-section-label');
                     expect(labels.length).toBe(0);
                     done();
                 }
@@ -100,7 +103,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'run'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     const active = Array.from(items).filter(t => t.className.includes('is-active'));
                     expect(active.length).toBe(1);
                     done();
@@ -118,7 +121,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     // TASK-1416: 3 items: inputs (0), advanced (1), run (2).
                     items[2].click();
                     expect(captured).toBe('run');
@@ -136,8 +139,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    const inputsTag = items[0].querySelector('.anuga-scenario-category-item-tag');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
+                    const inputsTag = items[0].querySelector('.sv-anuga-scenario-category-item-tag');
                     expect(inputsTag.textContent).toBe('3/3');
                     expect(inputsTag.className).toInclude('is-ok');
                     done();
@@ -151,8 +154,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    const inputsTag = items[0].querySelector('.anuga-scenario-category-item-tag');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
+                    const inputsTag = items[0].querySelector('.sv-anuga-scenario-category-item-tag');
                     expect(inputsTag.textContent).toBe('0/3');
                     expect(inputsTag.className).toInclude('is-err');
                     done();
@@ -167,9 +170,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     // run is index 2 (was statusActions at index 3).
-                    const runTag = items[2].querySelector('.anuga-scenario-category-item-tag');
+                    const runTag = items[2].querySelector('.sv-anuga-scenario-category-item-tag');
                     expect(runTag.textContent).toBe('err');
                     expect(runTag.className).toInclude('is-err');
                     done();
@@ -223,10 +226,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     // picks values. baseScenario assigns terrain/boundary/inflow but
                     // not rainfall → 4 cards total, last one .is-empty with a "—"
                     // placeholder body.
-                    const cards = container.querySelectorAll('.anuga-scenario-resource-summary');
+                    const cards = container.querySelectorAll('.sv-anuga-scenario-resource-summary');
                     expect(cards.length).toBe(4);
                     expect(cards[3].className).toInclude('is-empty');
-                    const placeholder = cards[3].querySelector('.anuga-scenario-resource-summary-placeholder');
+                    const placeholder = cards[3].querySelector('.sv-anuga-scenario-resource-summary-placeholder');
                     expect(placeholder).toExist();
                     expect(placeholder.textContent).toBe('—');
                     done();
@@ -285,7 +288,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     container,
                     () => {
                         const readonlyWrappers = container.querySelectorAll(
-                            '.anuga-scenario-pane-field.is-readonly'
+                            '.sv-anuga-scenario-pane-field.is-readonly'
                         );
                         // name + terrain + boundary + inflow + rainfall = 5 wrappers.
                         expect(readonlyWrappers.length).toBe(5);
@@ -308,7 +311,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     container,
                     () => {
                         const readonlyWrappers = container.querySelectorAll(
-                            '.anuga-scenario-pane-field.is-readonly'
+                            '.sv-anuga-scenario-pane-field.is-readonly'
                         );
                         expect(readonlyWrappers.length).toBe(0);
                         done();
@@ -325,7 +328,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     />,
                     container,
                     () => {
-                        expect(container.querySelector('.anuga-scenario-pane-readonly-hint')).toExist();
+                        expect(container.querySelector('.sv-anuga-scenario-pane-readonly-hint')).toExist();
                         done();
                     }
                 );
@@ -341,7 +344,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     />,
                     container,
                     () => {
-                        expect(container.querySelector('.anuga-scenario-pane-readonly-hint')).toNotExist();
+                        expect(container.querySelector('.sv-anuga-scenario-pane-readonly-hint')).toNotExist();
                         done();
                     }
                 );
@@ -352,7 +355,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     <ScenarioPane scenario={null} selectedCategoryId={'inputs'} />,
                     container,
                     () => {
-                        expect(container.querySelector('.anuga-scenario-pane-readonly-hint')).toNotExist();
+                        expect(container.querySelector('.sv-anuga-scenario-pane-readonly-hint')).toNotExist();
                         done();
                     }
                 );
@@ -386,7 +389,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     container,
                     () => {
                         const readonlyWrappers = container.querySelectorAll(
-                            '.anuga-scenario-pane-field.is-readonly'
+                            '.sv-anuga-scenario-pane-field.is-readonly'
                         );
                         // resolution + duration = 2 wrappers (compute_backend hidden for non-superuser).
                         expect(readonlyWrappers.length).toBe(2);
@@ -685,10 +688,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.anuga-scenario-status-card')).toExist();
+                    expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
                     // Pill renders inside the status card; container also has compact
                     // pill in the toolbar.
-                    const pills = container.querySelectorAll('.scenario-status-pill');
+                    const pills = container.querySelectorAll('.sv-scenario-status-pill');
                     expect(pills.length).toBeGreaterThan(0);
                     done();
                 }
@@ -704,7 +707,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-toolbar')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
                     done();
                 }
             );
@@ -721,7 +724,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-build').click();
+                    container.querySelector('.sv-scenario-action-build').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -739,7 +742,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-delete').click();
+                    container.querySelector('.sv-scenario-action-delete').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -760,7 +763,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.anuga-scenario-error-strip')).toExist();
+                    expect(container.querySelector('.sv-anuga-scenario-error-strip')).toExist();
                     done();
                 }
             );
@@ -775,7 +778,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.anuga-scenario-error-strip')).toNotExist();
+                    expect(container.querySelector('.sv-anuga-scenario-error-strip')).toNotExist();
                     done();
                 }
             );
@@ -786,7 +789,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     // Inline ScenarioRunLog (rendered at bottom of Status-and-actions pane)
     // ------------------------------------------------------------------
     // The legacy `runLog` standalone pane was removed (along with the
-    // .scenario-action-open-task-monitor button). The log is now rendered
+    // .sv-scenario-action-open-task-monitor button). The log is now rendered
     // inline at the bottom of the Status-and-actions pane via a small
     // ScenarioRunLog component (<pre> auto-scrolled to bottom on log diff).
     describe('Inline ScenarioRunLog in Status-and-actions pane', () => {
@@ -803,13 +806,13 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    const block = container.querySelector('.anuga-scenario-pane-log');
+                    const block = container.querySelector('.sv-anuga-scenario-pane-log');
                     expect(block).toExist();
-                    const title = container.querySelector('.anuga-scenario-pane-log-title');
+                    const title = container.querySelector('.sv-anuga-scenario-pane-log-title');
                     // <Message> renders the msgId text in the test environment; the
                     // line count is appended in-component as ` (2)`.
                     expect(title.textContent).toInclude('(2)');
-                    const pre = container.querySelector('pre.anuga-scenario-pane-log-viewer');
+                    const pre = container.querySelector('pre.sv-anuga-scenario-pane-log-viewer');
                     expect(pre).toExist();
                     expect(pre.textContent).toBe('hello\nworld');
                     done();
@@ -826,7 +829,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    const pre = container.querySelector('pre.anuga-scenario-pane-log-viewer');
+                    const pre = container.querySelector('pre.sv-anuga-scenario-pane-log-viewer');
                     expect(pre).toExist();
                     // The CSS :empty::before pseudo handles the placeholder copy;
                     // DOM textContent stays empty.
@@ -845,7 +848,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    const pre = container.querySelector('pre.anuga-scenario-pane-log-viewer');
+                    const pre = container.querySelector('pre.sv-anuga-scenario-pane-log-viewer');
                     expect(pre).toExist();
                     expect(pre.textContent).toBe('');
                     done();
@@ -872,7 +875,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    const pre = container.querySelector('pre.anuga-scenario-pane-log-viewer');
+                    const pre = container.querySelector('pre.sv-anuga-scenario-pane-log-viewer');
                     expect(pre).toExist();
                     // Backing store + getter/setter pair lets us record what
                     // componentDidUpdate wrote to scrollTop, sidestepping jsdom's
@@ -896,7 +899,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                         />,
                         container,
                         () => {
-                            const preAfter = container.querySelector('pre.anuga-scenario-pane-log-viewer');
+                            const preAfter = container.querySelector('pre.sv-anuga-scenario-pane-log-viewer');
                             // Same DOM node — getter/setter overrides survive.
                             expect(preAfter.scrollTop).toBe(4242);
                             expect(preAfter.scrollTop).toBe(preAfter.scrollHeight);
@@ -917,7 +920,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 <ScenarioPane scenario={null} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    expect(container.querySelector('.anuga-scenario-empty-pane')).toExist();
+                    expect(container.querySelector('.sv-anuga-scenario-empty-pane')).toExist();
                     // No input fields render.
                     expect(container.querySelector('#name')).toNotExist();
                     done();
@@ -931,7 +934,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 <ScenarioPane scenario={null} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     expect(items.length).toBe(3);
                     done();
                 }

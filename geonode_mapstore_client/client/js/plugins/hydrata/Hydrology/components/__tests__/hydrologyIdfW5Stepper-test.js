@@ -5,7 +5,7 @@
  * Tests:
  *  1. The segmented control defaults to Derive (idf-derive active, is-active
  *     class on Derive button).
- *  2. Clicking Manual calls setActiveHydrologyPage('idf-table').
+ *  2. Clicking Manual calls setActiveHydrologyPage('sv-idf-table').
  *  3. Clicking Derive calls setActiveHydrologyPage('idf-derive').
  *  4. The IDF Derive panel renders the 4 step headers (step-location,
  *     step-parameters, step-derive, step-results).
@@ -132,12 +132,12 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
             ReactDOM.render(
                 <HydrologyListDetailContainerClass
                     {...defaultContainerProps}
-                    activeHydrologyPage="idf-table"
+                    activeHydrologyPage="sv-idf-table"
                 />,
                 container
             );
         });
-        const segments = container.querySelectorAll('.hydrology-idf-segment');
+        const segments = container.querySelectorAll('.sv-hydrology-idf-segment');
         expect(segments.length).toBe(2);
     });
 
@@ -150,12 +150,12 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
         expect(manualBtn.className).toNotInclude('is-active');
     });
 
-    it('Manual segment is active when on idf-table page', () => {
+    it('Manual segment is active when on sv-idf-table page', () => {
         ReactTestUtils.act(() => {
             ReactDOM.render(
                 <HydrologyListDetailContainerClass
                     {...defaultContainerProps}
-                    activeHydrologyPage="idf-table"
+                    activeHydrologyPage="sv-idf-table"
                     activeHydrologyItem={null}
                 />,
                 container
@@ -166,7 +166,7 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
         expect(manualBtn.className).toInclude('is-active');
     });
 
-    it('clicking Manual segment calls setActiveHydrologyPage("idf-table")', () => {
+    it('clicking Manual segment calls setActiveHydrologyPage("sv-idf-table")', () => {
         let calledWith = null;
         mountContainerWithProvider({
             activeHydrologyPage: 'idf-derive',
@@ -174,7 +174,7 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
         });
         const manualBtn = container.querySelector('#idf-mode-manual');
         ReactTestUtils.act(() => { manualBtn.click(); });
-        expect(calledWith).toBe('idf-table');
+        expect(calledWith).toBe('sv-idf-table');
     });
 
     it('clicking Derive segment calls setActiveHydrologyPage("idf-derive")', () => {
@@ -183,7 +183,7 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
             ReactDOM.render(
                 <HydrologyListDetailContainerClass
                     {...defaultContainerProps}
-                    activeHydrologyPage="idf-table"
+                    activeHydrologyPage="sv-idf-table"
                     activeHydrologyItem={null}
                     setActiveHydrologyPage={(p) => { calledWith = p; }}
                 />,
@@ -206,7 +206,7 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
                 container
             );
         });
-        const segments = container.querySelectorAll('.hydrology-idf-segment');
+        const segments = container.querySelectorAll('.sv-hydrology-idf-segment');
         expect(segments.length).toBe(0);
     });
 
@@ -235,7 +235,7 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
         // The matrix wrapper must be present in step-parameters
         const step2 = container.querySelector('#idf-derive-step-parameters');
         expect(step2).toExist();
-        const matrix = step2.querySelector('.idf-matrix-wrapper');
+        const matrix = step2.querySelector('.sv-idf-matrix-wrapper');
         expect(matrix).toExist();
         // The hours display toggle checkbox must be present
         const hoursToggle = step2.querySelector('#idf-matrix-show-hours');
@@ -273,19 +273,19 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
 
     it('Step 3 — Derive: unavailable notice shown when !celeryAnugaEnabled', () => {
         mountDerive({celeryAnugaEnabled: false});
-        expect(container.querySelector('#idf-derive-unavailable')).toExist();
+        expect(container.querySelector('#sv-idf-derive-unavailable')).toExist();
     });
 
     it('Step 3 — Derive: error message shown when error prop is set', () => {
         mountDerive({error: 'ERA5 fetch failed'});
-        const err = container.querySelector('#idf-derive-error');
+        const err = container.querySelector('#sv-idf-derive-error');
         expect(err).toExist();
         expect(err.textContent).toInclude('ERA5');
     });
 
     it('Step 3 — Derive: progress shown when inFlight + processId set', () => {
         mountDerive({inFlight: true, processId: 77, processName: 'IDF @ (-37.8,144.9)'});
-        const progress = container.querySelector('#idf-derive-progress');
+        const progress = container.querySelector('#sv-idf-derive-progress');
         expect(progress).toExist();
     });
 
@@ -306,7 +306,7 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
         };
         mountDerive({result});
         expect(container.querySelector('#idf-derive-step-results')).toExist();
-        expect(container.querySelector('#idf-derive-results')).toExist();
+        expect(container.querySelector('#sv-idf-derive-results')).toExist();
     });
 
     it('Step 4 — Results: download JSON and CSV buttons present', () => {
@@ -335,7 +335,7 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
             provenance: {source: 'ERA5-Land'}
         };
         mountDerive({result});
-        const pre = container.querySelector('.idf-derive-provenance-pre');
+        const pre = container.querySelector('.sv-idf-derive-provenance-pre');
         expect(pre).toNotExist();
     });
 
@@ -350,12 +350,12 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
             provenance: {source: 'ERA5-Land', period_of_record: '1981-2024'}
         };
         mountDerive({result});
-        const toggle = container.querySelector('.idf-derive-provenance-toggle');
+        const toggle = container.querySelector('.sv-idf-derive-provenance-toggle');
         expect(toggle).toExist();
         ReactTestUtils.act(() => {
             ReactTestUtils.Simulate.click(toggle);
         });
-        const pre = container.querySelector('.idf-derive-provenance-pre');
+        const pre = container.querySelector('.sv-idf-derive-provenance-pre');
         expect(pre).toExist();
         expect(pre.textContent).toInclude('ERA5-Land');
     });

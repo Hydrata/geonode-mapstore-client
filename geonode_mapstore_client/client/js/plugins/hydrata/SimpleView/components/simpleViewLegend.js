@@ -24,16 +24,16 @@ class simpleViewLegend extends React.Component {
             return null;
         }
         return (
-            <div className={'simple-view-panel legend-panel'}>
-                <div className="legend-header">
+            <div className={'simple-view-panel sv-legend-panel'}>
+                <div className="sv-legend-header">
                     <h4><Message msgId="hydrata.simpleView.legend" /></h4>
                     <button
-                        className="legend-close"
+                        className="sv-legend-close"
                         onClick={() => this.props.setVisibleLegendPanel(false)}
                         title="Close"
                     >&times;</button>
                 </div>
-                <div className="legend-body">
+                <div className="sv-legend-body">
                     {this.props.visibleLayers.map((layer) => {
                         const legendOverride = this.props.legendOverrides?.filter(override => override?.layerName === layer.name)?.[0];
                         if (layer.type !== 'wms') {
@@ -41,19 +41,19 @@ class simpleViewLegend extends React.Component {
                         }
                         return legendOverride ?
                             (
-                                <div key={layer.id} className={"legend-row"} >
-                                    <div className={"legend-layer-title"}>{layer.title}</div>
-                                    <div className={"legend-background"} >
-                                        <span className={"legend-image"}>
+                                <div key={layer.id} className={"sv-legend-row"} >
+                                    <div className={"sv-legend-layer-title"}>{layer.title}</div>
+                                    <div className={"sv-legend-background"} >
+                                        <span className={"sv-legend-image"}>
                                             <img src={legendOverride?.staticImageFilePath}/>
                                         </span>
                                     </div>
                                 </div>
                             ) :
                             (
-                                <div key={layer.id} className={"legend-row"} >
-                                    <div className={"legend-layer-title"}>{layer.title}</div>
-                                    <div className={"legend-background"} >
+                                <div key={layer.id} className={"sv-legend-row"} >
+                                    <div className={"sv-legend-layer-title"}>{layer.title}</div>
+                                    <div className={"sv-legend-background"} >
                                         <Legend
                                             layer={layer}
                                             legendHeight={20}
@@ -66,7 +66,7 @@ class simpleViewLegend extends React.Component {
                             );
                     })}
                 </div>
-                <div className="legend-footer">
+                <div className="sv-legend-footer">
                     <button
                         className="simple-view-panel-button"
                         onClick={() => this.props.setVisibleLegendPanel(false)}

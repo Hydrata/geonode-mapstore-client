@@ -51,6 +51,11 @@ import {
     suggestPatternFromLatLon,
     getSuggestionLabel
 } from '../temporalPatternPresets';
+// TASK-1760 (epic-1758 W1) — chassis primitives. Card (variant="info") frames
+// the alternating-block note; Card (variant="chart") frames the recharts preview
+// (light body, TASK-1534 carve-out). The preset radio-card picker and the custom
+// (t,cum%) editable grid stay bespoke organisms (flagged gaps).
+import { ErrorStrip, Card } from '../../SimpleView/components/primitives';
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 
@@ -91,25 +96,17 @@ const CurvePreview = ({ patternKey }) => {
 
     if (patternKey === ALTERNATING_BLOCK || !curve) {
         return (
-            <div
-                id="temporal-pattern-preview-note"
-                style={{
-                    padding: '14px 16px',
-                    background: '#f7f9fb',
-                    border: '1px solid #d0d8e4',
-                    borderRadius: '4px',
-                    color: '#555',
-                    fontSize: '0.875rem',
-                    lineHeight: '1.5'
-                }}
-            >
-                <span className="glyphicon glyphicon-info-sign" style={{marginRight: 8, color: '#5178af'}}/>
-                <strong>Alternating-Block (IDF-derived)</strong><br/>
-                This method does not have a fixed dimensionless curve — it reads
-                your site&apos;s IDF at every sub-duration and arranges the intensity
-                blocks around the peak. The hyetograph shape is computed at derive
-                time from the IDF table you select.
-            </div>
+            // TASK-1760 — chassis Card (info variant): dark-glass tinted note.
+            <Card variant="info" style={{margin: 0, fontSize: '0.875rem', lineHeight: '1.5'}}>
+                <div id="temporal-pattern-preview-note">
+                    <span className="glyphicon glyphicon-info-sign" style={{marginRight: 8, color: 'var(--sv-input-blue)'}}/>
+                    <strong>Alternating-Block (IDF-derived)</strong><br/>
+                    This method does not have a fixed dimensionless curve — it reads
+                    your site&apos;s IDF at every sub-duration and arranges the intensity
+                    blocks around the peak. The hyetograph shape is computed at derive
+                    time from the IDF table you select.
+                </div>
+            </Card>
         );
     }
 
@@ -144,48 +141,52 @@ const CurvePreview = ({ patternKey }) => {
                 </button>
             </div>
             {/* HTML axis titles — recharts 0.22.4 ignores the axis label prop;
-                mirrors the .idf-curve-* / .hyetograph-* pattern. */}
-            <div className="temporal-pattern-chart-layout">
-                <div className="temporal-pattern-yaxis-title">{yLabel}</div>
-                <div className="temporal-pattern-plot-area">
-                    <div className="temporal-pattern-plot" style={{ height: 210 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart
-                                data={chartData}
-                                margin={{ top: 4, right: 16, left: 10, bottom: 4 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#c8d4e0" />
-                                <XAxis
-                                    dataKey="t"
-                                    type="number"
-                                    domain={[0, 1]}
-                                    tickFormatter={pctFmt}
-                                    tick={{ fontSize: 11 }}
-                                />
-                                <YAxis
-                                    domain={showIntensity ? [0, 'auto'] : [0, 1]}
-                                    tickFormatter={yFormatter}
-                                    tick={{ fontSize: 11 }}
-                                    width={52}
-                                />
-                                <Tooltip
-                                    formatter={tooltipFormatter}
-                                    labelFormatter={(t) => `t = ${(t * 100).toFixed(0)}% of duration`}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey={dataKey}
-                                    stroke="#3a6aa8"
-                                    dot={false}
-                                    strokeWidth={2.5}
-                                    isAnimationActive={false}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
+                mirrors the .sv-idf-curve-* / .hyetograph-* pattern. TASK-1760: the
+                recharts surface is framed by chassis Card variant="chart" (light
+                body inside a dark-glass frame, TASK-1534 carve-out). */}
+            <Card variant="chart" style={{margin: 0}} bodyStyle={{padding: '8px 10px'}}>
+                <div className="sv-temporal-pattern-chart-layout">
+                    <div className="sv-temporal-pattern-yaxis-title">{yLabel}</div>
+                    <div className="sv-temporal-pattern-plot-area">
+                        <div className="sv-temporal-pattern-plot" style={{ height: 210 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                    data={chartData}
+                                    margin={{ top: 4, right: 16, left: 10, bottom: 4 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#c8d4e0" />
+                                    <XAxis
+                                        dataKey="t"
+                                        type="number"
+                                        domain={[0, 1]}
+                                        tickFormatter={pctFmt}
+                                        tick={{ fontSize: 11 }}
+                                    />
+                                    <YAxis
+                                        domain={showIntensity ? [0, 'auto'] : [0, 1]}
+                                        tickFormatter={yFormatter}
+                                        tick={{ fontSize: 11 }}
+                                        width={52}
+                                    />
+                                    <Tooltip
+                                        formatter={tooltipFormatter}
+                                        labelFormatter={(t) => `t = ${(t * 100).toFixed(0)}% of duration`}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey={dataKey}
+                                        stroke="#3a6aa8"
+                                        dot={false}
+                                        strokeWidth={2.5}
+                                        isAnimationActive={false}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="sv-temporal-pattern-xaxis-title">Time (% of duration)</div>
                     </div>
-                    <div className="temporal-pattern-xaxis-title">Time (% of duration)</div>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 };
@@ -355,37 +356,28 @@ const CustomPatternEditor = ({ rows, onChange }) => {
         // white colour reads on the dark-navy plugin panel (mirrors how the
         // recharts cards stay white). The heading, subtitle, validation banner,
         // grid and live preview all live INSIDE this card.
-        <div id="custom-pattern-editor" className="custom-pattern-editor-card">
+        <div id="custom-pattern-editor" className="sv-custom-pattern-editor-card">
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                <span className="custom-pattern-heading">
+                <span className="sv-custom-pattern-heading">
                     Custom Cumulative Curve
                 </span>
-                <span className="custom-pattern-subtitle">
+                <span className="sv-custom-pattern-subtitle">
                     (time-fraction 0→1, cumulative-% 0→100)
                 </span>
             </div>
 
             {/* Validation error */}
             {validationError && (
-                <div
-                    id="custom-pattern-validation-error"
-                    style={{
-                        padding: '6px 10px',
-                        background: '#fdecec',
-                        border: '1px solid #e8b4b4',
-                        borderRadius: 4,
-                        color: '#c0392b',
-                        fontSize: '0.8rem',
-                        marginBottom: 10
-                    }}
-                >
-                    <span className="glyphicon glyphicon-warning-sign" style={{marginRight: 6}}/>
-                    {validationError}
+                <div id="custom-pattern-validation-error">
+                    <ErrorStrip message={validationError} style={{margin: '0 0 10px'}} />
                 </div>
             )}
             {pasteError && (
-                <div style={{ padding: '6px 10px', background: '#fff8e0', border: '1px solid #e8d084', borderRadius: 4, color: '#8a6d3b', fontSize: '0.8rem', marginBottom: 10 }}>
+                // TASK-1758 W3 conform — dark-glass amber warning (was a light
+                // #fff8e0 cream banner). Reuses the tokenised .sv-idf-derive-banner
+                // --warning surface.
+                <div className="sv-idf-derive-banner sv-idf-derive-banner--warning" style={{ margin: '0 0 10px', fontSize: '0.8rem' }}>
                     {pasteError}
                 </div>
             )}
@@ -417,8 +409,8 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                         </button>
                     </div>
                     <table
-                        id="custom-pattern-table"
-                        className="custom-pattern-table"
+                        id="sv-custom-pattern-table"
+                        className="sv-custom-pattern-table"
                     >
                         <thead>
                             <tr>
@@ -432,7 +424,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                                 <tr key={i}>
                                     <td>
                                         <input
-                                            className="custom-pattern-input"
+                                            className="sv-custom-pattern-input"
                                             type="number"
                                             min="0" max="1" step="0.01"
                                             value={row.t}
@@ -442,7 +434,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                                     </td>
                                     <td>
                                         <input
-                                            className="custom-pattern-input"
+                                            className="sv-custom-pattern-input"
                                             type="number"
                                             min="0" max="100" step="0.1"
                                             value={row.cum}
@@ -479,7 +471,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
 
                 {/* Below: caption + live preview chart (full width) + status line */}
                 <div>
-                    <div className="custom-pattern-preview-caption">
+                    <div className="sv-custom-pattern-preview-caption">
                         Live preview — drag a point to adjust
                     </div>
                     <div
@@ -487,11 +479,11 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                         ref={chartRef}
                     >
                         {/* HTML axis titles — recharts 0.22.4 ignores the axis label prop;
-                            mirrors the .idf-curve-* / .hyetograph-* pattern. */}
-                        <div className="temporal-pattern-chart-layout">
-                            <div className="temporal-pattern-yaxis-title">Cumulative depth (%)</div>
-                            <div className="temporal-pattern-plot-area">
-                                <div className="temporal-pattern-plot" style={{ height: 240 }}>
+                            mirrors the .sv-idf-curve-* / .hyetograph-* pattern. */}
+                        <div className="sv-temporal-pattern-chart-layout">
+                            <div className="sv-temporal-pattern-yaxis-title">Cumulative depth (%)</div>
+                            <div className="sv-temporal-pattern-plot-area">
+                                <div className="sv-temporal-pattern-plot" style={{ height: 240 }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart
                                             data={chartData}
@@ -532,15 +524,15 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
-                                <div className="temporal-pattern-xaxis-title">Time (% of duration)</div>
+                                <div className="sv-temporal-pattern-xaxis-title">Time (% of duration)</div>
                             </div>
                         </div>
                     </div>
                     <div style={{ fontSize: '0.78rem', marginTop: 6, textAlign: 'right' }}>
                         {validationError ? (
-                            <span style={{ color: '#c0392b' }}>Fix errors above before saving.</span>
+                            <span style={{ color: 'var(--sv-text-danger)' }}>Fix errors above before saving.</span>
                         ) : (
-                            <span style={{ color: '#3a8f5a' }}>
+                            <span style={{ color: 'var(--sv-text-ok)' }}>
                                 <span className="glyphicon glyphicon-ok" style={{ marginRight: 4 }}/>
                                 Valid curve — ready to save.
                             </span>
@@ -566,40 +558,41 @@ const SuggestionBanner = ({ suggestedKey, selectedKey, onAccept }) => {
     const label = getSuggestionLabel(suggestedKey);
     const alreadySelected = selectedKey === suggestedKey;
     return (
-        <div
-            id="temporal-pattern-suggestion"
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 12px',
-                background: '#edf4fd',
-                border: '1px solid #b8d0ef',
-                borderRadius: '4px',
-                marginBottom: 12,
-                fontSize: '0.875rem'
-            }}
-        >
-            <span className="glyphicon glyphicon-map-marker" style={{ color: '#5178af' }}/>
-            <span>
-                Based on your project location: <strong>{label}</strong> is recommended.
-            </span>
-            {!alreadySelected && (
-                <button
-                    id="temporal-pattern-accept-suggestion"
-                    className="btn btn-xs btn-primary"
-                    style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
-                    onClick={() => onAccept(suggestedKey)}
-                >
-                    Use this
-                </button>
-            )}
-            {alreadySelected && (
-                <span style={{ marginLeft: 'auto', color: '#5178af', fontSize: '0.8rem' }}>
-                    ✓ selected
+        // TASK-1758 W3 conform — replace the bespoke light #edf4fd info banner with
+        // the chassis Card variant="info" (dark-glass tinted surface). The pinned
+        // #temporal-pattern-suggestion id rides the inner flex row so the test hook
+        // and the accept-button id are preserved.
+        <Card variant="info" style={{marginBottom: 12}} bodyStyle={{padding: 0}}>
+            <div
+                id="temporal-pattern-suggestion"
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: '0.875rem'
+                }}
+            >
+                <span className="glyphicon glyphicon-map-marker" style={{ color: 'var(--sv-input-blue)' }}/>
+                <span>
+                    Based on your project location: <strong>{label}</strong> is recommended.
                 </span>
-            )}
-        </div>
+                {!alreadySelected && (
+                    <button
+                        id="temporal-pattern-accept-suggestion"
+                        className="btn btn-xs btn-primary"
+                        style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
+                        onClick={() => onAccept(suggestedKey)}
+                    >
+                        Use this
+                    </button>
+                )}
+                {alreadySelected && (
+                    <span style={{ marginLeft: 'auto', color: 'var(--sv-input-blue)', fontSize: '0.8rem' }}>
+                        ✓ selected
+                    </span>
+                )}
+            </div>
+        </Card>
     );
 };
 
@@ -625,7 +618,7 @@ const PresetPicker = ({ selectedKey, onChange }) => (
             <label
                 key={family.id}
                 id={`preset-option-${family.id}`}
-                className={`hydrology-preset-card${selectedKey === family.id ? ' is-selected' : ''}`}
+                className={`sv-hydrology-preset-card${selectedKey === family.id ? ' is-selected' : ''}`}
                 style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -634,10 +627,16 @@ const PresetPicker = ({ selectedKey, onChange }) => (
                     marginBottom: 6,
                     borderRadius: 4,
                     cursor: 'pointer',
-                    background: selectedKey === family.id ? '#edf4fd' : '#fafcfe',
+                    // TASK-1758 W3 conform — dark-glass radio card (mirrors
+                    // .sv-design-storm-card / .sv-design-storm-preview-card.focused):
+                    // tinted navy with a lime selected border, replacing the old
+                    // light #fafcfe/#edf4fd/#c8d4e0 surfaces.
+                    background: selectedKey === family.id
+                        ? 'rgba(81, 120, 175, 0.30)'
+                        : 'rgba(255, 255, 255, 0.04)',
                     border: selectedKey === family.id
-                        ? '1.5px solid #5178af'
-                        : '1px solid #c8d4e0',
+                        ? '1.5px solid var(--sv-accent-lime)'
+                        : '1px solid var(--sv-section-border)',
                     transition: 'background 0.12s, border-color 0.12s'
                 }}
             >
@@ -656,7 +655,7 @@ const PresetPicker = ({ selectedKey, onChange }) => (
                     hook). The icon lives inside the <label>, so clicking it
                     still selects the radio — it never swallows the radio click. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#333' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--sv-text)' }}>
                         {family.label}
                     </span>
                     <OverlayTrigger
@@ -679,7 +678,7 @@ const PresetPicker = ({ selectedKey, onChange }) => (
                             tabIndex={0}
                             role="img"
                             aria-label={family.description}
-                            style={{ color: '#5178af', fontSize: '0.85rem', cursor: 'help', flexShrink: 0 }}
+                            style={{ color: 'var(--sv-input-blue)', fontSize: '0.85rem', cursor: 'help', flexShrink: 0 }}
                         />
                     </OverlayTrigger>
                 </div>
@@ -809,13 +808,13 @@ const HydrologyTemporalPattern = ({
 
             {/* TASK-1502: custom pattern save note */}
             {isCustom && (
-                <div style={{ marginTop: 10, fontSize: '0.8rem', color: '#666', borderTop: '1px solid #e0e6ed', paddingTop: 8 }}>
-                    <span className="glyphicon glyphicon-info-sign" style={{ marginRight: 6, color: '#5178af' }}/>
+                <div style={{ marginTop: 10, fontSize: '0.8rem', color: 'var(--sv-text-dim)', borderTop: '1px solid var(--sv-section-border)', paddingTop: 8 }}>
+                    <span className="glyphicon glyphicon-info-sign" style={{ marginRight: 6, color: 'var(--sv-input-blue)' }}/>
                     This pattern will be saved as a project-scoped custom temporal pattern
                     {customValidationError ? (
-                        <strong style={{ color: '#a33' }}> — fix validation errors to enable save.</strong>
+                        <strong style={{ color: 'var(--sv-text-danger)' }}> — fix validation errors to enable save.</strong>
                     ) : (
-                        <strong style={{ color: '#4a8' }}> — curve is valid.</strong>
+                        <strong style={{ color: 'var(--sv-text-ok)' }}> — curve is valid.</strong>
                     )}
                 </div>
             )}

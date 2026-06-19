@@ -24,7 +24,7 @@ const BmpOrgStatusFields = ({
                         <option
                             key={groupProfile.pk}
                             value={groupProfile?.pk}
-                            className={groupProfile?.saveable ? "" : "non-savable-group-profile"}
+                            className={groupProfile?.saveable ? "" : "sv-non-savable-group-profile"}
                         >
                             {groupProfile.title}
                         </option>

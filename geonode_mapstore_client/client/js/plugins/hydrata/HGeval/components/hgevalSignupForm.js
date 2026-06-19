@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
+import { ErrorStrip, Card } from '../../SimpleView/components/primitives';
 
 const HGevalSignupForm = ({
     signupErrors, signingUp, loginErrors, loggingIn,
@@ -59,8 +60,8 @@ const HGevalSignupForm = ({
     };
 
     return (
-        <div className="hgeval-signup-form">
-            <p className="hgeval-signup-title">
+        <Card variant="info" extraClassName="sv-hgeval-signup-form">
+            <p className="sv-hgeval-signup-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', margin: '0 0 8px 0' }}>
                 {isLogin
                     ? <Message msgId="hydrata.hgeval.logInToSave" />
                     : <Message msgId="hydrata.hgeval.createAccountToSave" />
@@ -68,8 +69,8 @@ const HGevalSignupForm = ({
             </p>
             <form onSubmit={handleSubmit}>
                 {!isLogin && (
-                    <div className="hgeval-name-row">
-                        <div className="form-group">
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                        <div className="form-group" style={{ flex: 1 }}>
                             <input
                                 type="text"
                                 className="form-control input-sm"
@@ -78,7 +79,7 @@ const HGevalSignupForm = ({
                                 onChange={e => setFirstName(e.target.value)}
                             />
                         </div>
-                        <div className="form-group">
+                        <div className="form-group" style={{ flex: 1 }}>
                             <input
                                 type="text"
                                 className="form-control input-sm"
@@ -97,7 +98,7 @@ const HGevalSignupForm = ({
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                     />
-                    {errors.email && <span className="help-block hgeval-field-error">{errors.email}</span>}
+                    {errors.email && <span className="help-block sv-hgeval-field-error">{errors.email}</span>}
                 </div>
                 <div className={'form-group' + (errors.password ? ' has-error' : '')}>
                     <input
@@ -110,11 +111,9 @@ const HGevalSignupForm = ({
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                     />
-                    {errors.password && <span className="help-block hgeval-field-error">{errors.password}</span>}
+                    {errors.password && <span className="help-block sv-hgeval-field-error">{errors.password}</span>}
                 </div>
-                {errors.detail && (
-                    <div className="alert alert-danger hgeval-alert-sm">{errors.detail}</div>
-                )}
+                <ErrorStrip message={errors.detail} />
                 <button
                     type="submit"
                     className="btn btn-primary btn-sm btn-block"
@@ -122,7 +121,7 @@ const HGevalSignupForm = ({
                 >
                     {busy
                         ? <span>
-                            <span className="glyphicon glyphicon-refresh hgeval-spin" />{' '}
+                            <span className="glyphicon glyphicon-refresh sv-hgeval-spin" />{' '}
                             {isLogin
                                 ? <Message msgId="hydrata.hgeval.loggingIn" />
                                 : <Message msgId="hydrata.hgeval.creatingAccount" />
@@ -138,7 +137,7 @@ const HGevalSignupForm = ({
                     }
                 </button>
             </form>
-            <p className="hgeval-login-link">
+            <p className="sv-hgeval-login-link">
                 <a href="#" onClick={toggleMode}>
                     {isLogin
                         ? <Message msgId="hydrata.hgeval.needAnAccount" />
@@ -146,7 +145,7 @@ const HGevalSignupForm = ({
                     }
                 </a>
             </p>
-        </div>
+        </Card>
     );
 };
 

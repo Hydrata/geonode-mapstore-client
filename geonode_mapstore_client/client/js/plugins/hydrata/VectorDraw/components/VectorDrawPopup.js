@@ -2,6 +2,17 @@ import React, { useState, useMemo } from 'react';
 import { connect } from 'react-redux';
 import { Button } from 'react-bootstrap';
 import FormField from './FormField';
+// TASK-1669 — conform-migrate onto the shared SimpleView primitives.
+// ErrorStrip replaces the bespoke red-<p> save-failure block; EmptyState
+// replaces the hand-rolled italic "No features match" picker placeholder.
+// Both are token-backed (--sv-*) and self-styled, so the popup's danger /
+// empty chrome now flows from the design system instead of inline JSX.
+// TASK-1763 — adopt the PanelHeader chassis primitive for the popup header +
+// cascade-safe close chip (replaces the bespoke .simple-view-panel-header +
+// .sv-legend-close span in every phase). PanelHeader is token-backed/self-styled,
+// so its <h4>+chrome are exempt from the TASK-784 font-uniformity walk (the
+// test's primitive-subtree exemption now includes .sv-panel-header).
+import { ErrorStrip, EmptyState, PanelHeader } from '../../SimpleView/components/primitives';
 import {
     cancelVectorDraw,
     submitForm,
@@ -176,15 +187,19 @@ export const PickerView = ({
         cursor: 'pointer',
         padding: '8px',
         marginBottom: 4,
-        borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 'var(--sv-card-radius)',
+        backgroundColor: 'var(--sv-row-hover-bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '8px'
+        gap: 'var(--sv-form-row-gap)'
     };
-    const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; };
-    const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; };
+    // TASK-1758 W3 — resting row surface is the tokenised --sv-row-hover-bg
+    // (rgba 255,255,255,0.1). The deepen-on-hover (0.2) is now tokenised as
+    // --sv-row-hover-bg-strong (second token round); resting is restored via the
+    // --sv-row-hover-bg CSS var on leave.
+    const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg-strong, rgba(255,255,255,0.2))'; };
+    const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg)'; };
     // TASK-1409 — Trash icon click opens the inline React confirm overlay
     // instead of window.confirm. stopPropagation prevents the row's onClick
     // (select-feature) from firing alongside the delete path.
@@ -204,13 +219,13 @@ export const PickerView = ({
     const trashStyle = {
         cursor: 'pointer',
         padding: '4px 6px',
-        borderRadius: 3,
+        borderRadius: 'var(--sv-card-radius)',
         opacity: 0.7,
         flexShrink: 0
     };
 
     return (
-        <div className="vector-draw-popup simple-view-panel" style={{
+        <div className="sv-vector-draw-popup simple-view-panel" style={{
             position: 'absolute',
             top: 80,
             left: 30,
@@ -219,23 +234,12 @@ export const PickerView = ({
             maxWidth: 380,
             padding: 0
         }}>
-            <div className="simple-view-panel-header" style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 12px'
-            }}>
-                <span>{headerTitle}</span>
-                <span
-                    className="btn glyphicon glyphicon-remove legend-close"
-                    onClick={onCancel}
-                />
-            </div>
+            <PanelHeader title={headerTitle} onClose={onCancel} />
             {/* TASK-1409 — inline delete-confirm overlay replaces window.confirm.
                 Rendered over the picker list when pendingDeleteFeature is set;
                 the guarded onDeleteFeature fires ONLY on the Confirm button. */}
             {pendingDeleteFeature ? (
-                <div className="vector-draw-delete-confirm" style={{padding: '12px'}}>
+                <div className="sv-vector-draw-delete-confirm" style={{padding: '12px'}}>
                     <p style={{margin: '0 0 10px 0'}}>
                         {`Delete "${featureLabel(pendingDeleteFeature)}"? This cannot be undone.`}
                     </p>
@@ -243,7 +247,7 @@ export const PickerView = ({
                         <Button bsSize="small" onClick={onCancelDelete}>
                             Cancel
                         </Button>
-                        <Button bsStyle="danger" bsSize="small" className="vector-draw-delete-confirm-btn" onClick={onConfirmDelete}>
+                        <Button bsStyle="danger" bsSize="small" className="sv-vector-draw-delete-confirm-btn" onClick={onConfirmDelete}>
                             Delete
                         </Button>
                     </div>
@@ -254,7 +258,7 @@ export const PickerView = ({
                         <div style={{padding: '8px 12px 0 12px'}}>
                             <input
                                 type="text"
-                                className="vector-draw-picker-filter"
+                                className="sv-vector-draw-picker-filter"
                                 placeholder={`Filter ${list.length} features…`}
                                 value={filterText}
                                 onChange={(e) => setFilterText(e.target.value)}
@@ -264,7 +268,7 @@ export const PickerView = ({
                     ) : null}
                     <div style={{ padding: '8px 12px', maxHeight: 240, overflowY: 'auto' }}>
                         <div
-                            className="simple-view-panel-item-row vector-draw-picker-add-new"
+                            className="simple-view-panel-item-row sv-vector-draw-picker-add-new"
                             style={rowStyle}
                             onClick={() => onSelectFeature(null)}
                             onMouseEnter={onRowEnter}
@@ -273,13 +277,15 @@ export const PickerView = ({
                             <span>+ Add new</span>
                         </div>
                         {filteredList.length === 0 && filterText ? (
-                            <div className="vector-draw-picker-empty" style={{
-                                padding: '8px',
-                                opacity: 0.7,
-                                fontStyle: 'italic'
-                            }}>
-                                No features match &ldquo;{filterText}&rdquo;
-                            </div>
+                            // TASK-1669 — shared EmptyState primitive replaces the
+                            // bespoke italic placeholder. The legacy
+                            // `.sv-vector-draw-picker-empty` hook is preserved via
+                            // extraClassName so existing tests + any scoped CSS
+                            // still match; the "No features match" copy is unchanged.
+                            <EmptyState
+                                extraClassName="sv-vector-draw-picker-empty"
+                                heading={`No features match “${filterText}”`}
+                            />
                         ) : null}
                         {filteredList.map(feature => {
                             // TASK-795 review I3 — dim + disable the trash icon
@@ -296,12 +302,12 @@ export const PickerView = ({
                             const isLastSaved = !!lastSavedFid
                                 && feature.id === lastSavedFid;
                             const highlightedRowStyle = isLastSaved
-                                ? { ...rowStyle, backgroundColor: 'rgba(80, 200, 120, 0.25)' }
+                                ? { ...rowStyle, backgroundColor: 'var(--sv-row-bg-success, rgba(80, 200, 120, 0.25))' }
                                 : rowStyle;
                             return (
                                 <div
                                     key={feature.id || featureLabel(feature)}
-                                    className={'simple-view-panel-item-row' + (isLastSaved ? ' vector-draw-picker-row-just-saved' : '')}
+                                    className={'simple-view-panel-item-row' + (isLastSaved ? ' sv-vector-draw-picker-row-just-saved' : '')}
                                     style={highlightedRowStyle}
                                     onClick={() => onSelectFeature(feature.id)}
                                     onMouseEnter={onRowEnter}
@@ -314,7 +320,7 @@ export const PickerView = ({
                                         flex: 1
                                     }}>{featureLabel(feature)}</span>
                                     <span
-                                        className="glyphicon glyphicon-trash vector-draw-trash"
+                                        className="glyphicon glyphicon-trash sv-vector-draw-trash"
                                         style={{
                                             ...trashStyle,
                                             opacity: isDeleting ? 0.3 : 0.7,
@@ -403,13 +409,13 @@ const VectorDrawPopup = ({
     // Replaces the blocked `window.confirm` call with a React overlay that
     // preserves the same gating: onCancel fires only on "Discard" click.
     const discardConfirmOverlay = discardConfirmVisible ? (
-        <div className="vector-draw-discard-confirm" style={{padding: '12px'}}>
+        <div className="sv-vector-draw-discard-confirm" style={{padding: '12px'}}>
             <p style={{margin: '0 0 10px 0'}}>Discard unsaved changes?</p>
             <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px'}}>
-                <Button bsSize="small" className="vector-draw-discard-cancel-btn" onClick={handleDiscardCancel}>
+                <Button bsSize="small" className="sv-vector-draw-discard-cancel-btn" onClick={handleDiscardCancel}>
                     Keep editing
                 </Button>
-                <Button bsStyle="danger" bsSize="small" className="vector-draw-discard-confirm-btn" onClick={handleDiscardConfirm}>
+                <Button bsStyle="danger" bsSize="small" className="sv-vector-draw-discard-confirm-btn" onClick={handleDiscardConfirm}>
                     Discard
                 </Button>
             </div>
@@ -446,7 +452,7 @@ const VectorDrawPopup = ({
             ? 'Drag vertices to modify the shape.'
             : (GEOM_INSTRUCTIONS[geomType] || GEOM_INSTRUCTIONS.Polygon);
         return (
-            <div className="vector-draw-popup simple-view-panel" style={{
+            <div className="sv-vector-draw-popup simple-view-panel" style={{
                 position: 'absolute',
                 top: 80,
                 left: 30,
@@ -455,18 +461,7 @@ const VectorDrawPopup = ({
                 maxWidth: showInlineForm ? 380 : 350,
                 padding: 0
             }}>
-                <div className="simple-view-panel-header" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px'
-                }}>
-                    <span>{headerLabel}</span>
-                    <span
-                        className="btn glyphicon glyphicon-remove legend-close"
-                        onClick={handleCancel}
-                    />
-                </div>
+                <PanelHeader title={headerLabel} onClose={handleCancel} />
                 {/* TASK-1409 — discard-confirm overlay replaces window.confirm */}
                 {discardConfirmOverlay || (
                     <div style={{padding: '12px'}}>
@@ -542,7 +537,7 @@ const VectorDrawPopup = ({
     // EDIT mode now renders the form inline in the drawing phase.
     if (phase === 'form' && formConfig) {
         return (
-            <div className="vector-draw-popup simple-view-panel" style={{
+            <div className="sv-vector-draw-popup simple-view-panel" style={{
                 position: 'absolute',
                 top: 80,
                 left: 30,
@@ -551,18 +546,7 @@ const VectorDrawPopup = ({
                 maxWidth: 380,
                 padding: 0
             }}>
-                <div className="simple-view-panel-header" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px'
-                }}>
-                    <span>{formConfig.title || 'Feature Attributes'}</span>
-                    <span
-                        className="btn glyphicon glyphicon-remove legend-close"
-                        onClick={handleCancel}
-                    />
-                </div>
+                <PanelHeader title={formConfig.title || 'Feature Attributes'} onClose={handleCancel} />
                 {/* TASK-1409 — discard-confirm overlay replaces window.confirm */}
                 {discardConfirmOverlay || (
                     <div style={{padding: '12px'}}>
@@ -609,7 +593,7 @@ const VectorDrawPopup = ({
     // Saving phase — show spinner
     if (phase === 'saving') {
         return (
-            <div className="vector-draw-popup simple-view-panel" style={{
+            <div className="sv-vector-draw-popup simple-view-panel" style={{
                 position: 'absolute',
                 top: 80,
                 left: 30,
@@ -626,7 +610,7 @@ const VectorDrawPopup = ({
     // Error phase
     if (phase === 'error') {
         return (
-            <div className="vector-draw-popup simple-view-panel" style={{
+            <div className="sv-vector-draw-popup simple-view-panel" style={{
                 position: 'absolute',
                 top: 80,
                 left: 30,
@@ -634,7 +618,11 @@ const VectorDrawPopup = ({
                 minWidth: 200,
                 padding: '12px'
             }}>
-                <p style={{color: 'red', margin: 0}}>Save failed. Please try again.</p>
+                {/* TASK-1669 — shared ErrorStrip primitive replaces the bespoke
+                    red-<p>. It self-styles from the --sv-text-danger token and
+                    carries role="alert"; margin is zeroed so it sits flush in
+                    the already-padded popup body. */}
+                <ErrorStrip message="Save failed. Please try again." style={{margin: 0}} />
                 <div style={{display: 'flex', justifyContent: 'flex-end', marginTop: '8px'}}>
                     <Button bsSize="small" onClick={onCancel}>
                         Close
@@ -678,7 +666,7 @@ const mapDispatchToProps = (dispatch) => ({
     onShowNotification: (message) => dispatch(show({
         message,
         title: 'Validation error',
-        uid: 'vector-draw-validation-error',
+        uid: 'sv-vector-draw-validation-error',
         position: 'tc',
         autoDismiss: 8
     }, 'warning'))

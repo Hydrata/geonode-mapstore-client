@@ -53,7 +53,10 @@ describe('anugaApi', () => {
             // TASK-860 — email-invite API
             'listInvitations', 'sendInvitation', 'revokeInvitation', 'resendInvitation',
             // TASK-1720 (W3) — DEM styling-mode toggle
-            'patchTerrainStylingMode'
+            'patchTerrainStylingMode',
+            // TASK-1729 (W1.7) — direct-to-S3 presigned-PUT terrain upload client
+            'presignTerrainUpload', 'putFileToS3', 'finalizeTerrainUpload',
+            'uploadTerrainDirect'
         ];
 
         expectedFunctions.forEach(name => {
@@ -62,14 +65,15 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 54 API functions', () => {
-            // 49 baseline + TASK-860 listInvitations + sendInvitation
-            // + revokeInvitation + resendInvitation = 53
-            // + TASK-1720 patchTerrainStylingMode = 54.
+        it('should export exactly 59 API functions', () => {
+            // Branch baseline (epic/1587) ships 55 exported functions (the
+            // historical "53→54" comment chain undercounted by one; the live
+            // module is 55). TASK-1729 adds 4: presignTerrainUpload +
+            // putFileToS3 + finalizeTerrainUpload + uploadTerrainDirect = 59.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(54);
+            expect(exportedFunctions.length).toBe(59);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
@@ -653,6 +657,270 @@ describe('anugaApi', () => {
                 expect(body.bbox).toEqual([115.7, -32.1, 116.2, -31.6]);
                 done();
             }).catch(done);
+        });
+
+        // ── TASK-1729 (W1.7) — direct-to-S3 presigned-PUT upload client ────
+        // Contract: /tmp/task-1727-fe-contract.md (3-step presign → PUT → finalize).
+
+        it('presignTerrainUpload POSTs to /terrain/upload/presign/ with filename+content_type+size', (done) => {
+            anugaApi.presignTerrainUpload(7, {
+                filename: 'dem.tif', contentType: 'image/tiff', size: 506445721
+            }).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/terrain/upload/presign/');
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body.filename).toBe('dem.tif');
+                expect(body.content_type).toBe('image/tiff');
+                expect(body.size).toBe(506445721);
+                done();
+            }).catch(done);
+        });
+
+        it('presignTerrainUpload defaults content_type to octet-stream and omits size when unknown', (done) => {
+            anugaApi.presignTerrainUpload(7, { filename: 'dem.tif' }).then(() => {
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body.content_type).toBe('application/octet-stream');
+                expect('size' in body).toBe(false);
+                done();
+            }).catch(done);
+        });
+
+        it('finalizeTerrainUpload POSTs to /terrain/upload/finalize/ with process_id+staging_key+title', (done) => {
+            anugaApi.finalizeTerrainUpload(7, {
+                processId: 'proc-uuid', stagingKey: 'terrain_uploads/staging/x/dem.tif', title: 'My DEM'
+            }).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/terrain/upload/finalize/');
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body.process_id).toBe('proc-uuid');
+                expect(body.staging_key).toBe('terrain_uploads/staging/x/dem.tif');
+                expect(body.title).toBe('My DEM');
+                done();
+            }).catch(done);
+        });
+
+        it('finalizeTerrainUpload omits process_id and title when not supplied', (done) => {
+            anugaApi.finalizeTerrainUpload(7, { stagingKey: 'terrain_uploads/staging/x/dem.tif' }).then(() => {
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect('process_id' in body).toBe(false);
+                expect('title' in body).toBe(false);
+                expect(body.staging_key).toBe('terrain_uploads/staging/x/dem.tif');
+                done();
+            }).catch(done);
+        });
+
+        // putFileToS3 uses raw XMLHttpRequest (not axios), so stub the global.
+        describe('putFileToS3 (raw XHR)', () => {
+            let realXHR;
+            let lastXhr;
+
+            function makeFakeXHR() {
+                const xhr = {
+                    upload: {},
+                    _headers: {},
+                    _responseHeaders: { ETag: '"abc123"' },
+                    open(method, url) { this.method = method; this.url = url; },
+                    setRequestHeader(k, v) { this._headers[k] = v; },
+                    getResponseHeader(k) { return this._responseHeaders[k]; },
+                    send(body) {
+                        this.body = body;
+                        lastXhr = this;
+                        // Caller drives onload/onerror via lastXhr in the test.
+                    }
+                };
+                return xhr;
+            }
+
+            beforeEach(() => {
+                realXHR = global.XMLHttpRequest;
+                global.XMLHttpRequest = function() {
+                    const x = makeFakeXHR();
+                    lastXhr = x;
+                    return x;
+                };
+            });
+            afterEach(() => {
+                global.XMLHttpRequest = realXHR;
+            });
+
+            it('PUTs the file with the signed Content-Type and resolves with the ETag on 2xx', (done) => {
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.putFileToS3('https://s3/upload?sig=1', file, 'image/tiff');
+                expect(lastXhr.method).toBe('PUT');
+                expect(lastXhr.url).toBe('https://s3/upload?sig=1');
+                expect(lastXhr._headers['Content-Type']).toBe('image/tiff');
+                expect(lastXhr.body).toBe(file);
+                // Simulate S3 success.
+                lastXhr.status = 200;
+                lastXhr.onload();
+                p.then((res) => {
+                    expect(res.status).toBe(200);
+                    expect(res.etag).toBe('"abc123"');
+                    done();
+                }).catch(done);
+            });
+
+            it('drives onProgress from xhr.upload.onprogress and forces 100 on completion', (done) => {
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 100 };
+                const seen = [];
+                const p = anugaApi.putFileToS3('https://s3/u', file, 'image/tiff', (pct) => seen.push(pct));
+                // Mid-transfer progress event.
+                lastXhr.upload.onprogress({ lengthComputable: true, loaded: 42, total: 100 });
+                lastXhr.status = 204;
+                lastXhr.onload();
+                p.then(() => {
+                    expect(seen).toContain(42);
+                    expect(seen[seen.length - 1]).toBe(100);
+                    done();
+                }).catch(done);
+            });
+
+            it('rejects with a status-carrying Error on a non-2xx (e.g. 403 SignatureDoesNotMatch)', (done) => {
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.putFileToS3('https://s3/u', file, 'image/tiff');
+                lastXhr.status = 403;
+                lastXhr.onload();
+                p.then(() => done(new Error('should have rejected'))).catch((err) => {
+                    expect(err.status).toBe(403);
+                    done();
+                });
+            });
+
+            it('rejects on a network error', (done) => {
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.putFileToS3('https://s3/u', file, 'image/tiff');
+                lastXhr.onerror();
+                p.then(() => done(new Error('should have rejected'))).catch(() => done());
+            });
+        });
+
+        // Orchestrator: presign (axios) → PUT (XHR) → finalize (axios).
+        describe('uploadTerrainDirect orchestrator', () => {
+            let realXHR;
+            let lastXhr;
+            beforeEach(() => {
+                realXHR = global.XMLHttpRequest;
+                global.XMLHttpRequest = function() {
+                    lastXhr = {
+                        upload: {},
+                        open() {},
+                        setRequestHeader() {},
+                        getResponseHeader() { return '"etag"'; },
+                        send() {}
+                    };
+                    return lastXhr;
+                };
+            });
+            afterEach(() => {
+                global.XMLHttpRequest = realXHR;
+            });
+
+            it('chains presign → PUT (with the SIGNED content_type) → finalize and returns the Terrain', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+                    process_id: 'proc-9',
+                    staging_key: 'terrain_uploads/staging/u/dem.tif',
+                    upload_url: 'https://s3/u?sig=1',
+                    content_type: 'image/tiff'
+                });
+                mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 84601, status: 'creating' });
+
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.uploadTerrainDirect(7, file, { title: 'My DEM' });
+
+                // The presign POST is async; once it resolves the XHR is created.
+                // Poll for the XHR then drive its onload to complete the PUT.
+                const tick = () => {
+                    if (lastXhr && lastXhr.onload) {
+                        lastXhr.status = 200;
+                        lastXhr.onload();
+                    } else {
+                        setTimeout(tick, 5);
+                    }
+                };
+                setTimeout(tick, 5);
+
+                p.then((finalResp) => {
+                    expect(finalResp.data.id).toBe(84601);
+                    const presignBody = JSON.parse(
+                        mockAxios.history.post.find(r => /presign/.test(r.url)).data
+                    );
+                    expect(presignBody.filename).toBe('dem.tif');
+                    expect(presignBody.content_type).toBe('image/tiff');
+                    const finalizeBody = JSON.parse(
+                        mockAxios.history.post.find(r => /finalize/.test(r.url)).data
+                    );
+                    expect(finalizeBody.process_id).toBe('proc-9');
+                    expect(finalizeBody.staging_key).toBe('terrain_uploads/staging/u/dem.tif');
+                    expect(finalizeBody.title).toBe('My DEM');
+                    done();
+                }).catch(done);
+            });
+
+            // TASK-1728: onPresign fires once with the presign body the instant it
+            // returns, so the caller can key the Tasks-Panel row on the REAL
+            // process_id BEFORE the byte transfer starts.
+            it('fires onPresign with the presign body (process_id) before the PUT', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+                    process_id: 'proc-77',
+                    staging_key: 'terrain_uploads/staging/u/dem.tif',
+                    upload_url: 'https://s3/u?sig=1',
+                    content_type: 'image/tiff'
+                });
+                mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 5, status: 'creating' });
+
+                let presignData = null;
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.uploadTerrainDirect(7, file, {
+                    title: 'My DEM',
+                    onPresign: (data) => { presignData = data; }
+                });
+
+                const tick = () => {
+                    if (lastXhr && lastXhr.onload) {
+                        lastXhr.status = 200;
+                        lastXhr.onload();
+                    } else {
+                        setTimeout(tick, 5);
+                    }
+                };
+                setTimeout(tick, 5);
+
+                p.then(() => {
+                    expect(presignData).toExist();
+                    expect(presignData.process_id).toBe('proc-77');
+                    expect(presignData.staging_key).toBe('terrain_uploads/staging/u/dem.tif');
+                    done();
+                }).catch(done);
+            });
+
+            it('does NOT finalize when the S3 PUT fails (BE reconcile cleans the orphan)', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+                    process_id: 'proc-9',
+                    staging_key: 'terrain_uploads/staging/u/dem.tif',
+                    upload_url: 'https://s3/u?sig=1',
+                    content_type: 'image/tiff'
+                });
+                mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, {});
+
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.uploadTerrainDirect(7, file, { title: 'My DEM' });
+
+                const tick = () => {
+                    if (lastXhr && lastXhr.onerror) {
+                        lastXhr.onerror();
+                    } else {
+                        setTimeout(tick, 5);
+                    }
+                };
+                setTimeout(tick, 5);
+
+                p.then(() => done(new Error('should have rejected'))).catch(() => {
+                    const finalizeCalls = mockAxios.history.post.filter(r => /finalize/.test(r.url));
+                    expect(finalizeCalls.length).toBe(0);
+                    done();
+                });
+            });
         });
     });
 });

@@ -48,7 +48,7 @@ import {
 describe('Hydrology Plugin', () => {
     describe('hydrologyKeyMap', () => {
         it('should map page names to state keys', () => {
-            expect(hydrologyKeyMap['idf-table']).toBe('idfTables');
+            expect(hydrologyKeyMap['sv-idf-table']).toBe('idfTables');
             expect(hydrologyKeyMap['temporal-pattern']).toBe('temporalPatterns');
             expect(hydrologyKeyMap['time-series']).toBe('timeSeriess');
             // TASK-1448 (W1): inflow removed from the UI; keyMap no longer has it.
@@ -115,24 +115,24 @@ describe('Hydrology Plugin', () => {
         });
 
         it('createHydrologyForm creates correct action', () => {
-            const action = createHydrologyForm('idf-table');
+            const action = createHydrologyForm('sv-idf-table');
             expect(action.type).toBe(CREATE_HYDROLOGY_FORM);
-            expect(action.activeHydrologyPage).toBe('idf-table');
+            expect(action.activeHydrologyPage).toBe('sv-idf-table');
         });
 
         it('saveHydrologyItem creates correct action', () => {
             const item = { id: 1, name: 'Test Item' };
-            const action = saveHydrologyItem('idf-table', item);
+            const action = saveHydrologyItem('sv-idf-table', item);
             expect(action.type).toBe('SAVE_HYDROLOGY_ITEM');
-            expect(action.activeHydrologyPage).toBe('idf-table');
+            expect(action.activeHydrologyPage).toBe('sv-idf-table');
             expect(action.item).toEqual(item);
         });
 
         it('deleteHydrologyItem creates correct action', () => {
             const item = { id: 1, name: 'Test Item' };
-            const action = deleteHydrologyItem('idf-table', item);
+            const action = deleteHydrologyItem('sv-idf-table', item);
             expect(action.type).toBe('DELETE_HYDROLOGY_ITEM');
-            expect(action.activeHydrologyPage).toBe('idf-table');
+            expect(action.activeHydrologyPage).toBe('sv-idf-table');
             expect(action.item).toEqual(item);
         });
     });
@@ -141,7 +141,7 @@ describe('Hydrology Plugin', () => {
         const initialState = {
             isHydrologyProject: false,
             showHydrologyMainMenu: false,
-            activeHydrologyPage: 'idf-table'
+            activeHydrologyPage: 'sv-idf-table'
         };
 
         it('should return initial state (with TASK-934 idfDerive slice present)', () => {
@@ -263,10 +263,10 @@ describe('Hydrology Plugin', () => {
         // POST body matches the CREATE_HYDROLOGY_ITEM_SUCCESS reconcile (which
         // matches on item.name), else the create round-trip duplicates the row.
         describe('TASK-1532 CREATE_HYDROLOGY_FORM auto-numbered default names', () => {
-            it('idf-table on empty tab → "IDF Table 01"', () => {
+            it('sv-idf-table on empty tab → "IDF Table 01"', () => {
                 const state = reducer(
                     { ...initialState, idfTables: [] },
-                    createHydrologyForm('idf-table')
+                    createHydrologyForm('sv-idf-table')
                 );
                 expect(state.idfTables.length).toBe(1);
                 expect(state.idfTables[0].name).toBe('IDF Table 01');
@@ -293,7 +293,7 @@ describe('Hydrology Plugin', () => {
                 expect(state.activeHydrologyItem.name).toBe('Design Storm 01');
             });
 
-            it('idf-table with existing ...01/...02 → "IDF Table 03"', () => {
+            it('sv-idf-table with existing ...01/...02 → "IDF Table 03"', () => {
                 const state = reducer(
                     {
                         ...initialState,
@@ -302,7 +302,7 @@ describe('Hydrology Plugin', () => {
                             { id: 2, name: 'IDF Table 02' }
                         ]
                     },
-                    createHydrologyForm('idf-table')
+                    createHydrologyForm('sv-idf-table')
                 );
                 expect(state.idfTables.length).toBe(3);
                 expect(state.idfTables[2].name).toBe('IDF Table 03');
@@ -340,7 +340,7 @@ describe('Hydrology Plugin', () => {
 
             // Numbering keys off the MAX trailing int, not the count: a gap
             // (01, 05) must yield 06, and user-renamed/foreign rows are ignored.
-            it('idf-table indexes off the max trailing int, skipping gaps and foreign names', () => {
+            it('sv-idf-table indexes off the max trailing int, skipping gaps and foreign names', () => {
                 const state = reducer(
                     {
                         ...initialState,
@@ -350,7 +350,7 @@ describe('Hydrology Plugin', () => {
                             { id: 3, name: 'My custom curve' }
                         ]
                     },
-                    createHydrologyForm('idf-table')
+                    createHydrologyForm('sv-idf-table')
                 );
                 expect(state.idfTables[3].name).toBe('IDF Table 06');
             });
@@ -362,7 +362,7 @@ describe('Hydrology Plugin', () => {
             it('no duplicate list row after the create round-trip (name matches reconcile)', () => {
                 const created = reducer(
                     { ...initialState, idfTables: [] },
-                    createHydrologyForm('idf-table')
+                    createHydrologyForm('sv-idf-table')
                 );
                 const tempItem = created.idfTables[0];
                 expect(tempItem.name).toBe('IDF Table 01');
@@ -372,7 +372,7 @@ describe('Hydrology Plugin', () => {
                 // Server responds with the same name + a real numeric id.
                 const reconciled = reducer(created, {
                     type: 'CREATE_HYDROLOGY_ITEM_SUCCESS',
-                    activeHydrologyPage: 'idf-table',
+                    activeHydrologyPage: 'sv-idf-table',
                     item: { id: 42, name: 'IDF Table 01', data: { columnDefs: [], rowData: [] } }
                 });
                 expect(reconciled.idfTables.length).toBe(1);
@@ -381,7 +381,7 @@ describe('Hydrology Plugin', () => {
             });
         });
 
-        it('should handle DELETE_HYDROLOGY_ITEM_SUCCESS for idf-table', () => {
+        it('should handle DELETE_HYDROLOGY_ITEM_SUCCESS for sv-idf-table', () => {
             const stateWithItems = {
                 ...initialState,
                 idfTables: [
@@ -392,7 +392,7 @@ describe('Hydrology Plugin', () => {
             };
             const state = reducer(stateWithItems, {
                 type: DELETE_HYDROLOGY_ITEM_SUCCESS,
-                activeHydrologyPage: 'idf-table',
+                activeHydrologyPage: 'sv-idf-table',
                 item: { id: 1 }
             });
             expect(state.idfTables.length).toBe(1);

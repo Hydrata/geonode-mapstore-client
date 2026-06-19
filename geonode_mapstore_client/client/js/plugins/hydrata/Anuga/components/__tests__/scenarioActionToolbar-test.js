@@ -61,7 +61,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-build')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-build')).toExist();
                     done();
                 }
             );
@@ -76,9 +76,9 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 container,
                 () => {
                     // There can be a separate Build button (showBuildBtn path), so
-                    // we explicitly check no .scenario-action-build is rendered
+                    // we explicitly check no .sv-scenario-action-build is rendered
                     // in created status without canRun.
-                    expect(container.querySelector('.scenario-action-build')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-action-build')).toNotExist();
                     done();
                 }
             );
@@ -92,7 +92,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-run')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-run')).toExist();
                     done();
                 }
             );
@@ -110,7 +110,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-download')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-download')).toExist();
                     done();
                 }
             );
@@ -124,7 +124,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-retry')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-retry')).toExist();
                     done();
                 }
             );
@@ -138,7 +138,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-rerun')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-rerun')).toExist();
                     done();
                 }
             );
@@ -152,7 +152,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    const run = container.querySelector('.scenario-action-run');
+                    const run = container.querySelector('.sv-scenario-action-run');
                     expect(run).toExist();
                     expect(run.className).toInclude('disabled');
                     expect(container.querySelector('.glyphicon-spin')).toExist();
@@ -164,7 +164,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
 
     describe('Duplicate / Archive / Delete visibility', () => {
     // Wave 3C — Duplicate moved to the scenario panel header (next to New
-    // Scenario). The toolbar no longer renders a `.scenario-action-duplicate`
+    // Scenario). The toolbar no longer renders a `.sv-scenario-action-duplicate`
     // button. Header-level Duplicate behaviour is covered in
     // anugaScenarioMenu-test.js. Regression guard below asserts the toolbar
     // really has no Duplicate button even when the prior preconditions
@@ -177,7 +177,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-duplicate')).toBe(null);
+                    expect(container.querySelector('.sv-scenario-action-duplicate')).toBe(null);
                     done();
                 }
             );
@@ -191,7 +191,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    const arch = container.querySelector('.scenario-action-archive');
+                    const arch = container.querySelector('.sv-scenario-action-archive');
                     expect(arch).toExist();
                     expect(arch.className).toNotInclude('is-hidden');
                     done();
@@ -207,8 +207,8 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-unarchive')).toExist();
-                    expect(container.querySelector('.scenario-action-archive')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-action-unarchive')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-archive')).toNotExist();
                     done();
                 }
             );
@@ -222,7 +222,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    const del = container.querySelector('.scenario-action-delete');
+                    const del = container.querySelector('.sv-scenario-action-delete');
                     expect(del).toExist();
                     expect(del.className).toNotInclude('is-hidden');
                     done();
@@ -238,8 +238,8 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-cancel-run')).toExist();
-                    expect(container.querySelector('.scenario-action-delete')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-action-cancel-run')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-delete')).toNotExist();
                     done();
                 }
             );
@@ -256,7 +256,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    const cancel = container.querySelector('.scenario-action-cancel-run');
+                    const cancel = container.querySelector('.sv-scenario-action-cancel-run');
                     expect(cancel).toExist();
                     expect(cancel.className).toNotInclude('is-hidden');
                     expect(cancel.disabled).toBe(false);
@@ -275,7 +275,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    const cancel = container.querySelector('.scenario-action-cancel-run');
+                    const cancel = container.querySelector('.sv-scenario-action-cancel-run');
                     expect(cancel).toExist();
                     cancel.click();
                     expect(captured).toExist();
@@ -296,7 +296,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                     />,
                     container,
                     () => {
-                        const arch = container.querySelector('.scenario-action-archive');
+                        const arch = container.querySelector('.sv-scenario-action-archive');
                         expect(arch).toExist();
                         expect(arch.className).toNotInclude('is-hidden');
                         expect(arch.className).toInclude('disabled');
@@ -318,7 +318,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    const arch = container.querySelector('.scenario-action-archive');
+                    const arch = container.querySelector('.sv-scenario-action-archive');
                     expect(arch).toExist();
                     expect(arch.className).toNotInclude('disabled');
                     expect(arch.disabled).toBe(false);
@@ -338,7 +338,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    const arch = container.querySelector('.scenario-action-archive');
+                    const arch = container.querySelector('.sv-scenario-action-archive');
                     expect(arch).toExist();
                     // disabled buttons ignore clicks per HTML spec, but call directly
                     // to ensure the onClick handler also guards.
@@ -368,7 +368,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                     />,
                     container,
                     () => {
-                        expect(container.querySelector('.scenario-action-cancel-run')).toNotExist();
+                        expect(container.querySelector('.sv-scenario-action-cancel-run')).toNotExist();
                         done();
                     }
                 );
@@ -379,7 +379,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
             // Synthetic: should never happen in BE traffic but defends against
             // set-drift between TERMINAL_RUN_STATES and isCancellable. Because
             // isCancellable=true forces the button into the cancel-run branch
-            // (class .scenario-action-cancel-run) AND canDeleteScenario=false
+            // (class .sv-scenario-action-cancel-run) AND canDeleteScenario=false
             // (since isCancellable=true), the button renders but gets is-hidden.
             ReactDOM.render(
                 <ScenarioActionToolbar
@@ -392,7 +392,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    const cancel = container.querySelector('.scenario-action-cancel-run');
+                    const cancel = container.querySelector('.sv-scenario-action-cancel-run');
                     expect(cancel).toExist();
                     expect(cancel.className).toInclude('is-hidden');
                     done();
@@ -412,7 +412,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-build').click();
+                    container.querySelector('.sv-scenario-action-build').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -429,7 +429,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-run').click();
+                    container.querySelector('.sv-scenario-action-run').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -446,7 +446,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-retry').click();
+                    container.querySelector('.sv-scenario-action-retry').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -494,7 +494,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-archive').click();
+                    container.querySelector('.sv-scenario-action-archive').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -511,7 +511,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-unarchive').click();
+                    container.querySelector('.sv-scenario-action-unarchive').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -528,7 +528,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-delete').click();
+                    container.querySelector('.sv-scenario-action-delete').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -545,7 +545,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-cancel-run').click();
+                    container.querySelector('.sv-scenario-action-cancel-run').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -585,7 +585,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
     describe('Defensive rendering', () => {
         it('returns null when scenario is null', (done) => {
             ReactDOM.render(<ScenarioActionToolbar scenario={null} />, container, () => {
-                expect(container.querySelector('.scenario-action-toolbar')).toNotExist();
+                expect(container.querySelector('.sv-scenario-action-toolbar')).toNotExist();
                 done();
             });
         });

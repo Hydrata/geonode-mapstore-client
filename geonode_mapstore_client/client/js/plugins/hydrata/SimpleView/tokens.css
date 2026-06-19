@@ -13,7 +13,7 @@
  *   Losing values (documented here, not used going forward):
  *     #537ab1  — was swamm/bmp-type-group-glyph
  *     #5279B0  — was swamm/simple-view-panel-item-row select, #bmp-notes
- *     #6085b5  — was anuga/scenario-tab, anuga-btn-compare, anuga-btn-duplicate-header
+ *     #6085b5  — was anuga/sv-scenario-tab, sv-anuga-btn-compare, sv-anuga-btn-duplicate-header
  *   See DESIGN-SYSTEM-AUDIT.md § Input blue divergence for rationale.
  */
 
@@ -81,8 +81,106 @@
 
     /* ── Info / hint banner ── */
     /* Undeclared in prior simpleView.css; formally added here (proof-capped:
-       consumed by the read-only hint in anuga-scenario-pane-readonly-hint, which
+       consumed by the read-only hint in sv-anuga-scenario-pane-readonly-hint, which
        the reference panel may adopt). */
     --sv-info-bg:     rgba(91, 192, 222, 0.12);
     --sv-info-border: #5bc0de;
+
+    /* ── Chassis layout tokens — TASK-1759 / epic-1758 P0 ──────────────────
+       Consumed by the 6 chassis primitives (PanelShell, PanelHeader, Section,
+       Card, Table, FormRow). One-line comment per token.
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /* Panel internal padding (PanelShell: default content padding) */
+    --sv-panel-padding:   5px 10px;
+
+    /* Header bar height reference — used by consumers that need to offset below
+       the header (e.g. absolute-positioned children inside the panel). */
+    --sv-header-height:   40px;
+
+    /* Header font-size — overridable per-panel (Hydrology uses font-size:large) */
+    --sv-header-font-size: 14px;
+
+    /* Header inner padding (PanelHeader) */
+    --sv-header-padding:   8px 12px;
+
+    /* Gap between adjacent Section components (vertical rhythm) */
+    --sv-section-gap:     8px;
+
+    /* Card internal padding (Card body) */
+    --sv-card-padding:    10px 12px;
+
+    /* Card border-radius — also used by Table */
+    --sv-card-radius:     4px;
+
+    /* Gap between label and control in a FormRow (inline layout) */
+    --sv-form-row-gap:    8px;
+
+    /* ── Chart carve-out token (grill q-1, TASK-1534) ──────────────────────
+       Light background for recharts plotting surfaces inside Card variant="chart".
+       recharts 0.22.4 renders axes/grid on whatever background its container has;
+       on a dark panel the grid lines and axis labels become near-invisible.
+       TASK-1534 deliberately keeps chart cards white so axes/grid/tick labels read.
+       This token is the ONLY mechanism W1 panel agents should use to set the chart
+       surface — do NOT darken recharts or override its container to a dark colour.
+       See docs/reports/2026-06-17-q-1-chart-surface-carveout.html for the full decision.
+       ──────────────────────────────────────────────────────────────────────── */
+    --sv-chart-surface: #ffffff;
+
+    /* ── Typography — TASK-1758 W3 conform re-aim ───────────────────────────
+       tokens.css previously declared only --sv-header-font-size; there was no
+       font-family or body/label size token, and .simple-view-panel set no
+       font-family, so EVERY label/input/heading in all 6 panels inherited the
+       Bootstrap base font (the operator's wrong-font miss). These tokens are
+       the single source of truth for panel typography; --sv-font-family is
+       applied on the panel root (simpleView.css) so all descendants inherit.
+       Value = the document Montserrat the conformed popups already rely on.
+       ──────────────────────────────────────────────────────────────────────── */
+    --sv-font-family:     'Montserrat', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --sv-font-size:       12px;   /* body / control text */
+    --sv-font-size-label: 14px;   /* slightly-larger row labels (.menu-row-text, FilterBar) */
+
+    /* ── Dark-glass warning surface — replaces light cream banners ──────────
+       (Hydrology paste-error #fff8e0 / design-storm stale, Anuga
+       runPollingPaused #fff7e6, HGeval .hgeval-warnings). Mirrors the already
+       dark-glass .sv-idf-derive-banner--warning. */
+    --sv-warning-bg:     rgba(252, 248, 227, 0.12);
+    --sv-warning-border: rgba(250, 235, 204, 0.4);
+    --sv-warning-color:  #fcf8e3;
+
+    /* ── Active / selected accents (rule-of-three repeated literals) ── */
+    --sv-accent-lime:  #cae33b;              /* lime active accent (ds-derive toast, category-rail active, preset selected) */
+    --sv-accent-green: rgba(39, 202, 59, 1); /* bright save/active green (Hydrology, Swamm dashboard, shared) */
+    --sv-on-accent:    #1f3a1f;              /* dark legible text ON a lime/green accent chip */
+
+    /* ── Row / divider surfaces (converge per-panel translucent-white literals) ── */
+    --sv-row-hover-bg:  rgba(255, 255, 255, 0.10); /* row hover/active (TaskMonitor, VectorDraw picker, Swamm) */
+    --sv-row-active-bg: rgba(30, 126, 52, 0.7);    /* active/selected row green (shared menu/rail) */
+    --sv-divider:       rgba(255, 255, 255, 0.08); /* translucent row divider */
+
+    /* ── Shared chrome blues (de-dup raw literals) ── */
+    --sv-chrome-deep:   #335781; /* opacity-slider track / introduction-modal / gn-brand-navbar */
+    --sv-accent-border: #3585b0; /* col-one/footer divider teal-blue (was #3585b0 + rgba(53,133,176)) */
+    --sv-glyph-chip-bg: #ffffff; /* intentional white legibility-mat behind action glyphs */
+
+    /* ── StatusBadge text colours (WCAG-AA on dark glass; promote raw hex) ── */
+    --sv-status-ok:   #a8e6a8; /* is-ok */
+    --sv-status-warn: #f0e08a; /* is-pending */
+    --sv-status-info: #7cd3ec; /* is-running */
+
+    /* ── Swamm / button semantics (replace darkgreen/darkred/darkorange keywords + light-pink) ── */
+    --sv-pin-accent:  rgba(120, 220, 180, 0.6); /* Swamm pinned-override mint chip/border */
+    --sv-btn-save:    rgba(40, 167, 69, 0.85);  /* canonical success/save button fill */
+    --sv-btn-danger:  darkred;                  /* canonical danger/delete button fill (aligns with --sv-glyph-delete) */
+    --sv-disabled-bg: rgba(220, 53, 69, 0.18);  /* dark-glass disabled/non-savable surface (was light #f8a9a9) */
+
+    /* ── Second token round (TASK-1758 W3 re-aim deferrals) ─────────────────
+       Surfaced while applying the conform sweep — literals with no prior token. */
+    --sv-close-bg:           #c9544d;                  /* close-button coral fill (.legend-close) */
+    --sv-close-bg-hover:     #b5403a;                  /* close-button coral hover */
+    --sv-inset-bg:           rgba(0, 0, 0, 0.15);      /* recessed detail/expand-body inset (TaskMonitor ProcessDetail, Swamm BmpHistoryViewer) */
+    --sv-row-bg-success:     rgba(80, 200, 120, 0.25); /* just-saved/success row tint (VectorDraw picker) */
+    --sv-row-hover-bg-strong:rgba(255, 255, 255, 0.20);/* deeper row hover (VectorDraw picker onRowEnter) */
+    --sv-accent-green-dim:   rgba(39, 202, 59, 0.6);   /* dim/inactive variant of --sv-accent-green (Swamm dashboard) */
+    --sv-btn-warn:           darkorange;               /* warn/secondary-action button fill (Swamm add-geometry) */
 }

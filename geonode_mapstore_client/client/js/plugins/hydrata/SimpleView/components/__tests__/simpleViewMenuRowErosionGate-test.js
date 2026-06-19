@@ -103,7 +103,7 @@ describe('simpleViewMenuRow erosion upload gating (TASK-602)', () => {
             () => {
                 const upload = container.querySelector('.glyphicon-upload');
                 expect(upload).toExist();
-                expect(upload.className).toInclude('glyph-active');
+                expect(upload.className).toInclude('sv-glyph-active');
                 done();
             }
         );

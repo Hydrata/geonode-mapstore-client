@@ -46,7 +46,7 @@ describe('TASK-826 W3.3 — discriminator-picker widget integration', () => {
 
     beforeEach(() => {
         container = document.createElement('div');
-        container.className = 'vector-draw-popup';
+        container.className = 'sv-vector-draw-popup';
         document.body.appendChild(container);
         lastChange = null;
     });

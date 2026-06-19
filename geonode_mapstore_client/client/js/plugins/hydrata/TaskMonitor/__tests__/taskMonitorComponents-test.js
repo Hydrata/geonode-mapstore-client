@@ -82,10 +82,10 @@ describe('TaskMonitor dark-glass migration (TASK-1665 W2)', () => {
             });
         });
 
-        it('close button uses .legend-close (NOT .tm-close-btn)', (done) => {
+        it('close button uses .sv-legend-close (NOT .tm-close-btn)', (done) => {
             renderPanel();
             setTimeout(() => {
-                expect(container.querySelector('.legend-close')).toExist();
+                expect(container.querySelector('.sv-legend-close')).toExist();
                 expect(container.querySelector('.tm-close-btn')).toNotExist();
                 done();
             });

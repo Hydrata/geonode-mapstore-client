@@ -1,5 +1,13 @@
 import React from "react";
 const PropTypes = require('prop-types');
+// TASK-1764 (epic-1758 W1) — chassis Card frames the per-resource summary.
+// The .sv-anuga-scenario-resource-summary[+--kind][+is-empty] classes ride
+// extraClassName so the legacy inner-element rules + the test class
+// assertions stay intact. The Card's default token frame supplies
+// bg/border/padding; only the margin is overridden inline (style prop) to
+// preserve the legacy 4px 10px 8px spacing, and the glyph/body/meta flex row
+// moves onto the Card body via bodyStyle.
+import {Card} from '../../SimpleView/components/primitives';
 
 /**
  * TASK-C-scenarios-miller Wave 3A — per-resource summary card. Rendered
@@ -11,7 +19,7 @@ const PropTypes = require('prop-types');
  *     (friction, structures, mesh_region, network) reuse the same shape.
  *   - The run-history list inside the Status-and-actions pane uses the
  *     same card shell with a clock or check glyph (see anuga.css
- *     anuga-scenario-resource-summary).
+ *     sv-anuga-scenario-resource-summary).
  *
  * Glyph hooks:
  *   - kind === 'terrain'     → glyphicon-tower (triangle-mountain
@@ -31,7 +39,7 @@ const PropTypes = require('prop-types');
  *   - kind === 'history-err' → glyphicon-exclamation-sign
  *
  * The `meta` slot floats to the trailing edge (margin-left: auto via
- * .anuga-scenario-resource-summary-meta). Pass `null` or omit to skip.
+ * .sv-anuga-scenario-resource-summary-meta). Pass `null` or omit to skip.
  */
 
 const KIND_TO_GLYPH = {
@@ -52,23 +60,27 @@ const ScenarioResourceSummary = ({kind, body, meta, extraClassName}) => {
     if (!body && !meta) return null;
     const glyph = KIND_TO_GLYPH[kind] || 'glyphicon-record';
     const className = [
-        'anuga-scenario-resource-summary',
-        kind ? `anuga-scenario-resource-summary--${kind}` : '',
+        'sv-anuga-scenario-resource-summary',
+        kind ? `sv-anuga-scenario-resource-summary--${kind}` : '',
         extraClassName || ''
     ].filter(Boolean).join(' ');
     return (
-        <div className={className}>
+        <Card
+            extraClassName={className}
+            style={{margin: '4px 10px 8px'}}
+            bodyStyle={{display: 'flex', alignItems: 'center', gap: '8px'}}
+        >
             <span
-                className={'anuga-scenario-resource-summary-glyph glyphicon ' + glyph}
+                className={'sv-anuga-scenario-resource-summary-glyph glyphicon ' + glyph}
                 aria-hidden="true"
             />
-            <span className="anuga-scenario-resource-summary-body">
+            <span className="sv-anuga-scenario-resource-summary-body">
                 {body}
             </span>
             {meta != null ? ( // eslint-disable-line no-eq-null, eqeqeq
-                <span className="anuga-scenario-resource-summary-meta">{meta}</span>
+                <span className="sv-anuga-scenario-resource-summary-meta">{meta}</span>
             ) : null}
-        </div>
+        </Card>
     );
 };
 

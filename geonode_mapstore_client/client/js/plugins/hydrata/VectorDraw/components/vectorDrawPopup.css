@@ -16,7 +16,7 @@
  *      with the panel's color.
  *   3. Bootstrap <Button bsSize="small"> applies its own font-size and
  *      may bold the text on some bootswatch overrides. Pin font: inherit
- *      and font-weight: normal on .vector-draw-popup .btn so all action
+ *      and font-weight: normal on .sv-vector-draw-popup .btn so all action
  *      buttons match the surrounding text.
  *
  * Rule of thumb: NO inline font/size/weight overrides in the JSX. All
@@ -24,34 +24,32 @@
  * and matches the rest of the SimpleView UI.
  */
 
-.vector-draw-popup,
-.vector-draw-popup * {
+.sv-vector-draw-popup,
+.sv-vector-draw-popup * {
     font-family: inherit;
     font-weight: normal;
 }
 
-/* The popup root inherits font-family from the document (Montserrat) but
-   we explicitly fix the size so the smaller floating popup matches the
-   SimpleView panel's body text rather than its larger headline. */
-.vector-draw-popup {
-    font-size: 12px;
+/* TASK-1758 W3 — self-anchor the popup typography to the design tokens
+   instead of relying on document inheritance + a hardcoded 12px. Any control
+   that doesn't inherit the popup root (portal-rendered, pre-stylesheet mount)
+   now still lands on the panel font. */
+.sv-vector-draw-popup {
+    font-family: var(--sv-font-family);
+    font-size: var(--sv-font-size);
     line-height: 1.5;
 }
 
-/* Smaller header for the floating popup (the .simple-view-panel-header
-   x-large is intended for full-size left-rail panels). */
-.vector-draw-popup .simple-view-panel-header {
-    font-size: 13px;
-    font-weight: normal;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
-    padding: 6px 12px;
-    margin: 0;
-}
+/* TASK-1763 — the popup header is now the PanelHeader chassis primitive
+   (token-backed sv-panel-header chrome + cascade-safe sv-panel-header-close
+   chip). The old scoped `.simple-view-panel-header` size override and the
+   `.legend-close` position workaround (formerly at the foot of this file)
+   are removed: PanelHeader owns its own header chrome inline. */
 
-.vector-draw-popup p,
-.vector-draw-popup span,
-.vector-draw-popup label,
-.vector-draw-popup div {
+.sv-vector-draw-popup p,
+.sv-vector-draw-popup span,
+.sv-vector-draw-popup label,
+.sv-vector-draw-popup div {
     font-size: inherit;
     font-weight: inherit;
     line-height: inherit;
@@ -59,10 +57,10 @@
 
 /* Native controls (select / input / textarea) drop back to user-agent
    font defaults unless we tell them not to. */
-.vector-draw-popup select,
-.vector-draw-popup input,
-.vector-draw-popup textarea,
-.vector-draw-popup button {
+.sv-vector-draw-popup select,
+.sv-vector-draw-popup input,
+.sv-vector-draw-popup textarea,
+.sv-vector-draw-popup button {
     font: inherit;
     font-weight: normal;
 }
@@ -72,13 +70,13 @@
    padding, height, background, and cursor that the previous inline-style
    block on FormField.js's <select> provided. Layout (flex / margin) stays
    inline in JSX since it's positional, not chrome. */
-.vector-draw-popup select {
-    border: 1px solid #ccc;
-    border-radius: 3px;
+.sv-vector-draw-popup select {
+    border: 1px solid var(--sv-section-border);
+    border-radius: var(--sv-card-radius);
     padding: 4px 8px;
     height: 28px;
-    background-color: #fff;
-    color: #333;
+    background-color: var(--sv-input-bg);
+    color: var(--sv-text);
     cursor: pointer;
 }
 
@@ -86,21 +84,21 @@
    consistently inside the same form. The user-agent default border on
    <input type="text"> looks close enough to #ccc but pinning explicitly
    keeps the form visually uniform across browsers. */
-.vector-draw-popup input[type="text"],
-.vector-draw-popup input[type="number"] {
-    border: 1px solid #ccc;
-    border-radius: 3px;
+.sv-vector-draw-popup input[type="text"],
+.sv-vector-draw-popup input[type="number"] {
+    border: 1px solid var(--sv-section-border) !important;
+    border-radius: var(--sv-card-radius);
     padding: 4px 8px;
     height: 28px;
-    background-color: #fff;
-    color: #333;
+    background-color: var(--sv-input-bg) !important;
+    color: var(--sv-text) !important;
 }
 
 /* Bootstrap buttons inside the popup. Bootstrap's `.btn-sm` and the
    default `.btn` rule both set their own font-size; force inherit so
    the action buttons match the surrounding 12px Montserrat text. */
-.vector-draw-popup .btn,
-.vector-draw-popup .btn-sm {
+.sv-vector-draw-popup .btn,
+.sv-vector-draw-popup .btn-sm {
     font-size: inherit;
     font-weight: normal;
     line-height: 1.5;
@@ -109,7 +107,7 @@
 /* Picker rows in the "Choose feature" phase — left-aligned text; the
    parent .simple-view-panel sets text-align: center which is wrong for
    a list. */
-.vector-draw-popup .simple-view-panel-item-row {
+.sv-vector-draw-popup .simple-view-panel-item-row {
     text-align: left;
     height: auto;
     border: none;
@@ -118,7 +116,7 @@
 /* Trash icon on each picker row. Inline opacity:0.7 in JSX is the
    resting state; deepen to full on hover so users get a clear affordance
    that the icon is interactive. */
-.vector-draw-popup .vector-draw-trash:hover {
+.sv-vector-draw-popup .sv-vector-draw-trash:hover {
     opacity: 1 !important;
     background-color: rgba(255, 255, 255, 0.15);
 }
@@ -127,21 +125,7 @@
    the unit slightly back from the input value as a subtle subdued
    affordance; color stays inherited from the popup (white) so it reads
    on the dark-blue panel. The font-family/weight reset above already
-   handles inheritance from .vector-draw-popup. */
-.vector-draw-popup .time-data-picker-constant-unit {
+   handles inheritance from .sv-vector-draw-popup. */
+.sv-vector-draw-popup .time-data-picker-constant-unit {
     font-size: 0.9em;
-}
-
-/* Close X in the popup header. The shared .legend-close rule pins to
-   top:0/right:0 with line-height: var(--sv-icon-size), which Bootstrap's
-   .btn overrides to ~1.43em — so the X sits in the upper portion of the
-   24x24 red box. Two fixes scoped to .vector-draw-popup:
-     1. Pull the box in from the corner (top/right margin) so it doesn't
-        hug the panel border.
-     2. Restore line-height to the box size so the glyph re-centers
-        vertically. Selector keeps 3 classes for specificity > .btn. */
-.vector-draw-popup .simple-view-panel-header .legend-close {
-    top: 6px;
-    right: 6px;
-    line-height: var(--sv-icon-size, 24px);
 }

@@ -33,7 +33,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
     describe('Status renders', () => {
         it('renders status-created class for default (no status field)', (done) => {
             ReactDOM.render(<ScenarioStatusPill scenario={{}} />, container, () => {
-                const pill = container.querySelector('.scenario-status-pill');
+                const pill = container.querySelector('.sv-scenario-status-pill');
                 expect(pill).toExist();
                 expect(pill.className).toInclude('status-created');
                 done();
@@ -45,7 +45,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 <ScenarioStatusPill scenario={{status: 'building'}} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
                     expect(pill.className).toInclude('status-building');
                     expect(container.querySelector('.glyphicon-spin')).toExist();
                     done();
@@ -58,7 +58,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 <ScenarioStatusPill scenario={{status: 'queued'}} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
                     expect(pill.className).toInclude('status-queued');
                     expect(container.querySelector('.glyphicon-spin')).toExist();
                     done();
@@ -66,7 +66,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-computing with progress bar and pct', (done) => {
+        it('renders sv-status-computing with progress bar and pct', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{
                     status: 'computing',
@@ -74,14 +74,14 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 }} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-computing');
-                    const fill = container.querySelector('.scenario-status-progress-fill');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
+                    expect(pill.className).toInclude('sv-status-computing');
+                    const fill = container.querySelector('.sv-scenario-status-progress-fill');
                     expect(fill).toExist();
                     expect(fill.style.width).toBe('38%');
-                    const pct = container.querySelector('.scenario-status-progress-pct');
+                    const pct = container.querySelector('.sv-scenario-status-progress-pct');
                     expect(pct.textContent).toBe('38%');
-                    const eta = container.querySelector('.scenario-status-progress-eta');
+                    const eta = container.querySelector('.sv-scenario-status-progress-eta');
                     expect(eta).toExist();
                     expect(eta.textContent).toBe('2m');
                     done();
@@ -89,14 +89,14 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-computing with zero pct + no eta when latest_run absent', (done) => {
+        it('renders sv-status-computing with zero pct + no eta when latest_run absent', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'computing'}} />,
                 container,
                 () => {
-                    const fill = container.querySelector('.scenario-status-progress-fill');
+                    const fill = container.querySelector('.sv-scenario-status-progress-fill');
                     expect(fill.style.width).toBe('0%');
-                    const eta = container.querySelector('.scenario-status-progress-eta');
+                    const eta = container.querySelector('.sv-scenario-status-progress-eta');
                     expect(eta).toNotExist();
                     done();
                 }
@@ -108,7 +108,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 <ScenarioStatusPill scenario={{status: 'processing'}} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
                     expect(pill.className).toInclude('status-processing');
                     expect(container.querySelector('.glyphicon-spin')).toExist();
                     done();
@@ -116,20 +116,20 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-complete with green check', (done) => {
+        it('renders sv-status-complete with green check', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'complete'}} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-complete');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
+                    expect(pill.className).toInclude('sv-status-complete');
                     expect(container.querySelector('.glyphicon-ok')).toExist();
                     done();
                 }
             );
         });
 
-        it('renders status-error with truncated error_message tooltip', (done) => {
+        it('renders sv-status-error with truncated error_message tooltip', (done) => {
             const longMsg = 'a'.repeat(50);
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{
@@ -138,9 +138,9 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 }} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-error');
-                    const detail = container.querySelector('.scenario-status-error-detail');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
+                    expect(pill.className).toInclude('sv-status-error');
+                    const detail = container.querySelector('.sv-scenario-status-error-detail');
                     expect(detail).toExist();
                     expect(detail.getAttribute('title')).toBe(longMsg);
                     // 30 chars + ellipsis.
@@ -151,36 +151,36 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-error without detail span when error_message absent', (done) => {
+        it('renders sv-status-error without detail span when error_message absent', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'error'}} />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-status-error-detail')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-status-error-detail')).toNotExist();
                     done();
                 }
             );
         });
 
-        it('renders status-cancelled', (done) => {
+        it('renders sv-status-cancelled', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'cancelled'}} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-cancelled');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
+                    expect(pill.className).toInclude('sv-status-cancelled');
                     done();
                 }
             );
         });
 
-        it('renders status-built', (done) => {
+        it('renders sv-status-built', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'built'}} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-built');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
+                    expect(pill.className).toInclude('sv-status-built');
                     done();
                 }
             );
@@ -196,7 +196,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 }} />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
                     expect(pill.className).toInclude('status-building');
                     done();
                 }
@@ -210,7 +210,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 <ScenarioStatusPill scenario={{status: 'built'}} compact />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill');
+                    const pill = container.querySelector('.sv-scenario-status-pill');
                     expect(pill.className).toInclude('is-compact');
                     done();
                 }
@@ -225,7 +225,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-status-progress-eta')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-status-progress-eta')).toNotExist();
                     done();
                 }
             );
@@ -239,7 +239,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-status-error-detail')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-status-error-detail')).toNotExist();
                     done();
                 }
             );
@@ -258,7 +258,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    const bar = container.querySelector('.scenario-status-mini-bar');
+                    const bar = container.querySelector('.sv-scenario-status-mini-bar');
                     expect(bar).toExist();
                     expect(bar.style.width).toBe('42%');
                     done();
@@ -274,7 +274,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    const bar = container.querySelector('.scenario-status-mini-bar');
+                    const bar = container.querySelector('.sv-scenario-status-mini-bar');
                     expect(bar.style.width).toBe('100%');
                     done();
                 }
@@ -289,7 +289,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-status-mini-pulse')).toExist();
+                    expect(container.querySelector('.sv-scenario-status-mini-pulse')).toExist();
                     done();
                 }
             );
@@ -300,7 +300,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 <ScenarioStatusPill scenario={{status: 'computing'}} compact />,
                 container,
                 () => {
-                    const bar = container.querySelector('.scenario-status-mini-bar');
+                    const bar = container.querySelector('.sv-scenario-status-mini-bar');
                     expect(bar.style.width).toBe('0%');
                     done();
                 }
@@ -321,7 +321,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill.is-compact.status-error');
+                    const pill = container.querySelector('.sv-scenario-status-pill.is-compact.sv-status-error');
                     expect(pill).toExist();
                     expect(pill.getAttribute('title')).toBe(msg);
                     done();
@@ -338,7 +338,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill.is-compact.status-error');
+                    const pill = container.querySelector('.sv-scenario-status-pill.is-compact.sv-status-error');
                     const title = pill.getAttribute('title');
                     expect(title.length).toBe(203);
                     expect(title.endsWith('...')).toBe(true);
@@ -352,7 +352,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 <ScenarioStatusPill scenario={{status: 'error'}} compact />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill.is-compact.status-error');
+                    const pill = container.querySelector('.sv-scenario-status-pill.is-compact.sv-status-error');
                     expect(pill.getAttribute('title')).toBe(null);
                     done();
                 }

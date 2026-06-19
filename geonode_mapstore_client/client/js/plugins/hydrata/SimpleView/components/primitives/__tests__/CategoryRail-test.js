@@ -142,7 +142,7 @@ describe('SimpleView CategoryRail primitive (TASK-1007 W3, tested in W4)', () =>
     });
 
     describe('Tristate glyph rendering (per item, conditional on allVisible/noneVisible)', () => {
-        it('renders glyphicon-ok + glyph-active when allVisible=true, noneVisible=false', (done) => {
+        it('renders glyphicon-ok + sv-glyph-active when allVisible=true, noneVisible=false', (done) => {
             const items = [makeItem('A', {allVisible: true, noneVisible: false})];
             ReactDOM.render(
                 <CategoryRail items={items} onSelect={() => {}} onToggleGroupVisibility={() => {}} />,
@@ -150,13 +150,13 @@ describe('SimpleView CategoryRail primitive (TASK-1007 W3, tested in W4)', () =>
                 () => {
                     const tri = container.querySelector('.sv-category-rail-item-tristate');
                     expect(tri.className).toInclude('glyphicon-ok');
-                    expect(tri.className).toInclude('glyph-active');
+                    expect(tri.className).toInclude('sv-glyph-active');
                     done();
                 }
             );
         });
 
-        it('renders glyphicon-remove + glyph-inactive when allVisible=false, noneVisible=true', (done) => {
+        it('renders glyphicon-remove + sv-glyph-inactive when allVisible=false, noneVisible=true', (done) => {
             const items = [makeItem('A', {allVisible: false, noneVisible: true})];
             ReactDOM.render(
                 <CategoryRail items={items} onSelect={() => {}} onToggleGroupVisibility={() => {}} />,
@@ -164,13 +164,13 @@ describe('SimpleView CategoryRail primitive (TASK-1007 W3, tested in W4)', () =>
                 () => {
                     const tri = container.querySelector('.sv-category-rail-item-tristate');
                     expect(tri.className).toInclude('glyphicon-remove');
-                    expect(tri.className).toInclude('glyph-inactive');
+                    expect(tri.className).toInclude('sv-glyph-inactive');
                     done();
                 }
             );
         });
 
-        it('renders glyphicon-minus + glyph-partial when allVisible=false, noneVisible=false (partial)', (done) => {
+        it('renders glyphicon-minus + sv-glyph-partial when allVisible=false, noneVisible=false (partial)', (done) => {
             const items = [makeItem('A', {allVisible: false, noneVisible: false})];
             ReactDOM.render(
                 <CategoryRail items={items} onSelect={() => {}} onToggleGroupVisibility={() => {}} />,
@@ -178,13 +178,13 @@ describe('SimpleView CategoryRail primitive (TASK-1007 W3, tested in W4)', () =>
                 () => {
                     const tri = container.querySelector('.sv-category-rail-item-tristate');
                     expect(tri.className).toInclude('glyphicon-minus');
-                    expect(tri.className).toInclude('glyph-partial');
+                    expect(tri.className).toInclude('sv-glyph-partial');
                     done();
                 }
             );
         });
 
-        it('tristate span also carries the shared btn + glyphicon + menu-row-glyph + sv-category-rail-item-tristate classes', (done) => {
+        it('tristate span also carries the shared btn + glyphicon + sv-menu-row-glyph + sv-category-rail-item-tristate classes', (done) => {
             ReactDOM.render(
                 <CategoryRail items={[makeItem('A')]} onSelect={() => {}} onToggleGroupVisibility={() => {}} />,
                 container,
@@ -192,7 +192,7 @@ describe('SimpleView CategoryRail primitive (TASK-1007 W3, tested in W4)', () =>
                     const tri = container.querySelector('.sv-category-rail-item-tristate');
                     expect(tri.className).toInclude('btn');
                     expect(tri.className).toInclude('glyphicon');
-                    expect(tri.className).toInclude('menu-row-glyph');
+                    expect(tri.className).toInclude('sv-menu-row-glyph');
                     expect(tri.className).toInclude('sv-category-rail-item-tristate');
                     done();
                 }
@@ -201,20 +201,20 @@ describe('SimpleView CategoryRail primitive (TASK-1007 W3, tested in W4)', () =>
     });
 
     describe('tristateGlyph pure function', () => {
-        it('returns "glyphicon-ok glyph-active" when allVisible=true, noneVisible=false', () => {
-            expect(tristateGlyph(true, false)).toBe('glyphicon-ok glyph-active');
+        it('returns "glyphicon-ok sv-glyph-active" when allVisible=true, noneVisible=false', () => {
+            expect(tristateGlyph(true, false)).toBe('glyphicon-ok sv-glyph-active');
         });
 
-        it('returns "glyphicon-remove glyph-inactive" when allVisible=false, noneVisible=true', () => {
-            expect(tristateGlyph(false, true)).toBe('glyphicon-remove glyph-inactive');
+        it('returns "glyphicon-remove sv-glyph-inactive" when allVisible=false, noneVisible=true', () => {
+            expect(tristateGlyph(false, true)).toBe('glyphicon-remove sv-glyph-inactive');
         });
 
-        it('returns "glyphicon-minus glyph-partial" when allVisible=false, noneVisible=false', () => {
-            expect(tristateGlyph(false, false)).toBe('glyphicon-minus glyph-partial');
+        it('returns "glyphicon-minus sv-glyph-partial" when allVisible=false, noneVisible=false', () => {
+            expect(tristateGlyph(false, false)).toBe('glyphicon-minus sv-glyph-partial');
         });
 
-        it('returns "glyphicon-ok glyph-active" for the degenerate (true, true) input (allVisible branch wins)', () => {
-            expect(tristateGlyph(true, true)).toBe('glyphicon-ok glyph-active');
+        it('returns "glyphicon-ok sv-glyph-active" for the degenerate (true, true) input (allVisible branch wins)', () => {
+            expect(tristateGlyph(true, true)).toBe('glyphicon-ok sv-glyph-active');
         });
     });
 

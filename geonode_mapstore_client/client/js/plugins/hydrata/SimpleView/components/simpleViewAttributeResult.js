@@ -32,9 +32,8 @@ class SimpleViewAttributeResultClass extends React.Component {
         return (
             <div
                 id={'simple-view-attribute-result-panel'}
-                className={'simple-view-panel menu-rows-container'}
+                className={'simple-view-panel sv-menu-rows-container'}
                 style={{
-                    backgroundColor: "rgba(0, 60, 136)",
                     textAlign: "left"
                 }}
             >
@@ -43,7 +42,7 @@ class SimpleViewAttributeResultClass extends React.Component {
                         <Message msgId="hydrata.simpleView.importResult" />
                     </div>
                     <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
+                        className={"btn glyphicon glyphicon-remove sv-legend-close"}
                         onClick={() => {
                             this.props.setVisibleSimpleViewAttributeResult(false);
                         }}
@@ -62,7 +61,7 @@ class SimpleViewAttributeResultClass extends React.Component {
                         {Object.keys(this.props.simpleViewAttributeResult).map((key) => {
                             return (
                                 <React.Fragment>
-                                    <h3>
+                                    <h3 style={{fontSize: "var(--sv-header-font-size, 14px)"}}>
                                         {key.charAt(0).toUpperCase() + key.slice(1)} ({this.props.simpleViewAttributeResult[key].length}):
                                     </h3>
                                     {

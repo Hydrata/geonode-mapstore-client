@@ -249,7 +249,7 @@ class NetworksPaneClass extends React.Component {
         const actions = (
             <React.Fragment>
                 <span
-                    className={'btn glyphicon menu-row-glyph glyph-settings glyphicon-cog'}
+                    className={'btn glyphicon sv-menu-row-glyph sv-glyph-settings glyphicon-cog'}
                     title="Network settings"
                     onClick={() => {
                         this.props.setNetworkMenu(true);
@@ -260,17 +260,17 @@ class NetworksPaneClass extends React.Component {
                 {canEdit ? (
                     <React.Fragment>
                         <span
-                            className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                            className={`btn glyphicon sv-menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                             onClick={this._handleCreateClick}
                             aria-label={inputVisible ? 'Save' : 'Add new'}
                         />
                         {isCreatingAnugaLayer ? (
-                            <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
+                            <Spinner color="white" className="sv-anuga-spinner" spinnerName="circle" noFadeIn/>
                         ) : inputVisible ? (
                             <input
                                 id="networks-pane-network-input"
                                 key="networks-pane-network-input"
-                                className={'data-title-input'}
+                                className={'sv-data-title-input'}
                                 type={'text'}
                                 value={networkTitle}
                                 onChange={(e) => this.setState({networkTitle: e.target.value})}
@@ -292,7 +292,7 @@ class NetworksPaneClass extends React.Component {
         );
 
         return (
-            <div className="menu-rows-pane anuga-pane hydrology-networks-pane">
+            <div className="sv-menu-rows-pane sv-anuga-pane hydrology-networks-pane">
                 {/* TASK-1453: Terrain selector — step 1 of future network delineation */}
                 <TerrainSelector
                     terrainList={terrainList}
@@ -303,25 +303,25 @@ class NetworksPaneClass extends React.Component {
                 />
 
                 {/* Pane header — mirrors anugaInputMenu's renderPaneHead for 'networks' */}
-                <div className="anuga-pane-toolbar">
-                    <h3 className="anuga-pane-head-title">
+                <div className="sv-anuga-pane-toolbar">
+                    <h3 className="sv-anuga-pane-head-title">
                         <Message msgId="hydrata.anuga.networks" />
                     </h3>
-                    <span className="anuga-pane-head-actions">{actions}</span>
+                    <span className="sv-anuga-pane-head-actions">{actions}</span>
                 </div>
 
                 {/* TASK-1440: Catchments / Nodes / Links read-only display */}
-                <div className="anuga-pane-rows">
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
+                <div className="sv-anuga-pane-rows">
+                    <div className={'sv-menu-row-mini-container'}>
+                        <p className={'sv-menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
                         {(this.props.catchmentLayers || []).map(c => <MenuRow key={c?.name || c?.id} layer={c}/>)}
                     </div>
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
+                    <div className={'sv-menu-row-mini-container'}>
+                        <p className={'sv-menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
                         {(this.props.nodesLayers || []).map(n => <MenuRow key={n?.name || n?.id} layer={n}/>)}
                     </div>
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
+                    <div className={'sv-menu-row-mini-container'}>
+                        <p className={'sv-menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
                         {(this.props.linksLayers || []).map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
                     </div>
                 </div>

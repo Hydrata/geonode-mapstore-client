@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
  * ProgressBar — thin horizontal track + fill.
  *
  * Best-of-breed source:
- *   anuga.css  .anuga-scenario-status-card-progress-track + -fill
+ *   anuga.css  .sv-anuga-scenario-status-card-progress-track + -fill
  *   taskMonitor.css  .tm-progress-bar-container + .tm-progress-bar
  *
  * Themed via --sv-* tokens only.

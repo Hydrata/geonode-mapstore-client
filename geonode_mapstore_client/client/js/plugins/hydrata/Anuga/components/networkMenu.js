@@ -9,8 +9,12 @@ import {
     saveNetwork,
     runNetwork
 } from "../actionsAnuga";
-import {Table, Button} from "react-bootstrap";
+import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
+// TASK-1764 (epic-1758 W1) — chassis PanelHeader (cascade-safe close chip,
+// replaces the bespoke .sv-legend-close span) + chassis Table (dark-glass surface,
+// .sv-network-table rides extraClassName). No test pins the networkMenu DOM.
+import {PanelHeader, Table as ChassisTable} from '../../SimpleView/components/primitives';
 
 class NetworkMenuClass extends React.Component {
     static propTypes = {
@@ -37,20 +41,20 @@ class NetworkMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-network-container'} className={'simple-view-panel anuga-panel'}>
-                <div className={'menu-rows-container'}>
-                    <div className={"row menu-row-header"}>
-                        <h3><Message msgId="hydrata.anuga.hydrology" /></h3>
-                        <span
-                            className={"btn glyphicon glyphicon-remove legend-close"}
-                            onClick={() => {
-                                this.props.setNetworkMenu(false);
-                            }}
-                        />
+            <div id={'anuga-network-container'} className={'simple-view-panel sv-anuga-panel'}>
+                <div className={'sv-menu-rows-container'}>
+                    <PanelHeader
+                        extraClassName="sv-menu-row-header"
+                        title={<Message msgId="hydrata.anuga.hydrology" />}
+                        onClose={() => {
+                            this.props.setNetworkMenu(false);
+                        }}
+                    />
+                    <div className={"row"}>
                         <div>
-                            <Table className={"network-table"}>
+                            <ChassisTable surface="dark" extraClassName="sv-network-table">
                                 <thead>
-                                    <tr className={"network-table-header"}>
+                                    <tr className={"sv-network-table-header"}>
                                         <th><Message msgId="hydrata.anuga.id" /></th>
                                         <th><Message msgId="hydrata.anuga.name" /></th>
                                         <th><Message msgId="hydrata.anuga.terrain" /></th>
@@ -65,7 +69,7 @@ class NetworkMenuClass extends React.Component {
                                     {
                                         this.props.networks?.map(network => {
                                             return (
-                                                <tr key={network.id} className={'scenario-table-row'}>
+                                                <tr key={network.id} className={'sv-scenario-table-row'}>
                                                     <td>{network.id}</td>
                                                     <td>
                                                         {network.title}
@@ -75,7 +79,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'terrain'}
                                                             key={`terrain-${network.id}`}
                                                             value={network?.terrain}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
@@ -94,7 +98,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'node'}
                                                             key={`node-${network.id}`}
                                                             value={network?.node}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
@@ -113,7 +117,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'links'}
                                                             key={`links-${network.id}`}
                                                             value={network?.links}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
@@ -132,7 +136,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'method'}
                                                             key={`method`}
                                                             value={'rational'}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                         >
                                                             <option value={"rational"}>rational</option>
                                                         </select>
@@ -142,7 +146,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'inflow'}
                                                             key={`inflow-${network.id}`}
                                                             value={network?.inflow}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
@@ -160,7 +164,7 @@ class NetworkMenuClass extends React.Component {
                                                         <Button
                                                             bsStyle={'success'}
                                                             bsSize={'xsmall'}
-                                                            className={"anuga-btn" + (network?.unsaved ? '' : ' disabled')}
+                                                            className={"sv-anuga-btn" + (network?.unsaved ? '' : ' disabled')}
                                                             onClick={() => {
                                                                 if (network?.unsaved) {
                                                                     this.props.saveNetwork(network);
@@ -172,7 +176,7 @@ class NetworkMenuClass extends React.Component {
                                                         <Button
                                                             bsStyle={'success'}
                                                             bsSize={'xsmall'}
-                                                            className="anuga-btn"
+                                                            className="sv-anuga-btn"
                                                             onClick={() => {
                                                                 this.props.runNetwork(network);
                                                             }}
@@ -185,7 +189,7 @@ class NetworkMenuClass extends React.Component {
                                         })
                                     }
                                 </tbody>
-                            </Table>
+                            </ChassisTable>
                         </div>
                     </div>
                 </div>

@@ -51,6 +51,8 @@ export {
     // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
     createAnugaRainfallEpic,
     createAnugaStructureEpic,
+    // TASK-1594 (W1) — Culvert: terrain-workbench drainage structure.
+    createAnugaCulvertEpic,
     createAnugaMeshRegionEpic,
     createNetworkEpic,
     createCatchmentEpic,

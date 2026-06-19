@@ -1,7 +1,8 @@
 import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
-import { Glyphicon, Table, Button, ProgressBar } from 'react-bootstrap';
+import { Glyphicon, Button, ProgressBar } from 'react-bootstrap';
+import { Table } from './primitives';
 import Dropzone from 'react-dropzone';
 import {
     setVisibleUploaderPanel,
@@ -50,16 +51,15 @@ export class simpleViewUploaderPanel extends React.Component {
             uploaderFiles: [],
             newTitle: null
         };
-        this.beginTooltip = React.createRef();
     }
 
     render() {
         return this.props.visibleUploaderPanel ?
-            <div className={'simple-view-panel uploader-panel'}>
-                <div className={"row h4 legend-heading"}>
+            <div className={'simple-view-panel sv-uploader-panel'}>
+                <div className={"row h4 sv-legend-heading"}>
                     Upload {this.props?.config?.title} File ({this.props?.config?.filetype})
                     <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
+                        className={"btn glyphicon glyphicon-remove sv-legend-close"}
                         onClick={() => {
                             this.props.setVisibleUploaderPanel(false);
                             trackEvent('button', `click`, `simpleview-uploader-close`);
@@ -67,7 +67,7 @@ export class simpleViewUploaderPanel extends React.Component {
                     />
                 </div>
                 {this.state.uploaderFiles.length > 0 ?
-                    <Table bordered condensed hover ref={this.beginTooltip} style={{'tableLayout': 'fixed'}}>
+                    <Table surface="dark" style={{'tableLayout': 'fixed'}}>
                         <thead>
                             <tr>
                                 <th width="160px" key="hname"><Message msgId="hydrata.simpleView.title" /></th>
@@ -85,7 +85,7 @@ export class simpleViewUploaderPanel extends React.Component {
                                             <input
                                                 id={'newTitle'}
                                                 key={'newTitle'}
-                                                className={'data-title-input'}
+                                                className={'sv-data-title-input'}
                                                 type={'text'}
                                                 value={this.state.newTitle || file.name.split('.').slice(0)[0]}
                                                 onChange={(e) => this.setState({newTitle: e.target.value})}
@@ -104,7 +104,7 @@ export class simpleViewUploaderPanel extends React.Component {
                                                             this.uploadFile(this.state.uploaderFiles, this.props.fileType || 'file');
                                                             trackEvent('button', `click`, `simpleview-uploader-begin`);
                                                         }}
-                                                        style={{'borderRadius': '3px'}}
+                                                        style={{'borderRadius': 'var(--sv-card-radius, 4px)'}}
                                                         bsSize={'small'}
                                                         bsStyle={'success'}
                                                         disabled={!this.props?.config?.app_name || !this.props?.projectId || !this.props?.importerConfigKey}

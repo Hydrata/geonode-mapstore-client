@@ -3,6 +3,7 @@ const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
+import {EmptyState} from '../../SimpleView/components/primitives';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 
 /**
@@ -10,7 +11,7 @@ import {ScenarioStatusPill} from './scenarioStatusPill';
  * the Miller-columns rail. Reuses the SimpleView `.sv-category-rail-item`
  * shell (defined in simpleView.css:840+) so all existing rail hover, focus,
  * and `.is-active` selectors apply unchanged. Adds scenario-specific
- * modifier classes (`.scenario-rail-item.is-archived`, `.is-unsaved`) and
+ * modifier classes (`.sv-scenario-rail-item.is-archived`, `.is-unsaved`) and
  * a 2-line layout with the compact `ScenarioStatusPill` underneath the id +
  * name row.
  *
@@ -19,7 +20,7 @@ import {ScenarioStatusPill} from './scenarioStatusPill';
  * deterministic per the React 16.14/dom 16.10 mismatch pin
  * (feedback-mapstore-react-version-mismatch).
  *
- * Ownership badge reuses the `.scenario-ownership-mine|other` rules from
+ * Ownership badge reuses the `.sv-scenario-ownership-mine|other` rules from
  * anuga.css:850-857. Unsaved drafts render `#*` for the id; archived rows
  * dim opacity via `.is-archived`.
  *
@@ -55,13 +56,13 @@ const ScenarioRailItem = ({
     if (scenario.id && ownerId != null) { // eslint-disable-line no-eq-null, eqeqeq
         if (currentUserId != null && ownerId === currentUserId) { // eslint-disable-line no-eq-null, eqeqeq
             ownershipBadge = (
-                <span className="scenario-ownership-badge scenario-ownership-mine">
+                <span className="sv-scenario-ownership-badge sv-scenario-ownership-mine">
                     <Message msgId="hydrata.anuga.yourScenario" />
                 </span>
             );
         } else if (scenario.created_by_username) {
             ownershipBadge = (
-                <span className="scenario-ownership-badge scenario-ownership-other">
+                <span className="sv-scenario-ownership-badge sv-scenario-ownership-other">
                     <Message msgId="hydrata.anuga.createdByPrefix" /> {scenario.created_by_username}
                 </span>
             );
@@ -70,7 +71,7 @@ const ScenarioRailItem = ({
 
     const className = [
         'sv-category-rail-item',
-        'scenario-rail-item',
+        'sv-scenario-rail-item',
         isActive ? 'is-active' : '',
         isArchived ? 'is-archived' : '',
         isUnsaved ? 'is-unsaved' : ''
@@ -104,7 +105,7 @@ const ScenarioRailItem = ({
         >
             <span
                 className={
-                    'scenario-rail-item-compare-checkbox'
+                    'sv-scenario-rail-item-compare-checkbox'
           + (compareMode ? '' : ' is-hidden')
           + (isSelected ? ' is-checked' : '')
                 }
@@ -128,23 +129,23 @@ const ScenarioRailItem = ({
                     aria-hidden="true"
                 />
             </span>
-            <div className="scenario-rail-item-body">
-                <div className="scenario-rail-item-top">
-                    <span className="scenario-rail-item-id">{idLabel}</span>
+            <div className="sv-scenario-rail-item-body">
+                <div className="sv-scenario-rail-item-top">
+                    <span className="sv-scenario-rail-item-id">{idLabel}</span>
                     {isUnsaved ?
-                        <span className="scenario-rail-item-unsaved" aria-label={unsavedAriaLabel}>*</span> : null
+                        <span className="sv-scenario-rail-item-unsaved" aria-label={unsavedAriaLabel}>*</span> : null
                     }
-                    <h5 className="sv-category-rail-item-label scenario-rail-item-name">
+                    <h5 className="sv-category-rail-item-label sv-scenario-rail-item-name">
                         {scenario.name || ''}
                     </h5>
                     {isArchived ?
                         <span
-                            className="scenario-rail-item-archived-dot glyphicon glyphicon-folder-close"
+                            className="sv-scenario-rail-item-archived-dot glyphicon glyphicon-folder-close"
                             aria-label={archivedAriaLabel}
                         /> : null
                     }
                 </div>
-                <div className="scenario-rail-item-bottom">
+                <div className="sv-scenario-rail-item-bottom">
                     <ScenarioStatusPill scenario={scenario} compact />
                     {ownershipBadge}
                 </div>
@@ -182,6 +183,12 @@ ScenarioRailItem.contextTypes = {
  * zero-state with a glyph + heading + sub-copy that points the user at the
  * "+ New scenario" button in the header above the rail. Keep the rail
  * container in the DOM so the surrounding shell layout is undisturbed.
+ *
+ * TASK-1730 (Phase-C rollout) — PARITY-migrated onto the shared
+ * {EmptyState} primitive (harvested FROM this very `.sv-anuga-scenario-rail-empty`
+ * glyph + heading + subcopy column). The outer `sv-anuga-scenario-rail-empty`
+ * class is preserved (via `extraClassName`) for the legacy CSS + tests,
+ * while the inner hooks canonicalise to `sv-empty-state-glyph/-heading/-subcopy`.
  */
 const ScenarioRail = ({
     scenarios,
@@ -194,24 +201,19 @@ const ScenarioRail = ({
     const list = scenarios || [];
     if (list.length === 0) {
         return (
-            <div className="sv-category-rail anuga-scenario-rail" role="tablist">
-                <div className="anuga-scenario-rail-empty">
-                    <span
-                        className="anuga-scenario-rail-empty-glyph glyphicon glyphicon-list-alt"
-                        aria-hidden="true"
-                    />
-                    <h5 className="anuga-scenario-rail-empty-heading">
-                        <Message msgId="hydrata.anuga.emptyScenariosHeading" />
-                    </h5>
-                    <p className="anuga-scenario-rail-empty-subcopy">
-                        <Message msgId="hydrata.anuga.emptyScenariosSubcopy" />
-                    </p>
-                </div>
+            <div className="sv-category-rail sv-anuga-scenario-rail" role="tablist">
+                <EmptyState
+                    extraClassName="sv-anuga-scenario-rail-empty"
+                    glyph="glyphicon-list-alt"
+                    heading={<Message msgId="hydrata.anuga.emptyScenariosHeading" />}
+                >
+                    <Message msgId="hydrata.anuga.emptyScenariosSubcopy" />
+                </EmptyState>
             </div>
         );
     }
     return (
-        <div className="sv-category-rail anuga-scenario-rail" role="tablist">
+        <div className="sv-category-rail sv-anuga-scenario-rail" role="tablist">
             {list.map(scenario => {
                 const key = scenario.id || scenario._tempId || `unsaved-${scenario.name || 'new'}`;
                 const isActive = !!selectedId && (scenario.id === selectedId || scenario._tempId === selectedId);

@@ -8,6 +8,14 @@ import {ScenarioCategoryRail} from './scenarioCategoryRail';
 import {ScenarioResourceSummary, summariseResource} from './scenarioResourceSummary';
 import {ScenarioStatusCard} from './scenarioStatusCard';
 import {ScenarioErrorStrip} from './scenarioErrorStrip';
+// TASK-1764 (epic-1758 W1) — chassis FormRow frames the scenario-detail
+// label/field rows (Inputs / Advanced / Run). The legacy
+// .sv-anuga-scenario-pane-section row class rides extraClassName so the
+// existing chrome + the scenarioPane test's
+// .sv-anuga-scenario-pane-field.is-readonly / #id assertions stay intact; the
+// .sv-anuga-scenario-pane-field wrapper (carrying .is-readonly) is preserved as
+// the FormRow child so the readonly-count contract holds.
+import {FormRow} from '../../SimpleView/components/primitives';
 
 /**
  * Per-category pane renderer for the Miller-columns scenarios panel. The
@@ -100,14 +108,14 @@ class ScenarioRunLog extends React.Component {
     render() {
         const {log, lineCount} = this.props;
         return (
-            <div className="anuga-scenario-pane-log">
-                <div className="anuga-scenario-pane-log-head">
-                    <span className="anuga-scenario-pane-log-title">
+            <div className="sv-anuga-scenario-pane-log">
+                <div className="sv-anuga-scenario-pane-log-head">
+                    <span className="sv-anuga-scenario-pane-log-title">
                         <Message msgId="hydrata.anuga.log" />
                         {Number.isFinite(lineCount) ? ` (${lineCount})` : null}
                     </span>
                 </div>
-                <pre ref={this.logRef} className="anuga-scenario-pane-log-viewer">
+                <pre ref={this.logRef} className="sv-anuga-scenario-pane-log-viewer">
                     {formatBuildLog(log) || ''}
                 </pre>
             </div>
@@ -123,16 +131,21 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
     // Wave 3B (B4) — when the user lacks edit perms (canEdit=false → disabled
     // here), tag the wrapper with .is-readonly so the field is visually dim
     // and the cursor flips to not-allowed via CSS.
-    const fieldClass = 'anuga-scenario-pane-field' + (disabled ? ' is-readonly' : '');
+    const fieldClass = 'sv-anuga-scenario-pane-field' + (disabled ? ' is-readonly' : '');
     return (
-        <div className="anuga-scenario-pane-section" key={id}>
-            <label className="anuga-scenario-pane-label" htmlFor={id}>
-                <Message msgId={label} />
-            </label>
+        <FormRow
+            key={id}
+            extraClassName="sv-anuga-scenario-pane-section"
+            label={
+                <label className="sv-anuga-scenario-pane-label" htmlFor={id}>
+                    <Message msgId={label} />
+                </label>
+            }
+        >
             <div className={fieldClass}>
                 <select
                     id={id}
-                    className={'scenario-select'}
+                    className={'sv-scenario-select'}
                     value={value || ''}
                     disabled={disabled}
                     onChange={(e) => {
@@ -148,7 +161,7 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
                     ))}
                 </select>
             </div>
-        </div>
+        </FormRow>
     );
 }
 
@@ -169,7 +182,7 @@ function renderResourceSummary(scenario, kind, resourceList) {
     return (
         <ScenarioResourceSummary
             kind={kind}
-            body={<span className="anuga-scenario-resource-summary-placeholder">—</span>}
+            body={<span className="sv-anuga-scenario-resource-summary-placeholder">—</span>}
             meta={null}
             extraClassName="is-empty"
         />
@@ -184,28 +197,40 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
+    // TASK-1587 W1.9 UAT (2026-06-19): the V2 terrain list now (correctly)
+    // surfaces layer-less terrains (status 'creating' / 'error') so they can be
+    // cleaned up from the Terrain menu — but a non-runnable terrain must NOT be
+    // selectable as a scenario's terrain. Filter the PICKER options to
+    // status === 'ready' (the runnable status, matching the BE
+    // Terrain.objects.filter(status='ready') gate). The resource SUMMARY below
+    // keeps the full list so an already-assigned terrain still resolves.
+    const selectableTerrain = (terrain || []).filter(t => t?.status === 'ready');
     // Wave 3B (B4) — wrappers get .is-readonly when canEdit=false so the
     // dim + cursor:not-allowed treatment in anuga.css applies. Input keeps
     // readOnly (not disabled) so the user can still focus + copy the value.
-    const nameFieldClass = 'anuga-scenario-pane-field' + (!canEdit ? ' is-readonly' : '');
+    const nameFieldClass = 'sv-anuga-scenario-pane-field' + (!canEdit ? ' is-readonly' : '');
     return (
-        <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-inputs">
-            <div className="anuga-scenario-pane-section">
-                <label className="anuga-scenario-pane-label" htmlFor="name">
-                    <Message msgId="hydrata.anuga.name" />
-                </label>
+        <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-inputs">
+            <FormRow
+                extraClassName="sv-anuga-scenario-pane-section"
+                label={
+                    <label className="sv-anuga-scenario-pane-label" htmlFor="name">
+                        <Message msgId="hydrata.anuga.name" />
+                    </label>
+                }
+            >
                 <div className={nameFieldClass}>
                     <input
                         id="name"
                         type="text"
-                        className="scenario-input"
+                        className="sv-scenario-input"
                         value={scenario?.name || ''}
                         readOnly={!canEdit}
                         onChange={(e) => handleField({name: e.target.value})}
                     />
                 </div>
-            </div>
-            {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, terrain, !canEdit, handleField)}
+            </FormRow>
+            {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'terrain', terrain)}
             {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'boundary', boundaries)}
@@ -227,7 +252,7 @@ function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, str
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
     return (
-        <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-advanced">
+        <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-advanced">
             {renderSelectField('friction', 'hydrata.anuga.friction', scenario?.friction, frictions, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'friction', frictions)}
             {renderSelectField('structure', 'hydrata.anuga.structures', scenario?.structure, structures, !canEdit, handleField)}
@@ -271,61 +296,73 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
         handleField({compute_backend: next});
     };
     // Wave 3B (B4) — same is-readonly wrapper toggle as renderInputsPane.
-    const unitFieldClass = 'anuga-scenario-pane-field anuga-scenario-pane-field--unit'
+    const unitFieldClass = 'sv-anuga-scenario-pane-field sv-anuga-scenario-pane-field--unit'
         + (!canEdit ? ' is-readonly' : '');
-    const selectFieldClass = 'anuga-scenario-pane-field' + (!canEdit ? ' is-readonly' : '');
+    const selectFieldClass = 'sv-anuga-scenario-pane-field' + (!canEdit ? ' is-readonly' : '');
 
     return (
-        <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-run-config">
-            <div className="anuga-scenario-pane-section">
-                <label className="anuga-scenario-pane-label" htmlFor="resolution">
-                    <Message msgId="hydrata.anuga.resolutionM2" />
-                </label>
+        <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run-config">
+            <FormRow
+                extraClassName="sv-anuga-scenario-pane-section"
+                label={
+                    <label className="sv-anuga-scenario-pane-label" htmlFor="resolution">
+                        <Message msgId="hydrata.anuga.resolutionM2" />
+                    </label>
+                }
+            >
                 <div className={unitFieldClass}>
                     <input
                         id="resolution"
                         type="number"
-                        className="scenario-input scenario-input-narrow"
+                        className="sv-scenario-input sv-scenario-input-narrow"
                         value={scenario?.resolution != null ? scenario.resolution : ''} // eslint-disable-line no-eq-null, eqeqeq
                         readOnly={!canEdit}
                         onChange={handleResolutionChange}
                     />
                     {/* TASK-1413: resolution is a target edge-length in metres (not m²).
                         Formula: triangles ≈ area / (resolution² / 2) confirms linear m. */}
-                    <span className="anuga-scenario-pane-field-unit">m</span>
+                    <span className="sv-anuga-scenario-pane-field-unit">m</span>
                 </div>
-            </div>
-            <div className="anuga-scenario-pane-section">
-                <label className="anuga-scenario-pane-label" htmlFor="duration">
-                    <Message msgId="hydrata.anuga.duration" />
-                </label>
+            </FormRow>
+            <FormRow
+                extraClassName="sv-anuga-scenario-pane-section"
+                label={
+                    <label className="sv-anuga-scenario-pane-label" htmlFor="duration">
+                        <Message msgId="hydrata.anuga.duration" />
+                    </label>
+                }
+            >
                 <div className={unitFieldClass}>
                     <input
                         id="duration"
                         type="text"
-                        className="scenario-input scenario-input-narrow"
+                        className="sv-scenario-input sv-scenario-input-narrow"
                         value={scenario?.tempTimeString != null ? scenario.tempTimeString : toHHMM(scenario?.duration)} // eslint-disable-line no-eq-null, eqeqeq
                         readOnly={!canEdit}
                         onChange={handleTimeChange}
                         onBlur={handleTimeBlur}
                     />
                     {/* TASK-1414: duration stored in seconds, displayed as hh:mm */}
-                    <span className="anuga-scenario-pane-field-unit">hh:mm</span>
+                    <span className="sv-anuga-scenario-pane-field-unit">hh:mm</span>
                 </div>
-            </div>
+            </FormRow>
             {/* TASK-1415: compute selector is superuser-only (FE advisory gate;
                   server-side enforcement is in StartRunView.post). Non-superusers
                   never see this field — the backend ignores their compute_backend
                   and always uses ANUGA_DEFAULT_COMPUTE_BACKEND. */}
             {isSuperuser ? (
-                <div className="anuga-scenario-pane-section">
-                    <label className="anuga-scenario-pane-label" htmlFor="compute_backend">
-                        <Message msgId="hydrata.anuga.computeBackend" />
-                    </label>
+                <FormRow
+                    extraClassName="sv-anuga-scenario-pane-section"
+                    label={
+                        <label className="sv-anuga-scenario-pane-label" htmlFor="compute_backend">
+                            <Message msgId="hydrata.anuga.computeBackend" />
+                        </label>
+                    }
+                >
                     <div className={selectFieldClass}>
                         <select
                             id="compute_backend"
-                            className="scenario-select"
+                            className="sv-scenario-select"
                             value={scenario?.compute_backend || ''}
                             disabled={!canEdit}
                             onChange={handleBackendChange}
@@ -350,17 +387,17 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                             }
                         </select>
                     </div>
-                </div>
+                </FormRow>
             ) : null}
-            <div className="anuga-scenario-pane-section anuga-scenario-pane-section--help">
-                <span className="anuga-scenario-pane-help">
+            <div className="sv-anuga-scenario-pane-section sv-anuga-scenario-pane-section--help">
+                <span className="sv-anuga-scenario-pane-help">
                     <Message msgId="hydrata.anuga.runConfigHelp" />
                 </span>
             </div>
             {/* W3.2 (TASK-1267) — pre-dispatch triangle count + cost estimate */}
             {((scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined) || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined)) && (
-                <div className="anuga-scenario-pane-section anuga-scenario-estimate-section">
-                    <span className="anuga-scenario-estimate-label">
+                <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
+                    <span className="sv-anuga-scenario-estimate-label">
                         {'Estimate: '}
                         {scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined
                             ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
@@ -395,14 +432,14 @@ function renderRunPane(props) {
         onArchiveClick, onUnarchiveClick, onConfirmDelete, onConfirmCancelRun
     } = props;
     return (
-        <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-run">
+        <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
             {/* Section (a): config fields */}
             {renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstances, isSuperuser})}
             {/* Section (b): status feedback (ETA, progress, error) */}
             <ScenarioErrorStrip scenario={scenario} />
             <ScenarioStatusCard scenario={scenario} />
             {/* Section (c): action toolbar */}
-            <div className="anuga-scenario-pane-actions">
+            <div className="sv-anuga-scenario-pane-actions">
                 <ScenarioActionToolbar
                     scenario={scenario}
                     canEdit={canEdit}
@@ -440,8 +477,8 @@ function renderDetailHead(selectedCategoryId) {
     };
     const msgId = labelMap[selectedCategoryId] || labelMap.inputs;
     return (
-        <div className="anuga-scenario-pane-detail-head">
-            <h3 className="anuga-scenario-pane-detail-head-title">
+        <div className="sv-anuga-scenario-pane-detail-head">
+            <h3 className="sv-anuga-scenario-pane-detail-head-title">
                 <Message msgId={msgId} />
             </h3>
         </div>
@@ -463,7 +500,11 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
     const {terrain, boundaries, inflows} = resources;
     // Depend on scenario identity (new vs existing) + first-option ids.
     const scenarioId = scenario ? (scenario.id || scenario._tempId) : null;
-    const firstTerrainId = terrain && terrain[0] ? terrain[0].id : null;
+    // TASK-1587 W1.9 UAT (2026-06-19): auto-default to the first RUNNABLE terrain
+    // ('ready') — never a layer-less failed/creating terrain that the V2 list now
+    // surfaces (it can't be selected in the picker either).
+    const firstReadyTerrain = (terrain || []).find(t => t?.status === 'ready');
+    const firstTerrainId = firstReadyTerrain ? firstReadyTerrain.id : null;
     const firstBoundaryId = boundaries && boundaries[0] ? boundaries[0].id : null;
     const firstInflowId = inflows && inflows[0] ? inflows[0].id : null;
 
@@ -501,28 +542,28 @@ const ScenarioPane = (props) => {
     );
 
     return (
-        <div className="menu-rows-pane anuga-pane anuga-scenario-pane">
-            <div className="anuga-pane-toolbar">
-                <span className="anuga-pane-head-label">
+        <div className="sv-menu-rows-pane sv-anuga-pane sv-anuga-scenario-pane">
+            <div className="sv-anuga-pane-toolbar">
+                <span className="sv-anuga-pane-head-label">
                     <Message msgId="hydrata.anuga.scenarios" />
                 </span>
                 {scenario ?
-                    <span className="anuga-pane-head-actions">
+                    <span className="sv-anuga-pane-head-actions">
                         <ScenarioStatusPill scenario={scenario} compact />
                     </span> : null
                 }
             </div>
-            <div className="anuga-scenario-pane-shell">
+            <div className="sv-anuga-scenario-pane-shell">
                 <ScenarioCategoryRail
                     scenario={scenario}
                     selectedCategoryId={resolvedCategory}
                     onSelectCategory={onSelectCategory}
                 />
-                <div className="anuga-scenario-pane-detail">
+                <div className="sv-anuga-scenario-pane-detail">
                     {!scenario ?
-                        <div className="anuga-scenario-empty-pane">
+                        <div className="sv-anuga-scenario-empty-pane">
                             <span
-                                className="anuga-scenario-empty-pane-glyph glyphicon glyphicon-info-sign"
+                                className="sv-anuga-scenario-empty-pane-glyph glyphicon glyphicon-info-sign"
                                 aria-hidden="true"
                             />
                             <Message msgId="hydrata.anuga.emptyPaneSelectScenario" />
@@ -530,15 +571,15 @@ const ScenarioPane = (props) => {
                         <React.Fragment>
                             {renderDetailHead(resolvedCategory)}
                             {!canEdit ?
-                                <div className="anuga-scenario-pane-readonly-hint" role="note">
+                                <div className="sv-anuga-scenario-pane-readonly-hint" role="note">
                                     <span
-                                        className="anuga-scenario-pane-readonly-hint-glyph glyphicon glyphicon-lock"
+                                        className="sv-anuga-scenario-pane-readonly-hint-glyph glyphicon glyphicon-lock"
                                         aria-hidden="true"
                                     />
                                     <Message msgId="hydrata.anuga.readOnlyPaneHint" />
                                 </div> : null
                             }
-                            <div className="anuga-scenario-pane-detail-body">
+                            <div className="sv-anuga-scenario-pane-detail-body">
                                 {resolvedCategory === 'inputs' && renderInputsPane(props)}
                                 {resolvedCategory === 'advanced' && renderAdvancedPane(props)}
                                 {resolvedCategory === 'run' && renderRunPane(props)}

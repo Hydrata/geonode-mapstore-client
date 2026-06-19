@@ -2,12 +2,14 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
+import { Section, Table, Card } from '../../SimpleView/components/primitives';
 import HGevalSignupForm from './hgevalSignupForm';
+import HGevalPanelFooter from './hgevalPanelFooter';
 
 const DataRow = ({ label, value, fallback }) => (
     <tr>
-        <td className="hgeval-label">{label}</td>
-        <td className="hgeval-value">{value || fallback || <Message msgId="hydrata.hgeval.dataNotAvailable" />}</td>
+        <td className="sv-hgeval-label" style={{ fontWeight: 'bold', width: '45%', padding: '3px 6px', color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))', borderBottom: '1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))' }}>{label}</td>
+        <td className="sv-hgeval-value" style={{ padding: '3px 6px', color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', borderBottom: '1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))' }}>{value || fallback || <Message msgId="hydrata.hgeval.dataNotAvailable" />}</td>
     </tr>
 );
 
@@ -128,13 +130,14 @@ const HGevalReportDisplay = ({
     };
 
     return (
-        <div className="hgeval-report">
-            <h4><Message msgId="hydrata.hgeval.evaluationReport" /></h4>
-            <p className="hgeval-project-name"><strong>{form?.name}</strong></p>
+        <div className="sv-hgeval-report" style={{ textAlign: 'left' }}>
+            <h4 style={{ fontSize: '14px', color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', marginBottom: '2px' }}>
+                <Message msgId="hydrata.hgeval.evaluationReport" />
+            </h4>
+            <p className="sv-hgeval-project-name" style={{ fontSize: '13px', marginBottom: '10px', color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))' }}><strong>{form?.name}</strong></p>
 
-            <section className="hgeval-section">
-                <h5><Message msgId="hydrata.hgeval.locationSection" /></h5>
-                <table className="table table-condensed">
+            <Section title={<Message msgId="hydrata.hgeval.locationSection" />}>
+                <Table surface="dark">
                     <tbody>
                         <DataRow label={<Message msgId="hydrata.hgeval.latitude" />} value={coordinates?.lat?.toFixed(6) + '\u00B0'} />
                         <DataRow label={<Message msgId="hydrata.hgeval.longitude" />} value={coordinates?.lon?.toFixed(6) + '\u00B0'} />
@@ -151,12 +154,11 @@ const HGevalReportDisplay = ({
                             <DataRow label={<Message msgId="hydrata.hgeval.island" />} value={island?.name || 'Yes'} />
                         )}
                     </tbody>
-                </table>
-            </section>
+                </Table>
+            </Section>
 
-            <section className="hgeval-section">
-                <h5><Message msgId="hydrata.hgeval.groundwaterAssessment" /></h5>
-                <table className="table table-condensed">
+            <Section title={<Message msgId="hydrata.hgeval.groundwaterAssessment" />}>
+                <Table surface="dark">
                     <tbody>
                         <DataRow label={<Message msgId="hydrata.hgeval.groundwaterPotential" />} value={gwPotential?.EN_GWpot_D} />
                         <DataRow label={<Message msgId="hydrata.hgeval.permeability" />} value={permeability?.EN_PrmDesc} />
@@ -165,12 +167,11 @@ const HGevalReportDisplay = ({
                         <DataRow label={<Message msgId="hydrata.hgeval.geology" />} value={geology?.EN_Desc} />
                         <DataRow label={<Message msgId="hydrata.hgeval.aquiferType" />} value={geology?.EN_Hyd_Env} />
                     </tbody>
-                </table>
-            </section>
+                </Table>
+            </Section>
 
-            <section className="hgeval-section">
-                <h5><Message msgId="hydrata.hgeval.rainfall" /></h5>
-                <table className="table table-condensed">
+            <Section title={<Message msgId="hydrata.hgeval.rainfall" />}>
+                <Table surface="dark">
                     <tbody>
                         <DataRow label={<Message msgId="hydrata.hgeval.annualPrecipitation" />} value={
                             // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
@@ -185,12 +186,14 @@ const HGevalReportDisplay = ({
                                 : null
                         } />
                     </tbody>
-                </table>
-            </section>
+                </Table>
+            </Section>
 
             {warnings.length > 0 && (
-                <section className="hgeval-section hgeval-warnings">
-                    <h5><Message msgId="hydrata.hgeval.warnings" /> ({warnings.length})</h5>
+                <Section title={<span><Message msgId="hydrata.hgeval.warnings" /> ({warnings.length})</span>} extraClassName="sv-hgeval-warnings">
+                    {/* Icon-prefixed warning list has no chassis-primitive equivalent
+                        (ErrorStrip is a single-message strip). Kept as bespoke list markup,
+                        themed via --sv-* tokens. Flagged as a primitive gap (TASK-1762). */}
                     <ul className="list-group">
                         {warnings.map((w, i) => (
                             <li key={i} className="list-group-item list-group-item-warning">
@@ -198,37 +201,41 @@ const HGevalReportDisplay = ({
                             </li>
                         ))}
                     </ul>
-                </section>
+                </Section>
             )}
 
-            <section className="hgeval-section hgeval-disclaimer">
-                <h5><Message msgId="hydrata.hgeval.disclaimer" /></h5>
-                <p>
+            <Card extraClassName="sv-hgeval-disclaimer">
+                <h5 style={{ color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))', borderBottom: '2px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))', paddingBottom: '3px', marginBottom: '6px', fontSize: '13px' }}>
+                    <Message msgId="hydrata.hgeval.disclaimer" />
+                </h5>
+                <p style={{ color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))', fontSize: '11px', fontStyle: 'italic', margin: 0 }}>
                     <Message msgId="hydrata.hgeval.disclaimerText" />
                 </p>
-            </section>
+            </Card>
 
             {isLoggedIn && !hasContact && !savedReport && (
-                <div className="hgeval-contact-prompt">
-                    <p><Message msgId="hydrata.hgeval.enterContactToDownload" /></p>
-                    <div className="hgeval-contact-row">
+                <Card variant="info" extraClassName="sv-hgeval-contact-prompt">
+                    <p style={{ fontSize: '12px', color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', margin: '0 0 6px 0', fontWeight: 600 }}><Message msgId="hydrata.hgeval.enterContactToDownload" /></p>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <input
                             type="email"
                             className="form-control input-sm"
+                            style={{ flex: 1 }}
                             placeholder={getMessageById(context.messages, 'hydrata.hgeval.email')}
                             value={form?.contact_email || ''}
                             onChange={(e) => onUpdateForm('contact_email', e.target.value)}
                         />
-                        <span className="hgeval-contact-or"><Message msgId="hydrata.hgeval.or" /></span>
+                        <span style={{ fontSize: '11px', color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))', flexShrink: 0 }}><Message msgId="hydrata.hgeval.or" /></span>
                         <input
                             type="tel"
                             className="form-control input-sm"
+                            style={{ flex: 1 }}
                             placeholder={getMessageById(context.messages, 'hydrata.hgeval.phoneNumber')}
                             value={form?.contact_phone_number || ''}
                             onChange={(e) => onUpdateForm('contact_phone_number', e.target.value)}
                         />
                     </div>
-                </div>
+                </Card>
             )}
 
             {!isLoggedIn && !savedReport && (
@@ -242,7 +249,7 @@ const HGevalReportDisplay = ({
                 />
             )}
 
-            <div className="hgeval-actions">
+            <HGevalPanelFooter>
                 <button className="btn btn-default btn-sm" onClick={onNewReport}>
                     <Message msgId="hydrata.hgeval.newEvaluation" />
                 </button>
@@ -257,8 +264,8 @@ const HGevalReportDisplay = ({
                     </button>
                 )}
                 {savedReport && (
-                    <div className="hgeval-saved-actions">
-                        <span className="text-success">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="text-success" style={{ color: 'var(--sv-text-ok, #7ee787)' }}>
                             <span className="glyphicon glyphicon-ok" /> <Message msgId="hydrata.hgeval.saved" />
                         </span>
                         <button className="btn btn-default btn-sm" onClick={handleDownloadPdf}>
@@ -266,7 +273,7 @@ const HGevalReportDisplay = ({
                         </button>
                     </div>
                 )}
-            </div>
+            </HGevalPanelFooter>
         </div>
     );
 };

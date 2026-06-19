@@ -5,6 +5,7 @@ import {Button} from 'react-bootstrap';
 import Message from '@mapstore/framework/components/I18N/Message';
 import {startActiveRunPolling, dismissRunPollingTimeout} from '../actionsAnuga';
 import {trackEvent} from '@js/utils/analytics';
+import '../anuga.css';
 
 /**
  * W7 (TASK-1045) — paused-polling banner.
@@ -73,7 +74,7 @@ class RunPollingPausedBanner extends React.Component {
         // clear via START_ACTIVE_RUN_POLLING reducer side-effect.
         const target = e && e.target;
         if (target && typeof target.closest === 'function') {
-            if (target.closest('.run-polling-paused-banner')) return;
+            if (target.closest('.sv-run-polling-paused-banner')) return;
         }
         if (this.props.onDismiss) this.props.onDismiss(this.props.runId);
     }
@@ -82,25 +83,11 @@ class RunPollingPausedBanner extends React.Component {
         if (!this.props.paused) return null;
         return (
             <div
-                className="run-polling-paused-banner"
+                className="sv-run-polling-paused-banner"
                 role="status"
                 aria-live="polite"
-                style={{
-                    position: 'fixed',
-                    top: '12px',
-                    right: '12px',
-                    zIndex: 1080,
-                    background: '#fff7e6',
-                    border: '1px solid #d48806',
-                    borderRadius: '4px',
-                    padding: '8px 12px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                }}
             >
-                <span style={{color: '#874d00', fontWeight: 500}}>
+                <span className="sv-run-polling-paused-text">
                     <Message msgId="hydrata.anuga.pollingPaused" />
                 </span>
                 <Button

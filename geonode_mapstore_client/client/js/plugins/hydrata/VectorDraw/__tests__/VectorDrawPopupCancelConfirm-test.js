@@ -3,8 +3,8 @@
  *
  * TASK-1409 updated the confirm from blocking window.confirm to an async
  * React inline overlay. The overlay renders two buttons:
- *   - "Keep editing" (className vector-draw-discard-cancel-btn) → no-op
- *   - "Discard"      (className vector-draw-discard-confirm-btn) → dispatches CANCEL_VECTOR_DRAW
+ *   - "Keep editing" (className sv-vector-draw-discard-cancel-btn) → no-op
+ *   - "Discard"      (className sv-vector-draw-discard-confirm-btn) → dispatches CANCEL_VECTOR_DRAW
  *
  * Pinned behaviour:
  *   1. formValuesAreDirty() pure helper — JSON-shape comparison.
@@ -126,19 +126,21 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
     };
 
     const clickHeaderX = () => {
-        const x = container.querySelector('.glyphicon-remove');
+        // TASK-1763 — the header close is now PanelHeader's cascade-safe
+        // .sv-panel-header-close chip (was the bespoke .glyphicon-remove span).
+        const x = container.querySelector('.sv-panel-header-close');
         expect(x).toExist();
         x.click();
     };
 
     const clickDiscardButton = () => {
-        const btn = container.querySelector('.vector-draw-discard-confirm-btn');
+        const btn = container.querySelector('.sv-vector-draw-discard-confirm-btn');
         expect(btn).toExist();
         btn.click();
     };
 
     const clickKeepEditingButton = () => {
-        const btn = container.querySelector('.vector-draw-discard-cancel-btn');
+        const btn = container.querySelector('.sv-vector-draw-discard-cancel-btn');
         expect(btn).toExist();
         btn.click();
     };
@@ -147,7 +149,7 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
         render(FORM_CLEAN);
         clickCancelButton();
         // Overlay must NOT be present — clean form needs no confirmation.
-        expect(container.querySelector('.vector-draw-discard-confirm')).toBe(null);
+        expect(container.querySelector('.sv-vector-draw-discard-confirm')).toBe(null);
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
     });
 
@@ -155,7 +157,7 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
         render(FORM_DIRTY_FIELD);
         clickCancelButton();
         // Overlay is now visible.
-        expect(container.querySelector('.vector-draw-discard-confirm')).toExist();
+        expect(container.querySelector('.sv-vector-draw-discard-confirm')).toExist();
         // Action must NOT be dispatched until the user confirms.
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
     });
@@ -173,13 +175,13 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
         clickKeepEditingButton();
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
         // Overlay dismissed after clicking Keep editing.
-        expect(container.querySelector('.vector-draw-discard-confirm')).toBe(null);
+        expect(container.querySelector('.sv-vector-draw-discard-confirm')).toBe(null);
     });
 
     it('header X on dirty form: same overlay path as the Cancel button', () => {
         render(FORM_DIRTY_FIELD);
         clickHeaderX();
-        expect(container.querySelector('.vector-draw-discard-confirm')).toExist();
+        expect(container.querySelector('.sv-vector-draw-discard-confirm')).toExist();
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
         // Confirm Discard → fires the cancel action.
         clickDiscardButton();
@@ -207,7 +209,7 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
             }
         });
         clickCancelButton();
-        expect(container.querySelector('.vector-draw-discard-confirm')).toExist();
+        expect(container.querySelector('.sv-vector-draw-discard-confirm')).toExist();
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
     });
 
@@ -226,7 +228,7 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
             }
         });
         clickCancelButton();
-        expect(container.querySelector('.vector-draw-discard-confirm')).toExist();
+        expect(container.querySelector('.sv-vector-draw-discard-confirm')).toExist();
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
     });
 
@@ -244,7 +246,7 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
             draw: { tempFeatures: [], features: [] }
         });
         clickHeaderX();
-        expect(container.querySelector('.vector-draw-discard-confirm')).toBe(null);
+        expect(container.querySelector('.sv-vector-draw-discard-confirm')).toBe(null);
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
     });
 
@@ -264,7 +266,7 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
         expect(closeBtn).toExist();
         closeBtn.click();
         // No overlay — error close is just dismissal, no edit to lose.
-        expect(container.querySelector('.vector-draw-discard-confirm')).toBe(null);
+        expect(container.querySelector('.sv-vector-draw-discard-confirm')).toBe(null);
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
     });
 });

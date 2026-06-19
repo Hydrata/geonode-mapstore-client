@@ -1,337 +1,112 @@
-/* Right-side panel */
-.hgeval-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 360px;
-    height: 100%;
-    background: #fff;
-    z-index: 10000;
-    box-shadow: -2px 0 8px rgba(0,0,0,0.15);
-    display: flex;
-    flex-direction: column;
-}
+/* HGeval — dark-glass panel (TASK-1668, conformed to chassis primitives TASK-1762).
+ *
+ * The panel chrome (shell, header, sections, cards, tables, form rows, footers)
+ * is now carried by the SimpleView chassis primitives (PanelShell, PanelHeader,
+ * Section, Card, Table, FormRow) + the ProgressBar/ErrorStrip widgets — all
+ * inline-style cascade-proof and themed from the --sv-* token set.
+ *
+ * What remains here is the NON-LAYOUT panel-specific styling the primitives do
+ * not cover, plus two surfaces with no chassis-primitive equivalent (flagged as
+ * gaps in TASK-1762): the native <details>/<summary> disclosure and the
+ * icon-prefixed warnings list. Colour values are composed from tokens with
+ * literal fallbacks so the sheet stands alone if loaded before tokens.css. */
 
-.hgeval-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid #ddd;
-    background: #f8f8f8;
-    flex-shrink: 0;
-}
-
-.hgeval-header h4 {
-    margin: 0;
-    font-size: 14px;
-    color: #333;
-}
-
-.hgeval-close {
-    font-size: 16px;
-    color: #999;
-    padding: 0 4px;
-    line-height: 1;
-}
-
-.hgeval-close:hover {
-    color: #333;
-}
-
-.hgeval-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px 12px;
-}
-
-/* Input panel */
-.hgeval-coord-row {
-    display: flex;
-    gap: 8px;
-}
-
-.hgeval-coord-row .form-group {
-    flex: 1;
-    margin-bottom: 8px;
-}
-
-.hgeval-input-panel label {
-    font-weight: 600;
+/* Map-click hint (input panel) */
+.sv-hgeval-hint {
+    color: var(--sv-glyph-zoom, #4dabf7);
     font-size: 12px;
-    color: #555;
-    margin-bottom: 2px;
-    display: block;
+    margin: 0 0 8px 0;
 }
 
-.hgeval-input-panel .form-group {
-    margin-bottom: 8px;
+.sv-hgeval-hint .glyphicon {
+    margin-right: 2px;
 }
 
-.hgeval-input-panel select.form-control {
+/* Sector/select sizing inside the input panel */
+.sv-hgeval-input-panel select.form-control {
     height: auto;
     padding: 4px 8px;
 }
 
-.hgeval-selected-coords {
-    padding: 4px 8px;
-    background: #e8f5e9;
-    border-radius: 3px;
-    margin-bottom: 8px;
-    font-size: 12px;
-}
-
-.hgeval-optional-fields {
+/* Optional contact-details disclosure — native <details>/<summary>.
+ * GAP (TASK-1762): no chassis-primitive expresses a collapsible disclosure;
+ * kept as bespoke JSX, themed via tokens here. */
+.sv-hgeval-optional-fields {
     margin-bottom: 8px;
 }
 
-.hgeval-optional-fields summary {
+.sv-hgeval-optional-fields summary {
     cursor: pointer;
-    color: #337ab7;
+    color: var(--sv-glyph-zoom, #4dabf7);
     font-size: 12px;
     margin-bottom: 4px;
     outline: none;
 }
 
-.hgeval-optional-fields[open] summary {
+.sv-hgeval-optional-fields[open] summary {
     margin-bottom: 8px;
 }
 
-.hgeval-optional-fields .form-group {
-    margin-bottom: 6px;
-}
-
-.hgeval-alert-sm {
-    padding: 6px 10px;
-    font-size: 12px;
-    margin-bottom: 8px;
-}
-
-.hgeval-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 8px;
-    border-top: 1px solid #eee;
-    margin-top: 4px;
-}
-
-/* Progress indicator */
-.hgeval-progress {
-    text-align: center;
-    padding: 20px 10px;
-}
-
-.hgeval-progress h4 {
-    font-size: 14px;
-    margin-bottom: 12px;
-}
-
-.hgeval-progress .progress {
-    height: 22px;
-}
-
-.hgeval-progress .progress-bar {
-    line-height: 22px;
-    font-size: 12px;
-}
-
-.hgeval-progress .text-muted {
-    font-size: 12px;
-}
-
-/* Report display */
-.hgeval-report h4 {
-    font-size: 14px;
-    color: #333;
-    margin-bottom: 2px;
-}
-
-.hgeval-project-name {
-    font-size: 13px;
-    margin-bottom: 10px;
-    color: #555;
-}
-
-.hgeval-section {
-    margin-bottom: 12px;
-}
-
-.hgeval-section h5 {
-    color: #337ab7;
-    border-bottom: 2px solid #337ab7;
-    padding-bottom: 3px;
-    margin-bottom: 6px;
-    font-size: 13px;
-}
-
-.hgeval-section .table {
-    margin-bottom: 0;
-    font-size: 12px;
-}
-
-.hgeval-section .table td {
-    padding: 3px 6px;
-}
-
-.hgeval-label {
-    font-weight: bold;
-    width: 45%;
-    color: #555;
-}
-
-.hgeval-value {
-    color: #333;
-}
-
-.hgeval-warnings .list-group {
+/* Warnings list (report display) — icon-prefixed alert list.
+ * GAP (TASK-1762): ErrorStrip is a single-message strip; an N-item warning list
+ * with per-item alert glyphs has no primitive variant. Kept as bespoke list
+ * markup, themed via tokens here. */
+.sv-hgeval-warnings .list-group {
     margin-bottom: 0;
 }
 
-.hgeval-warnings .list-group-item {
+.sv-hgeval-warnings .list-group-item {
     display: flex;
     gap: 6px;
     align-items: flex-start;
     padding: 6px 10px;
     font-size: 12px;
+    background: var(--sv-warning-bg, rgba(240, 173, 78, 0.12));
+    border-color: var(--sv-warning-border, rgba(240, 173, 78, 0.3));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.hgeval-warnings .glyphicon-alert {
-    color: #8a6d3b;
+.sv-hgeval-warnings .glyphicon-alert {
+    color: var(--sv-glyph-partial, orange);
     margin-top: 2px;
     flex-shrink: 0;
 }
 
-.hgeval-disclaimer {
-    background: #f9f9f9;
-    padding: 8px 10px;
-    border-radius: 3px;
-}
-
-.hgeval-disclaimer h5 {
-    color: #999;
-    border-color: #ddd;
-}
-
-.hgeval-disclaimer p {
-    color: #777;
-    font-size: 11px;
-    font-style: italic;
-    margin: 0;
-}
-
-/* Map click hint */
-.hgeval-hint {
-    color: #337ab7;
-    font-size: 12px;
-    margin: 0 0 8px 0;
-}
-
-.hgeval-hint .glyphicon {
-    margin-right: 2px;
-}
-
-/* Contact prompt on report page */
-.hgeval-contact-prompt {
-    background: #f0f7ff;
-    border: 1px solid #bee5eb;
-    border-radius: 4px;
-    padding: 8px 10px;
-    margin-bottom: 8px;
-}
-
-.hgeval-contact-prompt p {
-    font-size: 12px;
-    color: #555;
-    margin: 0 0 6px 0;
-    font-weight: 600;
-}
-
-.hgeval-contact-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-}
-
-.hgeval-contact-row .form-control {
-    flex: 1;
-}
-
-.hgeval-contact-or {
-    font-size: 11px;
-    color: #999;
-    flex-shrink: 0;
-}
-
-/* Saved actions row */
-.hgeval-saved-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Signup form */
-.hgeval-signup-form {
-    background: #f0f7ff;
-    border: 1px solid #bee5eb;
-    border-radius: 4px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-}
-
-.hgeval-signup-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: #333;
-    margin: 0 0 8px 0;
-}
-
-.hgeval-signup-form .form-group {
+/* Signup form field spacing (inside the info Card) */
+.sv-hgeval-signup-form .form-group {
     margin-bottom: 6px;
 }
 
-.hgeval-name-row {
-    display: flex;
-    gap: 6px;
-}
-
-.hgeval-name-row .form-group {
-    flex: 1;
-}
-
-.hgeval-signup-form .btn-block {
+.sv-hgeval-signup-form .btn-block {
     margin-top: 4px;
 }
 
-.hgeval-field-error {
+/* Inline field-validation error text */
+.sv-hgeval-field-error {
     font-size: 11px;
     margin-top: 2px;
+    color: var(--sv-text-danger, #ffb3b3);
 }
 
-.hgeval-login-link {
+/* "Already have an account?" / "Need an account?" toggle link */
+.sv-hgeval-login-link {
     font-size: 11px;
-    color: #777;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     margin: 8px 0 0 0;
     text-align: center;
 }
 
-.hgeval-login-link a {
-    color: #337ab7;
+.sv-hgeval-login-link a {
+    color: var(--sv-glyph-zoom, #4dabf7);
 }
 
-@keyframes hgeval-spin {
+/* Busy spinner on the signup/login submit button */
+@keyframes sv-hgeval-spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
 
-.hgeval-spin {
+.sv-hgeval-spin {
     display: inline-block;
-    animation: hgeval-spin 1s linear infinite;
-}
-
-/* Mobile: full width */
-@media (max-width: 768px) {
-    .hgeval-panel {
-        width: 100%;
-    }
+    animation: sv-hgeval-spin 1s linear infinite;
 }

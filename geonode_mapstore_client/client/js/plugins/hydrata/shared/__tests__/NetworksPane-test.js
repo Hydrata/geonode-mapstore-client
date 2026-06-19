@@ -246,19 +246,19 @@ describe('NetworksPaneClass (TASK-1440 + TASK-1453)', () => {
 
     it('renders the pane toolbar', () => {
         render();
-        const toolbar = container.querySelector('.anuga-pane-toolbar');
+        const toolbar = container.querySelector('.sv-anuga-pane-toolbar');
         expect(toolbar).toExist();
     });
 
-    it('renders three .menu-row-mini-container elements (catchments / nodes / links)', () => {
+    it('renders three .sv-menu-row-mini-container elements (catchments / nodes / links)', () => {
         render();
-        const miniContainers = container.querySelectorAll('.menu-row-mini-container');
+        const miniContainers = container.querySelectorAll('.sv-menu-row-mini-container');
         expect(miniContainers.length).toBe(3);
     });
 
-    it('renders three .menu-row-mini-heading elements', () => {
+    it('renders three .sv-menu-row-mini-heading elements', () => {
         render();
-        const headings = container.querySelectorAll('.menu-row-mini-heading');
+        const headings = container.querySelectorAll('.sv-menu-row-mini-heading');
         expect(headings.length).toBe(3);
     });
 
@@ -383,7 +383,7 @@ describe('NetworksPaneClass (TASK-1440 + TASK-1453)', () => {
             el => el.querySelector('[data-testid="networks-terrain-selector"]')
         );
         const rowsIndex = Array.from(pane.children).findIndex(
-            el => el.classList.contains('anuga-pane-rows')
+            el => el.classList.contains('sv-anuga-pane-rows')
         );
         expect(selectorIndex).toBeLessThan(rowsIndex);
     });

@@ -22,7 +22,7 @@ const PERCENT_CELLS = [
     { pathway: 'erosion', pollutant: 's', label: 'Erosion Sediment Reduction Percentage' }
 ];
 
-const PINNED_BORDER = '3px solid rgba(120,220,180,0.6)';
+const PINNED_BORDER = '3px solid var(--sv-pin-accent, rgba(120,220,180,0.6))';
 const PINNED_STYLE = { opacity: 0.45, borderLeft: PINNED_BORDER };
 const PINNED_PLACEHOLDER = 'Overridden — edit to re-enable';
 const PINNED_TITLE = 'Load manually overridden. Edit this percentage to recalculate.';

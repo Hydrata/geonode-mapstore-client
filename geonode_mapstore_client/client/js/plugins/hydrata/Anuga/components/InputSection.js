@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 const PropTypes = require('prop-types');
 const Spinner = require('react-spinkit');
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
-// Anuga uses extraClassName="anuga-section-header" — the corresponding CSS
+// Anuga uses extraClassName="sv-anuga-section-header" — the corresponding CSS
 // rule lives in Anuga/anuga.css. Swamm headers ship inline styles instead.
 import {SectionHeader} from "../../SimpleView/components/primitives";
 import Message from '@mapstore/framework/components/I18N/Message';
@@ -70,11 +70,11 @@ const InputSection = ({
 
     return (
         <div
-            className={'menu-rows-container anuga-section'}
+            className={'sv-menu-rows-container sv-anuga-section'}
         >
-            <SectionHeader extraClassName="anuga-section-header">
+            <SectionHeader extraClassName="sv-anuga-section-header">
                 <span
-                    className={"pull-left menu-row-text" + (collapsible ? " anuga-section-header-clickable" : "")}
+                    className={"pull-left sv-menu-row-text" + (collapsible ? " sv-anuga-section-header-clickable" : "")}
                     onClick={collapsible ? onToggleCollapse : undefined}
                     role={collapsible ? "button" : undefined}
                     tabIndex={collapsible ? 0 : undefined}
@@ -89,7 +89,7 @@ const InputSection = ({
                 {canEdit ?
                     <React.Fragment>
                         <span
-                            className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                            className={`btn glyphicon sv-menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                             style={{
                                 fontSize: "smaller",
                                 textAlign: "right",
@@ -101,13 +101,13 @@ const InputSection = ({
                         />
                         {isCreating ?
                             <span>
-                                <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
+                                <Spinner color="white" className="sv-anuga-spinner" spinnerName="circle" noFadeIn/>
                             </span> :
                             inputVisible ?
                                 <input
                                     id={inputId}
                                     key={inputId}
-                                    className={'data-title-input'}
+                                    className={'sv-data-title-input'}
                                     style={{marginTop: "3px", marginRight: "5px"}}
                                     type={'text'}
                                     value={titleValue}
@@ -129,7 +129,7 @@ const InputSection = ({
                 }
                 {collapsible && (
                     <span
-                        className={`btn glyphicon menu-row-glyph glyph-collapse ${collapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                        className={`btn glyphicon sv-menu-row-glyph sv-glyph-collapse ${collapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
                         style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
                         onClick={onToggleCollapse}
                         aria-label={collapsed ? "Expand section" : "Collapse section"}
@@ -140,23 +140,23 @@ const InputSection = ({
             {!collapsed && pendingItems?.map((item, idx) => (
                 <div
                     key={`pending-${item?.id || idx}`}
-                    className={"row menu-row anuga-pending-row"}
+                    className={"row sv-menu-row sv-anuga-pending-row"}
                     aria-busy="true"
                     aria-live="polite"
                 >
-                    <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
-                    <span className={"anuga-pending-title"}>{item?.title}</span>
-                    <span className={"anuga-pending-status"}>
+                    <Spinner color="#888" className="sv-anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                    <span className={"sv-anuga-pending-title"}>{item?.title}</span>
+                    <span className={"sv-anuga-pending-status"}>
                         <Message msgId="hydrata.anuga.pendingLayerLabel" />
                     </span>
                 </div>
             ))}
             {!collapsed && layers?.length === 0 && pendingItems?.length === 0 ?
-                <div className={"row menu-row anuga-section-empty-row"} aria-busy={isInitializing ? "true" : undefined} aria-live={isInitializing ? "polite" : undefined}>
+                <div className={"row sv-menu-row sv-anuga-section-empty-row"} aria-busy={isInitializing ? "true" : undefined} aria-live={isInitializing ? "polite" : undefined}>
                     {isInitializing ?
                         <React.Fragment>
-                            <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
-                            <span className={"anuga-pending-status"}>
+                            <Spinner color="#888" className="sv-anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                            <span className={"sv-anuga-pending-status"}>
                                 <Message msgId="hydrata.anuga.pendingLayerLabel" />
                             </span>
                         </React.Fragment> :

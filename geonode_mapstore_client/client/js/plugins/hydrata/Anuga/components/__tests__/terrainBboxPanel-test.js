@@ -110,16 +110,19 @@ describe('TASK-930 TerrainBboxPanel', () => {
         });
     });
 
-    it('Confirm-dialog Accept button is present when the confirm popup is open', () => {
+    // TASK-1647 dissolved the separate confirm popup (.sv-terrain-bbox-confirm-dialog
+    // / is-open) into an INLINE review section that appears in the panel body once
+    // a bbox is drawn (presence-gated on terrainBbox, not on a confirmVisible flag).
+    // This test was pre-existing-RED against the popup DOM that no longer exists;
+    // it now asserts the inline-review reality.
+    it('Inline review + Accept button render once a bbox is drawn', () => {
         return mount({
             terrainBboxPanelVisible: true,
-            terrainBboxConfirmVisible: true,
             terrainBbox: [115.7, -32.1, 116.2, -31.6],
             terrainBboxAreaKm2: 1752
         }).then(() => {
-            const dialog = container.querySelector('[data-testid="terrain-bbox-confirm-dialog"]');
-            expect(dialog).toExist();
-            expect(dialog.className).toMatch(/is-open/);
+            const review = container.querySelector('[data-testid="terrain-bbox-inline-review"]');
+            expect(review).toExist();
             const accept = container.querySelector('[data-testid="terrain-bbox-confirm-accept"]');
             expect(accept).toExist();
         });
@@ -236,5 +239,101 @@ describe('TASK-930 terrainBboxEpic.extractBboxFromDrawAction', () => {
         const { extractBboxFromDrawAction } = require('../../epics/terrainBboxEpic');
         expect(extractBboxFromDrawAction({ owner: 'terrain-bbox', geometry: null })).toBe(null);
         expect(extractBboxFromDrawAction({})).toBe(null);
+    });
+});
+
+// UAT regression (TASK-1648 mount-gating freeze):
+//
+// "Define import area" closes the Inputs menu (setAnugaInputMenu(false)) to clear
+// the map for drawing. The Inputs menu is mounted by AnugaContainer only when
+// showAnugaInputMenu===true (anugaContainer:206). The bbox panel USED to be a
+// child of AnugaInputMenu, so closing the menu unmounted the bbox panel mid-draw —
+// the map was left in BBOX draw mode with no panel to return to (the "freeze"; the
+// bbox was never captured and the Import Terrain panel never came back).
+//
+// Fix: TerrainBboxPanel is now mounted at the CONTAINER level, independent of
+// showAnugaInputMenu. This test renders the bare AnugaContainer with the Inputs
+// menu CLOSED (showAnugaInputMenu=false) but the bbox panel OPEN
+// (terrainBboxPanelVisible=true) and asserts the panel is present — i.e. it
+// survives the menu close.
+describe('TASK-1648 GLO-30 bbox panel survives Inputs-menu close (UAT freeze regression)', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function store(uiOverrides) {
+        const state = {
+            anuga: {
+                projects: { data: { id: 42 } },
+                ui: {
+                    showAnugaInputMenu: false,
+                    terrainBboxPanelVisible: false,
+                    terrainBboxDrawingActive: false,
+                    terrainBbox: null,
+                    terrainBboxError: null,
+                    ...uiOverrides
+                }
+            }
+        };
+        return { getState: () => state, subscribe: () => () => {}, dispatch: (a) => a };
+    }
+
+    function renderContainer(uiOverrides) {
+        const { AnugaContainer } = require('../anugaContainer');
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store(uiOverrides)}>
+                    {/* Bare class: pass the props the connected wrapper would supply.
+                        showAnugaInputMenu=false ⇒ AnugaInputMenu (the old bbox-panel
+                        host) is NOT mounted, exactly the post-"Define import area" state. */}
+                    <AnugaContainer
+                        isAnugaProject={42}
+                        showAnugaInputMenu={false}
+                        canViewAnugaMap={false}
+                        canEditAnugaMap={false}
+                        hasEPSGset
+                        initAnuga={() => {}}
+                    />
+                </Provider>,
+                container,
+                () => resolve()
+            );
+        });
+    }
+
+    it('does NOT mount the Inputs menu when showAnugaInputMenu=false', () => {
+        return renderContainer({ showAnugaInputMenu: false, terrainBboxPanelVisible: true }).then(() => {
+            expect(container.querySelector('#anuga-input-menu')).toBe(null);
+        });
+    });
+
+    it('STILL renders the bbox panel after the Inputs menu is closed (no freeze)', () => {
+        return renderContainer({ showAnugaInputMenu: false, terrainBboxPanelVisible: true }).then(() => {
+            const panel = container.querySelector('[data-testid="terrain-bbox-panel"]');
+            expect(panel).toExist();
+        });
+    });
+
+    it('the captured bbox + inline review survive the menu close', () => {
+        return renderContainer({
+            showAnugaInputMenu: false,
+            terrainBboxPanelVisible: true,
+            terrainBbox: [115.7, -32.1, 116.2, -31.6],
+            terrainBboxAreaKm2: 1752
+        }).then(() => {
+            const summary = container.querySelector('[data-testid="terrain-bbox-summary"]');
+            expect(summary).toExist();
+            expect(summary.textContent).toMatch(/115\.7/);
+            const review = container.querySelector('[data-testid="terrain-bbox-inline-review"]');
+            expect(review).toExist();
+        });
     });
 });

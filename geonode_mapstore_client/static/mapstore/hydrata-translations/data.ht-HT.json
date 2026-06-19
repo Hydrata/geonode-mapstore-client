@@ -221,6 +221,8 @@
         "noFrictionRastersAvailable": "Pa gen raster friksyon disponib",
         "nodes": "Nè",
         "none": "Okenn",
+        "culverts": "Kanal anba wout",
+        "culvertPlaceholder": "Zouti kanal anba wout — desine kanal anba wout sou kat la.",
         "projectVisibility": "Vizibilite",
         "publish": "Pibliye",
         "publishPrefix": "Pibliye :",
@@ -267,6 +269,8 @@
         "uploadFrictionRasterTooltip": "Telechaje yon raster friksyon GeoTIFF (n Manning)",
         "uploadTerrainTooltip": "Telechaje yon nouvo teren *.tiff",
         "globalDemTooltip": "Ajoute yon Terrain ki soti nan MNT mondyal Copernicus GLO-30 (trase bbox)",
+        "combinedSurfaceTooltip": "Sifas konbine",
+        "combinedSurfacePanelTitle": "Sifas konbine",
         "terrainBboxPanelTitle": "MNT mondyal Copernicus GLO-30",
         "terrainBboxTitleLabel": "Tit",
         "terrainBboxDefaultTitle": "MNT Copernicus GLO-30",
@@ -523,6 +527,9 @@
         "statusComplete": "Fini",
         "statusError": "Erè",
         "statusCancelled": "Anile"
+      },
+      "terrainWorkbench": {
+        "terrain": "Tèren"
       }
     },
     "gnhome": {

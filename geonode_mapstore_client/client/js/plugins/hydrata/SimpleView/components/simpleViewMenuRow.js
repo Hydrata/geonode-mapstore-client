@@ -314,6 +314,35 @@ const ANUGA_FEATURE_CONFIG = {
             ]
         }
     },
+    // TASK-1594 (W1) — Culvert: LineString drainage structure for hydro-enforcement.
+    // Full D13 hydraulic schema per §9 D13. DEM burning consumes geometry +
+    // invert/height/diameter subset; full schema captured here for future ANUGA use.
+    'cul_': {
+        geomType: 'LineString',
+        formConfig: {
+            title: 'Culvert',
+            fields: [
+                {name: 'description', type: 'text', label: 'Description'},
+                {name: 'shape', type: 'select', label: 'Shape',
+                    options: ['box', 'pipe', 'arch'], "default": null},
+                {name: 'width_m', type: 'number', label: 'Width (m)',
+                    "default": null, step: 0.1, min: 0.0,
+                    showWhen: {field: 'shape', in: ['box', 'arch']}},
+                {name: 'height_m', type: 'number', label: 'Height (m)',
+                    "default": null, step: 0.1, min: 0.0,
+                    showWhen: {field: 'shape', in: ['box', 'arch']}},
+                {name: 'diameter_m', type: 'number', label: 'Diameter (m)',
+                    "default": null, step: 0.1, min: 0.0,
+                    showWhen: {field: 'shape', equals: 'pipe'}},
+                {name: 'upstream_invert_m', type: 'number', label: 'Upstream invert (m)',
+                    "default": null, step: 0.01},
+                {name: 'downstream_invert_m', type: 'number', label: 'Downstream invert (m)',
+                    "default": null, step: 0.01},
+                {name: 'barrels', type: 'number', label: 'Barrels',
+                    "default": 1, step: 1, min: 1}
+            ]
+        }
+    },
     // TASK-1271 (W4.3) — Breakline: LineString geometry for mesh edge conformance.
     // Near spacing (m) controls mesh density in the first buffer ring.
     // null near_spacing inherits Scenario.default_near_spacing (= 2.0m).
@@ -424,7 +453,11 @@ class MenuRowClass extends React.Component {
         // TASK-784 polish — close the AnugaInputMenu side panel during
         // VectorDraw edit so the popup is the focus. The toolbar buttons
         // (rendered by AnugaContainer in a portal) stay visible.
-        setAnugaInputMenu: PropTypes.func
+        setAnugaInputMenu: PropTypes.func,
+        // UAT 2026-06-17 (TASK-1587) — optional extra toolbar entries rendered to
+        // the RIGHT of the per-layer controls (before the title). Each entry is
+        // {key, render}; the terrain DEM row uses it for the Mode/Contours toggles.
+        extraToolbarActions: PropTypes.array
     };
 
     constructor(props) {
@@ -438,9 +471,9 @@ class MenuRowClass extends React.Component {
     render() {
         if (!this.props.layer) {
             return (
-                <div className={"menu-row"}>
-                    <div className={"menu-row-left"}>
-                        <div className="h5 menu-row-text"><Message msgId="hydrata.simpleView.noDatasetsYet" /></div>
+                <div className={"sv-menu-row"}>
+                    <div className={"sv-menu-row-left"}>
+                        <div className="h5 sv-menu-row-text"><Message msgId="hydrata.simpleView.noDatasetsYet" /></div>
                     </div>
                 </div>
             );
@@ -449,7 +482,7 @@ class MenuRowClass extends React.Component {
         // Locked 4-icon toolbar order is now: vis | zoom | edit | download.
         // Trash + delete-confirm overlay moved to the secondary toolbar
         // (alongside upload). The delete-confirm overlay stays a sibling of
-        // the trash glyph so `.menu-row-delete-confirm .save-confirm-btn.danger`
+        // the trash glyph so `.sv-menu-row-delete-confirm .sv-save-confirm-btn.danger`
         // continues to resolve (R03).
         const canEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
         const canDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
@@ -462,7 +495,7 @@ class MenuRowClass extends React.Component {
         // TASK-1010 B2 — secondary toolbar (delete glyph + always-mounted
         // confirm overlay + SWAMM-only upload) is now a `secondaryActions`
         // payload passed to LayerActionToolbar. The primitive owns the
-        // `.menu-row-toolbar-secondary` wrapper so the className contract
+        // `.sv-menu-row-toolbar-secondary` wrapper so the className contract
         // (R03) lives in one place. The confirm overlay is itself a `<span>`
         // (not a glyph) so it uses the primitive's `render` escape hatch.
         const secondaryActions = [];
@@ -470,9 +503,9 @@ class MenuRowClass extends React.Component {
             secondaryActions.push({
                 key: 'delete',
                 glyph: 'glyphicon-trash',
-                className: 'glyph-delete'
-                    + (deleting ? ' glyph-disabled' : '')
-                    + (this.state.deleteConfirmVisible ? ' glyph-hidden' : ''),
+                className: 'sv-glyph-delete'
+                    + (deleting ? ' sv-glyph-disabled' : '')
+                    + (this.state.deleteConfirmVisible ? ' sv-glyph-hidden' : ''),
                 onClick: deleting ? undefined : this.handleDeleteClick,
                 ariaDisabled: !!deleting
             });
@@ -481,7 +514,7 @@ class MenuRowClass extends React.Component {
                 render: () => (
                     <span
                         className={
-                            "menu-row-delete-confirm"
+                            "sv-menu-row-delete-confirm"
                             + (this.state.deleteConfirmVisible ? " is-open" : "")
                         }
                         role="alertdialog"
@@ -489,20 +522,20 @@ class MenuRowClass extends React.Component {
                         aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
                     >
                         <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
-                        <span className="menu-row-delete-confirm-text">
+                        <span className="sv-menu-row-delete-confirm-text">
                             <Message msgId="hydrata.simpleView.confirmDelete"/>
                             {' "'}{this.props.layer?.title}{'"?'}
                         </span>
                         <button
                             type="button"
-                            className="save-confirm-btn danger"
+                            className="sv-save-confirm-btn danger"
                             onClick={this.performDelete}
                         >
                             <Message msgId="hydrata.simpleView.delete"/>
                         </button>
                         <button
                             type="button"
-                            className="save-confirm-btn cancel"
+                            className="sv-save-confirm-btn cancel"
                             onClick={this.cancelDelete}
                         >
                             <Message msgId="hydrata.simpleView.cancel"/>
@@ -521,7 +554,7 @@ class MenuRowClass extends React.Component {
             secondaryActions.push({
                 key: 'upload',
                 glyph: 'glyphicon-upload',
-                className: 'glyph-active',
+                className: 'sv-glyph-active',
                 onClick: () => {
                     this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
                     trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
@@ -529,8 +562,8 @@ class MenuRowClass extends React.Component {
             });
         }
         return (
-            <div className={"menu-row"}>
-                <span className={"menu-row-left"}>
+            <div className={"sv-menu-row"}>
+                <span className={"sv-menu-row-left"}>
                     <LayerActionToolbar
                         layer={this.props.layer}
                         canEdit={canEdit}
@@ -542,13 +575,28 @@ class MenuRowClass extends React.Component {
                         secondaryActions={secondaryActions}
                     />
 
-                    <div className={"menu-row-title"}>
+                    {/* UAT 2026-06-17 (TASK-1587): optional extra-toolbar slot rendered
+                        immediately AFTER the per-layer controls and BEFORE the title, so a
+                        caller (the terrain DEM row) can place row-specific toggles to the
+                        RIGHT of tick/glass/delete. Additive + generic — each entry is
+                        {key, render}; non-terrain rows pass nothing and nothing renders. */}
+                    {(this.props.extraToolbarActions && this.props.extraToolbarActions.length > 0) ? (
+                        <span className={"sv-menu-row-toolbar-extra"}>
+                            {this.props.extraToolbarActions.map((a, i) => (
+                                <React.Fragment key={a.key || `extra-${i}`}>
+                                    {a.render ? a.render() : null}
+                                </React.Fragment>
+                            ))}
+                        </span>
+                    ) : null}
+
+                    <div className={"sv-menu-row-title"}>
                         {canEdit ? (
                             <React.Fragment>
                                 <input
                                     id={`input-${this.props.layer.name}`}
                                     key={`input-key-${this.props.layer.name}`}
-                                    className={'data-title-input'}
+                                    className={'sv-data-title-input'}
                                     style={{"width": "160px"}}
                                     type={'text'}
                                     value={this.state.newTitle}
@@ -556,7 +604,7 @@ class MenuRowClass extends React.Component {
                                 />
                                 {this.props.layer?.title === this.state.newTitle ? null :
                                     <span
-                                        className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk glyph-save"}
+                                        className={"btn glyphicon sv-menu-row-glyph glyphicon-floppy-disk sv-glyph-save"}
                                         onClick={
                                             () => {
                                                 this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle);
@@ -568,11 +616,11 @@ class MenuRowClass extends React.Component {
                                 }
                             </React.Fragment>
                         ) : (
-                            <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
+                            <span className="sv-menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
                         )}
                     </div>
                 </span>
-                {/* Transparency slider — last child of .menu-row. Always-
+                {/* Transparency slider — last child of .sv-menu-row. Always-
                     mounted + CSS-toggled via `hidden` (R04) so the nouislider
                     instance survives delete-confirm overlay show/hide. */}
                 <OpacitySlider
@@ -638,7 +686,7 @@ class MenuRowClass extends React.Component {
             // Raster early-return: rasters have no VectorDraw editing AND
             // would crash the legacy FeatureGrid (no WFS features). Per-
             // raster replace-upload is launched from anugaInputMenu.js, not
-            // from the menu-row pencil. The pencil renders (canEditLayer
+            // from the sv-menu-row pencil. The pencil renders (canEditLayer
             // doesn't distinguish raster vs vector) but clicks are inert.
             if (cfg.geomType === 'Raster') {
                 return;
@@ -871,12 +919,12 @@ class MenuRowClass extends React.Component {
                 ? `Cannot delete: ${blocking.length} active scenario${blocking.length === 1 ? '' : 's'} reference${blocking.length === 1 ? 's' : ''} this dataset.`
                 : 'Cannot delete: this dataset is referenced by active scenarios.';
             return (
-                <div className="menu-row-delete-error" role="alert">
-                    <div className="menu-row-delete-error-message">
+                <div className="sv-menu-row-delete-error" role="alert">
+                    <div className="sv-menu-row-delete-error-message">
                         {row.blockingError.message || fallbackMsg}
                     </div>
                     {blocking.length > 0 ? (
-                        <ul className="menu-row-delete-error-list">
+                        <ul className="sv-menu-row-delete-error-list">
                             {blocking.map((b, i) => (
                                 <li key={`${b?.type || 'scenario'}-${b?.id || i}`}>
                                     {b?.name || `Scenario ${b?.id}`}
@@ -895,8 +943,8 @@ class MenuRowClass extends React.Component {
                 msg = 'You do not have permission to delete this dataset.';
             }
             return (
-                <div className="menu-row-delete-error" role="alert">
-                    <div className="menu-row-delete-error-message">{msg}</div>
+                <div className="sv-menu-row-delete-error" role="alert">
+                    <div className="sv-menu-row-delete-error-message">{msg}</div>
                 </div>
             );
         }

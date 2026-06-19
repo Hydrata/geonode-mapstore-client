@@ -207,14 +207,14 @@ class MenuRowsClass extends React.Component {
         const subHeading = this.state.selectedSubHeading;
         if (!subHeading) {
             return (
-                <div className="menu-rows-pane">
+                <div className="sv-menu-rows-pane">
                     <MenuRow layer={null}/>
                 </div>
             );
         }
         const groupLayers = this.getGroupLayers(subHeading);
         return (
-            <div className="menu-rows-pane">
+            <div className="sv-menu-rows-pane">
                 {groupLayers.map(layer =>
                     <MenuRow key={layer.id} layer={layer}/>
                 )}
@@ -224,7 +224,7 @@ class MenuRowsClass extends React.Component {
 
     renderSingleSubHeadingFallback(subHeading) {
         // Legacy accordion path used when there's exactly 1 subheading.
-        // Keeps the original .subheading-row markup verbatim so
+        // Keeps the original .sv-subheading-row markup verbatim so
         // simpleViewGlyphClasses-test.js continues to pass and the
         // localStorage collapse helpers stay exercised. Miller rail+pane
         // activates at 2+ subheadings where a 1-button rail would be a
@@ -234,16 +234,16 @@ class MenuRowsClass extends React.Component {
         const chevronGlyph = collapsed ? 'glyphicon-chevron-right' : 'glyphicon-chevron-down';
         return (
             <React.Fragment key={subHeading}>
-                <div className="subheading-row">
+                <div className="sv-subheading-row">
                     <span
-                        className={"btn glyphicon menu-row-glyph " + tristateGlyph(allVisible, noneVisible)}
+                        className={"btn glyphicon sv-menu-row-glyph " + tristateGlyph(allVisible, noneVisible)}
                         onClick={() => {
                             this.props.toggleGroupVisibility(groupLayers, !allVisible);
                             this.trackGroupToggle(subHeading, !allVisible);
                         }}
                     />
                     <h5
-                        className={"subheading-text subheading-text-clickable"}
+                        className={"sv-subheading-text sv-subheading-text-clickable"}
                         onClick={() => this.toggleCollapsed(subHeading)}
                         role="button"
                         tabIndex={0}
@@ -258,7 +258,7 @@ class MenuRowsClass extends React.Component {
                         {subHeading}
                     </h5>
                     <span
-                        className={"btn glyphicon menu-row-glyph glyph-collapse " + chevronGlyph}
+                        className={"btn glyphicon sv-menu-row-glyph sv-glyph-collapse " + chevronGlyph}
                         onClick={() => this.toggleCollapsed(subHeading)}
                         aria-label={collapsed ? "Expand group" : "Collapse group"}
                     />
@@ -273,7 +273,7 @@ class MenuRowsClass extends React.Component {
     render() {
         if (this.props.openMenuGroupId === 'basemaps') {
             return (
-                <div className={'menu-rows-container'}>
+                <div className={'sv-menu-rows-container'}>
                     {this.props.baseMapLayers.map((layer) => (
                         <MenuRow key={layer.id} layer={layer}/>
                     ))}
@@ -282,7 +282,7 @@ class MenuRowsClass extends React.Component {
         }
         if (this.props.layerList?.length === 0) {
             return (
-                <div className={'menu-rows-container'}>
+                <div className={'sv-menu-rows-container'}>
                     <MenuRow layer={null}/>
                 </div>
             );
@@ -290,13 +290,13 @@ class MenuRowsClass extends React.Component {
         const subHeadings = this.props.layerSubheadings || [];
         if (subHeadings.length < 2) {
             return (
-                <div className={'menu-rows-container'}>
+                <div className={'sv-menu-rows-container'}>
                     {subHeadings.map(subHeading => this.renderSingleSubHeadingFallback(subHeading))}
                 </div>
             );
         }
         return (
-            <div className={'menu-rows-container'}>
+            <div className={'sv-menu-rows-container'}>
                 <div className={'sv-rail-pane-shell'}>
                     {this.renderRail(subHeadings)}
                     {this.renderPane()}

@@ -1,5 +1,6 @@
 import React from 'react';
 import Message from '@mapstore/framework/components/I18N/Message';
+import { PanelShell, PanelHeader } from '../../SimpleView/components/primitives';
 import HGevalInputPanel from './hgevalInputPanel';
 import HGevalReportDisplay from './hgevalReportDisplay';
 import HGevalProgressIndicator from './hgevalProgressIndicator';
@@ -16,14 +17,12 @@ const HGevalContainer = ({
     if (step === 'idle') return null;
 
     return (
-        <div className="hgeval-panel">
-            <div className="hgeval-header">
-                <h4><Message msgId="hydrata.hgeval.hydrogeologicalEvaluation" /></h4>
-                <button className="btn btn-link hgeval-close" onClick={onReset}>
-                    <span className="glyphicon glyphicon-remove" />
-                </button>
-            </div>
-            <div className="hgeval-content">
+        <PanelShell position="fixed-right" minWidth="360px" extraClassName="sv-hgeval-panel">
+            <PanelHeader
+                title={<Message msgId="hydrata.hgeval.hydrogeologicalEvaluation" />}
+                onClose={onReset}
+            />
+            <div className="sv-hgeval-content" style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', textAlign: 'left' }}>
                 {(step === 'selecting' || step === 'form') && (
                     <HGevalInputPanel
                         coordinates={coordinates}
@@ -61,7 +60,7 @@ const HGevalContainer = ({
                     />
                 )}
             </div>
-        </div>
+        </PanelShell>
     );
 };
 

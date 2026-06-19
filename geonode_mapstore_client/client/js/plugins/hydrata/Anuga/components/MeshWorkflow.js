@@ -35,6 +35,11 @@ import React from 'react';
 const PropTypes = require('prop-types');
 import { buildMeshTriangleLayer } from '../gwcTileRouting';
 import { getToken } from '../../../../../MapStore2/web/client/utils/SecurityUtils';
+// TASK-1764 (epic-1758 W1) — chassis Table frames the built-mesh roster.
+// The .sv-anuga-built-mesh-roster-table class rides extraClassName; the
+// data-testid="built-mesh-roster-table" anchor (queried by meshWorkflow-test)
+// is preserved on a wrapper so it only exists in the meshes-present branch.
+import { Table } from '../../SimpleView/components/primitives';
 
 // Inline Spinner from React-Spinner (already a MapStore2 dep via anugaInputMenu).
 // We lazily require it so this file does not add a new npm dep.
@@ -69,21 +74,21 @@ export function PreviewSection({status, result, error, hasScenario, onStart, pro
         const pct = (progress && progress.pct !== null) ? Math.min(100, Math.max(0, progress.pct)) : null;
         const detail = (progress && progress.detail) ? progress.detail : null;
         progressBar = (
-            <div className="anuga-mesh-preview-progress">
+            <div className="sv-anuga-mesh-preview-progress">
                 {pct !== null ? (
                     <React.Fragment>
-                        <div className="anuga-mesh-preview-progress-bar-track">
+                        <div className="sv-anuga-mesh-preview-progress-bar-track">
                             <div
-                                className="anuga-mesh-preview-progress-bar-fill"
+                                className="sv-anuga-mesh-preview-progress-bar-fill"
                                 style={{width: pct + '%'}}
                             />
                         </div>
-                        <span className="anuga-mesh-preview-progress-pct">{pct + '%'}</span>
+                        <span className="sv-anuga-mesh-preview-progress-pct">{pct + '%'}</span>
                     </React.Fragment>
                 ) : (
-                    Spinner && <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                    Spinner && <Spinner color="#888" className="sv-anuga-pending-spinner" spinnerName="circle" noFadeIn/>
                 )}
-                {detail && <span className="anuga-mesh-preview-progress-detail">{detail}</span>}
+                {detail && <span className="sv-anuga-mesh-preview-progress-detail">{detail}</span>}
             </div>
         );
     }
@@ -96,14 +101,14 @@ export function PreviewSection({status, result, error, hasScenario, onStart, pro
         if (aboveThreshold) {
             // W6 (TASK-1421): explicit "too large" banner with actionable guidance.
             resultLabel = (
-                <div className="anuga-mesh-preview-metrics anuga-mesh-preview-too-large">
-                    <span className="anuga-mesh-preview-warn-icon">{'⚠ '}</span>
+                <div className="sv-anuga-mesh-preview-metrics sv-anuga-mesh-preview-too-large">
+                    <span className="sv-anuga-mesh-preview-warn-icon">{'⚠ '}</span>
                     <strong>{'Mesh too large to preview on map'}</strong>
-                    <span className="anuga-mesh-preview-count">
+                    <span className="sv-anuga-mesh-preview-count">
                         {' (' + (tc ? tc.toLocaleString() : '?') + ' triangles — exceeds '
                          + threshold.toLocaleString() + ' limit)'}
                     </span>
-                    <span className="anuga-mesh-preview-note">
+                    <span className="sv-anuga-mesh-preview-note">
                         {'Reduce mesh region resolution to preview.'}
                     </span>
                 </div>
@@ -111,13 +116,13 @@ export function PreviewSection({status, result, error, hasScenario, onStart, pro
         } else {
             const qa = result.mesh_qa || {};
             resultLabel = (
-                <div className="anuga-mesh-preview-metrics">
-                    <span className="anuga-mesh-preview-count">{(tc || 0).toLocaleString()} triangles</span>
+                <div className="sv-anuga-mesh-preview-metrics">
+                    <span className="sv-anuga-mesh-preview-count">{(tc || 0).toLocaleString()} triangles</span>
                     {qa.min_angle_deg !== null && qa.min_angle_deg !== undefined && (
-                        <span className="anuga-mesh-preview-qa">{'min angle: ' + qa.min_angle_deg + '°'}</span>
+                        <span className="sv-anuga-mesh-preview-qa">{'min angle: ' + qa.min_angle_deg + '°'}</span>
                     )}
                     {qa.sliver_count > 0 && (
-                        <span className="anuga-mesh-preview-qa anuga-mesh-preview-warn">
+                        <span className="sv-anuga-mesh-preview-qa sv-anuga-mesh-preview-warn">
                             {qa.sliver_count + ' sliver(s)'}
                         </span>
                     )}
@@ -126,14 +131,14 @@ export function PreviewSection({status, result, error, hasScenario, onStart, pro
         }
     } else if (status === 'error') {
         resultLabel = (
-            <div className="anuga-mesh-preview-error">{error || 'Preview failed'}</div>
+            <div className="sv-anuga-mesh-preview-error">{error || 'Preview failed'}</div>
         );
     }
 
     return (
-        <div className="anuga-mesh-workflow-section anuga-mesh-workflow-preview">
+        <div className="sv-anuga-mesh-workflow-section sv-anuga-mesh-workflow-preview">
             <button
-                className={'btn btn-default anuga-mesh-preview-btn' + (isRunning ? ' disabled' : '')}
+                className={'btn btn-default sv-anuga-mesh-preview-btn' + (isRunning ? ' disabled' : '')}
                 disabled={isRunning || !hasScenario}
                 title={!hasScenario ? 'Select a scenario to preview mesh' : 'Preview mesh triangulation'}
                 onClick={onStart}
@@ -141,7 +146,7 @@ export function PreviewSection({status, result, error, hasScenario, onStart, pro
                 {isRunning ? (
                     <React.Fragment>
                         {(!progress || progress.pct === null) && Spinner && (
-                            <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                            <Spinner color="#888" className="sv-anuga-pending-spinner" spinnerName="circle" noFadeIn/>
                         )}
                         {' Previewing...'}
                     </React.Fragment>
@@ -182,8 +187,8 @@ export function CostEstimateSection({scenario}) {
     if (!hasTriangles && !hasCost) return null;
 
     return (
-        <div className="anuga-mesh-workflow-section anuga-mesh-workflow-estimate">
-            <span className="anuga-scenario-estimate-label">
+        <div className="sv-anuga-mesh-workflow-section sv-anuga-mesh-workflow-estimate">
+            <span className="sv-anuga-scenario-estimate-label">
                 {'Estimate: '}
                 {hasTriangles
                     ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
@@ -207,16 +212,16 @@ CostEstimateSection.defaultProps = {scenario: null};
  */
 export function ImportExportSection() {
     return (
-        <div className="anuga-mesh-workflow-section anuga-mesh-workflow-importexport">
+        <div className="sv-anuga-mesh-workflow-section sv-anuga-mesh-workflow-importexport">
             <button
-                className="btn btn-default anuga-mesh-import-btn"
+                className="btn btn-default sv-anuga-mesh-import-btn"
                 disabled
                 title="Import mesh (.2dm / UGRID) — coming soon"
             >
                 {'Import mesh'}
             </button>
             <button
-                className="btn btn-default anuga-mesh-export-btn"
+                className="btn btn-default sv-anuga-mesh-export-btn"
                 disabled
                 title="Export mesh (.2dm / UGRID) — coming soon"
             >
@@ -265,8 +270,8 @@ export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
 
     if (isLayerAdded) {
         return (
-            <div className="anuga-mesh-workflow-section anuga-mesh-triangle-layer">
-                <span className="anuga-mesh-triangle-layer-added">
+            <div className="sv-anuga-mesh-workflow-section sv-anuga-mesh-triangle-layer">
+                <span className="sv-anuga-mesh-triangle-layer-added">
                     {'Mesh layer added to map'}
                 </span>
             </div>
@@ -274,9 +279,9 @@ export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
     }
 
     return (
-        <div className="anuga-mesh-workflow-section anuga-mesh-triangle-layer">
+        <div className="sv-anuga-mesh-workflow-section sv-anuga-mesh-triangle-layer">
             <button
-                className="btn btn-default anuga-mesh-add-layer-btn"
+                className="btn btn-default sv-anuga-mesh-add-layer-btn"
                 onClick={() => onAddLayer && onAddLayer(meshLayer)}
                 title="Add the derived mesh triangle layer (GeoServer MVT / WMS) to the map"
                 data-testid="anuga-mesh-add-layer-btn"
@@ -313,33 +318,35 @@ MeshTriangleLayerSection.defaultProps = {
  */
 export function BuiltMeshRoster({builtMeshes}) {
     return (
-        <div className="anuga-mesh-workflow-section anuga-built-mesh-roster">
-            <div className="anuga-built-mesh-roster-header">
+        <div className="sv-anuga-mesh-workflow-section sv-anuga-built-mesh-roster">
+            <div className="sv-anuga-built-mesh-roster-header">
                 <strong>{'Built meshes'}</strong>
             </div>
             {(!builtMeshes || builtMeshes.length === 0) ? (
-                <div className="anuga-built-mesh-roster-empty">
+                <div className="sv-anuga-built-mesh-roster-empty">
                     {'No built meshes yet'}
                 </div>
             ) : (
-                <table className="anuga-built-mesh-roster-table" data-testid="built-mesh-roster-table">
-                    <thead>
-                        <tr>
-                            <th>{'Date'}</th>
-                            <th>{'Triangles'}</th>
-                            <th>{'Nodes'}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {builtMeshes.map(mr => (
-                            <tr key={mr.id} data-testid={'built-mesh-row-' + mr.id}>
-                                <td>{mr.created_at ? new Date(mr.created_at).toLocaleDateString() : '—'}</td>
-                                <td>{(mr.element_count || 0).toLocaleString()}</td>
-                                <td>{(mr.node_count || 0).toLocaleString()}</td>
+                <div data-testid="built-mesh-roster-table">
+                    <Table surface="dark" extraClassName="sv-anuga-built-mesh-roster-table">
+                        <thead>
+                            <tr>
+                                <th>{'Date'}</th>
+                                <th>{'Triangles'}</th>
+                                <th>{'Nodes'}</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {builtMeshes.map(mr => (
+                                <tr key={mr.id} data-testid={'built-mesh-row-' + mr.id}>
+                                    <td>{mr.created_at ? new Date(mr.created_at).toLocaleDateString() : '—'}</td>
+                                    <td>{(mr.element_count || 0).toLocaleString()}</td>
+                                    <td>{(mr.node_count || 0).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </Table>
+                </div>
             )}
         </div>
     );
@@ -391,9 +398,9 @@ export function MeshWorkflow({
         !previewState.result.above_render_threshold;
 
     return (
-        <div className="anuga-mesh-workflow-container">
+        <div className="sv-anuga-mesh-workflow-container">
             <button
-                className={'btn btn-xs anuga-mesh-workflow-toggle' + (isOpen ? ' active' : '')}
+                className={'btn btn-xs sv-anuga-mesh-workflow-toggle' + (isOpen ? ' active' : '')}
                 onClick={onToggle}
                 title={isOpen ? 'Close mesh workflow' : 'Open mesh workflow panel'}
                 data-testid="anuga-mesh-workflow-toggle"
@@ -401,7 +408,7 @@ export function MeshWorkflow({
                 {isOpen ? 'Workflow ▲' : 'Workflow ▼'}
             </button>
             {isOpen && (
-                <div className="anuga-mesh-workflow-panel" data-testid="anuga-mesh-workflow-panel">
+                <div className="sv-anuga-mesh-workflow-panel" data-testid="anuga-mesh-workflow-panel">
                     <PreviewSection
                         status={previewState.status}
                         result={previewState.result}
@@ -421,8 +428,8 @@ export function MeshWorkflow({
                     <ImportExportSection/>
                     {/* W6 (TASK-1424) — Built meshes roster */}
                     <BuiltMeshRoster builtMeshes={builtMeshes}/>
-                    <div className="anuga-mesh-workflow-section anuga-mesh-workflow-hint">
-                        <span className="anuga-mesh-workflow-hint-text">
+                    <div className="sv-anuga-mesh-workflow-section sv-anuga-mesh-workflow-hint">
+                        <span className="sv-anuga-mesh-workflow-hint-text">
                             {'Resolution field on each mesh region is a target edge length (m). '}
                             {'Max triangle area = resolution² / 2.'}
                         </span>

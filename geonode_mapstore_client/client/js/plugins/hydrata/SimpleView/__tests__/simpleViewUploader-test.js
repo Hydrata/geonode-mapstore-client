@@ -151,7 +151,7 @@ describe('SimpleView Uploader — TASK-600 active project binding', () => {
                 container,
                 () => {
                     // Panel should not render at all (returns null)
-                    expect(container.querySelector('.uploader-panel')).toNotExist();
+                    expect(container.querySelector('.sv-uploader-panel')).toNotExist();
                     done();
                 }
             );
@@ -181,7 +181,7 @@ describe('SimpleView Uploader — TASK-600 active project binding', () => {
                     // (verified in selector tests above). The disabled-on-Begin
                     // guard at the JSX level (TASK-599) reads `this.props?.projectId`
                     // so a null projectId disables the button.
-                    expect(container.querySelector('.uploader-panel')).toExist();
+                    expect(container.querySelector('.sv-uploader-panel')).toExist();
                     done();
                 }
             );

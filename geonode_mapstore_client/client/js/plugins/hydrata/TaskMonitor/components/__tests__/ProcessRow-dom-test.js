@@ -36,7 +36,7 @@ describe('TASK-743 ProcessRow DOM', () => {
         expect(container.innerHTML).toBe('');
     });
 
-    it('shows the status text in the badge when NOT in a pending detail sub-state', () => {
+    it('shows the i18n status label in the badge when NOT in a pending detail sub-state (TASK-1679)', () => {
         const { container } = mountWithProviders(
             <ProcessRow
                 process={{ id: 1, name: 'Run A', process_type: 'anuga_run', status: 'running' }}
@@ -46,9 +46,35 @@ describe('TASK-743 ProcessRow DOM', () => {
         // TASK-1665: badge is now .sv-status-badge (StatusBadge primitive)
         const badge = container.querySelector('.sv-status-badge');
         expect(badge).toExist();
-        // StatusBadge renders the raw status string when no label override
-        expect(badge.textContent).toInclude('running');
+        // TASK-1679 named proof: the badge label is wired through the i18n
+        // mechanism (getMessageById) — NOT StatusBadge's raw-status fallback.
+        // mountWithProviders supplies no catalogue entry for this key, so
+        // getMessageById returns the msgId unchanged, proving the label flows
+        // through i18n. The legacy regression rendered the bare key 'running'.
+        expect(badge.textContent).toBe('hydrata.taskMonitor.statusRunning');
+        expect(badge.textContent).toNotEqual('running');
         expect(badge.className).toContain('is-running');
+    });
+
+    it('maps each status to its statusMsgId i18n key in the badge (TASK-1679)', () => {
+        const cases = [
+            { status: 'running', key: 'hydrata.taskMonitor.statusRunning' },
+            { status: 'pending', key: 'hydrata.taskMonitor.statusPending' },
+            { status: 'complete', key: 'hydrata.taskMonitor.statusComplete' },
+            { status: 'error', key: 'hydrata.taskMonitor.statusError' },
+            { status: 'cancelled', key: 'hydrata.taskMonitor.statusCancelled' }
+        ];
+        cases.forEach(({ status, key }) => {
+            const { container } = mountWithProviders(
+                <ProcessRow
+                    process={{ id: status, name: 'Run', process_type: 'anuga_run', status }}
+                    onClick={noop}
+                />
+            );
+            const badge = container.querySelector('.sv-status-badge');
+            expect(badge).toExist();
+            expect(badge.textContent).toBe(key);
+        });
     });
 
     it('detailAsBadge: capitalizes a plain status_detail ("built" -> "Built") in the badge for pending', () => {

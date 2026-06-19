@@ -1,0 +1,641 @@
+/**
+ * Analysis-Surface recipe builder styles, imported by the Anuga Inputs → Terrain
+ * pane (anugaInputMenu.js).
+ *
+ * TASK-1657: the standalone TerrainWorkbench panel shell was dissolved (TASK-1645)
+ * and its dead chrome rules (.terrain-workbench-panel / -nav / -body / -stub) were
+ * removed. The .sv-tw-* and .sv-anuga-terrain-recipe-* rules below remain LIVE — they
+ * style the recipe builder re-homed into the Anuga Inputs pane.
+ *
+ * TASK-1765 (W1.9, epic/1587): tw-/terrain- prefixes migrated to sv-tw- to conform
+ * with the SimpleView sv-* namespace. anuga-/scenario-/menu-/save-/data- class
+ * references are untouched (deferred to TASK-1766 coupled cross-panel rename).
+ * Test-pinned class names kept via extraClassName dual-class pattern in JS.
+ */
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Analysis-Surface recipe builder — dark "Scenarios" design language.
+ *
+ * Re-homed from the standalone TerrainWorkbench into the Anuga Inputs → Terrain
+ * pane (TASK-1645 / TASK-1587 W1.5). Restyled to match the Scenarios pane
+ * (anuga-scenario-*) so the recipe builder reads as part of the same dark-glass
+ * workbench instead of a white, light-themed card. Tokens come from
+ * simpleView.css (:root --sv-*). Class names + markup are unchanged — this is a
+ * visuals-only pass, so component logic and tests (data-testid) are untouched.
+ *
+ * Design-system token pass (epic/1587 ⊕ 5.x, post-1659): hardcoded colours that
+ * have a canonical --sv-* token now consume the token — input blue
+ * (--sv-input-blue), info banner (--sv-info-bg / --sv-info-border), primary and
+ * secondary text (--sv-text / --sv-text-dim). This automatically picks up the W2
+ * WCAG-AA corrections (TASK-1664: dim text 0.55 → 0.68 over a bright map). Colours
+ * with no proof-capped token (the lime accent, success green, warn orange, the
+ * danger strip) stay literal until the full sv-* namespace migration (TASK-1673).
+ *
+ * TASK-1765 token pass: --sv-accent-lime replaces rgb(202,227,59)/#cae33b lime accent;
+ * --sv-font-family applied on every text surface; --sv-text-danger for error text.
+ * Bootstrap amber rgb(240,173,78) kept literal (no sv-* token covers it yet — the
+ * closest --sv-status-warn/#f0e08a is lighter; --sv-warning-color/#fcf8e3 is cream text).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* TASK-1800 (W1.9 UAT): the inline "Analysis Surfaces" expandable section was
+ * removed from the Inputs->Terrain pane — the recipe builder is now the
+ * stand-alone "Merge terrains" side panel (MergeTerrainsPanel). The dead
+ * .sv-anuga-terrain-recipe-section / -toggle / -body rules were dropped; the
+ * scrollable recipe body now lives on .sv-merge-terrains-body. text-align:left
+ * overrides .simple-view-panel's inherited center for the whole recipe builder
+ * (labels, hints, buttons) — matches the Scenarios pane. */
+.sv-merge-terrains-body {
+    padding: 8px 10px 14px;
+    overflow-y: auto;
+    text-align: left;
+    font-family: var(--sv-font-family);
+    font-size: var(--sv-font-size);
+}
+
+/* ── Empty-state hint ──────────────────────────────────────────────────────
+ * TASK-1800 (W1.9 UAT r2): the surface LIST chrome (.sv-tw-surface-list /
+ * -header / -item / -title / -title-input / -delete and the green .sv-tw-new-btn)
+ * was REMOVED — a project owns a SINGLE combined surface, so the panel no longer
+ * renders a list, "+ New" button, per-row delete or inline rename. The dead rules
+ * were dropped. .sv-tw-empty-hint is KEPT — it still styles the panel empty state
+ * ("Add a terrain first"). */
+.sv-tw-empty-hint {
+    font-size: 11.5px;
+    font-family: var(--sv-font-family);
+    color: var(--sv-text-dim);
+    padding: 10px 4px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.sv-tw-empty-hint strong {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* ── Stale pill — mirrors .sv-anuga-scenario-category-item-tag.is-warn ──────── */
+.sv-tw-stale-badge {
+    font-size: 10px;
+    font-family: var(--sv-font-family);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 1px 7px;
+    border-radius: 8px;
+    background: rgba(240, 173, 78, 0.22);
+    color: rgb(240, 173, 78);
+    border: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+/* ── Recipe builder ────────────────────────────────────────────────────── */
+.sv-tw-recipe-builder {
+    border-top: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
+    margin-top: 6px;
+    padding-top: 4px;
+}
+
+/* W1.9 UAT: inside the stand-alone Combined surface panel the PanelHeader
+   already draws a divider (border-bottom), so the recipe-builder's own
+   border-top doubled it into two stacked white bars. Drop the redundant rule
+   in-panel only (the border-top is kept for any legacy inline reuse). */
+.sv-merge-terrains-body .sv-tw-recipe-builder {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+/* Header — mirrors .sv-anuga-scenario-pane-detail-head */
+.sv-tw-recipe-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 2px 8px 4px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
+}
+
+.sv-tw-title-input {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-family: var(--sv-font-family);
+    font-weight: 600;
+    color: #fff;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    padding: 2px 4px;
+}
+
+.sv-tw-title-input:focus {
+    outline: none;
+    border-bottom-color: rgba(255, 255, 255, 0.55);
+    background: transparent;
+}
+
+.sv-tw-title-input::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* Section labels — mirror .sv-anuga-scenario-category-section-label (uppercase, dim) */
+.sv-tw-label {
+    display: block;
+    font-size: 10px;
+    font-family: var(--sv-font-family);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sv-text-dim);
+    margin-bottom: 5px;
+}
+
+/* TASK-1750 (W1.8) #15: the user-facing "Merge terrains" heading reads normal-case,
+ * not the all-caps section-label treatment (the internal/domain term stays
+ * "DEM priority stack"). Overrides .sv-tw-label's text-transform:uppercase. */
+.sv-tw-label-normalcase {
+    text-transform: none;
+    letter-spacing: 0.02em;
+}
+
+.sv-tw-label-sub {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.sv-tw-field {
+    margin-bottom: 12px;
+}
+
+/* Selects/inputs — dark glass, mirrors .simple-view-panel inputs + sv-scenario-select */
+.sv-tw-select {
+    width: 100%;
+    padding: 5px 8px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    color: #fff;
+    background-color: var(--sv-input-blue);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+}
+
+.sv-tw-select:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.sv-tw-select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Native option list renders on the OS popup surface — keep it readable. */
+.sv-tw-select option {
+    color: #1f2d3d;
+    background: #fff;
+}
+
+/* Design-DEM ordered list */
+.sv-tw-design-inputs {
+    margin-bottom: 8px;
+}
+
+.sv-tw-design-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    color: #fff;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+}
+
+.sv-tw-priority-badge {
+    font-size: 10px;
+    font-family: var(--sv-font-family);
+    font-weight: 700;
+    color: var(--sv-accent-lime, rgb(202, 227, 59));
+    min-width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.sv-tw-input-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Reorder / remove icon buttons */
+.sv-tw-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    padding: 1px 6px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    line-height: 1.4;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.sv-tw-icon-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.sv-tw-icon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.sv-tw-icon-btn-danger {
+    background: rgba(98, 43, 43, 0.65);
+    border-color: rgba(217, 83, 79, 0.5);
+    color: var(--sv-text-danger, rgb(244, 185, 183));
+}
+
+.sv-tw-icon-btn-danger:hover:not(:disabled) {
+    background: rgb(98, 43, 43);
+}
+
+.sv-tw-validation-hint {
+    font-size: 11px;
+    font-family: var(--sv-font-family);
+    /* Bootstrap amber warning -- no exact sv-* token yet (--sv-status-warn is lighter yellow;
+     * --sv-warning-color is the light cream banner text). Kept literal per W1.9 scope. */
+    color: rgb(240, 173, 78);
+    margin-top: 4px;
+}
+
+/* Parameter rows — label + value rhythm (echoes .sv-anuga-scenario-pane-section) */
+.sv-tw-params-section {
+    margin-bottom: 12px;
+}
+
+.sv-tw-param-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 10px;
+    align-items: center;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    margin-bottom: 10px;
+}
+
+.sv-tw-param-grid > label {
+    color: var(--sv-text);
+    font-weight: 400;
+    margin: 0;
+}
+
+.sv-tw-param-grid > input[type="checkbox"] {
+    justify-self: end;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--sv-accent-lime, rgb(202, 227, 59));
+}
+
+.sv-tw-number-input {
+    width: 88px;
+    justify-self: end;
+    padding: 4px 8px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    text-align: right;
+    color: #fff;
+    background-color: var(--sv-input-blue);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+}
+
+.sv-tw-number-input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.sv-tw-number-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Secondary "Save" buttons — mirror .sv-anuga-btn-compare (muted blue) */
+.sv-tw-save-btn {
+    padding: 3px 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    line-height: 1.5;
+    color: #fff;
+    background-color: rgb(96, 133, 181);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.sv-tw-save-btn:hover:not(:disabled) {
+    background-color: rgb(114, 151, 197);
+}
+
+.sv-tw-save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Derive — primary green action (mirrors the success buttons) */
+.sv-tw-derive-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
+}
+
+.sv-tw-derive-btn.btn {
+    background-color: #5cb85c;
+    border-color: #4cae4c;
+    color: #fff;
+    font-weight: 500;
+    font-family: var(--sv-font-family);
+    margin-bottom: 6px;
+}
+
+.sv-tw-derive-btn.btn:hover:not([disabled]),
+.sv-tw-derive-btn.btn:focus {
+    background-color: #4cae4c;
+    border-color: #449d44;
+    color: #fff;
+}
+
+.sv-tw-derive-btn.btn[disabled],
+.sv-tw-derive-btn.btn.disabled {
+    background-color: rgba(92, 184, 92, 0.4);
+    border-color: transparent;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Derive in-progress note — info strip (echoes .sv-anuga-scenario-pane-readonly-hint) */
+.sv-tw-derive-progress {
+    font-size: 11.5px;
+    font-family: var(--sv-font-family);
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--sv-info-bg);
+    border-left: 3px solid var(--sv-info-border);
+    border-radius: 3px;
+}
+
+/* Seam QA — mirrors .sv-anuga-scenario-resource-summary / status card */
+.sv-tw-seam-qa {
+    margin-top: 12px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    color: var(--sv-text);
+}
+
+.sv-tw-seam-qa .sv-tw-label {
+    margin-bottom: 6px;
+}
+
+.sv-tw-seam-qa-row {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 2px 0;
+}
+
+.sv-tw-seam-qa-row strong {
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Error strip — mirrors .sv-anuga-scenario-error-strip */
+.sv-tw-error {
+    font-size: 11.5px;
+    font-family: var(--sv-font-family);
+    color: var(--sv-text-danger, rgb(244, 185, 183));
+    background: rgba(217, 83, 79, 0.14);
+    border: 1px solid rgba(217, 83, 79, 0.3);
+    border-left: 3px solid #d9534f;
+    border-radius: 3px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    line-height: 1.45;
+}
+
+.sv-tw-loading {
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 16px 0;
+    text-align: center;
+}
+
+/* ── TASK-1671 / TASK-1750 (W1.8) #16: per-DEM-stack-row pencil toggle ─────── */
+
+/* The toggle is a PENCIL/edit affordance. A GREYED pencil = "unmodified" (default
+ * datum anchor — byte-exact pass-through). The pencil turns GREEN when clicked to
+ * mark the entry "modifiable" (feather-merge may reconcile it). The base entry
+ * carries the same pencil for visual consistency but is locked-on (modifiable). */
+.sv-tw-pencil-toggle {
+    min-width: 24px;
+    font-size: 13px;
+    /* default (unmodified) — greyed pencil */
+    color: var(--sv-text-dim);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* GREEN pencil = modifiable. */
+.sv-tw-pencil-toggle.sv-tw-modifiable-on {
+    color: rgb(92, 184, 92);
+    background: rgba(92, 184, 92, 0.14);
+    border-color: rgba(92, 184, 92, 0.45);
+}
+
+.sv-tw-pencil-toggle:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.sv-tw-pencil-toggle.sv-tw-modifiable-on:hover:not(:disabled) {
+    background: rgba(92, 184, 92, 0.22);
+}
+
+/* Base row is locked-on (modifiable, disabled) — keep the green so the constraint
+ * (base can never be unmodified) reads as an intentional locked-on state, not a
+ * generic greyed-out disabled control. */
+.sv-tw-pencil-toggle.sv-tw-modifiable-on:disabled {
+    opacity: 0.7;
+    color: rgb(92, 184, 92);
+}
+
+.sv-tw-pencil-toggle .glyphicon {
+    top: 1px;
+    font-size: 11px;
+}
+
+/* ── TASK-1671: Derive confirm dialog ─────────────────────────────────────── */
+
+/* Inline confirm box rendered inside the recipe builder (not a full modal).
+ * Positioned below the Derive button within the .sv-tw-derive-section flow. */
+.sv-tw-derive-confirm-overlay {
+    margin-top: 10px;
+    padding: 0;
+}
+
+.sv-tw-derive-confirm-box {
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.sv-tw-derive-confirm-title {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: #fff;
+}
+
+.sv-tw-derive-confirm-title--error {
+    color: var(--sv-text-danger, rgb(244, 185, 183));
+}
+
+.sv-tw-derive-confirm-body {
+    margin-bottom: 12px;
+    line-height: 1.45;
+    color: var(--sv-text);
+}
+
+.sv-tw-derive-confirm-body strong {
+    color: #fff;
+}
+
+.sv-tw-derive-confirm-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * TASK-1749 (W1.8) — Terrain layer-menu row layout
+ *   (re-UAT findings #4, #5, #6, #13; decision 2026-06-16-q-4 revises ADR#9).
+ *
+ * #4: Mode + Contours are DEM sub-options. UAT 2026-06-17: rendered in the MenuRow
+ *     EXTRA-TOOLBAR slot (.sv-menu-row-toolbar-extra) — to the RIGHT of the per-layer
+ *     controls (tick / glass / delete), before the title. The Hillshade row passes
+ *     an empty extra slot of the SAME fixed width so the controls + titles line up
+ *     in columns across both rows. Hillshade is a separate sibling row.
+ * #5: Mode + Contours controls are ICON-ONLY, LEFT-justified within their row.
+ * #6: REVERTED (UAT 2026-06-17) — the visibility/zoom/download/trash control
+ *     cluster (the MenuRow toolbar) is RESTORED on terrain rows. Its removal was
+ *     a miscommunication: the 2026-06-16 finding asked to drop the decorative
+ *     photo glyph LEFT of the title (now removed in anugaInputMenu.js), not the
+ *     controls.
+ * #13: Left-justify the terrain item headings.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* #13: left-justify the terrain item heading (parent identity title) — overrides
+ * .simple-view-panel's inherited text-align:center. */
+.sv-tw-terrain-parent-title,
+.sv-tw-terrain-pending-name {
+    text-align: left;
+    font-family: var(--sv-font-family);
+    /* TASK-1800 (W1.9 UAT r3): match the standard layer row (.sv-menu-row-text)
+       — 14px / weight 500 — instead of the old inline fontSize:12 (now dropped
+       from anugaInputMenu.js). Keeps the terrain hierarchy + indent (Option C);
+       only the typography is normalised. */
+    font-size: var(--sv-font-size-label);
+    font-weight: 500;
+}
+
+/* #4: Mode + Contours toggles live in the MenuRow EXTRA-TOOLBAR slot, to the RIGHT
+ * of the per-layer controls (UAT 2026-06-17). The DEM row fills it with the two
+ * toggles (Mode cog + Contours hamburger); the Hillshade row carries none.
+ *
+ * TASK-1800 (W1.9 UAT live-fix 2026-06-18): the slot is now CONTENT-SIZED, not a
+ * fixed 58px column. The old fixed width reserved an empty 58px column on the
+ * Hillshade row, pushing its title out so the buttons + text read mis-aligned with
+ * a big gap after the controls. Sizing to content (and collapsing the empty slot,
+ * below) lets the title hug the control cluster on each row — the left-aligned
+ * layout the UAT asked for. Scoped to terrain rows — non-terrain MenuRows pass no
+ * extra actions, so .sv-menu-row-toolbar-extra never renders for them. */
+.sv-tw-terrain-dem-row .sv-menu-row-toolbar-extra,
+.sv-tw-terrain-hillshade-row .sv-menu-row-toolbar-extra {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex: 0 0 auto;
+    gap: 6px;
+    margin-left: 4px;
+    /* TASK-1800 (W1.9 UAT live-fix 2026-06-18): render the Mode/Contours slot
+       AFTER the title (flex order) instead of before it, so the DEM + Hillshade
+       titles both start at the SAME left x (right after the shared control
+       cluster). Previously the DEM toggles sat between the controls and the
+       title, pushing the DEM title ~64px right of the Hillshade title. */
+    order: 1;
+}
+
+/* Collapse the slot entirely when a row carries no Mode/Contours toggles (the
+ * Hillshade row) so the title hugs the control cluster instead of an empty column. */
+.sv-tw-terrain-dem-row .sv-menu-row-toolbar-extra:empty,
+.sv-tw-terrain-hillshade-row .sv-menu-row-toolbar-extra:empty {
+    display: none;
+}
+
+/* #5: icon-only Mode + Contours buttons. Square, glyph-centred, no text label. */
+.sv-anuga-terrain-icon-btn.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 24px;
+    padding: 0;
+}
+
+.sv-anuga-terrain-icon-btn.btn .glyphicon {
+    /* TASK-1800 (W1.9 UAT r3): match the standard row glyph size (14px == the
+       .sv-menu-row-glyph font-size). 14px fits the existing 26x24 button (the
+       standard glyph chip is 14px inside 24x24), so the button + the 58px
+       reserved extra-toolbar slot are UNCHANGED — DEM/Hillshade columns stay
+       aligned. */
+    font-size: 14px;
+    top: 0;
+}
+
+/* #6 REVERTED (UAT 2026-06-17): the per-layer control cluster (visibility/zoom/
+ * download/trash) is RESTORED on terrain DEM + hillshade rows — the MenuRow
+ * toolbar is no longer hidden. The 2026-06-16 finding asked to remove the
+ * decorative photo glyph LEFT of the title (now done in anugaInputMenu.js), not
+ * these controls. Titles stay left-justified (#13) — the rule still overrides
+ * .simple-view-panel's inherited text-align:center. */
+.sv-tw-terrain-dem-row .sv-menu-row-title,
+.sv-tw-terrain-hillshade-row .sv-menu-row-title {
+    text-align: left;
+    /* TASK-1800 (W1.9 UAT live-fix 2026-06-18): don't grow (the base
+       .sv-menu-row-title is flex:1) so the title is content-width and the
+       order:1 Mode/Contours toggles sit immediately to its right rather than
+       being pushed to the far edge by a growing title box. */
+    flex: 0 1 auto;
+}

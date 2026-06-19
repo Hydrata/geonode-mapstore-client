@@ -5,13 +5,12 @@
     grid-template-rows: auto 1fr auto;
     grid-column-gap: 30px;
     grid-row-gap: 10px;
-    background-color: #063167;
     text-align: left;
     width: 95%;
     max-width: 1300px;
     height: 80%;
     font-size: small;
-    background-color: rgba(43, 89, 148);
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
 }
 
 #swamm-bmp-form-panel input {
@@ -56,18 +55,11 @@
     top: 70px;
     display: flex;
     flex-direction: column;
-    background-color: #063167;
     text-align: left;
     width: 95%;
     height: 80%;
     font-size: small;
-    background-color: rgba(43, 89, 148);
-}
-
-#swamm-bmp-chart-header {
-    text-align: center;
-    min-height: 50px;
-    font-size: x-large;
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
 }
 
 #swamm-bmp-chart-body {
@@ -86,7 +78,7 @@
     margin-right: 20px;
     max-height: 100%;
     overflow-y: auto;
-    border: solid 1px rgba(53, 133, 176);
+    border: solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 4px;
     text-align: center;
 
@@ -98,24 +90,19 @@
     max-height: 100%;
     width: 100%;
     overflow-y: auto;
-    border: solid 1px rgba(53, 133, 176);
+    border: solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 4px;
 }
 
 #swamm-bmp-chart-col-three {
-    color: #155481;
-    background-color: white;
     margin: 10px;
     display: flex;
     flex-direction: column;
     max-width: 200px;
     margin-right: auto;
     margin-left: 20px;
-    padding: 10px;
     max-height: 100%;
     overflow-y: auto;
-    border: solid 1px rgba(53, 133, 176);
-    border-radius: 4px;
 }
 
 #swamm-bmp-chart-targets {
@@ -126,51 +113,11 @@
     margin-bottom: 20px;
 }
 
-#swamm-bmp-chart-phosphorus-graph-box {
-    color: #155481;
-    background-color: white;
-    margin: 10px;
-    border-radius: 4px;
-}
+/* Pollutant graph-box / summary / legend cards: the light chart surface now
+   comes from <Card variant="chart"> (--sv-chart-surface) — TASK-1758 carve-out.
+   The bespoke white-background id rules were removed (dead). */
 
-#swamm-bmp-chart-nitrogen-graph-box {
-    color: #155481;
-    background-color: white;
-    margin: 10px;
-    border-radius: 4px;
-}
-
-#swamm-bmp-chart-sediment-graph-box {
-    color: #155481;
-    background-color: white;
-    margin: 10px;
-    border-radius: 4px;
-}
-
-#swamm-bmp-chart-total-graph-box {
-    color: #155481;
-    background-color: white;
-    margin: 10px;
-    border-radius: 4px;
-}
-
-#swamm-bmp-chart-summary {
-    color: #155481;
-    background-color: white;
-    margin: 10px;
-    border-radius: 4px;
-}
-
-#swamm-bmp-chart-legend-container {
-    color: #155481;
-    background-color: white;
-    margin: 10px;
-    width: 200px;
-    height: auto;
-    border-radius: 4px;
-}
-
-.swamm-bmp-chart-legend-row {
+.sv-swamm-bmp-chart-legend-row {
     display: inline-flex;
     justify-content: left;
     margin-top: 4px;
@@ -180,7 +127,7 @@
 }
 
 #swamm-bmp-chart-footer {
-    border-top: solid 1px #3585b0;
+    border-top: solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6));
     width: 100%;
     padding: 6px;
     display: flex;
@@ -189,29 +136,42 @@
     margin-top: auto;
 }
 
-.swamm-bmp-chart-heading {
+.sv-swamm-bmp-chart-heading {
     font-size: medium;
     text-align: center;
     margin-bottom: 5px;
 }
 
-.swamm-bmp-chart-graph-container {
-    margin-bottom: 15px;
-}
-
-.swamm-bmp-chart-graph-box {
+.sv-swamm-bmp-chart-graph-box {
     display: flex;
     height: 100px;
 }
 
-.swamm-bmp-chart-pie-group {
+/* SummaryTable renders raw thead/tbody children, so the Table primitive only
+   inlines its light-surface cell chrome on the columns/data path — restore the
+   per-cell padding + borders for the children-path summary table here
+   (TASK-1766 W2 polish, item a; values mirror Table.js getThStyle/getTdStyle). */
+.sv-swamm-summary-table th {
+    background-color: var(--sv-input-blue, #5178af);
+    color: #fff;
+    padding: 2px 4px;
+    font-weight: 600;
+}
+
+.sv-swamm-summary-table td {
+    padding: 2px 4px;
+    vertical-align: top;
+    border: 1px solid rgba(53, 133, 176, 0.4);
+}
+
+.sv-swamm-bmp-chart-pie-group {
     margin-top: 10px;
     margin-left: 10px;
     width: 200px;
     display: inline-block;
 }
 
-.swamm-bmp-chart-bar-group {
+.sv-swamm-bmp-chart-bar-group {
     margin-top: 10px;
     margin-right: 10px;
     width: 100%;
@@ -224,16 +184,10 @@
     font-size: small;
     text-align: left;
     top: 70px;
-    background-color: rgba(43, 89, 148);
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
     z-index: 1030;
     display: flex;
     flex-direction: column;
-}
-
-#swamm-target-form-header {
-    text-align: center;
-    min-height: 50px;
-    font-size: x-large;
 }
 
 #swamm-target-form-body {
@@ -253,7 +207,7 @@
     overflow-y: auto;
     width: 100%;
     min-width: 300px;
-    border: solid 1px rgba(53, 133, 176);
+    border: solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 4px;
 
 }
@@ -266,12 +220,12 @@
     overflow-y: auto;
     width: 100%;
     min-width: 300px;
-    border: solid 1px rgba(53, 133, 176);
+    border: solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 4px;
 }
 
 #swamm-target-form-footer {
-    border-top: solid 1px #3585b0;
+    border-top: solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6));
     width: 100%;
     padding: 10px;
     display: flex;
@@ -280,81 +234,81 @@
     margin-top: auto;
 }
 
-.swamm-target-row {
+.sv-swamm-target-row {
     display: flex;
     flex-direction: row;
     margin-bottom: 10px
 }
 
-.swamm-target-select {
+.sv-swamm-target-select {
     width: 80%;
 }
 
-.swamm-target-select option:checked {
+.sv-swamm-target-select option:checked {
     color: white;
     background-color: darkgreen;
 }
 
-.swamm-target-form-heading {
+.sv-swamm-target-form-heading {
     margin-bottom: 10px;
 }
 
 /* ── Target form accordion (replaces <select multiple>) ── */
 
-.swamm-target-accordion-section {
+.sv-swamm-target-accordion-section {
     margin-bottom: 4px;
 }
 
-.swamm-target-accordion-header {
+.sv-swamm-target-accordion-header {
     display: flex;
     flex-direction: row;
     align-items: center;
     padding: 8px 10px;
     cursor: pointer;
-    border: 1px solid rgba(53, 133, 176);
+    border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 4px;
-    background-color: rgba(30, 60, 110, 0.5);
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
     user-select: none;
 }
 
-.swamm-target-accordion-header:hover {
-    background-color: rgba(30, 60, 110, 0.8);
+.sv-swamm-target-accordion-header:hover {
+    background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8));
 }
 
-.swamm-target-accordion-header-open {
+.sv-swamm-target-accordion-header-open {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
 }
 
-.swamm-target-accordion-arrow {
+.sv-swamm-target-accordion-arrow {
     margin-right: 8px;
     font-size: 10px;
     flex-shrink: 0;
 }
 
-.swamm-target-accordion-title {
+.sv-swamm-target-accordion-title {
     flex: 1;
 }
 
-.swamm-target-accordion-count {
+.sv-swamm-target-accordion-count {
     font-size: 11px;
     opacity: 0.8;
     margin-left: 8px;
     white-space: nowrap;
 }
 
-.swamm-target-accordion-body {
+.sv-swamm-target-accordion-body {
     max-height: 200px;
     overflow-y: auto;
-    border: 1px solid rgba(53, 133, 176);
+    border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-top: none;
     border-bottom-left-radius: 4px;
     border-bottom-right-radius: 4px;
     padding: 6px 10px;
-    background-color: rgba(20, 50, 90, 0.4);
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
 }
 
-.swamm-target-checkbox-row {
+.sv-swamm-target-checkbox-row {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -364,45 +318,45 @@
     font-weight: normal;
 }
 
-.swamm-target-checkbox-row input[type="checkbox"] {
+.sv-swamm-target-checkbox-row input[type="checkbox"] {
     margin-right: 8px;
     flex-shrink: 0;
     cursor: pointer;
 }
 
-.swamm-target-checkbox-row span {
+.sv-swamm-target-checkbox-row span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.custom-tooltip-label {
-    color: white;
-    background-color: black;
-    border-radius: 3px;
+.sv-custom-tooltip-label {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
+    border-radius: var(--sv-card-radius, 4px);
     padding: 2px;
 }
 
-.bmp-type-group-glyph {
+.sv-bmp-type-group-glyph {
     font-size: smaller;
     vertical-align: bottom;
     margin-left: 10px;
     margin-bottom: 2px;
     margin-right: 10px;
     border: solid 1px rgba(255, 255, 255, 0.65);
-    background: #537ab1;
+    background: var(--sv-input-blue, #5178af);
     height: 22px;
 }
 
-.bmp-type-group-glyph:hover {
+.sv-bmp-type-group-glyph:hover {
     background: #73a4e8;
 }
 
-.bmp-type-group-bottom-margin {
+.sv-bmp-type-group-bottom-margin {
     margin-bottom: 10px;
 }
 
-.bmp-type-group-name {
+.sv-bmp-type-group-name {
     vertical-align: top;
     margin-top: 5px;
 }
@@ -421,12 +375,12 @@
 }
 
 #swamm-bmp-filters ::-webkit-scrollbar-thumb {
-    background-color: #5178af;
+    background-color: var(--sv-input-blue, #5178af);
     outline: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
 }
 
-.bmp-filter-group-expanded-panel {
+.sv-bmp-filter-group-expanded-panel {
     height: 100%;
     width: 100%;
     margin-top: 50px;
@@ -435,26 +389,26 @@
 
 }
 
-.bmp-filter-group-selector-row {
+.sv-bmp-filter-group-selector-row {
     margin-left: 30px;
 }
 
-.menu-row-bmp-filter {
+.sv-menu-row-bmp-filter {
     height: 24px;
     display: flex;
     width: 470px;
     text-align: left;
 }
 
-.bmp-filter-type-row {
+.sv-bmp-filter-type-row {
     display: flex;
 }
 
-.bmp-filter-type-heading-last-item {
+.sv-bmp-filter-type-heading-last-item {
   margin-left: auto;
 }
 
-.bmp-filter-group-heading {
+.sv-bmp-filter-group-heading {
     text-align: left;
     margin-left: 35px;
     margin-bottom: 3px;
@@ -462,24 +416,23 @@
     flex-direction: column
 }
 
-.bmp-filter-group-glyph {
+.sv-bmp-filter-group-glyph {
     font-size: smaller;
     vertical-align: bottom;
     margin-left: 10px;
     margin-bottom: 2px;
     margin-right: 10px;
     border: solid 1px rgba(255, 255, 255, 0.65);
-    background: #537ab1;
     height: 20px;
     background: none;
-    color: white;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.bmp-filter-group-glyph:hover {
+.sv-bmp-filter-group-glyph:hover {
     background: #73a4e8;
 }
 
-.bmp-progress-button-danger {
+.sv-bmp-progress-button-danger {
     top: 80px;
     left: 20px;
     min-width: 135px;
@@ -489,7 +442,7 @@
     background-color: inherit;
 }
 
-.bmp-progress-button-success {
+.sv-bmp-progress-button-success {
     top: 80px;
     left: 20px;
     min-width: 135px;
@@ -499,7 +452,7 @@
     background-color: inherit;
 }
 
-.bmp-loading-button {
+.sv-bmp-loading-button {
     position: absolute;
     top: 200px;
     left: 50%;
@@ -507,19 +460,19 @@
     margin-left: -100px;
     width: 200px;
     height: 100px;
-    border-radius: 4px;
-    border-color: white;
-    color: white;
-    background: rgb(0, 86, 187, 0.95);
+    border-radius: var(--sv-card-radius, 4px);
+    border-color: var(--sv-panel-border, rgba(255, 255, 255, 0.6));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    background: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
     text-align: center;
     z-index: 10000;
 }
 
-.swamm-button {
-    border-radius: 4px;
-    border: 1px solid white;
-    color: white;
-    background: rgb(82, 121, 176);
+.sv-swamm-button {
+    border-radius: var(--sv-card-radius, 4px);
+    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    background: var(--sv-input-blue, #5178af);
     text-align: center;
     margin-left: 10px;
     margin-right: 10px;
@@ -527,18 +480,18 @@
     min-width: 100px;
 }
 
-.swamm-button-disabled {
+.sv-swamm-button-disabled {
     cursor: not-allowed;
     opacity: 0.5;
 }
 
-.non-savable-group-profile {
-    background-color: #f8a9a9;
-    color: grey;
+.sv-non-savable-group-profile {
+    background-color: var(--sv-disabled-bg, rgba(220, 53, 69, 0.18));
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 .simple-view-panel-item-row select {
-    background-color: #5279B0FF;
+    background-color: var(--sv-input-blue, #5178af);
     border-radius: 4px;
     border: 1px white solid;
     min-width: 200px;
@@ -546,13 +499,13 @@
 
 #bmp-notes {
     color: white;
-    background-color: #5279B0FF;
+    background-color: var(--sv-input-blue, #5178af);
     border-radius: 4px;
     border: 1px white solid;
     width: 100%;
 }
 
-.filter-row {
+.sv-filter-row {
     width: 240px;
     font-size: 14px;
     text-align: left;
@@ -572,7 +525,7 @@
     border-right: none;
 }
 #swamm-bmp-form-grid-col-two .table-hover > tbody > tr:hover {
-    background-color: rgba(30, 60, 110, 0.6);
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
 }
 
 /* Hide number input spinners */
@@ -586,7 +539,7 @@
 }
 
 /*Override recharts default that causes bar to go grey on hover*/
-.swamm-bmp-chart-bar-group-responsive > div > svg > path {
+.sv-swamm-bmp-chart-bar-group-responsive > div > svg > path {
     fill: none;
 }
 
@@ -693,11 +646,11 @@
         width: calc(100% - 20px) !important;
     }
 
-    .menu-row-bmp-filter {
+    .sv-menu-row-bmp-filter {
         width: 100%;
     }
 
-    .filter-row {
+    .sv-filter-row {
         width: 100%;
     }
 
@@ -730,23 +683,28 @@
         max-width: 60px;
     }
 
-    #swamm-bmp-chart-header,
-    #swamm-target-form-header {
+    /* TASK-1758 W1 simplify-pass: the dashboard + target-form headers migrated to
+       the PanelHeader chassis primitive (TASK-1761), which emits a CLASS
+       (.sv-swamm-bmp-chart-header / .sv-swamm-target-form-header) not an id. These
+       id selectors were dead post-migration; converted to class selectors so the
+       mobile responsive sizing re-attaches to the new PanelHeader. */
+    .sv-swamm-bmp-chart-header,
+    .sv-swamm-target-form-header {
         font-size: large;
         min-height: 36px;
     }
 
-    .swamm-button {
+    .sv-swamm-button {
         min-width: 80px;
         margin: 5px;
         font-size: 12px;
     }
 
-    .swamm-target-select {
+    .sv-swamm-target-select {
         width: 100%;
     }
 
-    .bmp-loading-button {
+    .sv-bmp-loading-button {
         width: 160px;
         margin-left: -80px;
     }
@@ -761,12 +719,12 @@
     #swamm-bmp-chart-body { flex-direction: column; }
     #swamm-bmp-chart-col-one { width: 100%; flex-direction: row; flex-wrap: wrap; }
     #swamm-bmp-chart-col-three { width: 100%; }
-    .swamm-bmp-chart-pie-group { width: 150px; }
+    .sv-swamm-bmp-chart-pie-group { width: 150px; }
     #swamm-bmp-chart-panel button { min-height: 44px; min-width: 44px; }
 }
 
 @media (max-width: 480px) {
     #swamm-bmp-chart-panel { width: 100%; height: 100%; }
     #swamm-bmp-chart-col-three { display: none; }
-    .swamm-bmp-chart-graph-box { flex-direction: column; }
+    .sv-swamm-bmp-chart-graph-box { flex-direction: column; }
 }

@@ -52,7 +52,7 @@
 }
 
 .simple-view-menu-button.active {
-    background-color: rgba(30, 126, 52, 0.7);
+    background-color: var(--sv-row-active-bg, rgba(30, 126, 52, 0.7));
     border-color: rgba(255, 255, 255, 0.9);
 }
 
@@ -77,7 +77,7 @@
 }
 
 .simple-view-right-button.active {
-    background-color: rgba(30, 126, 52, 0.7);
+    background-color: var(--sv-row-active-bg, rgba(30, 126, 52, 0.7));
     border-color: rgba(255, 255, 255, 0.9);
 }
 
@@ -114,6 +114,10 @@
 .simple-view-panel {
     position: absolute;
     z-index: 1025;
+    /* TASK-1758 W3 conform: tokenise the panel font-family so every descendant
+       label/input/heading inherits one canonical family instead of the app
+       base (the wrong-font drift source). */
+    font-family: var(--sv-font-family);
     top: var(--sv-panel-top, 65px);
     left: 20px;
     min-width: 500px;
@@ -170,7 +174,7 @@
 
 .simple-view-panel-header {
     font-size: x-large;
-    border-bottom: 2px solid #ffffffad;
+    border-bottom: 2px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     padding-left: 5px;
     margin: 0;
 }
@@ -192,12 +196,12 @@
     overflow-y: auto;
     width: 100%;
     min-width: 300px;
-    border: solid 1px rgba(53, 133, 176);
+    border: solid 1px var(--sv-accent-border, #3585b0);
     border-radius: 4px;
 }
 
 .simple-view-panel-footer {
-    border-top: solid 1px #3585b0;
+    border-top: solid 1px var(--sv-accent-border, #3585b0);
     width: 100%;
     padding: 10px;
     display: flex;
@@ -237,7 +241,7 @@
     right: var(--sv-widget-right, 65px) !important;
 }
 
-.legend-panel {
+.sv-legend-panel {
     top: 11px;
     right: var(--sv-widget-right, 65px);
     left: unset;
@@ -251,7 +255,7 @@
     min-width: 200px;
 }
 
-.legend-header {
+.sv-legend-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -260,26 +264,26 @@
     flex-shrink: 0;
 }
 
-.legend-header h4 {
+.sv-legend-header h4 {
     margin: 0;
     font-size: 16px;
-    color: white;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.legend-body {
+.sv-legend-body {
     overflow-y: auto;
     flex: 1;
     padding: 8px;
 }
 
-.legend-row {
+.sv-legend-row {
     padding: 10px;
     margin: 0 0 8px 0;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
 }
 
-.legend-footer {
+.sv-legend-footer {
     padding: 8px 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.3);
     display: flex;
@@ -287,37 +291,39 @@
     flex-shrink: 0;
 }
 
-.legend-background {
-    background-color: white;
+.sv-legend-background {
+    background-color: var(--sv-chart-surface, #ffffff);
     padding: 3px;
     border-radius: 3px;
     display: flex;
     justify-content: flex-end;
 }
 
-.legend-image {
+.sv-legend-image {
     display: block;
     max-width: 80%;
 }
 
-.legend-text-label {
+.sv-legend-text-label {
     text-align: left;
 }
 
-.legend-heading {
+.sv-legend-heading {
     text-align: center;
 }
 
-.legend-layer-title {
+.sv-legend-layer-title {
     text-align: left;
     margin-bottom: 4px;
 }
 
-.legend-close {
+.sv-legend-close {
     position: absolute;
     right: 0;
-    color: #fff;
-    background-color: #c9544d;
+    /* TASK-1758 W3: text -> --sv-text. Coral-red close fill now tokenised
+       (--sv-close-bg / --sv-close-bg-hover, second token round). */
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    background-color: var(--sv-close-bg, #c9544d);
     border: none;
     border-radius: 3px;
     width: var(--sv-icon-size);
@@ -331,14 +337,14 @@
 }
 
 /* Inside legend header, use flex positioning instead of absolute */
-.legend-header .legend-close {
+.sv-legend-header .sv-legend-close {
     position: static;
     flex-shrink: 0;
 }
 
-.legend-close:hover {
-    background-color: #b5403a;
-    color: #fff;
+.sv-legend-close:hover {
+    background-color: var(--sv-close-bg-hover, #b5403a);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .simple-view-panel-button {
@@ -356,7 +362,7 @@
     border-color: rgba(255, 255, 255, 0.7);
 }
 
-.uploader-panel {
+.sv-uploader-panel {
     position: fixed;
     top: 70px;
     right: 10px;
@@ -368,7 +374,7 @@
     max-width: 800px;
 }
 
-.uploader-panel>tbody {
+.sv-uploader-panel>tbody {
     background-color: transparent;
 }
 
@@ -377,15 +383,17 @@
     top: 70px;
     display: flex;
     flex-direction: column;
-    background-color: #063167;
     text-align: left;
     width: 95%;
     height: 80%;
-    font-size: small;
-    background-color: rgba(43, 89, 148);
+    /* TASK-1758 W3: was opaque #063167 then rgba(43,89,148) (duplicate, no glass);
+       use the canonical glass panel bg so backdrop-filter blur applies like every
+       other SimpleView surface. */
+    font-size: var(--sv-font-size, 12px);
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
 }
 
-.menu-rows-container {
+.sv-menu-rows-container {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -394,7 +402,7 @@
     scrollbar-color: var(--sv-input-blue, #5178af) transparent; /* TASK-1677 */
 }
 
-.subheading-row {
+.sv-subheading-row {
     display: flex;
     align-items: center;
     margin-top: 8px;
@@ -404,39 +412,39 @@
     padding: 3px 4px;
 }
 
-.subheading-row:first-child {
+.sv-subheading-row:first-child {
     margin-top: 0;
 }
 
-.subheading-row .menu-row-glyph {
+.sv-subheading-row .sv-menu-row-glyph {
     flex-shrink: 0;
 }
 
-.subheading-text {
+.sv-subheading-text {
     margin: 0;
     text-align: left;
     flex: 1;
 }
 
-.subheading-text-clickable {
+.sv-subheading-text-clickable {
     cursor: pointer;
     user-select: none;
 }
 
-.subheading-text-clickable:hover {
+.sv-subheading-text-clickable:hover {
     text-decoration: underline;
 }
 
-.menu-row-glyph.glyph-collapse {
-    color: #ffffff;
+.sv-menu-row-glyph.sv-glyph-collapse {
+    color: var(--sv-glyph-chip-bg, #ffffff);
     background: transparent;
 }
 
-.menu-row-glyph.glyph-collapse:hover {
+.sv-menu-row-glyph.sv-glyph-collapse:hover {
     background: rgba(255, 255, 255, 0.15);
 }
 
-.menu-row {
+.sv-menu-row {
     display: flex;
     align-items: center;
     padding-left: 5px;
@@ -444,14 +452,14 @@
     gap: 4px;
 }
 
-.menu-row-header {
+.sv-menu-row-header {
     font-size: larger;
-    border-bottom: 2px solid #ffffffad;
+    border-bottom: 2px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     padding-left: 5px;
     margin: 0;
 }
 
-.menu-row-left {
+.sv-menu-row-left {
     display: flex;
     align-items: center;
     flex: 1;
@@ -459,8 +467,8 @@
     gap: 2px;
 }
 
-span.menu-row-glyph {
-    background: #ffffff;
+span.sv-menu-row-glyph {
+    background: var(--sv-glyph-chip-bg, #ffffff);
     border-radius: 3px;
     margin: 2px 2px 2px 0;
     color: var(--sv-glyph-active, limegreen);
@@ -478,15 +486,27 @@ span.menu-row-glyph {
     justify-content: center;
 }
 
-.menu-row-glyph.glyph-active { color: var(--sv-glyph-active, limegreen); }
-.menu-row-glyph.glyph-inactive { color: var(--sv-glyph-inactive, red); }
-.menu-row-glyph.glyph-partial { color: var(--sv-glyph-partial, orange); }
-.menu-row-glyph.glyph-zoom { color: var(--sv-glyph-zoom, #4dabf7); }
-.menu-row-glyph.glyph-edit { color: var(--sv-glyph-edit, grey); }
-.menu-row-glyph.glyph-delete { color: var(--sv-glyph-delete, darkred); }
-.menu-row-glyph.glyph-save { color: var(--sv-glyph-save, limegreen); }
-.menu-row-glyph.glyph-settings { color: var(--sv-glyph-settings, #325f93); }
-.menu-row-glyph.glyph-disabled {
+/* TASK-1800 (W1.9 UAT r3): the Combined-surface header button renders a custom
+   SVG (MergeTerrainsIcon) at 1em (== 14px) inside the 24x24 .sv-menu-row-glyph
+   chip, which read a touch small next to its siblings. Bump the SVG ~3-4px to
+   18px. Scoped to `svg` inside the chip: the globe / upload siblings are FONT
+   glyphicons (no svg child) so they are untouched; the only other hydrata SVGs
+   live in .sv-category-rail-item-icon / legend swatches, not .sv-menu-row-glyph.
+   18px inside the 24x24 inline-flex-centred box does not clip. */
+.sv-menu-row-glyph svg {
+    width: 18px;
+    height: 18px;
+}
+
+.sv-menu-row-glyph.sv-glyph-active { color: var(--sv-glyph-active, limegreen); }
+.sv-menu-row-glyph.sv-glyph-inactive { color: var(--sv-glyph-inactive, red); }
+.sv-menu-row-glyph.sv-glyph-partial { color: var(--sv-glyph-partial, orange); }
+.sv-menu-row-glyph.sv-glyph-zoom { color: var(--sv-glyph-zoom, #4dabf7); }
+.sv-menu-row-glyph.sv-glyph-edit { color: var(--sv-glyph-edit, grey); }
+.sv-menu-row-glyph.sv-glyph-delete { color: var(--sv-glyph-delete, darkred); }
+.sv-menu-row-glyph.sv-glyph-save { color: var(--sv-glyph-save, limegreen); }
+.sv-menu-row-glyph.sv-glyph-settings { color: var(--sv-glyph-settings, #325f93); }
+.sv-menu-row-glyph.sv-glyph-disabled {
     opacity: 0.45;
     cursor: not-allowed;
     pointer-events: none;
@@ -495,7 +515,7 @@ span.menu-row-glyph {
 /* V2P-714 — inline cascade-delete error rendered under the row when the BE
    returns 409 ACTIVE_REFERENCES (blocked by active scenarios) or any other
    delete failure. */
-.menu-row-delete-error {
+.sv-menu-row-delete-error {
     flex-basis: 100%;
     margin-top: 2px;
     padding: 4px 8px;
@@ -505,20 +525,25 @@ span.menu-row-glyph {
     font-size: 12px;
     border-radius: 2px;
 }
-.menu-row-delete-error-message {
+.sv-menu-row-delete-error-message {
     font-weight: 500;
 }
-.menu-row-delete-error-list {
+.sv-menu-row-delete-error-list {
     margin: 4px 0 0 16px;
     padding: 0;
     list-style: disc;
 }
-.menu-row-delete-error-list li {
+.sv-menu-row-delete-error-list li {
     margin: 0;
 }
 
-.menu-row-text {
-    font-size: 14px;
+.sv-menu-row-text {
+    /* TASK-1758 W3 conform: was font-size:14px with no weight (inherited 400),
+       so feature-row labels (e.g. "Boundary 01") read thinner than the 500/600
+       siblings around them. Tokenise size + set the medium weight that matches
+       the category-rail labels. */
+    font-size: var(--sv-font-size-label);
+    font-weight: 500;
     white-space: nowrap;
     padding-left: 3px;
     vertical-align: middle;
@@ -526,71 +551,92 @@ span.menu-row-glyph {
     overflow: hidden;
 }
 
-.menu-row-mini-heading {
+.sv-menu-row-mini-heading {
     width: 100%;
     margin-top: 10px;
     margin-left: 10px;
     text-align: left;
 }
 
-.menu-row-mini-container {
-    border: 1px solid #ffffff80;
-    border-radius: 3px;
+.sv-menu-row-mini-container {
+    border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+    border-radius: var(--sv-card-radius, 4px);
     margin: 1px;
 }
 
-.dataset-transparency {
+.sv-dataset-transparency {
 }
 
-.data-title-input {
+.sv-data-title-input {
     margin-top: 0;
-    font-size: 12px;
+    font-size: var(--sv-font-size, 12px);
     white-space: nowrap;
     padding-left: 3px;
     vertical-align: middle;
     text-overflow: ellipsis ellipsis;
     overflow: hidden;
-    border: white;
+    border: none;
     text-align: left;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.22));
-    color: #f4f4f4;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.mapstore-slider.with-tooltip.dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {
+/* TASK-1800 (W1.9 UAT r3) — center the thumb on the rail.
+   The mapstore theme (sliders.less) overrides the nouislider base so the rail
+   (`.noUi-target.noUi-horizontal`) renders only ~3px tall, and `.noUi-origin`
+   is a ZERO-height point pinned to the TOP of the rail. So the old
+   `top: 50%; margin-top: -9px;` resolved `50%` against the origin's 0 height
+   (== 0) and anchored the 18px thumb's centre to the rail's TOP edge, not its
+   vertical centre. We pin an explicit rail height here so the centring math is
+   deterministic, then place the thumb's centre on the rail centre:
+   thumb-top = (rail-height / 2) - (thumb-height / 2). */
+.mapstore-slider.sv-with-tooltip.sv-dataset-transparency .noUi-target {
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    background-color: var(--sv-chrome-deep, #335781);
+}
+
+.mapstore-slider.sv-with-tooltip.sv-dataset-transparency .noUi-target.noUi-horizontal {
+    /* explicit rail height so the handle-centring math below is not at the
+       mercy of the inherited mapstore 3px; keeps the same slim rail look. */
+    height: 4px;
+}
+
+.mapstore-slider.sv-with-tooltip.sv-dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {
     width: 18px;
     height: 18px;
     left: -9px;
-    top: 50%;
+    /* TASK-1800 (W1.9 UAT live-fix 2026-06-18): the round-3 top:2px was derived
+       from a wrong assumption ("origin is zero-height at the rail top"). Measured
+       live against the 4px rail, the 18px handle centre landed 8.3px ABOVE the
+       rail centre — the handle anchors ~8px higher than assumed. top:10px drops
+       the thumb centre onto the rail centre (verified live: handle cy == rail cy).
+       margin-top:-9px still pulls up half the 18px thumb. */
+    top: 10px;
     margin-top: -9px;
-    background: var(--ms-blue, #397AAB);
-    border: 2px solid #ffffff;
+    background: var(--sv-input-blue, #5178af);
+    border: 2px solid var(--sv-text, rgba(255, 255, 255, 0.85));
     border-radius: 50%;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     cursor: pointer;
-}
-
-.mapstore-slider.with-tooltip.dataset-transparency .noUi-target {
-    box-shadow: none;
-    border: 1px solid rgba(255, 255, 255, 0.68);
-    background-color: #335781;
 }
 
 .sk-circle:before {
     background-color: white !important;
 }
 
-.introduction-modal {
-    background-color: #335781;
-    color: white;
+.sv-introduction-modal {
+    background-color: var(--sv-chrome-deep, #335781);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     opacity: 0.95;
 }
 
 #gn-brand-navbar {
-    background-color: #335781;
+    background-color: var(--sv-chrome-deep, #335781);
 }
 
 /* ── Save confirmation overlay ── */
-.save-confirm-overlay {
+.sv-save-confirm-overlay {
     position: absolute;
     z-index: 1022;
     top: 11px;
@@ -607,7 +653,7 @@ span.menu-row-glyph {
     font-size: 13px;
 }
 
-.save-confirm-btn {
+.sv-save-confirm-btn {
     padding: 4px 12px;
     border-radius: 3px;
     border: 1px solid rgba(255, 255, 255, 0.4);
@@ -616,27 +662,27 @@ span.menu-row-glyph {
     color: white;
 }
 
-.save-confirm-btn.confirm {
+.sv-save-confirm-btn.confirm {
     background-color: rgba(40, 167, 69, 0.85);
 }
 
-.save-confirm-btn.confirm:hover {
+.sv-save-confirm-btn.confirm:hover {
     background-color: rgba(33, 136, 56, 0.95);
 }
 
-.save-confirm-btn.cancel {
+.sv-save-confirm-btn.cancel {
     background-color: rgba(108, 117, 125, 0.7);
 }
 
-.save-confirm-btn.cancel:hover {
+.sv-save-confirm-btn.cancel:hover {
     background-color: rgba(90, 98, 104, 0.9);
 }
 
-.save-confirm-btn.danger {
+.sv-save-confirm-btn.danger {
     background-color: rgba(220, 53, 69, 0.85);
 }
 
-.save-confirm-btn.danger:hover {
+.sv-save-confirm-btn.danger:hover {
     background-color: rgba(176, 42, 55, 0.95);
 }
 
@@ -648,10 +694,10 @@ span.menu-row-glyph {
  * under Karma+JSDOM). Hidden by default; the `is-open` class is flipped on
  * by handleDeleteClick and off by performDelete/cancelDelete.
  */
-.menu-row-delete-confirm {
+.sv-menu-row-delete-confirm {
     display: none;
 }
-.menu-row-delete-confirm.is-open {
+.sv-menu-row-delete-confirm.is-open {
     position: fixed;
     z-index: 1023;
     top: 11px;
@@ -668,15 +714,15 @@ span.menu-row-glyph {
     white-space: nowrap;
 }
 
-.menu-row-delete-confirm-text {
+.sv-menu-row-delete-confirm-text {
     color: white;
 }
 
-/* Pair with .menu-row-delete-confirm.is-open: hide trash + opacity slider
+/* Pair with .sv-menu-row-delete-confirm.is-open: hide trash + opacity slider
  * on the same row while the dialog is open so the dialog visually replaces
  * them at top-right. */
-.menu-row-glyph.glyph-hidden,
-.mapstore-slider.glyph-hidden {
+.sv-menu-row-glyph.sv-glyph-hidden,
+.mapstore-slider.sv-glyph-hidden {
     visibility: hidden;
 }
 
@@ -726,7 +772,7 @@ span.menu-row-glyph {
         font-size: 14px;
     }
 
-    .legend-panel {
+    .sv-legend-panel {
         max-width: 250px;
         max-height: calc(100vh - 31px);
     }
@@ -775,12 +821,12 @@ span.menu-row-glyph {
         font-size: 13px;
     }
 
-    .legend-panel {
+    .sv-legend-panel {
         max-width: calc(100% - 80px);
         max-height: calc(100vh - 31px);
     }
 
-    .uploader-panel {
+    .sv-uploader-panel {
         max-width: calc(100% - 20px);
         right: 10px;
     }
@@ -790,10 +836,10 @@ span.menu-row-glyph {
 /* ───────────────────────────────────────────────────────────────────────────
    Miller-columns rail+pane layout (TASK-1005 W1)
    ──────────────────────────────────────────────────────────────────────────
-   Two-pane shell shown inside .menu-rows-container when openMenuGroupId
+   Two-pane shell shown inside .sv-menu-rows-container when openMenuGroupId
    has 2+ subheadings. Scoped under .simple-view-panel--miller; all new
-   classes use the sv- prefix and never modify existing .menu-row,
-   .menu-rows-container, or .subheading-row rules (R01 mitigation).
+   classes use the sv- prefix and never modify existing .sv-menu-row,
+   .sv-menu-rows-container, or .sv-subheading-row rules (R01 mitigation).
 
    The legacy accordion path (single-subheading fallback in
    simpleViewMenuRows.js) is preserved verbatim so the existing
@@ -852,11 +898,11 @@ span.menu-row-glyph {
 .simple-view-panel--miller .sv-category-rail-item.is-active {
     /* Active/selected highlight uses the scheme's active-state green
        (matches .simple-view-menu-button.active / .simple-view-right-button.active). */
-    background-color: rgba(30, 126, 52, 0.7);
-    border-left-color: #cae33b;
+    background-color: var(--sv-row-active-bg, rgba(30, 126, 52, 0.7));
+    border-left-color: var(--sv-accent-lime, #cae33b);
 }
 
-/* The rail's tri-state visibility glyph keeps the default span.menu-row-glyph
+/* The rail's tri-state visibility glyph keeps the default span.sv-menu-row-glyph
    white "chip" (background:#ffffff + border-radius), matching the white-boxed
    buttons on the layer rows — so the earlier rail background-strip override is
    gone. The zoom glyph that override also covered has been removed from the
@@ -874,7 +920,7 @@ span.menu-row-glyph {
     text-overflow: ellipsis;
 }
 
-.simple-view-panel--miller .menu-rows-pane {
+.simple-view-panel--miller .sv-menu-rows-pane {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -919,7 +965,7 @@ span.menu-row-glyph {
 
     .simple-view-panel--miller .sv-category-rail-item.is-active {
         border-left-color: transparent;
-        border-bottom-color: #cae33b;
+        border-bottom-color: var(--sv-accent-lime, #cae33b);
     }
 
     .simple-view-panel--miller .sv-category-rail-item-label {
@@ -931,40 +977,40 @@ span.menu-row-glyph {
 /* ───────────────────────────────────────────────────────────────────────────
    Layer-row toolbar + slider sub-row layout
    ──────────────────────────────────────────────────────────────────────────
-   .menu-row (horizontal flex)
-     ├ .menu-row-left
-     │    ├ .menu-row-toolbar           — locked 4-icon row: vis | zoom | edit | delete
-     │    │    └ .menu-row-delete-confirm — overlay (sibling of trash)
-     │    ├ .menu-row-toolbar-secondary — download | upload
-     │    └ .menu-row-title              — title input + save glyph (or static text)
-     ├ .menu-row-slider-subrow          — transparency slider (last child)
+   .sv-menu-row (horizontal flex)
+     ├ .sv-menu-row-left
+     │    ├ .sv-menu-row-toolbar           — locked 4-icon row: vis | zoom | edit | delete
+     │    │    └ .sv-menu-row-delete-confirm — overlay (sibling of trash)
+     │    ├ .sv-menu-row-toolbar-secondary — download | upload
+     │    └ .sv-menu-row-title              — title input + save glyph (or static text)
+     ├ .sv-menu-row-slider-subrow          — transparency slider (last child)
      └ renderDeleteFeedback             — sibling, after the slider
    ─────────────────────────────────────────────────────────────────────── */
 
-.menu-row-toolbar,
-.menu-row-toolbar-secondary,
-.menu-row-title {
+.sv-menu-row-toolbar,
+.sv-menu-row-toolbar-secondary,
+.sv-menu-row-title {
     display: inline-flex;
     align-items: center;
     gap: 2px;
 }
 
-.menu-row-toolbar,
-.menu-row-toolbar-secondary {
+.sv-menu-row-toolbar,
+.sv-menu-row-toolbar-secondary {
     flex-shrink: 0;
 }
 
-.menu-row-toolbar-secondary {
+.sv-menu-row-toolbar-secondary {
     margin-left: 4px;
 }
 
-.menu-row-title {
+.sv-menu-row-title {
     flex: 1;
     min-width: 0;
     margin-left: 4px;
 }
 
-.menu-row-slider-subrow {
+.sv-menu-row-slider-subrow {
     flex-shrink: 0;
 }
 
@@ -1023,13 +1069,13 @@ span.menu-row-glyph {
 
 .sv-status-badge.is-ok {
     background: rgba(92, 184, 92, 0.20);
-    color: #a8e6a8;
+    color: var(--sv-status-ok, #a8e6a8);
 }
 
 .sv-status-badge.is-warn,
 .sv-status-badge.is-pending {
     background: rgba(240, 173, 78, 0.20);
-    color: #f0e08a;
+    color: var(--sv-status-warn, #f0e08a);
 }
 
 .sv-status-badge.is-err {
@@ -1042,7 +1088,7 @@ span.menu-row-glyph {
 
 .sv-status-badge.is-running {
     background: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
-    color: #7cd3ec; /* --sv-info-border (#5bc0de) is 3.8:1 over a bright map; lightened to pass AA */
+    color: var(--sv-status-info, #7cd3ec); /* --sv-info-border (#5bc0de) is 3.8:1 over a bright map; lightened to pass AA */
 }
 
 .sv-status-badge.is-cancelled {
@@ -1220,7 +1266,9 @@ span.menu-row-glyph {
 
 .sv-tm-title {
     margin: 0;
-    font-size: 14px;
+    /* TASK-1758 W3: header size token (was 14px literal); font-family inherits
+       --sv-font-family from the .simple-view-panel root. */
+    font-size: var(--sv-header-font-size, 14px);
     font-weight: 600;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
@@ -1235,7 +1283,7 @@ span.menu-row-glyph {
 
 .sv-tm-filter-bar .btn {
     flex: 1;
-    font-size: 11px;
+    font-size: var(--sv-font-size, 12px);
     background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
     border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
@@ -1245,7 +1293,8 @@ span.menu-row-glyph {
 .sv-tm-filter-bar .btn:active {
     background-color: var(--sv-button-bg-active, rgba(0, 60, 136, 0.9));
     border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
-    color: #ffffff;
+    /* TASK-1758 W3: tokenised active-tab label (was raw #ffffff). */
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .sv-tm-process-list {
@@ -1266,7 +1315,8 @@ span.menu-row-glyph {
     align-items: flex-start;
     padding: 8px 12px;
     cursor: pointer;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    /* TASK-1758 W3: tokenised translucent row divider. */
+    border-bottom: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
     transition: background 0.15s;
     text-align: left; /* override inherited .simple-view-panel text-align:center */
 }
@@ -1276,7 +1326,8 @@ span.menu-row-glyph {
 }
 
 .sv-tm-process-row.sv-tm-expanded {
-    background: rgba(255, 255, 255, 0.10);
+    /* TASK-1758 W3: tokenised expanded-row surface (was rgba(255,255,255,0.10)). */
+    background: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
 }
 
 .sv-tm-type-icon {
@@ -1298,7 +1349,7 @@ span.menu-row-glyph {
 }
 
 .sv-tm-process-name {
-    font-size: 13px;
+    font-size: var(--sv-font-size, 12px);
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1309,15 +1360,16 @@ span.menu-row-glyph {
 }
 
 .sv-tm-status-detail {
-    font-size: 11px;
+    font-size: var(--sv-font-size, 12px);
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
     margin-top: 2px;
 }
 
 .sv-tm-process-detail {
     padding: 8px 12px 12px 36px;
-    background: rgba(0, 0, 0, 0.15);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--sv-inset-bg, rgba(0, 0, 0, 0.15));
+    /* TASK-1758 W3: tokenised translucent row divider. */
+    border-bottom: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
     text-align: left; /* override inherited .simple-view-panel text-align:center */
 }
 
@@ -1329,7 +1381,7 @@ span.menu-row-glyph {
     display: flex;
     align-items: center;
     padding: 3px 0;
-    font-size: 12px;
+    font-size: var(--sv-font-size, 12px);
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
 }
 
@@ -1345,10 +1397,13 @@ span.menu-row-glyph {
 .sv-tm-error-message {
     padding: 6px 8px;
     background: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
-    color: var(--sv-delete-error-color, #842029);
+    /* TASK-1758 W3: dark-glass danger TEXT (--sv-text-danger, WCAG-AA on dark
+       glass) instead of the light-bg maroon --sv-delete-error-color (#842029).
+       Keep --sv-delete-error-bg/-border for the surface/accent. */
+    color: var(--sv-text-danger, #ffb3b3);
     border-left: 3px solid var(--sv-delete-error-border, #dc3545);
-    border-radius: 3px;
-    font-size: 12px;
+    border-radius: var(--sv-card-radius, 4px);
+    font-size: var(--sv-font-size, 12px);
     margin-bottom: 8px;
     word-break: break-word;
 }
@@ -1369,7 +1424,24 @@ span.menu-row-glyph {
 .sv-tm-detail-actions .btn-danger {
     background-color: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
     border-color: var(--sv-delete-error-border, #dc3545);
-    color: var(--sv-delete-error-color, #842029);
+    /* TASK-1758 W3: danger label on dark glass uses --sv-text-danger, not the
+       light-bg maroon --sv-delete-error-color. */
+    color: var(--sv-text-danger, #ffb3b3);
+}
+
+/* TASK-1758 W3: terrain-export download CTA — dark-glass button chrome with a
+   success accent label instead of Bootstrap btn-success green + inline #fff. */
+.sv-tm-detail-actions .sv-tm-download-cta {
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
+    border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    color: var(--sv-text-ok, #7ee787);
+}
+
+.sv-tm-detail-actions .sv-tm-download-cta:hover,
+.sv-tm-detail-actions .sv-tm-download-cta:focus {
+    background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8));
+    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
+    color: var(--sv-text-ok, #7ee787);
 }
 
 /* Spinner animation for running status icon (reused from taskMonitor.css) */

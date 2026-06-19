@@ -16,6 +16,20 @@ import {
 import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {AnugaInputMenu} from './anugaInputMenu';
+// BUG (UAT, TASK-1648 regression): the GLO-30 bbox panel must be mounted at the
+// CONTAINER level, NOT inside AnugaInputMenu. 'Define import area' dispatches
+// setAnugaInputMenu(false) to clear the map for drawing, which unmounts
+// AnugaInputMenu (anugaContainer:206 gates it on showAnugaInputMenu). When the
+// bbox panel was a child of AnugaInputMenu it unmounted too, leaving the map
+// stuck in BBOX draw mode with no panel to return to (the "freeze"). Mounting it
+// here keeps it alive across the menu close; it self-gates on terrainBboxPanelVisible.
+import {TerrainBboxPanel} from './terrainBboxPanel';
+// TASK-1800 (W1.9 UAT): the Analysis-Surface recipe builder is now the
+// stand-alone "Merge terrains" side panel. Like TerrainBboxPanel it is mounted
+// at the CONTAINER level (NOT inside AnugaInputMenu) and self-gates on
+// terrainWorkbench.visible, so closing the Inputs menu can't unmount it
+// mid-edit (TASK-1648 lesson).
+import {MergeTerrainsPanel} from '../../TerrainWorkbench/components/MergeTerrainsPanel';
 import {AnugaScenarioMenu} from './anugaScenarioMenu';
 import {PublicationPanel} from './publicationPanel';
 import {NetworkMenu} from "./networkMenu";
@@ -27,7 +41,10 @@ import {MembershipPanel} from "./membershipPanel";
 import RunPollingPausedBanner from "./runPollingPausedBanner";
 import {trackEvent} from "@js/utils/analytics";
 
-class AnugaContainer extends React.Component {
+// Exported (in addition to the connected default) so the UAT regression test can
+// render the bare container and assert the GLO-30 bbox panel mounts INDEPENDENTLY
+// of showAnugaInputMenu (TASK-1648 mount-gating freeze fix).
+export class AnugaContainer extends React.Component {
     static propTypes = {
         initAnuga: PropTypes.func,
         showAnugaInputMenu: PropTypes.bool,
@@ -113,6 +130,9 @@ class AnugaContainer extends React.Component {
                 >
                     <Message msgId="hydrata.anuga.inputs" />
                 </button>
+                {/* TASK-1657: the standalone TerrainWorkbench toolbar button was
+                    removed — the recipe builder lives inline in Inputs → Terrain
+                    (TASK-1645). The reducer/epics/api remain, used by that pane. */}
                 {this.props.hydrologyPluginPresent ?
                     <button
                         id="hydrology-main-menu-button"
@@ -209,6 +229,16 @@ class AnugaContainer extends React.Component {
                     }
                     {this.props.showNetworkMenu ? <NetworkMenu/> : null}
                     {this.props.showMembershipPanel ? <MembershipPanel/> : null}
+                    {/* BUG (UAT, TASK-1648 regression): bbox panel mounted at the
+                        container level so closing the Inputs menu (which 'Define
+                        import area' does) does NOT unmount it mid-draw. It self-gates
+                        on terrainBboxPanelVisible, so it renders null until opened. */}
+                    <TerrainBboxPanel/>
+                    {/* TASK-1800 (W1.9 UAT): stand-alone "Merge terrains" recipe
+                        panel, mounted at container level alongside TerrainBboxPanel
+                        so closing the Inputs menu does NOT unmount it mid-edit. It
+                        self-gates on terrainWorkbench.visible (null until opened). */}
+                    <MergeTerrainsPanel/>
                     {/* W7 (TASK-1045) — paused-polling banner. Always
                         mounted under isAnugaProject so the connected
                         component can react to pollingTimeoutFor without
