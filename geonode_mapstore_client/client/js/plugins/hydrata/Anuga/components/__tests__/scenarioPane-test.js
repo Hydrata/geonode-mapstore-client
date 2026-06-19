@@ -37,7 +37,10 @@ const baseScenario = {
     duration: 1800
 };
 
-const terrainOpts = [{id: 3, title: 'Default Terrain'}, {id: 4, title: 'Other Terrain'}];
+// status: 'ready' — the scenario terrain picker now filters to runnable
+// (status === 'ready') terrains, mirroring the BE Terrain.objects.filter(status='ready')
+// gate (TASK-1587 W1.9 UAT, gmc d7595f750). A fixture without it is excluded.
+const terrainOpts = [{id: 3, title: 'Default Terrain', status: 'ready'}, {id: 4, title: 'Other Terrain', status: 'ready'}];
 const boundaryOpts = [{id: 4, title: 'Default Boundary'}];
 const inflowOpts = [{id: 5, title: 'Default Inflow'}];
 const rainfallOpts = [{id: 6, title: 'Default Rainfall'}];

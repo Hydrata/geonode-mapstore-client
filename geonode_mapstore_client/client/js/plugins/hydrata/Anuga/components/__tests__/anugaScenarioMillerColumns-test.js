@@ -479,7 +479,8 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 anuga: {
                     scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21},
                     resources: {
-                        terrain: [{id: 5, title: 'Default Terrain'}],
+                        // status: 'ready' — picker filters to runnable terrains (TASK-1587 W1.9, gmc d7595f750)
+                        terrain: [{id: 5, title: 'Default Terrain', status: 'ready'}],
                         boundaries: [], inflows: [], rainfalls: [],
                         frictions: [], structures: [], meshRegions: [], networks: []
                     }
