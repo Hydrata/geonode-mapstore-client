@@ -290,6 +290,16 @@ export const deleteHydrologyItemEpic = (action$, store) =>
 const DERIVE_MIN_DURATION_MIN = 60;
 const DERIVE_MIN_RETURN_PERIOD_YR = 1;
 
+// TASK-1789 — ERA5 year-range constants.
+// Mirrors idf_core._ERA5_MAX_YEAR. Change here if the backend value changes.
+// 10yr = quick (ERA5_MAX-9 .. ERA5_MAX); 75yr = full (1950 .. ERA5_MAX).
+// GPEX-covered points bypass ERA5 entirely — year-range only governs Tier-3.
+export const ERA5_MAX_YEAR = 2026;
+export const IDF_YEAR_RANGE = {
+    '10yr': {start_year: ERA5_MAX_YEAR - 9, end_year: ERA5_MAX_YEAR},
+    '75yr': {start_year: 1950, end_year: ERA5_MAX_YEAR}
+};
+
 // TASK-934 — Parse the comma-separated text fields into number arrays.
 // Returns {durations: number[], rps: number[], error: string|null}.
 // Parsing stays permissive (durations ≥1, rps ≥0.5) so the matrix can carry
@@ -368,10 +378,32 @@ export const deriveIdfEpic = (action$, store) =>
                     + 'ARIs cannot be estimated from annual maxima.'
                 ));
             }
-            const payload = {lat, lon, durations_min, return_periods_yr};
+            // TASK-1789 — include year-range in payload. GPEX-covered points
+            // return 200 instantly; for ERA5 (Tier-3) the year-range controls
+            // the record length. Default '10yr' when slice has no yearRangeMode.
+            const yearRangeMode = slice.yearRangeMode || '10yr';
+            const yearRange = IDF_YEAR_RANGE[yearRangeMode] || IDF_YEAR_RANGE['10yr'];
+            const payload = {
+                lat, lon, durations_min, return_periods_yr,
+                start_year: yearRange.start_year,
+                end_year: yearRange.end_year
+            };
             return Rx.Observable.from(deriveIdf(projectId, payload))
                 .mergeMap(response => {
                     const data = response?.data || {};
+                    const httpStatus = response?.status;
+                    // TASK-1789 — GPEX fast-path: 200 with tier:'gpex' + idftable_id.
+                    // Fetch the table immediately and dispatch result directly.
+                    // The background (202) path goes through idfDeriveCompleteEpic.
+                    if (httpStatus === 200 && data.tier === 'gpex' && data.idftable_id) {
+                        const idftableId = data.idftable_id;
+                        return Rx.Observable.from(getIdfTable(projectId, idftableId))
+                            .map(tableResponse => setIdfDeriveResult(tableResponse.data))
+                            .catch(fetchErr => Rx.Observable.of(
+                                setIdfDeriveError(fetchErr?.message || 'Failed to fetch GPEX IDF result')
+                            ));
+                    }
+                    // 202 background path — hand off to idfDeriveCompleteEpic.
                     return Rx.Observable.from([
                         setIdfDeriveProcessId(data.task_id || null, data.process_id || null)
                     ]);

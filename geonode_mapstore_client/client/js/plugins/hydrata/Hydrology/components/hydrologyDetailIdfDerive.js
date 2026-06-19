@@ -46,8 +46,11 @@ import {
     setIdfDeriveDurations,
     setIdfDeriveRPs,
     setIdfDeriveMapPickActive,
-    deriveIdfRequest
+    deriveIdfRequest,
+    // TASK-1789 — year-range mode toggle
+    setIdfDeriveYearRangeMode
 } from '../actionsHydrology';
+import {StatusBadge, Tooltip} from '../../SimpleView/components/primitives';
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 
@@ -77,6 +80,26 @@ const SUB_DAILY_THRESHOLD_MIN = 1440;
 // them from the POST as a safety net. Mirrors DERIVE_MIN_* in epicsHydrology.js.
 const DERIVE_MIN_DURATION_MIN = 60;
 const DERIVE_MIN_RETURN_PERIOD_YR = 1;
+
+// TASK-1789 — ERA5 year-range constants.
+// Mirrors idf_core._ERA5_MAX_YEAR=2026. Single source in epicsHydrology; kept
+// here as a display-only reference for labels + tooltips.
+const ERA5_MAX_YEAR = 2026;
+// Year-range options for the toggle button-pair.
+const IDF_YEAR_RANGE_OPTIONS = [
+    {
+        key: '10yr',
+        label: '10yr',
+        startYear: ERA5_MAX_YEAR - 9,
+        endYear: ERA5_MAX_YEAR
+    },
+    {
+        key: '75yr',
+        label: '75yr',
+        startYear: 1950,
+        endYear: ERA5_MAX_YEAR
+    }
+];
 const isDerivableDuration = (dur) => dur >= DERIVE_MIN_DURATION_MIN;
 const isDerivableRP = (rp) => rp >= DERIVE_MIN_RETURN_PERIOD_YR;
 // Derivable axis subsets — used by the row/column "select all" fallbacks so
@@ -446,6 +469,60 @@ IdfDeriveStepHeader.propTypes = {
     titleMsgId: PropTypes.string.isRequired
 };
 
+// ---------------------------------------------------------------------------
+// TASK-1789 — Provenance badge (source + grade)
+// ---------------------------------------------------------------------------
+
+// Map from provenance.grade to StatusBadge status for visual meaning.
+const GRADE_TO_BADGE_STATUS = {
+    screening: 'pending',   // amber — pre-design only, needs ground-truth
+    standard: 'complete'    // green — ERA5 full-record derive
+};
+
+/**
+ * IdfProvenanceBadge — shows source key + grade as a StatusBadge + Tooltip.
+ * GPEX ('screening' grade) gets a specific disclaimer about pre-design use.
+ * ERA5 ('standard' grade) shows a clean "Verified" or no disclaimer.
+ *
+ * Props: provenance — the provenance object from the IDFTable BE payload.
+ */
+const IdfProvenanceBadge = ({provenance}) => {
+    if (!provenance) return null;
+    const grade = provenance.grade;
+    const sourceKey = provenance.source_key || provenance.source || '';
+    if (!grade && !sourceKey) return null;
+
+    const badgeStatus = GRADE_TO_BADGE_STATUS[grade] || 'pending';
+    const gradeLabel = grade === 'screening' ? 'Screening' : grade === 'standard' ? 'Standard' : grade;
+    const badgeLabel = sourceKey
+        ? `${sourceKey.toUpperCase()} · ${gradeLabel}`
+        : gradeLabel;
+
+    return (
+        <div id="idf-derive-provenance-badge" className="idf-derive-provenance-badge-row">
+            <StatusBadge
+                status={badgeStatus}
+                label={badgeLabel}
+                showGlyph
+                compact
+            />
+            {grade === 'screening' && (
+                <Tooltip
+                    label=""
+                    placement="bottom"
+                    showGlyph
+                >
+                    <Message msgId="hydrata.hydrology.idfDeriveScreeningDisclaimer" />
+                </Tooltip>
+            )}
+        </div>
+    );
+};
+
+IdfProvenanceBadge.propTypes = {
+    provenance: PropTypes.object
+};
+
 class HydrologyDetailIdfDeriveClass extends React.Component {
     static propTypes = {
         projectId: PropTypes.number,
@@ -461,18 +538,22 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
         inFlight: PropTypes.bool,
         processStatus: PropTypes.string,
         processName: PropTypes.string,
+        // TASK-1789 — year-range mode + setter
+        yearRangeMode: PropTypes.string,
         setIdfDeriveLat: PropTypes.func,
         setIdfDeriveLon: PropTypes.func,
         setIdfDeriveDurations: PropTypes.func,
         setIdfDeriveRPs: PropTypes.func,
         setIdfDeriveMapPickActive: PropTypes.func,
-        deriveIdfRequest: PropTypes.func
+        deriveIdfRequest: PropTypes.func,
+        setIdfDeriveYearRangeMode: PropTypes.func
     };
 
     static defaultProps = {
         celeryAnugaEnabled: true,
         mapPickActive: false,
-        inFlight: false
+        inFlight: false,
+        yearRangeMode: '10yr'
     };
 
     constructor(props) {
@@ -731,6 +812,40 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                             </div>
                         )}
 
+                        {/* TASK-1789 — Year-range toggle. GPEX-covered points return
+                            instantly regardless; this governs the ERA5 Tier-3 depth. */}
+                        <div className="idf-derive-year-range-row">
+                            <span className="idf-derive-year-range-label">
+                                <Message msgId="hydrata.hydrology.idfDeriveYearRangeLabel" />
+                            </span>
+                            <div className="idf-derive-year-range-toggle" role="group" aria-label="Year range">
+                                {IDF_YEAR_RANGE_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.key}
+                                        id={`idf-derive-year-range-${opt.key}`}
+                                        className={
+                                            'idf-derive-year-range-btn'
+                                            + (this.props.yearRangeMode === opt.key
+                                                ? ' idf-derive-year-range-btn--active'
+                                                : '')
+                                        }
+                                        onClick={() => this.props.setIdfDeriveYearRangeMode(opt.key)}
+                                        title={`${opt.startYear}–${opt.endYear}`}
+                                        aria-pressed={this.props.yearRangeMode === opt.key}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <Tooltip
+                                label=""
+                                placement="top"
+                                showGlyph
+                            >
+                                <Message msgId="hydrata.hydrology.idfDeriveYearRangeTooltip" />
+                            </Tooltip>
+                        </div>
+
                         {/* Primary Derive button — bottom-right of step block */}
                         <div className="idf-derive-step-actions">
                             <Button
@@ -754,6 +869,9 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                             <IdfDeriveStepHeader step={4} titleMsgId="hydrata.hydrology.idfDeriveStepResults" />
 
                             <div id={'idf-derive-results'} className="idf-derive-results">
+                                {/* TASK-1789 — provenance badge. Shows source key and
+                                    grade; GPEX='screening' gets a disclaimer tooltip. */}
+                                <IdfProvenanceBadge provenance={this.props.result?.provenance} />
                                 <ResultsTable idfTable={this.props.result}/>
                                 <div className="idf-derive-results-actions">
                                     <Button
@@ -826,7 +944,9 @@ const mapStateToProps = (state) => {
         celeryAnugaEnabled: slice.celeryAnugaEnabled !== false,
         inFlight: !!slice.inFlight,
         processStatus: proc?.status,
-        processName: proc?.name
+        processName: proc?.name,
+        // TASK-1789 — year-range mode
+        yearRangeMode: slice.yearRangeMode || '10yr'
     };
 };
 
@@ -836,7 +956,9 @@ const mapDispatchToProps = (dispatch) => ({
     setIdfDeriveDurations: (text) => dispatch(setIdfDeriveDurations(text)),
     setIdfDeriveRPs: (text) => dispatch(setIdfDeriveRPs(text)),
     setIdfDeriveMapPickActive: (active) => dispatch(setIdfDeriveMapPickActive(active)),
-    deriveIdfRequest: () => dispatch(deriveIdfRequest())
+    deriveIdfRequest: () => dispatch(deriveIdfRequest()),
+    // TASK-1789 — year-range mode
+    setIdfDeriveYearRangeMode: (mode) => dispatch(setIdfDeriveYearRangeMode(mode))
 });
 
 const HydrologyDetailIdfDerive = connect(mapStateToProps, mapDispatchToProps)(HydrologyDetailIdfDeriveClass);
@@ -845,10 +967,14 @@ export default HydrologyDetailIdfDerive;
 export {
     HydrologyDetailIdfDeriveClass,
     IdfDeriveMatrix,
+    IdfProvenanceBadge,
     parseNumberList,
     downloadProvenanceJson,
     SUB_DAILY_THRESHOLD_MIN,
     CANONICAL_DURATIONS_MIN,
     CANONICAL_RETURN_PERIODS_YR,
-    formatDuration
+    formatDuration,
+    // TASK-1789 — year-range exports for test assertions
+    IDF_YEAR_RANGE_OPTIONS,
+    ERA5_MAX_YEAR
 };

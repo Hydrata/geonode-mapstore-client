@@ -204,7 +204,7 @@
         "memberUser": "User",
         "members": "Permissions",
         "permsUnavailable": {
-            "message": "Permissions could not be loaded. The member list is read-only until permissions are available again."
+          "message": "Permissions could not be loaded. The member list is read-only until permissions are available again."
         },
         "mesh": "Mesh",
         "meshRegions": "Mesh",
@@ -314,7 +314,6 @@
         "archiveDisabledWhileRunning": "Cannot archive while a run is in progress. Cancel the run first.",
         "runConfig": "Run config",
         "statusActions": "Run",
-        "run": "Run",
         "runLog": "Run log",
         "requiredInputs": "Required",
         "optionalInputs": "Optional",
@@ -416,7 +415,10 @@
         "temporalPatterns": "Temporal Patterns",
         "timeSeries": "Design Storm",
         "timeseries": "Design Storms",
-        "timestamp": "TimeStamp"
+        "timestamp": "TimeStamp",
+        "idfDeriveYearRangeLabel": "Record length",
+        "idfDeriveYearRangeTooltip": "10yr uses the last 10 years of ERA5 data (quick); 75yr uses 1950–2026 (more robust return periods). GPEX-covered points return instantly regardless of this setting.",
+        "idfDeriveScreeningDisclaimer": "GPEX screening grade — pre-design use only. Results are derived from global pre-computed return levels (GPEX MEV v4, CC-BY). Validate against local gauge data before use in design."
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",

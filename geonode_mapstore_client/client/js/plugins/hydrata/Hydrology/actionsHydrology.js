@@ -70,6 +70,8 @@ const SET_IDF_DERIVE_PROCESS_ID = 'SET_IDF_DERIVE_PROCESS_ID';
 const SET_IDF_DERIVE_ERROR = 'SET_IDF_DERIVE_ERROR';
 const SET_IDF_DERIVE_RESULT = 'SET_IDF_DERIVE_RESULT';
 const SET_CELERY_ANUGA_ENABLED = 'SET_CELERY_ANUGA_ENABLED';
+// TASK-1789 — year-range mode for tiered IDF derive (10yr quick / 75yr full).
+const SET_IDF_DERIVE_YEAR_RANGE_MODE = 'SET_IDF_DERIVE_YEAR_RANGE_MODE';
 
 
 const initHydrology = () => ({
@@ -274,6 +276,8 @@ const setIdfDeriveProcessId = (taskId, processId) => ({
 const setIdfDeriveError = (message) => ({type: SET_IDF_DERIVE_ERROR, message});
 const setIdfDeriveResult = (idfTable) => ({type: SET_IDF_DERIVE_RESULT, idfTable});
 const setCeleryAnugaEnabled = (enabled) => ({type: SET_CELERY_ANUGA_ENABLED, enabled});
+// TASK-1789 — '10yr' | '75yr'
+const setIdfDeriveYearRangeMode = (mode) => ({type: SET_IDF_DERIVE_YEAR_RANGE_MODE, mode});
 
 // TASK-1501 (W4b) — Projection browser action creators.
 const setProjectionSpec = (spec) => ({ type: SET_PROJECTION_SPEC, spec });
@@ -398,5 +402,7 @@ module.exports = {
     SET_IDF_DERIVE_PROCESS_ID, setIdfDeriveProcessId,
     SET_IDF_DERIVE_ERROR, setIdfDeriveError,
     SET_IDF_DERIVE_RESULT, setIdfDeriveResult,
-    SET_CELERY_ANUGA_ENABLED, setCeleryAnugaEnabled
+    SET_CELERY_ANUGA_ENABLED, setCeleryAnugaEnabled,
+    // TASK-1789 — year-range mode
+    SET_IDF_DERIVE_YEAR_RANGE_MODE, setIdfDeriveYearRangeMode
 };

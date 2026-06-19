@@ -204,7 +204,7 @@
         "memberUser": "Utilisateur",
         "members": "Membres",
         "permsUnavailable": {
-            "message": "Les permissions n'ont pas pu etre chargees. La liste des membres est en lecture seule jusqu'a ce que les permissions soient de nouveau disponibles."
+          "message": "Les permissions n'ont pas pu etre chargees. La liste des membres est en lecture seule jusqu'a ce que les permissions soient de nouveau disponibles."
         },
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
@@ -415,7 +415,10 @@
         "networksScenarioTerrain": "Terrain du scénario",
         "networksStep1Terrain": "Étape 1 : Sélectionner le terrain pour la délimitation du réseau",
         "networksTerrainOverride": "Remplacer le terrain :",
-        "networksTerrainOverrideActive": "remplacement du terrain du scénario"
+        "networksTerrainOverrideActive": "remplacement du terrain du scénario",
+        "idfDeriveYearRangeLabel": "Longueur de la série",
+        "idfDeriveYearRangeTooltip": "10yr utilise les 10 dernières années d'ERA5 (rapide); 75yr utilise 1950–2026 (périodes de retour plus robustes). Les points couverts par GPEX répondent instantanément.",
+        "idfDeriveScreeningDisclaimer": "Niveau de criblage GPEX — usage de pré-conception uniquement. Résultats dérivés de niveaux de retour mondiaux précomputés (GPEX MEV v4, CC-BY). Valider avec des données de jauge locale avant utilisation en conception."
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

@@ -15,11 +15,14 @@ import ReactTestUtils from 'react-dom/test-utils';
 const {
     HydrologyDetailIdfDeriveClass,
     IdfDeriveMatrix,
+    IdfProvenanceBadge,
     parseNumberList,
     SUB_DAILY_THRESHOLD_MIN,
     CANONICAL_DURATIONS_MIN,
     CANONICAL_RETURN_PERIODS_YR,
-    formatDuration
+    formatDuration,
+    IDF_YEAR_RANGE_OPTIONS,
+    ERA5_MAX_YEAR
 } = require('../hydrologyDetailIdfDerive');
 
 describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
@@ -48,12 +51,15 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
         result: null,
         celeryAnugaEnabled: true,
         inFlight: false,
+        // TASK-1789 — year-range mode defaults
+        yearRangeMode: '10yr',
         setIdfDeriveLat: noop,
         setIdfDeriveLon: noop,
         setIdfDeriveDurations: noop,
         setIdfDeriveRPs: noop,
         setIdfDeriveMapPickActive: noop,
-        deriveIdfRequest: noop
+        deriveIdfRequest: noop,
+        setIdfDeriveYearRangeMode: noop
     };
 
     const mount = (overrides) => {
@@ -432,6 +438,127 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
             expect(colHeaders[0].className).toInclude('idf-matrix-header--disabled');
             ReactTestUtils.Simulate.click(colHeaders[0]);
             expect(called).toBe(null); // click does nothing
+        });
+    });
+
+    // ── TASK-1789 — Year-range toggle + provenance badge ──────────────────
+
+    describe('TASK-1789 year-range toggle', () => {
+        it('ERA5_MAX_YEAR is 2026', () => {
+            expect(ERA5_MAX_YEAR).toBe(2026);
+        });
+
+        it('IDF_YEAR_RANGE_OPTIONS has 10yr and 75yr entries', () => {
+            expect(IDF_YEAR_RANGE_OPTIONS.length).toBe(2);
+            const keys = IDF_YEAR_RANGE_OPTIONS.map(o => o.key);
+            expect(keys).toInclude('10yr');
+            expect(keys).toInclude('75yr');
+        });
+
+        it('10yr option has startYear = ERA5_MAX_YEAR - 9', () => {
+            const opt = IDF_YEAR_RANGE_OPTIONS.find(o => o.key === '10yr');
+            expect(opt.startYear).toBe(ERA5_MAX_YEAR - 9);
+            expect(opt.endYear).toBe(ERA5_MAX_YEAR);
+        });
+
+        it('75yr option has startYear = 1950', () => {
+            const opt = IDF_YEAR_RANGE_OPTIONS.find(o => o.key === '75yr');
+            expect(opt.startYear).toBe(1950);
+            expect(opt.endYear).toBe(ERA5_MAX_YEAR);
+        });
+
+        it('renders the year-range toggle buttons', () => {
+            mount({setIdfDeriveYearRangeMode: noop, yearRangeMode: '10yr'});
+            const btn10 = container.querySelector('#idf-derive-year-range-10yr');
+            const btn75 = container.querySelector('#idf-derive-year-range-75yr');
+            expect(btn10).toExist();
+            expect(btn75).toExist();
+        });
+
+        it('10yr button has active class when yearRangeMode=10yr', () => {
+            mount({setIdfDeriveYearRangeMode: noop, yearRangeMode: '10yr'});
+            const btn10 = container.querySelector('#idf-derive-year-range-10yr');
+            expect(btn10.className).toInclude('idf-derive-year-range-btn--active');
+        });
+
+        it('75yr button has active class when yearRangeMode=75yr', () => {
+            mount({setIdfDeriveYearRangeMode: noop, yearRangeMode: '75yr'});
+            const btn75 = container.querySelector('#idf-derive-year-range-75yr');
+            expect(btn75.className).toInclude('idf-derive-year-range-btn--active');
+        });
+
+        it('clicking 75yr button calls setIdfDeriveYearRangeMode("75yr")', () => {
+            let called = null;
+            mount({setIdfDeriveYearRangeMode: (m) => { called = m; }, yearRangeMode: '10yr'});
+            const btn75 = container.querySelector('#idf-derive-year-range-75yr');
+            ReactTestUtils.Simulate.click(btn75);
+            expect(called).toBe('75yr');
+        });
+
+        it('clicking 10yr button calls setIdfDeriveYearRangeMode("10yr")', () => {
+            let called = null;
+            mount({setIdfDeriveYearRangeMode: (m) => { called = m; }, yearRangeMode: '75yr'});
+            const btn10 = container.querySelector('#idf-derive-year-range-10yr');
+            ReactTestUtils.Simulate.click(btn10);
+            expect(called).toBe('10yr');
+        });
+    });
+
+    describe('TASK-1789 IdfProvenanceBadge', () => {
+        let badgeContainer;
+
+        beforeEach(() => {
+            badgeContainer = document.createElement('div');
+            document.body.appendChild(badgeContainer);
+        });
+
+        afterEach(() => {
+            ReactDOM.unmountComponentAtNode(badgeContainer);
+            document.body.removeChild(badgeContainer);
+        });
+
+        it('renders nothing when provenance is null', () => {
+            ReactDOM.render(<IdfProvenanceBadge provenance={null} />, badgeContainer);
+            expect(badgeContainer.querySelector('#idf-derive-provenance-badge')).toNotExist();
+        });
+
+        it('renders nothing when provenance has no grade or source_key', () => {
+            ReactDOM.render(<IdfProvenanceBadge provenance={{}} />, badgeContainer);
+            expect(badgeContainer.querySelector('#idf-derive-provenance-badge')).toNotExist();
+        });
+
+        it('renders badge for GPEX screening provenance', () => {
+            const prov = {grade: 'screening', source_key: 'gpex_mev_v4'};
+            ReactDOM.render(<IdfProvenanceBadge provenance={prov} />, badgeContainer);
+            const badge = badgeContainer.querySelector('#idf-derive-provenance-badge');
+            expect(badge).toExist();
+            // Should contain "GPEX" and "Screening" text
+            const text = badge.textContent;
+            expect(text.toUpperCase().indexOf('GPEX')).toBeGreaterThan(-1);
+            expect(text.indexOf('Screening')).toBeGreaterThan(-1);
+        });
+
+        it('renders badge for ERA5 standard provenance (no disclaimer)', () => {
+            const prov = {grade: 'standard', source_key: 'era5_land'};
+            ReactDOM.render(<IdfProvenanceBadge provenance={prov} />, badgeContainer);
+            const badge = badgeContainer.querySelector('#idf-derive-provenance-badge');
+            expect(badge).toExist();
+            expect(badge.textContent.indexOf('Standard')).toBeGreaterThan(-1);
+        });
+
+        it('GPEX screening result shows provenance badge in Step 4', () => {
+            const result = {
+                id: 9,
+                durations_min: [60],
+                return_periods_yr: [10],
+                intensities_mm_per_hr: [[8.0]],
+                ci_lower_mm_per_hr: [[7.0]],
+                ci_upper_mm_per_hr: [[9.0]],
+                provenance: {grade: 'screening', source_key: 'gpex_mev_v4'}
+            };
+            mount({result, setIdfDeriveYearRangeMode: noop, yearRangeMode: '10yr'});
+            const badge = container.querySelector('#idf-derive-provenance-badge');
+            expect(badge).toExist();
         });
     });
 });
