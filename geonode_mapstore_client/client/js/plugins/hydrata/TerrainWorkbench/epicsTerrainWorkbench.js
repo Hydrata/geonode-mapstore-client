@@ -59,10 +59,15 @@ import {
 // TASK-1800 (W1.9 UAT r2): TW_PARAM_DEFAULTS seed the lazily-created combined surface.
 import { TW_PARAM_DEFAULTS } from './components/recipeBuilderComponents';
 
-// Maximum 2s-tick polling attempts for a derive (5-min cap, matches IDF derive).
-const TW_DERIVE_POLL_MAX = 150;
+// Poll redux taskMonitor state on a 2s tick until the derive reaches a terminal
+// status. Cap matches the backend derive time_limit (7200s) so the FE never
+// declares a "timeout" before the backend itself would — a real multi-DEM merge
+// legitimately runs many minutes. The old 150-tick / 5-min cap tripped a FALSE
+// "Derive timed out" on a perfectly healthy 311s derive (W1.9 UAT). Reading
+// redux is cheap (no API call per tick), so a generous cap costs nothing.
+const TW_DERIVE_POLL_MAX = 3600;
 export const TW_DERIVE_TIMEOUT_MESSAGE =
-    'Derive timed out — check the task monitor for status.';
+    'Check the task monitor.';
 
 // TASK-1658: extract a human-readable message from a Hydrata/DRF error response.
 // The BE returns {success:false, errors:[...], code} for validation failures, so

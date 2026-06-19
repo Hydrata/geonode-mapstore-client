@@ -96,6 +96,16 @@
     padding-top: 4px;
 }
 
+/* W1.9 UAT: inside the stand-alone Combined surface panel the PanelHeader
+   already draws a divider (border-bottom), so the recipe-builder's own
+   border-top doubled it into two stacked white bars. Drop the redundant rule
+   in-panel only (the border-top is kept for any legacy inline reuse). */
+.sv-merge-terrains-body .sv-tw-recipe-builder {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
+}
+
 /* Header — mirrors .sv-anuga-scenario-pane-detail-head */
 .sv-tw-recipe-header {
     display: flex;

@@ -84,9 +84,11 @@ const closeStyle = {
     position: 'static',   // safe: explicit override even if .sv-legend-close somehow applies
     flexShrink: 0,
     cursor: 'pointer',
-    color: '#fff',
-    backgroundColor: '#c9544d',
-    border: 'none',
+    // Dark-glass close chip (W1.9 UAT): the old solid-red #c9544d clashed with the
+    // dark-glass theme on every panel. Subtle translucent chip + light glyph instead.
+    color: 'var(--sv-text, rgba(255, 255, 255, 0.85))',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    border: '1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.18))',
     borderRadius: '3px',
     width: 'var(--sv-icon-size, 24px)',
     height: 'var(--sv-icon-size, 24px)',
