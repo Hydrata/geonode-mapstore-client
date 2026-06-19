@@ -278,26 +278,80 @@ function TerrainPendingStatus({status}) {
 }
 TerrainPendingStatus.propTypes = {status: PropTypes.string};
 
-function TerrainPendingDeleteButton({projectId, terrainId, doDelete}) {
-    if (!terrainId) return null;   // synthetic orphan rows have no real terrain to delete
-    const confirmDelete = () => {
-        if (projectId && window.confirm('Delete this failed/stuck terrain? It is removed from the project.')) {
-            doDelete(projectId, terrainId);
-        }
+// TASK-1587 W1.9 UAT (2026-06-19): the trash affordance opens the application's
+// OWN dark-glass confirm — the SAME inline-overlay pattern MenuRowClass uses for
+// layer deletes (a .sv-menu-row-delete-confirm overlay with a .sv-save-confirm-btn
+// danger confirm + a cancel button). It replaces the native window.confirm so the
+// pending-terrain delete matches the rest of SimpleView (themed, non-blocking) and
+// reuses the existing i18n keys — no new dialog, no new message id. Stateful:
+// local `confirmVisible` flips the overlay on the trash click; Confirm dispatches
+// deleteTerrain(projectId, id, []) (a failed terrain has no gn_layer); Cancel just
+// closes the overlay.
+class TerrainPendingDeleteButton extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {confirmVisible: false};
+    }
+    openConfirm = () => {
+        if (this.props.projectId) this.setState({confirmVisible: true});
     };
-    return (
-        <span
-            className="btn glyphicon glyphicon-trash sv-terrain-pending-delete"
-            role="button"
-            tabIndex={0}
-            data-testid={`terrain-delete-pending-${terrainId}`}
-            style={{marginLeft: 8, fontSize: 11, color: 'rgba(255, 255, 255, 0.55)', cursor: 'pointer', flexShrink: 0}}
-            title="Delete this terrain"
-            aria-label="Delete this terrain"
-            onClick={(e) => { e.stopPropagation(); confirmDelete(); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); confirmDelete(); } }}
-        />
-    );
+    cancelConfirm = () => {
+        this.setState({confirmVisible: false});
+    };
+    performDelete = () => {
+        const {projectId, terrainId, doDelete} = this.props;
+        this.setState({confirmVisible: false});
+        if (projectId && terrainId) doDelete(projectId, terrainId);
+    };
+    render() {
+        const {terrainId} = this.props;
+        if (!terrainId) return null;   // synthetic orphan rows have no real terrain to delete
+        const {confirmVisible} = this.state;
+        return (
+            <React.Fragment>
+                <span
+                    className={'btn glyphicon glyphicon-trash sv-terrain-pending-delete' + (confirmVisible ? ' sv-glyph-hidden' : '')}
+                    role="button"
+                    tabIndex={0}
+                    data-testid={`terrain-delete-pending-${terrainId}`}
+                    style={{marginLeft: 8, fontSize: 11, color: 'rgba(255, 255, 255, 0.55)', cursor: 'pointer', flexShrink: 0}}
+                    title="Delete this terrain"
+                    aria-label="Delete this terrain"
+                    onClick={(e) => { e.stopPropagation(); this.openConfirm(); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openConfirm(); } }}
+                />
+                <span
+                    className={'sv-menu-row-delete-confirm' + (confirmVisible ? ' is-open' : '')}
+                    role="alertdialog"
+                    aria-label="Confirm delete"
+                    aria-hidden={confirmVisible ? undefined : true}
+                    data-testid={`terrain-delete-pending-confirm-${terrainId}`}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
+                    <span className="sv-menu-row-delete-confirm-text">
+                        <Message msgId="hydrata.simpleView.confirmDelete"/>
+                    </span>
+                    <button
+                        type="button"
+                        className="sv-save-confirm-btn danger"
+                        data-testid={`terrain-delete-pending-confirm-btn-${terrainId}`}
+                        onClick={(e) => { e.stopPropagation(); this.performDelete(); }}
+                    >
+                        <Message msgId="hydrata.simpleView.delete"/>
+                    </button>
+                    <button
+                        type="button"
+                        className="sv-save-confirm-btn cancel"
+                        data-testid={`terrain-delete-pending-cancel-btn-${terrainId}`}
+                        onClick={(e) => { e.stopPropagation(); this.cancelConfirm(); }}
+                    >
+                        <Message msgId="hydrata.simpleView.cancel"/>
+                    </button>
+                </span>
+            </React.Fragment>
+        );
+    }
 }
 TerrainPendingDeleteButton.propTypes = {
     projectId: PropTypes.number,

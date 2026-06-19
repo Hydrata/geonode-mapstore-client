@@ -197,6 +197,14 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
+    // TASK-1587 W1.9 UAT (2026-06-19): the V2 terrain list now (correctly)
+    // surfaces layer-less terrains (status 'creating' / 'error') so they can be
+    // cleaned up from the Terrain menu — but a non-runnable terrain must NOT be
+    // selectable as a scenario's terrain. Filter the PICKER options to
+    // status === 'ready' (the runnable status, matching the BE
+    // Terrain.objects.filter(status='ready') gate). The resource SUMMARY below
+    // keeps the full list so an already-assigned terrain still resolves.
+    const selectableTerrain = (terrain || []).filter(t => t?.status === 'ready');
     // Wave 3B (B4) — wrappers get .is-readonly when canEdit=false so the
     // dim + cursor:not-allowed treatment in anuga.css applies. Input keeps
     // readOnly (not disabled) so the user can still focus + copy the value.
@@ -222,7 +230,7 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                     />
                 </div>
             </FormRow>
-            {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, terrain, !canEdit, handleField)}
+            {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'terrain', terrain)}
             {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'boundary', boundaries)}
@@ -492,7 +500,11 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
     const {terrain, boundaries, inflows} = resources;
     // Depend on scenario identity (new vs existing) + first-option ids.
     const scenarioId = scenario ? (scenario.id || scenario._tempId) : null;
-    const firstTerrainId = terrain && terrain[0] ? terrain[0].id : null;
+    // TASK-1587 W1.9 UAT (2026-06-19): auto-default to the first RUNNABLE terrain
+    // ('ready') — never a layer-less failed/creating terrain that the V2 list now
+    // surfaces (it can't be selected in the picker either).
+    const firstReadyTerrain = (terrain || []).find(t => t?.status === 'ready');
+    const firstTerrainId = firstReadyTerrain ? firstReadyTerrain.id : null;
     const firstBoundaryId = boundaries && boundaries[0] ? boundaries[0].id : null;
     const firstInflowId = inflows && inflows[0] ? inflows[0].id : null;
 
