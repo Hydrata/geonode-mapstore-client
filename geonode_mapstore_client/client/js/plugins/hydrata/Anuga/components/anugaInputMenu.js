@@ -72,6 +72,7 @@ import AnugaInputStarterCard from "./anugaInputStarterCard";
 import {MergeTerrainsIcon} from "../../TerrainWorkbench/components/MergeTerrainsPanel";
 
 import {canEditAnugaMap, getProjectId, getSelectedScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {deleteTerrain} from "@js/plugins/hydrata/Anuga/actions/dataActions";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
@@ -247,6 +248,66 @@ const CREATE_PANE_CONFIG = {
 // with HTML5 drag-and-drop so parent terrains can be stacked differently.
 // On drag-end it calls onReorder(fromIndex, toIndex) which the parent dispatches
 // as moveNode + saveDirectContent.
+
+// TASK-1587 W1.9 UAT: a terrain that FAILED (status='error') or is stuck
+// processing has no published layer, so it renders as a bare "pending" row. It
+// used to show only a STATIC hourglass and NO way to remove it — a failed
+// upload/derive sat on the list forever. These two helpers give that row a
+// status-aware indicator (animated hourglass while processing, a red error glyph
+// when failed) + a delete affordance. Delete dispatches deleteTerrain with no
+// layer ids (a failed terrain has no gn_layer; deleteTerrain tolerates []).
+function TerrainPendingStatus({status}) {
+    if (status === 'error') {
+        return (
+            <span
+                className="glyphicon glyphicon-exclamation-sign sv-terrain-failed-glyph"
+                style={{marginLeft: 6, fontSize: 11, color: 'rgba(240, 120, 110, 0.95)'}}
+                title="Terrain processing failed"
+                aria-label="Terrain processing failed"
+            />
+        );
+    }
+    return (
+        <span
+            className="glyphicon glyphicon-hourglass sv-terrain-computing-glyph"
+            style={{marginLeft: 6, fontSize: 10}}
+            title="Terrain is processing…"
+            aria-label="Terrain is processing"
+        />
+    );
+}
+TerrainPendingStatus.propTypes = {status: PropTypes.string};
+
+function TerrainPendingDeleteButton({projectId, terrainId, doDelete}) {
+    if (!terrainId) return null;   // synthetic orphan rows have no real terrain to delete
+    const confirmDelete = () => {
+        if (projectId && window.confirm('Delete this failed/stuck terrain? It is removed from the project.')) {
+            doDelete(projectId, terrainId);
+        }
+    };
+    return (
+        <span
+            className="btn glyphicon glyphicon-trash sv-terrain-pending-delete"
+            role="button"
+            tabIndex={0}
+            data-testid={`terrain-delete-pending-${terrainId}`}
+            style={{marginLeft: 8, fontSize: 11, color: 'rgba(255, 255, 255, 0.55)', cursor: 'pointer', flexShrink: 0}}
+            title="Delete this terrain"
+            aria-label="Delete this terrain"
+            onClick={(e) => { e.stopPropagation(); confirmDelete(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); confirmDelete(); } }}
+        />
+    );
+}
+TerrainPendingDeleteButton.propTypes = {
+    projectId: PropTypes.number,
+    terrainId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    doDelete: PropTypes.func
+};
+const TerrainPendingDelete = connect(
+    (state) => ({projectId: getProjectId(state)}),
+    (dispatch) => ({doDelete: (projectId, terrainId) => dispatch(deleteTerrain(projectId, terrainId, []))})
+)(TerrainPendingDeleteButton);
 
 class TerrainHierarchyRow extends React.Component {
     static propTypes = {
@@ -456,28 +517,36 @@ class TerrainHierarchyRow extends React.Component {
                                 <OpacitySlider opacity={masterOpacity} onChange={setAllChildrenOpacity} />
                             </React.Fragment>
                         ) : (
-                            /* Pending: terrain still processing, no child layers yet — identity
-                               title + hourglass, no master controls (nothing to drive yet). */
-                            <span
-                                className="sv-tw-terrain-parent-title sv-terrain-parent-title"
-                                data-testid="terrain-parent-title"
-                                style={{flex: 1, minWidth: 0, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
-                                onClick={handleRowSelect}
-                                title={terrain.title || terrain.name || 'Terrain'}
-                            >
-                                {terrain.title || terrain.name || 'Terrain'}
-                                <span className="glyphicon glyphicon-hourglass" style={{marginLeft: 6, fontSize: 10}} />
-                            </span>
+                            /* Pending/failed: no child layers yet — identity title + a
+                               status-aware indicator (animated hourglass while processing, red
+                               error glyph when failed) + a delete affordance so a failed/stuck
+                               terrain can be cleaned up (TASK-1587 W1.9 UAT). */
+                            <React.Fragment>
+                                <span
+                                    className="sv-tw-terrain-parent-title sv-terrain-parent-title"
+                                    data-testid="terrain-parent-title"
+                                    style={{flex: 1, minWidth: 0, color: terrain.status === 'error' ? 'rgba(240,150,140,0.85)' : 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
+                                    onClick={handleRowSelect}
+                                    title={terrain.title || terrain.name || 'Terrain'}
+                                >
+                                    {terrain.title || terrain.name || 'Terrain'}
+                                    <TerrainPendingStatus status={terrain.status} />
+                                </span>
+                                <TerrainPendingDelete terrainId={terrain.id} />
+                            </React.Fragment>
                         )
                     ) : demLayer ? (
                         <div style={{flex: 1, minWidth: 0}}>
                             <MenuRow layer={demLayer} />
                         </div>
                     ) : (
-                        <span className="sv-tw-terrain-pending-name sv-terrain-pending-name" style={{flex: 1, color: 'rgba(255,255,255,0.6)'}}>
-                            {terrain.title || terrain.name || 'Terrain'}
-                            <span className="glyphicon glyphicon-hourglass" style={{marginLeft: 6, fontSize: 10}} />
-                        </span>
+                        <React.Fragment>
+                            <span className="sv-tw-terrain-pending-name sv-terrain-pending-name" style={{flex: 1, color: terrain.status === 'error' ? 'rgba(240,150,140,0.7)' : 'rgba(255,255,255,0.6)'}}>
+                                {terrain.title || terrain.name || 'Terrain'}
+                                <TerrainPendingStatus status={terrain.status} />
+                            </span>
+                            <TerrainPendingDelete terrainId={terrain.id} />
+                        </React.Fragment>
                     )}
                 </div>
                 {/* Expanded zone (TASK-1587 grill 2026-06-15 + BUG-4 UAT 2026-06-16 +

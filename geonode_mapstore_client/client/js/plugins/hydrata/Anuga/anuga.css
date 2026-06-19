@@ -2213,3 +2213,20 @@ div that holds the feature-grid */
 }
 
 /* ── End TASK-1652 terrain hierarchy CSS ── */
+
+/* TASK-1587 W1.9 UAT: animated hourglass for a terrain still processing (no
+   published layer yet). A gentle flip — like a real hourglass turning — so a
+   long-running upload/derive reads as "working", not stalled. The failed
+   (status='error') row uses a static red error glyph instead (no animation). */
+@keyframes sv-terrain-hourglass-flip {
+    0%, 35%  { transform: rotate(0deg); }
+    50%, 85% { transform: rotate(180deg); }
+    100%     { transform: rotate(360deg); }
+}
+.sv-terrain-computing-glyph {
+    display: inline-block;
+    animation: sv-terrain-hourglass-flip 1.8s ease-in-out infinite;
+}
+.sv-terrain-pending-delete:hover {
+    color: rgba(240, 120, 110, 0.95) !important;
+}
