@@ -1537,7 +1537,8 @@
             {
                 "name": "TOC",
                 "cfg": {
-                    "activateMetedataTool": false
+                    "activateMetedataTool": false,
+                    "disablePluginIf": "{!(state('user') && state('user').is_superuser)}"
                 }
             },
             {
@@ -1561,7 +1562,8 @@
                 "cfg": {
                     "menuOptions": {
                         "width": 350
-                    }
+                    },
+                    "disablePluginIf": "{!(state('user') && state('user').is_superuser)}"
                 }
             },
             {

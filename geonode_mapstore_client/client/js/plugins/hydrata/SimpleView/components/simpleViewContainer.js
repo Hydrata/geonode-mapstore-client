@@ -14,7 +14,7 @@ import {saveDirectContent} from '@js/actions/gnsave';
 import { setMembershipPanel } from '../../Anuga/actionsAnuga';
 import { canManageMembers } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
 import {canEditResource} from '@js/selectors/resource';
-import {isLoggedIn} from '@mapstore/framework/selectors/security';
+import {isLoggedIn, userSelector} from '@mapstore/framework/selectors/security';
 import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
 const {setStep: setHGevalStep, reset: resetHGeval} = require('../../HGeval/actionsHGeval');
 
@@ -60,6 +60,7 @@ export class SimpleViewContainer extends React.Component {
         toggleMeasure: PropTypes.func,
         canEdit: PropTypes.bool,
         loggedIn: PropTypes.bool,
+        isSuperuser: PropTypes.bool,
         drawerEnabled: PropTypes.bool,
         toggleDrawer: PropTypes.func,
         onSave: PropTypes.func,
@@ -205,12 +206,14 @@ export class SimpleViewContainer extends React.Component {
                     </button>
                     {this.props.canEdit && this.props.loggedIn ? (
                         <>
-                            <button
-                                className={`simple-view-right-button ${this.props.drawerEnabled ? 'active' : ''}`}
-                                onClick={() => this.props.toggleDrawer(!this.props.drawerEnabled)}
-                                title="Layer Menu">
-                                <Glyphicon glyph="1-layer" />
-                            </button>
+                            {this.props.isSuperuser ? (
+                                <button
+                                    className={`simple-view-right-button ${this.props.drawerEnabled ? 'active' : ''}`}
+                                    onClick={() => this.props.toggleDrawer(!this.props.drawerEnabled)}
+                                    title="Layer Menu">
+                                    <Glyphicon glyph="1-layer" />
+                                </button>
+                            ) : null}
                             <button
                                 className={`simple-view-right-button ${this.state.saveConfirmVisible ? 'active' : ''}`}
                                 onClick={() => this.setState({ saveConfirmVisible: !this.state.saveConfirmVisible })}
@@ -311,6 +314,9 @@ const mapStateToProps = (state, ownProps) => {
         measurePluginPresent: !!mapViewerPlugins.find(x => x.name === "Measure"),
         canEdit: !!state?.swamm?.projectData?.id ? canEditSwammMap(state) : canEditResource(state),
         loggedIn: !!isLoggedIn(state),
+        // Layer Menu (drawer/TOC) is superuser-only — mirrors the DrawerMenu/TOC
+        // `disablePluginIf` gate in the per-site localConfig (state('user').is_superuser).
+        isSuperuser: !!userSelector(state)?.is_superuser,
         drawerEnabled: state?.controls?.drawer?.enabled || false,
         hgevalPluginPresent: !!mapViewerPlugins.find(x => x.name === "HGeval"),
         hgevalActive: !!(state?.hgeval?.step && state?.hgeval?.step !== 'idle'),
