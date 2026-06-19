@@ -444,18 +444,23 @@ describe('TASK-1800 terrain row expand is pure disclosure', () => {
 
     const TERRAIN = { id: 42, title: 'Derived DEM' };
 
-    // Render with NO demLayer/hillshadeLayer so no connected <MenuRow> mounts
-    // (that would need a Redux Provider). A real terrainModel.id still makes the
-    // row expandable (hasDerivatives) and renders the clickable identity title.
+    // Render with NO demLayer/hillshadeLayer: a real terrainModel.id still makes
+    // the row expandable (hasDerivatives) and renders the clickable identity
+    // title. With no child layers the row takes its pending/failed branch, which
+    // mounts the connected <TerrainPendingDelete> delete affordance (TASK-1587
+    // W1.9 UAT: layer-less terrains are deletable) — so a Redux <Provider> is
+    // required even though no connected <MenuRow> mounts.
     function renderRow(expanded, handlers) {
         ReactDOM.render(
-            <TerrainHierarchyRow
-                terrain={TERRAIN}
-                terrainModel={TERRAIN}
-                expanded={expanded}
-                onToggleExpand={handlers.onToggleExpand}
-                onSelectTerrain={handlers.onSelectTerrain}
-            />,
+            <Provider store={createMockStore()}>
+                <TerrainHierarchyRow
+                    terrain={TERRAIN}
+                    terrainModel={TERRAIN}
+                    expanded={expanded}
+                    onToggleExpand={handlers.onToggleExpand}
+                    onSelectTerrain={handlers.onSelectTerrain}
+                />
+            </Provider>,
             container
         );
     }
