@@ -100,8 +100,9 @@ import {patchTerrainStylingMode, uploadTerrainDirect} from "../api/anugaApi";
 // polled BE Process takes over the Uploading -> UTM -> Hillshade -> Style lifecycle.
 import {updateProcess, toggleTaskMonitorPanel} from "../../TaskMonitor/actionsTaskMonitor";
 // W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
-// TASK-1721 (W4): buildContourLayer builds the GWC-cached ras:Contour overlay config.
-import {buildMeshTriangleLayer, buildContourLayer, DEM_CONTOUR_STYLE_NAME} from "../gwcTileRouting";
+// TASK-1721 (W4): buildContourLayer builds the ras:Contour overlay config.
+// TASK-1829 (W2): now DIRECT WMS + niceContourInterval (FE-static adaptive interval).
+import {buildMeshTriangleLayer, buildContourLayer, niceContourInterval, DEM_CONTOUR_STYLE_NAME} from "../gwcTileRouting";
 import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
 // W6 (TASK-1422): MapStore2 utility for computing extent from a GeoJSON object.
 import CoordinatesUtils from "../../../../../MapStore2/web/client/utils/CoordinatesUtils";
@@ -478,12 +479,12 @@ class TerrainHierarchyRow extends React.Component {
                         <button
                             className={`btn btn-xs sv-anuga-terrain-mode-btn sv-anuga-terrain-icon-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
                             title={contoursEnabled
-                                ? 'Contours: On — hide contour overlay (GWC-cached ras:Contour, 100 m interval)'
-                                : 'Contours: Off — show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
+                                ? 'Contours: On — hide contour overlay (live ras:Contour, adaptive interval)'
+                                : 'Contours: Off — show contour overlay (live ras:Contour, adaptive interval)'}
                             aria-label={contoursEnabled ? 'Hide Contours' : 'Show Contours'}
                             aria-pressed={contoursEnabled}
                             data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
-                            onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled)}
+                            onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled, terrainModel)}
                         >
                             <span className="glyphicon glyphicon-menu-hamburger" aria-hidden="true" />
                         </button>
@@ -1462,11 +1463,12 @@ class AnugaInputMenuClass extends React.Component {
             });
     };
 
-    // TASK-1721 (W4): Toggle the GWC-cached ras:Contour overlay for a terrain DEM layer.
+    // TASK-1721 (W4) / TASK-1829 (W2): Toggle the live ras:Contour overlay for a terrain DEM.
     //
     // On ENABLE:
-    //   1. Build the contour layer config via buildContourLayer (GWC WMTS, STYLES=dem_contours,
-    //      no env=, type=wms) — passes isShareableTileLayer.
+    //   1. Build the contour layer config via buildContourLayer (DIRECT WMS /geoserver/ows,
+    //      STYLES=dem_contours, env=contourInterval/contourMajor, singleTile, type=wms) —
+    //      intentionally NON-shareable (the env= dynamic render is not GWC-cacheable).
     //   2. Dispatch addLayer to add it ABOVE the colormap in the map (MapStore2 adds to top).
     //   3. Persist the map blob via saveDirectContent.
     //
@@ -1484,12 +1486,25 @@ class AnugaInputMenuClass extends React.Component {
     // reset to {} while the contour layer IS still in flatLayers (restored from the saved
     // map blob), so reading this.state would always take the "enable" branch and add a
     // duplicate layer.  Passing the derived value mirrors the W3 mode-toggle pattern.
-    _handleContoursToggle = (demLayerName, currentlyEnabled) => {
+    _handleContoursToggle = (demLayerName, currentlyEnabled, terrainModel) => {
         if (!demLayerName) return;
         if (!currentlyEnabled) {
             // Enable: add the contour overlay layer.
             const token = getToken ? getToken() : null;
-            const contourLayer = buildContourLayer(demLayerName, token);
+            // TASK-1829 (W2): compute a FE-static "nice" interval from the DEM's
+            // stored elevation range (TerrainSerializerV2 surfaces dem_elev_min/max),
+            // so a low-relief flood DEM draws sensible lines instead of zero at the
+            // legacy fixed 100 m literal. If the range is not reachable, fall back to
+            // 100 (niceContourInterval's own default for unknown/0 relief).
+            // TASK-1829 follow-up: server-adaptive interval (deferred).
+            const elevMin = terrainModel?.dem_elev_min;
+            const elevMax = terrainModel?.dem_elev_max;
+            const relief = (typeof elevMin === 'number' && typeof elevMax === 'number')
+                ? (elevMax - elevMin)
+                : NaN;
+            const interval = niceContourInterval(relief);
+            const major = interval * 5; // every 5th line is a major contour
+            const contourLayer = buildContourLayer(demLayerName, token, interval, major);
             this.props.onAddContourLayer(contourLayer);
             this.setState(prev => ({
                 contoursEnabled: {...prev.contoursEnabled, [demLayerName]: true}

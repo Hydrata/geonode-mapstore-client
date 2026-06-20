@@ -232,45 +232,105 @@ export function buildMeshTriangleLayer(token) {
 }
 
 /**
- * TASK-1721 (W4): Build a MapStore2 layer config for the DEM contour overlay.
- *
- * The contour layer is SEPARATE from the DEM colormap layer — it is overlaid on top
- * of the colormap to show contour lines rendered on-the-fly by GeoServer's
- * ``ras:Contour`` rendering transformation via the ``dem_contours`` named style.
- *
- * GWC CACHEABILITY:
- *   The layer uses STYLES=dem_contours (a named global style) and NO env= parameter,
- *   so it passes ``isShareableTileLayer`` and tiles are served from the shared GWC
- *   cache fleet-wide.  The ``buildGwcTileUrls`` style param emits ``&STYLE=dem_contours``
- *   in the WMTS URL so GWC serves the correct style bucket.
+ * The DEM contour overlay is rendered on-the-fly by GeoServer's ``ras:Contour``
+ * rendering transformation via the global ``dem_contours`` named style.
  *
  * CONVENTION: The FE knows the style name ``dem_contours`` — no API round-trip is
  * needed to discover it.  The caller provides the DEM coverage layer name (e.g.
  * ``'geonode:ele_7_grand_canyon_cog'``) which it already has from the terrain row.
  *
- * @param {string} demLayerName - Fully-qualified GeoServer coverage name (e.g. 'geonode:ele_7_...').
- * @param {string|null} [token] - OAuth2 access token. When null/undefined, no token injected.
- * @returns {Object} MapStore2 WMS layer config for the contour overlay.
+ * TASK-1829 (W2) supersedes the TASK-1721 GWC-cached variant: see buildContourLayer
+ * below — transport is now DIRECT WMS with an adaptive FE-computed interval.
  */
 export const DEM_CONTOUR_STYLE_NAME = 'dem_contours';
 
-export function buildContourLayer(demLayerName, token = null) {
+/**
+ * TASK-1829 (W2): "nice" set of contour intervals (the classic 1-2-5 progression,
+ * extended) the FE can snap a raw interval UP to. Targets a human-readable
+ * contour spacing rather than an arbitrary decimal.
+ */
+const NICE_CONTOUR_INTERVALS = [
+    0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000
+];
+
+/**
+ * TASK-1829 (W2): Compute a FE-static "nice" contour interval from a DEM's relief.
+ *
+ * The interval is derived purely on the client from the terrain's stored
+ * dem_elev_min / dem_elev_max (relief = max - min), so a low-relief flood DEM
+ * (e.g. 75 m of relief) draws a sensible ~15 lines instead of zero lines at the
+ * legacy fixed 100 m literal.
+ *
+ * Algorithm: aim for ~15 contour lines across the relief (raw = relief / 15),
+ * then snap UP to the nearest "nice" number (1/2/5/10/20/25/50/100/...). When
+ * the relief is unknown / non-positive, fall back to 100 (the legacy behaviour
+ * and the SLD's env() default).
+ *
+ * @param {number} relief - Elevation range of the DEM in map units (metres).
+ * @returns {number} A "nice" contour interval in the same units.
+ */
+export function niceContourInterval(relief) {
+    const r = Number(relief);
+    if (!isFinite(r) || r <= 0) {
+        // Unknown / zero relief: keep today's behaviour (matches SLD env() default).
+        return 100;
+    }
+    const TARGET_LINES = 15;
+    const raw = r / TARGET_LINES;
+    // Snap UP to the nearest nice number; clamp to the table's bounds.
+    const snapped = NICE_CONTOUR_INTERVALS.find(n => n >= raw);
+    return snapped !== undefined
+        ? snapped
+        : NICE_CONTOUR_INTERVALS[NICE_CONTOUR_INTERVALS.length - 1];
+}
+
+/**
+ * TASK-1829 (W2): Build a MapStore2 layer config for the DEM contour overlay,
+ * served via DIRECT WMS (NOT GWC) with an adaptive, FE-computed interval.
+ *
+ * WHY DIRECT WMS (not GWC):
+ *   The previous GWC WMTS routing 400'd "Style invalid" — the ele_ GWC layer's
+ *   styleParameterFilter has an empty defaultValue, so a non-default
+ *   STYLES=dem_contours request is rejected by GWC. The render is also dynamic
+ *   (per-DEM interval via env=) so it is intentionally non-cacheable. We therefore
+ *   route to /geoserver/ows and let GeoServer render on the fly.
+ *
+ * WHY explicit token injection in params (no tileUrls):
+ *   DIRECT_WMS_ENDPOINT is a relative URL (/geoserver/ows). MapStore's
+ *   authenticationRules match absolute GeoServer URLs only, so
+ *   addAuthenticationParameter() does NOT fire — the token must live in params
+ *   (same caveat as buildMeshTriangleLayer). With tileUrls dropped there is no
+ *   WMTS template to also stamp.
+ *
+ * The ras:Contour SLD reads env('contourInterval', 100) / env('contourMajor', 500)
+ * so the FE-computed interval/major substitute server-side. Sending params.env
+ * makes this layer FAIL isShareableTileLayer (env() check) — CORRECT for a
+ * dynamic, non-cacheable render.
+ *
+ * @param {string} demLayerName - Fully-qualified GeoServer coverage name (e.g. 'geonode:ele_7_...').
+ * @param {string|null} [token] - OAuth2 access token. When null/undefined, no token injected.
+ * @param {number} [interval=100] - Contour interval in map units (FE-computed from relief).
+ * @param {number|null} [major=null] - Major-contour interval; defaults to interval*5 when null.
+ * @returns {Object} MapStore2 WMS layer config for the contour overlay (direct WMS).
+ */
+export function buildContourLayer(demLayerName, token = null, interval = 100, major = null) {
+    const majorInterval = (major !== null && major !== undefined) ? major : interval * 5;
     const params = {
         LAYERS: demLayerName,
         STYLES: DEM_CONTOUR_STYLE_NAME,
         FORMAT: 'image/png',
         TRANSPARENT: true,
         VERSION: '1.1.1',
-        TILED: true,
+        // env() substitutes the adaptive interval/major into the ras:Contour SLD.
+        // Presence of params.env intentionally makes this layer non-shareable.
+        env: `contourInterval:${interval};contourMajor:${majorInterval}`,
+        // Direct WMS is relative (/geoserver/ows) — addAuthenticationParameter does
+        // NOT fire, so inject the token here explicitly (mirrors buildMeshTriangleLayer).
         ...(token ? {access_token: token} : {})
     };
-    const baseTileUrls = buildGwcTileUrls(demLayerName, 'image/png', DEM_CONTOUR_STYLE_NAME);
-    const tileUrls = token
-        ? baseTileUrls.map(u => u + '&access_token=' + encodeURIComponent(token))
-        : baseTileUrls;
     return {
         type: 'wms',
-        url: GWC_WMTS_ENDPOINT,
+        url: DIRECT_WMS_ENDPOINT,
         name: demLayerName,
         // Unique id to distinguish contour overlay from the colormap layer.
         id: `${demLayerName}__contours`,
@@ -279,8 +339,9 @@ export function buildContourLayer(demLayerName, token = null) {
         // Place contour layer in the same terrain group, above the colormap.
         group: 'Input Data.Terrain',
         style: DEM_CONTOUR_STYLE_NAME,
-        // No env= — contours use a fixed interval; GWC can cache fleet-wide.
-        params,
-        tileUrls
+        // singleTile lives at the layer level (MapStore reads it there) — a single
+        // GetMap, not a WMTS tile grid. Required for the dynamic ras:Contour render.
+        singleTile: true,
+        params
     };
 }
