@@ -284,6 +284,13 @@ export const demRescaleOnMoveEndEpic = (action$, store) =>
                         // err.originalError.status — see reference-mapstore-axios-interceptor-error-shape.)
                         const status = err && (err.status || (err.originalError && err.originalError.status));
                         if (status === 400) {
+                            // Expected case: bbox outside the raster (normal pan-off). The BE
+                            // also returns 400 for a missing/malformed bbox param, but
+                            // extractWgs84Bbox guarantees 4 valid coords so those cannot fire
+                            // from here — still, warn (not silent) so a future misrouted 400 is
+                            // visible in the console rather than swallowed.
+                            // eslint-disable-next-line no-console
+                            console.warn('[demRescaleEpic] bbox-stats 400 (bbox-outside / pan-off) — keeping last-good ramp:', layer.id);
                             return Rx.Observable.empty();
                         }
                         // eslint-disable-next-line no-console
