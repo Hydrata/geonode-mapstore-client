@@ -2,6 +2,8 @@ import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import { ErrorBoundary } from 'react-error-boundary';
+// TASK-1806(a): report React render crashes to Umami before the boundary swallows them.
+import { trackEvent } from '@js/utils/analytics';
 import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm, downloadTargetData, downloadSummaryCSV, downloadTargetPdf, setDashboardView, setNormalizationMode} from "../../actionsSwamm";
 import '../../swamm.css';
 import {CIRCLE_SIZE, POLLUTANTS, CHART_COLOURS} from "./constants";
@@ -116,7 +118,10 @@ class SwammBmpChartClass extends React.Component {
                                 setNormalizationMode={this.props.setNormalizationMode}
                                 projectId={this.props.projectId}
                             />
-                            <ErrorBoundary FallbackComponent={DashboardErrorFallback}>
+                            <ErrorBoundary
+                                FallbackComponent={DashboardErrorFallback}
+                                onError={(error, info) => trackEvent('js-error', 'react-boundary', 'swamm-dashboard')}
+                            >
                                 {isTableView ? (
                                     <div id={"swamm-bmp-chart-col-two"}>
                                         <OrgTable

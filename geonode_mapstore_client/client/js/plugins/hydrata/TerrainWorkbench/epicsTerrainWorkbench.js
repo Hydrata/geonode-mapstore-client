@@ -20,6 +20,8 @@ import { show } from '../../../../MapStore2/web/client/actions/notifications';
 import { getProjectId } from '../Anuga/selectorsAnuga';
 // TASK-1649 (W1.5): open Tasks Panel when derive starts.
 import { toggleTaskMonitorPanel } from '../TaskMonitor/actionsTaskMonitor';
+// TASK-1804: analytics instrumentation for terrain merge/conform lifecycle.
+import { trackEvent } from '@js/utils/analytics';
 import {
     TW_LOAD_DATA,
     TW_SELECT_SURFACE_FOR_TERRAIN,
@@ -264,6 +266,8 @@ export const twDeriveEpic = (action$, store) =>
     action$
         .ofType(TW_DERIVE)
         .switchMap(action => {
+            // TASK-1804: fire START when the derive POST is triggered.
+            trackEvent('process', 'start', 'terrain-merge-start');
             const projectId = getProjectId(store.getState());
             // TASK-1671: action.body = { inputs:[{terrain_id,priority,unmodified}],
             //   feather_width_m, target_resolution_m, breach_max_cost,
@@ -287,9 +291,11 @@ export const twDeriveEpic = (action$, store) =>
                         toggleTaskMonitorPanel(true),
                         twDeriveSuccess(surfaceId, resp?.data?.process_id),
                     ]))
-                    .catch(err =>
-                        Rx.Observable.of(twDeriveError(extractTwError(err, 'Derive failed')))
-                    );
+                    .catch(err => {
+                        // TASK-1804: fire ERROR when the derive POST fails.
+                        trackEvent('process', 'error', 'terrain-merge-error');
+                        return Rx.Observable.of(twDeriveError(extractTwError(err, 'Derive failed')));
+                    });
 
             if (action.surfaceId === null || action.surfaceId === undefined) {
                 // Lazily create the single combined surface, then derive against it.
@@ -317,9 +323,11 @@ export const twDeriveEpic = (action$, store) =>
                             twSelectSurface(surface.id)
                         );
                     })
-                    .catch(err =>
-                        Rx.Observable.of(twDeriveError(extractTwError(err, 'Create failed')))
-                    );
+                    .catch(err => {
+                        // TASK-1804: fire ERROR when surface create-before-derive fails.
+                        trackEvent('process', 'error', 'terrain-merge-error');
+                        return Rx.Observable.of(twDeriveError(extractTwError(err, 'Create failed')));
+                    });
             }
 
             return deriveWithId(action.surfaceId);
@@ -351,6 +359,8 @@ export const twDeriveCompleteEpic = (action$, store) =>
                     if (!proc) {
                         if (tick === TW_DERIVE_POLL_MAX - 1) {
                             done.v = true;
+                            // TASK-1804: fire ERROR on poll timeout (proc never registered).
+                            trackEvent('process', 'error', 'terrain-merge-error');
                             return Rx.Observable.of(twDeriveError(TW_DERIVE_TIMEOUT_MESSAGE));
                         }
                         return Rx.Observable.empty();
@@ -373,6 +383,8 @@ export const twDeriveCompleteEpic = (action$, store) =>
                             .from(getAnalysisSurface(projectId, surfaceId))
                             .mergeMap(resp => {
                                 const surface = resp.data;
+                                // TASK-1804: fire COMPLETE when derive reaches 'complete'.
+                                trackEvent('process', 'complete', 'terrain-merge-complete');
                                 const actions = [
                                     twDeriveComplete(surface),
                                     show({
@@ -393,6 +405,8 @@ export const twDeriveCompleteEpic = (action$, store) =>
                     }
                     if (proc.status === 'error' || proc.status === 'cancelled') {
                         done.v = true;
+                        // TASK-1804: fire ERROR when the backend reports failure.
+                        trackEvent('process', 'error', 'terrain-merge-error');
                         const msg = proc?.metadata?.error_message
                             || proc?.error_message
                             || (proc.status === 'cancelled' ? 'Derive cancelled' : 'Derive failed');
@@ -400,6 +414,8 @@ export const twDeriveCompleteEpic = (action$, store) =>
                     }
                     if (tick === TW_DERIVE_POLL_MAX - 1) {
                         done.v = true;
+                        // TASK-1804: fire ERROR on poll timeout.
+                        trackEvent('process', 'error', 'terrain-merge-error');
                         return Rx.Observable.of(twDeriveError(TW_DERIVE_TIMEOUT_MESSAGE));
                     }
                     return Rx.Observable.empty();

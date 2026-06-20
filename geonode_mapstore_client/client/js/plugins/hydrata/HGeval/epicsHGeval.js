@@ -1,6 +1,8 @@
 import Rx from "rxjs";
 import axios from '../../../../MapStore2/web/client/libs/ajax';
 import { getToken } from '../../../../MapStore2/web/client/utils/SecurityUtils';
+// TASK-1804: analytics instrumentation for HGeval report generation lifecycle.
+import { trackEvent } from '@js/utils/analytics';
 import { CLICK_ON_MAP, registerEventListener, unRegisterEventListener } from '../../../../MapStore2/web/client/actions/map';
 import { purgeMapInfoResults, hideMapinfoMarker, toggleMapInfoState } from '../../../../MapStore2/web/client/actions/mapInfo';
 import {
@@ -244,9 +246,13 @@ export const startReportEpic = (action$, store) =>
     action$
         .ofType(HGEVAL_START_REPORT)
         .switchMap(() => {
+            // TASK-1804: fire START when report generation is requested.
+            trackEvent('process', 'start', 'hgeval-report-start');
             const state = store.getState();
             const coords = state?.hgeval?.coordinates;
             if (!coords) {
+                // TASK-1804: fire ERROR for pre-flight failures.
+                trackEvent('process', 'error', 'hgeval-report-error');
                 return Rx.Observable.of(reportError('No coordinates selected'));
             }
 
@@ -255,6 +261,8 @@ export const startReportEpic = (action$, store) =>
             // Quick bounds check before querying
             if (lon < NICARAGUA_BOUNDS.minLon || lon > NICARAGUA_BOUNDS.maxLon ||
                 lat < NICARAGUA_BOUNDS.minLat || lat > NICARAGUA_BOUNDS.maxLat) {
+                // TASK-1804: fire ERROR for out-of-bounds selections.
+                trackEvent('process', 'error', 'hgeval-report-error');
                 return Rx.Observable.of(
                     validationError('Location is outside Nicaragua. Please select a point within the country.'),
                     setStep('selecting')
@@ -322,6 +330,8 @@ export const startReportEpic = (action$, store) =>
                         // Validate location
                         const locationError = validateLocation(allReportData);
                         if (locationError) {
+                            // TASK-1804: fire ERROR when location validation fails.
+                            trackEvent('process', 'error', 'hgeval-report-error');
                             return Rx.Observable.of(
                                 validationError(locationError),
                                 setStep('selecting')
@@ -333,6 +343,8 @@ export const startReportEpic = (action$, store) =>
                         const mapZoom = currentState?.map?.present?.zoom || currentState?.map?.zoom || 12;
                         const zoom = mapZoom < 8 ? 12 : mapZoom;
 
+                        // TASK-1804: fire COMPLETE when all queries succeed and report is ready.
+                        trackEvent('process', 'complete', 'hgeval-report-complete');
                         // Fetch map image in parallel with completing the report
                         return Rx.Observable.merge(
                             Rx.Observable.of(reportComplete(warnings)),

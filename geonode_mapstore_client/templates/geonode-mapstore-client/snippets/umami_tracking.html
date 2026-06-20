@@ -12,6 +12,14 @@
     var seen = {};
     function trackError(msg, source, line) {
         if (typeof umami === 'undefined') return;
+        // TASK-1806(b): Skip the OpenReplay canvas-capture SecurityError (~16/wk).
+        // OpenReplay tries toBlob() on the OpenLayers/WebGL map canvas which is
+        // cross-origin-tainted; the browser fires a SecurityError that window.onerror
+        // catches here. The session still records — only the canvas snapshot fails.
+        var msgStr = String(msg);
+        if (msgStr.indexOf('SecurityError') !== -1 && msgStr.indexOf('toBlob') !== -1) {
+            return;
+        }
         var key = msg + (source || '') + (line || '');
         if (seen[key]) return;
         seen[key] = true;
