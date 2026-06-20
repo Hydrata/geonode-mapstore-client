@@ -164,18 +164,37 @@ export const terrainBboxEndDrawingEpic = (action$) =>
         });
 
 /**
- * Pull a human-readable message out of an axios error. The DRF error body is
- * { error_code, detail }; prefer `detail`. Never return a raw object — the
+ * Pull a human-readable message out of a rejected create request.
+ *
+ * Two error-object shapes reach here:
+ *   1. MapStore's axios response interceptor (libs/ajax.js) rejects with a
+ *      SPREAD of the response — `{ ...error.response, originalError }` — so the
+ *      body lives at `err.data` and there is NO `err.response`/`err.message`.
+ *      This is the shape the live app produces.
+ *   2. A raw axios error (interceptor absent, e.g. unit tests) carries the body
+ *      at `err.response.data` and a message at `err.message`.
+ *
+ * Within the body, two BE payloads occur: the DRF default { error_code, detail }
+ * and the ANUGA wrapper { success: false, errors: [...], code } used by the
+ * project permission / validation guards (e.g. create-from-bbox ->
+ * permission_denied "You do not have access to this project."). Prefer `detail`,
+ * then a plain `error` string, then the first ANUGA `errors[]` string, then a
+ * plain-string body, then the axios message. Never return a raw object — the
  * error toast feeds this string straight to a notification message slot.
  */
 export function extractCreateErrorMessage(err) {
-    const data = err?.response?.data;
+    const data = err?.response?.data ?? err?.data;
     if (data && typeof data === 'object') {
         if (typeof data.detail === 'string' && data.detail) return data.detail;
         if (typeof data.error === 'string' && data.error) return data.error;
+        if (Array.isArray(data.errors)) {
+            const first = data.errors.find((e) => typeof e === 'string' && e);
+            if (first) return first;
+        }
     }
     if (typeof data === 'string' && data) return data;
-    if (typeof err?.message === 'string' && err.message) return err.message;
+    const message = err?.message || err?.originalError?.message;
+    if (typeof message === 'string' && message) return message;
     return 'create failed';
 }
 
