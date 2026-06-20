@@ -67,6 +67,10 @@ import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 // lived here it unmounted mid-draw and the map froze in BBOX draw mode with no
 // panel to return to. The globe button (setVisibleTerrainBboxPanel(true)) stays.
 import AnugaInputStarterCard from "./anugaInputStarterCard";
+// TASK-1850 (epic 1814 W2): live dynamic-DEM colour-ramp legend (self-connected
+// for the degraded flag). Mounted under the DEM MenuRow when the terrain is in
+// dynamic styling mode.
+import DemRampLegend from "./DemRampLegend";
 // TASK-1800 (W1.9 UAT) — custom layered-mountain + cog icon for the "Merge
 // terrains" header button that opens the stand-alone recipe-builder panel.
 import {MergeTerrainsIcon} from "../../TerrainWorkbench/components/MergeTerrainsPanel";
@@ -634,6 +638,17 @@ class TerrainHierarchyRow extends React.Component {
                                         <MenuRow layer={demLayer} extraToolbarActions={demExtraActions} />
                                     </div>
                                 </div>
+                                {/* TASK-1850 (epic 1814 W2): live dynamic-DEM colour-ramp legend.
+                                    Only for a terrain in DYNAMIC styling mode (traditional terrains
+                                    use a static GWC-tiled colour-relief SLD, not the env() ramp this
+                                    legend describes). Mirrors the isDynamic gate on the Mode toggle
+                                    above. The legend self-connects to read the degraded flag and reads
+                                    the live stops from demLayer.params.env (single source of truth with
+                                    the map). PART C (ramp presets, viridis/grayscale) DEFERRED — needs
+                                    per-preset SLD colour ramps + env plumbing (see DemRampLegend.js). */}
+                                {isDynamic ? (
+                                    <DemRampLegend demLayer={demLayer} terrainModel={terrainModel} />
+                                ) : null}
                             </div>
                         ) : null}
                         {/* ◔ Hillshade: SEPARATE sibling derivative with NO toggles. It passes an

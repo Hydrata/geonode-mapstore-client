@@ -11,7 +11,9 @@ import {
     SET_TERRAIN_BBOX_DRAWING,
     SET_TERRAIN_BBOX,
     SET_TERRAIN_BBOX_ERROR,
-    SET_TERRAIN_BBOX_CONFIRM
+    SET_TERRAIN_BBOX_CONFIRM,
+    // TASK-1850 (epic 1814 W2) — dynamic-ramp degraded (full-range) flag.
+    SET_DEM_RAMP_DEGRADED
 } from "../actionsAnuga";
 
 import {
@@ -38,7 +40,12 @@ const initialState = {
     // Post-draw confirmation popup: visibility + the geodesic area (km2) of the
     // drawn extent so the popup can render cells/time estimates.
     terrainBboxConfirmVisible: false,
-    terrainBboxAreaKm2: null
+    terrainBboxAreaKm2: null,
+    // TASK-1850 (epic 1814 W2) — per-layer dynamic-ramp degraded flag keyed by
+    // map layer id: { [layerId]: true } when the live windowed bbox-stats fetch
+    // failed and the ramp fell back to the stored whole-raster range. The legend
+    // reads this so the degraded state is visible rather than silent.
+    demRampDegraded: {}
 };
 
 export default (state = initialState, action) => {
@@ -129,6 +136,18 @@ export default (state = initialState, action) => {
         return action.visible
             ? { ...state, terrainBboxConfirmVisible: true, terrainBboxAreaKm2: action.areaKm2 }
             : { ...state, terrainBboxConfirmVisible: false };
+    case SET_DEM_RAMP_DEGRADED: {
+        // Per-layer flag; only rewrite the map when the value actually changes so
+        // a steady stream of successful pans doesn't churn the reducer object.
+        const current = state.demRampDegraded || {};
+        if (!!current[action.layerId] === action.degraded) {
+            return state;
+        }
+        return {
+            ...state,
+            demRampDegraded: { ...current, [action.layerId]: action.degraded }
+        };
+    }
     default:
         return state;
     }

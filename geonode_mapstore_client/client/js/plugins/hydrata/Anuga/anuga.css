@@ -2230,3 +2230,56 @@ div that holds the feature-grid */
 .sv-terrain-pending-delete:hover {
     color: rgba(240, 120, 110, 0.95) !important;
 }
+
+/* TASK-1850 (epic 1814 W2): live dynamic-DEM colour-ramp legend. Dark-glass
+   styling consistent with the surrounding sv- terrain rows — a compact vertical
+   swatch + elevation-label list under the DEM row (dynamic mode only). */
+.sv-dem-legend {
+    padding: 6px 4px 8px 4px;
+    margin-top: 2px;
+}
+.sv-dem-legend-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+.sv-dem-legend-title {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.sv-dem-legend-fullrange {
+    font-size: 10px;
+    color: rgba(245, 200, 120, 0.9);
+    border: 1px solid rgba(245, 200, 120, 0.35);
+    border-radius: 3px;
+    padding: 0 4px;
+    line-height: 14px;
+    white-space: nowrap;
+}
+.sv-dem-legend-stops {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.sv-dem-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 14px;
+}
+.sv-dem-legend-swatch {
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 16px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.sv-dem-legend-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.8);
+    font-variant-numeric: tabular-nums;
+}

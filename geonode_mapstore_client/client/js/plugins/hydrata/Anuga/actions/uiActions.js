@@ -15,6 +15,12 @@ const SET_TERRAIN_BBOX_ERROR = 'SET_TERRAIN_BBOX_ERROR';
 // Confirmation popup shown after the bbox is drawn (geodesic-area review +
 // cells/time estimate) before the create POST fires.
 const SET_TERRAIN_BBOX_CONFIRM = 'SET_TERRAIN_BBOX_CONFIRM';
+// TASK-1850 (epic 1814 W2) — Per-DEM-layer dynamic-ramp health flag. The
+// demRescaleEpic sets degraded=true when the live bbox-stats fetch fails (or
+// returns a malformed env_params) and it falls back to the stored full-raster
+// range; degraded=false once a live windowed fetch succeeds again. The legend
+// (DemRampLegend) reads this so a degraded ramp is VISIBLE, not silent.
+const SET_DEM_RAMP_DEGRADED = 'SET_DEM_RAMP_DEGRADED';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -83,6 +89,13 @@ function setTerrainBboxConfirm(visible, areaKm2) {
     return { type: SET_TERRAIN_BBOX_CONFIRM, visible, areaKm2 };
 }
 
+// TASK-1850 — flag/clear the dynamic-ramp degraded (full-range fallback) state
+// for a given map layer id. `degraded=true` means the live windowed fetch
+// failed and the ramp is showing the stored whole-raster range.
+function setDemRampDegraded(layerId, degraded) {
+    return { type: SET_DEM_RAMP_DEGRADED, layerId, degraded: !!degraded };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -98,5 +111,7 @@ module.exports = {
     SET_TERRAIN_BBOX_DRAWING, setTerrainBboxDrawing,
     SET_TERRAIN_BBOX, setTerrainBbox,
     SET_TERRAIN_BBOX_ERROR, setTerrainBboxError,
-    SET_TERRAIN_BBOX_CONFIRM, setTerrainBboxConfirm
+    SET_TERRAIN_BBOX_CONFIRM, setTerrainBboxConfirm,
+    // TASK-1850 (epic 1814 W2) — dynamic-ramp degraded (full-range) flag.
+    SET_DEM_RAMP_DEGRADED, setDemRampDegraded
 };
