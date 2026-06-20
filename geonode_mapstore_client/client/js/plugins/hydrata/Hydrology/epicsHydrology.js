@@ -1,5 +1,7 @@
 import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
+// TASK-1804: analytics instrumentation for IDF derive lifecycle.
+import { trackEvent } from '@js/utils/analytics';
 
 import {
     INIT_HYDROLOGY,
@@ -388,6 +390,8 @@ export const deriveIdfEpic = (action$, store) =>
                 start_year: yearRange.start_year,
                 end_year: yearRange.end_year
             };
+            // TASK-1804: fire START when the derive POST is triggered.
+            trackEvent('process', 'start', 'idf-derive-start');
             return Rx.Observable.from(deriveIdf(projectId, payload))
                 .mergeMap(response => {
                     const data = response?.data || {};
@@ -398,7 +402,11 @@ export const deriveIdfEpic = (action$, store) =>
                     if (httpStatus === 200 && data.tier === 'gpex' && data.idftable_id) {
                         const idftableId = data.idftable_id;
                         return Rx.Observable.from(getIdfTable(projectId, idftableId))
-                            .map(tableResponse => setIdfDeriveResult(tableResponse.data))
+                            .map(tableResponse => {
+                                // TASK-1804: fire COMPLETE on GPEX fast-path success.
+                                trackEvent('process', 'complete', 'idf-derive-complete');
+                                return setIdfDeriveResult(tableResponse.data);
+                            })
                             .catch(fetchErr => Rx.Observable.of(
                                 setIdfDeriveError(fetchErr?.message || 'Failed to fetch GPEX IDF result')
                             ));
@@ -417,11 +425,15 @@ export const deriveIdfEpic = (action$, store) =>
                         || error?.response?.status
                         || error?.originalError?.response?.status;
                     if (status === 503) {
+                        // TASK-1804: fire ERROR on 503 (celery unavailable).
+                        trackEvent('process', 'error', 'idf-derive-error');
                         return Rx.Observable.from([
                             setIdfDeriveError('IDF derivation is unavailable on this site'),
                             setCeleryAnugaEnabled(false)
                         ]);
                     }
+                    // TASK-1804: fire ERROR on generic POST failure.
+                    trackEvent('process', 'error', 'idf-derive-error');
                     const detail = error?.data?.detail
                         || error?.data?.error
                         || error?.response?.data?.detail
@@ -473,6 +485,8 @@ export const idfDeriveCompleteEpic = (action$, store) =>
                     if (!proc) {
                         if (tick === IDF_DERIVE_POLL_MAX_ATTEMPTS - 1) {
                             fetched.done = true;
+                            // TASK-1804: fire ERROR on poll timeout (proc never registered).
+                            trackEvent('process', 'error', 'idf-derive-error');
                             return Rx.Observable.of(setIdfDeriveError(IDF_DERIVE_TIMEOUT_MESSAGE));
                         }
                         return Rx.Observable.empty();
@@ -487,13 +501,19 @@ export const idfDeriveCompleteEpic = (action$, store) =>
                             );
                         }
                         return Rx.Observable.from(getIdfTable(projectId, idftableId))
-                            .map(response => setIdfDeriveResult(response.data))
+                            .map(response => {
+                                // TASK-1804: fire COMPLETE on poll-complete success.
+                                trackEvent('process', 'complete', 'idf-derive-complete');
+                                return setIdfDeriveResult(response.data);
+                            })
                             .catch(err => Rx.Observable.of(
                                 setIdfDeriveError(err?.message || 'Failed to fetch IDF result')
                             ));
                     }
                     if (proc.status === 'error' || proc.status === 'cancelled') {
                         fetched.done = true;
+                        // TASK-1804: fire ERROR when the backend reports failure.
+                        trackEvent('process', 'error', 'idf-derive-error');
                         const msg = proc?.metadata?.error_message
                             || proc?.error_message
                             || (proc.status === 'cancelled' ? 'Derive cancelled' : 'Derive failed');
@@ -501,6 +521,8 @@ export const idfDeriveCompleteEpic = (action$, store) =>
                     }
                     if (tick === IDF_DERIVE_POLL_MAX_ATTEMPTS - 1) {
                         fetched.done = true;
+                        // TASK-1804: fire ERROR on poll timeout.
+                        trackEvent('process', 'error', 'idf-derive-error');
                         return Rx.Observable.of(setIdfDeriveError(IDF_DERIVE_TIMEOUT_MESSAGE));
                     }
                     return Rx.Observable.empty();
