@@ -469,7 +469,9 @@ class TerrainHierarchyRow extends React.Component {
                                 terrainModel, demLayer, isDynamic ? 'traditional' : 'dynamic'
                             )}
                         >
-                            <span className="glyphicon glyphicon-cog" aria-hidden="true" />
+                            {/* TASK-1829 re-aim (UAT): a lightning bolt reads as "dynamic / live
+                                rescale" far better than the old cog (settings). */}
+                            <span className="glyphicon glyphicon-flash" aria-hidden="true" />
                         </button>
                     </span>
                 )
@@ -490,7 +492,13 @@ class TerrainHierarchyRow extends React.Component {
                             data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
                             onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled, terrainModel)}
                         >
-                            <span className="glyphicon glyphicon-menu-hamburger" aria-hidden="true" />
+                            {/* TASK-1829 re-aim (UAT): icon actually shows contours — nested
+                                topographic rings (concentric, summit offset up) — not a hamburger. */}
+                            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.1" style={{verticalAlign: 'middle'}}>
+                                <ellipse cx="8" cy="8.4" rx="6.4" ry="4.8" />
+                                <ellipse cx="8" cy="7.6" rx="3.7" ry="2.6" />
+                                <ellipse cx="8" cy="7.0" rx="1.3" ry="0.8" />
+                            </svg>
                         </button>
                     </span>
                 )
@@ -1520,8 +1528,8 @@ class AnugaInputMenuClass extends React.Component {
             // TASK-1829 re-aim (operator UAT 2026-06-20): divide the nice base interval
             // (niceContourInterval snaps UP to a round number, which biases sparse) by a
             // density factor for much denser lines. No labels, so the non-round interval
-            // is fine. Factor 5 = ~5x more lines than the nice base.
-            const CONTOUR_DENSITY_FACTOR = 5;
+            // is fine. Factor 10 = ~10x more lines than the nice base.
+            const CONTOUR_DENSITY_FACTOR = 10;
             const base = niceContourInterval(relief);
             const interval = Math.round((base / CONTOUR_DENSITY_FACTOR) * 10) / 10;
             const contourLayer = buildContourLayer(demLayerName, token, interval);
