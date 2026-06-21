@@ -39,6 +39,8 @@ import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {MembershipPanel} from "./membershipPanel";
 import RunPollingPausedBanner from "./runPollingPausedBanner";
+// TASK-1857 (W3.3) — 2D cursor-elevation readout in the MapFooter.
+import ElevationReadout from './ElevationReadout';
 import {trackEvent} from "@js/utils/analytics";
 
 // Exported (in addition to the connected default) so the UAT regression test can
@@ -216,10 +218,18 @@ export class AnugaContainer extends React.Component {
         const toolbarTarget = typeof document !== 'undefined'
             ? document.querySelector('.simple-view-left-toolbar')
             : null;
+        // TASK-1857 (W3.3) — portal the elevation readout into the MapFooter so
+        // it sits inline with ScaleBar/MousePosition without requiring a new plugin
+        // slot or localConfig change.  The target element is created by the
+        // MapFooter plugin which is always present on map pages.
+        const mapFooterTarget = typeof document !== 'undefined'
+            ? document.getElementById('mapstore-map-footer')
+            : null;
         return this.props.isAnugaProject ?
             (
                 <div id={"anuga-container"}>
                     {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
+                    {mapFooterTarget ? ReactDOM.createPortal(<ElevationReadout />, mapFooterTarget) : null}
                     {this.props.showAnugaInputMenu ? <AnugaInputMenu/> : null}
                     {this.props.canViewAnugaMap && this.props.hasEPSGset && this.props.showAnugaScenarioMenu ?
                         <AnugaScenarioMenu/> : null
