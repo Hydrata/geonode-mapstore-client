@@ -12,7 +12,13 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import expect from 'expect';
 
-import { TerrainProfilePanelClass, buildPlotlyData, computeYRange } from '../components/TerrainProfilePanel';
+import {
+    TerrainProfilePanelClass,
+    buildPlotlyData,
+    buildCrossSectionData,
+    buildProfileLayout,
+    computeYRange
+} from '../components/TerrainProfilePanel';
 
 describe('TerrainProfilePanel — computeYRange (W4 UAT, TASK-1861/1862)', () => {
     it('frames high-elevation terrain so the range EXCLUDES 0 (no zero baseline)', () => {
@@ -90,6 +96,126 @@ describe('TerrainProfilePanel — buildPlotlyData (TASK-1861)', () => {
         expect(buildPlotlyData(null, traces)).toEqual([]);
         expect(buildPlotlyData([], traces)).toEqual([]);
         expect(buildPlotlyData(samples, null)).toEqual([]);
+    });
+});
+
+describe('TerrainProfilePanel — dual y-axis (W4 UAT, TASK-1861/1862)', () => {
+    // The real profile flow: elevation (role 'dem', 800..985) + depth (role
+    // 'depth', 0..20) + velocity (role 'other', small) on ONE chart.
+    const samples = [
+        { distance_m: 0, dem: 800, depth: 0, velocity: 0 },
+        { distance_m: 25, dem: 905, depth: 12, velocity: 3 },
+        { distance_m: 50, dem: 985, depth: 20, velocity: 5 },
+        { distance_m: 75, dem: 842, depth: 4, velocity: 1 }
+    ];
+    const traces = [
+        { key: 'dem', label: 'Elevation', role: 'dem' },
+        { key: 'depth', label: 'Depth (max)', role: 'depth' },
+        { key: 'velocity', label: 'Velocity (max)', role: 'other' }
+    ];
+
+    it('assigns the elevation trace to yaxis y and result traces to y2 by role', () => {
+        const data = buildPlotlyData(samples, traces);
+        expect(data.length).toBe(3);
+        const dem = data.find(d => d.name === 'Elevation');
+        const depth = data.find(d => d.name === 'Depth (max)');
+        const velocity = data.find(d => d.name === 'Velocity (max)');
+        expect(dem.yaxis).toBe('y');
+        expect(depth.yaxis).toBe('y2');
+        expect(velocity.yaxis).toBe('y2');
+    });
+
+    it('a trace with no role defaults to the primary elevation axis y', () => {
+        const data = buildPlotlyData(samples, [{ key: 'dem', label: 'Elevation' }]);
+        expect(data[0].yaxis).toBe('y');
+    });
+
+    it('LEFT axis frames elevation relief (range excludes 0); RIGHT axis starts at 0', () => {
+        const data = buildPlotlyData(samples, traces);
+        const layout = buildProfileLayout(data);
+        // Primary (left) = elevation: range hugs 800..985, never reaches 0.
+        expect(layout.yaxis.range).toExist();
+        expect(layout.yaxis.range[0]).toBeGreaterThan(0);
+        expect(layout.yaxis.range[0]).toBeLessThan(800);
+        expect(layout.yaxis.range[1]).toBeGreaterThan(985);
+        expect(layout.yaxis.autorange).toBe(false);
+        expect(layout.yaxis.title).toBe('Elevation (m)');
+        // Secondary (right) = results: starts AT 0 (0 depth = dry is meaningful).
+        expect(layout.yaxis2).toExist();
+        expect(layout.yaxis2.range[0]).toBe(0);
+        expect(layout.yaxis2.range[1]).toBeGreaterThan(20);
+        expect(layout.yaxis2.overlaying).toBe('y');
+        expect(layout.yaxis2.side).toBe('right');
+        // No double gridlines on the overlay axis.
+        expect(layout.yaxis2.showgrid).toBe(false);
+    });
+
+    it('elevation-only -> single axis framed to relief, NO empty y2', () => {
+        const data = buildPlotlyData(
+            [{ distance_m: 0, dem: 800 }, { distance_m: 50, dem: 985 }],
+            [{ key: 'dem', label: 'Elevation', role: 'dem' }]
+        );
+        const layout = buildProfileLayout(data);
+        expect(layout.yaxis2).toBe(undefined);
+        expect(layout.yaxis.range[0]).toBeGreaterThan(0);
+        expect(layout.yaxis.range[0]).toBeLessThan(800);
+        expect(layout.yaxis.range[1]).toBeGreaterThan(985);
+        expect(layout.yaxis.title).toBe('Elevation (m)');
+    });
+
+    it('results-only (no dem) -> single axis framed from 0', () => {
+        const data = buildPlotlyData(
+            [{ distance_m: 0, depth: 2 }, { distance_m: 50, depth: 20 }],
+            [{ key: 'depth', label: 'Depth (max)', role: 'depth' }]
+        );
+        const layout = buildProfileLayout(data);
+        expect(layout.yaxis2).toBe(undefined);
+        expect(layout.yaxis.range[0]).toBe(0);
+        expect(layout.yaxis.range[1]).toBeGreaterThan(20);
+    });
+
+    it('computeYRange honours a filter + zeroBased option', () => {
+        const data = [
+            { y: [800, 985], yaxis: 'y' },
+            { y: [0, 20], yaxis: 'y2' }
+        ];
+        const elev = computeYRange(data, { filter: t => t.yaxis !== 'y2' });
+        expect(elev[0]).toBeGreaterThan(0);
+        expect(elev[0]).toBeLessThan(800);
+        const result = computeYRange(data, { filter: t => t.yaxis === 'y2', zeroBased: true });
+        expect(result[0]).toBe(0);
+        expect(result[1]).toBeGreaterThan(20);
+    });
+});
+
+describe('TerrainProfilePanel — cross-section UNCHANGED (W4.5)', () => {
+    // Cross-section terrain + stage are BOTH elevation magnitude: single axis
+    // framed to relief, no role-based y2 split. (Must not regress.)
+    const samples = [
+        { distance_m: 0, dem: 810, depth: 0 },
+        { distance_m: 25, dem: 805, depth: 6 },
+        { distance_m: 50, dem: 800, depth: 0 }
+    ];
+    const traces = [
+        { key: 'dem', label: 'Elevation', role: 'dem' },
+        { key: 'depth', label: 'Depth (max)', role: 'depth' }
+    ];
+
+    it('builds terrain (tozeroy) + water-surface (tonexty) on a SINGLE axis', () => {
+        const data = buildCrossSectionData(samples, traces);
+        expect(data.length).toBe(2);
+        expect(data[0].fill).toBe('tozeroy');
+        expect(data[1].fill).toBe('tonexty');
+        // No dual-axis assignment leaked into cross-section traces.
+        expect(data[0].yaxis).toBe(undefined);
+        expect(data[1].yaxis).toBe(undefined);
+        // stage = bed + depth.
+        expect(data[1].y).toEqual([810, 811, 800]);
+        // Single-axis range still frames to relief (excludes 0).
+        const range = computeYRange(data);
+        expect(range[0]).toBeGreaterThan(0);
+        expect(range[0]).toBeLessThan(800);
+        expect(range[1]).toBeGreaterThan(811);
     });
 });
 

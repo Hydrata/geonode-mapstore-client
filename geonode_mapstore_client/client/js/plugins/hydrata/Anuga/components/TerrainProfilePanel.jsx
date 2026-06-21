@@ -60,12 +60,38 @@ const DARK_GLASS_LAYOUT = {
     }
 };
 
+// W4 UAT (TASK-1861/1862) — secondary (right) y-axis for the small result
+// quantities (depth/velocity/momentum) in profile mode, overlaying the primary
+// elevation axis. Same dark-glass styling; showgrid:false so it doesn't double
+// the gridlines on top of the elevation axis's.
+const DARK_GLASS_Y2 = {
+    overlaying: 'y',
+    side: 'right',
+    showgrid: false,
+    gridcolor: 'rgba(255,255,255,0.18)',
+    zerolinecolor: 'rgba(255,255,255,0.35)',
+    tickcolor: 'rgba(255,255,255,0.6)',
+    tickfont: { color: 'rgba(255,255,255,0.85)' }
+};
+
 const TRACE_COLORS = ['#9ad0f5', '#7fe3a0', '#ffce6b', '#ff9aa2', '#c9a0ff'];
 
 /**
  * Map the stored samples ([{distance_m, dem|<layer>: value}]) + traces
- * ([{key,label}]) into Plotly data ([{x, y, name, type:'scatter', mode:'lines'}]).
- * One trace per present raster key; a key whose every value is null is dropped.
+ * ([{key,label,role}]) into Plotly data ([{x, y, name, type:'scatter',
+ * mode:'lines'}]). One trace per present raster key; a key whose every value
+ * is null is dropped.
+ *
+ * W4 UAT (TASK-1861/1862) — DUAL y-axis in profile mode: the ELEVATION trace
+ * (role==='dem', ~800..985 m) and the small result quantities (depth/velocity/
+ * momentum, ~0..20) cannot share ONE linear axis without the results dragging
+ * the range toward 0 and squashing the terrain relief into the top of the
+ * chart. So tag elevation traces onto the primary axis 'y' (framed to its own
+ * relief) and result traces onto the secondary right axis 'y2' (which starts at
+ * 0 — 0 depth = dry IS meaningful). renderChart wires the y2 axis + ranges.
+ * `role` is preserved on each emitted trace so renderChart can split the range
+ * computation. Falls back to 'y' for any trace without a role (degrades to a
+ * single axis when role isn't threaded through).
  */
 export function buildPlotlyData(samples, traces) {
     if (!Array.isArray(samples) || samples.length === 0 || !Array.isArray(traces)) return [];
@@ -77,6 +103,8 @@ export function buildPlotlyData(samples, traces) {
         });
         // Drop a trace that is entirely null (the run didn't produce that raster).
         if (y.every(v => v === null)) return acc;
+        // Elevation (role 'dem') -> primary left axis 'y'; results -> right 'y2'.
+        const isElevation = trace.role === 'dem' || !trace.role;
         acc.push({
             x,
             y,
@@ -84,6 +112,8 @@ export function buildPlotlyData(samples, traces) {
             type: 'scatter',
             mode: 'lines',
             connectgaps: false,
+            role: trace.role,
+            yaxis: isElevation ? 'y' : 'y2',
             line: { color: TRACE_COLORS[idx % TRACE_COLORS.length], width: 2 }
         });
         return acc;
@@ -103,12 +133,23 @@ export function buildPlotlyData(samples, traces) {
  * `dataTraces` is the already-built Plotly data array (each {y:[...]}). Returns
  * a [lo, hi] tuple, or null when there is no finite value to frame (caller then
  * falls back to autorange).
+ *
+ * `opts`:
+ *   - `filter(trace)`: only traces for which this returns truthy contribute (so
+ *     the elevation 'y' range and the results 'y2' range can be computed off the
+ *     same data array). Default: all traces.
+ *   - `zeroBased`: clamp the low edge to 0 (the results axis — 0 depth = dry IS
+ *     meaningful, so the right axis should start at 0). Default: false (frame to
+ *     relief, lo = min - pad, never reaching 0 for high terrain).
  */
-export function computeYRange(dataTraces) {
+export function computeYRange(dataTraces, opts) {
     if (!Array.isArray(dataTraces) || dataTraces.length === 0) return null;
+    const filter = (opts && typeof opts.filter === 'function') ? opts.filter : () => true;
+    const zeroBased = !!(opts && opts.zeroBased);
     let min = Infinity;
     let max = -Infinity;
     dataTraces.forEach((trace) => {
+        if (!filter(trace)) return;
         const ys = (trace && Array.isArray(trace.y)) ? trace.y : [];
         ys.forEach((v) => {
             if (typeof v === 'number' && isFinite(v)) {
@@ -122,7 +163,62 @@ export function computeYRange(dataTraces) {
     // Pad ~5% of the span, with a small absolute floor so a flat profile (or a
     // single point) still gets a readable band rather than a zero-height axis.
     const pad = Math.max(0.05 * span, 0.5);
-    return [min - pad, max + pad];
+    const lo = zeroBased ? 0 : (min - pad);
+    return [lo, max + pad];
+}
+
+/**
+ * W4 UAT (TASK-1861/1862) — build the PROFILE-mode Plotly layout from the
+ * already-built data array (output of buildPlotlyData). Profile mode plots
+ * ELEVATION (role 'dem', ~800..985 m) alongside small result quantities
+ * (depth/velocity/momentum, ~0..20). On ONE linear axis the results drag the
+ * range to 0 and squash the terrain relief — so split onto DUAL y-axes:
+ *
+ *   - Primary 'y' (left): elevation trace(s) (yaxis 'y'), framed to their own
+ *     relief ([min-pad, max+pad], excludes 0) with the "Elevation (m)" title.
+ *   - Secondary 'y2' (right): result trace(s) (yaxis 'y2'), starting at 0 (0
+ *     depth = dry IS meaningful), [0, max+pad].
+ *
+ * Degenerate cases keep a SINGLE axis (no empty y2):
+ *   - elevation-only -> one axis framed to relief (no y2).
+ *   - results-only (no dem) -> one axis framed [0, max].
+ *
+ * Falls back to autorange (omit range) for an axis with nothing finite to frame.
+ */
+export function buildProfileLayout(data) {
+    const isElevation = (t) => t && t.yaxis !== 'y2';
+    const isResult = (t) => t && t.yaxis === 'y2';
+    const hasElevation = Array.isArray(data) && data.some(isElevation);
+    const hasResults = Array.isArray(data) && data.some(isResult);
+
+    // Results-only (no elevation): single axis framed from 0.
+    if (hasResults && !hasElevation) {
+        const range = computeYRange(data, { filter: isResult, zeroBased: true });
+        const yaxis = range
+            ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false }
+            : DARK_GLASS_LAYOUT.yaxis;
+        return { ...DARK_GLASS_LAYOUT, yaxis };
+    }
+
+    // Elevation-only (the common DEM-only profile): single axis framed to relief.
+    if (hasElevation && !hasResults) {
+        const range = computeYRange(data, { filter: isElevation });
+        const yaxis = range
+            ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false, title: 'Elevation (m)' }
+            : { ...DARK_GLASS_LAYOUT.yaxis, title: 'Elevation (m)' };
+        return { ...DARK_GLASS_LAYOUT, yaxis };
+    }
+
+    // Both present -> DUAL axis. Left = elevation relief; right = results from 0.
+    const elevRange = computeYRange(data, { filter: isElevation });
+    const resultRange = computeYRange(data, { filter: isResult, zeroBased: true });
+    const yaxis = elevRange
+        ? { ...DARK_GLASS_LAYOUT.yaxis, range: elevRange, autorange: false, title: 'Elevation (m)' }
+        : { ...DARK_GLASS_LAYOUT.yaxis, title: 'Elevation (m)' };
+    const yaxis2 = resultRange
+        ? { ...DARK_GLASS_Y2, range: resultRange, autorange: false }
+        : { ...DARK_GLASS_Y2 };
+    return { ...DARK_GLASS_LAYOUT, yaxis, yaxis2 };
 }
 
 // Cross-section colours: terrain is an earthy fill, the water body a translucent
@@ -278,6 +374,7 @@ export class TerrainProfilePanelClass extends React.Component {
         // gets the localized "Water surface" label (resolved off legacy context),
         // NOT the depth raster's label.
         let data;
+        let layout;
         if (this.isCrossSection()) {
             const messages = this.context && this.context.messages;
             const fallback = 'Water surface';
@@ -288,18 +385,19 @@ export class TerrainProfilePanelClass extends React.Component {
                 t && t.role === 'depth' ? { ...t, waterLabel } : t
             ));
             data = buildCrossSectionData(this.props.samples, traces);
+            if (data.length === 0) return null;
+            // Cross-section is UNCHANGED: terrain + stage are both elevation
+            // magnitude, framed to relief on a SINGLE axis (W4.5, already correct).
+            const range = computeYRange(data);
+            const yaxis = range
+                ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false }
+                : DARK_GLASS_LAYOUT.yaxis;
+            layout = { ...DARK_GLASS_LAYOUT, yaxis };
         } else {
             data = buildPlotlyData(this.props.samples, this.props.traces);
+            if (data.length === 0) return null;
+            layout = buildProfileLayout(data);
         }
-        if (data.length === 0) return null;
-        // W4 UAT (TASK-1861/1862): frame the y-axis to the plotted relief so
-        // high-elevation terrain isn't squashed against a 0 baseline. Fall back
-        // to autorange (omit range) when there's nothing finite to frame.
-        const range = computeYRange(data);
-        const yaxis = range
-            ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false }
-            : DARK_GLASS_LAYOUT.yaxis;
-        const layout = { ...DARK_GLASS_LAYOUT, yaxis };
         return (
             <div className="sv-profile-chart" data-testid="profile-chart" style={{ width: '100%', height: 240 }}>
                 <PlotlyChart
