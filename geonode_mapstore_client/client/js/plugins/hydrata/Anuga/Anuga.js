@@ -65,7 +65,10 @@ import {
     // TASK-96 — Live DEM ramp rescale on map pan/zoom via GeoServer env() WMS.
     demRescaleOnMoveEndEpic,
     // TASK-1856 (W3.2) — Debounced cursor-elevation point query.
-    cursorElevationEpic
+    cursorElevationEpic,
+    // TASK-1861 (W4.4) — Depth/result line-profile tool.
+    profileStartDrawEpic,
+    profileEndDrawingEpic
 } from "./epicsAnuga";
 // TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
 import {
@@ -169,6 +172,9 @@ export default createPlugin('Anuga', {
         demRescaleOnMoveEndEpic,
         // TASK-1856 (W3.2) — Debounced cursor-elevation point query.
         cursorElevationEpic,
+        // TASK-1861 (W4.4) — Depth/result line-profile tool epics.
+        profileStartDrawEpic,
+        profileEndDrawingEpic,
         // TASK-1645 (W1.5): TerrainWorkbench recipe epics registered under Anuga plugin.
         twLoadDataEpic,
         twSelectSurfaceForTerrainEpic,

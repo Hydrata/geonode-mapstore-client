@@ -26,6 +26,18 @@ const SET_DEM_RAMP_DEGRADED = 'SET_DEM_RAMP_DEGRADED';
 // to update state.anuga.resources.cursorElevation.  null = no DEM / off-DEM /
 // nodata / footer-off; float = valid DEM elevation in metres.
 const SET_TERRAIN_CURSOR_ELEVATION = 'ANUGA:SET_TERRAIN_CURSOR_ELEVATION';
+// TASK-1861 (epic 1814 W4.4) — Depth/result line-profile tool UI state.
+// The panel lets the user draw a profile line; profileEpic samples the active
+// terrain DEM + selected scenario's result rasters along it (W4.3 endpoint) and
+// stores the samples here for the Plotly multi-trace chart. State all lives on
+// the existing `ui` slice (mirrors the terrainBbox cluster).
+const SET_PROFILE_PANEL_VISIBLE = 'ANUGA:SET_PROFILE_PANEL_VISIBLE';
+const START_PROFILE_DRAW = 'ANUGA:START_PROFILE_DRAW';
+const SET_PROFILE_DRAWING = 'ANUGA:SET_PROFILE_DRAWING';
+const SET_PROFILE_LOADING = 'ANUGA:SET_PROFILE_LOADING';
+const SET_PROFILE_SAMPLES = 'ANUGA:SET_PROFILE_SAMPLES';
+const SET_PROFILE_ERROR = 'ANUGA:SET_PROFILE_ERROR';
+const CLEAR_PROFILE = 'ANUGA:CLEAR_PROFILE';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -108,6 +120,37 @@ function setTerrainCursorElevation(elevation) {
     return { type: SET_TERRAIN_CURSOR_ELEVATION, elevation };
 }
 
+// ── TASK-1861 (W4.4) — line-profile tool action creators ──────────────────
+// Open/close the profile panel. Closing resets all transient profile state.
+function setProfilePanelVisible(visible) {
+    return { type: SET_PROFILE_PANEL_VISIBLE, visible };
+}
+// User clicked "Draw profile line" — profileEpic starts the LineString draw.
+function startProfileDraw() {
+    return { type: START_PROFILE_DRAW };
+}
+// Reflects whether the map draw interaction is live (drives the button label).
+function setProfileDrawing(active) {
+    return { type: SET_PROFILE_DRAWING, active };
+}
+// In-flight flag while the W4.3 endpoint request is pending.
+function setProfileLoading(loading) {
+    return { type: SET_PROFILE_LOADING, loading };
+}
+// Store the sampled series. `samples` = [{distance_m, dem|<layer>: float|null}].
+// `traces` = [{key, label}] describing which raster keys are present, in order.
+function setProfileSamples(samples, traces) {
+    return { type: SET_PROFILE_SAMPLES, samples, traces };
+}
+// Surface a sampling error (i18n msgId string). null clears it.
+function setProfileError(error) {
+    return { type: SET_PROFILE_ERROR, error };
+}
+// Drop the drawn line + samples (Re-draw / panel close).
+function clearProfile() {
+    return { type: CLEAR_PROFILE };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -127,5 +170,13 @@ module.exports = {
     // TASK-1850 (epic 1814 W2) — dynamic-ramp degraded (full-range) flag.
     SET_DEM_RAMP_DEGRADED, setDemRampDegraded,
     // TASK-1855/1856 (epic 1814 W3) — 2D cursor elevation readout.
-    SET_TERRAIN_CURSOR_ELEVATION, setTerrainCursorElevation
+    SET_TERRAIN_CURSOR_ELEVATION, setTerrainCursorElevation,
+    // TASK-1861 (epic 1814 W4.4) — depth/result line-profile tool.
+    SET_PROFILE_PANEL_VISIBLE, setProfilePanelVisible,
+    START_PROFILE_DRAW, startProfileDraw,
+    SET_PROFILE_DRAWING, setProfileDrawing,
+    SET_PROFILE_LOADING, setProfileLoading,
+    SET_PROFILE_SAMPLES, setProfileSamples,
+    SET_PROFILE_ERROR, setProfileError,
+    CLEAR_PROFILE, clearProfile
 };

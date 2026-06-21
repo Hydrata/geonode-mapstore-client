@@ -2283,3 +2283,29 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.8);
     font-variant-numeric: tabular-nums;
 }
+
+/* ── TASK-1861 (W4.4) — depth/result line-profile tool panel ──────────────── */
+.sv-profile-panel {
+    /* Left-align the help/body + chart (the base .simple-view-panel centres). */
+    text-align: left;
+}
+.sv-profile-help,
+.sv-profile-empty {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    font-size: 12px;
+}
+.sv-profile-loading {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.sv-profile-no-terrain {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    font-size: 12px;
+    padding: 6px 0;
+}
+.sv-profile-chart {
+    margin-top: 8px;
+    /* The plotly SVG paints its own surface; the panel glass shows through via
+       the transparent paper/plot bg set in DARK_GLASS_LAYOUT. */
+}

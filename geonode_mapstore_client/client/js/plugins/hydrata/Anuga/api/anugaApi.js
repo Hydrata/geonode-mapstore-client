@@ -157,6 +157,23 @@ export const getTerrainElevationPoint = (projectId, terrainId, lon, lat) =>
         { params: { lon, lat } }
     );
 
+// TASK-1860 (W4.3) / TASK-1861 (W4.4): GET a multi-raster line profile.  Samples
+// the terrain DEM and/or ANUGA result rasters (depth_max / velocity_max /
+// depthintegratedvelocity_max) along a WGS84 LineString and returns ordered
+// samples vs distance.  Returns {samples: [{distance_m, dem|<layer>: float|null},
+// ...], crs}.  null per-sample value means nodata (-9999 DEM / NaN results) or a
+// point outside the raster — both valid, not errors.
+//   line    — WGS84 LineString as WKT ("LINESTRING(lon lat, ...)").
+//   layers  — comma-separated set: 'dem' and/or result-raster layer names
+//             ("geonode:run_<proj>_<scen>_<run>_<token>_cog").  The BE strips
+//             the geonode: workspace prefix when resolving the coverage store.
+//   samples — sample-point count (BE clamps to 2..200).
+export const getTerrainProfile = (projectId, terrainId, { line, layers, samples } = {}) =>
+    axios.get(
+        `/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/profile/`,
+        { params: { line, layers, samples } }
+    );
+
 // TASK-1651 (W1.5): GET presigned S3 download URL for a terrain GeoTIFF.
 // Returns {url, filename}. The url expires in 1 hour.
 export const getTerrainDownloadUrl = (projectId, terrainId) =>

@@ -11,7 +11,9 @@ import {
     setPublicationPanel,
     startAnugaScenarioPolling,
     stopAnugaScenarioPolling,
-    setMembershipPanel
+    setMembershipPanel,
+    // TASK-1861 (W4.4) — depth/result line-profile tool toggle.
+    setProfilePanelVisible
 } from '../actionsAnuga';
 import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
@@ -41,6 +43,10 @@ import {MembershipPanel} from "./membershipPanel";
 import RunPollingPausedBanner from "./runPollingPausedBanner";
 // TASK-1857 (W3.3) — 2D cursor-elevation readout in the MapFooter.
 import ElevationReadout from './ElevationReadout';
+// TASK-1861 (W4.4) — depth/result line-profile tool panel. Mounted at the
+// container level (like TerrainBboxPanel) so closing a menu can't unmount it
+// mid-draw; self-gates on profilePanelVisible.
+import {TerrainProfilePanel} from './TerrainProfilePanel';
 import {trackEvent} from "@js/utils/analytics";
 
 // Exported (in addition to the connected default) so the UAT regression test can
@@ -84,7 +90,10 @@ export class AnugaContainer extends React.Component {
         initInFlight: PropTypes.oneOfType([PropTypes.bool, PropTypes.number, PropTypes.string]),
         hydrologyPluginPresent: PropTypes.bool,
         showHydrologyMainMenu: PropTypes.bool,
-        setHydrologyMainMenu: PropTypes.func
+        setHydrologyMainMenu: PropTypes.func,
+        // TASK-1861 (W4.4) — depth/result line-profile tool toggle.
+        showProfilePanel: PropTypes.bool,
+        setProfilePanelVisible: PropTypes.func
     };
 
     static defaultProps = {
@@ -190,6 +199,23 @@ export class AnugaContainer extends React.Component {
                     </button>
                     : null
                 }
+                {/* TASK-1861 (W4.4) — depth/result line-profile tool toggle. */}
+                {this.props.canViewAnugaMap && this.props.hasEPSGset ?
+                    <button
+                        key="anuga-profile-button"
+                        data-testid="anuga-profile-button"
+                        className={`simple-view-menu-button ${this.props.showProfilePanel ? 'active' : ''}`}
+                        onClick={() => {
+                            this.props.setProfilePanelVisible(!this.props.showProfilePanel);
+                            this.props.setOpenMenuGroupId(null);
+                            this.closeHydrologyIfOpen();
+                            trackEvent('button', `click`, `anuga-profile-menu-toggle`);
+                        }}
+                    >
+                        <Message msgId="hydrata.anuga.profilePanelTitle" />
+                    </button>
+                    : null
+                }
                 {/* ISSUE 16 item 3: Publish button hidden (feature not ready). */}
                 {this.props.canEditAnugaMap && this.props.hasEPSGset ?
                     <button
@@ -244,6 +270,11 @@ export class AnugaContainer extends React.Component {
                         import area' does) does NOT unmount it mid-draw. It self-gates
                         on terrainBboxPanelVisible, so it renders null until opened. */}
                     <TerrainBboxPanel/>
+                    {/* TASK-1861 (W4.4): depth/result line-profile tool panel,
+                        mounted at container level (self-gates on
+                        profilePanelVisible) like TerrainBboxPanel so closing a
+                        menu can't unmount it mid-draw. */}
+                    <TerrainProfilePanel/>
                     {/* TASK-1800 (W1.9 UAT): stand-alone "Merge terrains" recipe
                         panel, mounted at container level alongside TerrainBboxPanel
                         so closing the Inputs menu does NOT unmount it mid-edit. It
@@ -293,7 +324,9 @@ export const mapStateToProps = (state) => {
         canCreateScenario: canCreateScenario(state),
         showMembershipPanel: state?.anuga?.ui?.showMembershipPanel,
         hydrologyPluginPresent: !!mapViewerPlugins.find(x => x.name === "Hydrology"),
-        showHydrologyMainMenu: !!state?.hydrology?.showHydrologyMainMenu
+        showHydrologyMainMenu: !!state?.hydrology?.showHydrologyMainMenu,
+        // TASK-1861 (W4.4) — depth/result line-profile tool visibility.
+        showProfilePanel: !!state?.anuga?.ui?.profilePanelVisible
     };
 };
 
@@ -308,7 +341,9 @@ const mapDispatchToProps = ( dispatch ) => {
         startAnugaScenarioPolling: () => dispatch(startAnugaScenarioPolling()),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible)),
-        setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible))
+        setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible)),
+        // TASK-1861 (W4.4) — depth/result line-profile tool toggle.
+        setProfilePanelVisible: (visible) => dispatch(setProfilePanelVisible(visible))
     };
 };
 

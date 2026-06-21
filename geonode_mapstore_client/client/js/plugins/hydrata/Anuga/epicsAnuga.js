@@ -125,3 +125,9 @@ export {
 export {
     cursorElevationEpic
 } from './epics/cursorElevationEpic';
+
+// TASK-1861 (W4.4) — Depth/result line-profile tool (draw-line + sampler).
+export {
+    profileStartDrawEpic,
+    profileEndDrawingEpic
+} from './epics/profileEpic';
