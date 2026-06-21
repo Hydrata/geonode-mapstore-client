@@ -60,8 +60,11 @@ const buildDemTerrain = (layer) => {
  * Priority:
  *   1. ANUGA terrain layer (group === 'Input Data.Terrain')
  *   2. Any visible layer with "DEM" in title (largest bbox area)
+ *
+ * Exported so cursorElevationEpic (W3.2) can reuse the same DEM-selection
+ * logic without duplicating it.
  */
-const findBestDemLayer = (state) => {
+export const findBestDemLayer = (state) => {
     const layers = state?.layers?.flat || [];
 
     // Priority 1: ANUGA terrain layers

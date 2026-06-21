@@ -120,3 +120,8 @@ export {
 export {
     demRescaleOnMoveEndEpic
 } from './epics/demRescaleEpic';
+
+// TASK-1856 (W3.2) — Debounced point-elevation query on MOUSE_MOVE.
+export {
+    cursorElevationEpic
+} from './epics/cursorElevationEpic';

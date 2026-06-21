@@ -63,7 +63,9 @@ import {
     DELETE_LINKS,
     DELETE_LINKS_SUCCESS,
     DELETE_LINKS_BLOCKED,
-    DELETE_LINKS_ERROR
+    DELETE_LINKS_ERROR,
+    // TASK-1855/1856 (W3.2) — 2D cursor elevation readout.
+    SET_TERRAIN_CURSOR_ELEVATION
 } from "../actionsAnuga";
 
 // V2P-21 — map BE (kebab-case) resource_type keys to FE (camelCase plural)
@@ -102,6 +104,10 @@ const initialState = {
     // terrain_create Process IS orphaned) or just-not-fetched-yet (the
     // first completed terrain_create on a fresh load).
     terrainLoaded: false,
+    // TASK-1855/1856 (W3.2) — Live cursor elevation (float metres) from the
+    // 2D map footer. null when: no DEM loaded, cursor off-DEM, nodata pixel,
+    // or MousePosition footer not active.  Updated by cursorElevationEpic.
+    cursorElevation: null,
     boundaries: [],
     frictions: [],
     inflows: [],
@@ -261,6 +267,10 @@ export default (state = initialState, action) => {
                 r?.id === action.id ? { ...r, ...action.fields } : r
             )
         };
+    // TASK-1855/1856 (W3.2) — 2D cursor elevation readout.
+    // elevation is float (metres) or null (off-DEM / no DEM / nodata).
+    case SET_TERRAIN_CURSOR_ELEVATION:
+        return { ...state, cursorElevation: action.elevation ?? null };
     // V2P-714 — cascade-delete dataset rows. Each pair is (start, success,
     // blocked, error). On start we set deleting:true on the row. On success
     // we drop the row entirely; on blocked/error we clear deleting and stamp

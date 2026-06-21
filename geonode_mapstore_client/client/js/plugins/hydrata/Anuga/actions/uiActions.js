@@ -21,6 +21,11 @@ const SET_TERRAIN_BBOX_CONFIRM = 'SET_TERRAIN_BBOX_CONFIRM';
 // range; degraded=false once a live windowed fetch succeeds again. The legend
 // (DemRampLegend) reads this so a degraded ramp is VISIBLE, not silent.
 const SET_DEM_RAMP_DEGRADED = 'SET_DEM_RAMP_DEGRADED';
+// TASK-1855/1856 (epic 1814 W3) — Cursor elevation readout for the 2D map
+// footer. The cursorElevationEpic dispatches this on each debounced MOUSE_MOVE
+// to update state.anuga.resources.cursorElevation.  null = no DEM / off-DEM /
+// nodata / footer-off; float = valid DEM elevation in metres.
+const SET_TERRAIN_CURSOR_ELEVATION = 'ANUGA:SET_TERRAIN_CURSOR_ELEVATION';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -96,6 +101,13 @@ function setDemRampDegraded(layerId, degraded) {
     return { type: SET_DEM_RAMP_DEGRADED, layerId, degraded: !!degraded };
 }
 
+// TASK-1855/1856 (W3.2) — set or clear the cursor elevation float in the
+// resources slice.  Pass null to hide the readout (off-DEM / no DEM loaded /
+// mouseOut / footer-off).
+function setTerrainCursorElevation(elevation) {
+    return { type: SET_TERRAIN_CURSOR_ELEVATION, elevation };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -113,5 +125,7 @@ module.exports = {
     SET_TERRAIN_BBOX_ERROR, setTerrainBboxError,
     SET_TERRAIN_BBOX_CONFIRM, setTerrainBboxConfirm,
     // TASK-1850 (epic 1814 W2) — dynamic-ramp degraded (full-range) flag.
-    SET_DEM_RAMP_DEGRADED, setDemRampDegraded
+    SET_DEM_RAMP_DEGRADED, setDemRampDegraded,
+    // TASK-1855/1856 (epic 1814 W3) — 2D cursor elevation readout.
+    SET_TERRAIN_CURSOR_ELEVATION, setTerrainCursorElevation
 };
