@@ -26,11 +26,13 @@ import { connect } from 'react-redux';
 import { Button } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
+import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import PlotlyChart from '@mapstore/framework/components/charts/PlotlyChart';
 import { PanelHeader } from '../../SimpleView/components/primitives';
 import {
     setProfilePanelVisible,
-    startProfileDraw
+    startProfileDraw,
+    setProfileMode
 } from '../actionsAnuga';
 import { hasDemReady } from '../epics/cursorElevationEpic';
 import { trackEvent } from '@js/utils/analytics';
@@ -88,6 +90,82 @@ export function buildPlotlyData(samples, traces) {
     }, []);
 }
 
+// Cross-section colours: terrain is an earthy fill, the water body a translucent
+// blue with its surface picked out as a line on top.
+const TERRAIN_COLOR = '#b89968';
+const TERRAIN_FILL = 'rgba(184, 153, 104, 0.45)';
+const WATER_LINE = '#5bc0ff';
+const WATER_FILL = 'rgba(91, 192, 255, 0.30)';
+
+/**
+ * TASK-1862 (W4.5) — combined terrain + water-surface cross-section.
+ *
+ * The hydraulic cross-section overlays the channel/terrain shape and the flood
+ * water level along the transect. Two Plotly traces:
+ *   1. Terrain — the DEM as a FILLED area (fill to zero) so the ground body
+ *      reads as the channel cross-section (x = distance along the line).
+ *   2. Water surface — stage = terrain + DEPTH per sample, filled DOWN TO the
+ *      terrain trace ('tonexty') so the water column between bed and surface is
+ *      shaded. A null/absent depth -> null stage (a gap, NOT a false water line)
+ *      so dry reaches don't paint water.
+ *
+ * Uses the trace `role` (TASK-1862 getProfileTraces tag) to find the terrain
+ * (role='dem') and depth (role='depth') rasters unambiguously — never name
+ * sniffing. With no depth raster present it degrades to terrain-only (a plain
+ * filled cross-section, still useful). With no DEM trace it returns [] (cannot
+ * build a cross-section without the bed).
+ *
+ * Trace ORDER matters: terrain MUST precede the water trace because the water
+ * fills 'tonexty' (down to the previous trace = terrain).
+ */
+export function buildCrossSectionData(samples, traces) {
+    if (!Array.isArray(samples) || samples.length === 0 || !Array.isArray(traces)) return [];
+    const demTrace = traces.find(t => t && t.role === 'dem');
+    if (!demTrace) return [];
+    const x = samples.map(s => s && s.distance_m);
+    const demY = samples.map(s => {
+        const v = s && s[demTrace.key];
+        return (typeof v === 'number') ? v : null;
+    });
+    const data = [{
+        x,
+        y: demY,
+        name: demTrace.label || demTrace.key,
+        type: 'scatter',
+        mode: 'lines',
+        fill: 'tozeroy',
+        fillcolor: TERRAIN_FILL,
+        connectgaps: false,
+        line: { color: TERRAIN_COLOR, width: 2 }
+    }];
+    // Water surface (stage = terrain + depth) — only when a depth raster sampled.
+    const depthTrace = traces.find(t => t && t.role === 'depth');
+    if (depthTrace) {
+        const stageY = samples.map((s) => {
+            const d = s && s[depthTrace.key];
+            const bed = s && s[demTrace.key];
+            // No depth (null/NaN) or no bed -> null stage (dry, a gap not water).
+            if (typeof d !== 'number' || typeof bed !== 'number') return null;
+            return bed + d;
+        });
+        // Only add the water trace if it has at least one real stage value.
+        if (stageY.some(v => v !== null)) {
+            data.push({
+                x,
+                y: stageY,
+                name: depthTrace.waterLabel || 'Water surface',
+                type: 'scatter',
+                mode: 'lines',
+                fill: 'tonexty',
+                fillcolor: WATER_FILL,
+                connectgaps: false,
+                line: { color: WATER_LINE, width: 2 }
+            });
+        }
+    }
+    return data;
+}
+
 export class TerrainProfilePanelClass extends React.Component {
     static propTypes = {
         visible: PropTypes.bool,
@@ -97,8 +175,15 @@ export class TerrainProfilePanelClass extends React.Component {
         traces: PropTypes.array,
         error: PropTypes.string,
         demReady: PropTypes.bool,
+        // TASK-1862 (W4.5) — 'profile' | 'crosssection'.
+        mode: PropTypes.string,
         setProfilePanelVisible: PropTypes.func,
-        startProfileDraw: PropTypes.func
+        startProfileDraw: PropTypes.func,
+        setProfileMode: PropTypes.func
+    };
+
+    static defaultProps = {
+        mode: 'profile'
     };
 
     handleClose = () => {
@@ -111,8 +196,66 @@ export class TerrainProfilePanelClass extends React.Component {
         trackEvent('button', 'click', 'anuga-profile-draw-start');
     };
 
+    handleMode = (mode) => {
+        if (mode === this.props.mode) return;
+        this.props.setProfileMode(mode);
+        trackEvent('button', 'click', `anuga-profile-mode-${mode}`);
+    };
+
+    isCrossSection() {
+        return this.props.mode === 'crosssection';
+    }
+
+    // TASK-1862 (W4.5) — mode toggle (Profile | Cross-section). Same drawn line +
+    // samples; only the chart rendering switches, so flipping is free.
+    renderModeToggle() {
+        const cs = this.isCrossSection();
+        return (
+            <div className="sv-profile-mode-toggle" data-testid="profile-mode-toggle" style={{ marginBottom: 10 }}>
+                <div className="btn-group" role="group">
+                    <Button
+                        data-testid="profile-mode-profile"
+                        bsSize="small"
+                        bsStyle={!cs ? 'primary' : 'default'}
+                        active={!cs}
+                        onClick={() => this.handleMode('profile')}
+                    >
+                        <Message msgId="hydrata.anuga.profileModeProfile" />
+                    </Button>
+                    <Button
+                        data-testid="profile-mode-crosssection"
+                        bsSize="small"
+                        bsStyle={cs ? 'primary' : 'default'}
+                        active={cs}
+                        onClick={() => this.handleMode('crosssection')}
+                    >
+                        <Message msgId="hydrata.anuga.profileModeCrossSection" />
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
     renderChart() {
-        const data = buildPlotlyData(this.props.samples, this.props.traces);
+        // TASK-1862: in cross-section mode build the combined terrain + water
+        // surface chart; otherwise the W4.4 raw value-vs-distance traces. The
+        // water-surface trace is a DERIVED quantity (terrain+depth=stage), so it
+        // gets the localized "Water surface" label (resolved off legacy context),
+        // NOT the depth raster's label.
+        let data;
+        if (this.isCrossSection()) {
+            const messages = this.context && this.context.messages;
+            const fallback = 'Water surface';
+            const resolved = messages ? getMessageById(messages, 'hydrata.anuga.profileWaterSurface') : fallback;
+            // getMessageById returns the msgId itself on a lookup miss.
+            const waterLabel = (!resolved || resolved === 'hydrata.anuga.profileWaterSurface') ? fallback : resolved;
+            const traces = (this.props.traces || []).map(t => (
+                t && t.role === 'depth' ? { ...t, waterLabel } : t
+            ));
+            data = buildCrossSectionData(this.props.samples, traces);
+        } else {
+            data = buildPlotlyData(this.props.samples, this.props.traces);
+        }
         if (data.length === 0) return null;
         return (
             <div className="sv-profile-chart" data-testid="profile-chart" style={{ width: '100%', height: 240 }}>
@@ -137,10 +280,14 @@ export class TerrainProfilePanelClass extends React.Component {
             );
         }
         const hasSamples = Array.isArray(this.props.samples) && this.props.samples.length > 0;
+        const helpMsg = this.isCrossSection()
+            ? 'hydrata.anuga.crossSectionHelp'
+            : 'hydrata.anuga.profileHelp';
         return (
             <React.Fragment>
+                {this.renderModeToggle()}
                 <div className="sv-profile-help" data-testid="profile-help" style={{ marginBottom: 10 }}>
-                    <Message msgId="hydrata.anuga.profileHelp" />
+                    <Message msgId={helpMsg} />
                 </div>
                 <div style={{ marginBottom: 10 }}>
                     <Button
@@ -187,7 +334,7 @@ export class TerrainProfilePanelClass extends React.Component {
             <div className={'simple-view-panel sv-profile-panel'} data-testid="profile-panel">
                 <PanelHeader
                     extraClassName="h4 sv-legend-heading"
-                    title={<Message msgId="hydrata.anuga.profilePanelTitle" />}
+                    title={<Message msgId={this.isCrossSection() ? 'hydrata.anuga.crossSectionPanelTitle' : 'hydrata.anuga.profilePanelTitle'} />}
                     onClose={this.handleClose}
                 />
                 <div style={{ padding: '10px' }}>
@@ -203,6 +350,12 @@ export class TerrainProfilePanelClass extends React.Component {
     }
 }
 
+// Resolve the localized "Water surface" label off legacy context for the
+// derived cross-section stage trace.
+TerrainProfilePanelClass.contextTypes = {
+    messages: PropTypes.object
+};
+
 const mapStateToProps = (state) => ({
     visible: !!state?.anuga?.ui?.profilePanelVisible,
     drawingActive: !!state?.anuga?.ui?.profileDrawingActive,
@@ -210,12 +363,15 @@ const mapStateToProps = (state) => ({
     samples: state?.anuga?.ui?.profileSamples || null,
     traces: state?.anuga?.ui?.profileTraces || null,
     error: state?.anuga?.ui?.profileError || null,
-    demReady: hasDemReady(state)
+    demReady: hasDemReady(state),
+    // TASK-1862 (W4.5) — cross-section / transect mode.
+    mode: state?.anuga?.ui?.profileMode || 'profile'
 });
 
 const mapDispatchToProps = (dispatch) => ({
     setProfilePanelVisible: (visible) => dispatch(setProfilePanelVisible(visible)),
-    startProfileDraw: () => dispatch(startProfileDraw())
+    startProfileDraw: () => dispatch(startProfileDraw()),
+    setProfileMode: (mode) => dispatch(setProfileMode(mode))
 });
 
 export const TerrainProfilePanel = connect(mapStateToProps, mapDispatchToProps)(TerrainProfilePanelClass);

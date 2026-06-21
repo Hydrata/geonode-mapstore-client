@@ -20,7 +20,9 @@ import {
     SET_PROFILE_LOADING,
     SET_PROFILE_SAMPLES,
     SET_PROFILE_ERROR,
-    CLEAR_PROFILE
+    CLEAR_PROFILE,
+    // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode.
+    SET_PROFILE_MODE
 } from "../actionsAnuga";
 
 import {
@@ -61,7 +63,12 @@ const initialState = {
     profileLoading: false,
     profileSamples: null,
     profileTraces: null,
-    profileError: null
+    profileError: null,
+    // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode. The same drawn
+    // line + samples render either as raw value-vs-distance traces ('profile',
+    // W4.4) or the combined terrain + water-surface chart ('crosssection').
+    // Defaults to 'profile' so W4.4 behaviour is unchanged.
+    profileMode: 'profile'
 };
 
 export default (state = initialState, action) => {
@@ -177,8 +184,13 @@ export default (state = initialState, action) => {
                 profileLoading: false,
                 profileSamples: null,
                 profileTraces: null,
-                profileError: null
+                profileError: null,
+                // TASK-1862: reset the mode so re-opening starts in 'profile'.
+                profileMode: 'profile'
             };
+    // TASK-1862 (W4.5) — flip cross-section / transect mode (free; no re-sample).
+    case SET_PROFILE_MODE:
+        return { ...state, profileMode: action.mode === 'crosssection' ? 'crosssection' : 'profile' };
     case SET_PROFILE_DRAWING:
         return { ...state, profileDrawingActive: action.active };
     case SET_PROFILE_LOADING:

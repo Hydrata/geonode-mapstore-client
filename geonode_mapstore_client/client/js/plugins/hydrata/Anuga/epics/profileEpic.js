@@ -55,10 +55,13 @@ export const PROFILE_SAMPLES = 100;
 
 // The three ANUGA result rasters exposed on latest_run, in chart order, with the
 // human label used as the trace name. Keys map to the run serializer fields.
+// `role` (TASK-1862, W4.5) lets the cross-section chart find the terrain + depth
+// rasters UNAMBIGUOUSLY (water surface = terrain + DEPTH = stage) instead of
+// sniffing the layer name: depth is role='depth', the rest role='other'.
 const RESULT_LAYER_FIELDS = [
-    { field: 'gn_layer_depth_max', label: 'Depth (max)' },
-    { field: 'gn_layer_velocity_max', label: 'Velocity (max)' },
-    { field: 'gn_layer_depth_integrated_velocity_max', label: 'Momentum (max)' }
+    { field: 'gn_layer_depth_max', label: 'Depth (max)', role: 'depth' },
+    { field: 'gn_layer_velocity_max', label: 'Velocity (max)', role: 'other' },
+    { field: 'gn_layer_depth_integrated_velocity_max', label: 'Momentum (max)', role: 'other' }
 ];
 
 // Strip the GeoServer workspace prefix (geonode:foo -> foo). The BE resolves the
@@ -110,19 +113,20 @@ export function extractLineFromDrawAction(action) {
  * sniffing the layer name) so it is correct regardless of how the coverage
  * is named — localhost result layers are temp-file-named (tmp*_cog) while prod
  * uses run_<…>_<token>_cog, and both must label as "Depth (max)" etc.
- * Returns [{key:'dem', label:'Elevation'}, {key:'<bare>', label:'Depth (max)'}, …].
- * Always includes 'dem'.
+ * Returns [{key:'dem', label:'Elevation', role:'dem'}, {key:'<bare>',
+ * label:'Depth (max)', role:'depth'}, …]. Always includes 'dem'. `role`
+ * (TASK-1862) drives the cross-section chart (terrain=dem, water surface=depth).
  */
 export function getProfileTraces(state) {
-    const traces = [{ key: 'dem', label: 'Elevation' }];
+    const traces = [{ key: 'dem', label: 'Elevation', role: 'dem' }];
     const scenario = getSelectedScenario(state);
     const run = scenario && scenario.latest_run;
     if (run) {
-        RESULT_LAYER_FIELDS.forEach(({ field, label }) => {
+        RESULT_LAYER_FIELDS.forEach(({ field, label, role }) => {
             const name = run[field] && run[field].name;
             const bare = bareName(name);
             if (bare && !traces.some(t => t.key === bare)) {
-                traces.push({ key: bare, label });
+                traces.push({ key: bare, label, role });
             }
         });
     }

@@ -2309,3 +2309,21 @@ div that holds the feature-grid */
     /* The plotly SVG paints its own surface; the panel glass shows through via
        the transparent paper/plot bg set in DARK_GLASS_LAYOUT. */
 }
+
+/* ── TASK-1862 (W4.5) — cross-section / transect mode toggle ──────────────── */
+.sv-profile-mode-toggle .btn-group {
+    display: inline-flex;
+}
+.sv-profile-mode-toggle .btn {
+    /* Dark-glass segmented control: translucent default, lit accent for the
+       active segment. */
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border-color: rgba(255, 255, 255, 0.18);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+.sv-profile-mode-toggle .btn.active,
+.sv-profile-mode-toggle .btn-primary {
+    background: var(--sv-accent, #5bc0ff);
+    border-color: var(--sv-accent, #5bc0ff);
+    color: #0b1a26;
+}
