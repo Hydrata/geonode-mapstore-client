@@ -302,28 +302,28 @@ export function niceContourInterval(relief) {
  *   (same caveat as buildMeshTriangleLayer). With tileUrls dropped there is no
  *   WMTS template to also stamp.
  *
- * The ras:Contour SLD reads env('contourInterval', 100) / env('contourMajor', 500)
- * so the FE-computed interval/major substitute server-side. Sending params.env
- * makes this layer FAIL isShareableTileLayer (env() check) — CORRECT for a
- * dynamic, non-cacheable render.
+ * The ras:Contour SLD reads env('contourInterval', 100) so the FE-computed interval
+ * substitutes server-side. Sending params.env makes this layer FAIL isShareableTileLayer
+ * (env() check) — CORRECT for a dynamic, non-cacheable render.
+ *
+ * TASK-1829 re-aim (operator UAT 2026-06-20): one uniform pure-white line, no
+ * major/minor — so there is no contourMajor any more (the SLD lost its major rules).
  *
  * @param {string} demLayerName - Fully-qualified GeoServer coverage name (e.g. 'geonode:ele_7_...').
  * @param {string|null} [token] - OAuth2 access token. When null/undefined, no token injected.
  * @param {number} [interval=100] - Contour interval in map units (FE-computed from relief).
- * @param {number|null} [major=null] - Major-contour interval; defaults to interval*5 when null.
  * @returns {Object} MapStore2 WMS layer config for the contour overlay (direct WMS).
  */
-export function buildContourLayer(demLayerName, token = null, interval = 100, major = null) {
-    const majorInterval = (major !== null && major !== undefined) ? major : interval * 5;
+export function buildContourLayer(demLayerName, token = null, interval = 100) {
     const params = {
         LAYERS: demLayerName,
         STYLES: DEM_CONTOUR_STYLE_NAME,
         FORMAT: 'image/png',
         TRANSPARENT: true,
         VERSION: '1.1.1',
-        // env() substitutes the adaptive interval/major into the ras:Contour SLD.
+        // env() substitutes the adaptive interval into the ras:Contour SLD.
         // Presence of params.env intentionally makes this layer non-shareable.
-        env: `contourInterval:${interval};contourMajor:${majorInterval}`,
+        env: `contourInterval:${interval}`,
         // Direct WMS is relative (/geoserver/ows) — addAuthenticationParameter does
         // NOT fire, so inject the token here explicitly (mirrors buildMeshTriangleLayer).
         ...(token ? {access_token: token} : {})

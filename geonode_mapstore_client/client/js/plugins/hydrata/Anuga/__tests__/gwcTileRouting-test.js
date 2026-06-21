@@ -281,14 +281,9 @@ describe('gwcTileRouting — buildContourLayer (TASK-1829 direct-WMS)', () => {
         expect(layer.params.env).toContain('contourInterval:100');
     });
 
-    it('params env reflects a custom interval + derived major (interval*5 by default)', () => {
+    it('params env is interval-only (TASK-1829 re-aim: one uniform line, no major/minor)', () => {
         const layer = buildContourLayer(DEM_LAYER, null, 25);
-        expect(layer.params.env).toBe('contourInterval:25;contourMajor:125');
-    });
-
-    it('params env honours an explicit major when provided', () => {
-        const layer = buildContourLayer(DEM_LAYER, null, 20, 60);
-        expect(layer.params.env).toBe('contourInterval:20;contourMajor:60');
+        expect(layer.params.env).toBe('contourInterval:25');
     });
 
     it('sets singleTile:true at the layer level (single GetMap, not a tile grid)', () => {
