@@ -33,6 +33,13 @@ import {
     ResourcesFiltersFormPlugin
 } from '@mapstore/framework/plugins/ResourcesCatalog';
 
+// Dark-glass SimpleView restyle for the vendored MapStore LongitudinalProfile dock
+// (TASK-1859, epic-1814 W4.2). Eager import so it lands in the main bundle and
+// cascades over the lazy longitudinal-profile-tool chunk's .less. CSS-only override
+// of the rendered chain (#longitudinal-profile-tool-container / .ms-side-panel) —
+// the dock component (MapStore core) is never forked.
+import './hydrata/LongitudinalProfile/longitudinalProfileOverride.css';
+
 let epicsNamesToExclude = [
     'loadGeostoryEpic',
     'reloadGeoStoryOnLoginLogout',
