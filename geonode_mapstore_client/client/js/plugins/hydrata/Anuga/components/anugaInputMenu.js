@@ -492,13 +492,15 @@ class TerrainHierarchyRow extends React.Component {
                             data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
                             onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled, terrainModel)}
                         >
-                            {/* TASK-1829 re-aim (UAT): icon shows contours as TWO hills (nested
-                                topographic rings) so it reads as a contour map, not a single eye. */}
-                            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1" style={{verticalAlign: 'middle'}}>
-                                <ellipse cx="5.2" cy="9.6" rx="3.7" ry="3" />
-                                <ellipse cx="5.2" cy="9.2" rx="1.5" ry="1.1" />
-                                <ellipse cx="11.2" cy="6.4" rx="3.1" ry="2.5" />
-                                <ellipse cx="11.2" cy="6" rx="1.2" ry="0.9" />
+                            {/* TASK-1829 re-aim (UAT): icon shows contours as THREE hills (nested
+                                topographic rings) filling the box, so it reads as a contour map. */}
+                            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="0.9" style={{verticalAlign: 'middle'}}>
+                                <ellipse cx="4.6" cy="10.6" rx="4.4" ry="3.6" />
+                                <ellipse cx="4.6" cy="10.2" rx="1.9" ry="1.4" />
+                                <ellipse cx="11.4" cy="5" rx="4.2" ry="3.2" />
+                                <ellipse cx="11.4" cy="4.6" rx="1.6" ry="1.1" />
+                                <ellipse cx="12.9" cy="12.2" rx="2.8" ry="2.2" />
+                                <ellipse cx="12.9" cy="11.9" rx="1" ry="0.7" />
                             </svg>
                         </button>
                     </span>
