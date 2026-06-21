@@ -107,7 +107,17 @@ export class AnugaContainer extends React.Component {
         // this.props.updateCustomEditorsOptions(this.editorOptions);
     }
 
-    componentDidUpdate() {
+    componentDidUpdate(prevProps) {
+        // W4 UAT — when the Results tab opens, the sibling simpleViewContainer
+        // mounts the .simple-view-panel--miller node on the SAME redux tick. On
+        // the render where openMenuGroupId first becomes 'Results' the node may
+        // not exist yet, so the profile-button portal target is null. Force one
+        // re-render after that paint so the portal resolves into the now-mounted
+        // panel (no-op when the target was already found).
+        if (prevProps && prevProps.openMenuGroupId !== this.props.openMenuGroupId
+            && this.props.openMenuGroupId === 'Results') {
+            this.forceUpdate();
+        }
         // TASK-1637 — only kick an init if one isn't already resolving for
         // THIS map. isAnugaProject stays falsy for the whole from-map →
         // getProjectV2 → setAnugaProjectData window, so without the
@@ -199,23 +209,10 @@ export class AnugaContainer extends React.Component {
                     </button>
                     : null
                 }
-                {/* TASK-1861 (W4.4) — depth/result line-profile tool toggle. */}
-                {this.props.canViewAnugaMap && this.props.hasEPSGset ?
-                    <button
-                        key="anuga-profile-button"
-                        data-testid="anuga-profile-button"
-                        className={`simple-view-menu-button ${this.props.showProfilePanel ? 'active' : ''}`}
-                        onClick={() => {
-                            this.props.setProfilePanelVisible(!this.props.showProfilePanel);
-                            this.props.setOpenMenuGroupId(null);
-                            this.closeHydrologyIfOpen();
-                            trackEvent('button', `click`, `anuga-profile-menu-toggle`);
-                        }}
-                    >
-                        <Message msgId="hydrata.anuga.profilePanelTitle" />
-                    </button>
-                    : null
-                }
+                {/* W4 UAT: the depth/elevation profile is no longer a standalone
+                    toolbar tab — it now opens from a button INSIDE the Results tab
+                    (renderResultsProfileButton), so it sits with the result layers
+                    it profiles. The panel itself is unchanged (mounts via portal). */}
                 {/* ISSUE 16 item 3: Publish button hidden (feature not ready). */}
                 {this.props.canEditAnugaMap && this.props.hasEPSGset ?
                     <button
@@ -240,6 +237,31 @@ export class AnugaContainer extends React.Component {
         );
     }
 
+    // W4 UAT — the depth/elevation profile entry is now a BUTTON inside the
+    // Results tab rather than a standalone toolbar tab. It dispatches the SAME
+    // action the old tab used (setProfilePanelVisible), so both 'profile' and
+    // 'cross-section' modes stay reachable (the mode toggle lives in the panel).
+    // Gated on canViewAnugaMap + hasEPSGset (same as the result layers it
+    // profiles) and only mounted when the Results tab is the open group.
+    renderResultsProfileButton() {
+        return (
+            <div className="sv-results-profile-action" data-testid="anuga-results-profile-action">
+                <button
+                    key="anuga-results-profile-button"
+                    data-testid="anuga-profile-button"
+                    className={`btn sv-glass-button ${this.props.showProfilePanel ? 'active' : ''}`}
+                    onClick={() => {
+                        this.props.setProfilePanelVisible(!this.props.showProfilePanel);
+                        this.closeHydrologyIfOpen();
+                        trackEvent('button', 'click', 'anuga-results-profile-toggle');
+                    }}
+                >
+                    <Message msgId="hydrata.anuga.profilePanelTitle" />
+                </button>
+            </div>
+        );
+    }
+
     render() {
         const toolbarTarget = typeof document !== 'undefined'
             ? document.querySelector('.simple-view-left-toolbar')
@@ -251,11 +273,24 @@ export class AnugaContainer extends React.Component {
         const mapFooterTarget = typeof document !== 'undefined'
             ? document.getElementById('mapstore-map-footer')
             : null;
+        // W4 UAT — the Results-tab profile button is portaled into the open
+        // Results miller panel (rendered by simpleViewContainer). Only when the
+        // Results group is the open menu group (not basemaps / other groups) and
+        // the viewer can see results. The panel mounts on the same redux tick as
+        // this container reacts to openMenuGroupId, so the target resolves on the
+        // re-render after the tab opens (same portal-by-query pattern as the
+        // toolbar/footer targets above).
+        const resultsPanelTarget = (typeof document !== 'undefined'
+            && this.props.openMenuGroupId === 'Results'
+            && this.props.canViewAnugaMap && this.props.hasEPSGset)
+            ? document.querySelector('.simple-view-panel--miller')
+            : null;
         return this.props.isAnugaProject ?
             (
                 <div id={"anuga-container"}>
                     {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
                     {mapFooterTarget ? ReactDOM.createPortal(<ElevationReadout />, mapFooterTarget) : null}
+                    {resultsPanelTarget ? ReactDOM.createPortal(this.renderResultsProfileButton(), resultsPanelTarget) : null}
                     {this.props.showAnugaInputMenu ? <AnugaInputMenu/> : null}
                     {this.props.canViewAnugaMap && this.props.hasEPSGset && this.props.showAnugaScenarioMenu ?
                         <AnugaScenarioMenu/> : null
