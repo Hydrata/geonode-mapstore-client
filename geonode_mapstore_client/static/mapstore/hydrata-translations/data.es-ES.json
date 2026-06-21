@@ -300,8 +300,6 @@
         "profileBadLine": "No se pudo leer la línea; dibuje al menos dos puntos.",
         "profileFailed": "No se pudo muestrear el perfil. Inténtelo de nuevo.",
         "profileEmpty": "Aún no se ha dibujado ninguna línea.",
-        "profileDistanceAxis": "Distancia (m)",
-        "profileValueAxis": "Valor (m / m·s⁻¹)",
         "profileCancel": "Cerrar",
         "profileModeProfile": "Perfil",
         "profileModeCrossSection": "Sección transversal",

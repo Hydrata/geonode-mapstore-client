@@ -300,8 +300,6 @@
         "profileBadLine": "Could not read the line; please draw at least two points.",
         "profileFailed": "Could not sample the profile. Please try again.",
         "profileEmpty": "No line drawn yet.",
-        "profileDistanceAxis": "Distance (m)",
-        "profileValueAxis": "Value (m / m·s⁻¹)",
         "profileCancel": "Close",
         "profileModeProfile": "Profile",
         "profileModeCrossSection": "Cross-section",

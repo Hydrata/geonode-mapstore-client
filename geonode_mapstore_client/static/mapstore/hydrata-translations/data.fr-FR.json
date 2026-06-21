@@ -300,8 +300,6 @@
         "profileBadLine": "Impossible de lire la ligne ; veuillez tracer au moins deux points.",
         "profileFailed": "Impossible d'échantillonner le profil. Veuillez réessayer.",
         "profileEmpty": "Aucune ligne tracée pour l'instant.",
-        "profileDistanceAxis": "Distance (m)",
-        "profileValueAxis": "Valeur (m / m·s⁻¹)",
         "profileCancel": "Fermer",
         "profileModeProfile": "Profil",
         "profileModeCrossSection": "Coupe transversale",
