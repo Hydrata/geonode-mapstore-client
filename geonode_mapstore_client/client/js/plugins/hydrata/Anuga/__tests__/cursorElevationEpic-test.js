@@ -45,7 +45,10 @@ const makeState = ({ terrainLoaded = true, terrainReady = true, withLayer = true
         flat: [
             {
                 id: 'layer-dem-7',
-                name: 'ele_7_blue_mountains',
+                // Real GeoNode WMS layers carry the workspace prefix; the terrain
+                // resource's gn_layer_name (above) is bare. findActiveTerrain must
+                // match across that prefix difference (TASK-1856 W3 live-UAT fix).
+                name: 'geonode:ele_7_blue_mountains',
                 type: 'wms',
                 group: 'Input Data.Terrain'
             }
@@ -132,6 +135,15 @@ describe('cursorElevationEpic — pure helpers (TASK-1856)', () => {
             const state = makeState();
             state.layers.flat = []; // no layers → findBestDemLayer returns null
             expect(findActiveTerrain(state)).toBe(null);
+        });
+
+        it('matches across the geonode: workspace prefix (layer prefixed, gn_layer_name bare)', () => {
+            // Regression for the W3 live-UAT bug: real map layers are
+            // "geonode:ele_*" while the terrain resource gn_layer_name is bare.
+            const state = makeState();
+            expect(state.layers.flat[0].name).toBe('geonode:ele_7_blue_mountains');
+            expect(state.anuga.resources.terrain[0].gn_layer_name).toBe('ele_7_blue_mountains');
+            expect(findActiveTerrain(state).id).toBe(7);
         });
     });
 });

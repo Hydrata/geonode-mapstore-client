@@ -66,7 +66,14 @@ export function findActiveTerrain(state) {
     const demLayer = findBestDemLayer(state);
     if (!demLayer) return null;
     const terrain = state?.anuga?.resources?.terrain || [];
-    return terrain.find(t => t?.gn_layer_name === demLayer.name) || null;
+    // Map-layer names carry the GeoServer workspace prefix (e.g.
+    // "geonode:ele_42_utm_cog"); the terrain resource's gn_layer_name is bare
+    // ("ele_42_utm_cog"). Compare the BARE names so the workspace prefix never
+    // breaks the match. Found at live UAT (TASK-1856 W3): the exact-equality
+    // compare silently no-matched every real terrain → readout never queried.
+    const bareName = (n) => (n || '').split(':').pop();
+    const target = bareName(demLayer.name);
+    return terrain.find(t => bareName(t?.gn_layer_name) === target) || null;
 }
 
 /**
