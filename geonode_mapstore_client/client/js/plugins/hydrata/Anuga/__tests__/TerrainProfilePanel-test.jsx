@@ -12,7 +12,46 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import expect from 'expect';
 
-import { TerrainProfilePanelClass, buildPlotlyData } from '../components/TerrainProfilePanel';
+import { TerrainProfilePanelClass, buildPlotlyData, computeYRange } from '../components/TerrainProfilePanel';
+
+describe('TerrainProfilePanel — computeYRange (W4 UAT, TASK-1861/1862)', () => {
+    it('frames high-elevation terrain so the range EXCLUDES 0 (no zero baseline)', () => {
+        // Terrain at ~800..985m: the y-range must hug the data, never reach 0.
+        const data = [{ y: [800, 905, 985, 842, 933] }];
+        const range = computeYRange(data);
+        expect(range).toExist();
+        const [lo, hi] = range;
+        expect(lo).toBeGreaterThan(0);
+        // tight framing: lo just below the min, hi just above the max.
+        expect(lo).toBeLessThan(800);
+        expect(hi).toBeGreaterThan(985);
+        // span 185 -> pad ~9.25 each side.
+        expect(lo).toBeGreaterThan(780);
+        expect(hi).toBeLessThan(1005);
+    });
+
+    it('spans across multiple traces (cross-section terrain + stage)', () => {
+        const data = [{ y: [810, 805, 800] }, { y: [811, 990, null] }];
+        const range = computeYRange(data);
+        expect(range[0]).toBeGreaterThan(0);
+        expect(range[0]).toBeLessThan(800);
+        expect(range[1]).toBeGreaterThan(990);
+    });
+
+    it('applies a small floor pad for a flat profile (no zero-height axis)', () => {
+        const data = [{ y: [500, 500, 500] }];
+        const [lo, hi] = computeYRange(data);
+        expect(hi - lo).toBeGreaterThan(0);
+        expect(lo).toBeGreaterThan(0);
+    });
+
+    it('returns null when nothing finite to frame (caller -> autorange)', () => {
+        expect(computeYRange(null)).toBe(null);
+        expect(computeYRange([])).toBe(null);
+        expect(computeYRange([{ y: [null, null] }])).toBe(null);
+        expect(computeYRange([{ y: [NaN, Infinity] }])).toBe(null);
+    });
+});
 
 describe('TerrainProfilePanel — buildPlotlyData (TASK-1861)', () => {
     const samples = [

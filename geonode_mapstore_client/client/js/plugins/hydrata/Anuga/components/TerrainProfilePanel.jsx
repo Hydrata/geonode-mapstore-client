@@ -90,6 +90,41 @@ export function buildPlotlyData(samples, traces) {
     }, []);
 }
 
+/**
+ * W4 UAT (TASK-1861/1862) — frame the y-axis to the data's vertical relief.
+ *
+ * Plotly autorange (or a 'tozeroy' fill) drags the y-axis down to include 0,
+ * which squashes high-elevation terrain (e.g. 800..985 m) into the top of the
+ * chart with a huge empty 0..800 band — the relief becomes invisible. Compute
+ * an explicit [min - pad, max + pad] range from the ACTUAL plotted y-values so
+ * the chart frames the data tightly. The 'tozeroy' terrain fill still reads as
+ * solid ground: it fills from the line down past the clamped viewport bottom.
+ *
+ * `dataTraces` is the already-built Plotly data array (each {y:[...]}). Returns
+ * a [lo, hi] tuple, or null when there is no finite value to frame (caller then
+ * falls back to autorange).
+ */
+export function computeYRange(dataTraces) {
+    if (!Array.isArray(dataTraces) || dataTraces.length === 0) return null;
+    let min = Infinity;
+    let max = -Infinity;
+    dataTraces.forEach((trace) => {
+        const ys = (trace && Array.isArray(trace.y)) ? trace.y : [];
+        ys.forEach((v) => {
+            if (typeof v === 'number' && isFinite(v)) {
+                if (v < min) min = v;
+                if (v > max) max = v;
+            }
+        });
+    });
+    if (!isFinite(min) || !isFinite(max)) return null;
+    const span = max - min;
+    // Pad ~5% of the span, with a small absolute floor so a flat profile (or a
+    // single point) still gets a readable band rather than a zero-height axis.
+    const pad = Math.max(0.05 * span, 0.5);
+    return [min - pad, max + pad];
+}
+
 // Cross-section colours: terrain is an earthy fill, the water body a translucent
 // blue with its surface picked out as a line on top.
 const TERRAIN_COLOR = '#b89968';
@@ -257,11 +292,19 @@ export class TerrainProfilePanelClass extends React.Component {
             data = buildPlotlyData(this.props.samples, this.props.traces);
         }
         if (data.length === 0) return null;
+        // W4 UAT (TASK-1861/1862): frame the y-axis to the plotted relief so
+        // high-elevation terrain isn't squashed against a 0 baseline. Fall back
+        // to autorange (omit range) when there's nothing finite to frame.
+        const range = computeYRange(data);
+        const yaxis = range
+            ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false }
+            : DARK_GLASS_LAYOUT.yaxis;
+        const layout = { ...DARK_GLASS_LAYOUT, yaxis };
         return (
             <div className="sv-profile-chart" data-testid="profile-chart" style={{ width: '100%', height: 240 }}>
                 <PlotlyChart
                     data={data}
-                    layout={DARK_GLASS_LAYOUT}
+                    layout={layout}
                     config={{ displayModeBar: false, responsive: true }}
                     style={{ width: '100%', height: '100%' }}
                     useResizeHandler
