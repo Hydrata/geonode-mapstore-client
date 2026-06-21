@@ -1517,11 +1517,11 @@ class AnugaInputMenuClass extends React.Component {
             const relief = (typeof elevMin === 'number' && typeof elevMax === 'number')
                 ? (elevMax - elevMin)
                 : NaN;
-            // TASK-1829 re-aim (operator UAT 2026-06-20): contours were "too far apart"
-            // (niceContourInterval snaps UP to a round number, which biases sparse).
-            // Divide the nice base interval by 1.1 = ~10% more lines, on any DEM,
-            // regardless of the snap. No labels now, so the non-round interval is fine.
-            const CONTOUR_DENSITY_FACTOR = 1.1; // +10% density
+            // TASK-1829 re-aim (operator UAT 2026-06-20): divide the nice base interval
+            // (niceContourInterval snaps UP to a round number, which biases sparse) by a
+            // density factor for much denser lines. No labels, so the non-round interval
+            // is fine. Factor 5 = ~5x more lines than the nice base.
+            const CONTOUR_DENSITY_FACTOR = 5;
             const base = niceContourInterval(relief);
             const interval = Math.round((base / CONTOUR_DENSITY_FACTOR) * 10) / 10;
             const contourLayer = buildContourLayer(demLayerName, token, interval);
