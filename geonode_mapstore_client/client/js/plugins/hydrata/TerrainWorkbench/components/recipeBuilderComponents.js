@@ -333,7 +333,7 @@ class TWRecipeBuilder extends React.Component {
         super(props);
         const s = props.surface;
         this.state = {
-            use_culverts: !!s.use_culverts,
+            use_terrain_breaches: !!s.use_terrain_breaches,
             feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
             target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
             breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
@@ -352,7 +352,7 @@ class TWRecipeBuilder extends React.Component {
             const s = this.props.surface;
             // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({
-                use_culverts: !!s.use_culverts,
+                use_terrain_breaches: !!s.use_terrain_breaches,
                 feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
                 target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
                 breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
@@ -381,7 +381,7 @@ class TWRecipeBuilder extends React.Component {
 
     handleConfirmDerive = () => {
         const { surface, onDerive } = this.props;
-        const { inputs, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist } = this.state;
+        const { inputs, use_terrain_breaches, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist } = this.state;
         this.setState({ confirmOpen: false });
         // TASK-1671: dispatch atomic derive — body carries inputs + params.
         const body = {
@@ -390,7 +390,7 @@ class TWRecipeBuilder extends React.Component {
                 priority: inp.priority,
                 unmodified: !!inp.unmodified
             })),
-            use_culverts: !!use_culverts,
+            use_terrain_breaches: !!use_terrain_breaches,
             feather_width_m: parseFloat(feather_width_m),
             target_resolution_m: parseFloat(target_resolution_m),
             breach_max_cost: parseFloat(breach_max_cost),
@@ -415,7 +415,7 @@ class TWRecipeBuilder extends React.Component {
 
     render() {
         const { surface, terrains, deriving, deriveError, saving, saveError } = this.props;
-        const { use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist, inputs, confirmOpen, sizeEstimate } = this.state;
+        const { use_terrain_breaches, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist, inputs, confirmOpen, sizeEstimate } = this.state;
         const canDerive = this._canDerive();
         const allUnmodified = inputs.length > 0 && inputs.every(d => d.unmodified);
         return (
@@ -437,8 +437,8 @@ class TWRecipeBuilder extends React.Component {
                     collapsible panel title and is removed. */}
                 <div className="sv-tw-params-section tw-params-section">
                     <div className="sv-tw-param-grid">
-                        <label>Use culverts</label>
-                        <input type="checkbox" checked={!!use_culverts} onChange={(e) => this.handleParam('use_culverts', e.target.checked)} disabled={saving || deriving} data-testid="use-culverts-check"/>
+                        <label>Terrain breaches</label>
+                        <input type="checkbox" checked={!!use_terrain_breaches} onChange={(e) => this.handleParam('use_terrain_breaches', e.target.checked)} disabled={saving || deriving} data-testid="use-terrain-breaches-check"/>
                         <label>Feather width (m)</label>
                         <input type="number" className="sv-tw-number-input" value={feather_width_m} min="1" onChange={(e) => this.handleParam('feather_width_m', e.target.value)} disabled={saving || deriving} data-testid="feather-width-input"/>
                         <label>Target resolution (m)</label>
