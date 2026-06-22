@@ -48,8 +48,12 @@ import ElevationReadout from './ElevationReadout';
 // mid-draw; self-gates on profilePanelVisible.
 import {TerrainProfilePanel} from './TerrainProfilePanel';
 // TASK-1869 (W5.4) — vertical-exaggeration slider for the 3D Cesium terrain.
-// Self-gates on isCesium(state) so it only renders in 3D mode.
-import {VerticalExaggerationSlider} from './VerticalExaggerationSlider';
+// GATED (TASK-1870/epic-1871): the slider is visually inert in prod — it sets
+// scene.verticalExaggeration but the GeoServerBILTerrainProvider mesh never
+// exaggerates. Import + mount are commented out so prod users don't see a dead
+// control; the component + its karma tests stay in-tree for 1871 to revive
+// (un-comment this import and the <VerticalExaggerationSlider/> mount below).
+// import {VerticalExaggerationSlider} from './VerticalExaggerationSlider';
 import {trackEvent} from "@js/utils/analytics";
 
 // Exported (in addition to the connected default) so the UAT regression test can
@@ -314,10 +318,11 @@ export class AnugaContainer extends React.Component {
                         menu can't unmount it mid-draw. */}
                     <TerrainProfilePanel/>
                     {/* TASK-1869 (W5.4): vertical-exaggeration slider for the 3D
-                        Cesium terrain. Self-gates on isCesium(state) so it renders
-                        null in 2D / OpenLayers mode. Mounted here (container level)
-                        so it persists regardless of which Anuga sub-menu is open. */}
-                    <VerticalExaggerationSlider/>
+                        Cesium terrain. GATED until TASK-1870 (epic 1871) makes it
+                        actually move the mesh — it is visually inert today, so the
+                        mount is disabled to avoid shipping a dead control to prod.
+                        Un-comment (and the import above) when 1870 lands. */}
+                    {/* <VerticalExaggerationSlider/> */}
                     {/* TASK-1800 (W1.9 UAT): stand-alone "Merge terrains" recipe
                         panel, mounted at container level alongside TerrainBboxPanel
                         so closing the Inputs menu does NOT unmount it mid-edit. It
