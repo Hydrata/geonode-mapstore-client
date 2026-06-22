@@ -82,7 +82,6 @@ const mockActions = (actions) => {
 
 // Convenience: run the epic and collect emitted actions.
 // timeout must exceed DEBOUNCE_MS (250ms) + network latency buffer.
-const DEBOUNCE_MS = 250;
 const COLLECT_AFTER_MS = 600;
 
 const runEpic = (action$, state, done, assert) => {

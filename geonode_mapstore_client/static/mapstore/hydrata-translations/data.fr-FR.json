@@ -284,7 +284,7 @@
         "terrainBboxConfirmArea": "Zone sélectionnée : {areaKm2} km² (environ {widthKm} km de large sur {heightKm} km de haut).",
         "terrainBboxConfirmCells": "Cellules estimées à 30 m de résolution : {cells}.",
         "terrainBboxConfirmTime": "Temps estimé avant disponibilité : {time}.",
-        "terrainBboxConfirmNote": "Le téléchargement lui-même ne prend que quelques secondes. L'essentiel de l'attente est le traitement : reprojection, génération du COG, rendu de l'ombrage et publication sur GeoServer.",
+        "terrainBboxAreaGuidance": "Les zones d'importation sont limitées à 40 000 km² (environ 200 km × 200 km). Les études plus vastes doivent importer plusieurs tuiles.",
         "terrainBboxConfirmTooLarge": "Cette zone est trop grande. Le maximum est d'environ 200 sur 200 km ({max} km²). Veuillez sélectionner à nouveau un rectangle plus petit.",
         "terrainBboxConfirmAccept": "Télécharger ce terrain",
         "terrainBboxConfirmReselect": "Sélectionner à nouveau",

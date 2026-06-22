@@ -95,6 +95,7 @@ const buildDemTerrain = (layer, state) => {
         const terrains = state?.anuga?.resources?.terrain || [];
         const target = bareName(layer.name);
         const row = terrains.find(t => bareName(t?.gn_layer_name) === target);
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         if (row && row.dem_elev_min != null && row.dem_elev_max != null) {
             // Widen by 1 m: the decode gate is STRICT (temp > lowest && temp < highest),
             // so exact min/max would be zeroed. The ±1 m epsilon keeps the true extremes.

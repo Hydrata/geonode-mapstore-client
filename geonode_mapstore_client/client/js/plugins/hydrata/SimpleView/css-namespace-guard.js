@@ -94,10 +94,10 @@ const ALLOWED_PREFIXES = new Set([
     'ol',
     'time',
     'alert',       // Bootstrap .alert-info/-warning/-danger — re-skinned dark-glass in place
-                   // via compound selectors (.membership-perms-warning.alert-warning,
-                   // .terrain-bbox-error.alert-danger) during the W3 conform (TASK-1758).
+    // via compound selectors (.membership-perms-warning.alert-warning,
+    // .terrain-bbox-error.alert-danger) during the W3 conform (TASK-1758).
     'recharts',    // recharts charting library — .recharts-* survive in the IDF-curve modal
-                   // (hydrology.css, TASK-1754). Light chart surface is an intentional carve-out.
+    // (hydrology.css, TASK-1754). Light chart surface is an intentional carve-out.
     'modal',       // Bootstrap/MapStore modal — anuga.css overrides #mapstore-export.modal-dialog-container.
     'measure',     // MapStore measure tool — simpleView.css overrides .measure-container (no hydrata JS sets it).
     // Third-party / upstream overrides:
@@ -106,8 +106,9 @@ const ALLOWED_PREFIXES = new Set([
     'sk',          // .sk-circle (spinkit spinner) in simpleView.css
 
     // ══ Category 3 — RATCHET TARGETS (rename to sv-/sv-<panel>-, then delete here) ══
-    // All prefixes below have been RATCHETED OUT as of TASK-1766 W1.9b (epic-1587).
-    // Category 3 is now EMPTY — the allowlist collapses to cat-1 + cat-2 only.
+    'idf'          // IDF-derive panel (epic-1768, hydrology.css). Live in prod; admitted
+    // here as a new panel namespace pending the sv-idf-* ratchet rename (follow-up).
+    // Prior cat-3 prefixes were RATCHETED OUT as of TASK-1766 W1.9b (epic-1587).
     //
     // 'tm' RATCHETED OUT (TASK-1680): TaskMonitor fully migrated; taskMonitor.css is sv-/simple- only.
     // 'hyrdology' RATCHETED OUT (TASK-1678): the .hyrdology-textarea typo was fixed to .hydrology-textarea.

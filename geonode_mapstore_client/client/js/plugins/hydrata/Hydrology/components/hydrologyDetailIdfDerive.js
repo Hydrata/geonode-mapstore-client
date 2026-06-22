@@ -43,7 +43,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // step's label+field rows; Table (surface="light") conforms the Results table to
 // the white chart-adjacent surface. The interactive boolean matrix
 // (.sv-idf-matrix-*) stays bespoke — an irreducible organism (flagged gap).
-import { ErrorStrip, FormRow, Table } from '../../SimpleView/components/primitives';
+import { ErrorStrip, FormRow, Table, StatusBadge, Tooltip } from '../../SimpleView/components/primitives';
 
 import {
     setIdfDeriveLat,
@@ -55,7 +55,6 @@ import {
     // TASK-1789 — year-range mode toggle
     setIdfDeriveYearRangeMode
 } from '../actionsHydrology';
-import {StatusBadge, Tooltip} from '../../SimpleView/components/primitives';
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 

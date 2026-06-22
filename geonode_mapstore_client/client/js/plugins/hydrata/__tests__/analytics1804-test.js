@@ -59,7 +59,6 @@ describe('TASK-1804 analytics — TerrainWorkbench derive', () => {
     } = require('../TerrainWorkbench/epicsTerrainWorkbench');
     const {
         TW_DERIVE,
-        TW_DERIVE_SUCCESS,
         twDeriveSuccess
     } = require('../TerrainWorkbench/actionsTerrainWorkbench');
 
@@ -195,11 +194,9 @@ describe('TASK-1804 analytics — HGeval report generation', () => {
     const { startReportEpic } = require('../HGeval/epicsHGeval');
     const { HGEVAL_START_REPORT } = require('../HGeval/actionsHGeval');
 
-    let mock;
     let spy;
 
     beforeEach(() => {
-        mock = mockAxios();
         spy = makeUmamiSpy();
     });
 
@@ -277,7 +274,6 @@ describe('TASK-1804 analytics — IDF derive', () => {
     } = require('../Hydrology/epicsHydrology');
     const {
         DERIVE_IDF_REQUEST,
-        SET_IDF_DERIVE_PROCESS_ID,
         setIdfDeriveProcessId
     } = require('../Hydrology/actionsHydrology');
 

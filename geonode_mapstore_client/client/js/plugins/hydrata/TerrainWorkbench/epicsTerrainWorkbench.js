@@ -46,7 +46,7 @@ import {
     twDeriveSuccess,
     twDeriveError,
     twDeriveComplete,
-    twDeriveCompleteError,
+    twDeriveCompleteError
 } from './actionsTerrainWorkbench';
 import {
     listTerrains,
@@ -56,7 +56,7 @@ import {
     deleteAnalysisSurface,
     setInputs,
     deriveAnalysisSurface,
-    getAnalysisSurface,
+    getAnalysisSurface
 } from './api/terrainWorkbenchApi';
 // TASK-1800 (W1.9 UAT r2): TW_PARAM_DEFAULTS seed the lazily-created combined surface.
 import { TW_PARAM_DEFAULTS } from './components/recipeBuilderComponents';
@@ -289,7 +289,7 @@ export const twDeriveEpic = (action$, store) =>
                         ...extraActions,
                         // TASK-1649: open Tasks Panel so derive progress is visible.
                         toggleTaskMonitorPanel(true),
-                        twDeriveSuccess(surfaceId, resp?.data?.process_id),
+                        twDeriveSuccess(surfaceId, resp?.data?.process_id)
                     ]))
                     .catch(err => {
                         // TASK-1804: fire ERROR when the derive POST fails.
@@ -392,8 +392,8 @@ export const twDeriveCompleteEpic = (action$, store) =>
                                         title: 'Terrain Workbench',
                                         uid: 'tw-derive-done',
                                         position: 'tc',
-                                        autoDismiss: 5,
-                                    }),
+                                        autoDismiss: 5
+                                    })
                                 ];
                                 return Rx.Observable.from(actions);
                             })

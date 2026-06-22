@@ -656,6 +656,7 @@ const buildTerrainAddSequence = (metadata, action$, store, currentNames) => {
     // row may not be in state at the time of first terrain_create completion).
     const terrainId = metadata?.terrain_id;
     const terrainResources = store.getState()?.anuga?.resources?.terrain || [];
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
     const matchedTerrain = terrainId != null
         ? terrainResources.find(t => t?.id === terrainId)
         : null;

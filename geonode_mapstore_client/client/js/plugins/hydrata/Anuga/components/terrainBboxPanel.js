@@ -44,13 +44,6 @@ import '../anuga.css';
 
 const DEFAULT_TITLE_FALLBACK = 'Copernicus GLO-30 DEM';
 
-// TASK-1648: single helper that fully resets draw state. Called on every exit
-// path: import, cancel, and panel close.
-const DRAW_RESET_STATUS = (dispatch) => {
-    dispatch(changeDrawingStatus('clean', '', 'terrain-bbox', [], {}));
-    dispatch(changeDrawingStatus('stop', '', 'terrain-bbox', [], {}));
-};
-
 export class TerrainBboxPanelClass extends React.Component {
     static propTypes = {
         visible: PropTypes.bool,
@@ -66,7 +59,7 @@ export class TerrainBboxPanelClass extends React.Component {
         createTerrainFromBbox: PropTypes.func,
         changeDrawingStatus: PropTypes.func,
         // TASK-1648: dispatch to close the Inputs menu when draw starts.
-        setAnugaInputMenu: PropTypes.func,
+        setAnugaInputMenu: PropTypes.func
     };
 
     constructor(props) {
@@ -292,7 +285,7 @@ const mapDispatchToProps = (dispatch) => ({
     changeDrawingStatus: (status, method, owner, features, options) =>
         dispatch(changeDrawingStatus(status, method, owner, features, options)),
     // TASK-1648: close the Inputs menu when 'Define import area' is clicked.
-    setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
+    setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible))
 });
 
 export const TerrainBboxPanel = connect(mapStateToProps, mapDispatchToProps)(TerrainBboxPanelClass);

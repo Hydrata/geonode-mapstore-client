@@ -43,7 +43,7 @@ import {
     twDerive,
     twDeriveSuccess,
     twDeriveComplete,
-    twSelectSurfaceForTerrain,
+    twSelectSurfaceForTerrain
 } from '../actionsTerrainWorkbench';
 
 // ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ describe('TerrainWorkbench reducer — recipe state', () => {
             title: 'DEM A',
             bbox_wgs84: [150.0, -35.0, 151.0, -34.0],
             native_crs: 'EPSG:28356',
-            native_resolution_m: 5,
+            native_resolution_m: 5
         }];
         // TASK-1671: surfaces now use inputs_ordered (not design_inputs_ordered).
         const surfaces = [{
@@ -109,8 +109,8 @@ describe('TerrainWorkbench reducer — recipe state', () => {
             title: 'Surface 1',
             is_stale: false,
             inputs_ordered: [
-                { id: 1, terrain: 1, priority: 0, unmodified: true },
-            ],
+                { id: 1, terrain: 1, priority: 0, unmodified: true }
+            ]
         }];
         const state = reducer(undefined, { type: TW_LOAD_DATA_SUCCESS, terrains, surfaces });
         expect(state.loading).toEqual(false);
@@ -150,7 +150,7 @@ describe('TerrainWorkbench reducer — recipe state', () => {
     it('TW_UPDATE_SURFACE_SUCCESS merges surface by id', () => {
         const surfaces = [
             { id: 1, title: 'Old', feather_width_m: 50 },
-            { id: 2, title: 'Other' },
+            { id: 2, title: 'Other' }
         ];
         const initial = { ...reducer(undefined, {}), surfaces };
         const updated = { id: 1, title: 'Updated', feather_width_m: 100 };
@@ -214,7 +214,7 @@ describe('TerrainWorkbench reducer — recipe state', () => {
             ...reducer(undefined, {}),
             surfaces,
             deriving: true,
-            derivingProcessId: 99,
+            derivingProcessId: 99
         };
         // TASK-1671: surface now returns inputs_ordered (not design_inputs_ordered).
         const completed = {
@@ -223,8 +223,8 @@ describe('TerrainWorkbench reducer — recipe state', () => {
             enforcement_log: { max_seam_step_m: 0.05 },
             inputs_ordered: [
                 { id: 1, terrain: 5, priority: 0, unmodified: true },
-                { id: 2, terrain: 7, priority: 1, unmodified: false },
-            ],
+                { id: 2, terrain: 7, priority: 1, unmodified: false }
+            ]
         };
         const state = reducer(initial, { type: TW_DERIVE_COMPLETE, surface: completed });
         expect(state.deriving).toEqual(false);
@@ -274,13 +274,13 @@ describe('TerrainWorkbench action creators', () => {
         const body = {
             inputs: [
                 { terrain_id: 5, priority: 0, unmodified: true },
-                { terrain_id: 7, priority: 1, unmodified: false },
+                { terrain_id: 7, priority: 1, unmodified: false }
             ],
             feather_width_m: 50,
             target_resolution_m: 5,
             breach_max_cost: 20,
             breach_search_dist: 100,
-            use_culverts: false,
+            use_culverts: false
         };
         const action = twDerive(11, body);
         expect(action.type).toEqual(TW_DERIVE);
@@ -428,7 +428,7 @@ describe('TASK-1800 twDeriveEpic lazy create-then-derive', () => {
         target_resolution_m: 5,
         breach_max_cost: 20,
         breach_search_dist: 100,
-        use_culverts: false,
+        use_culverts: false
     };
 
     it('registers the created surface on create-success even when the derive FAILS', (done) => {
@@ -443,7 +443,7 @@ describe('TASK-1800 twDeriveEpic lazy create-then-derive', () => {
             return [201, { id: 77, title: 'Combined surface', is_stale: true }];
         });
         mockAxios.onPost(/analysis-surfaces\/77\/derive\/$/).reply(500, {
-            success: false, errors: ['boom'],
+            success: false, errors: ['boom']
         });
         // 3 actions expected: twCreateSurfaceSuccess, twSelectSurface, twDeriveError.
         testEpic(
@@ -555,7 +555,7 @@ describe('TASK-1800 twDeriveEpic lazy create-then-derive', () => {
             return [201, { id: 99 }];
         });
         mockAxios.onPost(/analysis-surfaces\/11\/derive\/$/).reply(202, {
-            detail: 'queued', process_id: 'pid-1',
+            detail: 'queued', process_id: 'pid-1'
         });
         // toggleTaskMonitorPanel(true) + twDeriveSuccess = 2 actions.
         testEpic(

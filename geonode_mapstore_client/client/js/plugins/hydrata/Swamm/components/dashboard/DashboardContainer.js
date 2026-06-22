@@ -120,7 +120,7 @@ class SwammBmpChartClass extends React.Component {
                             />
                             <ErrorBoundary
                                 FallbackComponent={DashboardErrorFallback}
-                                onError={(error, info) => trackEvent('js-error', 'react-boundary', 'swamm-dashboard')}
+                                onError={(_error, _info) => trackEvent('js-error', 'react-boundary', 'swamm-dashboard')}
                             >
                                 {isTableView ? (
                                     <div id={"swamm-bmp-chart-col-two"}>

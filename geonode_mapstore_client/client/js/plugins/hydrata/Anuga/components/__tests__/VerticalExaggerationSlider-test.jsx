@@ -93,7 +93,7 @@ describe('VerticalExaggerationSlider (TASK-1869)', () => {
         TestUtils.act(() => {
             ReactDOM.render(
                 <VerticalExaggerationSliderClass
-                    visible={true}
+                    visible
                     verticalExaggeration={1.0}
                     onChangeExaggeration={(v) => { dispatched = v; }}
                 />,
@@ -103,7 +103,7 @@ describe('VerticalExaggerationSlider (TASK-1869)', () => {
         const instance = TestUtils.findRenderedComponentWithType(
             TestUtils.renderIntoDocument(
                 <VerticalExaggerationSliderClass
-                    visible={true}
+                    visible
                     verticalExaggeration={1.0}
                     onChangeExaggeration={(v) => { dispatched = v; }}
                 />
@@ -120,7 +120,7 @@ describe('VerticalExaggerationSlider (TASK-1869)', () => {
         let dispatched = null;
         const instance = TestUtils.renderIntoDocument(
             <VerticalExaggerationSliderClass
-                visible={true}
+                visible
                 verticalExaggeration={1.0}
                 onChangeExaggeration={(v) => { dispatched = v; }}
             />
@@ -133,7 +133,7 @@ describe('VerticalExaggerationSlider (TASK-1869)', () => {
         let dispatched = null;
         const instance = TestUtils.renderIntoDocument(
             <VerticalExaggerationSliderClass
-                visible={true}
+                visible
                 verticalExaggeration={1.0}
                 onChangeExaggeration={(v) => { dispatched = v; }}
             />

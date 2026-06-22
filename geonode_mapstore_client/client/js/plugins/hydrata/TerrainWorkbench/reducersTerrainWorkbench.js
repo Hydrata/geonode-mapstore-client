@@ -40,7 +40,7 @@ import {
     TW_DERIVE_SUCCESS,
     TW_DERIVE_ERROR,
     TW_DERIVE_COMPLETE,
-    TW_DERIVE_COMPLETE_ERROR,
+    TW_DERIVE_COMPLETE_ERROR
 } from './actionsTerrainWorkbench';
 
 const defaultState = {
@@ -56,7 +56,7 @@ const defaultState = {
     saveError: null,
     derivingProcessId: null,
     deriving: false,
-    deriveError: null,
+    deriveError: null
 };
 
 /** Merge an updated surface into the surfaces list by id. */
@@ -82,7 +82,7 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
             ...state,
             loading: false,
             terrains: action.terrains,
-            surfaces: action.surfaces,
+            surfaces: action.surfaces
         };
     case TW_LOAD_DATA_ERROR:
         return { ...state, loading: false, error: action.error };
@@ -99,7 +99,7 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
             ...state,
             saving: false,
             surfaces: [...state.surfaces, action.surface],
-            selectedSurfaceId: action.surface.id,
+            selectedSurfaceId: action.surface.id
         };
     case TW_CREATE_SURFACE_ERROR:
         return { ...state, saving: false, saveError: action.error };
@@ -111,7 +111,7 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
         return {
             ...state,
             saving: false,
-            surfaces: mergeSurface(state.surfaces, action.surface),
+            surfaces: mergeSurface(state.surfaces, action.surface)
         };
     case TW_UPDATE_SURFACE_ERROR:
         return { ...state, saving: false, saveError: action.error };
@@ -126,7 +126,7 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
             surfaces: state.surfaces.filter(s => s.id !== action.surfaceId),
             selectedSurfaceId: state.selectedSurfaceId === action.surfaceId
                 ? null
-                : state.selectedSurfaceId,
+                : state.selectedSurfaceId
         };
     case TW_DELETE_SURFACE_ERROR:
         return { ...state, saving: false, saveError: action.error };
@@ -138,7 +138,7 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
         return {
             ...state,
             saving: false,
-            surfaces: mergeSurface(state.surfaces, action.surface),
+            surfaces: mergeSurface(state.surfaces, action.surface)
         };
     case TW_SET_DESIGN_INPUTS_ERROR:
         return { ...state, saving: false, saveError: action.error };
@@ -155,7 +155,7 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
             ...state,
             deriving: false,
             derivingProcessId: null,
-            surfaces: mergeSurface(state.surfaces, action.surface),
+            surfaces: mergeSurface(state.surfaces, action.surface)
         };
     case TW_DERIVE_COMPLETE_ERROR:
         return { ...state, deriving: false, deriveError: action.error };

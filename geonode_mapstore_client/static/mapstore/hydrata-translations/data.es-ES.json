@@ -284,7 +284,7 @@
         "terrainBboxConfirmArea": "Área seleccionada: {areaKm2} km² (aproximadamente {widthKm} km de ancho por {heightKm} km de alto).",
         "terrainBboxConfirmCells": "Celdas estimadas a 30 m de resolución: {cells}.",
         "terrainBboxConfirmTime": "Tiempo estimado hasta estar listo: {time}.",
-        "terrainBboxConfirmNote": "La descarga en sí toma solo unos segundos. La mayor parte de la espera es el procesamiento: reproyectar, generar el COG, renderizar el sombreado y publicar en GeoServer.",
+        "terrainBboxAreaGuidance": "Las áreas de importación están limitadas a 40 000 km² (unos 200 km × 200 km). Los estudios más grandes deben importar varios mosaicos.",
         "terrainBboxConfirmTooLarge": "Esta área es demasiado grande. El máximo es aproximadamente 200 por 200 km ({max} km²). Por favor, vuelva a seleccionar un recuadro más pequeño.",
         "terrainBboxConfirmAccept": "Descargar este terreno",
         "terrainBboxConfirmReselect": "Volver a seleccionar",

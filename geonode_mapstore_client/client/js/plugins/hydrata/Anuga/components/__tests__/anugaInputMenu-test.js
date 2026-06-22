@@ -580,7 +580,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
         id: 7,
         gn_layer_name: DEM_LAYER_NAME,
         styling_mode: 'traditional',
-        rendering_type: 'dynamic_dem',
+        rendering_type: 'dynamic_dem'
     };
 
     // Contour overlay layer as it would appear in flatLayers after reload.
@@ -590,7 +590,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
         name: DEM_LAYER_NAME,
         style: DEM_CONTOUR_STYLE_NAME_FIXD,
         group: 'Input Data.Terrain',
-        visibility: true,
+        visibility: true
     };
 
     // Base DEM layer.
@@ -599,7 +599,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
         type: 'wms',
         name: DEM_LAYER_NAME,
         group: 'Input Data.Terrain',
-        visibility: true,
+        visibility: true
     };
 
     beforeEach(() => {
@@ -684,7 +684,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
             stopAnugaModelCreationPolling: () => {},
             createAnugaBoundary: () => {}, createAnugaInflow: () => {},
             createAnugaRainfall: () => {}, createAnugaStructure: () => {},
-            createAnugaFriction: () => {}, createAnugaMeshRegion: () => {},
+            createAnugaFriction: () => {}, createAnugaMeshRegion: () => {}
         };
 
         return new Promise((resolve, reject) => {
@@ -1538,7 +1538,7 @@ describe('TASK-1752 anugaInputMenu terrain reorder lands on state.flat (regressi
 // translation fixture, mirroring the patterns already used in this file.
 // ---------------------------------------------------------------------------
 describe('TASK-1755 culvert menu entry — placeholder pane + i18n', () => {
-    const { AnugaInputMenuClass } = require('../anugaInputMenu');
+    const { AnugaInputMenuClass: AnugaInputMenuClassLocal } = require('../anugaInputMenu');
 
     // Walk a React element tree collecting every props.msgId (the <Message/> ids).
     function collectMsgIds(el, acc) {
@@ -1552,7 +1552,7 @@ describe('TASK-1755 culvert menu entry — placeholder pane + i18n', () => {
     }
 
     it('#1: renderPane() routes selectedCategory="culverts" to renderCulvertPane (NOT the terrain pane)', () => {
-        const instance = Object.create(AnugaInputMenuClass.prototype);
+        const instance = Object.create(AnugaInputMenuClassLocal.prototype);
         instance.state = { selectedCategory: 'culverts' };
         let culvertCalls = 0;
         let terrainCalls = 0;
@@ -1565,7 +1565,7 @@ describe('TASK-1755 culvert menu entry — placeholder pane + i18n', () => {
     });
 
     it('#2: renderCulvertPane() heads the pane with the culverts category and shows the placeholder Message (no raw key markup)', () => {
-        const instance = Object.create(AnugaInputMenuClass.prototype);
+        const instance = Object.create(AnugaInputMenuClassLocal.prototype);
         let headCatId = null;
         // Stub renderPaneHead so we can confirm the translated heading is driven by
         // the 'culverts' category (whose titleMsgId is hydrata.anuga.culverts).

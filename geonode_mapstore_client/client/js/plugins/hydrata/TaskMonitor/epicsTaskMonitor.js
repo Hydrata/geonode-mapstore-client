@@ -221,7 +221,7 @@ export const terrainExportEpic = (action$) =>
                 created: new Date().toISOString(),
                 updated: new Date().toISOString(),
                 subtasks: [],
-                log: '',
+                log: ''
             };
 
             return Rx.Observable.concat(
@@ -237,7 +237,7 @@ export const terrainExportEpic = (action$) =>
                             status: 'complete',
                             status_detail: null,
                             updated: new Date().toISOString(),
-                            metadata: { download_url: url, filename },
+                            metadata: { download_url: url, filename }
                         };
                         // Attempt browser auto-download. Browsers may block this
                         // if initiated outside a user-gesture context; the
@@ -266,7 +266,7 @@ export const terrainExportEpic = (action$) =>
                             status: 'error',
                             status_detail: null,
                             error_message: String(detail),
-                            updated: new Date().toISOString(),
+                            updated: new Date().toISOString()
                         };
                         return Rx.Observable.of(updateProcess(errorProcess));
                     })

@@ -284,7 +284,7 @@
         "terrainBboxConfirmArea": "Zòn seleksyone: {areaKm2} km² (apeprè {widthKm} km lajè pa {heightKm} km wotè).",
         "terrainBboxConfirmCells": "Selil estime nan 30 m rezolisyon: {cells}.",
         "terrainBboxConfirmTime": "Tan estime jiskaske li pare: {time}.",
-        "terrainBboxConfirmNote": "Telechajman an pran sèlman kèk segonn. Pifò nan tann lan se tretman: reprojeksyon, kreye COG la, rann lonbraj la, ak pibliye sou GeoServer.",
+        "terrainBboxAreaGuidance": "Zòn enpòtasyon yo limite a 40 000 km² (anviwon 200 km × 200 km). Etid pi gwo yo dwe enpòte plizyè tuil.",
         "terrainBboxConfirmTooLarge": "Zòn sa a twò gwo. Maksimòm lan se apeprè 200 pa 200 km ({max} km²). Tanpri chwazi yon kare pi piti.",
         "terrainBboxConfirmAccept": "Telechaje terèn sa a",
         "terrainBboxConfirmReselect": "Chwazi ankò",

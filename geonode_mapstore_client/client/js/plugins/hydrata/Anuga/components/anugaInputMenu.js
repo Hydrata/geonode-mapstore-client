@@ -46,7 +46,7 @@ import {
     twCreateSurface,
     twUpdateSurface,
     twDeleteSurface,
-    twDerive,
+    twDerive
 } from '../../TerrainWorkbench/actionsTerrainWorkbench';
 // TASK-1440 (W9): Networks action creators removed from this file — the Networks
 // pane is now a self-contained shared component (shared/NetworksPane.js) that
@@ -1921,7 +1921,7 @@ const mapStateToProps = (state) => {
         twSaving: state?.terrainWorkbench?.saving || false,
         twSaveError: state?.terrainWorkbench?.saveError || null,
         twDeriving: state?.terrainWorkbench?.deriving || false,
-        twDeriveError: state?.terrainWorkbench?.deriveError || null,
+        twDeriveError: state?.terrainWorkbench?.deriveError || null
     };
 };
 

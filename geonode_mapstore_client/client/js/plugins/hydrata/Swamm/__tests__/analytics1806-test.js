@@ -65,7 +65,7 @@ describe('TASK-1806(a) Swamm dashboard ErrorBoundary → Umami', () => {
         ReactDOM.render(
             <ErrorBoundary
                 FallbackComponent={DashboardErrorFallback}
-                onError={(error, info) => trackEvent('js-error', 'react-boundary', 'swamm-dashboard')}
+                onError={(_error, _info) => trackEvent('js-error', 'react-boundary', 'swamm-dashboard')}
             >
                 <Bomb />
             </ErrorBoundary>,

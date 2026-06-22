@@ -32,7 +32,6 @@ import {
 // manageTerrain3DEpic has a 300ms debounce so we use a manual subject + timeout
 // pattern (same as cursorElevationEpic-test.js) rather than testEpic/take(N).
 
-const DEBOUNCE_MS = 300;
 const COLLECT_AFTER_MS = 700; // > debounce
 
 const makeActions$ = (actions) => {
@@ -286,32 +285,32 @@ describe('nodata sentinel zeroing (TASK-1867, D9)', () => {
     const HIGHEST = Math.ceil(1200 + 1); // 1201
 
     it('-9999 sentinel is below lowest (49) and would be zeroed by the decode loop', () => {
-        expect(-9999 > LOWEST && -9999 < HIGHEST).toBe(false);
+        expect(LOWEST < -9999 && HIGHEST > -9999).toBe(false);
     });
 
     it('-32768 (INT16_MIN) sentinel is below lowest (49) and would be zeroed', () => {
-        expect(-32768 > LOWEST && -32768 < HIGHEST).toBe(false);
+        expect(LOWEST < -32768 && HIGHEST > -32768).toBe(false);
     });
 
     it('+32767 (INT16_MAX) sentinel is above highest (1201) and would be zeroed', () => {
-        expect(32767 > LOWEST && 32767 < HIGHEST).toBe(false);
+        expect(LOWEST < 32767 && HIGHEST > 32767).toBe(false);
     });
 
     it('epsilon keeps the legitimate minimum (50.0) inside the window', () => {
         // temp = 50, strict gate: 50 > 49 && 50 < 1201 => true (kept)
-        expect(50 > LOWEST && 50 < HIGHEST).toBe(true);
+        expect(LOWEST < 50 && HIGHEST > 50).toBe(true);
     });
 
     it('epsilon keeps the legitimate maximum (1200.0) inside the window', () => {
         // temp = 1200, strict gate: 1200 > 49 && 1200 < 1201 => true (kept)
-        expect(1200 > LOWEST && 1200 < HIGHEST).toBe(true);
+        expect(LOWEST < 1200 && HIGHEST > 1200).toBe(true);
     });
 
     it('sea-level (0 m) is outside [49, 1201] for this elevated DEM — clamp documents D9', () => {
         // For an elevated DEM, a 0 m pixel represents either a nodata hole or a real
         // sea-level pixel that is geographically implausible. D9 accepts this as the
         // no-hole trade-off. This test documents (not prescribes) the behaviour.
-        expect(0 > LOWEST && 0 < HIGHEST).toBe(false);
+        expect(LOWEST < 0 && HIGHEST > 0).toBe(false);
     });
 
     // TASK-1867: Additional epsilon boundary checks to confirm the ±1 m widening
@@ -321,18 +320,18 @@ describe('nodata sentinel zeroing (TASK-1867, D9)', () => {
         const lowestExact = 50; // No epsilon
         const highestExact = 1200; // No epsilon
         // 50.0 is NOT > 50 (strict), so it would be zeroed without epsilon.
-        expect(50 > lowestExact && 50 < highestExact).toBe(false);
+        expect(lowestExact < 50 && highestExact > 50).toBe(false);
         // With epsilon (lowest=49): 50 > 49 is true → kept.
-        expect(50 > LOWEST && 50 < HIGHEST).toBe(true);
+        expect(LOWEST < 50 && HIGHEST > 50).toBe(true);
     });
 
     it('epsilon: without ±1 m widening, the DEM maximum (1200.0) would be rejected', () => {
         const lowestExact = 50;
         const highestExact = 1200;
         // 1200 is NOT < 1200 (strict), so it would be zeroed without epsilon.
-        expect(1200 > lowestExact && 1200 < highestExact).toBe(false);
+        expect(lowestExact < 1200 && highestExact > 1200).toBe(false);
         // With epsilon (highest=1201): 1200 < 1201 is true → kept.
-        expect(1200 > LOWEST && 1200 < HIGHEST).toBe(true);
+        expect(LOWEST < 1200 && HIGHEST > 1200).toBe(true);
     });
 
     it('very-negative FLT_MAX-clipped sentinel (-1e10) is outside the window', () => {

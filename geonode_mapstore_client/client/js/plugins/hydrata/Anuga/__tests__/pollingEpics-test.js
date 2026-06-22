@@ -281,10 +281,12 @@ describe('Polling Epics', () => {
                 taskMonitor: { processes: { byId: {} } },
                 layers: { flat: [] }
             };
-            // Emits addLayer + notification (2 actions).
+            // Emits addLayer only (1 action). TASK-1650 removed the info
+            // "new layers found" toast — no SHOW_NOTIFICATION. No projectId in
+            // state → no async resource refresh either.
             testEpic(
                 taskCompleteLayerEpic,
-                2,
+                1,
                 {
                     type: TM_SET_PROCESSES,
                     processes: [{
@@ -302,12 +304,10 @@ describe('Polling Epics', () => {
                     }]
                 },
                 (actions) => {
-                    expect(actions.length).toBe(2);
-                    // First action should be addLayer with the mapstore_layer config
+                    expect(actions.length).toBe(1);
+                    // The only action is addLayer with the mapstore_layer config.
                     expect(actions[0].type).toBe('ADD_LAYER');
                     expect(actions[0].layer.name).toBe('geonode:bdy_test');
-                    // Second should be a notification
-                    expect(actions[1].type).toBe('SHOW_NOTIFICATION');
                 },
                 state,
                 done
@@ -375,7 +375,9 @@ describe('Polling Epics', () => {
             // Second emit (same process id) must be a no-op (handled-set guards it).
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
             try {
-                expect(afterFirst).toBe(2);          // addLayer + show on first tick
+                // TASK-1650 removed the info toast — first tick emits addLayer
+                // only (no SHOW_NOTIFICATION); no projectId → no resource refresh.
+                expect(afterFirst).toBe(1);          // addLayer on first tick
                 expect(emitted.length).toBe(afterFirst);  // no new emissions on replay
                 sub.unsubscribe();
                 done();
@@ -429,9 +431,12 @@ describe('Polling Epics', () => {
                 expect(adds.length).toBe(2);
                 expect(adds[0].layer.name).toBe('geonode:ele_99_dem');
                 expect(adds[1].layer.name).toBe('geonode:ele_99_hillshade');
-                // Full post-add chain (no zoom because is_first_upload=false)
+                // Full post-add chain (no zoom because is_first_upload=false).
+                // TASK-1650 removed the info toast → no SHOW_NOTIFICATION. The
+                // shipped 8-action sequence is: REFRESH_LAYERS, ADD_LAYER×2,
+                // GEONODE:SAVE_DIRECT_CONTENT, UPDATE_UPLOAD_STATUS, INIT_ANUGA,
+                // START_ANUGA_MODEL_CREATION_POLLING, REFRESH_LAYERS.
                 expect(types).toContain('REFRESH_LAYERS');
-                expect(types).toContain('SHOW_NOTIFICATION');
                 expect(types).toContain('GEONODE:SAVE_DIRECT_CONTENT');
                 expect(types).toContain('UPDATE_UPLOAD_STATUS');
                 expect(types).toContain('INIT_ANUGA');
@@ -462,7 +467,7 @@ describe('Polling Epics', () => {
                     err => done(err)
                 );
 
-            // The concat emits refreshLayers → addLayer×2 → show → zoomToExtent
+            // The concat emits refreshLayers → addLayer×2 → zoomToExtent
             // synchronously, then subscribes to
             // race(CHANGE_MAP_VIEW.take(1), timer(2000)). By the time this
             // dispatch returns, the race is subscribed and listening, so the
@@ -985,8 +990,9 @@ describe('Polling Epics', () => {
         it('refreshes resources.<type> when a non-terrain layer_create completes', (done) => {
             // The resource refresh hits the real axios layer (getResourceList →
             // GET /api/v2/anuga/projects/{pid}/{plural}/), so mock it. The epic's
-            // per-tick concat emits addLayer + show synchronously, then the async
-            // setAnugaInflowData once the fetch resolves → 3 actions total.
+            // per-tick concat emits addLayer synchronously (TASK-1650 removed the
+            // info toast), then the async setAnugaInflowData once the fetch
+            // resolves → 2 actions total.
             const mock = mockAxios();
             mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(200, [{ id: 1, title: 'Inflow 01' }]);
             const state = {
@@ -996,7 +1002,7 @@ describe('Polling Epics', () => {
             };
             testEpic(
                 taskCompleteLayerEpic,
-                3,
+                2,
                 {
                     type: TM_SET_PROCESSES,
                     processes: [{
@@ -1027,9 +1033,9 @@ describe('Polling Epics', () => {
         // collapse to one fetch — the resource endpoint is a list, so
         // refetching it twice is pure waste.
         it('dedupes the resource refresh by endpoint within a single tick', (done) => {
-            // 3 layer_create completions → 3 addLayer + 1 show (debounced per
-            // TASK-1427: only one notification per batch) + 2 async resource
-            // refreshes (Inflow deduped to one, plus Rainfall) = 6 actions total.
+            // 3 layer_create completions → 3 addLayer (TASK-1650 removed the
+            // info toast, so no SHOW_NOTIFICATION) + 2 async resource refreshes
+            // (Inflow deduped to one, plus Rainfall) = 5 actions total.
             // Mock the resource-list endpoint.
             const mock = mockAxios();
             mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(200, [{ id: 1 }]);
@@ -1040,7 +1046,7 @@ describe('Polling Epics', () => {
             };
             testEpic(
                 taskCompleteLayerEpic,
-                6,
+                5,
                 {
                     type: TM_SET_PROCESSES,
                     processes: [
@@ -1089,15 +1095,16 @@ describe('Polling Epics', () => {
         // Without a hydrated projectId the API can't be called safely, so
         // the resource refresh must be skipped — addLayer still fires.
         it('skips the resource refresh when projectId is null', (done) => {
-            // No projectId → resource refresh skipped → only addLayer + show
-            // (2 synchronous actions, no async fetch).
+            // No projectId → resource refresh skipped → only addLayer
+            // (1 synchronous action; TASK-1650 removed the info toast and there
+            // is no async fetch without a projectId).
             const state = {
                 taskMonitor: { processes: { byId: {} } },
                 layers: { flat: [] }
             };
             testEpic(
                 taskCompleteLayerEpic,
-                2,
+                1,
                 {
                     type: TM_SET_PROCESSES,
                     processes: [{
@@ -1141,7 +1148,8 @@ describe('Polling Epics', () => {
             const sub = taskCompleteLayerEpic(action$, store)
                 .subscribe(a => emitted.push(a), err => done(err));
             // No projectId in state → no async resource refresh; the per-tick
-            // output (addLayer + show) drains synchronously on this dispatch.
+            // output (addLayer only — TASK-1650 removed the info toast) drains
+            // synchronously on this dispatch.
             subject.next({
                 type: TM_SET_PROCESSES,
                 processes: [{
@@ -1536,7 +1544,8 @@ describe('Polling Epics', () => {
 
             // Emissions and the localStorage persist/read are synchronous, so
             // each epic instance's dispatch fully resolves before the next line.
-            // First "page load": dispatches ADD_LAYER + SHOW_NOTIFICATION.
+            // First "page load": dispatches ADD_LAYER (TASK-1650 removed the
+            // info toast, so no SHOW_NOTIFICATION).
             const first = liveActions();
             const emittedFirst = [];
             const subFirst = taskCompleteLayerEpic(first.action$, store)
@@ -1555,8 +1564,10 @@ describe('Polling Epics', () => {
             subSecond.unsubscribe();
 
             try {
+                // First load fires addLayer only — TASK-1650 removed the info
+                // "new layers found" toast, so no SHOW_NOTIFICATION ever emits.
                 expect(emittedFirst.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
-                expect(emittedFirst.filter(a => a.type === 'SHOW_NOTIFICATION').length).toBe(1);
+                expect(emittedFirst.filter(a => a.type === 'SHOW_NOTIFICATION').length).toBe(0);
                 expect(emittedSecond.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
                 expect(emittedSecond.filter(a => a.type === 'SHOW_NOTIFICATION').length).toBe(0);
                 done();
@@ -1908,14 +1919,15 @@ describe('Polling Epics', () => {
                 anuga: { projects: { data: { id: 11551 } } }
             };
             // The same-project Boundary triggers an async resource refresh
-            // (projectId 11551 present), so emissions are addLayer + show +
-            // setBoundaryData = 3. The cross-project Rainfall (11550) is filtered
-            // by the project-scope guard and emits nothing. Mock the refresh.
+            // (projectId 11551 present), so emissions are addLayer +
+            // setBoundaryData = 2 (TASK-1650 removed the info toast). The
+            // cross-project Rainfall (11550) is filtered by the project-scope
+            // guard and emits nothing. Mock the refresh.
             const mock = mockAxios();
             mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(200, [{ id: 1 }]);
             testEpic(
                 taskCompleteLayerEpic,
-                3,
+                2,
                 {
                     type: TM_SET_PROCESSES,
                     processes: [

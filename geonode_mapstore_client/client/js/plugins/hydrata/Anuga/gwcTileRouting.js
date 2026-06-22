@@ -58,10 +58,6 @@ export const GWC_TILEMATRIXSET = 'EPSG:900913';
  * Keep this set updated if new per-session terrain groups are introduced; it serves
  * as the canonical inventory even though shareability is decided by param presence.
  */
-const PER_SESSION_GROUPS = new Set([
-    'Input Data.Terrain'
-]);
-
 /**
  * Determine whether a layer object is safe to serve from the shared GWC tile cache.
  *

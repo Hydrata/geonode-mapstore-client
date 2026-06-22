@@ -25,7 +25,7 @@ const TW_PARAM_DEFAULTS = {
     feather_width_m: 50,
     target_resolution_m: 5,
     breach_max_cost: 20,
-    breach_search_dist: 100,
+    breach_search_dist: 100
 };
 
 // ── TASK-1671: Client-side output-size estimator ───────────────────────────
@@ -298,7 +298,7 @@ function TWDeriveConfirmDialog({ sizeEstimate, onConfirm, onCancel }) {
 TWDeriveConfirmDialog.propTypes = {
     sizeEstimate: PropTypes.shape({ estimatedGB: PropTypes.number, tooLarge: PropTypes.bool }),
     onConfirm: PropTypes.func.isRequired,
-    onCancel: PropTypes.func.isRequired,
+    onCancel: PropTypes.func.isRequired
 };
 TWDeriveConfirmDialog.defaultProps = { sizeEstimate: null };
 
@@ -313,7 +313,7 @@ class TWRecipeBuilder extends React.Component {
         saving: PropTypes.bool,
         saveError: PropTypes.string,
         onUpdate: PropTypes.func.isRequired,
-        onDerive: PropTypes.func.isRequired,
+        onDerive: PropTypes.func.isRequired
     };
     static defaultProps = { deriving: false, deriveError: null, saving: false, saveError: null };
 
@@ -325,7 +325,7 @@ class TWRecipeBuilder extends React.Component {
         return ordered.map(d => ({
             terrain_id: d.terrain,
             priority: d.priority,
-            unmodified: !!d.unmodified,
+            unmodified: !!d.unmodified
         }));
     }
 
@@ -342,7 +342,7 @@ class TWRecipeBuilder extends React.Component {
             inputs: TWRecipeBuilder._inputsFromSurface(s),
             // Confirm dialog state
             confirmOpen: false,
-            sizeEstimate: null, // { estimatedGB, tooLarge } | null
+            sizeEstimate: null // { estimatedGB, tooLarge } | null
         };
     }
 
@@ -350,6 +350,7 @@ class TWRecipeBuilder extends React.Component {
         // Re-sync when switching surface or when the server updates inputs_ordered.
         if (prevProps.surface.id !== this.props.surface.id) {
             const s = this.props.surface;
+            // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({
                 use_culverts: !!s.use_culverts,
                 feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
@@ -358,9 +359,10 @@ class TWRecipeBuilder extends React.Component {
                 breach_search_dist: s.breach_search_dist ?? TW_PARAM_DEFAULTS.breach_search_dist,
                 inputs: TWRecipeBuilder._inputsFromSurface(s),
                 confirmOpen: false,
-                sizeEstimate: null,
+                sizeEstimate: null
             });
         } else if (prevProps.surface.inputs_ordered !== this.props.surface.inputs_ordered) {
+            // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({ inputs: TWRecipeBuilder._inputsFromSurface(this.props.surface) });
         }
     }
@@ -386,13 +388,13 @@ class TWRecipeBuilder extends React.Component {
             inputs: inputs.map(inp => ({
                 terrain_id: inp.terrain_id,
                 priority: inp.priority,
-                unmodified: !!inp.unmodified,
+                unmodified: !!inp.unmodified
             })),
             use_culverts: !!use_culverts,
             feather_width_m: parseFloat(feather_width_m),
             target_resolution_m: parseFloat(target_resolution_m),
             breach_max_cost: parseFloat(breach_max_cost),
-            breach_search_dist: parseFloat(breach_search_dist),
+            breach_search_dist: parseFloat(breach_search_dist)
         };
         onDerive(surface.id, body);
     };

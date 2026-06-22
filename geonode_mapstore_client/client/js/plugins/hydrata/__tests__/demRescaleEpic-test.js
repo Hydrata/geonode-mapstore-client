@@ -271,7 +271,7 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
             // Contour layers use id = <name>__contours (from buildContourLayer).
             id: `${terrainReady.gn_layer_name}__contours`,
             name: terrainReady.gn_layer_name,
-            style: 'dem_contours',
+            style: 'dem_contours'
             // Place it BEFORE the real DEM in flat list so .find() encounters it first.
         };
         const state = makeState({
@@ -290,7 +290,7 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
             ...demLayer,
             id: `${terrainReady.gn_layer_name}__contours`,
             name: terrainReady.gn_layer_name,
-            style: 'dem_contours',
+            style: 'dem_contours'
         };
         const state = makeState({
             terrains: [terrainReady],

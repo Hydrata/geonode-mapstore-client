@@ -12,10 +12,7 @@
 
 import expect from 'expect';
 import { translateOut, synthesizeIn } from '../culvertTranslate';
-import { getTranslate, cleanTranslate } from '../translateRegistry';
-
-// Re-import to ensure side-effect registration runs.
-import '../culvertTranslate';
+import { getTranslate } from '../translateRegistry';
 
 describe('culvertTranslate', () => {
 
@@ -33,8 +30,8 @@ describe('culvertTranslate', () => {
 
         it('sets empty string numeric fields to null', () => {
             const result = translateOut({ width_m: '', height_m: '' });
-            expect(result.width_m).toBeNull();
-            expect(result.height_m).toBeNull();
+            expect(result.width_m).toBe(null);
+            expect(result.height_m).toBe(null);
         });
 
         it('normalises barrels empty string to 1', () => {
@@ -76,8 +73,8 @@ describe('culvertTranslate', () => {
             expect(out.barrels).toEqual(1);
             expect(out.description).toEqual('Main drain');
             // Title-case keys must be stripped
-            expect(out.Shape).toBeUndefined();
-            expect(out.Width_M).toBeUndefined();
+            expect(out.Shape).toBe(undefined);
+            expect(out.Width_M).toBe(undefined);
         });
 
         it('passes lowercase keys through unchanged', () => {

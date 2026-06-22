@@ -27,7 +27,7 @@ import { registerTranslate, getProp } from './translateRegistry';
 
 const NUMERIC_FIELDS = [
     'width_m', 'height_m', 'diameter_m',
-    'upstream_invert_m', 'downstream_invert_m',
+    'upstream_invert_m', 'downstream_invert_m'
 ];
 
 /**

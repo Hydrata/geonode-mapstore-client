@@ -18,10 +18,10 @@ import PropTypes from 'prop-types';
  */
 
 const STATUS_MAP = {
-    running:   { cssState: 'is-running',   glyph: 'glyphicon-refresh' },
-    pending:   { cssState: 'is-pending',   glyph: 'glyphicon-time' },
-    complete:  { cssState: 'is-ok',        glyph: 'glyphicon-ok' },
-    error:     { cssState: 'is-err',       glyph: 'glyphicon-exclamation-sign' },
+    running: { cssState: 'is-running',   glyph: 'glyphicon-refresh' },
+    pending: { cssState: 'is-pending',   glyph: 'glyphicon-time' },
+    complete: { cssState: 'is-ok',        glyph: 'glyphicon-ok' },
+    error: { cssState: 'is-err',       glyph: 'glyphicon-exclamation-sign' },
     cancelled: { cssState: 'is-cancelled', glyph: 'glyphicon-ban-circle' }
 };
 
