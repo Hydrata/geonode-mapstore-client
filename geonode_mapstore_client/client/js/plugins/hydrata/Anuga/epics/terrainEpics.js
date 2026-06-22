@@ -15,6 +15,17 @@ const TERRAIN_MAPTILER_ID = 'terrain-maptiler';
 const TERRAIN_DEM_ID = 'terrain-dem';
 
 /**
+ * Strip the GeoServer workspace prefix from a layer name.
+ * Map layers carry the "geonode:" prefix; terrain resource rows carry bare names.
+ * Re-exported so callers (cursorElevationEpic, profileEpic) can import ONE
+ * authoritative copy instead of defining it locally.
+ *
+ * @param {string} n - layer name, possibly prefixed (e.g. "geonode:ele_42")
+ * @returns {string} bare name (e.g. "ele_42")
+ */
+export const bareName = (n) => (n || '').split(':').pop();
+
+/**
  * Build a MapTiler quantized-mesh terrain layer config from localConfig.
  * Returns null if no hydrataConfig.defaultTerrain is configured.
  */
@@ -35,13 +46,29 @@ const buildMaptilerTerrain = () => {
 };
 
 /**
- * Build a WMS BIL terrain layer config from a map layer.
+ * Build a WMS BIL terrain layer config from a map layer, optionally joining
+ * per-DEM elevation bounds from the ANUGA terrain resource rows.
+ *
+ * The GeoServerBILTerrainProvider decode loop (GeoServerBILTerrainProvider.js:73)
+ * zeroes any sample that falls outside the strict (lowest, highest) range —
+ * including ALL nodata sentinels (-9999, -FLT_MAX variants, ±32768).  Setting
+ * per-DEM bounds therefore both clips nodata to 0 m (sea level) and narrows the
+ * valid range to the real DEM extent (D9, TASK-1867).
+ *
+ * The epsilon of ±1 m is REQUIRED because the gate is STRICT (> / <), so
+ * setting lowest = dem_elev_min exactly would reject the legitimate minimum
+ * elevation sample.
+ *
+ * When no terrain row or no bounds are available the lowest/highest props are
+ * OMITTED so the provider defaults (-500 / 12000) apply.
+ *
  * @param {Object} layer - a layer from state.layers.flat with name and title
+ * @param {Object} [state] - Redux state (optional; used for the bounds join)
  */
-const buildDemTerrain = (layer) => {
+const buildDemTerrain = (layer, state) => {
     if (!layer?.name) return null;
     const name = layer.name.includes(':') ? layer.name : `geonode:${layer.name}`;
-    return {
+    const config = {
         id: TERRAIN_DEM_ID,
         type: 'terrain',
         provider: 'wms',
@@ -53,6 +80,24 @@ const buildDemTerrain = (layer) => {
         littleEndian: false,
         crs: 'CRS:84'
     };
+
+    // Join the matching terrain resource row to surface per-DEM elevation bounds.
+    // The bareName helper strips the "geonode:" workspace prefix from map-layer names
+    // so they match the bare gn_layer_name on the resource row (W3 gotcha).
+    if (state) {
+        const terrains = state?.anuga?.resources?.terrain || [];
+        const target = bareName(layer.name);
+        const row = terrains.find(t => bareName(t?.gn_layer_name) === target);
+        if (row && row.dem_elev_min != null && row.dem_elev_max != null) {
+            // Widen by 1 m: the decode gate is STRICT (temp > lowest && temp < highest),
+            // so exact min/max would be zeroed. The ±1 m epsilon keeps the true extremes.
+            config.lowest = Math.floor(row.dem_elev_min - 1);
+            config.highest = Math.ceil(row.dem_elev_max + 1);
+        }
+        // No row or no bounds → omit lowest/highest → provider defaults apply.
+    }
+
+    return config;
 };
 
 /**
@@ -109,16 +154,27 @@ const reconcileTerrain = (state) => {
     const actions = [];
 
     if (demLayer) {
-        const demTerrain = buildDemTerrain(demLayer);
+        const demTerrain = buildDemTerrain(demLayer, state);
         if (!demTerrain) {
             // DEM layer has no valid name — fall through to MapTiler
         } else if (existing?.id === TERRAIN_DEM_ID) {
-            // Already have a DEM terrain — update if the source layer changed
-            if (existing.name !== demTerrain.name) {
-                actions.push(changeLayerProperties(TERRAIN_DEM_ID, {
-                    name: demTerrain.name,
-                    title: demTerrain.title
-                }));
+            // Already have a DEM terrain — update if the source layer or bounds changed.
+            // This covers the SET_ANUGA_TERRAIN_DATA trigger: terrain rows load AFTER
+            // the map layers, so dem_elev_min/max are not yet available on first
+            // reconcile. When the data arrives the epic re-runs, hitting this branch,
+            // and the bounds (lowest/highest) are pushed via changeLayerProperties.
+            const nameChanged = existing.name !== demTerrain.name;
+            const boundsChanged = existing.lowest !== demTerrain.lowest
+                || existing.highest !== demTerrain.highest;
+            if (nameChanged || boundsChanged) {
+                const update = { name: demTerrain.name, title: demTerrain.title };
+                if (demTerrain.lowest !== undefined) {
+                    update.lowest = demTerrain.lowest;
+                }
+                if (demTerrain.highest !== undefined) {
+                    update.highest = demTerrain.highest;
+                }
+                actions.push(changeLayerProperties(TERRAIN_DEM_ID, update));
             }
             return Rx.Observable.from(actions);
         } else {
