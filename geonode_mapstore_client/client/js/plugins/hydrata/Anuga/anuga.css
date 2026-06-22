@@ -2323,8 +2323,8 @@ div that holds the feature-grid */
 }
 .sv-profile-mode-toggle .btn.active,
 .sv-profile-mode-toggle .btn-primary {
-    background: var(--sv-accent, #5bc0ff);
-    border-color: var(--sv-accent, #5bc0ff);
+    background: var(--sv-accent-blue, #5bc0ff);
+    border-color: var(--sv-accent-blue, #5bc0ff);
     color: #0b1a26;
 }
 
@@ -2351,7 +2351,7 @@ div that holds the feature-grid */
     border-color: rgba(255, 255, 255, 0.3);
 }
 .sv-results-profile-action .sv-glass-button.active {
-    background: var(--sv-accent, #5bc0ff);
-    border-color: var(--sv-accent, #5bc0ff);
+    background: var(--sv-accent-blue, #5bc0ff);
+    border-color: var(--sv-accent-blue, #5bc0ff);
     color: #0b1a26;
 }
