@@ -47,6 +47,9 @@ import ElevationReadout from './ElevationReadout';
 // container level (like TerrainBboxPanel) so closing a menu can't unmount it
 // mid-draw; self-gates on profilePanelVisible.
 import {TerrainProfilePanel} from './TerrainProfilePanel';
+// TASK-1869 (W5.4) — vertical-exaggeration slider for the 3D Cesium terrain.
+// Self-gates on isCesium(state) so it only renders in 3D mode.
+import {VerticalExaggerationSlider} from './VerticalExaggerationSlider';
 import {trackEvent} from "@js/utils/analytics";
 
 // Exported (in addition to the connected default) so the UAT regression test can
@@ -310,6 +313,11 @@ export class AnugaContainer extends React.Component {
                         profilePanelVisible) like TerrainBboxPanel so closing a
                         menu can't unmount it mid-draw. */}
                     <TerrainProfilePanel/>
+                    {/* TASK-1869 (W5.4): vertical-exaggeration slider for the 3D
+                        Cesium terrain. Self-gates on isCesium(state) so it renders
+                        null in 2D / OpenLayers mode. Mounted here (container level)
+                        so it persists regardless of which Anuga sub-menu is open. */}
+                    <VerticalExaggerationSlider/>
                     {/* TASK-1800 (W1.9 UAT): stand-alone "Merge terrains" recipe
                         panel, mounted at container level alongside TerrainBboxPanel
                         so closing the Inputs menu does NOT unmount it mid-edit. It
