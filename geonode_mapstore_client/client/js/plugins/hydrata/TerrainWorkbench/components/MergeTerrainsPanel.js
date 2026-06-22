@@ -65,7 +65,7 @@ const PLACEHOLDER_SURFACE = {
     id: null,
     title: 'Combined surface',
     inputs_ordered: [],
-    use_culverts: false,
+    use_terrain_breaches: false,
     ...TW_PARAM_DEFAULTS
 };
 

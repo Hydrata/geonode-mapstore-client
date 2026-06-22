@@ -271,7 +271,7 @@ export const twDeriveEpic = (action$, store) =>
             const projectId = getProjectId(store.getState());
             // TASK-1671: action.body = { inputs:[{terrain_id,priority,unmodified}],
             //   feather_width_m, target_resolution_m, breach_max_cost,
-            //   breach_search_dist, use_culverts }
+            //   breach_search_dist, use_terrain_breaches }
 
             // TASK-1800 (W1.9 UAT r2): a project owns a SINGLE combined surface and
             // the panel no longer surfaces a "+ New" affordance. When the project has
@@ -302,7 +302,7 @@ export const twDeriveEpic = (action$, store) =>
                 return Rx.Observable
                     .from(createAnalysisSurface(projectId, {
                         title: 'Combined surface',
-                        use_culverts: false,
+                        use_terrain_breaches: false,
                         ...TW_PARAM_DEFAULTS
                     }))
                     .switchMap(createResp => {

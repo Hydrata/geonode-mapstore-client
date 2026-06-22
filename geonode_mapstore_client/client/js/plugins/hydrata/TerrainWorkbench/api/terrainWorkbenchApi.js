@@ -32,7 +32,7 @@ export const listAnalysisSurfaces = (projectId, params) =>
     );
 
 // POST /api/v2/anuga/projects/{pid}/analysis-surfaces/
-// Payload: { title, regional_terrain, use_culverts, feather_width_m,
+// Payload: { title, regional_terrain, use_terrain_breaches, feather_width_m,
 //            target_resolution_m, breach_max_cost, breach_search_dist }
 export const createAnalysisSurface = (projectId, payload) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/analysis-surfaces/`, payload);
@@ -64,7 +64,7 @@ export const setInputs = (projectId, surfaceId, inputs) =>
 
 // POST /api/v2/anuga/projects/{pid}/analysis-surfaces/{id}/derive/
 // Body: { inputs:[{terrain_id,priority,unmodified}], feather_width_m,
-//         target_resolution_m, breach_max_cost, breach_search_dist, use_culverts }
+//         target_resolution_m, breach_max_cost, breach_search_dist, use_terrain_breaches }
 // Returns 202 { detail, process_id, task_id }
 export const deriveAnalysisSurface = (projectId, surfaceId, body) =>
     axios.post(

@@ -28,7 +28,7 @@ const SURFACE = {
     id: 7,
     title: 'Surface A',
     inputs_ordered: [],
-    use_culverts: false,
+    use_terrain_breaches: false,
     feather_width_m: 10,
     target_resolution_m: 1,
     breach_max_cost: 100,
