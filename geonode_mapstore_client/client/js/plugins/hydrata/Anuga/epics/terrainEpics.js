@@ -51,9 +51,17 @@ const buildMaptilerTerrain = () => {
  *
  * The GeoServerBILTerrainProvider decode loop (GeoServerBILTerrainProvider.js:73)
  * zeroes any sample that falls outside the strict (lowest, highest) range —
- * including ALL nodata sentinels (-9999, -FLT_MAX variants, ±32768).  Setting
- * per-DEM bounds therefore both clips nodata to 0 m (sea level) and narrows the
- * valid range to the real DEM extent (D9, TASK-1867).
+ * including ALL nodata sentinels: -9999, -FLT_MAX-clipped, ±32768 (INT16_MIN/MAX).
+ * Setting per-DEM bounds therefore both clips nodata to 0 m (sea level) and
+ * narrows the valid range to the real DEM extent (D9, TASK-1867).
+ *
+ * CLAMP-TO-SEA-LEVEL SEMANTICS (D9): out-of-range samples are zeroed to 0 m.
+ * This does NOT punch a transparent hole (that would require a core patch).
+ * For elevated DEMs this means a nodata area renders as flat sea level (a visible
+ * pit). This is the accepted trade-off per operator decision D9 (TASK-1867).
+ * A future UAT can revisit if the sea-level pit is unacceptable for high-altitude
+ * DEMs with widespread nodata — the fix would be a core GeoServerBILTerrainProvider
+ * patch to clamp to the DEM minimum instead of 0.
  *
  * The epsilon of ±1 m is REQUIRED because the gate is STRICT (> / <), so
  * setting lowest = dem_elev_min exactly would reject the legitimate minimum

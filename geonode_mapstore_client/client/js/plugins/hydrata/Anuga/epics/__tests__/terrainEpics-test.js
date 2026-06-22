@@ -302,4 +302,37 @@ describe('nodata sentinel zeroing (TASK-1867, D9)', () => {
         // no-hole trade-off. This test documents (not prescribes) the behaviour.
         expect(0 > LOWEST && 0 < HIGHEST).toBe(false);
     });
+
+    // TASK-1867: Additional epsilon boundary checks to confirm the ±1 m widening
+    // is necessary and correct.
+    it('epsilon: without ±1 m widening, the DEM minimum (50.0) would be rejected (strict gate)', () => {
+        // If we set lowest = 50 exactly, the strict gate (temp > 50) would reject 50.0.
+        const lowestExact = 50; // No epsilon
+        const highestExact = 1200; // No epsilon
+        // 50.0 is NOT > 50 (strict), so it would be zeroed without epsilon.
+        expect(50 > lowestExact && 50 < highestExact).toBe(false);
+        // With epsilon (lowest=49): 50 > 49 is true → kept.
+        expect(50 > LOWEST && 50 < HIGHEST).toBe(true);
+    });
+
+    it('epsilon: without ±1 m widening, the DEM maximum (1200.0) would be rejected', () => {
+        const lowestExact = 50;
+        const highestExact = 1200;
+        // 1200 is NOT < 1200 (strict), so it would be zeroed without epsilon.
+        expect(1200 > lowestExact && 1200 < highestExact).toBe(false);
+        // With epsilon (highest=1201): 1200 < 1201 is true → kept.
+        expect(1200 > LOWEST && 1200 < HIGHEST).toBe(true);
+    });
+
+    it('very-negative FLT_MAX-clipped sentinel (-1e10) is outside the window', () => {
+        // Any FLT_MAX-derived sentinel, even when clipped to INT16_MIN range, falls
+        // far below LOWEST (49) for a typical above-sea-level DEM.
+        const veryNegative = -1e10;
+        expect(veryNegative > LOWEST && veryNegative < HIGHEST).toBe(false);
+    });
+
+    it('values within the legitimate range pass the gate (mid-DEM sample)', () => {
+        const midDem = 600; // Well within [50, 1200]
+        expect(midDem > LOWEST && midDem < HIGHEST).toBe(true);
+    });
 });
