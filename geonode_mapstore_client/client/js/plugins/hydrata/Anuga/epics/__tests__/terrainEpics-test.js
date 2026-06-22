@@ -336,3 +336,85 @@ describe('nodata sentinel zeroing (TASK-1867, D9)', () => {
         expect(midDem > LOWEST && midDem < HIGHEST).toBe(true);
     });
 });
+
+// ── 1868 — flood-surface drape visibility (TASK-1868) ────────────────────────
+// Result WMS layers (depth/velocity) auto-drape in Cesium 3D via core's standard
+// WMSLayer → imageryLayers.addImageryProvider path (Layer.jsx:283). The key
+// invariant is that manageTerrain3DEpic does NOT remove result layers when
+// entering or exiting 3D mode.
+
+describe('flood-surface drape — manageTerrain3DEpic does not touch result layers (TASK-1868)', () => {
+    const makeStateWithResult = (cesium) => ({
+        maptype: { mapType: cesium ? 'cesium' : 'openlayers' },
+        layers: {
+            flat: [
+                // ANUGA terrain input layer
+                {
+                    id: 'layer-dem-42',
+                    name: 'geonode:ele_42_utm_cog',
+                    type: 'wms',
+                    group: 'Input Data.Terrain',
+                    title: 'My DEM',
+                    visibility: true
+                },
+                // ANUGA result layer — depth_max
+                {
+                    id: 'result-depth-42',
+                    name: 'geonode:run_42_depth_max_cog',
+                    type: 'wms',
+                    group: 'ANUGA Results.Depth',
+                    title: 'Depth (max)',
+                    visibility: true
+                }
+            ]
+        },
+        anuga: {
+            resources: {
+                terrainLoaded: true,
+                terrain: [{
+                    id: 42,
+                    status: 'ready',
+                    gn_layer_name: 'ele_42_utm_cog',
+                    dem_elev_min: 50,
+                    dem_elev_max: 850
+                }]
+            }
+        }
+    });
+
+    it('in Cesium 3D: emits ADD_LAYER for terrain but NOT REMOVE_LAYER for result layer', function(done) {
+        this.timeout(2000);
+        const state = makeStateWithResult(true);
+        const action$ = makeActions$([{ type: VISUALIZATION_MODE_CHANGED, mode: 'cesium' }]);
+        runEpic(action$, state, done, (emitted) => {
+            // Should add the terrain DEM layer
+            const addActions = emitted.filter(a => a.type === ADD_LAYER);
+            expect(addActions.length).toBe(1);
+            expect(addActions[0].layer.id).toBe('terrain-dem');
+            // Must NOT remove the result layer
+            const removeActions = emitted.filter(a => a.type === 'REMOVE_LAYER');
+            const removedResultLayer = removeActions.find(a => a.layerId === 'result-depth-42');
+            expect(removedResultLayer).toBe(undefined);
+        });
+    });
+
+    it('in 2D mode: emits no actions (no terrain to remove, result layer untouched)', function(done) {
+        this.timeout(2000);
+        // No existing terrain layer in 2D state
+        const state = makeStateWithResult(false);
+        const action$ = makeActions$([{ type: VISUALIZATION_MODE_CHANGED, mode: 'openlayers' }]);
+        runEpic(action$, state, done, (emitted) => {
+            // No terrain in state → no REMOVE_LAYER
+            const removeActions = emitted.filter(a => a.type === 'REMOVE_LAYER');
+            expect(removeActions.length).toBe(0);
+        });
+    });
+
+    it('bareName strips geonode: prefix from result layer names for bareName matching', () => {
+        // Result layers from latest_run.gn_layer_depth_max.name carry the workspace prefix.
+        // The bareName helper is used by profileEpic to get the bare coverage name.
+        // Verify the same helper works on depth_max names.
+        expect(bareName('geonode:run_42_depth_max_cog')).toBe('run_42_depth_max_cog');
+        expect(bareName('run_42_depth_max_cog')).toBe('run_42_depth_max_cog');
+    });
+});
