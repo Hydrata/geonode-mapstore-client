@@ -22,6 +22,7 @@ import {
     routeLayerTileSource,
     buildMeshTriangleLayer,
     buildContourLayer,
+    niceContourInterval,
     DEM_CONTOUR_STYLE_NAME,
     GWC_WMTS_ENDPOINT,
     GWC_TILEMATRIXSET,
@@ -235,10 +236,11 @@ describe('gwcTileRouting — buildGwcTileUrls', () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildContourLayer — TASK-1721 (W4): GWC-cached ras:Contour overlay
+// buildContourLayer — TASK-1829 (W2): DIRECT-WMS adaptive-interval ras:Contour
+// overlay (supersedes the TASK-1721 GWC-cached variant).
 // ---------------------------------------------------------------------------
 
-describe('gwcTileRouting — buildContourLayer (TASK-1721)', () => {
+describe('gwcTileRouting — buildContourLayer (TASK-1829 direct-WMS)', () => {
 
     const DEM_LAYER = 'geonode:ele_7_grand_canyon_cog';
 
@@ -248,21 +250,15 @@ describe('gwcTileRouting — buildContourLayer (TASK-1721)', () => {
         expect(layer.name).toBe(DEM_LAYER);
     });
 
-    it('uses the GWC WMTS endpoint (not direct /geoserver/ows)', () => {
+    it('uses the DIRECT WMS endpoint (/geoserver/ows), NOT the GWC WMTS endpoint', () => {
         const layer = buildContourLayer(DEM_LAYER);
-        expect(layer.url).toBe(GWC_WMTS_ENDPOINT);
+        expect(layer.url).toBe(DIRECT_WMS_ENDPOINT);
+        expect(layer.url).toNotBe(GWC_WMTS_ENDPOINT);
     });
 
-    it('has tileUrls array with WMTS URL containing STYLE=dem_contours', () => {
+    it('does NOT carry a tileUrls field (direct WMS uses url+params, not a WMTS template)', () => {
         const layer = buildContourLayer(DEM_LAYER);
-        expect(Array.isArray(layer.tileUrls)).toBe(true);
-        expect(layer.tileUrls.length).toBe(1);
-        expect(layer.tileUrls[0]).toContain(`&STYLE=${DEM_CONTOUR_STYLE_NAME}&`);
-    });
-
-    it('has tileUrls pointing at the correct layer name', () => {
-        const layer = buildContourLayer(DEM_LAYER);
-        expect(layer.tileUrls[0]).toContain(`LAYER=${DEM_LAYER}`);
+        expect(layer.tileUrls).toNotExist();
     });
 
     it('has unique id <demLayerName>__contours to distinguish from colormap layer', () => {
@@ -280,14 +276,21 @@ describe('gwcTileRouting — buildContourLayer (TASK-1721)', () => {
         expect(layer.params.STYLES).toBe(DEM_CONTOUR_STYLE_NAME);
     });
 
-    it('params do NOT include env= (no per-session colormap — GWC-cacheable)', () => {
+    it('params include env=contourInterval:<n> (adaptive interval; default 100)', () => {
         const layer = buildContourLayer(DEM_LAYER);
-        expect(layer.params.env).toNotExist();
+        expect(layer.params.env).toContain('contourInterval:100');
     });
 
-    it('params include TILED: true', () => {
+    it('params env is interval-only (TASK-1829 re-aim: one uniform line, no major/minor)', () => {
+        const layer = buildContourLayer(DEM_LAYER, null, 25);
+        expect(layer.params.env).toBe('contourInterval:25');
+    });
+
+    it('sets singleTile:true at the layer level (single GetMap, not a tile grid)', () => {
         const layer = buildContourLayer(DEM_LAYER);
-        expect(layer.params.TILED).toBe(true);
+        expect(layer.singleTile).toBe(true);
+        // singleTile must be at the layer level, NOT inside params.
+        expect(layer.params.singleTile).toNotExist();
     });
 
     it('params include TRANSPARENT: true (overlay on colormap)', () => {
@@ -295,11 +298,12 @@ describe('gwcTileRouting — buildContourLayer (TASK-1721)', () => {
         expect(layer.params.TRANSPARENT).toBe(true);
     });
 
-    it('the resulting layer passes isShareableTileLayer (no env, no CQL, no SLD_BODY)', () => {
-        // A contour layer must be GWC-cacheable — isShareableTileLayer must approve it.
-        // Note: layer.style (published default) is not a disqualifier.
+    it('FAILS isShareableTileLayer — env= makes it intentionally non-cacheable (dynamic render)', () => {
+        // TASK-1829: the env= param drives a per-DEM dynamic ras:Contour render, so
+        // the layer MUST NOT route to the shared GWC cache. isShareableTileLayer
+        // rejects it via the params.env check — this is the intended consequence.
         const layer = buildContourLayer(DEM_LAYER);
-        expect(isShareableTileLayer(layer)).toBe(true);
+        expect(isShareableTileLayer(layer)).toBe(false);
     });
 
     it('group is Input Data.Terrain (placed in terrain panel)', () => {
@@ -310,17 +314,53 @@ describe('gwcTileRouting — buildContourLayer (TASK-1721)', () => {
     it('does not inject access_token when token is null', () => {
         const layer = buildContourLayer(DEM_LAYER, null);
         expect(layer.params.access_token).toNotExist();
-        expect(layer.tileUrls[0]).toNotContain('access_token');
     });
 
-    it('injects access_token into params and tileUrls when token is provided', () => {
+    it('injects access_token into params when token is provided (no tileUrls to stamp)', () => {
         const layer = buildContourLayer(DEM_LAYER, 'test-token-xyz');
         expect(layer.params.access_token).toBe('test-token-xyz');
-        expect(layer.tileUrls[0]).toContain('access_token=test-token-xyz');
     });
 
     it('DEM_CONTOUR_STYLE_NAME constant is "dem_contours"', () => {
         expect(DEM_CONTOUR_STYLE_NAME).toBe('dem_contours');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// niceContourInterval — TASK-1829 (W2): FE-static relief-aware interval
+// ---------------------------------------------------------------------------
+
+describe('gwcTileRouting — niceContourInterval (TASK-1829)', () => {
+
+    it('returns a small nice interval for a low-relief flood DEM (relief 75 -> 5)', () => {
+        // 75 / 15 = 5 -> snaps to 5 (so a sub-100 m DEM draws lines, not zero).
+        expect(niceContourInterval(75)).toBe(5);
+    });
+
+    it('returns 100 for a large-relief DEM (relief 1200 -> 100)', () => {
+        // 1200 / 15 = 80 -> snaps up to 100.
+        expect(niceContourInterval(1200)).toBe(100);
+    });
+
+    it('defaults to 100 for unknown / zero / negative relief', () => {
+        expect(niceContourInterval(0)).toBe(100);
+        expect(niceContourInterval(undefined)).toBe(100);
+        expect(niceContourInterval(NaN)).toBe(100);
+        expect(niceContourInterval(-50)).toBe(100);
+    });
+
+    it('snaps UP to the nearest nice number (1/2/5/10/20/25/50/100/...)', () => {
+        expect(niceContourInterval(15)).toBe(1);   // 15/15 = 1
+        expect(niceContourInterval(30)).toBe(2);   // 30/15 = 2
+        expect(niceContourInterval(45)).toBe(5);   // 45/15 = 3 -> 5
+        expect(niceContourInterval(150)).toBe(10); // 150/15 = 10
+        expect(niceContourInterval(300)).toBe(20); // 300/15 = 20
+    });
+
+    it('returns a positive nice number for very large relief (no overflow past the table)', () => {
+        const v = niceContourInterval(1000000);
+        expect(v).toBeGreaterThan(0);
+        expect(typeof v).toBe('number');
     });
 });
 

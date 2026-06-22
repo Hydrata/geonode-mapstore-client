@@ -149,6 +149,7 @@
     --sv-warning-color:  #fcf8e3;
 
     /* ── Active / selected accents (rule-of-three repeated literals) ── */
+    --sv-accent-blue:  #5bc0ff;              /* cross-section/profile active-segment accent (W4.5); matches the water-line. NB: a bare --sv-accent is deliberately NOT defined — hydrology.css .idf-derive-year-range-btn--active relies on its OWN green fallback via var(--sv-accent, rgba(82,196,26,.25)); defining --sv-accent globally would flip that button to blue (TASK-1865 adversarial-verify catch) */
     --sv-accent-lime:  #cae33b;              /* lime active accent (ds-derive toast, category-rail active, preset selected) */
     --sv-accent-green: rgba(39, 202, 59, 1); /* bright save/active green (Hydrology, Swamm dashboard, shared) */
     --sv-on-accent:    #1f3a1f;              /* dark legible text ON a lime/green accent chip */

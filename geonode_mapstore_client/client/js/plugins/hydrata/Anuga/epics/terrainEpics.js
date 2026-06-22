@@ -1,7 +1,6 @@
 import Rx from "rxjs";
 import {
     addLayer,
-    changeLayerProperties,
     removeLayer,
     ADD_LAYER,
     REMOVE_LAYER
@@ -13,6 +12,17 @@ import { SET_ANUGA_TERRAIN_DATA } from '../actionsAnuga';
 
 const TERRAIN_MAPTILER_ID = 'terrain-maptiler';
 const TERRAIN_DEM_ID = 'terrain-dem';
+
+/**
+ * Strip the GeoServer workspace prefix from a layer name.
+ * Map layers carry the "geonode:" prefix; terrain resource rows carry bare names.
+ * Re-exported so callers (cursorElevationEpic, profileEpic) can import ONE
+ * authoritative copy instead of defining it locally.
+ *
+ * @param {string} n - layer name, possibly prefixed (e.g. "geonode:ele_42")
+ * @returns {string} bare name (e.g. "ele_42")
+ */
+export const bareName = (n) => (n || '').split(':').pop();
 
 /**
  * Build a MapTiler quantized-mesh terrain layer config from localConfig.
@@ -35,13 +45,37 @@ const buildMaptilerTerrain = () => {
 };
 
 /**
- * Build a WMS BIL terrain layer config from a map layer.
+ * Build a WMS BIL terrain layer config from a map layer, optionally joining
+ * per-DEM elevation bounds from the ANUGA terrain resource rows.
+ *
+ * The GeoServerBILTerrainProvider decode loop (GeoServerBILTerrainProvider.js:73)
+ * zeroes any sample that falls outside the strict (lowest, highest) range —
+ * including ALL nodata sentinels: -9999, -FLT_MAX-clipped, ±32768 (INT16_MIN/MAX).
+ * Setting per-DEM bounds therefore both clips nodata to 0 m (sea level) and
+ * narrows the valid range to the real DEM extent (D9, TASK-1867).
+ *
+ * CLAMP-TO-SEA-LEVEL SEMANTICS (D9): out-of-range samples are zeroed to 0 m.
+ * This does NOT punch a transparent hole (that would require a core patch).
+ * For elevated DEMs this means a nodata area renders as flat sea level (a visible
+ * pit). This is the accepted trade-off per operator decision D9 (TASK-1867).
+ * A future UAT can revisit if the sea-level pit is unacceptable for high-altitude
+ * DEMs with widespread nodata — the fix would be a core GeoServerBILTerrainProvider
+ * patch to clamp to the DEM minimum instead of 0.
+ *
+ * The epsilon of ±1 m is REQUIRED because the gate is STRICT (> / <), so
+ * setting lowest = dem_elev_min exactly would reject the legitimate minimum
+ * elevation sample.
+ *
+ * When no terrain row or no bounds are available the lowest/highest props are
+ * OMITTED so the provider defaults (-500 / 12000) apply.
+ *
  * @param {Object} layer - a layer from state.layers.flat with name and title
+ * @param {Object} [state] - Redux state (optional; used for the bounds join)
  */
-const buildDemTerrain = (layer) => {
+const buildDemTerrain = (layer, state) => {
     if (!layer?.name) return null;
     const name = layer.name.includes(':') ? layer.name : `geonode:${layer.name}`;
-    return {
+    const config = {
         id: TERRAIN_DEM_ID,
         type: 'terrain',
         provider: 'wms',
@@ -53,6 +87,24 @@ const buildDemTerrain = (layer) => {
         littleEndian: false,
         crs: 'CRS:84'
     };
+
+    // Join the matching terrain resource row to surface per-DEM elevation bounds.
+    // The bareName helper strips the "geonode:" workspace prefix from map-layer names
+    // so they match the bare gn_layer_name on the resource row (W3 gotcha).
+    if (state) {
+        const terrains = state?.anuga?.resources?.terrain || [];
+        const target = bareName(layer.name);
+        const row = terrains.find(t => bareName(t?.gn_layer_name) === target);
+        if (row && row.dem_elev_min != null && row.dem_elev_max != null) {
+            // Widen by 1 m: the decode gate is STRICT (temp > lowest && temp < highest),
+            // so exact min/max would be zeroed. The ±1 m epsilon keeps the true extremes.
+            config.lowest = Math.floor(row.dem_elev_min - 1);
+            config.highest = Math.ceil(row.dem_elev_max + 1);
+        }
+        // No row or no bounds → omit lowest/highest → provider defaults apply.
+    }
+
+    return config;
 };
 
 /**
@@ -60,8 +112,11 @@ const buildDemTerrain = (layer) => {
  * Priority:
  *   1. ANUGA terrain layer (group === 'Input Data.Terrain')
  *   2. Any visible layer with "DEM" in title (largest bbox area)
+ *
+ * Exported so cursorElevationEpic (W3.2) can reuse the same DEM-selection
+ * logic without duplicating it.
  */
-const findBestDemLayer = (state) => {
+export const findBestDemLayer = (state) => {
     const layers = state?.layers?.flat || [];
 
     // Priority 1: ANUGA terrain layers
@@ -106,16 +161,34 @@ const reconcileTerrain = (state) => {
     const actions = [];
 
     if (demLayer) {
-        const demTerrain = buildDemTerrain(demLayer);
+        const demTerrain = buildDemTerrain(demLayer, state);
         if (!demTerrain) {
             // DEM layer has no valid name — fall through to MapTiler
         } else if (existing?.id === TERRAIN_DEM_ID) {
-            // Already have a DEM terrain — update if the source layer changed
-            if (existing.name !== demTerrain.name) {
-                actions.push(changeLayerProperties(TERRAIN_DEM_ID, {
-                    name: demTerrain.name,
-                    title: demTerrain.title
-                }));
+            // Already have a DEM terrain. Recreate it when the source layer or its
+            // per-DEM bounds changed — but NOT otherwise (avoid a remove+add storm,
+            // since this epic re-runs on every ADD_LAYER/REMOVE_LAYER, debounced).
+            //
+            // We MUST force provider recreation via remove+add (not
+            // changeLayerProperties): core TerrainLayer.js:updateLayer keys provider
+            // recreation off url/name/crs/version/provider/etc. and does NOT recreate
+            // on a lowest/highest change. So a changeLayerProperties bounds update
+            // would update Redux but silently leave the LIVE Cesium
+            // GeoServerBILTerrainProvider on its construction-time defaults
+            // (-500/12000) — the per-DEM nodata clamp would never activate on the
+            // DOMINANT async path (bounds arrive via SET_ANUGA_TERRAIN_DATA AFTER the
+            // terrain layer is first added with no bounds). remove+add reconstructs
+            // the provider from buildDemTerrain's config (carrying the per-DEM
+            // lowest/highest). Stays Hydrata-side (D9: no core patch); the
+            // self-trigger guard already ignores terrain-dem add/remove. (A DEM
+            // name-change effectively always co-occurs with a bounds-change — a
+            // different DEM has a different elevation range — so one path covers both.)
+            const nameChanged = existing.name !== demTerrain.name;
+            const boundsChanged = existing.lowest !== demTerrain.lowest
+                || existing.highest !== demTerrain.highest;
+            if (nameChanged || boundsChanged) {
+                actions.push(removeLayer(existing.id));
+                actions.push(addLayer(demTerrain, false));
             }
             return Rx.Observable.from(actions);
         } else {

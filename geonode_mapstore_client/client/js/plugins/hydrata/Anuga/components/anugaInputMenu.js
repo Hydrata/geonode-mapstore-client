@@ -67,6 +67,10 @@ import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 // lived here it unmounted mid-draw and the map froze in BBOX draw mode with no
 // panel to return to. The globe button (setVisibleTerrainBboxPanel(true)) stays.
 import AnugaInputStarterCard from "./anugaInputStarterCard";
+// TASK-1850 (epic 1814 W2): live dynamic-DEM colour-ramp legend (self-connected
+// for the degraded flag). Mounted under the DEM MenuRow when the terrain is in
+// dynamic styling mode.
+import DemRampLegend from "./DemRampLegend";
 // TASK-1800 (W1.9 UAT) — custom layered-mountain + cog icon for the "Merge
 // terrains" header button that opens the stand-alone recipe-builder panel.
 import {MergeTerrainsIcon} from "../../TerrainWorkbench/components/MergeTerrainsPanel";
@@ -100,8 +104,9 @@ import {patchTerrainStylingMode, uploadTerrainDirect} from "../api/anugaApi";
 // polled BE Process takes over the Uploading -> UTM -> Hillshade -> Style lifecycle.
 import {updateProcess, toggleTaskMonitorPanel} from "../../TaskMonitor/actionsTaskMonitor";
 // W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
-// TASK-1721 (W4): buildContourLayer builds the GWC-cached ras:Contour overlay config.
-import {buildMeshTriangleLayer, buildContourLayer, DEM_CONTOUR_STYLE_NAME} from "../gwcTileRouting";
+// TASK-1721 (W4): buildContourLayer builds the ras:Contour overlay config.
+// TASK-1829 (W2): now DIRECT WMS + niceContourInterval (FE-static adaptive interval).
+import {buildMeshTriangleLayer, buildContourLayer, niceContourInterval, DEM_CONTOUR_STYLE_NAME} from "../gwcTileRouting";
 import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
 // W6 (TASK-1422): MapStore2 utility for computing extent from a GeoJSON object.
 import CoordinatesUtils from "../../../../../MapStore2/web/client/utils/CoordinatesUtils";
@@ -464,7 +469,9 @@ class TerrainHierarchyRow extends React.Component {
                                 terrainModel, demLayer, isDynamic ? 'traditional' : 'dynamic'
                             )}
                         >
-                            <span className="glyphicon glyphicon-cog" aria-hidden="true" />
+                            {/* TASK-1829 re-aim (UAT): a lightning bolt reads as "dynamic / live
+                                rescale" far better than the old cog (settings). */}
+                            <span className="glyphicon glyphicon-flash" aria-hidden="true" />
                         </button>
                     </span>
                 )
@@ -478,14 +485,23 @@ class TerrainHierarchyRow extends React.Component {
                         <button
                             className={`btn btn-xs sv-anuga-terrain-mode-btn sv-anuga-terrain-icon-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
                             title={contoursEnabled
-                                ? 'Contours: On — hide contour overlay (GWC-cached ras:Contour, 100 m interval)'
-                                : 'Contours: Off — show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
+                                ? 'Contours: On — hide contour overlay (live ras:Contour, adaptive interval)'
+                                : 'Contours: Off — show contour overlay (live ras:Contour, adaptive interval)'}
                             aria-label={contoursEnabled ? 'Hide Contours' : 'Show Contours'}
                             aria-pressed={contoursEnabled}
                             data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
-                            onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled)}
+                            onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled, terrainModel)}
                         >
-                            <span className="glyphicon glyphicon-menu-hamburger" aria-hidden="true" />
+                            {/* TASK-1829 re-aim (UAT): icon shows contours as THREE hills (nested
+                                topographic rings) filling the box, so it reads as a contour map. */}
+                            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="0.9" style={{verticalAlign: 'middle'}}>
+                                <ellipse cx="4.6" cy="10.6" rx="4.4" ry="3.6" />
+                                <ellipse cx="4.6" cy="10.2" rx="1.9" ry="1.4" />
+                                <ellipse cx="11.4" cy="5" rx="4.2" ry="3.2" />
+                                <ellipse cx="11.4" cy="4.6" rx="1.6" ry="1.1" />
+                                <ellipse cx="12.9" cy="12.2" rx="2.8" ry="2.2" />
+                                <ellipse cx="12.9" cy="11.9" rx="1" ry="0.7" />
+                            </svg>
                         </button>
                     </span>
                 )
@@ -633,6 +649,17 @@ class TerrainHierarchyRow extends React.Component {
                                         <MenuRow layer={demLayer} extraToolbarActions={demExtraActions} />
                                     </div>
                                 </div>
+                                {/* TASK-1850 (epic 1814 W2): live dynamic-DEM colour-ramp legend.
+                                    Only for a terrain in DYNAMIC styling mode (traditional terrains
+                                    use a static GWC-tiled colour-relief SLD, not the env() ramp this
+                                    legend describes). Mirrors the isDynamic gate on the Mode toggle
+                                    above. The legend self-connects to read the degraded flag and reads
+                                    the live stops from demLayer.params.env (single source of truth with
+                                    the map). PART C (ramp presets, viridis/grayscale) DEFERRED — needs
+                                    per-preset SLD colour ramps + env plumbing (see DemRampLegend.js). */}
+                                {isDynamic ? (
+                                    <DemRampLegend demLayer={demLayer} terrainModel={terrainModel} />
+                                ) : null}
                             </div>
                         ) : null}
                         {/* ◔ Hillshade: SEPARATE sibling derivative with NO toggles. It passes an
@@ -1462,11 +1489,12 @@ class AnugaInputMenuClass extends React.Component {
             });
     };
 
-    // TASK-1721 (W4): Toggle the GWC-cached ras:Contour overlay for a terrain DEM layer.
+    // TASK-1721 (W4) / TASK-1829 (W2): Toggle the live ras:Contour overlay for a terrain DEM.
     //
     // On ENABLE:
-    //   1. Build the contour layer config via buildContourLayer (GWC WMTS, STYLES=dem_contours,
-    //      no env=, type=wms) — passes isShareableTileLayer.
+    //   1. Build the contour layer config via buildContourLayer (DIRECT WMS /geoserver/ows,
+    //      STYLES=dem_contours, env=contourInterval/contourMajor, singleTile, type=wms) —
+    //      intentionally NON-shareable (the env= dynamic render is not GWC-cacheable).
     //   2. Dispatch addLayer to add it ABOVE the colormap in the map (MapStore2 adds to top).
     //   3. Persist the map blob via saveDirectContent.
     //
@@ -1484,12 +1512,30 @@ class AnugaInputMenuClass extends React.Component {
     // reset to {} while the contour layer IS still in flatLayers (restored from the saved
     // map blob), so reading this.state would always take the "enable" branch and add a
     // duplicate layer.  Passing the derived value mirrors the W3 mode-toggle pattern.
-    _handleContoursToggle = (demLayerName, currentlyEnabled) => {
+    _handleContoursToggle = (demLayerName, currentlyEnabled, terrainModel) => {
         if (!demLayerName) return;
         if (!currentlyEnabled) {
             // Enable: add the contour overlay layer.
             const token = getToken ? getToken() : null;
-            const contourLayer = buildContourLayer(demLayerName, token);
+            // TASK-1829 (W2): compute a FE-static "nice" interval from the DEM's
+            // stored elevation range (TerrainSerializerV2 surfaces dem_elev_min/max),
+            // so a low-relief flood DEM draws sensible lines instead of zero at the
+            // legacy fixed 100 m literal. If the range is not reachable, fall back to
+            // 100 (niceContourInterval's own default for unknown/0 relief).
+            // TASK-1829 follow-up: server-adaptive interval (deferred).
+            const elevMin = terrainModel?.dem_elev_min;
+            const elevMax = terrainModel?.dem_elev_max;
+            const relief = (typeof elevMin === 'number' && typeof elevMax === 'number')
+                ? (elevMax - elevMin)
+                : NaN;
+            // TASK-1829 re-aim (operator UAT 2026-06-20): divide the nice base interval
+            // (niceContourInterval snaps UP to a round number, which biases sparse) by a
+            // density factor for much denser lines. No labels, so the non-round interval
+            // is fine. Factor 10 = ~10x more lines than the nice base.
+            const CONTOUR_DENSITY_FACTOR = 10;
+            const base = niceContourInterval(relief);
+            const interval = Math.round((base / CONTOUR_DENSITY_FACTOR) * 10) / 10;
+            const contourLayer = buildContourLayer(demLayerName, token, interval);
             this.props.onAddContourLayer(contourLayer);
             this.setState(prev => ({
                 contoursEnabled: {...prev.contoursEnabled, [demLayerName]: true}

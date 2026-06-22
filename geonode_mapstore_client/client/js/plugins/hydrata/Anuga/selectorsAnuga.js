@@ -155,6 +155,14 @@ export const getActiveRuns = (state) => {
 export const getProjectData = (state) => state?.anuga?.projects?.data || null;
 export const getProjectId = (state) => state?.anuga?.projects?.data?.id || null;
 
+// TASK-1850 (epic 1814 W2) — dynamic-DEM ramp degraded flag for a given map
+// layer id. true when the live windowed bbox-stats fetch failed and the ramp
+// is showing the stored whole-raster (full) range instead. The DemRampLegend
+// reads this to surface the "full range" indicator (failure is visible, not
+// silent — folds TASK-97 hardening).
+export const isDemRampDegraded = (state, layerId) =>
+    !!(state?.anuga?.ui?.demRampDegraded || {})[layerId];
+
 // -- Per-layer permission helpers (V2P-02) ---------------------------------
 //
 // Read order (defence-in-depth): per-resource state.anuga.resources Redux

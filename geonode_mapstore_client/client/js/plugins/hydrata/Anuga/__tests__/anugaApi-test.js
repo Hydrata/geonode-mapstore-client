@@ -56,7 +56,11 @@ describe('anugaApi', () => {
             'patchTerrainStylingMode',
             // TASK-1729 (W1.7) — direct-to-S3 presigned-PUT terrain upload client
             'presignTerrainUpload', 'putFileToS3', 'finalizeTerrainUpload',
-            'uploadTerrainDirect'
+            'uploadTerrainDirect',
+            // TASK-1856 (W3.2) — single-point DEM elevation query
+            'getTerrainElevationPoint',
+            // TASK-1861 (W4.4) — multi-raster line-profile sampler
+            'getTerrainProfile'
         ];
 
         expectedFunctions.forEach(name => {
@@ -65,15 +69,17 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 59 API functions', () => {
+        it('should export exactly 61 API functions', () => {
             // Branch baseline (epic/1587) ships 55 exported functions (the
             // historical "53→54" comment chain undercounted by one; the live
             // module is 55). TASK-1729 adds 4: presignTerrainUpload +
             // putFileToS3 + finalizeTerrainUpload + uploadTerrainDirect = 59.
+            // TASK-1856 (W3.2) adds 1: getTerrainElevationPoint = 60.
+            // TASK-1861 (W4.4) adds 1: getTerrainProfile = 61.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(59);
+            expect(exportedFunctions.length).toBe(61);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {

@@ -11,7 +11,9 @@ import {
     setPublicationPanel,
     startAnugaScenarioPolling,
     stopAnugaScenarioPolling,
-    setMembershipPanel
+    setMembershipPanel,
+    // TASK-1861 (W4.4) — depth/result line-profile tool toggle.
+    setProfilePanelVisible
 } from '../actionsAnuga';
 import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
@@ -39,6 +41,19 @@ import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {MembershipPanel} from "./membershipPanel";
 import RunPollingPausedBanner from "./runPollingPausedBanner";
+// TASK-1857 (W3.3) — 2D cursor-elevation readout in the MapFooter.
+import ElevationReadout from './ElevationReadout';
+// TASK-1861 (W4.4) — depth/result line-profile tool panel. Mounted at the
+// container level (like TerrainBboxPanel) so closing a menu can't unmount it
+// mid-draw; self-gates on profilePanelVisible.
+import {TerrainProfilePanel} from './TerrainProfilePanel';
+// TASK-1869 (W5.4) — vertical-exaggeration slider for the 3D Cesium terrain.
+// GATED (TASK-1870/epic-1871): the slider is visually inert in prod — it sets
+// scene.verticalExaggeration but the GeoServerBILTerrainProvider mesh never
+// exaggerates. Import + mount are commented out so prod users don't see a dead
+// control; the component + its karma tests stay in-tree for 1871 to revive
+// (un-comment this import and the <VerticalExaggerationSlider/> mount below).
+// import {VerticalExaggerationSlider} from './VerticalExaggerationSlider';
 import {trackEvent} from "@js/utils/analytics";
 
 // Exported (in addition to the connected default) so the UAT regression test can
@@ -82,7 +97,10 @@ export class AnugaContainer extends React.Component {
         initInFlight: PropTypes.oneOfType([PropTypes.bool, PropTypes.number, PropTypes.string]),
         hydrologyPluginPresent: PropTypes.bool,
         showHydrologyMainMenu: PropTypes.bool,
-        setHydrologyMainMenu: PropTypes.func
+        setHydrologyMainMenu: PropTypes.func,
+        // TASK-1861 (W4.4) — depth/result line-profile tool toggle.
+        showProfilePanel: PropTypes.bool,
+        setProfilePanelVisible: PropTypes.func
     };
 
     static defaultProps = {
@@ -96,7 +114,17 @@ export class AnugaContainer extends React.Component {
         // this.props.updateCustomEditorsOptions(this.editorOptions);
     }
 
-    componentDidUpdate() {
+    componentDidUpdate(prevProps) {
+        // W4 UAT — when the Results tab opens, the sibling simpleViewContainer
+        // mounts the .simple-view-panel--miller node on the SAME redux tick. On
+        // the render where openMenuGroupId first becomes 'Results' the node may
+        // not exist yet, so the profile-button portal target is null. Force one
+        // re-render after that paint so the portal resolves into the now-mounted
+        // panel (no-op when the target was already found).
+        if (prevProps && prevProps.openMenuGroupId !== this.props.openMenuGroupId
+            && this.props.openMenuGroupId === 'Results') {
+            this.forceUpdate();
+        }
         // TASK-1637 — only kick an init if one isn't already resolving for
         // THIS map. isAnugaProject stays falsy for the whole from-map →
         // getProjectV2 → setAnugaProjectData window, so without the
@@ -188,6 +216,10 @@ export class AnugaContainer extends React.Component {
                     </button>
                     : null
                 }
+                {/* W4 UAT: the depth/elevation profile is no longer a standalone
+                    toolbar tab — it now opens from a button INSIDE the Results tab
+                    (renderResultsProfileButton), so it sits with the result layers
+                    it profiles. The panel itself is unchanged (mounts via portal). */}
                 {/* ISSUE 16 item 3: Publish button hidden (feature not ready). */}
                 {this.props.canEditAnugaMap && this.props.hasEPSGset ?
                     <button
@@ -212,14 +244,60 @@ export class AnugaContainer extends React.Component {
         );
     }
 
+    // W4 UAT — the depth/elevation profile entry is now a BUTTON inside the
+    // Results tab rather than a standalone toolbar tab. It dispatches the SAME
+    // action the old tab used (setProfilePanelVisible), so both 'profile' and
+    // 'cross-section' modes stay reachable (the mode toggle lives in the panel).
+    // Gated on canViewAnugaMap + hasEPSGset (same as the result layers it
+    // profiles) and only mounted when the Results tab is the open group.
+    renderResultsProfileButton() {
+        return (
+            <div className="sv-results-profile-action" data-testid="anuga-results-profile-action">
+                <button
+                    key="anuga-results-profile-button"
+                    data-testid="anuga-profile-button"
+                    className={`btn sv-glass-button ${this.props.showProfilePanel ? 'active' : ''}`}
+                    onClick={() => {
+                        this.props.setProfilePanelVisible(!this.props.showProfilePanel);
+                        this.closeHydrologyIfOpen();
+                        trackEvent('button', 'click', 'anuga-results-profile-toggle');
+                    }}
+                >
+                    <Message msgId="hydrata.anuga.profilePanelTitle" />
+                </button>
+            </div>
+        );
+    }
+
     render() {
         const toolbarTarget = typeof document !== 'undefined'
             ? document.querySelector('.simple-view-left-toolbar')
+            : null;
+        // TASK-1857 (W3.3) — portal the elevation readout into the MapFooter so
+        // it sits inline with ScaleBar/MousePosition without requiring a new plugin
+        // slot or localConfig change.  The target element is created by the
+        // MapFooter plugin which is always present on map pages.
+        const mapFooterTarget = typeof document !== 'undefined'
+            ? document.getElementById('mapstore-map-footer')
+            : null;
+        // W4 UAT — the Results-tab profile button is portaled into the open
+        // Results miller panel (rendered by simpleViewContainer). Only when the
+        // Results group is the open menu group (not basemaps / other groups) and
+        // the viewer can see results. The panel mounts on the same redux tick as
+        // this container reacts to openMenuGroupId, so the target resolves on the
+        // re-render after the tab opens (same portal-by-query pattern as the
+        // toolbar/footer targets above).
+        const resultsPanelTarget = (typeof document !== 'undefined'
+            && this.props.openMenuGroupId === 'Results'
+            && this.props.canViewAnugaMap && this.props.hasEPSGset)
+            ? document.querySelector('.simple-view-panel--miller')
             : null;
         return this.props.isAnugaProject ?
             (
                 <div id={"anuga-container"}>
                     {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
+                    {mapFooterTarget ? ReactDOM.createPortal(<ElevationReadout />, mapFooterTarget) : null}
+                    {resultsPanelTarget ? ReactDOM.createPortal(this.renderResultsProfileButton(), resultsPanelTarget) : null}
                     {this.props.showAnugaInputMenu ? <AnugaInputMenu/> : null}
                     {this.props.canViewAnugaMap && this.props.hasEPSGset && this.props.showAnugaScenarioMenu ?
                         <AnugaScenarioMenu/> : null
@@ -234,6 +312,17 @@ export class AnugaContainer extends React.Component {
                         import area' does) does NOT unmount it mid-draw. It self-gates
                         on terrainBboxPanelVisible, so it renders null until opened. */}
                     <TerrainBboxPanel/>
+                    {/* TASK-1861 (W4.4): depth/result line-profile tool panel,
+                        mounted at container level (self-gates on
+                        profilePanelVisible) like TerrainBboxPanel so closing a
+                        menu can't unmount it mid-draw. */}
+                    <TerrainProfilePanel/>
+                    {/* TASK-1869 (W5.4): vertical-exaggeration slider for the 3D
+                        Cesium terrain. GATED until TASK-1870 (epic 1871) makes it
+                        actually move the mesh — it is visually inert today, so the
+                        mount is disabled to avoid shipping a dead control to prod.
+                        Un-comment (and the import above) when 1870 lands. */}
+                    {/* <VerticalExaggerationSlider/> */}
                     {/* TASK-1800 (W1.9 UAT): stand-alone "Merge terrains" recipe
                         panel, mounted at container level alongside TerrainBboxPanel
                         so closing the Inputs menu does NOT unmount it mid-edit. It
@@ -283,7 +372,9 @@ export const mapStateToProps = (state) => {
         canCreateScenario: canCreateScenario(state),
         showMembershipPanel: state?.anuga?.ui?.showMembershipPanel,
         hydrologyPluginPresent: !!mapViewerPlugins.find(x => x.name === "Hydrology"),
-        showHydrologyMainMenu: !!state?.hydrology?.showHydrologyMainMenu
+        showHydrologyMainMenu: !!state?.hydrology?.showHydrologyMainMenu,
+        // TASK-1861 (W4.4) — depth/result line-profile tool visibility.
+        showProfilePanel: !!state?.anuga?.ui?.profilePanelVisible
     };
 };
 
@@ -298,7 +389,9 @@ const mapDispatchToProps = ( dispatch ) => {
         startAnugaScenarioPolling: () => dispatch(startAnugaScenarioPolling()),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible)),
-        setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible))
+        setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible)),
+        // TASK-1861 (W4.4) — depth/result line-profile tool toggle.
+        setProfilePanelVisible: (visible) => dispatch(setProfilePanelVisible(visible))
     };
 };
 

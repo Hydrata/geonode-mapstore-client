@@ -56,6 +56,8 @@ import { changeLayerParams, changeLayerProperties } from '../../../../../MapStor
 import { CHANGE_MAP_VIEW } from '../../../../../MapStore2/web/client/actions/map';
 import { reprojectBbox } from '../../../../../MapStore2/web/client/utils/CoordinatesUtils';
 import { getProjectId } from '../selectorsAnuga';
+import { setDemRampDegraded } from '../actionsAnuga';
+import { computeDemRampStops, DEM_ENV_KEYS } from '../utils/demRamp';
 import * as anugaApi from '../api/anugaApi';
 
 /**
@@ -161,6 +163,41 @@ export function findDynamicDemPairs(state) {
 }
 
 /**
+ * TASK-1850 (epic 1814 W2) — PART A failure-hardening helper.
+ *
+ * Build the DEGRADED fall-back emissions for one dynamic-DEM pair when the live
+ * windowed bbox-stats fetch fails OR returns a malformed env_params. Rather
+ * than leaving the ramp collapsed to its green SLD default (the old silent
+ * `Observable.empty()` behaviour), we re-derive the FULL-raster 11-stop env from
+ * the terrain row's stored `dem_elev_min`/`dem_elev_max` (mirroring the BE
+ * `_compute_dem_ramp_stops`) and stamp it — so the ramp spans the whole DEM —
+ * AND raise a non-fatal `setDemRampDegraded(layer.id, true)` so the legend shows
+ * a "full range" indicator (the failure is visible, not silent).
+ *
+ * Contract: GeoServer rejects a partial env set, so we only stamp env when ALL
+ * 11 keys are present (computeDemRampStops always returns the full set or null).
+ * If the stored min/max are missing too (no metadata) we cannot build a valid
+ * full set — we still raise the degraded flag (so the legend can fall back to
+ * whatever range it can show) but stamp NO partial env.
+ *
+ * @returns {Rx.Observable} a stream of redux actions
+ */
+export function buildDegradedFallback(layer, terrain) {
+    const degradedAction = Rx.Observable.of(setDemRampDegraded(layer.id, true));
+    const stops = computeDemRampStops(terrain?.dem_elev_min, terrain?.dem_elev_max);
+    if (!stops || Object.keys(stops).length !== DEM_ENV_KEYS.length) {
+        // No usable stored range — surface the degraded flag but do NOT stamp a
+        // partial / invalid env (GeoServer would 400 on a partial set).
+        return degradedAction;
+    }
+    const envString = buildEnvString(stops);
+    return Rx.Observable.merge(
+        Rx.Observable.of(changeLayerParams(layer.id, { env: envString, _v_: Date.now() })),
+        degradedAction
+    );
+}
+
+/**
  * Epic: debounced DEM ramp rescale on map pan/zoom.
  *
  * Listens for CHANGE_MAP_VIEW, debounces by 300 ms, then for each
@@ -202,8 +239,13 @@ export const demRescaleOnMoveEndEpic = (action$, store) =>
                     .mergeMap((response) => {
                         const envParams = response?.data?.env_params;
                         if (!envParams || Object.keys(envParams).length !== 11) {
-                            // Unexpected shape — skip silently (no partial env).
-                            return Rx.Observable.empty();
+                            // TASK-1850 (PART A): malformed env_params shape. Do NOT
+                            // leave the ramp green/default — fall back to the stored
+                            // whole-raster range + raise the degraded flag so the
+                            // legend shows "full range" (failure is visible).
+                            // eslint-disable-next-line no-console
+                            console.warn('[demRescaleEpic] bbox-stats env_params malformed — full-range fallback:', layer.id);
+                            return buildDegradedFallback(layer, terrain);
                         }
                         const envString = buildEnvString(envParams);
                         // `env=` carries the ColorMap substitution; `_v_` bump
@@ -219,16 +261,41 @@ export const demRescaleOnMoveEndEpic = (action$, store) =>
                         // overwrites layer.params; CHANGE_LAYER_PARAMS
                         // takes the merge branch
                         // (MapStore2/web/client/reducers/layers.js#149).
-                        return Rx.Observable.of(
-                            changeLayerParams(layer.id, { env: envString, _v_: Date.now() })
+                        //
+                        // TASK-1850 (PART A): a successful live fetch clears any
+                        // prior degraded flag (the reducer no-ops if already false).
+                        return Rx.Observable.merge(
+                            Rx.Observable.of(changeLayerParams(layer.id, { env: envString, _v_: Date.now() })),
+                            Rx.Observable.of(setDemRampDegraded(layer.id, false))
                         );
                     })
                     .catch((err) => {
-                        // Network error or bbox outside raster — skip, but warn so
-                        // future failures are visible in the browser console.
+                        // TASK-1850 (PART A): distinguish a benign pan-off-DEM from a
+                        // genuine failure. The BE returns 400 VALIDATION_ERROR when the
+                        // bbox is outside the raster — a FREQUENT, normal moveend as the
+                        // user pans past the DEM edge (the BE makes it a quiet 400 to
+                        // avoid log flooding). Treating that as "degraded" would flicker
+                        // the legend's "full range" badge during ordinary panning.
+                        //  - 400 bbox-outside: keep the last-good windowed ramp, quietly,
+                        //    NOT degraded — the next on-DEM moveend rescales.
+                        //  - network / 5xx / 503 missing-stats: fall back to the stored
+                        //    whole-raster range + degraded flag (never silently green).
+                        // (axios interceptor shape: status may be at err.status or
+                        // err.originalError.status — see reference-mapstore-axios-interceptor-error-shape.)
+                        const status = err && (err.status || (err.originalError && err.originalError.status));
+                        if (status === 400) {
+                            // Expected case: bbox outside the raster (normal pan-off). The BE
+                            // also returns 400 for a missing/malformed bbox param, but
+                            // extractWgs84Bbox guarantees 4 valid coords so those cannot fire
+                            // from here — still, warn (not silent) so a future misrouted 400 is
+                            // visible in the console rather than swallowed.
+                            // eslint-disable-next-line no-console
+                            console.warn('[demRescaleEpic] bbox-stats 400 (bbox-outside / pan-off) — keeping last-good ramp:', layer.id);
+                            return Rx.Observable.empty();
+                        }
                         // eslint-disable-next-line no-console
-                        console.warn('[demRescaleEpic] bbox-stats request failed:', err && (err.message || err));
-                        return Rx.Observable.empty();
+                        console.warn('[demRescaleEpic] bbox-stats request failed — full-range fallback:', err && (err.message || err));
+                        return buildDegradedFallback(layer, terrain);
                     })
             );
 

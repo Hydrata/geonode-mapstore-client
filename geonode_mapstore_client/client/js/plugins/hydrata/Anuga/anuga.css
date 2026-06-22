@@ -2230,3 +2230,128 @@ div that holds the feature-grid */
 .sv-terrain-pending-delete:hover {
     color: rgba(240, 120, 110, 0.95) !important;
 }
+
+/* TASK-1850 (epic 1814 W2): live dynamic-DEM colour-ramp legend. Dark-glass
+   styling consistent with the surrounding sv- terrain rows — a compact vertical
+   swatch + elevation-label list under the DEM row (dynamic mode only). */
+.sv-dem-legend {
+    padding: 6px 4px 8px 4px;
+    margin-top: 2px;
+}
+.sv-dem-legend-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+.sv-dem-legend-title {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.sv-dem-legend-fullrange {
+    font-size: 10px;
+    color: rgba(245, 200, 120, 0.9);
+    border: 1px solid rgba(245, 200, 120, 0.35);
+    border-radius: 3px;
+    padding: 0 4px;
+    line-height: 14px;
+    white-space: nowrap;
+}
+.sv-dem-legend-stops {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.sv-dem-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 14px;
+}
+.sv-dem-legend-swatch {
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 16px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.sv-dem-legend-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.8);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── TASK-1861 (W4.4) — depth/result line-profile tool panel ──────────────── */
+.sv-profile-panel {
+    /* Left-align the help/body + chart (the base .simple-view-panel centres). */
+    text-align: left;
+}
+.sv-profile-help,
+.sv-profile-empty {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    font-size: 12px;
+}
+.sv-profile-loading {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.sv-profile-no-terrain {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    font-size: 12px;
+    padding: 6px 0;
+}
+.sv-profile-chart {
+    margin-top: 8px;
+    /* The plotly SVG paints its own surface; the panel glass shows through via
+       the transparent paper/plot bg set in DARK_GLASS_LAYOUT. */
+}
+
+/* ── TASK-1862 (W4.5) — cross-section / transect mode toggle ──────────────── */
+.sv-profile-mode-toggle .btn-group {
+    display: inline-flex;
+}
+.sv-profile-mode-toggle .btn {
+    /* Dark-glass segmented control: translucent default, lit accent for the
+       active segment. */
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border-color: rgba(255, 255, 255, 0.18);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+.sv-profile-mode-toggle .btn.active,
+.sv-profile-mode-toggle .btn-primary {
+    background: var(--sv-accent-blue, #5bc0ff);
+    border-color: var(--sv-accent-blue, #5bc0ff);
+    color: #0b1a26;
+}
+
+/* ── W4 UAT — depth/elevation profile button inside the Results tab ───────────
+   The profile entry moved out of the toolbar and into the Results miller panel
+   (portaled by anugaContainer). Dark-glass action button sitting above the
+   result-layer rows; lit accent when the profile panel is open. */
+.sv-results-profile-action {
+    padding: 8px 10px 4px;
+}
+.sv-results-profile-action .sv-glass-button {
+    display: block;
+    width: 100%;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: Montserrat, sans-serif;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+.sv-results-profile-action .sv-glass-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.sv-results-profile-action .sv-glass-button.active {
+    background: var(--sv-accent-blue, #5bc0ff);
+    border-color: var(--sv-accent-blue, #5bc0ff);
+    color: #0b1a26;
+}

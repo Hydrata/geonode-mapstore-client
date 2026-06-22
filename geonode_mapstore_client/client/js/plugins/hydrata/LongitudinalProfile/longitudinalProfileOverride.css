@@ -1,0 +1,258 @@
+/*
+ * Dark-glass SimpleView restyle for the VENDORED MapStore LongitudinalProfile dock.
+ * TASK-1859 (epic-1814 W4.2).
+ *
+ * The dock is MapStore core and MUST NOT be forked:
+ *   - client/MapStore2/web/client/plugins/longitudinalProfile/Dock.jsx
+ *       renders via ResponsivePanel -> DockContainer (id="longitudinal-profile-tool-container")
+ *       -> DockPanel (.ms-side-panel) -> BorderLayout (.ms-header / PanelHeader) -> body.
+ *   - client/MapStore2/web/client/themes/default/less/longitudinal-profile.less
+ *       supplies the stock light chrome we override here.
+ * This file ONLY overrides the rendered chain via CSS, consuming --sv-* tokens
+ * (single source of truth: SimpleView/tokens.css). No hardcoded colours outside a
+ * var(--sv-*, fallback) form.
+ *
+ * Imported eagerly from js/plugins/index.js (the hydrata plugin entry) so it lands in
+ * the main bundle and cascades over the lazy longitudinal-profile-tool chunk's .less.
+ * Selectors are anchored on #longitudinal-profile-tool-container (ID specificity) and
+ * use !important on Bootstrap-themed chrome (buttons / inputs / tabs) per
+ * SimpleView/BUILD-A-PANEL-GUIDE.md gotcha #2, so they win regardless of CSS
+ * injection order between the eager main bundle and the lazy core chunk.
+ */
+
+/* ── Pull in the SimpleView system so --sv-* tokens resolve and this file
+      cascades AFTER simpleView.css (it re-imports tokens.css, idempotent). ── */
+@import "../SimpleView/simpleView.css";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Panel shell: the dock container + its .ms-side-panel become dark glass.
+   ────────────────────────────────────────────────────────────────────────── */
+#longitudinal-profile-tool-container .ms-side-panel,
+#longitudinal-profile-tool-container .ms-side-panel > div {
+    background: transparent;
+}
+
+#longitudinal-profile-tool-container .ms-side-panel .ms-header,
+#longitudinal-profile-tool-container .react-dock .dock-main,
+#longitudinal-profile-tool-container .react-dock > div {
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88)) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: var(--sv-font-family, 'Montserrat', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+}
+
+/* The whole dock body inherits dark-glass text + font. */
+#longitudinal-profile-tool-container {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: var(--sv-font-family, 'Montserrat', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
+}
+
+/* The panel body surface (BorderLayout body) under the header. */
+#longitudinal-profile-tool-container .ms-side-panel .mapstore-side-card,
+#longitudinal-profile-tool-container .ms-side-panel .ms2-border-layout-body,
+#longitudinal-profile-tool-container .ms-side-panel .ms2-border-layout-content {
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88)) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Header bar: title text, glyph, close chip.
+   ────────────────────────────────────────────────────────────────────────── */
+#longitudinal-profile-tool-container .ms-header,
+#longitudinal-profile-tool-container .ms-header .Text,
+#longitudinal-profile-tool-container .ms-header span {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    border-bottom-color: var(--sv-section-border, rgba(255, 255, 255, 0.6));
+}
+
+#longitudinal-profile-tool-container .ms-header .glyphicon {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+/* Close button: coral SimpleView close glyph. */
+#longitudinal-profile-tool-container .ms-header .ms-close,
+#longitudinal-profile-tool-container .ms-header .square-button-md {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: var(--sv-glyph-inactive, red);
+}
+
+#longitudinal-profile-tool-container .ms-header .square-button-md:hover {
+    background: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8)) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Tab strip: the Nav bsStyle="tabs" (.nav-tabs) in the header additionalRows.
+   ────────────────────────────────────────────────────────────────────────── */
+#longitudinal-profile-tool-container .nav-tabs {
+    border-bottom-color: var(--sv-section-border, rgba(255, 255, 255, 0.6)) !important;
+}
+
+#longitudinal-profile-tool-container .nav-tabs > li > a {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68)) !important;
+}
+
+#longitudinal-profile-tool-container .nav-tabs > li > a:hover {
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10)) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+#longitudinal-profile-tool-container .nav-tabs > li.active > a,
+#longitudinal-profile-tool-container .nav-tabs > li.active > a:hover,
+#longitudinal-profile-tool-container .nav-tabs > li.active > a:focus {
+    background-color: var(--sv-button-bg-active, rgba(0, 60, 136, 0.9)) !important;
+    border-color: var(--sv-section-border, rgba(255, 255, 255, 0.6)) !important;
+    border-bottom-color: transparent !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+#longitudinal-profile-tool-container .nav-tabs > li > a .glyphicon {
+    color: inherit !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Body content: stats entries, info labels, the CRS data-used table.
+   Reset the inherited text-align (BUILD-A-PANEL-GUIDE gotcha #1).
+   ────────────────────────────────────────────────────────────────────────── */
+#longitudinal-profile-tool-container .longitudinal-tool-container,
+#longitudinal-profile-tool-container .stats-entry,
+#longitudinal-profile-tool-container .stats-value,
+#longitudinal-profile-tool-container .data-used {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    text-align: left;
+}
+
+/* The .longitudinal-tool-container core less paints main-bg (light); strip it. */
+#longitudinal-profile-tool-container .longitudinal-tool-container,
+#longitudinal-profile-tool-container .data-used,
+#longitudinal-profile-tool-container .data-used td {
+    background: transparent !important;
+}
+
+#longitudinal-profile-tool-container .info-label {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+#longitudinal-profile-tool-container .info-value {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+#longitudinal-profile-tool-container .stats-entry .glyphicon {
+    color: var(--sv-glyph-active, limegreen);
+}
+
+/* "no info" empty-state message. */
+#longitudinal-profile-tool-container .longitudinal-tool-container > span,
+#longitudinal-profile-tool-container .ms-side-panel .ms-message {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Form controls: the download-format Select (react-select) + export Button,
+   plus any Bootstrap inputs/selects/labels in the dock.
+   ────────────────────────────────────────────────────────────────────────── */
+#longitudinal-profile-tool-container .control-label,
+#longitudinal-profile-tool-container .ControlLabel,
+#longitudinal-profile-tool-container label {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+#longitudinal-profile-tool-container input,
+#longitudinal-profile-tool-container select,
+#longitudinal-profile-tool-container textarea {
+    background-color: var(--sv-input-bg, rgba(255, 255, 255, 0.22)) !important;
+    border-color: var(--sv-section-border, rgba(255, 255, 255, 0.6)) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+/* react-select control + menu. */
+#longitudinal-profile-tool-container .Select-control {
+    background-color: var(--sv-input-bg, rgba(255, 255, 255, 0.22)) !important;
+    border-color: var(--sv-section-border, rgba(255, 255, 255, 0.6)) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+#longitudinal-profile-tool-container .Select-placeholder,
+#longitudinal-profile-tool-container .Select-value-label,
+#longitudinal-profile-tool-container .Select--single > .Select-control .Select-value .Select-value-label {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+#longitudinal-profile-tool-container .Select-menu-outer {
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88)) !important;
+    border-color: var(--sv-section-border, rgba(255, 255, 255, 0.6)) !important;
+}
+
+#longitudinal-profile-tool-container .Select-option {
+    background-color: transparent !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+#longitudinal-profile-tool-container .Select-option.is-focused,
+#longitudinal-profile-tool-container .Select-option.is-selected {
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10)) !important;
+}
+
+#longitudinal-profile-tool-container .Select-arrow {
+    border-top-color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+/* Buttons (export, toolbar, input-group): dark-glass SimpleView chrome. */
+#longitudinal-profile-tool-container .btn,
+#longitudinal-profile-tool-container .btn-primary,
+#longitudinal-profile-tool-container .input-group-btn .btn {
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6)) !important;
+    border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5)) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+    border-radius: var(--sv-card-radius, 4px) !important;
+}
+
+#longitudinal-profile-tool-container .btn:hover,
+#longitudinal-profile-tool-container .btn:focus,
+#longitudinal-profile-tool-container .btn-primary:hover,
+#longitudinal-profile-tool-container .btn-primary:focus {
+    background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8)) !important;
+    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7)) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+/* The chart-toolbar maximise glyph button (bsStyle="link" no-border). */
+#longitudinal-profile-tool-container .chart-toolbar .btn,
+#longitudinal-profile-tool-container .chart-toolbar .btn.no-border {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85)) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Maximised chart portal: same dark glass behind the full-screen chart.
+   ────────────────────────────────────────────────────────────────────────── */
+#dock-chart-portal {
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88)) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Scrollbars: thin SimpleView styling (matches simpleView.css / anuga.css).
+   ────────────────────────────────────────────────────────────────────────── */
+#longitudinal-profile-tool-container *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#longitudinal-profile-tool-container *::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#longitudinal-profile-tool-container *::-webkit-scrollbar-thumb {
+    background-color: var(--sv-input-blue, #5178af);
+    border-radius: var(--sv-card-radius, 4px);
+}
+
+#longitudinal-profile-tool-container * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sv-input-blue, #5178af) transparent;
+}

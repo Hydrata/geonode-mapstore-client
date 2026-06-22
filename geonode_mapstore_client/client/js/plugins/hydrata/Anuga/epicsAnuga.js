@@ -120,3 +120,14 @@ export {
 export {
     demRescaleOnMoveEndEpic
 } from './epics/demRescaleEpic';
+
+// TASK-1856 (W3.2) — Debounced point-elevation query on MOUSE_MOVE.
+export {
+    cursorElevationEpic
+} from './epics/cursorElevationEpic';
+
+// TASK-1861 (W4.4) — Depth/result line-profile tool (draw-line + sampler).
+export {
+    profileStartDrawEpic,
+    profileEndDrawingEpic
+} from './epics/profileEpic';
