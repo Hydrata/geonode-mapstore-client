@@ -30,7 +30,7 @@ import Rx from 'rxjs';
 import { MOUSE_MOVE, MOUSE_OUT } from '../../../../../MapStore2/web/client/actions/map';
 import { getProjectId } from '../selectorsAnuga';
 import { setTerrainCursorElevation } from '../actionsAnuga';
-import { findBestDemLayer } from './terrainEpics';
+import { findBestDemLayer, bareName } from './terrainEpics';
 import * as anugaApi from '../api/anugaApi';
 
 // Debounce interval in ms — long enough to avoid a request per pixel,
@@ -71,7 +71,7 @@ export function findActiveTerrain(state) {
     // ("ele_42_utm_cog"). Compare the BARE names so the workspace prefix never
     // breaks the match. Found at live UAT (TASK-1856 W3): the exact-equality
     // compare silently no-matched every real terrain → readout never queried.
-    const bareName = (n) => (n || '').split(':').pop();
+    // bareName is imported from terrainEpics.js (canonical source, W5.1/TASK-1866).
     const target = bareName(demLayer.name);
     return terrain.find(t => bareName(t?.gn_layer_name) === target) || null;
 }

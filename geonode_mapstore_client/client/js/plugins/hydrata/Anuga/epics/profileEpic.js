@@ -44,6 +44,7 @@ import {
 } from '../actionsAnuga';
 import { getProjectId, getSelectedScenario } from '../selectorsAnuga';
 import { hasDemReady, findActiveTerrain } from './cursorElevationEpic';
+import { bareName } from './terrainEpics';
 import * as anugaApi from '../api/anugaApi';
 
 // DrawSupport owner for this tool. Isolated so its drawMethod never leaks into
@@ -64,9 +65,9 @@ const RESULT_LAYER_FIELDS = [
     { field: 'gn_layer_depth_integrated_velocity_max', label: 'Momentum (max)', role: 'other' }
 ];
 
-// Strip the GeoServer workspace prefix (geonode:foo -> foo). The BE resolves the
+// bareName is imported from terrainEpics.js (canonical source, W5.1/TASK-1866).
+// Strips the GeoServer workspace prefix (geonode:foo -> foo). The BE resolves the
 // coverage store by the BARE name; sending the prefixed name no-matches. (W3.)
-const bareName = (n) => (n || '').split(':').pop();
 
 /**
  * [[lon,lat],...] -> "LINESTRING(lon lat, ...)" WKT. Returns null for < 2 verts
