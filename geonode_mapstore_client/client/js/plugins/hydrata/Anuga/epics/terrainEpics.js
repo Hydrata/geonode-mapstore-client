@@ -1,7 +1,6 @@
 import Rx from "rxjs";
 import {
     addLayer,
-    changeLayerProperties,
     removeLayer,
     ADD_LAYER,
     REMOVE_LAYER
@@ -166,23 +165,30 @@ const reconcileTerrain = (state) => {
         if (!demTerrain) {
             // DEM layer has no valid name — fall through to MapTiler
         } else if (existing?.id === TERRAIN_DEM_ID) {
-            // Already have a DEM terrain — update if the source layer or bounds changed.
-            // This covers the SET_ANUGA_TERRAIN_DATA trigger: terrain rows load AFTER
-            // the map layers, so dem_elev_min/max are not yet available on first
-            // reconcile. When the data arrives the epic re-runs, hitting this branch,
-            // and the bounds (lowest/highest) are pushed via changeLayerProperties.
+            // Already have a DEM terrain. Recreate it when the source layer or its
+            // per-DEM bounds changed — but NOT otherwise (avoid a remove+add storm,
+            // since this epic re-runs on every ADD_LAYER/REMOVE_LAYER, debounced).
+            //
+            // We MUST force provider recreation via remove+add (not
+            // changeLayerProperties): core TerrainLayer.js:updateLayer keys provider
+            // recreation off url/name/crs/version/provider/etc. and does NOT recreate
+            // on a lowest/highest change. So a changeLayerProperties bounds update
+            // would update Redux but silently leave the LIVE Cesium
+            // GeoServerBILTerrainProvider on its construction-time defaults
+            // (-500/12000) — the per-DEM nodata clamp would never activate on the
+            // DOMINANT async path (bounds arrive via SET_ANUGA_TERRAIN_DATA AFTER the
+            // terrain layer is first added with no bounds). remove+add reconstructs
+            // the provider from buildDemTerrain's config (carrying the per-DEM
+            // lowest/highest). Stays Hydrata-side (D9: no core patch); the
+            // self-trigger guard already ignores terrain-dem add/remove. (A DEM
+            // name-change effectively always co-occurs with a bounds-change — a
+            // different DEM has a different elevation range — so one path covers both.)
             const nameChanged = existing.name !== demTerrain.name;
             const boundsChanged = existing.lowest !== demTerrain.lowest
                 || existing.highest !== demTerrain.highest;
             if (nameChanged || boundsChanged) {
-                const update = { name: demTerrain.name, title: demTerrain.title };
-                if (demTerrain.lowest !== undefined) {
-                    update.lowest = demTerrain.lowest;
-                }
-                if (demTerrain.highest !== undefined) {
-                    update.highest = demTerrain.highest;
-                }
-                actions.push(changeLayerProperties(TERRAIN_DEM_ID, update));
+                actions.push(removeLayer(existing.id));
+                actions.push(addLayer(demTerrain, false));
             }
             return Rx.Observable.from(actions);
         } else {

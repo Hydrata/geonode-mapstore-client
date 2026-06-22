@@ -19,7 +19,7 @@
 import expect from 'expect';
 import Rx from 'rxjs';
 import { VISUALIZATION_MODE_CHANGED } from '@mapstore/framework/actions/maptype';
-import { ADD_LAYER, CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
+import { ADD_LAYER, REMOVE_LAYER } from '@mapstore/framework/actions/layers';
 import { SET_ANUGA_TERRAIN_DATA } from '../../actionsAnuga';
 
 import {
@@ -236,17 +236,28 @@ describe('buildDemTerrain — bounds join (via manageTerrain3DEpic)', () => {
         });
     });
 
-    it('re-applies bounds on SET_ANUGA_TERRAIN_DATA when terrain-dem already exists', function(done) {
-        // Scenario: terrain-dem was added BEFORE terrain rows loaded (no bounds).
-        // When SET_ANUGA_TERRAIN_DATA fires, bounds should be pushed via changeLayerProperties.
+    it('re-applies bounds on SET_ANUGA_TERRAIN_DATA via remove+add (forces provider recreation)', function(done) {
+        // Scenario: terrain-dem was added BEFORE terrain rows loaded (no bounds) —
+        // the DOMINANT async path. When SET_ANUGA_TERRAIN_DATA fires, the bounds must
+        // reach the LIVE Cesium provider. Core TerrainLayer.js:updateLayer does NOT
+        // recreate the provider on a lowest/highest change, so changeLayerProperties
+        // would be a silent no-op (provider keeps -500/12000 defaults). The epic must
+        // instead remove+add the terrain so the GeoServerBILTerrainProvider is rebuilt
+        // with the per-DEM bounds (the W5 adversarial-review critical fix).
         this.timeout(2000);
         const state = makeState({ elevMin: 100.5, elevMax: 900.3, existingTerrainDem: true });
         const action$ = makeActions$([{ type: SET_ANUGA_TERRAIN_DATA, data: state.anuga.resources.terrain }]);
         runEpic(action$, state, done, (emitted) => {
-            const changeAction = emitted.find(a => a.type === CHANGE_LAYER_PROPERTIES);
-            expect(changeAction).toBeTruthy();
-            expect(changeAction.newProperties.lowest).toBe(Math.floor(100.5 - 1)); // 99
-            expect(changeAction.newProperties.highest).toBe(Math.ceil(900.3 + 1)); // 902
+            // changeLayerProperties is NOT used (it would not recreate the provider).
+            const removeAction = emitted.find(a => a.type === REMOVE_LAYER);
+            const addAction = emitted.find(a => a.type === ADD_LAYER);
+            expect(removeAction).toBeTruthy();
+            expect(removeAction.layerId).toBe('terrain-dem');
+            expect(addAction).toBeTruthy();
+            expect(addAction.layer.id).toBe('terrain-dem');
+            // The rebuilt provider config carries the per-DEM bounds.
+            expect(addAction.layer.lowest).toBe(Math.floor(100.5 - 1)); // 99
+            expect(addAction.layer.highest).toBe(Math.ceil(900.3 + 1)); // 902
         });
     });
 
