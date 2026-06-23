@@ -3,8 +3,10 @@
  * control redesign tests.
  *
  * Tests:
- *  1. The segmented control defaults to Derive (idf-derive active, is-active
- *     class on Derive button).
+ *  1. When on the idf-derive page, the Derive segment is active (is-active
+ *     class on Derive button). NOTE: the global default page is now
+ *     sv-idf-table (Input-first; UAT 2026-06-23) — this test sets the
+ *     idf-derive prop explicitly, so it does not exercise that default.
  *  2. Clicking Manual calls setActiveHydrologyPage('sv-idf-table').
  *  3. Clicking Derive calls setActiveHydrologyPage('idf-derive').
  *  4. The IDF Derive panel renders the 4 step headers (step-location,

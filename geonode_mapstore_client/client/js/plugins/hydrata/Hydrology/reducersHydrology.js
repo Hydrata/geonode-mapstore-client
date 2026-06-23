@@ -138,8 +138,9 @@ const initialIdfDerive = {
 const initialState = {
     isHydrologyProject: false,
     showHydrologyMainMenu: false,
-    // TASK-1452 (W5): open on Derive (the common path) per D5 resolution.
-    activeHydrologyPage: "idf-derive",
+    // TASK-1452 (W5) opened on Derive; UAT 2026-06-23 reverted to Input-first
+    // (the manual IDF table) per operator — IDF now defaults to the Input mode.
+    activeHydrologyPage: "sv-idf-table",
     idfDerive: initialIdfDerive,
     designStorm: initialDesignStorm,
     projection: initialProjection

@@ -64,6 +64,12 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    /* UAT 2026-06-23 — fill the full column height so justify-content:
+       space-between actually pins #bottom-buttons ("New Item") to the BOTTOM.
+       Without flex-grow this container was only content-tall and sat at the top
+       of the column, so New Item rendered at the top (no space to distribute). */
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .sv-hydrology-button,
