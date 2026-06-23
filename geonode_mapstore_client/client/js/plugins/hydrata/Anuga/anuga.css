@@ -13,6 +13,25 @@
 
 #membership-panel {
     min-width: 400px;
+    /* FINDING 3 (UAT 2026-06-23): the Permissions panel had no desktop width
+       cap, so its width:100% member/invite tables stretched it toward
+       full-viewport. Pin a normal dialog width. */
+    width: 480px;
+    max-width: 480px;
+}
+
+/* FINDING 3 (UAT 2026-06-23): give the Permissions panel close (×) the red
+   convention (matches .sv-legend-close). PanelHeader sets the close chip via an
+   INLINE dark-glass style, so these MUST be !important to win over inline.
+   Scoped to #membership-panel only — the deliberate W1.9 dark-glass chassis
+   stays put on every other panel. */
+#membership-panel .sv-panel-header-close {
+    background-color: var(--sv-close-bg, #c9544d) !important;
+    color: var(--sv-text, rgba(255, 255, 255, 0.95)) !important;
+    border-color: transparent !important;
+}
+#membership-panel .sv-panel-header-close:hover {
+    background-color: var(--sv-close-bg-hover, #b5403a) !important;
 }
 
 #anuga-container {
@@ -2288,6 +2307,12 @@ div that holds the feature-grid */
 .sv-profile-panel {
     /* Left-align the help/body + chart (the base .simple-view-panel centres). */
     text-align: left;
+    /* FINDING 4 (UAT 2026-06-23): dock on the RIGHT so the profile tool clears
+       the Results layer panel (which sits at the base .simple-view-panel
+       left:20px). left:auto is required — without it both left+right apply and
+       the panel stretches full-width instead of right-docking. */
+    left: auto;
+    right: 20px;
 }
 .sv-profile-help,
 .sv-profile-empty {

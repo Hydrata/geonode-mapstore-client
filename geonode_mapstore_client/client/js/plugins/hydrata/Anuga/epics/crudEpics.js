@@ -495,21 +495,25 @@ const makeDeleteEpic = (
             const layerIds = Array.isArray(action.layerIds) && action.layerIds.length > 0
                 ? action.layerIds.filter(Boolean)
                 : (action.layerId ? [action.layerId] : []);
+            // Success emissions: drop the row + its sibling map layers and
+            // persist the removal. Shared by the happy path AND the 404 path
+            // (FINDING 1) so an already-gone row is cleaned up identically.
+            const successEmissions = () => Rx.Observable.of(
+                successAction(action.id, layerIds),
+                ...layerIds.flatMap(lid => [
+                    removeNode(lid, 'layers'),
+                    removeLayer(lid)
+                ]),
+                // Persist the FE removal to base_resourcebase.blob so a
+                // page refresh doesn't restore the deleted layers as
+                // ghosts (their backing GeoServer Datasets are gone via
+                // the BE cascade — re-rendering them would WMS-404).
+                ...(layerIds.length > 0 ? [saveDirectContent()] : [])
+            );
             return Rx.Observable.defer(
                 () => apiFn(projectId, action.id)
             )
-                .switchMap(() => Rx.Observable.of(
-                    successAction(action.id, layerIds),
-                    ...layerIds.flatMap(lid => [
-                        removeNode(lid, 'layers'),
-                        removeLayer(lid)
-                    ]),
-                    // Persist the FE removal to base_resourcebase.blob so a
-                    // page refresh doesn't restore the deleted layers as
-                    // ghosts (their backing GeoServer Datasets are gone via
-                    // the BE cascade — re-rendering them would WMS-404).
-                    ...(layerIds.length > 0 ? [saveDirectContent()] : [])
-                ))
+                .switchMap(() => successEmissions())
                 .catch((err) => {
                     const status = _readErrStatus(err);
                     const data = _readErrData(err);
@@ -519,6 +523,15 @@ const makeDeleteEpic = (
                             Array.isArray(data.blocking) ? data.blocking : [],
                             data.message || ''
                         ));
+                    }
+                    // FINDING 1 (UAT 2026-06-23): a 404 means the row is already
+                    // gone server-side (e.g. a stale terrain the list never
+                    // refreshed after it was replaced by a re-derive). Deleting
+                    // an already-deleted resource is idempotently successful, so
+                    // treat 404 like success and drop the ghost row instead of
+                    // surfacing the mystifying "Delete failed. Please try again."
+                    if (status === 404) {
+                        return successEmissions();
                     }
                     return Rx.Observable.of(errorAction(action.id, {status, data}));
                 });

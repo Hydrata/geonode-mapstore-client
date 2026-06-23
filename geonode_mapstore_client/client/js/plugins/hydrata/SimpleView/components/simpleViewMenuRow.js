@@ -970,7 +970,23 @@ class MenuRowClass extends React.Component {
         // V2P-22: switched .indexOf > -1 to .includes per AC#4 (no
         // perms.indexOf in component code; helpers in selectorsAnuga.js
         // remain on indexOf).
-        if (!layer?.perms?.includes("change_dataset_data")) return false;
+        //
+        // FINDING 2 (UAT 2026-06-23): change_dataset_data over-blocked. The
+        // pencil routes to VectorDraw geometry editing (onEdit), meaningful
+        // ONLY on vector anuga layers (bdy_/inf_/fri_/mes_/str_/brk_); rasters
+        // (terrain, fri_raster_) already early-return inert in onEdit. The
+        // owner's my-perms batch grants change_resourcebase but NOT
+        // change_dataset_data on anuga vectors, so requiring the latter hid the
+        // pencil from a legitimate editor (e.g. the project owner could not edit
+        // boundaries/inflows). Gate instead on the layer being a vector-editable
+        // anuga type (capability) — the selector below still enforces role +
+        // ownership (WHO may edit). Non-anuga layers (getAnugaPrefix === null,
+        // e.g. Swamm) keep the legacy change_dataset_data requirement, so their
+        // gating is unchanged.
+        const anugaPrefix = getAnugaPrefix(layer?.name);
+        const isVectorEditable = !!anugaPrefix
+            && ANUGA_FEATURE_CONFIG[anugaPrefix]?.geomType !== 'Raster';
+        if (!isVectorEditable && !layer?.perms?.includes("change_dataset_data")) return false;
         return canEditLayerSelector(layer, undefined, this.props.myRole, this.props.currentUserId);
     };
 
