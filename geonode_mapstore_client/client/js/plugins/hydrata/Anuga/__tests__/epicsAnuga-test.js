@@ -851,6 +851,113 @@ describe('ANUGA Epics', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────
+    // Self-heal: pruneOrphanTerrainLayersEpic. A re-derived combined surface
+    // (or any server-side terrain delete while the map was closed) leaves a
+    // ghost layer in base_resourcebase.blob. On terrain load the epic confirms
+    // the backing Dataset is GONE (hard 404 by PK) and removes + persists it —
+    // but keeps a layer whose Dataset still exists (200) or is ambiguous, and
+    // does nothing for a viewer who cannot save.
+    // ─────────────────────────────────────────────────────────────────────
+    describe('pruneOrphanTerrainLayersEpic', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const { pruneOrphanTerrainLayersEpic } = require('../epics/crudEpics');
+        const { SET_ANUGA_TERRAIN_DATA } = require('../actionsAnuga');
+
+        const REMOVE_NODE = 'REMOVE_NODE';
+        const REMOVE_LAYER = 'REMOVE_LAYER';
+        const GN_SAVE_CONTENT = 'GEONODE:SAVE_DIRECT_CONTENT';
+
+        // One live source terrain (matched to a model) + the two ghost combined-
+        // surface layers (no model, deleted Datasets) — mirrors the real
+        // hydrata.com/map/5528 blob that triggered this fix.
+        const liveModel = { id: 510, gn_layer_name: 'ele_510_utm_spa_dcp3_cog', gn_layer_hillshade_name: 'ele_510_hillshade_spa_dcp3_cog' };
+        const liveLayer = { id: 'live-uuid', name: 'geonode:ele_510_utm_spa_dcp3_cog', group: 'Input Data.Terrain', geonode_id: 5538 };
+        const ghostDem = { id: 'ghost-dem-uuid', name: 'geonode:ele_512_utm_combined_surface_derived_cog', group: 'Input Data.Terrain', geonode_id: 5552 };
+        const ghostHill = { id: 'ghost-hill-uuid', name: 'geonode:ele_512_hillshade_combined_surface_derived_cog', group: 'Input Data.Terrain', geonode_id: 5553 };
+
+        const storeWith = ({ myRole = 'owner', terrain = [liveModel], flat }) => ({
+            getState: () => ({
+                anuga: { projects: { data: { id: 649, my_role: myRole } }, resources: { terrain, terrainLoaded: true } },
+                layers: { flat }
+            })
+        });
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('removes a confirmed-gone ghost (404 by PK) + saves once, leaving live layers untouched', (done) => {
+            mockAxios.onGet('/api/v2/datasets/5552/').reply(404);
+            mockAxios.onGet('/api/v2/datasets/5553/').reply(404);
+            const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [liveModel] }]);
+            const emitted = [];
+            pruneOrphanTerrainLayersEpic(action$, storeWith({ flat: [liveLayer, ghostDem, ghostHill] }))
+                .subscribe(a => emitted.push(a), done, () => {
+                    // 2 ghosts × (removeNode + removeLayer) + one saveDirectContent
+                    expect(emitted.length).toBe(5);
+                    const removedLayerIds = emitted.filter(a => a.type === REMOVE_LAYER).map(a => a.layerId);
+                    expect(removedLayerIds).toContain('ghost-dem-uuid');
+                    expect(removedLayerIds).toContain('ghost-hill-uuid');
+                    // the live, model-matched layer is never probed nor removed
+                    expect(removedLayerIds).toNotContain('live-uuid');
+                    expect(emitted.filter(a => a.type === REMOVE_NODE).length).toBe(2);
+                    expect(emitted[emitted.length - 1].type).toBe(GN_SAVE_CONTENT);
+                    done();
+                });
+        });
+
+        it('keeps a model-less layer whose Dataset still exists (200) — no removal, no save', (done) => {
+            // Publish-race / still-valid derived surface: the PK GET resolves 200.
+            mockAxios.onGet('/api/v2/datasets/5552/').reply(200, { pk: 5552 });
+            mockAxios.onGet('/api/v2/datasets/5553/').reply(200, { pk: 5553 });
+            const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [liveModel] }]);
+            const emitted = [];
+            pruneOrphanTerrainLayersEpic(action$, storeWith({ flat: [liveLayer, ghostDem, ghostHill] }))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    done();
+                });
+        });
+
+        it('keeps a model-less layer on an AMBIGUOUS probe (500) — never deletes on uncertainty', (done) => {
+            mockAxios.onGet('/api/v2/datasets/5552/').reply(500);
+            mockAxios.onGet('/api/v2/datasets/5553/').reply(500);
+            const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [liveModel] }]);
+            const emitted = [];
+            pruneOrphanTerrainLayersEpic(action$, storeWith({ flat: [liveLayer, ghostDem, ghostHill] }))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    done();
+                });
+        });
+
+        it('does nothing for a viewer (cannot persist a blob save)', (done) => {
+            mockAxios.onGet('/api/v2/datasets/5552/').reply(404);
+            const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [liveModel] }]);
+            const emitted = [];
+            pruneOrphanTerrainLayersEpic(action$, storeWith({ myRole: 'viewer', flat: [liveLayer, ghostDem] }))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    // a viewer must not even probe the Datasets API
+                    expect(mockAxios.history.get.length).toBe(0);
+                    done();
+                });
+        });
+
+        it('emits nothing when every terrain layer matches a model (healthy map)', (done) => {
+            const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [liveModel] }]);
+            const emitted = [];
+            pruneOrphanTerrainLayersEpic(action$, storeWith({ flat: [liveLayer] }))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    expect(mockAxios.history.get.length).toBe(0);
+                    done();
+                });
+        });
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
     // TASK-937 (W2.2) — Scenario PATCH allow-list regression guard.
     //
     // Post-W1, Scenario.status is a read-only @property derived from

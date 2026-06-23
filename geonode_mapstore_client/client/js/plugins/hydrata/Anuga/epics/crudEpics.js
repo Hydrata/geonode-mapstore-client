@@ -101,14 +101,22 @@ import {
     DELETE_FRICTION_RASTER,
     deleteFrictionRasterSuccess,
     deleteFrictionRasterBlocked,
-    deleteFrictionRasterError
+    deleteFrictionRasterError,
+    // Self-heal: terrain list load = trigger to prune blob-resident ghost
+    // terrain layers (Terrain rows + Datasets deleted server-side after a
+    // re-derive). Reducer stamps resources.terrain + terrainLoaded on this.
+    SET_ANUGA_TERRAIN_DATA
 } from "../actionsAnuga";
 import {
     UPDATE_DATASET_TITLE
 } from "../../SimpleView/actionsSimpleView";
-import {getAnugaModels, getProjectId} from "../selectorsAnuga";
+import {getAnugaModels, getProjectId, canEditAnugaMap} from "../selectorsAnuga";
 import {resourceError} from "@js/actions/gnresource";
 import {saveDirectContent} from "@js/actions/gnsave";
+// Authoritative bare-name helper (strips the `geonode:` workspace prefix) —
+// the same copy cursorElevationEpic / profileEpic import, so terrain
+// name-matching stays consistent across epics.
+import {bareName} from "./terrainEpics";
 
 // -- Create-resource epics (create + trigger add-layer) --------------------
 // Fix 1: If the POST response includes mapstore_layer data, add the layer
@@ -632,3 +640,62 @@ export const deleteFrictionRasterEpic = makeDeleteEpic(
     deleteFrictionRasterBlocked,
     deleteFrictionRasterError
 );
+
+// -- Self-heal: prune blob-resident ghost terrain layers --------------------
+// A combined surface that is re-derived (512→513) — or any terrain deleted
+// server-side while a map referencing it was not open — leaves its Terrain row
+// AND its GeoNode/GeoServer Datasets gone, but the layer config LINGERS in that
+// map's base_resourcebase.blob. On the next load MapStore restores it from the
+// blob, anugaInputMenu._buildTerrainGroups renders the now-model-less layer as
+// a stand-alone "parent row", and it looks like a deleted terrain
+// "re-appeared". The orphan-guard in pollingEpics (orphanStatus) only stops the
+// polling path from RE-ADDING orphans via addLayer — it cannot touch a layer
+// already baked into the saved blob. This epic closes that gap.
+//
+// On terrain-list load (SET_ANUGA_TERRAIN_DATA stamps resources.terrain +
+// terrainLoaded) find every 'Input Data.Terrain' map layer that matches NO
+// terrain model (neither its DEM nor its hillshade gn_layer_name), then CONFIRM
+// each candidate's backing Dataset is genuinely gone with a direct PK probe
+// (datasetExistsByPk) before removing it. Anything other than a hard 404 — a
+// 200, a 403/5xx, a network error, or a layer with no geonode_id — is KEPT, so
+// a transient publish race or a still-valid derived surface is never deleted.
+// Editor+ only: a viewer cannot persist a blob save, so there is nothing to do.
+const _terrainLayerMatchesModel = (layer, model) => {
+    const ln = bareName(layer?.name);
+    return !!ln && (ln === model?.gn_layer_name || ln === model?.gn_layer_hillshade_name);
+};
+
+export const pruneOrphanTerrainLayersEpic = (action$, store) =>
+    action$
+        .ofType(SET_ANUGA_TERRAIN_DATA)
+        .switchMap(() => {
+            const state = store.getState();
+            if (!canEditAnugaMap(state)) return Rx.Observable.empty();
+            const terrainModels = state?.anuga?.resources?.terrain || [];
+            const candidates = (state?.layers?.flat || [])
+                .filter(l => l?.group === 'Input Data.Terrain')
+                .filter(l => !terrainModels.some(m => _terrainLayerMatchesModel(l, m)));
+            if (candidates.length === 0) return Rx.Observable.empty();
+            // Probe every candidate's Dataset by PK in parallel. A candidate
+            // survives (maps to null) on anything but a hard 404, so a transient
+            // publish race or a still-valid derived surface is never deleted.
+            return Rx.Observable
+                .forkJoin(
+                    candidates.map(layer =>
+                        Rx.Observable
+                            .defer(() => anugaApi.datasetExistsByPk(layer.geonode_id))
+                            .map(exists => (exists === false ? layer : null))
+                            .catch(() => Rx.Observable.of(null))
+                    )
+                )
+                .switchMap(probed => {
+                    const ghosts = probed.filter(Boolean);
+                    if (ghosts.length === 0) return Rx.Observable.empty();
+                    // Drop each ghost (DEM + hillshade are separate layers) and
+                    // persist the pruned tree ONCE so they do not return.
+                    return Rx.Observable.of(
+                        ...ghosts.flatMap(l => [removeNode(l.id, 'layers'), removeLayer(l.id)]),
+                        saveDirectContent()
+                    );
+                });
+        });

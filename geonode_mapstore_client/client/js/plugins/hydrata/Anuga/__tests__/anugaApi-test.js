@@ -39,6 +39,8 @@ describe('anugaApi', () => {
             'getMyPerms',
             // V2P-714 — cascade-delete dataset rows
             'deleteTerrainV2', 'deleteBoundaryV2', 'deleteFrictionV2', 'deleteInflowV2',
+            // Orphan-terrain self-heal — direct PK Dataset existence probe
+            'datasetExistsByPk',
             // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow)
             'deleteRainfallV2',
             // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
@@ -69,17 +71,18 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 61 API functions', () => {
+        it('should export exactly 62 API functions', () => {
             // Branch baseline (epic/1587) ships 55 exported functions (the
             // historical "53→54" comment chain undercounted by one; the live
             // module is 55). TASK-1729 adds 4: presignTerrainUpload +
             // putFileToS3 + finalizeTerrainUpload + uploadTerrainDirect = 59.
             // TASK-1856 (W3.2) adds 1: getTerrainElevationPoint = 60.
             // TASK-1861 (W4.4) adds 1: getTerrainProfile = 61.
+            // Orphan-terrain self-heal adds 1: datasetExistsByPk = 62.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(61);
+            expect(exportedFunctions.length).toBe(62);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {

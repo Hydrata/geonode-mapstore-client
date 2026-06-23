@@ -24,6 +24,13 @@ import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../Ma
 import {show} from "../../../../../MapStore2/web/client/actions/notifications";
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
 import {trackEvent} from "@js/utils/analytics";
+// Persist FE layer-tree mutations to base_resourcebase.blob. The typed
+// cascade-delete epics (makeDeleteEpic) already call this; the legacy
+// redux-only fallback in performDelete did NOT, so removing an orphan
+// terrain layer (no matching resources.terrain row) vanished from the live
+// tree but was restored from the blob on the next load — the "deleted
+// terrain re-appears" bug.
+import {saveDirectContent} from "@js/actions/gnsave";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {
     canEditLayer as canEditLayerSelector,
@@ -416,6 +423,8 @@ class MenuRowClass extends React.Component {
         updateDatasetTitle: PropTypes.func,
         removeNode: PropTypes.func,
         removeLayer: PropTypes.func,
+        // Persist the legacy redux-only orphan removal to the saved blob.
+        saveDirectContent: PropTypes.func,
         updateLayerTitle: PropTypes.func,
         refreshLayers: PropTypes.func,
         svDownloadLayer: PropTypes.func,
@@ -803,11 +812,20 @@ class MenuRowClass extends React.Component {
             }
         }
         // Legacy redux-only fallback for groups not in _GROUP_TO_DELETE_TYPE
-        // (e.g. Network, Full Mesh, non-Anuga groups). Network cascade is
-        // deferred — qualitatively different (no gn_layer, no menu UI as the
-        // primary delete surface).
+        // (e.g. Network, Full Mesh, non-Anuga groups), AND for a typed-group
+        // layer whose backing resource row could not be resolved — most
+        // importantly an ORPHAN terrain layer left in the saved blob after its
+        // Terrain row + Datasets were deleted server-side (e.g. a combined
+        // surface that was re-derived). For that orphan, getDatasetIdForLayer
+        // returns null so the cascade path above is skipped and we land here.
+        // Unlike the cascade path, this fallback used to omit saveDirectContent,
+        // so the removal was never persisted to base_resourcebase.blob and the
+        // ghost layer re-appeared on the next load. Persist it so the delete
+        // sticks. (Network cascade is deferred — qualitatively different: no
+        // gn_layer, no menu UI as the primary delete surface.)
         this.props.removeNode(layer.id, 'layers');
         this.props.removeLayer(layer.id);
+        this.props.saveDirectContent && this.props.saveDirectContent();
     };
 
     cancelDelete = () => {
@@ -1098,6 +1116,9 @@ const mapDispatchToProps = ( dispatch ) => {
         updateDatasetTitle: (datasetName, newTitle) => dispatch(updateDatasetTitle(datasetName, newTitle)),
         removeNode: (nodeId, type) => dispatch(removeNode(nodeId, type)),
         removeLayer: (layerId) => dispatch(removeLayer(layerId)),
+        // Persist the orphan-layer removal in the legacy fallback so the
+        // ghost does not re-appear from the blob on the next map load.
+        saveDirectContent: () => dispatch(saveDirectContent()),
         updateLayerTitle: (layer, title) => dispatch(changeLayerProperties(layer, {title: title})),
         refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray)),
         svDownloadLayer: (layer) => dispatch(svDownloadLayer(layer)),

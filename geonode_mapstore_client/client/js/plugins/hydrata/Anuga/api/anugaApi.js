@@ -126,6 +126,26 @@ export const deleteScenario = (projectId, scenarioId) =>
 export const deleteTerrainV2 = (projectId, terrainId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/`);
 
+// Orphan-terrain self-heal (pruneOrphanTerrainLayersEpic): probe whether a
+// GeoNode Dataset still exists, by PRIMARY KEY. Resolves true (200 — the
+// dataset exists) or false (404 — it was deleted); REJECTS on any other
+// outcome (403/5xx/network) so the caller can treat ambiguity as "keep, do
+// not delete". A PK GET is a direct DB row lookup — unlike the CSW/search
+// `?filter{alternate}=` endpoint, it does NOT lag a freshly published dataset,
+// so a brand-new terrain layer is never mistaken for a ghost. A null/undefined
+// pk resolves true (unknown → keep).
+export const datasetExistsByPk = (pk) => {
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+    if (pk == null) return Promise.resolve(true);
+    return axios.get(`/api/v2/datasets/${pk}/`)
+        .then(() => true)
+        .catch((err) => {
+            const status = err?.status ?? err?.response?.status;
+            if (status === 404) return false;
+            throw err;
+        });
+};
+
 // TASK-930 (W2-FE) — POST to the BE GLO-30 ingest endpoint shipped in
 // TASK-929 (dc78cf3). Body shape: {title, source: 'copernicus_glo30',
 // bbox: [minLon, minLat, maxLon, maxLat]}. Returns 202 + serialized

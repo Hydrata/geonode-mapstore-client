@@ -88,7 +88,10 @@ export {
     deleteNodesEpic,
     deleteLinksEpic,
     // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
-    deleteFrictionRasterEpic
+    deleteFrictionRasterEpic,
+    // Self-heal: prune blob-resident ghost terrain layers (orphaned after a
+    // re-derive / server-side terrain delete) on terrain-list load.
+    pruneOrphanTerrainLayersEpic
 } from './epics/crudEpics';
 
 // TASK-793 — VectorDraw editor handlers for the 5 migrated Anuga prefixes

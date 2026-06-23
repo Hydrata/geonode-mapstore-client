@@ -53,6 +53,8 @@ import {
     deleteLinksEpic,
     // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
     deleteFrictionRasterEpic,
+    // Self-heal: prune blob-resident ghost terrain layers on terrain load.
+    pruneOrphanTerrainLayersEpic,
     // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
     vectorDrawAnugaCompleteEpic,
     vectorDrawAnugaCancelledEpic,
@@ -159,6 +161,8 @@ export default createPlugin('Anuga', {
         deleteLinksEpic,
         // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
         deleteFrictionRasterEpic,
+        // Self-heal: prune blob-resident ghost terrain layers on terrain load.
+        pruneOrphanTerrainLayersEpic,
         // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
         vectorDrawAnugaCompleteEpic,
         vectorDrawAnugaCancelledEpic,

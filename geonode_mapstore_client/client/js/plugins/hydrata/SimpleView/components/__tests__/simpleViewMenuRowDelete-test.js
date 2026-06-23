@@ -580,6 +580,10 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 expect(cascadeAction).toBe(undefined);
                 expect(dispatched.find(a => a?.type === 'REMOVE_NODE')).toExist();
                 expect(dispatched.find(a => a?.type === 'REMOVE_LAYER')).toExist();
+                // The legacy fallback must also PERSIST the removal to the blob
+                // (else the layer re-appears from base_resourcebase.blob on the
+                // next load — the orphan-terrain "re-appears" bug).
+                expect(dispatched.find(a => a?.type === 'GEONODE:SAVE_DIRECT_CONTENT')).toExist();
                 done();
             }
         );
@@ -629,6 +633,55 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 // Legacy REMOVE_NODE / REMOVE_LAYER dispatched instead
                 expect(dispatched.find(a => a?.type === 'REMOVE_NODE')).toExist();
                 expect(dispatched.find(a => a?.type === 'REMOVE_LAYER')).toExist();
+                // …and persisted to the blob so it does not re-appear on reload.
+                expect(dispatched.find(a => a?.type === 'GEONODE:SAVE_DIRECT_CONTENT')).toExist();
+                done();
+            }
+        );
+    });
+
+    // The reported bug: an ORPHAN terrain layer — group 'Input Data.Terrain'
+    // but with NO matching anuga.resources.terrain row (its Terrain row +
+    // Datasets were deleted server-side, e.g. a re-derived combined surface) —
+    // resolves datasetId=null, so the typed deleteTerrain cascade is skipped and
+    // we hit the legacy fallback. Pre-fix that fallback omitted saveDirectContent,
+    // so the layer vanished from the live tree but was restored from the blob on
+    // the next load. Two non-matching rows defeat the single-row last-resort in
+    // getDatasetIdForLayer, mirroring the real hydrata.com/map/5528 blob.
+    it('orphan Terrain layer (no matching model) removes redux AND persists via saveDirectContent', (done) => {
+        const { MenuRow } = require('../simpleViewMenuRow');
+        const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
+        const store = createMockStore({
+            anuga: {
+                projects: { data: { id: 649, my_role: 'owner' } },
+                resources: {
+                    terrain: [
+                        { id: 510, gn_layer_name: 'ele_510_utm_spa_dcp3_cog' },
+                        { id: 508, gn_layer_name: 'ele_508_utm_copernicus_cog' }
+                    ]
+                }
+            },
+            layers: { flat: [{ id: 'ghost-dem', name: 'geonode:ele_512_utm_combined_surface_derived_cog', group: 'Input Data.Terrain' }], groups: [] }
+        });
+        ReactDOM.render(
+            <Provider store={store}>
+                <MenuRow layer={baseLayer({
+                    id: 'ghost-dem',
+                    group: 'Input Data.Terrain',
+                    name: 'geonode:ele_512_utm_combined_surface_derived_cog',
+                    title: 'Combined surface (derived)'
+                })} />
+            </Provider>,
+            container,
+            () => {
+                confirmDelete(container);
+                // No typed cascade (no resolvable Terrain row).
+                expect(dispatched.find(a => a?.type === DELETE_TERRAIN)).toBe(undefined);
+                // Redux removal …
+                expect(dispatched.find(a => a?.type === 'REMOVE_LAYER' && a.layerId === 'ghost-dem')).toExist();
+                expect(dispatched.find(a => a?.type === 'REMOVE_NODE')).toExist();
+                // … AND persisted so the ghost does not re-appear on reload.
+                expect(dispatched.find(a => a?.type === 'GEONODE:SAVE_DIRECT_CONTENT')).toExist();
                 done();
             }
         );
