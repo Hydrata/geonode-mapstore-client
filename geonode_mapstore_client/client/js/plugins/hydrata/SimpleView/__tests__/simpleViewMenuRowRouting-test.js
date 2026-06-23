@@ -412,23 +412,53 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(f.type).toNotBe('text');
         });
 
-        it('bdy_ data field carries inline choices for constant + timeseries kinds', () => {
+        it('bdy_ data field carries SERIALIZABLE choices (kind+label only — NO render/fetch fns)', () => {
             // TASK-826 (W3.3) — DiscriminatorPicker reads `field.choices`.
             // Boundary declares exactly the 2 original TimeDataPicker kinds
             // so DOM, CSS, and value shape stay byte-identical.
+            //
+            // DataCloneError fix (2026-06-23) — choices must carry ONLY
+            // serializable data (the render COMPONENT + fetch loader moved to
+            // the kind-keyed discriminatorRegistry). This formConfig is embedded
+            // in the startVectorDraw Redux action; OpenReplay's tracker-redux
+            // structured-clones every action to a Worker on prod, and a function
+            // value throws DataCloneError -> the edit pencil silently dies. This
+            // test is the regression guard: it FAILS on the pre-fix code (which
+            // had `render: ConstantInput` inline) and PASSES after the move.
             const f = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields.find(x => x.name === 'data');
             expect(Array.isArray(f.choices)).toBe(true);
             expect(f.choices.length).toBe(2);
             const kinds = f.choices.map(c => c.kind);
             expect(kinds).toEqual(['constant', 'timeseries']);
-            // Each choice has a label + a render function. The timeseries
-            // kind also carries a `fetch` for the per-mount options load.
+            // Each choice has a serializable label, and NO function-valued
+            // render/fetch keys (those are resolved from discriminatorRegistry
+            // by kind at render time).
             f.choices.forEach(c => {
                 expect(typeof c.label).toBe('string');
-                expect(typeof c.render).toBe('function');
+                expect(typeof c.render).toNotBe('function');
+                expect(typeof c.fetch).toNotBe('function');
             });
-            const tsChoice = f.choices.find(c => c.kind === 'timeseries');
-            expect(typeof tsChoice.fetch).toBe('function');
+            // The whole field config must be structured-clone-safe (the actual
+            // prod failure mode).
+            expect(() => structuredClone(f)).toNotThrow();
+        });
+
+        it('bdy_ data choices resolve their render component + fetch from discriminatorRegistry by kind', () => {
+            // The render component / fetch loader live in the registry now —
+            // assert they resolve so the picker still renders Constant/TimeSeries
+            // (functional parity with the pre-fix inline render).
+            const { getDiscriminator } = require('../../VectorDraw/discriminatorRegistry');
+            // Importing FormField registers the default ANUGA kinds at module
+            // load (constant / timeseries).
+            require('../../VectorDraw/components/FormField');
+            const constant = getDiscriminator('constant');
+            const timeseries = getDiscriminator('timeseries');
+            expect(constant).toExist();
+            expect(typeof constant.render).toBe('function');
+            expect(timeseries).toExist();
+            expect(typeof timeseries.render).toBe('function');
+            // The timeseries kind owns the per-mount options fetch.
+            expect(typeof timeseries.fetch).toBe('function');
         });
 
         it('bdy_ data field carries showWhen { field: "boundary", equals: "Time" }', () => {

@@ -1,4 +1,21 @@
 import React, { useEffect, useState } from 'react';
+import { getDiscriminator } from '../discriminatorRegistry';
+
+// Resolve the effective render component / fetch loader for a choice.
+// Inline `choice.render` / `choice.fetch` always win (the named-export
+// TimeDataPicker path + the unit tests inject render components inline).
+// When absent, fall back to the kind-keyed discriminatorRegistry — this is
+// the path the serializable ANUGA formConfigs use, which carry only a `kind`
+// string so the startVectorDraw action stays structured-clone-safe (no
+// functions in Redux -> no OpenReplay DataCloneError on prod).
+const resolveRender = (choice) => {
+    if (typeof choice?.render === 'function') return choice.render;
+    return getDiscriminator(choice?.kind)?.render;
+};
+const resolveFetch = (choice) => {
+    if (typeof choice?.fetch === 'function') return choice.fetch;
+    return getDiscriminator(choice?.kind)?.fetch;
+};
 
 /**
  * TASK-825 (W3.2) — DiscriminatorPicker
@@ -133,7 +150,8 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId }) => {
         choices.forEach(c => {
             // A kind is "loading" iff it has a fetch AND no injected options.
             // Otherwise it has its options up-front (or doesn't need any).
-            out[c.kind] = (typeof c.fetch === 'function') && !Array.isArray(c.options);
+            // `fetch` may be inline OR resolved from the discriminatorRegistry.
+            out[c.kind] = (typeof resolveFetch(c) === 'function') && !Array.isArray(c.options);
         });
         return out;
     };
@@ -156,7 +174,8 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId }) => {
     useEffect(() => {
         let cancelled = false;
         choices.forEach(c => {
-            if (typeof c.fetch !== 'function') return;
+            const fetchFn = resolveFetch(c);
+            if (typeof fetchFn !== 'function') return;
             if (Array.isArray(c.options)) return;
             // Skip kinds whose options are already populated by a prior
             // mount/effect — re-running fetch on the same kind would double-
@@ -164,7 +183,7 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId }) => {
             // We still re-fetch when projectId changes (because the effect
             // re-runs and per-kind state is independent of projectId).
             Promise.resolve()
-                .then(() => c.fetch(projectId))
+                .then(() => fetchFn(projectId))
                 .then(list => {
                     if (cancelled) return;
                     const arr = Array.isArray(list) ? list : [];
@@ -201,7 +220,7 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId }) => {
         return null;
     }
 
-    const ActiveRender = activeChoice.render;
+    const ActiveRender = resolveRender(activeChoice);
     const activeOptions = optionsByKind[kind] || [];
     const activeLoading = !!loadingByKind[kind];
     const activeError = errorByKind[kind] || null;

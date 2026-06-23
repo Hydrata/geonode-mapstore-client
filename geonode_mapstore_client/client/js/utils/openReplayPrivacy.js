@@ -34,10 +34,73 @@ export function scrubUrlCredentials(url) {
     } catch (e) { return url; }
 }
 
+// Deep-strip values that the structured-clone algorithm cannot serialize —
+// FUNCTIONS today (and, defensively, symbols). tracker-redux ships each action
+// to its replay Worker via postMessage(action), which structured-clones it; a
+// single un-cloneable value throws an UNCAUGHT, synchronous DataCloneError
+// inside the dispatch, which can break whatever flow dispatched it (this bit the
+// ANUGA edit pencil: the startVectorDraw action carried React render components
+// on field.choices[].render — see VectorDraw/discriminatorRegistry.js). The
+// real fix keeps functions out of actions; this is belt-and-braces so NO action
+// can ever crash the app via the replay Worker again.
+//
+// Returns the SAME reference when nothing needed stripping (so the common case
+// is allocation-free and behaviourally identical). Recurses into plain objects
+// and arrays only; leaves all primitives, Dates, etc. untouched. Depth-guarded
+// against pathological/cyclic inputs (a cycle would also be un-cloneable, but we
+// don't try to handle it — we just bound the work). Never mutates the input,
+// never throws.
+const _MAX_STRIP_DEPTH = 12;
+function stripNonCloneable(value, depth) {
+    if (depth > _MAX_STRIP_DEPTH) { return value; }
+    if (!value || typeof value !== 'object') { return value; }
+    if (Array.isArray(value)) {
+        let copy = null;
+        for (let i = 0; i < value.length; i++) {
+            const v = value[i];
+            if (typeof v === 'function' || typeof v === 'symbol') {
+                if (!copy) { copy = value.slice(); }
+                copy[i] = undefined;
+            } else if (v && typeof v === 'object') {
+                const stripped = stripNonCloneable(v, depth + 1);
+                if (stripped !== v) {
+                    if (!copy) { copy = value.slice(); }
+                    copy[i] = stripped;
+                }
+            }
+        }
+        return copy || value;
+    }
+    // Only descend into plain-ish objects; exotic objects (Date, RegExp, Map…)
+    // are passed through — structured clone handles the common ones, and we
+    // don't want to deep-copy/flatten them.
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) { return value; }
+    let copy = null;
+    const keys = Object.keys(value);
+    for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        const v = value[k];
+        if (typeof v === 'function' || typeof v === 'symbol') {
+            if (!copy) { copy = { ...value }; }
+            delete copy[k];
+        } else if (v && typeof v === 'object') {
+            const stripped = stripNonCloneable(v, depth + 1);
+            if (stripped !== v) {
+                if (!copy) { copy = { ...value }; }
+                copy[k] = stripped;
+            }
+        }
+    }
+    return copy || value;
+}
+
 // Redact credential payloads from a Redux action (defense-in-depth behind the
-// actionFilter denylist). Returns the original reference when nothing is
-// sensitive (so unaffected actions are untouched); otherwise a shallow clone
-// with the sensitive keys replaced. Never mutates the input. Never throws.
+// actionFilter denylist) AND deep-strip non-cloneable (function) values so the
+// replay Worker's structured-clone can never throw DataCloneError. Returns the
+// original reference when nothing is sensitive AND nothing is non-cloneable (so
+// unaffected actions are untouched); otherwise a clone with the offending
+// values replaced/dropped. Never mutates the input. Never throws.
 export function sanitizeReduxAction(action) {
     if (!action || typeof action !== 'object') { return action; }
     try {
@@ -48,7 +111,9 @@ export function sanitizeReduxAction(action) {
                 cloned[k] = '[REDACTED]';
             }
         });
-        return cloned || action;
+        // Run the clone-safety strip over whichever object survives the
+        // credential pass (the redacted clone if any, else the original).
+        return stripNonCloneable(cloned || action, 0);
     } catch (e) { return action; }
 }
 

@@ -3,6 +3,7 @@ import { connect } from 'react-redux';
 import axios from '../../../../../MapStore2/web/client/libs/ajax';
 import { getProjectId } from '../../Anuga/selectorsAnuga';
 import { register, get } from '../widgetRegistry';
+import { registerDiscriminator } from '../discriminatorRegistry';
 import { DiscriminatorPicker } from './DiscriminatorPicker';
 import { ErrorStrip } from '../../SimpleView/components/primitives';
 
@@ -347,6 +348,22 @@ register({ name: 'time-data-picker', component: TimeDataPicker });
 // inline `choices` arrays; `time-data-picker` stays registered as a
 // back-compat alias.
 register({ name: 'discriminator-picker', component: DiscriminatorPickerWidget });
+
+// DataCloneError fix (2026-06-23) — register the default ANUGA discriminator
+// kinds against the kind-keyed discriminatorRegistry so a choice descriptor in
+// a `formConfig` (carried by the startVectorDraw Redux action) can declare just
+// a serializable `kind` string and DiscriminatorPicker resolves the render
+// component / fetch loader at render time. Keeping these FUNCTIONS out of the
+// action payload is what makes startVectorDraw structured-clone-safe — see
+// discriminatorRegistry.js. Registered here (not in the registry module) to
+// avoid an import cycle: ConstantInput / TimeSeriesSelect / fetchTimeSeries
+// are defined in this file.
+//
+// `constant` and `timeseries` are the two kinds used by every ANUGA
+// discriminator-picker formConfig today (Boundary value, Inflow data,
+// Rainfall data — see ANUGA_FEATURE_CONFIG in simpleViewMenuRow.js).
+registerDiscriminator({ kind: 'constant', render: ConstantInput });
+registerDiscriminator({ kind: 'timeseries', render: TimeSeriesSelect, fetch: fetchTimeSeries });
 
 const FormField = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
     const Component = get(field.type) || get('text');

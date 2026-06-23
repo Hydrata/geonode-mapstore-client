@@ -58,12 +58,18 @@ import {
 } from '../../Anuga/actionsAnuga';
 import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
 // TASK-826 (W3.3) — Inline `discriminator-picker` choices for Boundary +
-// Inflow `data` fields. Render components live in FormField.js (the
-// generalized DiscriminatorPicker dispatches to them); we reuse them here
-// rather than reimplementing so DOM + value shape stay byte-identical to
-// the pre-migration `time-data-picker` wrapper. fetchTimeSeries is the
-// per-mount loader for the 'timeseries' kind.
-import { ConstantInput, TimeSeriesSelect, fetchTimeSeries } from '../../VectorDraw/components/FormField';
+// Inflow `data` fields.
+//
+// DataCloneError fix (2026-06-23): these choice descriptors are embedded in
+// the `formConfig` carried by the startVectorDraw Redux action. They must NOT
+// carry function values (render component / fetch loader) — OpenReplay's
+// tracker-redux Worker.postMessage structured-clones every action on prod and
+// throws DataCloneError on a function, silently breaking the edit pencil. So
+// each choice now declares ONLY a serializable `kind` string; DiscriminatorPicker
+// resolves the ConstantInput / TimeSeriesSelect render component + fetchTimeSeries
+// loader from the kind-keyed discriminatorRegistry (registered in FormField.js)
+// at render time. DOM + value shape stay byte-identical to the pre-migration
+// `time-data-picker` wrapper.
 // Presentational primitives — toolbar + slider; VectorDraw 6-action
 // onClick body stays in the container and is passed in as `onEdit`.
 import {LayerActionToolbar, OpacitySlider} from './primitives';
@@ -220,10 +226,10 @@ const ANUGA_FEATURE_CONFIG = {
                 {name: 'data', type: 'discriminator-picker', label: 'Boundary value',
                     showWhen: {field: 'boundary', equals: 'Time'},
                     choices: [
-                        {kind: 'constant', label: 'Constant', render: ConstantInput,
+                        {kind: 'constant', label: 'Constant',
                             defaultValue: {constant: null}},
-                        {kind: 'timeseries', label: 'TimeSeries', fetch: fetchTimeSeries,
-                            render: TimeSeriesSelect, defaultValue: {timeseries_id: null}}
+                        {kind: 'timeseries', label: 'TimeSeries',
+                            defaultValue: {timeseries_id: null}}
                     ]}
             ]
         }
@@ -243,10 +249,10 @@ const ANUGA_FEATURE_CONFIG = {
                 // run_anuga's legacy `rainfall_filter` already drops.
                 {name: 'data', type: 'discriminator-picker', label: 'Data',
                     choices: [
-                        {kind: 'constant', label: 'Constant', render: ConstantInput,
+                        {kind: 'constant', label: 'Constant',
                             defaultValue: {constant: null}, unit: 'm³/s'},
-                        {kind: 'timeseries', label: 'TimeSeries', fetch: fetchTimeSeries,
-                            render: TimeSeriesSelect, defaultValue: {timeseries_id: null}}
+                        {kind: 'timeseries', label: 'TimeSeries',
+                            defaultValue: {timeseries_id: null}}
                     ]}
             ]
         }
@@ -280,10 +286,10 @@ const ANUGA_FEATURE_CONFIG = {
                 // rendered as a non-interactive suffix by ConstantInput when unit is set.
                 {name: 'data', type: 'discriminator-picker', label: 'Data',
                     choices: [
-                        {kind: 'constant', label: 'Constant', render: ConstantInput,
+                        {kind: 'constant', label: 'Constant',
                             defaultValue: {constant: null}, unit: 'mm/hr'},
-                        {kind: 'timeseries', label: 'TimeSeries', fetch: fetchTimeSeries,
-                            render: TimeSeriesSelect, defaultValue: {timeseries_id: null}}
+                        {kind: 'timeseries', label: 'TimeSeries',
+                            defaultValue: {timeseries_id: null}}
                     ]}
             ]
         }
