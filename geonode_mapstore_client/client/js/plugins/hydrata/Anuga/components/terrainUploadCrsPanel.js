@@ -441,7 +441,7 @@ const mapStateToProps = (state) => {
     const terrainModels = state?.anuga?.resources?.terrain || [];
     const terrainCrs = Array.from(new Set(
         (Array.isArray(terrainModels) ? terrainModels : [])
-            .map((t) => t && t.crs)
+            .map((t) => t && t.native_crs)
             .filter(Boolean)
     ));
     const terrainLayers = state?.layers?.flat?.filter((l) => l?.group === 'Input Data.Terrain') || [];

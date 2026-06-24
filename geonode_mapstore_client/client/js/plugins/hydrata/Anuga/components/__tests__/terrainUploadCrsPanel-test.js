@@ -216,6 +216,45 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
         });
     });
 
+    // ── Priority-1 shortcut: existing-terrain CRS (TASK-1880 review follow-up) ──
+    // The product-owner-verbatim priority-1 shortcut reads each terrain row's
+    // SOURCE CRS off `native_crs` (the field TerrainSerializerV2.get_native_crs
+    // exposes), NOT a (non-existent) `crs` field. Feed real terrain rows and assert
+    // their EPSG codes render as Suggested <option>s in the picker.
+    it('existing-terrain CRS → priority-1 shortcut renders an option per native_crs', () => {
+        return mount({ hasCrs: false, epsg: null, label: null }, {}, {
+            terrain: [{ native_crs: 'EPSG:28356' }, { native_crs: 'EPSG:32756' }]
+        }).then(() => {
+            const select = container.querySelector('[data-testid="terrain-crs-select"]');
+            expect(select).toExist();
+            const optionValues = Array.from(select.querySelectorAll('option')).map((o) => o.value);
+            expect(optionValues).toContain('EPSG:28356');
+            expect(optionValues).toContain('EPSG:32756');
+            // Picking the shortcut threads through to Confirm (proves it is a real
+            // selectable option, not a dead label).
+            TestUtils.Simulate.change(select, { target: { value: 'EPSG:28356' } });
+            expect(container.querySelector('[data-testid="terrain-crs-confirm"]').disabled).toBe(false);
+        });
+    });
+
+    it('terrain row with a legacy `crs` key but no `native_crs` → NO shortcut option', () => {
+        return mount({ hasCrs: false, epsg: null, label: null }, {}, {
+            // A row carrying ONLY the wrong/legacy `crs` field must not produce a
+            // shortcut — this pins the fix so it cannot silently regress to reading
+            // `crs`. (projection EPSG:32756 still seeds the shortcut from the project,
+            // so assert the `crs`-only EPSG:28356 specifically does NOT appear.)
+            terrain: [{ crs: 'EPSG:28356' }]
+        }).then(() => {
+            const select = container.querySelector('[data-testid="terrain-crs-select"]');
+            expect(select).toExist();
+            const suggested = select.querySelector('optgroup[label="Suggested"]');
+            const suggestedValues = suggested
+                ? Array.from(suggested.querySelectorAll('option')).map((o) => o.value)
+                : [];
+            expect(suggestedValues).toNotContain('EPSG:28356');
+        });
+    });
+
     // ── Cancel ────────────────────────────────────────────────────────────
     it('Cancel closes the panel (SET_TERRAIN_UPLOAD_CRS_PANEL false) without uploading', () => {
         return mount({ hasCrs: false }).then(({ store }) => {
