@@ -905,16 +905,11 @@ class AnugaInputMenuClass extends React.Component {
             expandedTerrainIds: new Set(),
             // TASK-1721 (W4) — per-terrain contour overlay enabled state.
             // Keyed by DEM layer name (bare, without 'geonode:' prefix).
-            contoursEnabled: {},
-            // TASK-1728 (W1.7) — direct-to-S3 terrain upload tracking. Progress is
-            // surfaced ON THE TASKS PANEL (not an inline strip / blocking modal),
-            // so this state is just an in-flight latch keyed on the BE process_id:
-            //   uploading: true while a byte transfer is in flight (prevents a
-            //              second concurrent picker submit)
-            //   processId: the REAL presign process_id the optimistic Tasks-Panel
-            //              row is keyed on (null until presign returns)
-            //   filename:  the file being uploaded (for the row name)
-            terrainUpload: { uploading: false, processId: null, filename: null }
+            contoursEnabled: {}
+            // TASK-1728 (W1.7) originally held terrainUpload latch state here.
+            // TASK-1892 (epic 1884 W3): removed — the upload latch moved verbatim
+            // into TerrainUploadCrsPanel.state (TASK-1880) and this dead object
+            // was never read after TASK-1880 landed.
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;

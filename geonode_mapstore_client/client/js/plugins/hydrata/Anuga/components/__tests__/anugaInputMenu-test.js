@@ -209,13 +209,16 @@ describe('TASK-1728 terrain upload — no inline strip, surfaces on Tasks Panel'
             onUpdateProcess: (p) => processes.push(p)
         });
         instance._onTerrainFileSelected({ target: { files: [{ name: 'dem.tif', size: 10, type: 'image/tiff' }] } });
-        // Panel opened, one synthetic error row injected, no in-flight latch.
+        // Panel opened, one synthetic error row injected, error status (not a running upload).
+        // TASK-1892: terrainUpload latch removed from state (moved to TerrainUploadCrsPanel);
+        // the no-upload guarantee is now proven by status='error' (not 'running') on the row.
         expect(opened).toBe(true);
         expect(processes.length).toBe(1);
         expect(processes[0].status).toBe('error');
         expect(processes[0].process_type).toBe('terrain_create');
         expect(processes[0].name).toContain('dem.tif');
-        expect(instance.state.terrainUpload.uploading).toBe(false);
+        // Confirm the state does NOT have a terrainUpload key (TASK-1892: dead state removed).
+        expect(instance.state.terrainUpload).toBe(undefined);
     });
 
     it('no-ops when no file is selected (no panel open, no process row)', () => {
@@ -229,7 +232,9 @@ describe('TASK-1728 terrain upload — no inline strip, surfaces on Tasks Panel'
         instance._onTerrainFileSelected({ target: { files: [] } });
         expect(opened).toBe(null);
         expect(processes.length).toBe(0);
-        expect(instance.state.terrainUpload.uploading).toBe(false);
+        // TASK-1892: terrainUpload latch removed from state (moved to TerrainUploadCrsPanel);
+        // the no-upload guarantee is now proven by 0 process rows and no panel open.
+        expect(instance.state.terrainUpload).toBe(undefined);
     });
 
     // TASK-1880 (epic 1884 W2 — THE HEADLINE): the gate moved. _onTerrainFileSelected
