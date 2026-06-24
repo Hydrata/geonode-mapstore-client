@@ -126,18 +126,28 @@ describe('Wave 3A — summariseResource helper', () => {
         expect(out.meta).toBe(null);
     });
 
-    it('renders terrain summary with resolution + area + meta CRS', () => {
+    it('renders terrain summary with resolution + area + meta CRS (native_crs field, TASK-1893)', () => {
+        // TASK-1893: the BE exposes native_crs (not crs). The old `found.crs` read
+        // was silently undefined → meta was always null in the scenario pane.
         const t = {
             id: 7,
             title: 'Riverbank LiDAR 1m',
             resolution_m: 1,
             area_km2: 14.2,
-            crs: 'EPSG:28356'
+            native_crs: 'EPSG:28356'
         };
         const out = summariseResource([t], 7, 'terrain');
         expect(out.body).toInclude('1 m raster');
         expect(out.body).toInclude('14.2 km²');
         expect(out.meta).toBe('EPSG:28356');
+    });
+
+    it('returns null meta for terrain when native_crs absent (not found.crs, TASK-1893)', () => {
+        // Confirm the old field name (crs) is NOT used — only native_crs populates meta.
+        const t = { id: 8, title: 'No-CRS DEM', resolution_m: 2, area_km2: 5.0, crs: 'EPSG:4326' };
+        const out = summariseResource([t], 8, 'terrain');
+        // crs is present but native_crs is absent → meta must be null.
+        expect(out.meta).toBe(null);
     });
 
     it('renders boundary summary with segments + perimeter', () => {

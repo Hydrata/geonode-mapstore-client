@@ -32,6 +32,8 @@ import {
     startAnugaModelCreationPolling,
     stopAnugaModelCreationPolling,
     setVisibleTerrainBboxPanel,
+    // TASK-1880 (epic 1884 W2): open the in-app terrain-upload CRS picker.
+    setTerrainUploadCrsPanel,
     // TASK-1720 (W3): sync the terrain Redux row after a styling-mode PATCH (merge 5.x→epic).
     updateTerrainRow
 } from "../actionsAnuga";
@@ -95,7 +97,9 @@ import {mapSelector} from "../../../../../MapStore2/web/client/selectors/map";
 import {saveDirectContent} from "@js/actions/gnsave";
 // TASK-1720 (W3): DEM styling-mode toggle — update terrain via the API.
 // (updateTerrainRow is folded into the ../actionsAnuga import block above.)
-import {patchTerrainStylingMode, uploadTerrainDirect} from "../api/anugaApi";
+// TASK-1880 (epic 1884 W2): uploadTerrainDirect moved to TerrainUploadCrsPanel
+// (the CRS picker now owns the presign→PUT→finalize chain on Confirm).
+import {patchTerrainStylingMode} from "../api/anugaApi";
 // TASK-1728 (W1.7): the direct-to-S3 terrain upload no longer owns a blocking
 // modal or an inline progress strip — its progress lives on the W1.5 Tasks Panel.
 // The presign-time Process (created by the BE, TASK-1727) surfaces via polling;
@@ -796,6 +800,8 @@ class AnugaInputMenuClass extends React.Component {
         meshRegionLayers: PropTypes.array,
         startAnugaModelCreationPolling: PropTypes.func,
         stopAnugaModelCreationPolling: PropTypes.func,
+        // TASK-1880 (epic 1884 W2): open the in-app terrain-upload CRS picker.
+        setTerrainUploadCrsPanel: PropTypes.func,
         isCreatingAnugaLayer: PropTypes.bool,
         setCreatingAnugaLayer: PropTypes.func,
         canEditAnugaMap: PropTypes.bool,
@@ -899,16 +905,11 @@ class AnugaInputMenuClass extends React.Component {
             expandedTerrainIds: new Set(),
             // TASK-1721 (W4) — per-terrain contour overlay enabled state.
             // Keyed by DEM layer name (bare, without 'geonode:' prefix).
-            contoursEnabled: {},
-            // TASK-1728 (W1.7) — direct-to-S3 terrain upload tracking. Progress is
-            // surfaced ON THE TASKS PANEL (not an inline strip / blocking modal),
-            // so this state is just an in-flight latch keyed on the BE process_id:
-            //   uploading: true while a byte transfer is in flight (prevents a
-            //              second concurrent picker submit)
-            //   processId: the REAL presign process_id the optimistic Tasks-Panel
-            //              row is keyed on (null until presign returns)
-            //   filename:  the file being uploaded (for the row name)
-            terrainUpload: { uploading: false, processId: null, filename: null }
+            contoursEnabled: {}
+            // TASK-1728 (W1.7) originally held terrainUpload latch state here.
+            // TASK-1892 (epic 1884 W3): removed — the upload latch moved verbatim
+            // into TerrainUploadCrsPanel.state (TASK-1880) and this dead object
+            // was never read after TASK-1880 landed.
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;
@@ -945,86 +946,34 @@ class AnugaInputMenuClass extends React.Component {
         });
     };
 
-    // TASK-1728: file chosen → run presign → XHR PUT → finalize, with progress
-    // surfaced ON THE TASKS PANEL (non-blocking) — NOT a modal or an inline strip.
-    // The presign-time Process (BE, TASK-1727) already appears in the panel via
-    // polling; we open the panel and inject an optimistic row keyed on the SAME
-    // process_id so progress shows from the first byte while the modeller keeps
-    // working. Upload progress is FE-local (browser xhr.upload.onprogress); we do
-    // NOT chatty-PATCH the BE Process per chunk — the optimistic row's progress_pct
-    // is purely local and the polled Process takes over the lifecycle on finalize.
-    // Replaces the legacy synchronous multipart POST that streamed the whole GeoTIFF
-    // through uwsgi and died at harakiri=120. On PUT failure the BE reconcile sweep
-    // + S3 lifecycle clean up the orphan — the FE just reflects the error on the row.
+    // TASK-1880 (epic 1884 W2 — THE HEADLINE): the upload glyph / starter CTA no
+    // longer run the byte transfer directly. A file is chosen → OPEN the in-app CRS
+    // picker (TerrainUploadCrsPanel, mounted at the anugaContainer level) carrying
+    // the File + an auto-title. The picker detects the DEM's CRS (cheap header
+    // read), requires a SOURCE CRS only when the raster lacks one, and runs the
+    // presign → PUT → finalize chain itself on Confirm (forwarding the picked CRS as
+    // `crs_override`). This replaces the MissingCRSError QGIS dead-end with in-app
+    // recovery. The earlier TASK-1728 inline upload orchestration moved verbatim
+    // into the panel; the no-project guard stays here so a bad invocation still
+    // surfaces a synthetic Tasks-Panel error row.
     _onTerrainFileSelected = (event) => {
         const file = event && event.target && event.target.files && event.target.files[0];
         if (!file) return;
         const projectId = this.props.projectId;
-        const name = `Terrain upload: ${file.name}`;
         if (!projectId) {
             // No real BE Process — surface a synthetic error row on the Tasks Panel.
+            const name = `Terrain upload: ${file.name}`;
             if (this.props.onOpenTaskMonitor) this.props.onOpenTaskMonitor(true);
             this._emitTerrainUploadProcess(`terrain-upload-${Date.now()}`, {
                 name, status: 'error', status_detail: null, error_message: 'No project selected.'
             });
-            this.setState({ terrainUpload: { uploading: false, processId: null, filename: file.name } });
             return;
         }
+        // Auto-title = filename minus extension (the panel pre-fills the editable
+        // title field with it). Open the CRS picker; the upload runs on Confirm.
         const title = (file.name || '').replace(/\.[^.]+$/, '') || file.name;
-        // Latch in-flight + open the Tasks Panel so the upload is immediately visible.
-        this.setState({ terrainUpload: { uploading: true, processId: null, filename: file.name } });
-        if (this.props.onOpenTaskMonitor) this.props.onOpenTaskMonitor(true);
-        trackEvent('process', 'start', 'anuga-terrain-direct-upload');
-
-        // The optimistic row id is the REAL process_id once presign returns; until
-        // then track a synthetic id so a PUT-progress tick before presign resolves
-        // (it never does, but be defensive) still has a row to update.
-        let rowId = `terrain-upload-${Date.now()}`;
-
-        uploadTerrainDirect(projectId, file, {
-            title,
-            onPresign: (data) => {
-                // Re-key the optimistic row on the BE process_id so the polled BE
-                // Process merges onto it (no duplicate row).
-                if (data && data.process_id) rowId = data.process_id;
-                this.setState(prev => ({ terrainUpload: { ...prev.terrainUpload, processId: rowId } }));
-                this._emitTerrainUploadProcess(rowId, {
-                    name, status: 'running', progress_pct: 0, status_detail: 'Uploading'
-                });
-            },
-            onProgress: (pct) => {
-                // Byte-level progress on the Tasks-Panel row. At 100% the bytes are
-                // on S3 and finalize is about to run → show the import handoff.
-                this._emitTerrainUploadProcess(rowId, pct >= 100
-                    ? { name, status: 'running', progress_pct: 100, status_detail: 'Importing' }
-                    : { name, status: 'running', progress_pct: pct, status_detail: 'Uploading' });
-            }
-        })
-            .then(() => {
-                this.setState({ terrainUpload: { uploading: false, processId: rowId, filename: file.name } });
-                // Finalize succeeded: the BE Process is now mid-import. Hand the row
-                // back to polling (which carries the real Uploading -> UTM -> Hillshade
-                // -> Style lifecycle); a 'pending' running row keeps the panel live
-                // until the next poll merges authoritative server state.
-                this._emitTerrainUploadProcess(rowId, {
-                    name, status: 'running', progress_pct: 100, status_detail: 'Importing'
-                });
-                // Kick the existing layer-creation poll so the new Terrain row surfaces
-                // when the async import chain finishes (no new poll — contract §Notes).
-                if (this.props.startAnugaModelCreationPolling) this.props.startAnugaModelCreationPolling();
-                trackEvent('process', 'complete', 'anuga-terrain-direct-upload');
-            })
-            .catch((err) => {
-                const detail = err?.response?.data?.detail || err?.message || 'Upload failed.';
-                this.setState({ terrainUpload: { uploading: false, processId: rowId, filename: file.name } });
-                // Reflect the failure on the SAME row. On a presign failure rowId is
-                // still synthetic (no BE Process was created); on a PUT failure the BE
-                // reconcile sweep errors the real Process — either way the panel shows it.
-                this._emitTerrainUploadProcess(rowId, {
-                    name, status: 'error', status_detail: null, error_message: String(detail)
-                });
-                trackEvent('process', 'error', 'anuga-terrain-direct-upload');
-            });
+        if (this.props.setTerrainUploadCrsPanel) this.props.setTerrainUploadCrsPanel(true, file, title);
+        trackEvent('button', 'click', 'anuga-terrain-crs-picker-open');
     };
 
     _toggleMeshWorkflow = () => {
@@ -1940,6 +1889,9 @@ const mapDispatchToProps = ( dispatch ) => {
         stopAnugaModelCreationPolling: () => dispatch(stopAnugaModelCreationPolling()),
         setVisibleUploaderPanel: (visible, importerConfigKey, layerId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, layerId)),
         setVisibleTerrainBboxPanel: (visible) => dispatch(setVisibleTerrainBboxPanel(visible)),
+        // TASK-1880 (epic 1884 W2): open the in-app terrain-upload CRS picker with
+        // the picked File + auto-title (the picker runs the upload on Confirm).
+        setTerrainUploadCrsPanel: (visible, file, title) => dispatch(setTerrainUploadCrsPanel(visible, file, title)),
         setCreatingAnugaLayer: (isCreatingAnugaLayer) => dispatch(setCreatingAnugaLayer(isCreatingAnugaLayer)),
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
         createAnugaInflow: (inflowTitle) => dispatch(createAnugaInflow(inflowTitle)),

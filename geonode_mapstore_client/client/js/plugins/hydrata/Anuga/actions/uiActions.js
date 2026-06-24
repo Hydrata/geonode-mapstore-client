@@ -43,6 +43,16 @@ const CLEAR_PROFILE = 'ANUGA:CLEAR_PROFILE';
 // combined terrain (filled area) + water-surface (terrain+depth=stage) chart.
 // Same draw interaction / endpoint / samples — only the chart rendering differs.
 const SET_PROFILE_MODE = 'ANUGA:SET_PROFILE_MODE';
+// TASK-1880 (epic 1884 W2 — THE HEADLINE) — in-app terrain-upload CRS picker.
+// The upload glyph / starter CTA no longer fire the byte transfer directly; they
+// OPEN this panel carrying the picked File + an auto-title, so a CRS-less DEM can
+// be recovered in-app by the user assigning its SOURCE CRS (no QGIS round-trip).
+// The File rides redux/lifted state so it survives open → Confirm. The panel is
+// mounted at the container level (like terrainBbox) so closing the Inputs menu
+// cannot unmount it mid-upload. crsOverride is forwarded to finalize as
+// `crs_override` (TASK-1885 BE contract), OMITTED when the DEM already has a CRS.
+const SET_TERRAIN_UPLOAD_CRS_PANEL = 'ANUGA:SET_TERRAIN_UPLOAD_CRS_PANEL';
+const SET_TERRAIN_UPLOAD_CRS_ERROR = 'ANUGA:SET_TERRAIN_UPLOAD_CRS_ERROR';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -162,6 +172,20 @@ function setProfileMode(mode) {
     return { type: SET_PROFILE_MODE, mode };
 }
 
+// TASK-1880 (W2) — open/close the terrain-upload CRS picker. On open carry the
+// picked `file` (a File/Blob, survives in redux so the Confirm dispatch can run
+// the upload) + an auto-derived `title` (file.name minus extension). Closing
+// (visible=false) discards the file/title/error so re-opening is clean — that IS
+// the Cancel path (no upload runs). Pass file=null/title=null to just close.
+function setTerrainUploadCrsPanel(visible, file, title) {
+    return { type: SET_TERRAIN_UPLOAD_CRS_PANEL, visible, file, title };
+}
+// TASK-1880 (W2) — surface the BE finalize 400 (TASK-1885 VALIDATION_ERROR on a
+// bad/unresolvable crs_override) in the panel's ErrorStrip. null clears it.
+function setTerrainUploadCrsError(error) {
+    return { type: SET_TERRAIN_UPLOAD_CRS_ERROR, error };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -191,5 +215,8 @@ module.exports = {
     SET_PROFILE_ERROR, setProfileError,
     CLEAR_PROFILE, clearProfile,
     // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode.
-    SET_PROFILE_MODE, setProfileMode
+    SET_PROFILE_MODE, setProfileMode,
+    // TASK-1880 (epic 1884 W2) — in-app terrain-upload CRS picker.
+    SET_TERRAIN_UPLOAD_CRS_PANEL, setTerrainUploadCrsPanel,
+    SET_TERRAIN_UPLOAD_CRS_ERROR, setTerrainUploadCrsError
 };

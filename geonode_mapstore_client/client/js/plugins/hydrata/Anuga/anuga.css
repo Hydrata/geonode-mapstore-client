@@ -240,6 +240,18 @@
     padding-right: 28px;
 }
 
+/* TASK-1880 (epic 1884 W2 — THE HEADLINE): thin width/testid variant for the
+ * terrain-upload CRS picker's native <select>. Dual-classed with the standard
+ * .sv-scenario-select (chevron + dark-glass palette inherited); this only widens
+ * the control to fill the stacked FormRow field so long UTM-zone labels read in
+ * full (mirrors .sv-membership-search-input's thin-class pattern — the ONLY css
+ * change this wave). */
+.sv-crs-picker-select {
+    width: 100%;
+    min-width: 0;
+    padding-right: 28px;
+}
+
 .sv-add-data-input {
     font-size: 14px;
     white-space: nowrap;

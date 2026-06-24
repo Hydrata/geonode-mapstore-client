@@ -22,7 +22,10 @@ import {
     SET_PROFILE_ERROR,
     CLEAR_PROFILE,
     // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode.
-    SET_PROFILE_MODE
+    SET_PROFILE_MODE,
+    // TASK-1880 (epic 1884 W2) — in-app terrain-upload CRS picker.
+    SET_TERRAIN_UPLOAD_CRS_PANEL,
+    SET_TERRAIN_UPLOAD_CRS_ERROR
 } from "../actionsAnuga";
 
 import {
@@ -68,7 +71,16 @@ const initialState = {
     // line + samples render either as raw value-vs-distance traces ('profile',
     // W4.4) or the combined terrain + water-surface chart ('crosssection').
     // Defaults to 'profile' so W4.4 behaviour is unchanged.
-    profileMode: 'profile'
+    profileMode: 'profile',
+    // TASK-1880 (epic 1884 W2 — THE HEADLINE) — in-app terrain-upload CRS picker.
+    // The cluster lives on `ui` like the terrainBbox / profile state. The picked
+    // File rides redux (terrainUploadCrsFile) so it survives open → Confirm; it is
+    // intentionally a non-serialized object held only for the upload's lifetime
+    // and is cleared on close. terrainUploadCrsError surfaces the BE finalize 400.
+    terrainUploadCrsPanelVisible: false,
+    terrainUploadCrsFile: null,
+    terrainUploadCrsTitle: '',
+    terrainUploadCrsError: null
 };
 
 export default (state = initialState, action) => {
@@ -209,6 +221,28 @@ export default (state = initialState, action) => {
         return { ...state, profileError: action.error || null, profileLoading: false, profileDrawingActive: false };
     case CLEAR_PROFILE:
         return { ...state, profileSamples: null, profileTraces: null, profileError: null };
+    // ── TASK-1880 (W2) — in-app terrain-upload CRS picker ──────────────────
+    case SET_TERRAIN_UPLOAD_CRS_PANEL:
+        // Opening carries the picked File + auto-title; closing (visible=false)
+        // discards them so re-opening is clean (mirrors SET_VISIBLE_TERRAIN_BBOX_PANEL).
+        // Closing IS the Cancel path — the File is dropped without uploading.
+        return action.visible
+            ? {
+                ...state,
+                terrainUploadCrsPanelVisible: true,
+                terrainUploadCrsFile: action.file || null,
+                terrainUploadCrsTitle: action.title || '',
+                terrainUploadCrsError: null
+            }
+            : {
+                ...state,
+                terrainUploadCrsPanelVisible: false,
+                terrainUploadCrsFile: null,
+                terrainUploadCrsTitle: '',
+                terrainUploadCrsError: null
+            };
+    case SET_TERRAIN_UPLOAD_CRS_ERROR:
+        return { ...state, terrainUploadCrsError: action.error || null };
     default:
         return state;
     }

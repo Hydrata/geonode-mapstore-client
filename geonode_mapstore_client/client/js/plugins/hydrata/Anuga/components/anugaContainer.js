@@ -26,6 +26,11 @@ import {AnugaInputMenu} from './anugaInputMenu';
 // stuck in BBOX draw mode with no panel to return to (the "freeze"). Mounting it
 // here keeps it alive across the menu close; it self-gates on terrainBboxPanelVisible.
 import {TerrainBboxPanel} from './terrainBboxPanel';
+// TASK-1880 (epic 1884 W2 — THE HEADLINE): in-app terrain-upload CRS picker.
+// Mounted at the container level like TerrainBboxPanel so closing the Inputs menu
+// can't unmount it mid-upload (TASK-1648 lesson); self-gates on the redux
+// terrainUploadCrsPanelVisible flag (renders null until the upload glyph opens it).
+import {TerrainUploadCrsPanel} from './terrainUploadCrsPanel';
 // TASK-1800 (W1.9 UAT): the Analysis-Surface recipe builder is now the
 // stand-alone "Merge terrains" side panel. Like TerrainBboxPanel it is mounted
 // at the CONTAINER level (NOT inside AnugaInputMenu) and self-gates on
@@ -312,6 +317,12 @@ export class AnugaContainer extends React.Component {
                         import area' does) does NOT unmount it mid-draw. It self-gates
                         on terrainBboxPanelVisible, so it renders null until opened. */}
                     <TerrainBboxPanel/>
+                    {/* TASK-1880 (epic 1884 W2 — THE HEADLINE): in-app terrain-upload
+                        CRS picker. Mounted here (not inside AnugaInputMenu) so closing
+                        the Inputs menu does NOT unmount it mid-upload. Self-gates on
+                        terrainUploadCrsPanelVisible (null until the upload glyph /
+                        starter CTA opens it via setTerrainUploadCrsPanel). */}
+                    <TerrainUploadCrsPanel/>
                     {/* TASK-1861 (W4.4): depth/result line-profile tool panel,
                         mounted at container level (self-gates on
                         profilePanelVisible) like TerrainBboxPanel so closing a

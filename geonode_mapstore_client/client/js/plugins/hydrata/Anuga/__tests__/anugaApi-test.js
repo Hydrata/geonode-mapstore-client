@@ -59,6 +59,8 @@ describe('anugaApi', () => {
             // TASK-1729 (W1.7) — direct-to-S3 presigned-PUT terrain upload client
             'presignTerrainUpload', 'putFileToS3', 'finalizeTerrainUpload',
             'uploadTerrainDirect',
+            // TASK-1881 (epic 1884 W3) — finalize retry wrapper
+            'finalizeTerrainUploadWithRetry',
             // TASK-1856 (W3.2) — single-point DEM elevation query
             'getTerrainElevationPoint',
             // TASK-1861 (W4.4) — multi-raster line-profile sampler
@@ -71,7 +73,7 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 62 API functions', () => {
+        it('should export exactly 63 API functions', () => {
             // Branch baseline (epic/1587) ships 55 exported functions (the
             // historical "53→54" comment chain undercounted by one; the live
             // module is 55). TASK-1729 adds 4: presignTerrainUpload +
@@ -79,10 +81,11 @@ describe('anugaApi', () => {
             // TASK-1856 (W3.2) adds 1: getTerrainElevationPoint = 60.
             // TASK-1861 (W4.4) adds 1: getTerrainProfile = 61.
             // Orphan-terrain self-heal adds 1: datasetExistsByPk = 62.
+            // TASK-1881 (epic 1884 W3) adds 1: finalizeTerrainUploadWithRetry = 63.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(62);
+            expect(exportedFunctions.length).toBe(63);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
@@ -716,6 +719,97 @@ describe('anugaApi', () => {
             }).catch(done);
         });
 
+        // TASK-1880 (epic 1884 W2): the CRS picker forwards the user-assigned source
+        // CRS as `crs_override` (TASK-1885 BE contract; osr.SetFromUserInput is the
+        // authority). Present when supplied, OMITTED when not.
+        it('finalizeTerrainUpload includes crs_override as crs_override when supplied', (done) => {
+            anugaApi.finalizeTerrainUpload(7, {
+                stagingKey: 'terrain_uploads/staging/x/dem.tif', crsOverride: 'EPSG:32756'
+            }).then(() => {
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body.crs_override).toBe('EPSG:32756');
+                done();
+            }).catch(done);
+        });
+
+        it('finalizeTerrainUpload OMITS crs_override when not supplied (DEM already has a CRS)', (done) => {
+            anugaApi.finalizeTerrainUpload(7, {
+                stagingKey: 'terrain_uploads/staging/x/dem.tif', title: 'My DEM'
+            }).then(() => {
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect('crs_override' in body).toBe(false);
+                done();
+            }).catch(done);
+        });
+
+        // ── TASK-1881 (epic 1884 W3) — finalizeTerrainUploadWithRetry ────────
+        describe('TASK-1881 finalizeTerrainUploadWithRetry', () => {
+            it('exports FINALIZE_MAX_RETRIES (number) and FINALIZE_RETRY_DELAY_MS (number)', () => {
+                expect(typeof anugaApi.FINALIZE_MAX_RETRIES).toBe('number');
+                expect(typeof anugaApi.FINALIZE_RETRY_DELAY_MS).toBe('number');
+                expect(anugaApi.FINALIZE_MAX_RETRIES).toBeGreaterThan(0);
+                expect(anugaApi.FINALIZE_RETRY_DELAY_MS).toBeGreaterThan(0);
+            });
+
+            it('resolves on first attempt when finalize returns 202 (no retry needed)', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/finalize/).reply(202, { id: 1, status: 'creating' });
+                anugaApi.finalizeTerrainUploadWithRetry(7, { stagingKey: 'k' }).then((resp) => {
+                    expect(resp.data.id).toBe(1);
+                    // Only one POST should have been made.
+                    expect(mockAxios.history.post.length).toBe(1);
+                    done();
+                }).catch(done);
+            });
+
+            it('retries on a 5xx and resolves on the second attempt', function(done) {
+                // eslint-disable-next-line no-invalid-this -- Mocha `this` for timeout extension
+                this.timeout(5000); // 1 retry × 1s delay + headroom
+                mockAxios.reset();
+                let calls = 0;
+                mockAxios.onPost(/finalize/).reply(() => {
+                    calls++;
+                    return calls === 1 ? [503, { detail: 'Service Unavailable' }] : [202, { id: 2 }];
+                });
+                anugaApi.finalizeTerrainUploadWithRetry(7, { stagingKey: 'k' }).then((resp) => {
+                    expect(resp.data.id).toBe(2);
+                    expect(calls).toBe(2);
+                    done();
+                }).catch(done);
+            });
+
+            it('does NOT retry a 4xx (terminal error re-thrown immediately)', (done) => {
+                mockAxios.reset();
+                let calls = 0;
+                mockAxios.onPost(/finalize/).reply(() => {
+                    calls++;
+                    return [400, { detail: 'Unknown CRS code', code: 'VALIDATION_ERROR' }];
+                });
+                anugaApi.finalizeTerrainUploadWithRetry(7, { stagingKey: 'k', crsOverride: 'EPSG:99999' })
+                    .then(() => done(new Error('should have rejected')))
+                    .catch(() => {
+                        // Only one call — no retries on 4xx.
+                        expect(calls).toBe(1);
+                        done();
+                    });
+            });
+
+            it('retries at most FINALIZE_MAX_RETRIES times and re-throws after exhaustion', function(done) {
+                // eslint-disable-next-line no-invalid-this -- Mocha `this` for timeout extension
+                this.timeout(10000); // 3 attempts × 1s delay + headroom
+                mockAxios.reset();
+                let calls = 0;
+                mockAxios.onPost(/finalize/).reply(() => { calls++; return [500, {}]; });
+                anugaApi.finalizeTerrainUploadWithRetry(7, { stagingKey: 'k' })
+                    .then(() => done(new Error('should have rejected')))
+                    .catch(() => {
+                        // 1 original + FINALIZE_MAX_RETRIES retries.
+                        expect(calls).toBe(1 + anugaApi.FINALIZE_MAX_RETRIES);
+                        done();
+                    });
+            });
+        });
+
         // putFileToS3 uses raw XMLHttpRequest (not axios), so stub the global.
         describe('putFileToS3 (raw XHR)', () => {
             let realXHR;
@@ -929,6 +1023,77 @@ describe('anugaApi', () => {
                     expect(finalizeCalls.length).toBe(0);
                     done();
                 });
+            });
+
+            // TASK-1880 (epic 1884 W2): crsOverride threads from uploadTerrainDirect
+            // straight into the finalize body as crs_override — and does NOT appear on
+            // the presign POST (the signed S3 PUT must carry no extra fields).
+            it('threads crsOverride into the finalize body as crs_override (not presign)', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+                    process_id: 'proc-9',
+                    staging_key: 'terrain_uploads/staging/u/dem.tif',
+                    upload_url: 'https://s3/u?sig=1',
+                    content_type: 'image/tiff'
+                });
+                mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 5, status: 'creating' });
+
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.uploadTerrainDirect(7, file, { title: 'My DEM', crsOverride: 'EPSG:32756' });
+
+                const tick = () => {
+                    if (lastXhr && lastXhr.onload) {
+                        lastXhr.status = 200;
+                        lastXhr.onload();
+                    } else {
+                        setTimeout(tick, 5);
+                    }
+                };
+                setTimeout(tick, 5);
+
+                p.then(() => {
+                    const presignBody = JSON.parse(
+                        mockAxios.history.post.find(r => /presign/.test(r.url)).data
+                    );
+                    expect('crs_override' in presignBody).toBe(false);
+                    const finalizeBody = JSON.parse(
+                        mockAxios.history.post.find(r => /finalize/.test(r.url)).data
+                    );
+                    expect(finalizeBody.crs_override).toBe('EPSG:32756');
+                    done();
+                }).catch(done);
+            });
+
+            it('OMITS crs_override from finalize when uploadTerrainDirect gets no crsOverride', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+                    process_id: 'proc-9',
+                    staging_key: 'terrain_uploads/staging/u/dem.tif',
+                    upload_url: 'https://s3/u?sig=1',
+                    content_type: 'image/tiff'
+                });
+                mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 5, status: 'creating' });
+
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.uploadTerrainDirect(7, file, { title: 'My DEM' });
+
+                const tick = () => {
+                    if (lastXhr && lastXhr.onload) {
+                        lastXhr.status = 200;
+                        lastXhr.onload();
+                    } else {
+                        setTimeout(tick, 5);
+                    }
+                };
+                setTimeout(tick, 5);
+
+                p.then(() => {
+                    const finalizeBody = JSON.parse(
+                        mockAxios.history.post.find(r => /finalize/.test(r.url)).data
+                    );
+                    expect('crs_override' in finalizeBody).toBe(false);
+                    done();
+                }).catch(done);
             });
         });
     });

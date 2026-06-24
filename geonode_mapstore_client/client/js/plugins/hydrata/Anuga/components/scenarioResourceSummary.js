@@ -130,7 +130,10 @@ function summariseResource(resourceList, assignedId, kind) {
     }
     return {
         body: bits.join(' · '),
-        meta: kind === 'terrain' && found.crs ? found.crs : null
+        // TASK-1893 (epic 1884 W3): terrain CRS field is native_crs NOT crs (BE
+        // TerrainSerializerV2.get_native_crs → obj.metadata.get("native_crs")).
+        // found.crs was always undefined → meta was silently null in the scenario pane.
+        meta: kind === 'terrain' && found.native_crs ? found.native_crs : null
     };
 }
 
