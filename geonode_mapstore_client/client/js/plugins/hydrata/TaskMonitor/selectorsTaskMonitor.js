@@ -9,14 +9,16 @@
 //
 // A Process whose `updated` timestamp has not advanced for STALE_MS is
 // treated as STALLED — the badge switches from a spinning "Running" to a
-// static "Stalled" label, and the progress bar is hidden. The value MUST be
-// shorter than the BE reaper window (TASK-1888, STALE_PROCESS_REAPER_MINUTES=15
-// min = 900 000 ms) so the FE softens first and the BE makes it durable.
+// static "Stalled" label, and the progress bar is hidden. This is a purely
+// FE display signal: there is NO BE reaper (the TASK-1888 reaper was removed
+// after review found a stale `updated` is NOT a reliable dead-worker signal —
+// healthy long phases like ERA5 fetch / GeoServer publish don't advance it).
+// The stalled badge surfaces lingering tasks so a user can clear them by hand.
 //
 // Poll cadence: closed-panel=10s, open-panel=3s. 5 minutes gives ~100 missed
 // open-panel ticks before the FE signals stalled — a generous window that
-// covers a slow but alive worker without masking a truly dead one.
-export const STALE_MS = 300000; // 5 min; FE softens first — BE reaps at 15 min (TASK-1888)
+// flags a likely-stuck task without crying wolf on a slow-but-alive worker.
+export const STALE_MS = 300000; // 5 min — FE-only stalled-badge signal (no BE reaper; users clear lingering tasks)
 
 /**
  * isActiveProcess — exported so BOTH getFilteredProcesses and the epic's

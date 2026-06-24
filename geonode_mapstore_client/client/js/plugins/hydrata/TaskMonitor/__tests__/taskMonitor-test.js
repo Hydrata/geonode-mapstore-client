@@ -1105,11 +1105,12 @@ describe('TaskMonitor', () => {
             expect(isActiveProcess({ status: 'running' }, now)).toBe(true);
         });
 
-        it('STALE_MS is exported and a number less than 900000ms (15min BE reaper window)', () => {
+        it('STALE_MS is exported and a sane positive staleness window (FE-only stalled-badge signal)', () => {
             expect(typeof STALE_MS).toBe('number');
-            // FE window must be shorter than BE reaper (STALE_PROCESS_REAPER_MINUTES=15min=900000ms)
-            expect(STALE_MS < 900000).toBe(true);
+            // FE-only display signal (no BE reaper — TASK-1888 removed). Keep it a
+            // few poll-cycles wide so a slow-but-alive worker is not flagged early.
             expect(STALE_MS > 0).toBe(true);
+            expect(STALE_MS <= 900000).toBe(true);
         });
     });
 
