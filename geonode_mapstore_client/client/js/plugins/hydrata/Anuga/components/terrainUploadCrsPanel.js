@@ -98,6 +98,37 @@ export class TerrainUploadCrsPanelClass extends React.Component {
             freeformCrs: '',
             uploading: false
         };
+        // TASK-1881: beforeunload handler reference, held so we can remove it
+        // precisely (addEventListener and removeEventListener must share the
+        // same function reference).
+        this._beforeUnloadHandler = null;
+    }
+
+    _addNavGuard() {
+        // TASK-1881: warn the user before navigating away while an upload is in
+        // flight. The browser only shows the native "Leave site?" dialog when
+        // the handler calls event.preventDefault() (Chromium ≥119 / Firefox
+        // 110+ convention). The legacy returnValue assignment is kept for
+        // older browsers that still read it.
+        this._beforeUnloadHandler = (e) => {
+            e.preventDefault();
+            e.returnValue = ''; // legacy browsers
+        };
+        window.addEventListener('beforeunload', this._beforeUnloadHandler);
+    }
+
+    _removeNavGuard() {
+        if (this._beforeUnloadHandler) {
+            window.removeEventListener('beforeunload', this._beforeUnloadHandler);
+            this._beforeUnloadHandler = null;
+        }
+    }
+
+    componentWillUnmount() {
+        // Safety net: if the component is destroyed mid-upload (shouldn't
+        // happen — panel is a container-level sibling per TASK-1648 lesson)
+        // we still remove the handler to avoid a memory leak.
+        this._removeNavGuard();
     }
 
     componentDidMount() {
@@ -224,6 +255,9 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         const crsOverride = this._resolveCrsOverride();
         const name = `Terrain upload: ${file.name}`;
         this.setState({ uploading: true });
+        // TASK-1881: register the nav guard BEFORE the first async step so the
+        // user can't navigate away during the presign → S3 PUT → finalize chain.
+        this._addNavGuard();
         this.props.setTerrainUploadCrsError(null);
         if (this.props.onOpenTaskMonitor) this.props.onOpenTaskMonitor(true);
         trackEvent('process', 'start', 'anuga-terrain-direct-upload', crsOverride ? 'with-crs-override' : 'detected-crs');
@@ -258,6 +292,8 @@ export class TerrainUploadCrsPanelClass extends React.Component {
             }
         })
             .then(() => {
+                // TASK-1881: nav guard no longer needed once the upload succeeds.
+                this._removeNavGuard();
                 emit(rowId, { name, status: 'running', progress_pct: 100, status_detail: 'Importing' });
                 if (this.props.startAnugaModelCreationPolling) this.props.startAnugaModelCreationPolling();
                 trackEvent('process', 'complete', 'anuga-terrain-direct-upload');
@@ -267,6 +303,9 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                 this.props.setTerrainUploadCrsPanel(false);
             })
             .catch((err) => {
+                // TASK-1881: nav guard removed on failure too (panel stays open for
+                // retry, but the byte transfer is no longer in flight).
+                this._removeNavGuard();
                 // MapStore axios interceptor: the body is at err.data (NOT
                 // err.response.data); err.message is absent (it's at
                 // err.originalError.message). Surface the BE 400 in the ErrorStrip.

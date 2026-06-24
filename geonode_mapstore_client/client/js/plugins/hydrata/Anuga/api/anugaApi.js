@@ -284,6 +284,34 @@ export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title,
         ...(crsOverride ? { crs_override: crsOverride } : {})
     });
 
+// TASK-1881: classify whether a finalize error is worth retrying.
+// - Transient: network error (no err.status / err.data.code) or 5xx server error.
+// - Terminal: 4xx (including VALIDATION_ERROR 400, auth 401/403) — retrying
+//   the same payload will produce the same failure.
+// MapStore axios interceptor shape: err.status (not err.response.status),
+// err.data (not err.response.data), err.originalError (the raw axios error).
+const _isFinalizeTransient = (err) => {
+    if (!err) return false;
+    const status = err.status || (err.originalError && err.originalError.response && err.originalError.response.status);
+    if (!status) return true; // no status → pure network/timeout error → transient
+    return status >= 500;     // 5xx = server-side transient; 4xx = terminal (bad input)
+};
+
+// TASK-1881: retry wrapper for finalizeTerrainUpload. Retries up to MAX_RETRIES
+// times on transient failures, with a RETRY_DELAY_MS pause between attempts. A
+// terminal 4xx error is re-thrown immediately (no retry).
+export const FINALIZE_MAX_RETRIES = 2;
+export const FINALIZE_RETRY_DELAY_MS = 1000;
+
+export const finalizeTerrainUploadWithRetry = (projectId, opts, _attempt) => {
+    const attempt = typeof _attempt === 'number' ? _attempt : 0;
+    return finalizeTerrainUpload(projectId, opts).catch((err) => {
+        if (!_isFinalizeTransient(err) || attempt >= FINALIZE_MAX_RETRIES) throw err;
+        return new Promise((resolve) => setTimeout(resolve, FINALIZE_RETRY_DELAY_MS))
+            .then(() => finalizeTerrainUploadWithRetry(projectId, opts, attempt + 1));
+    });
+};
+
 // Orchestrator — the full presign → PUT → finalize chain for one File. Keeps
 // the 3-step dance in the API layer so callers (anugaInputMenu) only deal with
 // {file, title, onProgress, onPresign}. Resolves with the finalize response (the
@@ -318,7 +346,10 @@ export const uploadTerrainDirect = (projectId, file, { title, crsOverride, onPro
             // echoes it back as content_type; fall back to what we sent.
             const signedContentType = data.content_type || contentType;
             return putFileToS3(data.upload_url, file, signedContentType, onProgress)
-                .then(() => finalizeTerrainUpload(projectId, {
+                // TASK-1881: use the retry wrapper for finalize so transient 5xx /
+                // network blips don't surface as permanent upload failures (up to 2
+                // retries, 1s delay; 4xx terminal errors are re-thrown immediately).
+                .then(() => finalizeTerrainUploadWithRetry(projectId, {
                     processId: data.process_id,
                     stagingKey: data.staging_key,
                     title,

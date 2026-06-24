@@ -255,6 +255,85 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
         });
     });
 
+    // ── TASK-1881: nav guard (beforeunload) ───────────────────────────────
+    it('TASK-1881: registers a beforeunload handler on Confirm click and removes it on success', () => {
+        mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+            process_id: 'proc-ng1', staging_key: 'k', upload_url: 'https://s3/u?sig=1', content_type: 'image/tiff'
+        });
+        mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 20 });
+
+        const added = [];
+        const removed = [];
+        const realAdd = window.addEventListener.bind(window);
+        const realRemove = window.removeEventListener.bind(window);
+        window.addEventListener = (type, fn, ...rest) => { if (type === 'beforeunload') added.push(fn); realAdd(type, fn, ...rest); };
+        window.removeEventListener = (type, fn, ...rest) => { if (type === 'beforeunload') removed.push(fn); realRemove(type, fn, ...rest); };
+
+        return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
+            const confirm = container.querySelector('[data-testid="terrain-crs-confirm"]');
+            TestUtils.Simulate.click(confirm);
+            // Nav guard should be registered immediately (synchronous, before first await).
+            expect(added.length).toBe(1);
+            const tick = () => {
+                if (lastXhr && lastXhr.onload) { lastXhr.status = 200; lastXhr.onload(); } else { setTimeout(tick, 5); }
+            };
+            setTimeout(tick, 5);
+            return new Promise((resolve) => {
+                const poll = () => {
+                    const fin = mockAxios.history.post.find(r => /finalize/.test(r.url));
+                    if (fin) resolve(); else setTimeout(poll, 5);
+                };
+                poll();
+            }).then(() => new Promise((resolve) => setTimeout(resolve, 20))).then(() => {
+                window.addEventListener = realAdd;
+                window.removeEventListener = realRemove;
+                // Guard removed after success.
+                expect(removed.length).toBe(1);
+                expect(removed[0]).toBe(added[0]);
+            });
+        });
+    });
+
+    it('TASK-1881: removes beforeunload handler on finalize failure (panel stays open for retry)', () => {
+        mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+            process_id: 'proc-ng2', staging_key: 'k', upload_url: 'https://s3/u?sig=1', content_type: 'image/tiff'
+        });
+        // Use 400 (terminal 4xx) so the retry wrapper re-throws immediately
+        // without a 1s delay — the nav-guard removal contract holds for all
+        // failure types (4xx terminal just arrives faster in the test).
+        mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(400, { detail: 'Unknown CRS code', code: 'VALIDATION_ERROR' });
+
+        const added = [];
+        const removed = [];
+        const realAdd = window.addEventListener.bind(window);
+        const realRemove = window.removeEventListener.bind(window);
+        window.addEventListener = (type, fn, ...rest) => { if (type === 'beforeunload') added.push(fn); realAdd(type, fn, ...rest); };
+        window.removeEventListener = (type, fn, ...rest) => { if (type === 'beforeunload') removed.push(fn); realRemove(type, fn, ...rest); };
+
+        return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(({ store }) => {
+            const confirm = container.querySelector('[data-testid="terrain-crs-confirm"]');
+            TestUtils.Simulate.click(confirm);
+            expect(added.length).toBe(1);
+            const tick = () => {
+                if (lastXhr && lastXhr.onload) { lastXhr.status = 200; lastXhr.onload(); } else { setTimeout(tick, 5); }
+            };
+            setTimeout(tick, 5);
+            return new Promise((resolve) => {
+                const poll = () => {
+                    const errAction = store.dispatched.find(a => a.type === 'ANUGA:SET_TERRAIN_UPLOAD_CRS_ERROR');
+                    if (errAction) resolve(); else setTimeout(poll, 5);
+                };
+                poll();
+            }).then(() => new Promise((resolve) => setTimeout(resolve, 20))).then(() => {
+                window.addEventListener = realAdd;
+                window.removeEventListener = realRemove;
+                // Guard removed after failure too (panel stays open but upload is not in flight).
+                expect(removed.length).toBe(1);
+                expect(removed[0]).toBe(added[0]);
+            });
+        });
+    });
+
     // ── Cancel ────────────────────────────────────────────────────────────
     it('Cancel closes the panel (SET_TERRAIN_UPLOAD_CRS_PANEL false) without uploading', () => {
         return mount({ hasCrs: false }).then(({ store }) => {
