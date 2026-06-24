@@ -716,6 +716,29 @@ describe('anugaApi', () => {
             }).catch(done);
         });
 
+        // TASK-1880 (epic 1884 W2): the CRS picker forwards the user-assigned source
+        // CRS as `crs_override` (TASK-1885 BE contract; osr.SetFromUserInput is the
+        // authority). Present when supplied, OMITTED when not.
+        it('finalizeTerrainUpload includes crs_override as crs_override when supplied', (done) => {
+            anugaApi.finalizeTerrainUpload(7, {
+                stagingKey: 'terrain_uploads/staging/x/dem.tif', crsOverride: 'EPSG:32756'
+            }).then(() => {
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body.crs_override).toBe('EPSG:32756');
+                done();
+            }).catch(done);
+        });
+
+        it('finalizeTerrainUpload OMITS crs_override when not supplied (DEM already has a CRS)', (done) => {
+            anugaApi.finalizeTerrainUpload(7, {
+                stagingKey: 'terrain_uploads/staging/x/dem.tif', title: 'My DEM'
+            }).then(() => {
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect('crs_override' in body).toBe(false);
+                done();
+            }).catch(done);
+        });
+
         // putFileToS3 uses raw XMLHttpRequest (not axios), so stub the global.
         describe('putFileToS3 (raw XHR)', () => {
             let realXHR;
@@ -929,6 +952,77 @@ describe('anugaApi', () => {
                     expect(finalizeCalls.length).toBe(0);
                     done();
                 });
+            });
+
+            // TASK-1880 (epic 1884 W2): crsOverride threads from uploadTerrainDirect
+            // straight into the finalize body as crs_override — and does NOT appear on
+            // the presign POST (the signed S3 PUT must carry no extra fields).
+            it('threads crsOverride into the finalize body as crs_override (not presign)', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+                    process_id: 'proc-9',
+                    staging_key: 'terrain_uploads/staging/u/dem.tif',
+                    upload_url: 'https://s3/u?sig=1',
+                    content_type: 'image/tiff'
+                });
+                mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 5, status: 'creating' });
+
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.uploadTerrainDirect(7, file, { title: 'My DEM', crsOverride: 'EPSG:32756' });
+
+                const tick = () => {
+                    if (lastXhr && lastXhr.onload) {
+                        lastXhr.status = 200;
+                        lastXhr.onload();
+                    } else {
+                        setTimeout(tick, 5);
+                    }
+                };
+                setTimeout(tick, 5);
+
+                p.then(() => {
+                    const presignBody = JSON.parse(
+                        mockAxios.history.post.find(r => /presign/.test(r.url)).data
+                    );
+                    expect('crs_override' in presignBody).toBe(false);
+                    const finalizeBody = JSON.parse(
+                        mockAxios.history.post.find(r => /finalize/.test(r.url)).data
+                    );
+                    expect(finalizeBody.crs_override).toBe('EPSG:32756');
+                    done();
+                }).catch(done);
+            });
+
+            it('OMITS crs_override from finalize when uploadTerrainDirect gets no crsOverride', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+                    process_id: 'proc-9',
+                    staging_key: 'terrain_uploads/staging/u/dem.tif',
+                    upload_url: 'https://s3/u?sig=1',
+                    content_type: 'image/tiff'
+                });
+                mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 5, status: 'creating' });
+
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.uploadTerrainDirect(7, file, { title: 'My DEM' });
+
+                const tick = () => {
+                    if (lastXhr && lastXhr.onload) {
+                        lastXhr.status = 200;
+                        lastXhr.onload();
+                    } else {
+                        setTimeout(tick, 5);
+                    }
+                };
+                setTimeout(tick, 5);
+
+                p.then(() => {
+                    const finalizeBody = JSON.parse(
+                        mockAxios.history.post.find(r => /finalize/.test(r.url)).data
+                    );
+                    expect('crs_override' in finalizeBody).toBe(false);
+                    done();
+                }).catch(done);
             });
         });
     });

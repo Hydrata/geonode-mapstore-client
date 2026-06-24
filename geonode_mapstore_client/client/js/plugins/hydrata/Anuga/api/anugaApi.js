@@ -271,11 +271,17 @@ export const putFileToS3 = (uploadUrl, file, contentType, onProgress) =>
 // kicks the async import chain. Returns 202 + serialized Terrain. body:
 // {process_id (recommended), staging_key (required), title (optional;
 // defaults to filename minus .tif)}.
-export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title } = {}) =>
+// TASK-1880 (epic 1884 W2): `crsOverride` (when supplied) is forwarded as the
+// `crs_override` field the BE finalize accepts (TASK-1885; osr.SetFromUserInput
+// is the authority, returns 400 VALIDATION_ERROR with NO Terrain row on a bad
+// code). OMITTED when undefined so a DEM that already carries a CRS is finalized
+// unchanged (the BE only applies the override to a CRS-less raster).
+export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title, crsOverride } = {}) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/terrain/upload/finalize/`, {
         ...(processId ? { process_id: processId } : {}),
         staging_key: stagingKey,
-        ...(title ? { title } : {})
+        ...(title ? { title } : {}),
+        ...(crsOverride ? { crs_override: crsOverride } : {})
     });
 
 // Orchestrator — the full presign → PUT → finalize chain for one File. Keeps
@@ -294,7 +300,13 @@ export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title 
 //                      and the upload is non-blocking from the first byte.
 //
 // Returns the axios finalize response (caller reads response.data for Terrain).
-export const uploadTerrainDirect = (projectId, file, { title, onProgress, onPresign } = {}) => {
+//
+// TASK-1880 (epic 1884 W2): the optional `crsOverride` (e.g. 'EPSG:32756') is the
+// SOURCE CRS the user picked for a CRS-less DEM. It threads straight through to
+// finalize as `crs_override`; it does NOT touch presign or the S3 PUT (any extra
+// header on the signed PUT would 403 SignatureDoesNotMatch — putFileToS3 is left
+// untouched), and is OMITTED from finalize when undefined.
+export const uploadTerrainDirect = (projectId, file, { title, crsOverride, onProgress, onPresign } = {}) => {
     const filename = file && file.name;
     const contentType = (file && file.type) || 'application/octet-stream';
     const size = file && typeof file.size === 'number' ? file.size : undefined;
@@ -309,7 +321,8 @@ export const uploadTerrainDirect = (projectId, file, { title, onProgress, onPres
                 .then(() => finalizeTerrainUpload(projectId, {
                     processId: data.process_id,
                     stagingKey: data.staging_key,
-                    title
+                    title,
+                    crsOverride
                 }));
         });
 };

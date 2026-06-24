@@ -232,19 +232,35 @@ describe('TASK-1728 terrain upload — no inline strip, surfaces on Tasks Panel'
         expect(instance.state.terrainUpload.uploading).toBe(false);
     });
 
-    it('with a project → latches in-flight, opens the Tasks Panel, and starts the upload', () => {
-        let opened = null;
+    // TASK-1880 (epic 1884 W2 — THE HEADLINE): the gate moved. _onTerrainFileSelected
+    // no longer runs the byte transfer; it OPENS the in-app CRS picker carrying the
+    // File + an auto-title (file.name minus extension). The upload itself now runs
+    // on Confirm inside TerrainUploadCrsPanel (covered by terrainUploadCrsPanel-test).
+    it('with a project → opens the CRS picker carrying the File + auto-title (does NOT upload)', () => {
+        let panelArgs = null;
+        const processes = [];
         const instance = makeInstance({
             projectId: 7,
-            onOpenTaskMonitor: (open) => { opened = open; },
-            onUpdateProcess: () => {}
+            setTerrainUploadCrsPanel: (visible, file, title) => { panelArgs = { visible, file, title }; },
+            onUpdateProcess: (p) => processes.push(p)
         });
-        // A real File-shaped object so uploadTerrainDirect kicks off (the presign
-        // POST is async — we don't await it; we assert the synchronous side effects).
         instance._onTerrainFileSelected({ target: { files: [{ name: 'dem.tif', size: 10, type: 'image/tiff' }] } });
-        expect(opened).toBe(true);
-        expect(instance.state.terrainUpload.uploading).toBe(true);
-        expect(instance.state.terrainUpload.filename).toBe('dem.tif');
+        expect(panelArgs).toExist();
+        expect(panelArgs.visible).toBe(true);
+        expect(panelArgs.file.name).toBe('dem.tif');
+        // Auto-title = filename minus extension.
+        expect(panelArgs.title).toBe('dem');
+        // The gate must NOT latch the upload or inject an optimistic row — Confirm does.
+        expect(processes.length).toBe(0);
+    });
+
+    it('both entry points route through _onTerrainFileSelected → the same hidden file input onChange', () => {
+        // The starter CTA and the upload glyph both call _openTerrainFilePicker(),
+        // which clicks the SAME hidden <input> whose onChange is _onTerrainFileSelected
+        // — so gating at _onTerrainFileSelected covers both entry points.
+        const { AnugaInputMenuClass } = require('../anugaInputMenu');
+        expect(typeof AnugaInputMenuClass.prototype._openTerrainFilePicker === 'function'
+            || typeof (new AnugaInputMenuClass({}))._openTerrainFilePicker === 'function').toBe(true);
     });
 
     it('_emitTerrainUploadProcess builds a terrain_create row keyed on the given id', () => {
