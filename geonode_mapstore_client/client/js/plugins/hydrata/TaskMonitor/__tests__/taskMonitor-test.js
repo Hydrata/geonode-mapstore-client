@@ -43,7 +43,9 @@ import {
     getActiveProcesses,
     getProcessesByType,
     getProcessForObject,
-    getFilteredProcesses
+    getFilteredProcesses,
+    isActiveProcess,
+    STALE_MS
 } from '../selectorsTaskMonitor';
 import processReducer from '../reducers/processReducer';
 import uiReducer from '../reducers/uiReducer';
@@ -1064,6 +1066,93 @@ describe('TaskMonitor', () => {
             it('should be a function', () => {
                 expect(typeof cancelProcessEpic).toBe('function');
             });
+        });
+    });
+
+    // =========================================================================
+    // TASK-1887 — isActiveProcess + staleness-aware getFilteredProcesses
+    // =========================================================================
+    describe('TASK-1887 isActiveProcess', () => {
+        const now = Date.now();
+        const freshUpdated = new Date(now - 60000).toISOString();          // 1 min ago → fresh
+        const staleUpdated = new Date(now - STALE_MS - 60000).toISOString(); // STALE_MS+1min → stale
+
+        it('returns false for null/undefined process', () => {
+            expect(isActiveProcess(null, now)).toBe(false);
+            expect(isActiveProcess(undefined, now)).toBe(false);
+        });
+
+        it('returns false for terminal statuses regardless of updated timestamp', () => {
+            expect(isActiveProcess({ status: 'complete', updated: freshUpdated }, now)).toBe(false);
+            expect(isActiveProcess({ status: 'error', updated: freshUpdated }, now)).toBe(false);
+            expect(isActiveProcess({ status: 'cancelled', updated: freshUpdated }, now)).toBe(false);
+        });
+
+        it('returns true for pending/running with fresh updated', () => {
+            expect(isActiveProcess({ status: 'running', updated: freshUpdated }, now)).toBe(true);
+            expect(isActiveProcess({ status: 'pending', updated: freshUpdated }, now)).toBe(true);
+        });
+
+        it('returns false for running with stale updated (STALE_MS exceeded)', () => {
+            expect(isActiveProcess({ status: 'running', updated: staleUpdated }, now)).toBe(false);
+        });
+
+        it('returns false for pending with stale updated', () => {
+            expect(isActiveProcess({ status: 'pending', updated: staleUpdated }, now)).toBe(false);
+        });
+
+        it('returns true for running with NO updated field (conservative — assume alive)', () => {
+            expect(isActiveProcess({ status: 'running' }, now)).toBe(true);
+        });
+
+        it('STALE_MS is exported and a number less than 900000ms (15min BE reaper window)', () => {
+            expect(typeof STALE_MS).toBe('number');
+            // FE window must be shorter than BE reaper (STALE_PROCESS_REAPER_MINUTES=15min=900000ms)
+            expect(STALE_MS < 900000).toBe(true);
+            expect(STALE_MS > 0).toBe(true);
+        });
+    });
+
+    describe('TASK-1887 getFilteredProcesses excludes stale running from active filter', () => {
+        const now = Date.now();
+        const freshUpdated = new Date(now - 60000).toISOString();
+        const staleUpdated = new Date(now - STALE_MS - 60000).toISOString();
+
+        const makeState = (processes, filter = 'active') => ({
+            taskMonitor: {
+                processes: {
+                    byId: processes.reduce((acc, p) => { acc[p.id] = p; return acc; }, {}),
+                    allIds: processes.map(p => p.id),
+                    activeCount: 0
+                },
+                ui: { panelOpen: true, filter, expandedProcessId: null, showLog: false }
+            }
+        });
+
+        it('stale running row is excluded from active filter', () => {
+            const state = makeState([
+                { id: 1, status: 'running', updated: freshUpdated },
+                { id: 2, status: 'running', updated: staleUpdated }
+            ], 'active');
+            const filtered = getFilteredProcesses(state);
+            expect(filtered.length).toBe(1);
+            expect(filtered[0].id).toBe(1);
+        });
+
+        it('stale running row IS included in "all" filter', () => {
+            const state = makeState([
+                { id: 1, status: 'running', updated: staleUpdated }
+            ], 'all');
+            const filtered = getFilteredProcesses(state);
+            expect(filtered.length).toBe(1);
+        });
+
+        it('pending row with stale updated is excluded from active filter', () => {
+            const state = makeState([
+                { id: 1, status: 'pending', updated: staleUpdated }
+            ], 'active');
+            const filtered = getFilteredProcesses(state);
+            expect(filtered.length).toBe(0);
         });
     });
 });

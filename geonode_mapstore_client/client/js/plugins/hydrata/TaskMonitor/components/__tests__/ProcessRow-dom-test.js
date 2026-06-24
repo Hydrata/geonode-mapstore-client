@@ -18,11 +18,15 @@
  * TASK-1665 migration: class names changed from tm-* to sv-tm-*; status badge
  * changed from hand-rolled tm-badge-* to StatusBadge primitive (.sv-status-badge).
  * The detailAsBadge and status_detail behaviours are structurally preserved.
+ *
+ * TASK-1887: staleness guard (stalled badge + no progress bar + inline error
+ * snippet) asserted in the describe block below.
  */
 import expect from 'expect';
 import React from 'react';
 import mountWithProviders from '../../../../../__tests__/helpers/mountWithProviders';
 import ProcessRow from '../ProcessRow';
+import { STALE_MS } from '../../selectorsTaskMonitor';
 
 const noop = () => {};
 
@@ -164,5 +168,104 @@ describe('TASK-743 ProcessRow DOM', () => {
         );
         const unknownIcon = unknown.container.querySelector('.sv-tm-type-icon');
         expect(unknownIcon.className).toContain('glyphicon-cog');
+    });
+});
+
+// ============================================================================
+// TASK-1887 — staleness guard (stalled badge, no progress bar, error snippet)
+// ============================================================================
+
+describe('TASK-1887 ProcessRow staleness', () => {
+    const noop = () => {};
+    // Stale timestamp: older than STALE_MS so isStale() returns true.
+    const staleUpdated = new Date(Date.now() - STALE_MS - 60000).toISOString();
+    // Fresh timestamp: well within STALE_MS.
+    const freshUpdated = new Date(Date.now() - 30000).toISOString();
+
+    it('stale running row shows no progress bar', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 1, name: 'Upload', process_type: 'terrain_create', status: 'running', progress_pct: 50, updated: staleUpdated }}
+                onClick={noop}
+            />
+        );
+        // AC-3: showProgress false for stale running → no progress bar
+        expect(container.querySelector('.sv-progress-track')).toNotExist();
+    });
+
+    it('fresh running row still shows progress bar', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 2, name: 'Upload', process_type: 'terrain_create', status: 'running', progress_pct: 50, updated: freshUpdated }}
+                onClick={noop}
+            />
+        );
+        expect(container.querySelector('.sv-progress-track')).toExist();
+    });
+
+    it('stale running row shows a stalled badge (distinct i18n key)', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 3, name: 'Upload', process_type: 'terrain_create', status: 'running', updated: staleUpdated }}
+                onClick={noop}
+            />
+        );
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge).toExist();
+        // The badge resolves via getMessageById with STALLED_MSG_ID
+        // (no catalogue in test → returns the msgId unchanged — named proof).
+        expect(badge.textContent).toInclude('hydrata.taskMonitor.statusStalled');
+        // Must NOT be the standard running key
+        expect(badge.textContent).toNotInclude('hydrata.taskMonitor.statusRunning');
+    });
+
+    it('complete/error/cancelled rows never render a progress bar', () => {
+        ['complete', 'error', 'cancelled'].forEach(status => {
+            const { container } = mountWithProviders(
+                <ProcessRow
+                    process={{ id: status, name: 'P', process_type: 'terrain_create', status, progress_pct: 80, updated: freshUpdated }}
+                    onClick={noop}
+                />
+            );
+            expect(container.querySelector('.sv-progress-track')).toNotExist();
+        });
+    });
+
+    it('collapsed error row shows truncated error_message in .sv-tm-error-message', () => {
+        const errorMsg = 'watchdog: terrain upload abandoned (upload not finalized — finalize step never ran)';
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 10, name: 'Upload', process_type: 'terrain_create', status: 'error', error_message: errorMsg, updated: freshUpdated }}
+                expanded={false}
+                onClick={noop}
+            />
+        );
+        const snippet = container.querySelector('.sv-tm-error-message');
+        expect(snippet).toExist();
+        // Snippet text should start with the error message (possibly truncated).
+        expect(snippet.textContent).toInclude('watchdog');
+    });
+
+    it('non-error collapsed row shows NO .sv-tm-error-message', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 11, name: 'Run', process_type: 'anuga_run', status: 'running', updated: freshUpdated }}
+                expanded={false}
+                onClick={noop}
+            />
+        );
+        expect(container.querySelector('.sv-tm-error-message')).toNotExist();
+    });
+
+    it('expanded error row does NOT render inline .sv-tm-error-message (full ProcessDetail shows it)', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 12, name: 'Upload', process_type: 'terrain_create', status: 'error', error_message: 'oops', updated: freshUpdated }}
+                expanded={true}
+                onClick={noop}
+            />
+        );
+        // When expanded, ProcessDetail shows the full message — the collapsed snippet is hidden.
+        expect(container.querySelector('.sv-tm-error-message')).toNotExist();
     });
 });

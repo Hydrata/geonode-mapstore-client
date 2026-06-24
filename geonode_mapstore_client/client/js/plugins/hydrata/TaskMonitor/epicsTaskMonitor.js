@@ -25,6 +25,9 @@ import { LOGIN_SUCCESS, SESSION_VALID } from '@mapstore/framework/actions/securi
 import { INIT_ANUGA } from '../Anuga/actions/uiActions';
 import { getProjectId } from '../Anuga/selectorsAnuga';
 import { getTerrainDownloadUrl } from '../Anuga/api/anugaApi';
+// TASK-1887: import isActiveProcess so the epic's setActiveCount uses the
+// SAME predicate as getFilteredProcesses (no duplicated status-list literal).
+import { isActiveProcess } from './selectorsTaskMonitor';
 
 const ACTIVE_STATES = ['pending', 'running'];
 
@@ -110,10 +113,15 @@ export const pollActiveCountEpic = (action$, store) =>
                         .catch(() => Rx.Observable.empty());
                 })
                 .distinctUntilChanged(processListsEqual)
-                .concatMap(processes => Rx.Observable.of(
-                    setProcesses(processes),
-                    setActiveCount(processes.filter(p => ACTIVE_STATES.includes(p.status)).length)
-                ))
+                .concatMap(processes => {
+                    // TASK-1887: use isActiveProcess (same predicate as getFilteredProcesses)
+                    // so badge dot and active list always agree.
+                    const now = Date.now();
+                    return Rx.Observable.of(
+                        setProcesses(processes),
+                        setActiveCount(processes.filter(p => isActiveProcess(p, now)).length)
+                    );
+                })
         );
 
 /**
@@ -154,8 +162,11 @@ export const pollProcessListEpic = (action$, store) =>
                     const filter = store.getState()?.taskMonitor?.ui?.filter || 'active';
                     const emissions = [setProcesses(processes)];
                     if (filter === 'active') {
+                        // TASK-1887: use isActiveProcess (same predicate as getFilteredProcesses)
+                        // so badge dot and active list always agree.
+                        const now = Date.now();
                         emissions.push(setActiveCount(
-                            processes.filter(p => ACTIVE_STATES.includes(p.status)).length
+                            processes.filter(p => isActiveProcess(p, now)).length
                         ));
                     }
                     return Rx.Observable.of(...emissions);
