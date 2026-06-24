@@ -27,9 +27,8 @@ import { getProjectId } from '../Anuga/selectorsAnuga';
 import { getTerrainDownloadUrl } from '../Anuga/api/anugaApi';
 // TASK-1887: import isActiveProcess so the epic's setActiveCount uses the
 // SAME predicate as getFilteredProcesses (no duplicated status-list literal).
+// ACTIVE_STATES literal removed (TASK-1887 dead-code simplify: replaced by isActiveProcess).
 import { isActiveProcess } from './selectorsTaskMonitor';
-
-const ACTIVE_STATES = ['pending', 'running'];
 
 const filterToParams = (filter) => {
     switch (filter) {
