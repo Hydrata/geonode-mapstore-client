@@ -579,7 +579,7 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
             );
         });
 
-        it('idfDeriveCompleteEpic GETs IDFTable when TaskMonitor process flips to complete', (done) => {
+        it('idfDeriveCompleteEpic GETs IDFTable AND refreshes the Items list on complete', (done) => {
             mockAxios.reset();
             const idftableId = 999;
             mockAxios.onGet(`/api/v2/anuga/projects/${projectId}/idf-tables/${idftableId}/`)
@@ -594,7 +594,10 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
             const sub = idfDeriveCompleteEpic(action$, idfDeriveStore({}, tmByid)).subscribe(
                 a => {
                     collected.push(a);
-                    if (collected.some(c => c.type === SET_IDF_DERIVE_RESULT)) {
+                    // Both the result stash and the list refresh must fire so the
+                    // derived table appears under IDF Tables → Input without a reload.
+                    if (collected.some(c => c.type === SET_IDF_DERIVE_RESULT)
+                        && collected.some(c => c.type === FETCH_HYDROLOGY_IDF_TABLE_DATA)) {
                         if (sub) sub.unsubscribe();
                         expect(collected.find(c => c.type === SET_IDF_DERIVE_RESULT).idfTable.id).toBe(idftableId);
                         done();
@@ -649,14 +652,16 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
             );
         });
 
-        // TASK-1535 — the FE's own poll-cap fallback message is ERA5-aware
-        // (the symptom that motivated the ticket was an endless generic
-        // spinner/timeout; the message now points at the ERA5 archive).
-        it('IDF_DERIVE_TIMEOUT_MESSAGE is ERA5-aware', () => {
+        // The FE poll-cap fallback DEFERS to the task monitor instead of
+        // guessing a cause. The old message blamed the ERA5 archive even on a
+        // healthy long Batch run (map 5600: a 3770s fit completed fine while
+        // the FE showed "ERA5 unavailable"). It must NOT assert an ERA5 cause.
+        it('IDF_DERIVE_TIMEOUT_MESSAGE defers to the task monitor', () => {
             expect(typeof IDF_DERIVE_TIMEOUT_MESSAGE).toBe('string');
-            expect(IDF_DERIVE_TIMEOUT_MESSAGE.indexOf('ERA5')).toBeGreaterThan(-1);
-            expect(IDF_DERIVE_TIMEOUT_MESSAGE.toLowerCase().indexOf('unavailable')).toBeGreaterThan(-1);
-            expect(IDF_DERIVE_TIMEOUT_MESSAGE.toLowerCase().indexOf('timed out')).toBeGreaterThan(-1);
+            expect(IDF_DERIVE_TIMEOUT_MESSAGE.toLowerCase().indexOf('task monitor')).toBeGreaterThan(-1);
+            // No invented cause — the panel can't know the archive is down.
+            expect(IDF_DERIVE_TIMEOUT_MESSAGE.indexOf('ERA5')).toBe(-1);
+            expect(IDF_DERIVE_TIMEOUT_MESSAGE.toLowerCase().indexOf('unavailable')).toBe(-1);
         });
 
         it('idfDeriveMapPickEpic captures lat/lon from CLICK_ON_MAP when mapPickActive=true', (done) => {

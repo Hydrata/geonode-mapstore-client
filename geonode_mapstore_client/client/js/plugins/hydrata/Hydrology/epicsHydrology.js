@@ -332,6 +332,20 @@ const parseIdfDeriveInputs = (durationsText, rpsText) => {
     return {durations: d.values, rps: r.values, error: null};
 };
 
+// Actions emitted once an IDF derive completes and its IDFTable has been
+// fetched: stash the result on idfDerive.result, refresh the Items list so the
+// new table shows under IDF Tables → Input without a reload (the list is
+// otherwise fetched only on INIT_HYDROLOGY), and fire the COMPLETE analytics
+// event (TASK-1804). Shared by the GPEX fast-path (deriveIdfEpic) and the
+// background-poll path (idfDeriveCompleteEpic).
+const idfDeriveCompleteActions = (idfTableData) => {
+    trackEvent('process', 'complete', 'idf-derive-complete');
+    return Rx.Observable.from([
+        setIdfDeriveResult(idfTableData),
+        fetchHydrologyIdfTableData()
+    ]);
+};
+
 // TASK-934 — POST /api/v2/anuga/projects/{pid}/idf-tables/derive/.
 // 202 → setIdfDeriveProcessId. 503 → unavailable (celery_anuga disabled).
 // 400/422 → BE validation error (surface detail inline).
@@ -402,11 +416,8 @@ export const deriveIdfEpic = (action$, store) =>
                     if (httpStatus === 200 && data.tier === 'gpex' && data.idftable_id) {
                         const idftableId = data.idftable_id;
                         return Rx.Observable.from(getIdfTable(projectId, idftableId))
-                            .map(tableResponse => {
-                                // TASK-1804: fire COMPLETE on GPEX fast-path success.
-                                trackEvent('process', 'complete', 'idf-derive-complete');
-                                return setIdfDeriveResult(tableResponse.data);
-                            })
+                            // GPEX fast-path success: stash + refresh list + COMPLETE event.
+                            .mergeMap(tableResponse => idfDeriveCompleteActions(tableResponse.data))
                             .catch(fetchErr => Rx.Observable.of(
                                 setIdfDeriveError(fetchErr?.message || 'Failed to fetch GPEX IDF result')
                             ));
@@ -446,26 +457,31 @@ export const deriveIdfEpic = (action$, store) =>
 // TASK-934 — Watch TaskMonitor for our derive process to complete.
 // Polls the redux state (TaskMonitor already polls the BE every 3-10s and
 // updates state.taskMonitor.processes.byId). When status === 'complete',
-// fetch the IDFTable and stash on idfDerive.result. On 'error', surface
-// the BE error message.
+// fetch the IDFTable, stash it on idfDerive.result AND refresh the Items
+// list (fetchHydrologyIdfTableData) so the new table appears under IDF
+// Tables → Input without a reload. On 'error', surface the BE error message.
 //
 // Why poll redux instead of subscribing to a specific action: TaskMonitor
 // dispatches TM_SET_PROCESSES (bulk) and updateProcess (single); rather
 // than couple to those internals we sample state on a timer that lives
 // only while a derive is in flight.
-// 5-minute poll cap at 2s tick = 150 attempts. A 75-yr ERA5 fit
-// completes in ~30-90s on the anuga worker. TASK-1535: the BE soft time
-// limit (HYDROLOGY_DERIVE_SOFT_TIME_LIMIT, ~300s) now flips the Process to
-// ERROR well before this cap, so in practice we surface the BE's clear
-// "ERA5 archive unavailable" message via the status==='error' branch below.
-// The cap is defence-in-depth against a stuck Process row leaving the FE
-// polling redux forever (matched to the ~300s soft limit).
-const IDF_DERIVE_POLL_MAX_ATTEMPTS = 150;
-// TASK-1535: ERA5-aware message used when the FE poll cap is reached without
-// the BE having flipped the Process — the derive is almost certainly stuck on
-// an unreachable ERA5 archive.
+//
+// Cap matches the IDF Batch jobdef ceiling (attemptDurationSeconds: 7200,
+// ansible/.../idf-batch-deploy/templates/idf-jobdef.json.j2) so the FE never
+// declares a "timeout" before the backend itself would. The old 150-tick /
+// 5-min cap pre-dated the move to AWS Batch (epic-1830 W4): a 75-yr ERA5 GEV
+// fit on Batch legitimately runs ~60 min, and the old celery ~300s soft limit
+// no longer applies — so the short cap tripped a FALSE "Derive timed out" on a
+// healthy 3770s fit (map 5600, 2026-06-25) while the task manager correctly
+// showed Complete. Reading redux is cheap (no API call per tick), so a
+// generous cap costs nothing. Mirrors TW_DERIVE_POLL_MAX (epicsTerrainWorkbench).
+const IDF_DERIVE_POLL_MAX_ATTEMPTS = 3600;
+// When the FE poll cap IS reached, defer to the task monitor instead of
+// inventing a cause: the panel can't know WHY a derive is slow, and the old
+// "ERA5 archive unavailable" guess was wrong on a perfectly healthy long run.
+// The task manager carries the real, linked process status.
 export const IDF_DERIVE_TIMEOUT_MESSAGE =
-    'Derive timed out — the ERA5 archive may be unavailable or unreachable. Please try again later.';
+    'Still deriving — check the task monitor for status.';
 
 export const idfDeriveCompleteEpic = (action$, store) =>
     action$
@@ -501,11 +517,8 @@ export const idfDeriveCompleteEpic = (action$, store) =>
                             );
                         }
                         return Rx.Observable.from(getIdfTable(projectId, idftableId))
-                            .map(response => {
-                                // TASK-1804: fire COMPLETE on poll-complete success.
-                                trackEvent('process', 'complete', 'idf-derive-complete');
-                                return setIdfDeriveResult(response.data);
-                            })
+                            // Poll-complete success: stash + refresh list + COMPLETE event.
+                            .mergeMap(response => idfDeriveCompleteActions(response.data))
                             .catch(err => Rx.Observable.of(
                                 setIdfDeriveError(err?.message || 'Failed to fetch IDF result')
                             ));
