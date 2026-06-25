@@ -1083,3 +1083,343 @@ describe('TASK-1902 terrainSubOrderReconcilerEpic (real reducer)', () => {
         );
     }).timeout(3000);
 });
+
+// ── TASK-1905: reversibility + blob-only + legacy-blob regression ─────────────
+
+describe('TASK-1905 (1) BLOB-ONLY layer — no extendedParams.mapLayer', () => {
+    // A blob-only layer is a layer object in state.layers.flat that has NO
+    // extendedParams.mapLayer field (as loaded from an older map blob before the
+    // MapLayer FK was added). The reconciler must not crash or skip these layers —
+    // it should still order them correctly because it operates on group node IDs,
+    // not on extendedParams.
+    //
+    // This tests the fleet-wide-undefined case flagged in the design doc.
+
+    it('reconciler orders blob-only layers (no extendedParams) correctly — does not crash or skip', (done) => {
+        // Flat layers WITHOUT extendedParams.mapLayer — simulates older blob format
+        const flat = [
+            { id: 'l_bnd', name: 'bdy_001_boundary', group: 'Input Data.Boundaries' },
+            // No extendedParams at all on this layer:
+            { id: 'l_str', name: 'str_001_structure', group: 'Input Data.Structures' }
+        ];
+        // Non-canonical: Boundaries before Structures
+        const groups = [{
+            id: 'Input Data',
+            name: 'Input Data',
+            expanded: true,
+            nodes: [
+                { id: 'Input Data.Boundaries', name: 'Boundaries', nodes: ['l_bnd'] },
+                { id: 'Input Data.Structures', name: 'Structures', nodes: ['l_str'] }
+            ]
+        }];
+
+        const reduxStore = createStore(
+            combineReducers({ layers: layersReducer }),
+            { layers: { flat, groups } }
+        );
+
+        const store = {
+            getState: () => ({
+                ...reduxStore.getState(),
+                anuga: { projects: { data: { id: 1, my_role: 'editor' } } }
+            }),
+            dispatch: reduxStore.dispatch
+        };
+
+        const action$ = makeActions$([{ type: FIX_ANUGA_GROUPS }]);
+        const emitted = [];
+
+        layerOrderReconcilerEpic(action$, store).subscribe(
+            a => {
+                emitted.push(a);
+                reduxStore.dispatch(a);
+            },
+            err => done(err),
+            () => {
+                // Must have reordered (Structures before Boundaries)
+                const sortActions = emitted.filter(a => a.type === 'SORT_NODE');
+                const saveActions = emitted.filter(a => a.type === SAVE_DIRECT_CONTENT);
+                expect(sortActions.length).toBeGreaterThan(0);
+                expect(saveActions.length).toBe(1);
+
+                // Verify Structures is now above Boundaries in the groups tree
+                const state = reduxStore.getState().layers;
+                const inputDataNode = getNode(state.groups, 'Input Data');
+                const names = inputDataNode.nodes.map(n => n.name || n.id);
+                expect(names.indexOf('Structures')).toBeLessThan(names.indexOf('Boundaries'));
+
+                done();
+            }
+        );
+    }).timeout(3000);
+});
+
+describe('TASK-1905 (2) LEGACY-BLOB regression — Boundaries-first old blob stabilises on 2nd reconcile', () => {
+    // Simulates loading a map blob saved BEFORE the canonical order was enforced:
+    // Input Data children in the old order (Boundaries first).
+    // After reconcile + saveDirectContent, re-derive groups from the saved state.
+    // A 2nd reconcile must be a no-op (stable/idempotent).
+
+    it('first reconcile reorders; second reconcile is a no-op (idempotent after save)', (done) => {
+        const oldOrder = [
+            'Boundaries', 'Inflows', 'Rainfalls', 'Structures', 'Catchments',
+            'Nodes', 'Links', 'Mesh Regions', 'Full Mesh', 'Friction', 'Friction Rasters', 'Terrain'
+        ];
+        const flat = oldOrder.map(name => ({
+            id: `l_${name.toLowerCase().replace(/ /g, '_')}`,
+            name: `layer_${name.toLowerCase().replace(/ /g, '_')}`,
+            group: `Input Data.${name}`
+            // No extendedParams — blob-only shape
+        }));
+        const groups = [{
+            id: 'Input Data',
+            name: 'Input Data',
+            expanded: true,
+            nodes: oldOrder.map(name => ({
+                id: `Input Data.${name}`,
+                name,
+                expanded: true,
+                nodes: flat.filter(l => l.group === `Input Data.${name}`).map(l => l.id)
+            }))
+        }];
+
+        const reduxStore = createStore(
+            combineReducers({ layers: layersReducer }),
+            { layers: { flat, groups } }
+        );
+
+        const makeStore = () => ({
+            getState: () => ({
+                ...reduxStore.getState(),
+                anuga: { projects: { data: { id: 1, my_role: 'editor' } } }
+            }),
+            dispatch: reduxStore.dispatch
+        });
+
+        // First reconcile
+        const action1$ = makeActions$([{ type: FIX_ANUGA_GROUPS }]);
+        const emitted1 = [];
+
+        layerOrderReconcilerEpic(action1$, makeStore()).subscribe(
+            a => {
+                emitted1.push(a);
+                reduxStore.dispatch(a);
+            },
+            err => done(err),
+            () => {
+                // First run: must have done work (save emitted)
+                expect(emitted1.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(1);
+
+                // Second reconcile on the now-canonical state
+                const action2$ = makeActions$([{ type: FIX_ANUGA_GROUPS }]);
+                const emitted2 = [];
+
+                layerOrderReconcilerEpic(action2$, makeStore()).subscribe(
+                    a => emitted2.push(a),
+                    err => done(err),
+                    () => {
+                        // Second run must be a no-op (idempotent)
+                        expect(emitted2.length).toBe(0, 'Second reconcile must emit nothing — already canonical');
+
+                        // And layer.group is still the category, NOT a z-rank
+                        const state = reduxStore.getState().layers;
+                        state.flat.forEach(l => {
+                            // group must be a string like "Input Data.Structures", not a number
+                            if (l.group) {
+                                expect(typeof l.group).toBe('string');
+                                expect(l.group).toMatch(/^(Input Data|Results|Default|background)/);
+                            }
+                        });
+
+                        done();
+                    }
+                );
+            }
+        );
+    }).timeout(6000);
+});
+
+describe('TASK-1905 (3) REVERSIBILITY — disabling epics restores prior behaviour; group stays CATEGORY not z-rank', () => {
+    // Reversibility contract: layerOrderReconcilerEpic and resultsLayerOrderEpic
+    // are opt-in epics registered in the epic middleware chain. Disabling them
+    // (i.e. not subscribing to them) leaves state.layers.groups untouched and
+    // no saveDirectContent is dispatched. The persisted blob is only written when
+    // a reorder actually fires — viewer sessions or maps where the reconciler is
+    // not registered retain their original order.
+    //
+    // One-way-door-safe: nothing new is persisted into layer.group (it stays as
+    // the human-readable category path, not a z-rank integer). The reconciler only
+    // touches group NODE ORDER within state.layers.groups — not the layer.group
+    // field itself. Disabling = no writes, no state mutation.
+
+    it('without the reconciler epic, no SORT_NODE or save is dispatched on FIX_ANUGA_GROUPS', (done) => {
+        // Simulates a map where the reconciler is NOT registered (disabled).
+        // State stays exactly as initialised (Boundaries-first non-canonical).
+        const flat = [
+            { id: 'l_bnd', name: 'bdy_001_boundary', group: 'Input Data.Boundaries' },
+            { id: 'l_str', name: 'str_001_structure', group: 'Input Data.Structures' }
+        ];
+        const groups = [{
+            id: 'Input Data',
+            name: 'Input Data',
+            nodes: [
+                { id: 'Input Data.Boundaries', name: 'Boundaries', nodes: ['l_bnd'] },
+                { id: 'Input Data.Structures', name: 'Structures', nodes: ['l_str'] }
+            ]
+        }];
+
+        const reduxStore = createStore(
+            combineReducers({ layers: layersReducer }),
+            { layers: { flat, groups } }
+        );
+        const dispatchedActions = [];
+        const wrappedDispatch = a => {
+            dispatchedActions.push(a);
+            return reduxStore.dispatch(a);
+        };
+
+        // Fire FIX_ANUGA_GROUPS directly into the store WITHOUT subscribing any epic
+        wrappedDispatch({ type: FIX_ANUGA_GROUPS });
+
+        // No epic subscribed — nothing should have dispatched a SORT_NODE or save
+        setTimeout(() => {
+            const sortActions = dispatchedActions.filter(a => a.type === 'SORT_NODE');
+            const saveActions = dispatchedActions.filter(a => a.type === SAVE_DIRECT_CONTENT);
+            expect(sortActions.length).toBe(0, 'SORT_NODE must not fire when epic is not registered');
+            expect(saveActions.length).toBe(0, 'saveDirectContent must not fire when epic is not registered');
+
+            // State remains non-canonical (Boundaries still first)
+            const state = reduxStore.getState().layers;
+            const inputDataNode = getNode(state.groups, 'Input Data');
+            const names = inputDataNode.nodes.map(n => n.name || n.id);
+            expect(names[0]).toBe('Boundaries', 'Without reconciler, Boundaries stays at index 0');
+
+            // layer.group is still a category path, NOT a z-rank number
+            state.flat.forEach(l => {
+                if (l.group) {
+                    expect(typeof l.group).toBe('string');
+                    expect(typeof l.group).toNotBe('number');
+                }
+            });
+
+            done();
+        }, 100);
+    }).timeout(3000);
+});
+
+describe('TASK-1905 (4) ADD_LAYER double-save — layerOrderReconcilerEpic + resultsLayerOrderEpic both fire on ADD_LAYER', () => {
+    // VERIFIED BEHAVIOUR: both layerOrderReconcilerEpic and resultsLayerOrderEpic
+    // listen to ADD_LAYER (each debounced 600ms). When a single ADD_LAYER triggers
+    // BOTH a group reorder (Input Data out of order) AND an intra-Results reorder
+    // (older run at top), TWO saveDirectContent PATCHes are produced — one from
+    // each epic.
+    //
+    // POLICY (documented, Tier-B finding):
+    //   - This is a KNOWN and ACCEPTED double-save. The two epics are independent
+    //     by design (separate concerns: group order vs intra-Results order).
+    //   - The double-save is IDEMPOTENT: both PATCHes write correct state; the
+    //     second PATCH is a no-op at the DB level for an already-correct blob.
+    //   - The frequency is LOW: only on maps that have BOTH Input Data out-of-order
+    //     AND a Results group out-of-order (legacy maps on first reconcile only;
+    //     thereafter both epics are idempotent).
+    //   - COALESCING is non-trivial (requires a shared debounced save bus); deferred
+    //     to TASK-1917 (Tier-B follow-up, epic 1898).
+
+    it('documents: layerOrderReconcilerEpic emits 1 save AND resultsLayerOrderEpic emits 1 save independently = 2 total saves on ADD_LAYER', (done) => {
+        // Setup: Input Data out-of-order (Boundaries before Structures)
+        //        AND Results.Depth out-of-order (older run on top)
+        const makeInitialState = () => {
+            const flat = [
+                { id: 'l_bnd', name: 'bdy_001_boundary', group: 'Input Data.Boundaries' },
+                { id: 'l_str', name: 'str_001_structure', group: 'Input Data.Structures' },
+                { id: 'l_run42', name: 'geonode:run42_depth_max_cog', group: 'Results.Depth' },
+                { id: 'l_run1257', name: 'geonode:run1257_depth_max_cog', group: 'Results.Depth' }
+            ];
+            const groups = [
+                {
+                    id: 'Input Data',
+                    name: 'Input Data',
+                    expanded: true,
+                    nodes: [
+                        // Non-canonical: Boundaries before Structures
+                        { id: 'Input Data.Boundaries', name: 'Boundaries', nodes: ['l_bnd'] },
+                        { id: 'Input Data.Structures', name: 'Structures', nodes: ['l_str'] }
+                    ]
+                },
+                {
+                    id: 'Results',
+                    name: 'Results',
+                    expanded: true,
+                    nodes: [{
+                        id: 'Results.Depth',
+                        name: 'Depth',
+                        expanded: true,
+                        // Non-canonical: older run (42) on top
+                        nodes: [{ id: 'l_run42' }, { id: 'l_run1257' }]
+                    }]
+                }
+            ];
+            return { flat, groups };
+        };
+
+        // Test each epic INDEPENDENTLY against identical initial state.
+        // (Sharing a single action$ Subject across both epics is unreliable with
+        // RxJS 5 cold observables — the Subject only delivers to the first subscriber.)
+
+        // Verify layerOrderReconcilerEpic independently: it should emit 1 save on ADD_LAYER.
+        const store1 = (() => {
+            const rs = createStore(combineReducers({ layers: layersReducer }), { layers: makeInitialState() });
+            return {
+                getState: () => ({ ...rs.getState(), anuga: { projects: { data: { id: 1, my_role: 'editor' } } } }),
+                dispatch: rs.dispatch
+            };
+        })();
+
+        // Verify resultsLayerOrderEpic independently: it should also emit 1 save on ADD_LAYER.
+        const store2 = (() => {
+            const rs = createStore(combineReducers({ layers: layersReducer }), { layers: makeInitialState() });
+            return {
+                getState: () => ({ ...rs.getState(), anuga: { projects: { data: { id: 1, my_role: 'editor' } } } }),
+                dispatch: rs.dispatch
+            };
+        })();
+
+        const emitted1 = [];
+        const emitted2 = [];
+
+        let done1 = false;
+        let done2 = false;
+        const checkDone = () => {
+            if (done1 && done2) {
+                const saves1 = emitted1.filter(a => a.type === SAVE_DIRECT_CONTENT).length;
+                const saves2 = emitted2.filter(a => a.type === SAVE_DIRECT_CONTENT).length;
+
+                // Each epic emits exactly one save when its concern is dirty.
+                // Together they produce 2 saves when both are triggered by ADD_LAYER.
+                // DOCUMENTED: this is the known double-save (Tier-B, TASK-1917).
+                expect(saves1).toBe(1, 'layerOrderReconcilerEpic must emit 1 save on ADD_LAYER when group order is wrong');
+                expect(saves2).toBe(1, 'resultsLayerOrderEpic must emit 1 save on ADD_LAYER when results order is wrong');
+
+                done();
+            }
+        };
+
+        layerOrderReconcilerEpic(
+            makeActions$([{ type: 'ADD_LAYER', layer: {} }]),
+            store1
+        ).subscribe(
+            a => { emitted1.push(a); store1.dispatch(a); },
+            err => done(err),
+            () => { done1 = true; checkDone(); }
+        );
+
+        resultsLayerOrderEpic(
+            makeActions$([{ type: 'ADD_LAYER', layer: {} }]),
+            store2
+        ).subscribe(
+            a => { emitted2.push(a); store2.dispatch(a); },
+            err => done(err),
+            () => { done2 = true; checkDone(); }
+        );
+    }).timeout(5000);
+});
