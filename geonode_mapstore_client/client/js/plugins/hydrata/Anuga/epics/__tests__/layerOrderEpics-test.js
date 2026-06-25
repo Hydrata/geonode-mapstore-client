@@ -15,10 +15,17 @@
 import expect from 'expect';
 import Rx from 'rxjs';
 import { combineReducers, createStore } from 'redux';
-import { FIX_ANUGA_GROUPS } from '../../actionsAnuga';
+import { FIX_ANUGA_GROUPS, SET_ANUGA_TERRAIN_DATA } from '../../actionsAnuga';
 import { ANUGA_GROUPS } from '../pollingEpics';
-import { computeReorderFor, layerOrderReconcilerEpic } from '../layerOrderEpics';
+import {
+    computeReorderFor,
+    computeTerrainSubOrder,
+    findContourLayer,
+    layerOrderReconcilerEpic,
+    terrainSubOrderReconcilerEpic
+} from '../layerOrderEpics';
 import { SAVE_DIRECT_CONTENT } from '@js/actions/gnsave';
+import { DEM_CONTOUR_STYLE_NAME } from '../../gwcTileRouting';
 
 const layersReducer = require('../../../../../../MapStore2/web/client/reducers/layers').default;
 const LayersUtils = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
@@ -462,6 +469,345 @@ describe('TASK-1901 layerOrderReconcilerEpic (real reducer)', () => {
                 // Multiple SORT_NODE (one per out-of-order group)
                 const sortActions = emitted.filter(a => a.type === 'SORT_NODE');
                 expect(sortActions.length).toBe(2); // Input Data + Results both out of order
+                done();
+            }
+        );
+    }).timeout(3000);
+});
+
+// ── TASK-1902: terrain sub-order tests ───────────────────────────────────────
+
+describe('TASK-1902 findContourLayer', () => {
+    const flatLayers = [
+        { id: 'ele_518_dem_cog__contours', name: 'ele_518_dem_cog', style: DEM_CONTOUR_STYLE_NAME, group: 'Input Data.Terrain' },
+        { id: 'l_dem', name: 'geonode:ele_518_dem_cog', group: 'Input Data.Terrain' },
+        { id: 'l_hs', name: 'geonode:ele_518_hs_cog', group: 'Input Data.Terrain' }
+    ];
+
+    it('finds contour by id convention (demName__contours)', () => {
+        const result = findContourLayer(flatLayers, 'ele_518_dem_cog');
+        expect(result).toExist();
+        expect(result.id).toBe('ele_518_dem_cog__contours');
+    });
+
+    it('finds contour by id convention ignoring geonode: prefix on demName', () => {
+        const result = findContourLayer(flatLayers, 'geonode:ele_518_dem_cog');
+        expect(result).toExist();
+        expect(result.id).toBe('ele_518_dem_cog__contours');
+    });
+
+    it('returns null when no contour layer exists', () => {
+        const result = findContourLayer(flatLayers, 'ele_999_dem_cog');
+        expect(result).toBe(null);
+    });
+
+    it('finds contour by style match fallback', () => {
+        const flat = [
+            { id: 'some_other_id', name: 'ele_518_dem_cog', style: DEM_CONTOUR_STYLE_NAME, group: 'Input Data.Terrain' }
+        ];
+        const result = findContourLayer(flat, 'ele_518_dem_cog');
+        expect(result).toExist();
+        expect(result.id).toBe('some_other_id');
+    });
+});
+
+describe('TASK-1902 computeTerrainSubOrder', () => {
+    // Terrain model with DEM + hillshade FK
+    const model1 = { id: 1, gn_layer_name: 'ele_518_dem_cog', gn_layer_hillshade_name: 'ele_518_hs_cog' };
+    const model2 = { id: 2, gn_layer_name: 'ele_519_dem_cog', gn_layer_hillshade_name: 'ele_519_hs_cog' };
+
+    // Layers
+    const mkFlat = () => [
+        { id: 'dem1', name: 'geonode:ele_518_dem_cog', group: 'Input Data.Terrain' },
+        { id: 'hs1', name: 'geonode:ele_518_hs_cog', group: 'Input Data.Terrain' },
+        { id: 'ele_518_dem_cog__contours', name: 'ele_518_dem_cog', style: DEM_CONTOUR_STYLE_NAME, group: 'Input Data.Terrain' },
+        { id: 'dem2', name: 'geonode:ele_519_dem_cog', group: 'Input Data.Terrain' },
+        { id: 'hs2', name: 'geonode:ele_519_hs_cog', group: 'Input Data.Terrain' }
+    ];
+
+    it('returns null when already canonical (contour, dem, hillshade per terrain)', () => {
+        // Canonical: [contour1, dem1, hs1, dem2, hs2]
+        const nodes = [
+            { id: 'ele_518_dem_cog__contours' },
+            { id: 'dem1' },
+            { id: 'hs1' },
+            { id: 'dem2' },
+            { id: 'hs2' }
+        ];
+        const order = computeTerrainSubOrder(nodes, mkFlat(), [model1, model2]);
+        expect(order).toBe(null);
+    });
+
+    it('fixes within-terrain order: dem before contour → contour first', () => {
+        // Wrong order: dem1, hs1, contour1, dem2, hs2
+        const nodes = [
+            { id: 'dem1' },
+            { id: 'hs1' },
+            { id: 'ele_518_dem_cog__contours' },
+            { id: 'dem2' },
+            { id: 'hs2' }
+        ];
+        const order = computeTerrainSubOrder(nodes, mkFlat(), [model1, model2]);
+        expect(order).toNotBe(null);
+        // Apply order to verify result
+        const reordered = order.map(idx => nodes[idx]);
+        const reorderedIds = reordered.map(n => n.id);
+        // Terrain 1 cluster should be [contour, dem, hs]
+        expect(reorderedIds.indexOf('ele_518_dem_cog__contours')).toBeLessThan(reorderedIds.indexOf('dem1'));
+        expect(reorderedIds.indexOf('dem1')).toBeLessThan(reorderedIds.indexOf('hs1'));
+    });
+
+    it('resolves hillshade via FK (gn_layer_hillshade_name), NOT name substring', () => {
+        // A hillshade named without "/hillshade/" substring — still resolved via FK
+        const modelWithUniqueHsName = {
+            id: 3,
+            gn_layer_name: 'ele_520_dem_cog',
+            gn_layer_hillshade_name: 'ele_520_shade_output'  // no "hillshade" in name
+        };
+        const flat = [
+            { id: 'dem3', name: 'geonode:ele_520_dem_cog', group: 'Input Data.Terrain' },
+            { id: 'hs3', name: 'geonode:ele_520_shade_output', group: 'Input Data.Terrain' }
+        ];
+        const nodes = [{ id: 'hs3' }, { id: 'dem3' }]; // Wrong: hs before dem
+        const order = computeTerrainSubOrder(nodes, flat, [modelWithUniqueHsName]);
+        expect(order).toNotBe(null);
+        const reordered = order.map(idx => nodes[idx]);
+        const reorderedIds = reordered.map(n => n.id);
+        // dem should come before hs
+        expect(reorderedIds.indexOf('dem3')).toBeLessThan(reorderedIds.indexOf('hs3'));
+    });
+
+    it('preserves inter-terrain order when fixing within-terrain sub-order', () => {
+        // Two terrains: terrain2 above terrain1 (dem2 first in nodes = top)
+        // Only fix the within-terrain sub-order, not which terrain is on top
+        const nodes = [
+            { id: 'dem2' },  // terrain2 on top (user-chosen via drag)
+            { id: 'hs2' },
+            { id: 'dem1' },  // terrain1 below (user-chosen)
+            { id: 'hs1' },
+            { id: 'ele_518_dem_cog__contours' }  // contour at wrong position
+        ];
+        const flat = mkFlat();
+        const order = computeTerrainSubOrder(nodes, flat, [model1, model2]);
+        if (order !== null) {
+            const reordered = order.map(idx => nodes[idx]);
+            const reorderedIds = reordered.map(n => n.id);
+            // Inter-terrain: terrain2 (dem2) must still be above terrain1 (dem1)
+            expect(reorderedIds.indexOf('dem2')).toBeLessThan(reorderedIds.indexOf('dem1'));
+        }
+        // Whether or not a reorder was needed, inter-terrain order is preserved
+    });
+
+    it('handles terrain with no contour and no hillshade', () => {
+        const modelNoHs = { id: 4, gn_layer_name: 'ele_521_dem_cog', gn_layer_hillshade_name: null };
+        const flat = [{ id: 'dem4', name: 'geonode:ele_521_dem_cog', group: 'Input Data.Terrain' }];
+        const nodes = [{ id: 'dem4' }];
+        // Single node, nothing to reorder
+        const order = computeTerrainSubOrder(nodes, flat, [modelNoHs]);
+        expect(order).toBe(null);
+    });
+
+    it('returns null for empty or single-node terrain group', () => {
+        expect(computeTerrainSubOrder([], [], [])).toBe(null);
+        expect(computeTerrainSubOrder([{ id: 'dem1' }], mkFlat(), [model1])).toBe(null);
+    });
+});
+
+// TASK-1902 epic: terrainSubOrderReconcilerEpic end-to-end
+describe('TASK-1902 terrainSubOrderReconcilerEpic (real reducer)', () => {
+    it('fires on SET_ANUGA_TERRAIN_DATA and fixes dem-before-contour to contour-before-dem', (done) => {
+        const model = { id: 1, gn_layer_name: 'ele_518_dem_cog', gn_layer_hillshade_name: 'ele_518_hs_cog' };
+
+        // Initial WRONG order: dem1, hs1, contour1
+        const flat = [
+            { id: 'dem1', name: 'geonode:ele_518_dem_cog', group: 'Input Data.Terrain' },
+            { id: 'hs1', name: 'geonode:ele_518_hs_cog', group: 'Input Data.Terrain' },
+            { id: 'ele_518_dem_cog__contours', name: 'ele_518_dem_cog', style: DEM_CONTOUR_STYLE_NAME, group: 'Input Data.Terrain' }
+        ];
+        const groups = [{
+            id: 'Input Data',
+            name: 'Input Data',
+            expanded: true,
+            nodes: [{
+                id: 'Input Data.Terrain',
+                name: 'Terrain',
+                expanded: true,
+                nodes: [{ id: 'dem1' }, { id: 'hs1' }, { id: 'ele_518_dem_cog__contours' }]
+            }]
+        }];
+
+        const reduxStore = createStore(
+            combineReducers({ layers: layersReducer }),
+            { layers: { flat, groups } }
+        );
+
+        const store = {
+            getState: () => ({
+                ...reduxStore.getState(),
+                anuga: {
+                    projects: { data: { id: 1, my_role: 'editor' } },
+                    resources: { terrain: [model] }
+                }
+            }),
+            dispatch: reduxStore.dispatch
+        };
+
+        const action$ = makeActions$([{ type: SET_ANUGA_TERRAIN_DATA }]);
+        const emitted = [];
+
+        terrainSubOrderReconcilerEpic(action$, store).subscribe(
+            a => {
+                emitted.push(a);
+                reduxStore.dispatch(a);
+            },
+            err => done(err),
+            () => {
+                const sortActions = emitted.filter(a => a.type === 'SORT_NODE');
+                const saveActions = emitted.filter(a => a.type === SAVE_DIRECT_CONTENT);
+                expect(sortActions.length).toBe(1);
+                expect(saveActions.length).toBe(1);
+
+                // Verify the contour is now BEFORE dem in the Terrain group nodes
+                const state = reduxStore.getState().layers;
+                const { getNode: gn } = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
+                const terrainNode = gn(state.groups, 'Input Data.Terrain');
+                const nodeIds = terrainNode.nodes.map(n => n?.id || n);
+                expect(nodeIds.indexOf('ele_518_dem_cog__contours')).toBeLessThan(nodeIds.indexOf('dem1'));
+                expect(nodeIds.indexOf('dem1')).toBeLessThan(nodeIds.indexOf('hs1'));
+
+                done();
+            }
+        );
+    }).timeout(3000);
+
+    it('emits nothing when terrain group is already in canonical sub-order', (done) => {
+        const model = { id: 1, gn_layer_name: 'ele_518_dem_cog', gn_layer_hillshade_name: 'ele_518_hs_cog' };
+        const flat = [
+            { id: 'ele_518_dem_cog__contours', name: 'ele_518_dem_cog', style: DEM_CONTOUR_STYLE_NAME, group: 'Input Data.Terrain' },
+            { id: 'dem1', name: 'geonode:ele_518_dem_cog', group: 'Input Data.Terrain' },
+            { id: 'hs1', name: 'geonode:ele_518_hs_cog', group: 'Input Data.Terrain' }
+        ];
+        const groups = [{
+            id: 'Input Data',
+            name: 'Input Data',
+            expanded: true,
+            nodes: [{
+                id: 'Input Data.Terrain',
+                name: 'Terrain',
+                expanded: true,
+                nodes: [
+                    { id: 'ele_518_dem_cog__contours' },
+                    { id: 'dem1' },
+                    { id: 'hs1' }
+                ]
+            }]
+        }];
+
+        const store = {
+            getState: () => ({
+                layers: { flat, groups },
+                anuga: {
+                    projects: { data: { id: 1, my_role: 'editor' } },
+                    resources: { terrain: [model] }
+                }
+            }),
+            dispatch: () => {}
+        };
+
+        const action$ = makeActions$([{ type: SET_ANUGA_TERRAIN_DATA }]);
+        const emitted = [];
+
+        terrainSubOrderReconcilerEpic(action$, store).subscribe(
+            a => emitted.push(a),
+            err => done(err),
+            () => {
+                expect(emitted.length).toBe(0);
+                done();
+            }
+        );
+    }).timeout(3000);
+
+    it('multiple terrains: each gets correct sub-order, inter-terrain order preserved', (done) => {
+        const model1 = { id: 1, gn_layer_name: 'ele_518_dem_cog', gn_layer_hillshade_name: 'ele_518_hs_cog' };
+        const model2 = { id: 2, gn_layer_name: 'ele_519_dem_cog', gn_layer_hillshade_name: 'ele_519_hs_cog' };
+
+        // Wrong sub-order for both: dem, hs, contour
+        const flat = [
+            { id: 'dem1', name: 'geonode:ele_518_dem_cog', group: 'Input Data.Terrain' },
+            { id: 'hs1', name: 'geonode:ele_518_hs_cog', group: 'Input Data.Terrain' },
+            { id: 'ele_518_dem_cog__contours', name: 'ele_518_dem_cog', style: DEM_CONTOUR_STYLE_NAME, group: 'Input Data.Terrain' },
+            { id: 'dem2', name: 'geonode:ele_519_dem_cog', group: 'Input Data.Terrain' },
+            { id: 'hs2', name: 'geonode:ele_519_hs_cog', group: 'Input Data.Terrain' },
+            { id: 'ele_519_dem_cog__contours', name: 'ele_519_dem_cog', style: DEM_CONTOUR_STYLE_NAME, group: 'Input Data.Terrain' }
+        ];
+        const groups = [{
+            id: 'Input Data',
+            name: 'Input Data',
+            expanded: true,
+            nodes: [{
+                id: 'Input Data.Terrain',
+                name: 'Terrain',
+                expanded: true,
+                nodes: [
+                    // terrain2 on TOP (user drag-ordered: terrain2 above terrain1)
+                    { id: 'dem2' }, { id: 'hs2' }, { id: 'ele_519_dem_cog__contours' },
+                    // terrain1 below
+                    { id: 'dem1' }, { id: 'hs1' }, { id: 'ele_518_dem_cog__contours' }
+                ]
+            }]
+        }];
+
+        const reduxStore = createStore(
+            combineReducers({ layers: layersReducer }),
+            { layers: { flat, groups } }
+        );
+
+        const store = {
+            getState: () => ({
+                ...reduxStore.getState(),
+                anuga: {
+                    projects: { data: { id: 1, my_role: 'editor' } },
+                    resources: { terrain: [model1, model2] }
+                }
+            }),
+            dispatch: reduxStore.dispatch
+        };
+
+        const action$ = makeActions$([{ type: SET_ANUGA_TERRAIN_DATA }]);
+        const emitted = [];
+
+        terrainSubOrderReconcilerEpic(action$, store).subscribe(
+            a => {
+                emitted.push(a);
+                reduxStore.dispatch(a);
+            },
+            err => done(err),
+            () => {
+                expect(emitted.filter(a => a.type === 'SORT_NODE').length).toBe(1);
+                expect(emitted.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(1);
+
+                const { getNode: gn } = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
+                const state = reduxStore.getState().layers;
+                const terrainNode = gn(state.groups, 'Input Data.Terrain');
+                const nodeIds = terrainNode.nodes.map(n => n?.id || n);
+
+                // Each terrain's within-order: contour before dem before hs
+                const idxC1 = nodeIds.indexOf('ele_518_dem_cog__contours');
+                const idxD1 = nodeIds.indexOf('dem1');
+                const idxH1 = nodeIds.indexOf('hs1');
+                expect(idxC1).toBeLessThan(idxD1);
+                expect(idxD1).toBeLessThan(idxH1);
+
+                const idxC2 = nodeIds.indexOf('ele_519_dem_cog__contours');
+                const idxD2 = nodeIds.indexOf('dem2');
+                const idxH2 = nodeIds.indexOf('hs2');
+                expect(idxC2).toBeLessThan(idxD2);
+                expect(idxD2).toBeLessThan(idxH2);
+
+                // Inter-terrain: terrain2 still above terrain1
+                // (dem2 cluster comes before dem1 cluster in nodes[] = terrain2 on top)
+                expect(Math.min(idxD2, idxH2, idxC2)).toBeLessThan(Math.min(idxD1, idxH1, idxC1));
+
                 done();
             }
         );

@@ -41,8 +41,10 @@ import {
 } from '../../../../../MapStore2/web/client/utils/LayersUtils';
 import { saveDirectContent } from '@js/actions/gnsave';
 import { canEditAnugaMap } from '../selectorsAnuga';
-import { FIX_ANUGA_GROUPS } from '../actionsAnuga';
+import { FIX_ANUGA_GROUPS, SET_ANUGA_TERRAIN_DATA } from '../actionsAnuga';
 import { ANUGA_GROUPS } from './pollingEpics';
+import { bareName } from './terrainEpics';
+import { DEM_CONTOUR_STYLE_NAME } from '../gwcTileRouting';
 
 // -- helpers ------------------------------------------------------------------
 
@@ -102,7 +104,138 @@ export const computeReorderFor = (groups, parentId, canonicalChildren) => {
     return order;
 };
 
-// -- epic ---------------------------------------------------------------------
+// -- terrain sub-order helpers (TASK-1902) ------------------------------------
+
+/**
+ * Identify the contour overlay for a DEM layer.
+ *
+ * Convention (from buildContourLayer in gwcTileRouting.js):
+ *   id = `${demLayerName}__contours`  (canonical; used when layer comes from blob)
+ *   OR name === demLayerName && style === DEM_CONTOUR_STYLE_NAME
+ *
+ * @param {Array}  flatLayers  state.layers.flat
+ * @param {string} demLayerName  bare DEM layer name (e.g. 'ele_518_dem_cog')
+ * @returns {object|null}
+ */
+export const findContourLayer = (flatLayers, demLayerName) => {
+    if (!demLayerName) return null;
+    const bare = bareName(demLayerName);
+    return (flatLayers || []).find(
+        l => l?.id === `${bare}__contours` ||
+             (bareName(l?.name) === bare && l?.style === DEM_CONTOUR_STYLE_NAME)
+    ) || null;
+};
+
+/**
+ * Compute the desired ordering of layers within the 'Input Data.Terrain' group.
+ *
+ * Canonical sub-order per terrain cluster: [contour, dem, hillshade]
+ *   - contour: visually ON TOP (index 0 in nodes = top of z-stack)
+ *   - dem: DEM colourmap below contour lines
+ *   - hillshade: underneath dem (provides lighting/shadow)
+ *
+ * Inter-terrain order (which terrain cluster sits above another) is PRESERVED
+ * from the current node order — the reconciler only fixes the WITHIN-terrain
+ * 3-layer sequence, not the cross-terrain ranking.
+ *
+ * Hillshade is resolved via the gn_layer_hillshade_name FK on the terrain model
+ * (NOT a "/hillshade/" name substring).
+ *
+ * @param {Array}  currentNodes  the terrain group's nodes[] (layer IDs or node objects)
+ * @param {Array}  flatLayers    state.layers.flat
+ * @param {Array}  terrainModels state.anuga.resources.terrain (with gn_layer_name,
+ *                               gn_layer_hillshade_name fields)
+ * @returns {Array|null}  order[] for sortNode, or null if already canonical
+ */
+export const computeTerrainSubOrder = (currentNodes, flatLayers, terrainModels) => {
+    if (!currentNodes || currentNodes.length < 2) return null;
+
+    // For each node ID, build a lookup of current index.
+    const nodeIds = currentNodes.map(n => n?.id || n);
+
+    // Build terrain clusters: for each model, gather [contourId, demId, hillshadeId]
+    // that ARE present in the current Terrain group nodes.
+    const clustered = [];
+    const memberOf = {}; // nodeId → cluster index (for fast lookup)
+
+    (terrainModels || []).forEach(model => {
+        if (!model?.gn_layer_name) return;
+        const demBare = bareName(model.gn_layer_name);
+        const hsBare = model.gn_layer_hillshade_name ? bareName(model.gn_layer_hillshade_name) : null;
+
+        // Find dem node in the terrain group: must match bare DEM name AND not be a
+        // contour overlay (contour layer uses the same name but has style=DEM_CONTOUR_STYLE_NAME).
+        const demId = nodeIds.find(id => {
+            const layer = flatLayers.find(l => (l?.id || l) === id);
+            return layer &&
+                bareName(layer.name) === demBare &&
+                layer.style !== DEM_CONTOUR_STYLE_NAME &&
+                !id.endsWith('__contours');
+        });
+        if (!demId) return; // DEM not in map yet; skip
+
+        // Find hillshade node via FK (gn_layer_hillshade_name), NOT substring.
+        // Must not be the DEM itself.
+        const hsId = hsBare ? nodeIds.find(id => {
+            if (id === demId) return false;
+            const layer = flatLayers.find(l => (l?.id || l) === id);
+            return layer &&
+                bareName(layer.name) === hsBare &&
+                layer.style !== DEM_CONTOUR_STYLE_NAME;
+        }) : null;
+
+        // Find contour overlay
+        const contourLayer = findContourLayer(flatLayers, demBare);
+        const contourId = contourLayer ? nodeIds.find(id => id === contourLayer.id) : null;
+
+        // Desired cluster order: contour (if present), dem, hillshade (if present)
+        const cluster = [contourId, demId, hsId].filter(Boolean);
+        const clusterIdx = clustered.length;
+        cluster.forEach(id => { memberOf[id] = clusterIdx; });
+        clustered.push({ cluster });
+    });
+
+    // Build the desired node order: walk current node order; when we encounter
+    // the FIRST member of a cluster (by current position), emit the whole cluster
+    // in canonical sub-order. Unclaimed nodes (not in any cluster) emit at their
+    // current position. This preserves inter-terrain order because the cluster
+    // anchor is the earliest-appearing member of that cluster.
+    const emitted = new Set();
+    const desired = [];
+    const clusterEmitted = new Set();
+
+    nodeIds.forEach(id => {
+        if (emitted.has(id)) return;
+
+        const cIdx = memberOf[id];
+        if (cIdx !== undefined) {
+            if (!clusterEmitted.has(cIdx)) {
+                // First encounter of this cluster — emit all cluster members in canonical order
+                clustered[cIdx].cluster.forEach(cid => {
+                    if (nodeIds.includes(cid) && !emitted.has(cid)) {
+                        desired.push(cid);
+                        emitted.add(cid);
+                    }
+                });
+                clusterEmitted.add(cIdx);
+            }
+            // Subsequent members of this cluster are already emitted; skip.
+        } else {
+            desired.push(id);
+            emitted.add(id);
+        }
+    });
+
+    // Idempotent check
+    if (desired.length !== nodeIds.length) return null;
+    const alreadySorted = desired.every((id, i) => id === nodeIds[i]);
+    if (alreadySorted) return null;
+
+    // Build order array: order[i] = index in nodeIds of the i-th desired element
+    return desired.map(id => nodeIds.indexOf(id)).filter(idx => idx !== -1);
+};
+
+// -- epics --------------------------------------------------------------------
 
 /**
  * Reconciler epic: re-asserts canonical sub-group order after map load and
@@ -138,4 +271,46 @@ export const layerOrderReconcilerEpic = (action$, store) =>
 
             // Emit all sortNode actions + one saveDirectContent at the end.
             return Rx.Observable.from([...actions, saveDirectContent()]);
+        });
+
+/**
+ * TASK-1902: Terrain sub-order reconciler.
+ *
+ * Fires on SET_ANUGA_TERRAIN_DATA (when terrain models are loaded, providing the
+ * gn_layer_hillshade_name FK needed to identify hillshade layers). Re-asserts
+ * the canonical within-terrain layer order: Contour > DEM > Hillshade for each
+ * terrain cluster in the 'Input Data.Terrain' group.
+ *
+ * Preserves inter-terrain order (which terrain cluster is above another) — only
+ * fixes the 3-layer sub-sequence within each cluster.
+ *
+ * Hillshade is resolved via gn_layer_hillshade_name FK, NOT a name substring.
+ */
+export const terrainSubOrderReconcilerEpic = (action$, store) =>
+    action$
+        .ofType(SET_ANUGA_TERRAIN_DATA)
+        .debounceTime(200)
+        .switchMap(() => {
+            const state = store.getState();
+
+            if (!canEditAnugaMap(state)) return Rx.Observable.empty();
+
+            const groups = state?.layers?.groups || [];
+            const flat = state?.layers?.flat || [];
+            const terrainModels = state?.anuga?.resources?.terrain || [];
+
+            if (terrainModels.length === 0) return Rx.Observable.empty();
+
+            const terrainGroupNode = getNode(groups, 'Input Data.Terrain');
+            if (!terrainGroupNode || !terrainGroupNode.nodes || terrainGroupNode.nodes.length < 2) {
+                return Rx.Observable.empty();
+            }
+
+            const order = computeTerrainSubOrder(terrainGroupNode.nodes, flat, terrainModels);
+            if (order === null) return Rx.Observable.empty();
+
+            return Rx.Observable.from([
+                sortNode('Input Data.Terrain', order, sortLayers),
+                saveDirectContent()
+            ]);
         });

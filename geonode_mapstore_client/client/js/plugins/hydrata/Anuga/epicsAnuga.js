@@ -137,6 +137,8 @@ export {
 
 // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
 // Re-asserts sub-group display order on map load + layer add.
+// TASK-1902 — terrain sub-order: Contour > DEM > Hillshade (via FK).
 export {
-    layerOrderReconcilerEpic
+    layerOrderReconcilerEpic,
+    terrainSubOrderReconcilerEpic
 } from './epics/layerOrderEpics';
