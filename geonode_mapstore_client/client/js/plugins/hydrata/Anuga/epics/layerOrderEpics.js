@@ -273,6 +273,78 @@ export const layerOrderReconcilerEpic = (action$, store) =>
             return Rx.Observable.from([...actions, saveDirectContent()]);
         });
 
+// -- intra-Results ordering helpers (TASK-1903) --------------------------------
+//
+// Intra-Results ordering policy (documented per spec):
+//   1. LATEST RUN ON TOP: within each Results.* sub-group (Depth, Momentum,
+//      Velocity, etc.) layers are sorted by run ID descending so the most recent
+//      run's result is always highest in the z-stack.
+//      Run ID is extracted from the layer name pattern "run<N>_..." (e.g.
+//      "run1257_depth_max_cog" → 1257). Layers without a parseable run ID sort
+//      AFTER layers with one (least priority).
+//   2. COMPARISON vs ABSOLUTE: each comparison result already lives in its own
+//      dedicated sub-group (Results.Comparison: Depth, etc.); the sub-group
+//      ORDER within the Results band is governed by ANUGA_GROUPS['Results'].
+//      In Phase-1 (this wave), comparison diffs are kept BELOW the absolute
+//      result sub-groups (i.e. ANUGA_GROUPS['Results'] = ['Depth', 'Momentum',
+//      'Velocity', 'Comparison: Velocity', 'Comparison: Depth', 'Comparison:
+//      'Momentum']). This means absolute results paint OVER comparison diffs.
+//      Phase-2 may introduce a tree-flatten to interleave them by run (deferred
+//      per TASK-1901 comment#1071).
+
+/**
+ * Extract the numeric run ID from a result layer name.
+ * Pattern: "run{id}_{rest}" or "geonode:run{id}_{rest}".
+ * Returns the run ID (integer) or -1 if the name doesn't match.
+ *
+ * @param {string} layerName
+ * @returns {number}
+ */
+export const extractRunId = (layerName) => {
+    if (!layerName) return -1;
+    const match = bareName(layerName).match(/^run(\d+)_/);
+    return match ? parseInt(match[1], 10) : -1;
+};
+
+/**
+ * Compute the desired order for layers WITHIN a Results.* sub-group:
+ * sort by run ID descending (latest run on top / nodes[0]).
+ *
+ * @param {Array}  currentNodes  the sub-group's nodes[] (layer IDs or node objects)
+ * @param {Array}  flatLayers    state.layers.flat
+ * @returns {Array|null}  order[] for sortNode, or null if already canonical
+ */
+export const computeResultsLayerOrder = (currentNodes, flatLayers) => {
+    if (!currentNodes || currentNodes.length < 2) return null;
+
+    const nodeIds = currentNodes.map(n => n?.id || n);
+
+    // For each node, resolve the layer from flat and extract its run ID
+    const withRunId = nodeIds.map(id => {
+        const layer = (flatLayers || []).find(l => (l?.id || l) === id);
+        return { id, runId: layer ? extractRunId(layer.name) : -1 };
+    });
+
+    // Sort: layers with a valid run ID (≥ 0) first, by run ID descending.
+    // Layers without a run ID (comparison diffs, non-run layers) sort last,
+    // preserving their relative order among themselves.
+    const sorted = withRunId.slice().sort((a, b) => {
+        const aHas = a.runId >= 0;
+        const bHas = b.runId >= 0;
+        if (aHas && bHas) return b.runId - a.runId; // descending (latest first)
+        if (aHas) return -1; // a has run ID, b doesn't → a first
+        if (bHas) return 1;  // b has run ID, a doesn't → b first
+        // Both lack run IDs: preserve current relative order
+        return nodeIds.indexOf(a.id) - nodeIds.indexOf(b.id);
+    });
+
+    const desiredIds = sorted.map(x => x.id);
+    const alreadySorted = desiredIds.every((id, i) => id === nodeIds[i]);
+    if (alreadySorted) return null;
+
+    return desiredIds.map(id => nodeIds.indexOf(id)).filter(idx => idx !== -1);
+};
+
 /**
  * TASK-1902: Terrain sub-order reconciler.
  *
@@ -313,4 +385,48 @@ export const terrainSubOrderReconcilerEpic = (action$, store) =>
                 sortNode('Input Data.Terrain', order, sortLayers),
                 saveDirectContent()
             ]);
+        });
+
+/**
+ * TASK-1903: Intra-Results band ordering reconciler.
+ *
+ * Fires on ADD_LAYER (debounced) to sort layers within each Results.* sub-group
+ * by run ID descending (latest run on top).
+ *
+ * Floater policy:
+ *   - Layers with a parseable run ID (run<N>_*) sort by N descending (newest first).
+ *   - Layers without a run ID (comparison diffs, misc layers) sort after
+ *     the run layers, preserving their current relative order.
+ *   - The intra-sub-group sort is idempotent: emits nothing when already canonical.
+ *
+ * This does NOT touch the sub-group order (Results.Depth vs Results.Momentum) —
+ * that is handled by layerOrderReconcilerEpic (TASK-1901). It only reorders
+ * individual layers WITHIN each Results.* sub-group.
+ */
+export const resultsLayerOrderEpic = (action$, store) =>
+    action$
+        .ofType(ADD_LAYER)
+        .debounceTime(600)
+        .switchMap(() => {
+            const state = store.getState();
+            if (!canEditAnugaMap(state)) return Rx.Observable.empty();
+
+            const groups = state?.layers?.groups || [];
+            const flat = state?.layers?.flat || [];
+            const actions = [];
+
+            // Iterate over all Results.* sub-groups
+            (ANUGA_GROUPS['Results'] || []).forEach(childName => {
+                const groupId = `Results.${childName}`;
+                const groupNode = getNode(groups, groupId);
+                if (!groupNode || !groupNode.nodes || groupNode.nodes.length < 2) return;
+
+                const order = computeResultsLayerOrder(groupNode.nodes, flat);
+                if (order !== null) {
+                    actions.push(sortNode(groupId, order, sortLayers));
+                }
+            });
+
+            if (actions.length === 0) return Rx.Observable.empty();
+            return Rx.Observable.from([...actions, saveDirectContent()]);
         });

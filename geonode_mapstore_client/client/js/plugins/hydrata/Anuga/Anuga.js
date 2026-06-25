@@ -72,7 +72,9 @@ import {
     // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
     layerOrderReconcilerEpic,
     // TASK-1902 — terrain sub-order: Contour > DEM > Hillshade (via FK).
-    terrainSubOrderReconcilerEpic
+    terrainSubOrderReconcilerEpic,
+    // TASK-1903 — floater ranking + intra-Results band order (latest run on top).
+    resultsLayerOrderEpic
 } from "./epicsAnuga";
 // TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
 import {
@@ -185,6 +187,8 @@ export default createPlugin('Anuga', {
         layerOrderReconcilerEpic,
         // TASK-1902 — terrain sub-order: Contour > DEM > Hillshade.
         terrainSubOrderReconcilerEpic,
+        // TASK-1903 — floater ranking + intra-Results band order.
+        resultsLayerOrderEpic,
         // TASK-1645 (W1.5): TerrainWorkbench recipe epics registered under Anuga plugin.
         twLoadDataEpic,
         twSelectSurfaceForTerrainEpic,

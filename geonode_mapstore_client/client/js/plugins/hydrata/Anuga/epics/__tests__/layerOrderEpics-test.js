@@ -21,8 +21,11 @@ import {
     computeReorderFor,
     computeTerrainSubOrder,
     findContourLayer,
+    extractRunId,
+    computeResultsLayerOrder,
     layerOrderReconcilerEpic,
-    terrainSubOrderReconcilerEpic
+    terrainSubOrderReconcilerEpic,
+    resultsLayerOrderEpic
 } from '../layerOrderEpics';
 import { SAVE_DIRECT_CONTENT } from '@js/actions/gnsave';
 import { DEM_CONTOUR_STYLE_NAME } from '../../gwcTileRouting';
@@ -469,6 +472,240 @@ describe('TASK-1901 layerOrderReconcilerEpic (real reducer)', () => {
                 // Multiple SORT_NODE (one per out-of-order group)
                 const sortActions = emitted.filter(a => a.type === 'SORT_NODE');
                 expect(sortActions.length).toBe(2); // Input Data + Results both out of order
+                done();
+            }
+        );
+    }).timeout(3000);
+});
+
+// ── TASK-1903: floater ranking + intra-Results ordering ───────────────────────
+
+describe('TASK-1903 extractRunId', () => {
+    it('extracts run ID from run<N>_* pattern', () => {
+        expect(extractRunId('run1257_depth_max_cog')).toBe(1257);
+        expect(extractRunId('run42_velocity_max_cog')).toBe(42);
+    });
+
+    it('handles geonode: prefix via bareName', () => {
+        expect(extractRunId('geonode:run1257_depth_max_cog')).toBe(1257);
+    });
+
+    it('returns -1 for non-run layers', () => {
+        expect(extractRunId('ele_518_dem_cog')).toBe(-1);
+        expect(extractRunId('bdy_001_boundary')).toBe(-1);
+        expect(extractRunId(null)).toBe(-1);
+        expect(extractRunId(undefined)).toBe(-1);
+        expect(extractRunId('')).toBe(-1);
+    });
+
+    it('returns -1 for comparison layers without explicit run prefix', () => {
+        // Comparison layers have names like "comparison_run1_vs_run2_depth"
+        // which do NOT start with run<N>_
+        expect(extractRunId('comparison_run1257_vs_run42_depth')).toBe(-1);
+    });
+});
+
+describe('TASK-1903 computeResultsLayerOrder', () => {
+    const flatLayers = [
+        { id: 'l_run1257_depth', name: 'geonode:run1257_depth_max_cog', group: 'Results.Depth' },
+        { id: 'l_run42_depth', name: 'geonode:run42_depth_max_cog', group: 'Results.Depth' },
+        { id: 'l_run1257_vel', name: 'geonode:run1257_velocity_max_cog', group: 'Results.Velocity' }
+    ];
+
+    it('sorts layers by run ID descending (latest first in nodes[0] = top)', () => {
+        // Wrong order: older run (42) is nodes[0] (= top), newer run (1257) is nodes[1]
+        const nodes = [{ id: 'l_run42_depth' }, { id: 'l_run1257_depth' }];
+        const order = computeResultsLayerOrder(nodes, flatLayers);
+        expect(order).toNotBe(null);
+        // Apply: order[0] should be index of l_run1257_depth (currently 1)
+        expect(order[0]).toBe(1); // l_run1257_depth (newer) should be first
+        expect(order[1]).toBe(0); // l_run42_depth (older) should be second
+    });
+
+    it('returns null when already in canonical order (newest first)', () => {
+        // Correct: newer run (1257) first
+        const nodes = [{ id: 'l_run1257_depth' }, { id: 'l_run42_depth' }];
+        const order = computeResultsLayerOrder(nodes, flatLayers);
+        expect(order).toBe(null);
+    });
+
+    it('returns null for single-node group', () => {
+        const nodes = [{ id: 'l_run1257_depth' }];
+        expect(computeResultsLayerOrder(nodes, flatLayers)).toBe(null);
+    });
+
+    it('sorts run layers before non-run layers (non-run layers stay last)', () => {
+        const flat = [
+            { id: 'l_misc', name: 'some_comparison_layer', group: 'Results.Depth' },
+            { id: 'l_run1257', name: 'geonode:run1257_depth_max_cog', group: 'Results.Depth' }
+        ];
+        const nodes = [{ id: 'l_misc' }, { id: 'l_run1257' }];
+        const order = computeResultsLayerOrder(nodes, flat);
+        expect(order).toNotBe(null);
+        // run1257 (has run ID) should come first
+        const reordered = order.map(idx => nodes[idx]);
+        expect(reordered[0].id).toBe('l_run1257');
+        expect(reordered[1].id).toBe('l_misc');
+    });
+});
+
+// TASK-1903 epic: resultsLayerOrderEpic end-to-end (real reducer)
+describe('TASK-1903 resultsLayerOrderEpic (real reducer)', () => {
+    it('sorts older-run-first → newer-run-first on ADD_LAYER', (done) => {
+        const flat = [
+            { id: 'l_run42_depth', name: 'geonode:run42_depth_max_cog', group: 'Results.Depth' },
+            { id: 'l_run1257_depth', name: 'geonode:run1257_depth_max_cog', group: 'Results.Depth' }
+        ];
+        const groups = [{
+            id: 'Results',
+            name: 'Results',
+            expanded: true,
+            nodes: [{
+                id: 'Results.Depth',
+                name: 'Depth',
+                expanded: true,
+                nodes: [
+                    { id: 'l_run42_depth' },    // older run at nodes[0] = TOP (wrong)
+                    { id: 'l_run1257_depth' }   // newer run at nodes[1] = BELOW (wrong)
+                ]
+            }]
+        }];
+
+        const reduxStore = createStore(
+            combineReducers({ layers: layersReducer }),
+            { layers: { flat, groups } }
+        );
+
+        const store = {
+            getState: () => ({
+                ...reduxStore.getState(),
+                anuga: { projects: { data: { id: 1, my_role: 'editor' } } }
+            }),
+            dispatch: reduxStore.dispatch
+        };
+
+        const action$ = makeActions$([{ type: 'ADD_LAYER', layer: {} }]);
+        const emitted = [];
+
+        resultsLayerOrderEpic(action$, store).subscribe(
+            a => {
+                emitted.push(a);
+                reduxStore.dispatch(a);
+            },
+            err => done(err),
+            () => {
+                expect(emitted.filter(a => a.type === 'SORT_NODE').length).toBe(1);
+                expect(emitted.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(1);
+
+                const { getNode: gn } = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
+                const state = reduxStore.getState().layers;
+                const depthNode = gn(state.groups, 'Results.Depth');
+                const nodeIds = depthNode.nodes.map(n => n?.id || n);
+
+                // Newer run (1257) should be first
+                expect(nodeIds[0]).toBe('l_run1257_depth');
+                expect(nodeIds[1]).toBe('l_run42_depth');
+
+                done();
+            }
+        );
+    }).timeout(3000);
+
+    it('emits nothing when already newest-first', (done) => {
+        const flat = [
+            { id: 'l_run1257_depth', name: 'geonode:run1257_depth_max_cog', group: 'Results.Depth' },
+            { id: 'l_run42_depth', name: 'geonode:run42_depth_max_cog', group: 'Results.Depth' }
+        ];
+        const groups = [{
+            id: 'Results',
+            name: 'Results',
+            expanded: true,
+            nodes: [{
+                id: 'Results.Depth',
+                name: 'Depth',
+                expanded: true,
+                nodes: [
+                    { id: 'l_run1257_depth' },  // newer first (canonical)
+                    { id: 'l_run42_depth' }
+                ]
+            }]
+        }];
+
+        const store = {
+            getState: () => ({
+                layers: { flat, groups },
+                anuga: { projects: { data: { id: 1, my_role: 'editor' } } }
+            }),
+            dispatch: () => {}
+        };
+
+        const action$ = makeActions$([{ type: 'ADD_LAYER', layer: {} }]);
+        const emitted = [];
+
+        resultsLayerOrderEpic(action$, store).subscribe(
+            a => emitted.push(a),
+            err => done(err),
+            () => {
+                expect(emitted.length).toBe(0);
+                done();
+            }
+        );
+    }).timeout(3000);
+
+    it('documented policy: latest run ID on top; non-run layers sort after run layers', (done) => {
+        // Policy: run1257 > run42 > comparison_layer (non-run at bottom)
+        const flat = [
+            { id: 'l_cmp', name: 'comparison_depth', group: 'Results.Depth' },
+            { id: 'l_run42', name: 'geonode:run42_depth_max_cog', group: 'Results.Depth' },
+            { id: 'l_run1257', name: 'geonode:run1257_depth_max_cog', group: 'Results.Depth' }
+        ];
+        const groups = [{
+            id: 'Results',
+            name: 'Results',
+            expanded: true,
+            nodes: [{
+                id: 'Results.Depth',
+                name: 'Depth',
+                expanded: true,
+                nodes: [
+                    { id: 'l_cmp' },       // wrong: non-run at top
+                    { id: 'l_run42' },     // wrong: older run before newer
+                    { id: 'l_run1257' }
+                ]
+            }]
+        }];
+
+        const reduxStore = createStore(
+            combineReducers({ layers: layersReducer }),
+            { layers: { flat, groups } }
+        );
+
+        const store = {
+            getState: () => ({
+                ...reduxStore.getState(),
+                anuga: { projects: { data: { id: 1, my_role: 'editor' } } }
+            }),
+            dispatch: reduxStore.dispatch
+        };
+
+        const action$ = makeActions$([{ type: 'ADD_LAYER', layer: {} }]);
+        const emitted = [];
+
+        resultsLayerOrderEpic(action$, store).subscribe(
+            a => {
+                emitted.push(a);
+                reduxStore.dispatch(a);
+            },
+            err => done(err),
+            () => {
+                const { getNode: gn } = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
+                const state = reduxStore.getState().layers;
+                const depthNode = gn(state.groups, 'Results.Depth');
+                const nodeIds = depthNode.nodes.map(n => n?.id || n);
+                // Canonical: run1257, run42, comparison
+                expect(nodeIds[0]).toBe('l_run1257');
+                expect(nodeIds[1]).toBe('l_run42');
+                expect(nodeIds[2]).toBe('l_cmp');
                 done();
             }
         );
