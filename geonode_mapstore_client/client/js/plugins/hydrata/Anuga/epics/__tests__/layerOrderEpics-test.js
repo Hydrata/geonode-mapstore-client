@@ -547,6 +547,39 @@ describe('TASK-1903 computeResultsLayerOrder', () => {
         expect(reordered[0].id).toBe('l_run1257');
         expect(reordered[1].id).toBe('l_misc');
     });
+
+    // TASK-1916: stable-sort O(1) — 3+ non-run layers keep original relative order
+    it('TASK-1916: 3+ non-run layers preserve their original relative order (stable sort via positionMap)', () => {
+        // Input: [run1257, cmp_A, cmp_B, cmp_C] where run is first (canonical for run layers)
+        // but cmp_A/B/C must retain their A→B→C relative order, not be reshuffled.
+        // We test with non-run layers in a non-trivial order that could be scrambled
+        // by a non-stable sort.
+        const flat = [
+            { id: 'l_run1257', name: 'geonode:run1257_depth_max_cog', group: 'Results.Depth' },
+            { id: 'l_cmp_A', name: 'cmp_alpha', group: 'Results.Depth' },
+            { id: 'l_cmp_B', name: 'cmp_beta', group: 'Results.Depth' },
+            { id: 'l_cmp_C', name: 'cmp_gamma', group: 'Results.Depth' }
+        ];
+        // Wrong order: cmp_C first, then cmp_A, then cmp_B, then run1257 last (oldest)
+        const nodes = [
+            { id: 'l_cmp_C' },
+            { id: 'l_cmp_A' },
+            { id: 'l_cmp_B' },
+            { id: 'l_run1257' }
+        ];
+        const order = computeResultsLayerOrder(nodes, flat);
+        expect(order).toNotBe(null);
+        const reordered = order.map(idx => nodes[idx]);
+        const reorderedIds = reordered.map(n => n.id);
+        // run1257 must be first (has a run ID)
+        expect(reorderedIds[0]).toBe('l_run1257');
+        // Non-run layers must preserve their original relative order: C before A before B
+        const idxC = reorderedIds.indexOf('l_cmp_C');
+        const idxA = reorderedIds.indexOf('l_cmp_A');
+        const idxB = reorderedIds.indexOf('l_cmp_B');
+        expect(idxC).toBeLessThan(idxA);
+        expect(idxA).toBeLessThan(idxB);
+    });
 });
 
 // TASK-1903 epic: resultsLayerOrderEpic end-to-end (real reducer)

@@ -325,6 +325,10 @@ export const computeResultsLayerOrder = (currentNodes, flatLayers) => {
         return { id, runId: layer ? extractRunId(layer.name) : -1 };
     });
 
+    // Pre-build a positionMap for O(1) tie-break lookup (avoids O(n) indexOf
+    // per comparison when many non-run layers are present).
+    const positionMap = new Map(nodeIds.map((id, i) => [id, i]));
+
     // Sort: layers with a valid run ID (≥ 0) first, by run ID descending.
     // Layers without a run ID (comparison diffs, non-run layers) sort last,
     // preserving their relative order among themselves.
@@ -334,8 +338,8 @@ export const computeResultsLayerOrder = (currentNodes, flatLayers) => {
         if (aHas && bHas) return b.runId - a.runId; // descending (latest first)
         if (aHas) return -1; // a has run ID, b doesn't → a first
         if (bHas) return 1;  // b has run ID, a doesn't → b first
-        // Both lack run IDs: preserve current relative order
-        return nodeIds.indexOf(a.id) - nodeIds.indexOf(b.id);
+        // Both lack run IDs: preserve current relative order via O(1) positionMap
+        return positionMap.get(a.id) - positionMap.get(b.id);
     });
 
     const desiredIds = sorted.map(x => x.id);
