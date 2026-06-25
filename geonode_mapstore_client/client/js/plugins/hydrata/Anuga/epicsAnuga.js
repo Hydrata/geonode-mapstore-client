@@ -134,3 +134,9 @@ export {
     profileStartDrawEpic,
     profileEndDrawingEpic
 } from './epics/profileEpic';
+
+// TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
+// Re-asserts sub-group display order on map load + layer add.
+export {
+    layerOrderReconcilerEpic
+} from './epics/layerOrderEpics';

@@ -68,7 +68,9 @@ import {
     cursorElevationEpic,
     // TASK-1861 (W4.4) — Depth/result line-profile tool.
     profileStartDrawEpic,
-    profileEndDrawingEpic
+    profileEndDrawingEpic,
+    // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
+    layerOrderReconcilerEpic
 } from "./epicsAnuga";
 // TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
 import {
@@ -177,6 +179,8 @@ export default createPlugin('Anuga', {
         // TASK-1861 (W4.4) — Depth/result line-profile tool epics.
         profileStartDrawEpic,
         profileEndDrawingEpic,
+        // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
+        layerOrderReconcilerEpic,
         // TASK-1645 (W1.5): TerrainWorkbench recipe epics registered under Anuga plugin.
         twLoadDataEpic,
         twSelectSurfaceForTerrainEpic,

@@ -433,14 +433,25 @@ export const pollActiveRunStatusEpic = (action$, store) =>
 // (MapStore2 LayersUtils) flips this list into flat[]: the first child here
 // ends at the END of flat = TOP of the OL z-stack. So Boundaries first =
 // painted on top of everything, Terrain last = painted underneath.
-const ANUGA_GROUPS = {
+// TASK-1901 (W2): Canonical Input Data child order, top-of-map → bottom-of-map
+// (visually highest first — reverse-walk in initialReorderLayers means the FIRST
+// child here lands at TOP of the OL z-stack). Mirrors BE utils.py LAYER_Z_ORDER.
+// FE/BE divergence guard: a karma test in layerOrderEpics-test.js pins this list;
+// update the two in tandem (search: "LAYER_Z_ORDER" in hydrata/apps/).
+// NOTE: No "Culverts" entry — BE reserved the rank but no live layer exists yet.
+// Exported for use by layerOrderEpics (reconciler) so the canonical list has one
+// source of truth.
+export const ANUGA_GROUPS = {
     "Input Data": [
+        // Vector tiers: structures-over-boundaries keeps drainage features visible
+        // above catchment outlines. Canonical tier order mirrors BE LAYER_Z_ORDER.
+        "Structures",
         "Boundaries", "Inflows",
         // TASK-955 (W2.2 FE) — Rainfall input group, beside Inflows so the
         // legend ordering matches the polygon-vs-line input split.
         // BE INPUT_DATA_GROUP_MAP maps the 'rai' prefix to this label.
         "Rainfalls",
-        "Structures", "Catchments", "Nodes", "Links",
+        "Catchments", "Nodes", "Links",
         "Mesh Regions", "Full Mesh",
         "Friction",
         // TASK-829 raster sibling to vector Friction; routed via the
