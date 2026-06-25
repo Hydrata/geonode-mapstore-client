@@ -221,7 +221,7 @@ export function buildMeshTriangleLayer(token) {
         name: LAYER_NAME,
         title: 'Mesh triangles',
         visibility: true,
-        group: 'Input Data.Mesh',
+        group: 'Input Data.Full Mesh',
         params,
         tileUrls
     };

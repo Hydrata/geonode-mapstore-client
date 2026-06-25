@@ -498,7 +498,7 @@ describe('gwcTileRouting — buildMeshTriangleLayer', () => {
         expect(layer.type).toBe('wms');
         expect(layer.name).toBe('geonode:mesh_triangle_render');
         expect(layer.url).toBe(GWC_WMTS_ENDPOINT);
-        expect(layer.group).toBe('Input Data.Mesh');
+        expect(layer.group).toBe('Input Data.Full Mesh');
         expect(layer.visibility).toBe(true);
     });
 
