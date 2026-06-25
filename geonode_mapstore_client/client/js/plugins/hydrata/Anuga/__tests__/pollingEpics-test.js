@@ -5,6 +5,7 @@ import { addTimeoutEpic, TEST_TIMEOUT } from '../../../../__tests__/helpers/test
 import {
     initAnugaEpic,
     pollAnugaScenarioEpic,
+    selectStaleResultLayers,
     pollActiveRunStatusEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
@@ -106,6 +107,57 @@ describe('Polling Epics', () => {
 
         it('should listen for START_ANUGA_SCENARIO_POLLING', () => {
             expect(typeof pollAnugaScenarioEpic).toBe('function');
+        });
+    });
+
+    // TASK-1897 — cross-project contamination defence-in-depth. The stale-layer
+    // selector must (a) never touch a non-result layer even on a title
+    // collision, and (b) match the latest run's own layers by run-unique name
+    // while still cleaning up a SAME-scenario superseded run by title.
+    describe('selectStaleResultLayers', () => {
+        const latestRun = {
+            gn_layer_depth_max: { name: 'geonode:run1257_depth_max_cog', title: 'test1 Depth Max' },
+            gn_layer_velocity_max: { name: 'geonode:run1257_velocity_max_cog', title: 'test1 Velocity Max' },
+            gn_layer_depth_integrated_velocity_max: { name: 'geonode:run1257_depthintegratedvelocity_max_cog', title: 'test1 Momentum Max' }
+        };
+
+        it('never selects a non-result layer even when its title collides', () => {
+            // A DEM / input layer that happens to share a title must be immune.
+            const flat = [
+                { id: 1, name: 'geonode:ele_518_dem_cog', title: 'test1 Depth Max' },
+                { id: 2, name: 'geonode:bdy_663_boundary_01', title: 'test1 Velocity Max' }
+            ];
+            expect(selectStaleResultLayers(flat, latestRun)).toEqual([]);
+        });
+
+        it('selects the latest run\'s own result layers by run-unique name (idempotent re-add)', () => {
+            const flat = [
+                { id: 3, name: 'geonode:run1257_depth_max_cog', title: 'test1 Depth Max' }
+            ];
+            const out = selectStaleResultLayers(flat, latestRun);
+            expect(out.map(l => l.id)).toEqual([3]);
+        });
+
+        it('cleans up a SAME-scenario superseded run (older name, same title)', () => {
+            const flat = [
+                { id: 4, name: 'geonode:run1200_depth_max_cog', title: 'test1 Depth Max' }
+            ];
+            const out = selectStaleResultLayers(flat, latestRun);
+            expect(out.map(l => l.id)).toEqual([4]);
+        });
+
+        it('never selects another project\'s result layer with a DIFFERENT title', () => {
+            // The reported contamination: an Australian project's run layer. With
+            // a distinct title it is not a removal candidate.
+            const flat = [
+                { id: 5, name: 'geonode:run1255_depth_max_cog', title: 'grandcanyon Depth Max' }
+            ];
+            expect(selectStaleResultLayers(flat, latestRun)).toEqual([]);
+        });
+
+        it('is null-safe for empty flat / missing run', () => {
+            expect(selectStaleResultLayers(undefined, latestRun)).toEqual([]);
+            expect(selectStaleResultLayers([{ id: 6, name: 'geonode:run1_depth_max_cog', title: 'x' }], undefined)).toEqual([]);
         });
     });
 

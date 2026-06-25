@@ -251,6 +251,38 @@ const isScenarioLoaded = (scenario, state) => {
 // Archived tab, 'all' for both) and passes it to the BE via
 // getScenariosByArchive. The call still drives setAnugaPollingData so the
 // row-update + new-row paths in the reducer don't change.
+// TASK-1897 (FE defence-in-depth): an ANUGA result layer's name is
+// geonode:run{N}_{token}_cog. Restricting removal candidates to this pattern
+// means an input, DEM or terrain layer can NEVER be removed even if a human
+// title collides.
+export const RESULT_LAYER_NAME_RE = /(^|:)run\d+_.+_cog$/;
+
+// Choose which currently-loaded result layers to remove before (re)adding a
+// scenario's latest-run results. Within the result-layer set we match the
+// latest run's own layers by run-unique NAME (idempotent re-add) and a
+// SUPERSEDED previous run of the SAME scenario by title — the scenario API
+// exposes only `latest_run` (no run lineage), so title is the only same-scenario
+// proxy available, and it is safe here because it is scoped to result layers and
+// a map shows a single project. The authoritative cross-project guarantee lives
+// in the backend (the run-scoped FK lookup in _idempotent_result_layer); this
+// keeps the FE from ever mutating a foreign or non-result layer.
+export const selectStaleResultLayers = (flatLayers, latestRun) => {
+    const names = [
+        latestRun?.gn_layer_depth_integrated_velocity_max?.name,
+        latestRun?.gn_layer_depth_max?.name,
+        latestRun?.gn_layer_velocity_max?.name
+    ].filter(Boolean);
+    const titles = [
+        latestRun?.gn_layer_depth_integrated_velocity_max?.title,
+        latestRun?.gn_layer_depth_max?.title,
+        latestRun?.gn_layer_velocity_max?.title
+    ].filter(Boolean);
+    return (flatLayers || []).filter(layer =>
+        RESULT_LAYER_NAME_RE.test(layer?.name || '') &&
+        (names.includes(layer?.name) || titles.includes(layer?.title))
+    );
+};
+
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_SCENARIO_POLLING)
@@ -282,12 +314,14 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 })[0];
                                 const currentLayerNames = store.getState()?.layers?.flat?.map(layer => layer?.name);
                                 let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l?.type === 'wms' && l?.group !== 'background') || [];
-                                const newResultLayerTitles = [
-                                    scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.title,
-                                    scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.title,
-                                    scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.title
-                                ];
-                                let existingResultLayers = store.getState()?.layers?.flat?.filter(layer => newResultLayerTitles.includes(layer?.title));
+                                // TASK-1897 (FE defence-in-depth): pick stale
+                                // result layers to remove by run-unique NAME,
+                                // scoped to result layers only — never a bare
+                                // title match against arbitrary layers.
+                                let existingResultLayers = selectStaleResultLayers(
+                                    store.getState()?.layers?.flat,
+                                    scenarioToLoadResults?.latest_run
+                                );
                                 if (scenarioToLoadResults &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
@@ -309,11 +343,15 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     const depthVelocityLayer = remapGroup(scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max);
                                     const depthLayer = scenarioToLoadResults.latest_run.gn_layer_depth_max;
                                     const velocityLayer = scenarioToLoadResults.latest_run.gn_layer_velocity_max;
+                                    // Remove every superseded stale result layer
+                                    // (variable count; never dispatch
+                                    // removeLayer(undefined)) before re-adding.
+                                    const removeStaleResultLayers = (existingResultLayers || [])
+                                        .filter(layer => layer?.id)
+                                        .map(layer => Rx.Observable.of(removeLayer(layer.id)));
                                     return Rx.Observable
                                         .concat(
-                                            Rx.Observable.of(removeLayer(existingResultLayers?.[0]?.id)),
-                                            Rx.Observable.of(removeLayer(existingResultLayers?.[1]?.id)),
-                                            Rx.Observable.of(removeLayer(existingResultLayers?.[2]?.id)),
+                                            ...removeStaleResultLayers,
                                             Rx.Observable.of(setAnugaPollingData(action.scenarios)),
                                             Rx.Observable.of(addLayer(depthVelocityLayer)),
                                             Rx.Observable.of(addLayer(depthLayer)),
