@@ -144,3 +144,8 @@ export {
     terrainSubOrderReconcilerEpic,
     resultsLayerOrderEpic
 } from './epics/layerOrderEpics';
+
+// TASK-1930 (W2.6) — map-OPEN GWC tile prefetch (warm visible COGs on map load).
+export {
+    warmTilesOnMapOpenEpic
+} from './epics/warmTilesEpic';

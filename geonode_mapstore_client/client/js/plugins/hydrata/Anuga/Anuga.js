@@ -74,7 +74,9 @@ import {
     // TASK-1902 — terrain sub-order: Contour > DEM > Hillshade (via FK).
     terrainSubOrderReconcilerEpic,
     // TASK-1903 — floater ranking + intra-Results band order (latest run on top).
-    resultsLayerOrderEpic
+    resultsLayerOrderEpic,
+    // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch.
+    warmTilesOnMapOpenEpic
 } from "./epicsAnuga";
 // TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
 import {
@@ -189,6 +191,8 @@ export default createPlugin('Anuga', {
         terrainSubOrderReconcilerEpic,
         // TASK-1903 — floater ranking + intra-Results band order.
         resultsLayerOrderEpic,
+        // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch (warm visible COGs).
+        warmTilesOnMapOpenEpic,
         // TASK-1645 (W1.5): TerrainWorkbench recipe epics registered under Anuga plugin.
         twLoadDataEpic,
         twSelectSurfaceForTerrainEpic,
