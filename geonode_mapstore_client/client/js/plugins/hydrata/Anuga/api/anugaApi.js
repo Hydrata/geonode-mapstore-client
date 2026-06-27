@@ -59,6 +59,13 @@ const v2Plural = (type) => V2_PLURAL[type] || type;
 export const getProjectFromMapId = (mapId) =>
     axios.post('/api/v2/anuga/projects/from-map/', { mapId });
 
+// TASK-1930 W2.6 — map-OPEN GWC prefetch. POST the visible cacheable COG layer
+// alternates so GeoServer pre-warms their tiles before the cold tile-storm.
+// Fire-and-forget (the epic ignores the response); AllowAny on the BE side so
+// anonymous viewers of public maps can warm. payload = {alternates: [...]}.
+export const warmTiles = (projectId, payload) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/warm-tiles/`, payload);
+
 // V2P-79: alias to V2 list endpoint. Pagination semantics preserved by
 // query params (page_size, page) — V2 ProjectViewSetV2 inherits DRF defaults.
 export const getProjects = (pageSize = 100, page = 1) =>
