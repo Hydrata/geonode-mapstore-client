@@ -94,14 +94,17 @@ describe('TASK-1930 W2.6 warmTilesOnMapOpenEpic', () => {
         it('(b) authenticated: POSTs visible COG alternates to /projects/<pid>/warm-tiles/', (done) => {
             const store = makeStore({ mapId: 201, projectId: 1, flat: [wms(TERRAIN), wms(RESULT)] });
             const action$ = makeActions$([{ type: MAP_CONFIG_LOADED }]);
+            const emitted = [];
             warmTilesOnMapOpenEpic(action$, store).subscribe(
-                () => {},
+                a => emitted.push(a),
                 err => done(err),
                 () => {
                     const posts = warmPosts(mockAxios);
                     expect(posts.length).toBe(1);
                     expect(posts[0].url).toBe('/api/v2/anuga/projects/1/warm-tiles/');
                     expect(JSON.parse(posts[0].data)).toEqual({ alternates: [TERRAIN, RESULT] });
+                    // Fire-and-forget (ignoreElements): the epic emits NO redux action.
+                    expect(emitted.length).toBe(0);
                     done();
                 }
             );
@@ -110,13 +113,16 @@ describe('TASK-1930 W2.6 warmTilesOnMapOpenEpic', () => {
         it('(c) anonymous: resolves project id via from-map then warms', (done) => {
             const store = makeStore({ mapId: 202, projectId: null, flat: [wms(RESULT)] });
             const action$ = makeActions$([{ type: MAP_CONFIG_LOADED }]);
+            const emitted = [];
             warmTilesOnMapOpenEpic(action$, store).subscribe(
-                () => {},
+                a => emitted.push(a),
                 err => done(err),
                 () => {
                     const posts = warmPosts(mockAxios);
                     expect(posts.length).toBe(1);
                     expect(posts[0].url).toBe('/api/v2/anuga/projects/7/warm-tiles/');
+                    // Fire-and-forget (ignoreElements): the epic emits NO redux action.
+                    expect(emitted.length).toBe(0);
                     done();
                 }
             );
@@ -130,6 +136,21 @@ describe('TASK-1930 W2.6 warmTilesOnMapOpenEpic', () => {
                 err => done(err),
                 () => { expect(warmPosts(mockAxios).length).toBe(0); done(); }
             );
+        });
+
+        it('(e) same map warmed at most once per session (double-dispatch dedupe)', (done) => {
+            // Two SEPARATE MAP_CONFIG_LOADED opens of the same map (each its own
+            // debounce window, so this exercises the _warmedMapIds Set guard, not
+            // debounceTime collapsing). The second open must NOT re-POST.
+            const store = makeStore({ mapId: 204, projectId: 1, flat: [wms(TERRAIN)] });
+            const open = () => new Promise((resolve, reject) => {
+                warmTilesOnMapOpenEpic(makeActions$([{ type: MAP_CONFIG_LOADED }]), store)
+                    .subscribe(() => {}, reject, resolve);
+            });
+            open().then(open).then(() => {
+                expect(warmPosts(mockAxios).length).toBe(1);
+                done();
+            }).catch(done);
         });
     });
 });
