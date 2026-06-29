@@ -16,15 +16,18 @@
  * plain {title, subtitle, icon} — no function ever reaches a dispatched action
  * or Redux state.
  *
- * LIVE-WIRING SAFETY: this epic is NOT registered into the live plugin epics
- * list in W1 — the live activation + gating (require Identify ON, suppress
- * during a VectorDraw draw/edit phase) is W2.3 (TASK-1995). It is exported for
- * unit tests only here.
+ * LIVE-WIRING: registered into the live Anuga plugin epics list in W2.3
+ * (TASK-1995, Anuga.js). The live activation + gating is: require Identify ON
+ * (anugaIdentifyEnableEpic) AND application/json info_format
+ * (anugaIdentifyJsonFormatEpic — W2 corrective: the live Identify default is
+ * text/plain, which this classifier's FeatureCollection guard would drop on
+ * every real click), and suppress during a VectorDraw draw/edit phase.
  */
 import Rx from 'rxjs';
 import {
     LOAD_FEATURE_INFO,
     toggleMapInfoState,
+    changeMapInfoFormat,
     purgeMapInfoResults,
     hideMapinfoMarker
 } from '../../../../../MapStore2/web/client/actions/mapInfo';
@@ -255,3 +258,41 @@ export const anugaIdentifyEnableEpic = (action$, store) =>
         .filter(() => store.getState()?.mapInfo?.enabled === false)
         .take(1)
         .mapTo(toggleMapInfoState());
+
+/**
+ * W2 CORRECTIVE (epic 1969) — force the Identify info_format to application/json
+ * for ANUGA maps.
+ *
+ * THE BUG this fixes: clickDisambiguationEpic only classifies an
+ * application/json GFI FeatureCollection (text/plain drops the per-feature
+ * layer-name prefix the classifier needs — the W0 D2 decision). But MapStore's
+ * live Identify default info_format is **text/plain**, and nothing on an ANUGA
+ * map ever requested application/json. So EVERY real map click returned a
+ * text/plain "no features were found" blob that the epic's
+ * `data.type !== 'FeatureCollection'` guard dropped — disambiguation never
+ * fired on a real click. (The W2 self-verify used a SYNTHETIC, hand-built
+ * FeatureCollection dispatch, which bypassed the live text/plain Identify path
+ * and masked this; it only surfaces on a real on-map click against the live
+ * GetFeatureInfo wiring.)
+ *
+ * Mirrors anugaIdentifyEnableEpic's one-shot discipline: the FIRST
+ * SET_ANUGA_PROJECT_DATA seen while the format is not already application/json
+ * flips it, then the stream completes (.take(1) after the format filter).
+ * SET_ANUGA_PROJECT_DATA also fires on many LATER refresh paths (membership ops,
+ * dataset rename, terrain add); the one-shot ensures-json on first load and
+ * never fights a user who later deliberately switches the Identify format.
+ *
+ * Trade-off (documented; cheaper option chosen): this sets the GLOBAL
+ * mapInfo.configuration.infoFormat, so the default Identify popup for the
+ * 0-candidate fallthrough also renders application/json (a structured attribute
+ * table — equivalent-or-richer than text/plain, all queryable layers on an
+ * ANUGA map are GeoServer WMS that serve application/json). A more surgical
+ * per-ANUGA-vector-layer featureInfo.format would avoid touching the global
+ * default, but costs a hook into layer creation; deferred as an IMPROVEMENT.
+ */
+export const anugaIdentifyJsonFormatEpic = (action$, store) =>
+    action$
+        .ofType(SET_ANUGA_PROJECT_DATA)
+        .filter(() => store.getState()?.mapInfo?.configuration?.infoFormat !== 'application/json')
+        .take(1)
+        .mapTo(changeMapInfoFormat('application/json'));

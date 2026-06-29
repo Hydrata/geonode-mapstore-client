@@ -15,6 +15,7 @@ import Rx from 'rxjs';
 import {
     LOAD_FEATURE_INFO,
     TOGGLE_MAPINFO_STATE,
+    CHANGE_MAPINFO_FORMAT,
     PURGE_MAPINFO_RESULTS,
     HIDE_MAPINFO_MARKER
 } from '../../../../../../MapStore2/web/client/actions/mapInfo';
@@ -34,7 +35,8 @@ import {
     buildCandidates,
     filterEditableCandidates,
     isVectorDrawActive,
-    anugaIdentifyEnableEpic
+    anugaIdentifyEnableEpic,
+    anugaIdentifyJsonFormatEpic
 } from '../clickDisambiguationEpic';
 
 const makeActions$ = (actions) => {
@@ -425,6 +427,67 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             const epicStore = { getState: () => ({}) };
             const out = [];
             anugaIdentifyEnableEpic(makeActions$([setAnugaProjectData({ id: 5 })]), epicStore).subscribe(
+                a => out.push(a),
+                done,
+                () => { expect(out).toEqual([]); done(); }
+            );
+        });
+
+        // W2 CORRECTIVE — anugaIdentifyJsonFormatEpic forces application/json
+        // info_format. The bug it fixes: the live Identify default is text/plain,
+        // so the classifier's `data.type === 'FeatureCollection'` guard dropped
+        // EVERY real GFI click (text/plain is "no features were found", not a
+        // FeatureCollection) — disambiguation never fired on a real on-map click.
+        it('anugaIdentifyJsonFormatEpic forces application/json when the live default is text/plain', (done) => {
+            const epicStore = { getState: () => ({ mapInfo: { configuration: { infoFormat: 'text/plain' } } }) };
+            const out = [];
+            anugaIdentifyJsonFormatEpic(makeActions$([setAnugaProjectData({ id: 5 })]), epicStore).subscribe(
+                a => out.push(a),
+                done,
+                () => {
+                    expect(out.map(a => a.type)).toEqual([CHANGE_MAPINFO_FORMAT]);
+                    expect(out[0].infoFormat).toEqual('application/json');
+                    done();
+                }
+            );
+        });
+
+        it('anugaIdentifyJsonFormatEpic forces application/json when no infoFormat is configured (the live default path)', (done) => {
+            // configuration absent => infoFormat undefined !== application/json =>
+            // MapStore falls back to text/plain at GFI time, so we MUST set json.
+            const epicStore = { getState: () => ({ mapInfo: {} }) };
+            const out = [];
+            anugaIdentifyJsonFormatEpic(makeActions$([setAnugaProjectData({ id: 5 })]), epicStore).subscribe(
+                a => out.push(a),
+                done,
+                () => {
+                    expect(out.map(a => a.type)).toEqual([CHANGE_MAPINFO_FORMAT]);
+                    expect(out[0].infoFormat).toEqual('application/json');
+                    done();
+                }
+            );
+        });
+
+        it('anugaIdentifyJsonFormatEpic fires AT MOST ONCE across multiple SET_ANUGA_PROJECT_DATA (one-shot)', (done) => {
+            // .take(1): only the FIRST load sets json; a later deliberate user
+            // format switch is never fought on the next refresh.
+            const epicStore = { getState: () => ({ mapInfo: { configuration: { infoFormat: 'text/plain' } } }) };
+            const out = [];
+            anugaIdentifyJsonFormatEpic(makeActions$([
+                setAnugaProjectData({ id: 5 }),
+                setAnugaProjectData({ id: 5 }),
+                setAnugaProjectData({ id: 5 })
+            ]), epicStore).subscribe(
+                a => out.push(a),
+                done,
+                () => { expect(out.map(a => a.type)).toEqual([CHANGE_MAPINFO_FORMAT]); done(); }
+            );
+        });
+
+        it('anugaIdentifyJsonFormatEpic is a no-op when the format is already application/json', (done) => {
+            const epicStore = { getState: () => ({ mapInfo: { configuration: { infoFormat: 'application/json' } } }) };
+            const out = [];
+            anugaIdentifyJsonFormatEpic(makeActions$([setAnugaProjectData({ id: 5 })]), epicStore).subscribe(
                 a => out.push(a),
                 done,
                 () => { expect(out).toEqual([]); done(); }
