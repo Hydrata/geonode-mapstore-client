@@ -53,8 +53,11 @@ const collectFunctionPaths = (obj, path = 'root', acc = []) => {
     if (!obj || typeof obj !== 'object') { return acc; }
     Object.keys(obj).forEach((k) => {
         const v = obj[k];
-        if (typeof v === 'function') { acc.push(`${path}.${k}`); }
-        else if (v && typeof v === 'object') { collectFunctionPaths(v, `${path}.${k}`, acc); }
+        if (typeof v === 'function') {
+            acc.push(`${path}.${k}`);
+        } else if (v && typeof v === 'object') {
+            collectFunctionPaths(v, `${path}.${k}`, acc);
+        }
     });
     return acc;
 };
