@@ -158,13 +158,15 @@ export const ConstantInput = ({ value, onChange, field }) => {
     );
 };
 
-// Render component for the 'timeseries' kind. Emits
-// {kind:'timeseries', timeseries_id:Number|null}. `options` arrives from
-// DiscriminatorPicker (either from the `timeSeriesOptions` prop or the
-// per-mount fetch). `loading` is unused here because DiscriminatorPicker
-// only sets loading=true when a fetch is actually in flight; for the
-// injected-options path the original "Loading…" placeholder is replaced
-// by the empty-list placeholder, which matches the existing tests.
+// Render component for the 'timeseries' / 'hydrograph' / 'hyetograph'
+// kind family. Emits {kind:<currentKind>, timeseries_id:Number|null}.
+//
+// TASK-1984: handleChange emits `value?.kind || 'timeseries'` instead of
+// the former hardcoded `'timeseries'`. This means a hydrograph picker
+// (value.kind='hydrograph') correctly emits {kind:'hydrograph', ...} on
+// every user selection, keeping the Redux value's kind stable. Back-compat:
+// when value.kind is 'timeseries' (bdy_ / legacy rows), the emitted kind
+// stays 'timeseries'. When value is absent/undefined, falls back to 'timeseries'.
 export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) => {
     const tsValue = (typeof value?.timeseries_id === 'number' || typeof value?.timeseries_id === 'string')
         ? value.timeseries_id
@@ -174,7 +176,11 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) =
     const handleChange = (e) => {
         const raw = e.target.value;
         const id = raw === '' ? null : parseInt(raw, 10);
-        onChange({ kind: 'timeseries', timeseries_id: Number.isNaN(id) ? null : id });
+        // Use the current value's kind so hydrograph/hyetograph pickers emit
+        // the correct kind, not always 'timeseries'. Falls back to 'timeseries'
+        // when value is absent (initial mount before any radio selection).
+        const emitKind = value?.kind || 'timeseries';
+        onChange({ kind: emitKind, timeseries_id: Number.isNaN(id) ? null : id });
     };
     return (
         <React.Fragment>
@@ -206,14 +212,23 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) =
     );
 };
 
-// Fetch helper for the 'timeseries' kind. Accepts either `resp.data` as
-// an array OR `resp.data.results` (matches the existing TimeDataPicker
-// behaviour pre-W3.2).
-export const fetchTimeSeries = (projectId) => {
+// Fetch helper for the 'timeseries' / 'hydrograph' / 'hyetograph' kinds.
+// Accepts either `resp.data` as an array OR `resp.data.results` (matches
+// the existing TimeDataPicker behaviour pre-W3.2).
+//
+// TASK-1984: gains an optional `seriesType` arg. When provided, appends
+// `?series_type=<seriesType>` to the URL so the BE filters by that type
+// (e.g. only hydrograph rows for the Inflow picker). When absent the URL
+// is unchanged — the BE returns all rows (back-compat for the Boundary
+// 'Time' generic 'timeseries' kind and any direct callers).
+export const fetchTimeSeries = (projectId, seriesType) => {
     if (!projectId) {
         return Promise.resolve([]);
     }
-    return axios.get(`/api/v2/anuga/projects/${projectId}/time-series/`)
+    const url = seriesType
+        ? `/api/v2/anuga/projects/${projectId}/time-series/?series_type=${seriesType}`
+        : `/api/v2/anuga/projects/${projectId}/time-series/`;
+    return axios.get(url)
         .then(resp => {
             if (Array.isArray(resp?.data)) return resp.data;
             if (Array.isArray(resp?.data?.results)) return resp.data.results;
@@ -254,9 +269,14 @@ export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOp
             if (newKind === 'constant') {
                 const existing = typeof value?.constant === 'number' ? value.constant : null;
                 onChange(field.name, { kind: 'constant', constant: existing });
-            } else if (newKind === 'timeseries') {
+            } else if (newKind === 'timeseries' || newKind === 'hydrograph' || newKind === 'hyetograph') {
+                // TASK-1984: hydrograph + hyetograph are timeseries-family kinds —
+                // they carry timeseries_id (same shape as 'timeseries'). Preserve
+                // an existing timeseries_id through the kind-switch reset so the
+                // user's prior selection is not lost. A naive impl that only
+                // checks for 'timeseries' drops the id for the new kinds.
                 const existing = typeof value?.timeseries_id === 'number' ? value.timeseries_id : null;
-                onChange(field.name, { kind: 'timeseries', timeseries_id: existing });
+                onChange(field.name, { kind: newKind, timeseries_id: existing });
             } else {
                 onChange(field.name, newValue);
             }
@@ -359,11 +379,19 @@ register({ name: 'discriminator-picker', component: DiscriminatorPickerWidget })
 // avoid an import cycle: ConstantInput / TimeSeriesSelect / fetchTimeSeries
 // are defined in this file.
 //
-// `constant` and `timeseries` are the two kinds used by every ANUGA
-// discriminator-picker formConfig today (Boundary value, Inflow data,
-// Rainfall data — see ANUGA_FEATURE_CONFIG in simpleViewMenuRow.js).
+// `constant` and `timeseries` are the two original ANUGA kinds.
+// `timeseries` is kept for the Boundary 'Time' picker (show-all, no series_type
+// filter) and for back-compat with any external callers (see AC3).
 registerDiscriminator({ kind: 'constant', render: ConstantInput });
 registerDiscriminator({ kind: 'timeseries', render: TimeSeriesSelect, fetch: fetchTimeSeries });
+
+// TASK-1984 — split 'timeseries' into two filtered kinds for Inflow + Rainfall.
+// Each is an arrow wrapper that calls fetchTimeSeries(pid, seriesType) so the
+// BE only returns rows of the relevant type. The render component stays
+// TimeSeriesSelect (same UI); only the fetch is filtered.
+// 'timeseries' remains registered for the Boundary 'Time' generic show-all (AC3).
+registerDiscriminator({ kind: 'hydrograph', render: TimeSeriesSelect, fetch: (pid) => fetchTimeSeries(pid, 'hydrograph') });
+registerDiscriminator({ kind: 'hyetograph', render: TimeSeriesSelect, fetch: (pid) => fetchTimeSeries(pid, 'hyetograph') });
 
 const FormField = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
     const Component = get(field.type) || get('text');

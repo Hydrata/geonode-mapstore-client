@@ -247,11 +247,18 @@ const ANUGA_FEATURE_CONFIG = {
                 // PostGIS `type` column remains for back-compat reads of older
                 // rows; new WFS-T writes omit it (PostGIS fills NULL) which
                 // run_anuga's legacy `rainfall_filter` already drops.
+                //
+                // TASK-1984: timeseries-family kind split. 'hydrograph' is the
+                // Inflow-specific kind; its discriminatorRegistry entry uses
+                // fetchTimeSeries(pid, 'hydrograph') so only hydrograph-type
+                // TimeSeries rows appear in the dropdown (AC1). Value shape is
+                // identical to the former 'timeseries' kind: {timeseries_id: null}.
+                // The generic 'timeseries' kind is kept for bdy_ (AC3 / show-all).
                 {name: 'data', type: 'discriminator-picker', label: 'Data',
                     choices: [
                         {kind: 'constant', label: 'Constant',
                             defaultValue: {constant: null}, unit: 'm³/s'},
-                        {kind: 'timeseries', label: 'TimeSeries',
+                        {kind: 'hydrograph', label: 'Hydrograph',
                             defaultValue: {timeseries_id: null}}
                     ]}
             ]
@@ -284,11 +291,17 @@ const ANUGA_FEATURE_CONFIG = {
                 // TASK-1419 (W5/ISSUE 12): unit='mm/hr' mirrors inf_'s unit='m³/s' pattern.
                 // run_anuga converts mm/hr → m/s via RAINFALL_FACTOR=1e-6. The label is
                 // rendered as a non-interactive suffix by ConstantInput when unit is set.
+                //
+                // TASK-1984: timeseries-family kind split. 'hyetograph' is the
+                // Rainfall-specific kind; its discriminatorRegistry entry uses
+                // fetchTimeSeries(pid, 'hyetograph') so only hyetograph-type
+                // TimeSeries rows appear in the dropdown (AC2). Value shape is
+                // identical to the former 'timeseries' kind: {timeseries_id: null}.
                 {name: 'data', type: 'discriminator-picker', label: 'Data',
                     choices: [
                         {kind: 'constant', label: 'Constant',
                             defaultValue: {constant: null}, unit: 'mm/hr'},
-                        {kind: 'timeseries', label: 'TimeSeries',
+                        {kind: 'hyetograph', label: 'Hyetograph / Design Storm',
                             defaultValue: {timeseries_id: null}}
                     ]}
             ]

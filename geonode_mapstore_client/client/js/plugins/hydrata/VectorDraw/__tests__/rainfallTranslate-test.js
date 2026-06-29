@@ -177,3 +177,43 @@ describe('TASK-1404 rainfallTranslate registry integration', () => {
         expect(deriveTranslateKey('geonode:rai_615_rainfall_01')).toBe('rai');
     });
 });
+
+/*
+ * TASK-1984 — rainfallTranslate must handle kind='hyetograph' (timeseries-family).
+ *
+ * After TASK-1984, the rai_ discriminator-picker uses kind='hyetograph' instead
+ * of kind='timeseries'. The translateOut function must treat 'hyetograph' the
+ * same as 'timeseries': emit data_timeseries_id, strip data + data_constant.
+ *
+ * The wire columns (data_constant / data_timeseries_id) are unchanged —
+ * only the FE discriminator kind label changes.
+ */
+describe('TASK-1984 rainfallTranslate hyetograph kind (timeseries-family)', () => {
+    describe('translateOut — kind="hyetograph" treated same as kind="timeseries"', () => {
+        it('kind="hyetograph" with timeseries_id emits data_timeseries_id, strips data + data_constant', () => {
+            const out = translateOut({ data: { kind: 'hyetograph', timeseries_id: 42 } });
+            expect(out.data).toBe(undefined);
+            expect(out.data_timeseries_id).toBe(42);
+            expect(out.data_constant).toBe(undefined);
+        });
+
+        it('kind="hyetograph" coerces string timeseries_id to int', () => {
+            const out = translateOut({ data: { kind: 'hyetograph', timeseries_id: '17' } });
+            expect(out.data_timeseries_id).toBe(17);
+            expect(out.data).toBe(undefined);
+        });
+
+        it('kind="hyetograph" with null timeseries_id: strips data_timeseries_id (BE CHECK fires)', () => {
+            const out = translateOut({ data: { kind: 'hyetograph', timeseries_id: null } });
+            expect(out.data).toBe(undefined);
+            expect(out.data_timeseries_id).toBe(undefined);
+            expect(out.data_constant).toBe(undefined);
+        });
+
+        it('kind="hyetograph" other fields preserved', () => {
+            const out = translateOut({ description: 'Cyclone event', data: { kind: 'hyetograph', timeseries_id: 8 } });
+            expect(out.description).toBe('Cyclone event');
+            expect(out.data_timeseries_id).toBe(8);
+        });
+    });
+});
