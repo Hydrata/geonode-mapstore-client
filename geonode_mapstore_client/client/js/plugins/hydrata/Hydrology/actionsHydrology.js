@@ -4,6 +4,10 @@ const INIT_HYDROLOGY_REJECTED = 'INIT_HYDROLOGY_REJECTED';
 const FETCH_HYDROLOGY_TIME_SERIES_DATA = 'FETCH_HYDROLOGY_TIME_SERIES_DATA';
 const SET_HYDROLOGY_TIME_SERIES_DATA = 'SET_HYDROLOGY_TIME_SERIES_DATA';
 const ERROR_HYDROLOGY_TIME_SERIES_DATA = 'ERROR_HYDROLOGY_TIME_SERIES_DATA';
+// TASK-1986 (epic-1970) — separate fetch/set for the hydrograph slice
+// (series_type=hydrograph, stored in state.hydrology.hydrographs).
+const FETCH_HYDROLOGY_HYDROGRAPH_DATA = 'FETCH_HYDROLOGY_HYDROGRAPH_DATA';
+const SET_HYDROLOGY_HYDROGRAPH_DATA = 'SET_HYDROLOGY_HYDROGRAPH_DATA';
 const FETCH_HYDROLOGY_TEMPORAL_PATTERN_DATA = 'FETCH_HYDROLOGY_TEMPORAL_PATTERN_DATA';
 const SET_HYDROLOGY_TEMPORAL_PATTERN_DATA = 'SET_HYDROLOGY_TEMPORAL_PATTERN_DATA';
 const ERROR_HYDROLOGY_TEMPORAL_PATTERN_DATA = 'ERROR_HYDROLOGY_TEMPORAL_PATTERN_DATA';
@@ -100,6 +104,16 @@ const setHydrologyTimeSeriesData = payload => ({
 const errorHydrologyTimeSeriesData = (errorMessage) => ({
     type: ERROR_HYDROLOGY_TIME_SERIES_DATA,
     payload: errorMessage
+});
+
+// TASK-1986 (epic-1970) — hydrograph slice (series_type=hydrograph).
+const fetchHydrologyHydrographData = () => ({
+    type: FETCH_HYDROLOGY_HYDROGRAPH_DATA
+});
+
+const setHydrologyHydrographData = payload => ({
+    type: SET_HYDROLOGY_HYDROGRAPH_DATA,
+    payload
 });
 
 const fetchHydrologyTemporalPatternData = () => ({
@@ -341,6 +355,9 @@ const setDesignStormForm = (patch) => ({
 });
 
 module.exports = {
+    // TASK-1986 (epic-1970) — hydrograph slice
+    FETCH_HYDROLOGY_HYDROGRAPH_DATA, fetchHydrologyHydrographData,
+    SET_HYDROLOGY_HYDROGRAPH_DATA, setHydrologyHydrographData,
     // TASK-1561 (W3b) — bulk save + stale/regenerate
     SAVE_DESIGN_STORMS_REQUEST, saveDesignStormsRequest,
     SAVE_DESIGN_STORMS_SUCCESS, saveDesignStormsSuccess,

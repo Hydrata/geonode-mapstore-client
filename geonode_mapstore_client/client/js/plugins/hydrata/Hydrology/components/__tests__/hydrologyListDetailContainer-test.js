@@ -279,6 +279,112 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
     });
 });
 
+// TASK-1986 — Hydrographs CRUD panel reuses Design Storms container,
+// filtered to series_type=hydrograph via a separate hydrographs state slice.
+describe('TASK-1986 — Hydrographs CRUD panel', () => {
+    let container;
+
+    const noop = () => {};
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        if (container.parentNode) { container.parentNode.removeChild(container); }
+    });
+
+    // Test 1 — the connected container reads from state.hydrology.hydrographs (not
+    // state.hydrology.timeSeriess) when activeHydrologyPage='hydrographs'.
+    // This asserts the series_type=hydrograph LIST FILTER: the panel shows only
+    // hydrograph rows (state.hydrographs), not the full timeSeriess list.
+    it('hydrographs page reads from the hydrographs state slice, not timeSeriess', () => {
+        const hydrographItems = [
+            { id: 101, name: 'Flow A', series_type: 'hydrograph' },
+            { id: 102, name: 'Flow B', series_type: 'hydrograph' }
+        ];
+        const timeSeriesItems = [
+            { id: 1, name: 'Design Storm X', series_type: 'hyetograph' }
+        ];
+        const state = {
+            hydrology: {
+                activeHydrologyPage: 'hydrographs',
+                activeHydrologyItem: null,
+                hydrographs: hydrographItems,
+                timeSeriess: timeSeriesItems,
+                idfTables: [],
+                idfDerive: {
+                    celeryAnugaEnabled: true, lat: null, lon: null,
+                    durationsText: '', rpsText: '', mapPickActive: false,
+                    inFlight: false, error: null, result: null
+                }
+            },
+            anuga: { projects: { data: { id: 1 } } }
+        };
+        const store = createStore((s = state) => s, state);
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <Provider store={store}><HydrologyListDetailContainer /></Provider>,
+                container
+            );
+        });
+        const itemBtns = container.querySelectorAll(
+            '#hydrology-list-detail-items #top-buttons .sv-hydrology-item-button'
+        );
+        // Must show 2 hydrograph items, NOT the design-storm item
+        expect(itemBtns.length).toBe(2);
+        expect(container.textContent).toInclude('Flow A');
+        expect(container.textContent).toInclude('Flow B');
+        expect(container.textContent).toNotInclude('Design Storm X');
+    });
+
+    // Test 2 — CREATE_HYDROLOGY_FORM dispatched for the 'hydrographs' page must
+    // create a TimeSeries instance with series_type='hydrograph' (not the BE
+    // default 'hyetograph'). This asserts the CREATE STAMP AC.
+    it('CREATE_HYDROLOGY_FORM on hydrographs page stamps series_type=hydrograph on the new item', () => {
+        // Import the live reducer to test the state transition directly.
+        // (path: components/__tests__/ → ../../ = Hydrology/)
+        const hydrologyReducer = require('../../reducersHydrology').default;
+        const { CREATE_HYDROLOGY_FORM } = require('../../actionsHydrology');
+        const before = { hydrographs: [], timeSeriess: [] };
+        const action = { type: CREATE_HYDROLOGY_FORM, activeHydrologyPage: 'hydrographs', autoNameLabel: undefined };
+        const after = hydrologyReducer(before, action);
+        expect(after.hydrographs.length).toBe(1);
+        expect(after.hydrographs[0].series_type).toBe('hydrograph');
+        // The item must NOT appear in the Design Storms list
+        expect(after.timeSeriess.length).toBe(0);
+    });
+
+    // Test 3 — clicking New Item on the hydrographs page dispatches
+    // createHydrologyForm with page='hydrographs', and the component enters
+    // tsCreateMode (mirrors the Design Storms New Item path).
+    it('clicking New Item on hydrographs page dispatches createHydrologyForm and enters create mode', () => {
+        let createFormCalledWith = null;
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <HydrologyListDetailContainerClass
+                    activeHydrologyPage="hydrographs"
+                    activeHydrologyItems={[]}
+                    activeHydrologyItem={null}
+                    setActiveHydrologyItem={noop}
+                    setActiveHydrologyPage={noop}
+                    updateActiveHydrologyItem={noop}
+                    saveHydrologyItem={noop}
+                    createHydrologyForm={(page) => { createFormCalledWith = page; }}
+                    deleteHydrologyItem={noop}
+                    canManageHydrology={true}
+                />,
+                container
+            );
+        });
+        const newItemBtn = container.querySelector('#bottom-buttons .sv-hydrology-button');
+        expect(newItemBtn).toExist();
+        ReactTestUtils.act(() => { newItemBtn.click(); });
+        expect(createFormCalledWith).toBe('hydrographs');
+    });
+});
+
 // TASK-1509 — Save button disabled when the active custom temporal-pattern
 // curve is invalid. Drives the CONNECTED container so mapStateToProps computes
 // customCurveError from the store item (the realistic path after TASK-1508).

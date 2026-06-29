@@ -2,6 +2,8 @@ import {
     INIT_HYDROLOGY_FULFILLED,
     SET_HYDROLOGY_MAIN_MENU,
     SET_HYDROLOGY_TIME_SERIES_DATA,
+    // TASK-1986 (epic-1970) — hydrograph slice
+    SET_HYDROLOGY_HYDROGRAPH_DATA,
     SET_HYDROLOGY_TEMPORAL_PATTERN_DATA,
     SET_HYDROLOGY_IDF_TABLE_DATA,
     SET_ACTIVE_HYDROLOGY_PAGE,
@@ -143,13 +145,20 @@ const initialState = {
     activeHydrologyPage: "sv-idf-table",
     idfDerive: initialIdfDerive,
     designStorm: initialDesignStorm,
-    projection: initialProjection
+    projection: initialProjection,
+    // TASK-1986 (epic-1970): separate list for series_type=hydrograph rows
+    // (fetched via ?series_type=hydrograph, managed by hydrologyKeyMap).
+    hydrographs: []
 };
 
 export const hydrologyKeyMap = {
     "sv-idf-table": "idfTables",
     "temporal-pattern": "temporalPatterns",
-    "time-series": "timeSeriess"
+    "time-series": "timeSeriess",
+    // TASK-1986 (epic-1970): hydrograph series stored in a separate slice
+    // (series_type=hydrograph) so Design Storms and Hydrographs pages each
+    // see only their own items via mapStateToProps → activeHydrologyItems.
+    "hydrographs": "hydrographs"
 };
 
 // TASK-1532 — user-facing base labels for each hydrology page. 'Design Storm'
@@ -158,7 +167,9 @@ export const hydrologyKeyMap = {
 const hydrologyAutoNameLabel = {
     "sv-idf-table": "IDF Table",
     "temporal-pattern": "Temporal Pattern",
-    "time-series": "Design Storm"
+    "time-series": "Design Storm",
+    // TASK-1986 (epic-1970): hydrograph page auto-name base label.
+    "hydrographs": "Hydrograph"
 };
 
 // TASK-1532 — compute the next zero-padded auto-name (e.g. 'IDF Table 03') by
@@ -287,6 +298,14 @@ export default ( state = initialState, action) => {
             ...state,
             timeSeriess: timeSeriess
         };
+    // TASK-1986 (epic-1970) — hydrograph slice (series_type=hydrograph).
+    case SET_HYDROLOGY_HYDROGRAPH_DATA: {
+        const hydrographs = action.payload.map(ts => createTimeSeriesFromJson(ts));
+        return {
+            ...state,
+            hydrographs
+        };
+    }
     case SET_HYDROLOGY_MAIN_MENU:
         return {
             ...state,
@@ -327,6 +346,12 @@ export default ( state = initialState, action) => {
             newHydrologyItem = new TemporalPattern();
         } else if (action.activeHydrologyPage === 'time-series') {
             newHydrologyItem = new TimeSeries();
+        } else if (action.activeHydrologyPage === 'hydrographs') {
+            // TASK-1986 (epic-1970) — stamp series_type='hydrograph' so the
+            // POST payload identifies the row as a flow hydrograph (BE default
+            // is 'hyetograph'; explicit stamp is mandatory).
+            newHydrologyItem = new TimeSeries();
+            newHydrologyItem.series_type = 'hydrograph';
         }
         newHydrologyItem.unsaved = true;
         // TASK-1532 — overwrite the constructor's static 'New ...' default with
@@ -356,7 +381,9 @@ export default ( state = initialState, action) => {
             updatedActiveHydrologyItem = createIdfTableFromJson(action.item);
         } else if (action.activeHydrologyPage === 'temporal-pattern') {
             updatedActiveHydrologyItem = createTemporalPatternFromJson(action.item);
-        } else if (action.activeHydrologyPage === 'time-series') {
+        } else if (action.activeHydrologyPage === 'time-series' || action.activeHydrologyPage === 'hydrographs') {
+            // TASK-1986: hydrographs share the same BE model as time-series;
+            // both use createTimeSeriesFromJson for normalisation.
             updatedActiveHydrologyItem = createTimeSeriesFromJson(action.item);
         }
         return {
@@ -378,7 +405,8 @@ export default ( state = initialState, action) => {
             updatedActiveHydrologyItem = createIdfTableFromJson(action.item);
         } else if (action.activeHydrologyPage === 'temporal-pattern') {
             updatedActiveHydrologyItem = createTemporalPatternFromJson(action.item);
-        } else if (action.activeHydrologyPage === 'time-series') {
+        } else if (action.activeHydrologyPage === 'time-series' || action.activeHydrologyPage === 'hydrographs') {
+            // TASK-1986: hydrographs share the TimeSeries serialiser.
             updatedActiveHydrologyItem = createTimeSeriesFromJson(action.item);
         }
         return {
@@ -504,9 +532,11 @@ export default ( state = initialState, action) => {
         };
     }
     case UPDATE_TIME_SERIES_ROW_DATA: {
+        // TASK-1986: search both the Design-Storms list (timeSeriess) and the
+        // Hydrographs list (hydrographs) — ManualPasteGrid dispatches this action
+        // regardless of which page is active; the item lives in exactly one list.
         let updatedTimeSeries;
-
-        let updatedTimeSeriess = state.timeSeriess.map((timeSeries) => {
+        const updatedTimeSeriess = state.timeSeriess.map((timeSeries) => {
             if (timeSeries.id === action.timeSeriesId) {
                 timeSeries.updateRowValues(action.rowIndex, action.columnId, action.value);
                 timeSeries.unsaved = true;
@@ -514,17 +544,28 @@ export default ( state = initialState, action) => {
             }
             return timeSeries;
         });
-
+        let updatedHydrographs = state.hydrographs || [];
+        if (!updatedTimeSeries) {
+            updatedHydrographs = updatedHydrographs.map((ts) => {
+                if (ts.id === action.timeSeriesId) {
+                    ts.updateRowValues(action.rowIndex, action.columnId, action.value);
+                    ts.unsaved = true;
+                    updatedTimeSeries = ts;
+                }
+                return ts;
+            });
+        }
         return {
             ...state,
             timeSeriess: updatedTimeSeriess,
+            hydrographs: updatedHydrographs,
             activeHydrologyItem: updatedTimeSeries || state.activeHydrologyItem
         };
     }
     case REPLACE_TIME_SERIES_ROW_DATA: {
+        // TASK-1986: same dual-list search as UPDATE_TIME_SERIES_ROW_DATA.
         let updatedTimeSeries;
-
-        let updatedTimeSeriess = state.timeSeriess.map((timeSeries) => {
+        const updatedTimeSeriess = state.timeSeriess.map((timeSeries) => {
             if (timeSeries.id === action.timeSeriesId) {
                 timeSeries.setRowData(action.newRowData);
                 timeSeries.unsaved = true;
@@ -532,10 +573,21 @@ export default ( state = initialState, action) => {
             }
             return timeSeries;
         });
-
+        let updatedHydrographs = state.hydrographs || [];
+        if (!updatedTimeSeries) {
+            updatedHydrographs = updatedHydrographs.map((ts) => {
+                if (ts.id === action.timeSeriesId) {
+                    ts.setRowData(action.newRowData);
+                    ts.unsaved = true;
+                    updatedTimeSeries = ts;
+                }
+                return ts;
+            });
+        }
         return {
             ...state,
             timeSeriess: updatedTimeSeriess,
+            hydrographs: updatedHydrographs,
             activeHydrologyItem: updatedTimeSeries || state.activeHydrologyItem
         };
     }
