@@ -4,10 +4,10 @@
  * Holds ONLY plain candidate data (D6): each candidate is
  * {kind, featureId, layerName, label:{title,subtitle,icon}}. No functions.
  *
- * NOT wired into the live Anuga combineReducers in W1 (W1 ships inert modules
- * only — registering a reducer is harmless but the slice has no live producer
- * until W2.1 wires the panel + the live epic). Exported + unit-tested here;
- * W2.1 (TASK-1993) mounts it.
+ * Mounted by W2.1 (TASK-1993) into reducersAnuga.js's combineReducers, so the
+ * live slice is state.anuga.clickDisambiguation.candidates (mirrors Swamm's
+ * state.swamm.bmpChooserCandidates). W1 (TASK-1991) shipped it unmounted +
+ * unit-tested as a pure reducer.
  */
 import {
     SHOW_CLICK_DISAMBIGUATION,

@@ -1,0 +1,21 @@
+/*
+ * TASK-1993 (W2.1) — ClickDisambiguationPanel styling.
+ *
+ * The panel reuses the SimpleView .simple-view-panel / .simple-view-panel-item-row
+ * classes (and inline styles, mirroring BmpChooserModal) for its core look; these
+ * rules add only the chooser-specific affordances so the markup stays self-
+ * documenting without duplicating the shared panel theme.
+ */
+.click-disambiguation-overlay {
+    /* Inline styles set position/zIndex; this keeps the class as a stable hook. */
+    cursor: default;
+}
+
+.click-disambiguation-row {
+    display: block;
+    transition: background-color 0.12s ease;
+}
+
+.click-disambiguation-row-icon {
+    font-size: 0.95em;
+}
