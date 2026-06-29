@@ -29,6 +29,7 @@ import {
     parseFeatureId
 } from '../../shared/clickTargetRegistry';
 import { showClickDisambiguation } from '../actions/clickDisambiguationActions';
+import { canEditLayer, getProjectMyRole } from '../selectorsAnuga';
 
 // Normalise a resolved label() result to a plain {title, subtitle, icon}.
 const plainLabel = (label) => ({
@@ -89,6 +90,47 @@ export const buildCandidates = (featureCollection) => {
     return candidates;
 };
 
+// Strip an optional leading workspace namespace ("geonode:") so a BARE GFI
+// layer name matches the workspace-qualified state.layers.flat name.
+const bareLayerName = (name) => String(name || '').replace(/^[^:./]+:/, '');
+
+/**
+ * Resolve the live MapStore layer for a candidate by (namespace-insensitive)
+ * name. state.layers.flat carries "geonode:<layer>"; the candidate's layerName
+ * comes straight off the GFI feature id (usually bare). Returns null if absent.
+ */
+const findLayerForCandidate = (candidate, state) => {
+    const flat = (state && state.layers && state.layers.flat) || [];
+    const target = bareLayerName(candidate && candidate.layerName);
+    return flat.find((l) => l && bareLayerName(l.name) === target) || null;
+};
+
+/**
+ * TASK-1994 (W2.2) — EDIT-permission gate.
+ *
+ * Reuses the EXACT my-perms / canEditLayer helper the SimpleView edit pencil
+ * uses (selectorsAnuga.canEditLayer with anugaResources=undefined → layer.perms
+ * + project my_role, simpleViewMenuRow.onEdit gate) so a map click can never
+ * open the EDIT flow on a layer the user may not edit. This is the ANUGA
+ * my-perms edit-gate, separate from (and NOT a substitute for) GeoNode resource
+ * perms. Fail-closed: if the layer can't be resolved in state.layers.flat we
+ * DROP the candidate — a map click must not become a perms bypass.
+ *
+ * W3 HOOK: every registered click-target today is an EDIT opener, so we gate
+ * ALL candidates. When W3 (TASK-1996/1997) adds READ-ONLY targets (legacy
+ * view-attributes / raster value-readout), those are NOT edit-gated — they
+ * respect visibility instead. At that point, tag read-only targets on the
+ * registry and skip them here (only edit-openers pass through this filter).
+ */
+const canEditCandidateLayer = (candidate, state) => {
+    const layer = findLayerForCandidate(candidate, state);
+    if (!layer) { return false; }
+    return canEditLayer(layer, undefined, getProjectMyRole(state), state?.security?.user?.pk) === true;
+};
+
+export const filterEditableCandidates = (candidates, state) =>
+    (candidates || []).filter((c) => canEditCandidateLayer(c, state));
+
 export const clickDisambiguationEpic = (action$, store) =>
     action$
         .ofType(LOAD_FEATURE_INFO)
@@ -100,7 +142,9 @@ export const clickDisambiguationEpic = (action$, store) =>
             if (!data || data.type !== 'FeatureCollection') {
                 return Rx.Observable.empty();
             }
-            const candidates = buildCandidates(data);
+            // Classify, then drop EDIT candidates on layers the user may not
+            // edit (TASK-1994 W2.2) before branching on the count.
+            const candidates = filterEditableCandidates(buildCandidates(data), store.getState());
             if (candidates.length === 0) {
                 // Let the default Identify popup show — do NOT swallow it.
                 return Rx.Observable.empty();

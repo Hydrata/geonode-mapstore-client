@@ -23,7 +23,7 @@ import {
     hideClickDisambiguation
 } from '../../actions/clickDisambiguationActions';
 import clickDisambiguationReducer from '../../reducers/clickDisambiguationReducer';
-import { clickDisambiguationEpic, buildCandidates } from '../clickDisambiguationEpic';
+import { clickDisambiguationEpic, buildCandidates, filterEditableCandidates } from '../clickDisambiguationEpic';
 
 const makeActions$ = (actions) => {
     const subject = new Rx.Subject();
@@ -36,7 +36,19 @@ const makeActions$ = (actions) => {
     return action$;
 };
 
-const store = { getState: () => ({}) };
+// TASK-1994 (W2.2) — the epic now perms-gates candidates, so the branching
+// tests need a state where the clicked layers ARE editable. Project my_role
+// 'editor' grants edit on any layer (role-based), and the fake-target layer
+// names are present in state.layers.flat (workspace-qualified, as live layers
+// are). Without this, every candidate would be dropped fail-closed.
+const store = { getState: () => ({
+    layers: { flat: [
+        { name: 'geonode:aaa_1_alpha', perms: [] },
+        { name: 'geonode:bbb_2_beta', perms: [] }
+    ] },
+    anuga: { projects: { data: { my_role: 'editor' } } },
+    security: { user: { pk: 1 } }
+}) };
 
 // Deep walk collecting function paths (D6 guard).
 const collectFunctionPaths = (obj, path = 'root', acc = []) => {
@@ -159,6 +171,75 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: 'fid = 5\nthe_geom = ...' }]);
             const out = [];
             clickDisambiguationEpic(action$, store).subscribe(
+                a => out.push(a),
+                done,
+                () => { expect(out).toEqual([]); done(); }
+            );
+        });
+    });
+
+    describe('permissions gate (TASK-1994 W2.2)', () => {
+
+        const stateWith = (flat, { myRole = 'editor', pk = 1 } = {}) => ({
+            layers: { flat },
+            anuga: { projects: { data: { my_role: myRole } } },
+            security: { user: { pk } }
+        });
+        const candAaa = { kind: 'aaa_', featureId: 'aaa_1_alpha.7', layerName: 'aaa_1_alpha', label: { title: 'Alpha', subtitle: '', icon: '' } };
+
+        it('keeps a candidate whose layer the user may edit (role editor)', () => {
+            const state = stateWith([{ name: 'geonode:aaa_1_alpha', perms: [] }], { myRole: 'editor' });
+            expect(filterEditableCandidates([candAaa], state)).toEqual([candAaa]);
+        });
+
+        it('drops a candidate whose layer the user may NOT edit (viewer, no perms)', () => {
+            const state = stateWith([{ name: 'geonode:aaa_1_alpha', perms: [] }], { myRole: 'viewer' });
+            expect(filterEditableCandidates([candAaa], state)).toEqual([]);
+        });
+
+        it('keeps when the layer carries an explicit change_resourcebase perm even for a viewer', () => {
+            const state = stateWith([{ name: 'geonode:aaa_1_alpha', perms: ['change_resourcebase'] }], { myRole: 'viewer' });
+            expect(filterEditableCandidates([candAaa], state)).toEqual([candAaa]);
+        });
+
+        it('drops (fail-closed) when the layer is not present in state.layers.flat', () => {
+            expect(filterEditableCandidates([candAaa], stateWith([], { myRole: 'editor' }))).toEqual([]);
+        });
+
+        it('matches a BARE candidate layerName against a geonode:-qualified flat layer name', () => {
+            const state = stateWith([{ name: 'geonode:aaa_1_alpha', perms: [] }], { myRole: 'editor' });
+            expect(filterEditableCandidates([candAaa], state).length).toBe(1);
+        });
+
+        it('epic: with only one of two layers editable, the >=2 path collapses to the single editable opener', (done) => {
+            // aaa_ editable (explicit perm), bbb_ absent from flat -> dropped.
+            const permStore = { getState: () => stateWith(
+                [{ name: 'geonode:aaa_1_alpha', perms: ['change_resourcebase'] }],
+                { myRole: 'viewer' }
+            ) };
+            const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
+                feature('aaa_1_alpha.7'),
+                feature('bbb_2_beta.3')
+            ) }]);
+            const out = [];
+            clickDisambiguationEpic(action$, permStore).subscribe(
+                a => out.push(a),
+                done,
+                () => {
+                    expect(out).toEqual([{ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' }]);
+                    done();
+                }
+            );
+        });
+
+        it('epic: when NO clicked layer is editable, falls through to the default Identify popup (no-op)', (done) => {
+            const permStore = { getState: () => stateWith([], { myRole: 'viewer' }) };
+            const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
+                feature('aaa_1_alpha.7'),
+                feature('bbb_2_beta.3')
+            ) }]);
+            const out = [];
+            clickDisambiguationEpic(action$, permStore).subscribe(
                 a => out.push(a),
                 done,
                 () => { expect(out).toEqual([]); done(); }
