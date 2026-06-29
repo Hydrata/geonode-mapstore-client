@@ -78,6 +78,19 @@ import {
     // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch.
     warmTilesOnMapOpenEpic
 } from "./epicsAnuga";
+// TASK-1995 (epic 1969 W2.3) — map-click disambiguation: the classifier epic
+// (drawing-guarded + perms-gated) and the Identify-ON enabler.
+import {
+    clickDisambiguationEpic,
+    anugaIdentifyEnableEpic
+} from "./epics/clickDisambiguationEpic";
+// TASK-1995 (epic 1969 W2.3) — register the 8 editable ANUGA vector prefixes
+// into the click-target registry ONCE at module load. Mirrors FormField.js's
+// registerDiscriminator(...) module-load registration; kept out of
+// anugaClickTargets.js itself so the W1 unit tests can clean() the registry.
+import { registerAnugaClickTargets } from "./anugaClickTargets";
+
+registerAnugaClickTargets();
 // TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
 import {
     twLoadDataEpic,
@@ -193,6 +206,10 @@ export default createPlugin('Anuga', {
         resultsLayerOrderEpic,
         // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch (warm visible COGs).
         warmTilesOnMapOpenEpic,
+        // TASK-1995 (epic 1969 W2.3) — map-click disambiguation (classify GFI ->
+        // open editable vector) + ensure Identify is ON for ANUGA maps.
+        clickDisambiguationEpic,
+        anugaIdentifyEnableEpic,
         // TASK-1645 (W1.5): TerrainWorkbench recipe epics registered under Anuga plugin.
         twLoadDataEpic,
         twSelectSurfaceForTerrainEpic,

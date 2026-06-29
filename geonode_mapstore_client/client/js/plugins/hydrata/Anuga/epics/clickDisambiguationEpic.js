@@ -22,7 +22,7 @@
  * unit tests only here.
  */
 import Rx from 'rxjs';
-import { LOAD_FEATURE_INFO } from '../../../../../MapStore2/web/client/actions/mapInfo';
+import { LOAD_FEATURE_INFO, toggleMapInfoState } from '../../../../../MapStore2/web/client/actions/mapInfo';
 import {
     getAllClickTargets,
     getClickTarget,
@@ -30,6 +30,7 @@ import {
 } from '../../shared/clickTargetRegistry';
 import { showClickDisambiguation } from '../actions/clickDisambiguationActions';
 import { canEditLayer, getProjectMyRole } from '../selectorsAnuga';
+import { SET_ANUGA_PROJECT_DATA } from '../actions/dataActions';
 
 // Normalise a resolved label() result to a plain {title, subtitle, icon}.
 const plainLabel = (label) => ({
@@ -131,6 +132,17 @@ const canEditCandidateLayer = (candidate, state) => {
 export const filterEditableCandidates = (candidates, state) =>
     (candidates || []).filter((c) => canEditCandidateLayer(c, state));
 
+/**
+ * TASK-1995 (W2.3) — true while a VectorDraw draw/edit phase is in progress.
+ * Mirrors the swammContainer vectorDrawActive gate: any phase other than the
+ * resting 'idle' / transient 'cancelling' means the user is mid-flow and the
+ * click belongs to that flow, NOT to disambiguation.
+ */
+export const isVectorDrawActive = (state) => {
+    const phase = state?.vectorDraw?.phase;
+    return !!phase && phase !== 'idle' && phase !== 'cancelling';
+};
+
 export const clickDisambiguationEpic = (action$, store) =>
     action$
         .ofType(LOAD_FEATURE_INFO)
@@ -142,9 +154,16 @@ export const clickDisambiguationEpic = (action$, store) =>
             if (!data || data.type !== 'FeatureCollection') {
                 return Rx.Observable.empty();
             }
+            const state = store.getState();
+            // TASK-1995 (W2.3) — drawing-mode guard: never hijack a click while
+            // a VectorDraw draw/edit phase is active. A mid-draw GFI click must
+            // flow to the active VectorDraw flow, not pop the disambiguation list.
+            if (isVectorDrawActive(state)) {
+                return Rx.Observable.empty();
+            }
             // Classify, then drop EDIT candidates on layers the user may not
             // edit (TASK-1994 W2.2) before branching on the count.
-            const candidates = filterEditableCandidates(buildCandidates(data), store.getState());
+            const candidates = filterEditableCandidates(buildCandidates(data), state);
             if (candidates.length === 0) {
                 // Let the default Identify popup show — do NOT swallow it.
                 return Rx.Observable.empty();
@@ -165,3 +184,19 @@ export const clickDisambiguationEpic = (action$, store) =>
             }
             return Rx.Observable.of(showClickDisambiguation(candidates));
         });
+
+/**
+ * TASK-1995 (W2.3) — ensure the Identify (GetFeatureInfo) tool is ON for ANUGA
+ * maps so map clicks actually emit LOAD_FEATURE_INFO for clickDisambiguationEpic
+ * to classify. Mirrors hgevalMapClickManagerEpic's enable/disable discipline,
+ * inverted: HGeval DISABLES identify around its click-capture mode; ANUGA's
+ * disambiguation NEEDS it enabled. Fires once on ANUGA project load and only
+ * toggles when identify is explicitly disabled (no-op when already on / unset),
+ * so it never fights the VectorDraw / bbox / profile draw tools that legitimately
+ * toggle identify off mid-draw.
+ */
+export const anugaIdentifyEnableEpic = (action$, store) =>
+    action$
+        .ofType(SET_ANUGA_PROJECT_DATA)
+        .filter(() => store.getState()?.mapInfo?.enabled === false)
+        .mapTo(toggleMapInfoState());

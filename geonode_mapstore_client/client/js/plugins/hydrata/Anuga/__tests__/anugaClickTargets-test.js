@@ -125,4 +125,23 @@ describe('ANUGA clickTargetRegistry registration (TASK-1992 W1.3)', () => {
             .filter((kind) => getClickTarget(kind).match(`${friLayer}.1`, friLayer) === true);
         expect(matches).toEqual(['fri_']);
     });
+
+    // TASK-1995 (W2.3 carry-forward) — GeoServer GeoJSON GetFeatureInfo ids are
+    // bare today, but the opener must stay robust if a workspace namespace ever
+    // appears on the feature id.
+    it('namespace-tolerant: a workspace-qualified GFI id resolves the EDIT opener with a bare WFS featureID and a single geonode: typeName', () => {
+        const nsFeature = {
+            type: 'Feature',
+            id: 'geonode:bdy_123_example.5',
+            properties: { description: 'NS Boundary' }
+        };
+        // match() delegates to getAnugaPrefix, which strips the namespace.
+        expect(getClickTarget('bdy_').match(nsFeature.id, 'geonode:bdy_123_example')).toBe(true);
+        const action = getClickTarget('bdy_').buildOpenActions(nsFeature)[0];
+        expect(action.type).toBe(START_VECTOR_DRAW);
+        // typeName re-prefixed exactly once (not 'geonode:geonode:...').
+        expect(action.config.layerName).toBe('geonode:bdy_123_example');
+        // WFS featureID is bare (namespace stripped), matching the pick->edit path.
+        expect(action.config.featureId).toBe('bdy_123_example.5');
+    });
 });

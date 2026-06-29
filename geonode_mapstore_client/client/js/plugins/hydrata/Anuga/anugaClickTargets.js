@@ -38,10 +38,20 @@ import {
 } from '../SimpleView/components/simpleViewMenuRow';
 import { startVectorDraw } from '../VectorDraw/actionsVectorDraw';
 
-// Re-qualify a parsed (unprefixed) layer name as the WFS typeName the existing
-// EDIT flow uses (matches simpleViewMenuRow.onEdit's layer.name = 'geonode:...').
+// Strip an optional leading workspace namespace ("<ws>:") so a feature id /
+// layer name that arrives workspace-qualified ("geonode:bdy_1_b.5") is reduced
+// to the bare form GeoServer WFS GetFeature consumes. A bare id (no colon
+// before the first '.'/'/') is returned unchanged. (TASK-1995 W2.3 carry-forward:
+// GeoServer GeoJSON GetFeatureInfo ids are bare today — matching the WFS ids the
+// existing pick->edit path passes — but this keeps the opener robust if a
+// namespace ever shows up.)
+const stripNamespace = (value) => String(value || '').replace(/^[^:./]+:/, '');
+
+// Re-qualify a parsed layer name as the WFS typeName the existing EDIT flow uses
+// (matches simpleViewMenuRow.onEdit's layer.name = 'geonode:...'). Namespace-
+// tolerant: strips any leading "<ws>:" before re-prefixing the geonode workspace.
 const qualifyTypeName = (layerName) =>
-    `geonode:${String(layerName).replace(/^geonode:/, '')}`;
+    `geonode:${stripNamespace(layerName)}`;
 
 // Editable vector prefixes: non-Raster entries with a real form. Excludes
 // 'fri_raster_' (the only Raster / formConfig:null entry).
@@ -78,7 +88,9 @@ export const registerAnugaClickTargets = () => {
                 return [startVectorDraw({
                     layerName: qualifyTypeName(parsed.layerName),
                     geomType: cfg.geomType,
-                    featureId: feature.id,   // full GML id for WFS featureID
+                    // Bare GML id for the WFS featureID (matches the pick->edit
+                    // path); namespace-tolerant if a "<ws>:" prefix is present.
+                    featureId: stripNamespace(feature.id),
                     allowPick: false,        // EDIT branch (featureId set, no pick)
                     owner: 'anuga',
                     formConfig: cfg.formConfig,

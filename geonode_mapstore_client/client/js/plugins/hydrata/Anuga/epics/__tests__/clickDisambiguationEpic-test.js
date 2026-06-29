@@ -12,7 +12,8 @@
  */
 import expect from 'expect';
 import Rx from 'rxjs';
-import { LOAD_FEATURE_INFO } from '../../../../../../MapStore2/web/client/actions/mapInfo';
+import { LOAD_FEATURE_INFO, TOGGLE_MAPINFO_STATE } from '../../../../../../MapStore2/web/client/actions/mapInfo';
+import { setAnugaProjectData } from '../../actions/dataActions';
 import {
     registerClickTarget,
     cleanClickTargets
@@ -23,7 +24,13 @@ import {
     hideClickDisambiguation
 } from '../../actions/clickDisambiguationActions';
 import clickDisambiguationReducer from '../../reducers/clickDisambiguationReducer';
-import { clickDisambiguationEpic, buildCandidates, filterEditableCandidates } from '../clickDisambiguationEpic';
+import {
+    clickDisambiguationEpic,
+    buildCandidates,
+    filterEditableCandidates,
+    isVectorDrawActive,
+    anugaIdentifyEnableEpic
+} from '../clickDisambiguationEpic';
 
 const makeActions$ = (actions) => {
     const subject = new Rx.Subject();
@@ -240,6 +247,86 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             ) }]);
             const out = [];
             clickDisambiguationEpic(action$, permStore).subscribe(
+                a => out.push(a),
+                done,
+                () => { expect(out).toEqual([]); done(); }
+            );
+        });
+    });
+
+    describe('drawing-mode guard + identify enablement (TASK-1995 W2.3)', () => {
+
+        const editableFlat = [
+            { name: 'geonode:aaa_1_alpha', perms: ['change_resourcebase'] },
+            { name: 'geonode:bbb_2_beta', perms: ['change_resourcebase'] }
+        ];
+        const baseState = (vectorDraw) => ({
+            layers: { flat: editableFlat },
+            anuga: { projects: { data: { my_role: 'editor' } } },
+            security: { user: { pk: 1 } },
+            vectorDraw
+        });
+        const twoFeatureClick = () => makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
+            feature('aaa_1_alpha.7'),
+            feature('bbb_2_beta.3')
+        ) }]);
+
+        it('isVectorDrawActive: true for an in-flight phase, false for idle / cancelling / unset', () => {
+            expect(isVectorDrawActive({ vectorDraw: { phase: 'drawing' } })).toBe(true);
+            expect(isVectorDrawActive({ vectorDraw: { phase: 'form' } })).toBe(true);
+            expect(isVectorDrawActive({ vectorDraw: { phase: 'idle' } })).toBe(false);
+            expect(isVectorDrawActive({ vectorDraw: { phase: 'cancelling' } })).toBe(false);
+            expect(isVectorDrawActive({})).toBe(false);
+        });
+
+        it('suppresses disambiguation while a VectorDraw draw/edit phase is active (AC1)', (done) => {
+            const drawingStore = { getState: () => baseState({ phase: 'drawing' }) };
+            const out = [];
+            clickDisambiguationEpic(twoFeatureClick(), drawingStore).subscribe(
+                a => out.push(a),
+                done,
+                () => { expect(out).toEqual([]); done(); }
+            );
+        });
+
+        it('when VectorDraw is idle the click flows to the classifier (AC2)', (done) => {
+            const idleStore = { getState: () => baseState({ phase: 'idle' }) };
+            const out = [];
+            clickDisambiguationEpic(twoFeatureClick(), idleStore).subscribe(
+                a => out.push(a),
+                done,
+                () => {
+                    expect(out.length).toBe(1);
+                    expect(out[0].type).toBe(SHOW_CLICK_DISAMBIGUATION);
+                    done();
+                }
+            );
+        });
+
+        it('anugaIdentifyEnableEpic turns Identify ON when it is disabled on ANUGA project load (AC3)', (done) => {
+            const epicStore = { getState: () => ({ mapInfo: { enabled: false } }) };
+            const out = [];
+            anugaIdentifyEnableEpic(makeActions$([setAnugaProjectData({ id: 5 })]), epicStore).subscribe(
+                a => out.push(a),
+                done,
+                () => { expect(out.map(a => a.type)).toEqual([TOGGLE_MAPINFO_STATE]); done(); }
+            );
+        });
+
+        it('anugaIdentifyEnableEpic is a no-op when Identify is already enabled', (done) => {
+            const epicStore = { getState: () => ({ mapInfo: { enabled: true } }) };
+            const out = [];
+            anugaIdentifyEnableEpic(makeActions$([setAnugaProjectData({ id: 5 })]), epicStore).subscribe(
+                a => out.push(a),
+                done,
+                () => { expect(out).toEqual([]); done(); }
+            );
+        });
+
+        it('anugaIdentifyEnableEpic is a no-op when mapInfo state is absent (enabled unset)', (done) => {
+            const epicStore = { getState: () => ({}) };
+            const out = [];
+            anugaIdentifyEnableEpic(makeActions$([setAnugaProjectData({ id: 5 })]), epicStore).subscribe(
                 a => out.push(a),
                 done,
                 () => { expect(out).toEqual([]); done(); }
