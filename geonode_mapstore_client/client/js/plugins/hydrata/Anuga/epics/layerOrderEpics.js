@@ -6,21 +6,27 @@
 // it never changes layer.group (category), never flattens/re-parents groups, and
 // never touches the "background" band.
 //
+// DISPLAY-ONLY as of UAT-2026-06-29 finding #1: the reconcilers reorder the
+// IN-MEMORY layer tree for correct display but NO LONGER call saveDirectContent.
+// The original design persisted the canonical order on every load, but because
+// the init/load path re-adds ANUGA layers in non-canonical order on EVERY open,
+// a reconciler always found an in-memory diff and fired a PATCH /maps write on
+// every map open (silent last_updated churn + double project-init). Since the
+// canonical order is re-derived on every open anyway, persisting it is redundant.
+// Genuine user mutations still persist via their own save paths (crudEpics,
+// terrain finalize, the map Save button). Trade-off accepted as interim (option
+// B); the root-cause cleanup (stop the load perturbing order) is option C.
+//
 // Design choices:
-//   - Editor-gated: only runs + saves when canEditAnugaMap (same gate as all other
-//     write epics). Viewers cannot persist; nothing to reconcile.
+//   - Editor-gated: only runs when canEditAnugaMap (same gate as all other
+//     write epics). Viewers cannot mutate the in-memory tree.
 //   - Idempotent: computes desired order, compares to current, dispatches
-//     sortNode + saveDirectContent ONLY when something changed. A second run on an
-//     already-canonical map emits nothing.
-//   - No double-save: the reconciler triggers on FIX_ANUGA_GROUPS (same tick as
-//     ensureAnugaGroupsEpic + pruneOrphanTerrainLayersEpic); saveDirectContent is
-//     dispatched ONCE at the end of this epic's emission ONLY WHEN a reorder was
-//     needed. pruneOrphanTerrainLayersEpic fires on SET_ANUGA_TERRAIN_DATA
-//     (a different action), so there is no race on that path.
+//     sortNode ONLY when something changed. A second run on an already-canonical
+//     map emits nothing.
 //   - Background-exempt: skips any group whose id === 'background' or whose id
 //     does not appear in ANUGA_GROUPS.
 //   - One-way-door safe: fully reversible — disabling this epic restores prior
-//     behaviour; nothing writes to the persisted blob unless the order is wrong.
+//     behaviour; nothing is written.
 //
 // Canonical order is sourced from ANUGA_GROUPS in pollingEpics.js (the single
 // source of truth for group definitions). This epic imports it directly so the
@@ -39,7 +45,6 @@ import {
     getNode,
     sortLayers
 } from '../../../../../MapStore2/web/client/utils/LayersUtils';
-import { saveDirectContent } from '@js/actions/gnsave';
 import { canEditAnugaMap } from '../selectorsAnuga';
 import { FIX_ANUGA_GROUPS, SET_ANUGA_TERRAIN_DATA } from '../actionsAnuga';
 import { ANUGA_GROUPS } from './pollingEpics';
@@ -195,6 +200,45 @@ export const computeTerrainSubOrder = (currentNodes, flatLayers, terrainModels) 
         clustered.push({ cluster });
     });
 
+    // NAME-BASED FALLBACK (UAT-2026-06-29 finding #1): cluster terrain-group layers
+    // that NO terrain MODEL claimed above. This happens when a Terrain row is
+    // deleted/superseded but its COG Datasets survive — the Dataset->Terrain FK is
+    // on_delete=CASCADE, so deleting the Terrain row does NOT delete its layers; they
+    // linger as an UNMODELLED orphan cluster (e.g. ele_84855_*, a former merge input).
+    // computeTerrainSubOrder's FK pass can't pair an orphan (no model), so without
+    // this it sits untouched in whatever (often wrong, e.g. [hillshade, dem]) order.
+    //
+    // Scoped to FK-UNCLAIMED layers only (modelled terrains are already in memberOf,
+    // so they are NEVER re-paired) and keyed on the ANCHORED per-terrain-id prefix
+    // `ele_<id>_` (the Terrain PK baked into the layer name). The anchored, id-scoped
+    // key only pairs layers sharing the IDENTICAL terrain id — it cannot mix two
+    // terrains. This respects epic-1898's FK-not-SUBSTRING choice: it is an anchored
+    // id key as a last resort for model-less layers, not a loose substring match.
+    const isContourLayer = (id, layer) =>
+        (layer && layer.style === DEM_CONTOUR_STYLE_NAME) || String(id).endsWith('__contours');
+    const orphansByTerrainId = {};
+    nodeIds.forEach(id => {
+        if (memberOf[id] !== undefined) return; // already claimed by an FK cluster
+        const layer = flatLayers.find(l => (l?.id || l) === id);
+        if (!layer) return;
+        const match = bareName(layer.name).match(/^ele_(\d+)_/);
+        if (!match) return; // not an ANUGA terrain-prefixed layer
+        (orphansByTerrainId[match[1]] = orphansByTerrainId[match[1]] || []).push({ id, layer });
+    });
+    Object.keys(orphansByTerrainId).forEach(terrainId => {
+        const members = orphansByTerrainId[terrainId];
+        if (members.length < 2) return; // single layer — nothing to order
+        const contourId = (members.find(({ id, layer }) => isContourLayer(id, layer)) || {}).id || null;
+        const hsId = (members.find(({ layer }) => /^ele_\d+_hillshade_/.test(bareName(layer.name))) || {}).id || null;
+        const demId = (members.find(({ id, layer }) =>
+            !isContourLayer(id, layer) && !/^ele_\d+_hillshade_/.test(bareName(layer.name))) || {}).id || null;
+        const cluster = [contourId, demId, hsId].filter(Boolean);
+        if (cluster.length < 2) return; // can't order a degenerate cluster
+        const clusterIdx = clustered.length;
+        cluster.forEach(cid => { memberOf[cid] = clusterIdx; });
+        clustered.push({ cluster });
+    });
+
     // Build the desired node order: walk current node order; when we encounter
     // the FIRST member of a cluster (by current position), emit the whole cluster
     // in canonical sub-order. Unclaimed nodes (not in any cluster) emit at their
@@ -240,8 +284,7 @@ export const computeTerrainSubOrder = (currentNodes, flatLayers, terrainModels) 
 /**
  * Reconciler epic: re-asserts canonical sub-group order after map load and
  * after any ADD_LAYER. Dispatches sortNode(parent, order, sortLayers) for each
- * group that is out of order, then a single saveDirectContent when at least one
- * group was reordered.
+ * group that is out of order. DISPLAY-ONLY: no saveDirectContent (see file header).
  */
 export const layerOrderReconcilerEpic = (action$, store) =>
     action$
@@ -269,8 +312,14 @@ export const layerOrderReconcilerEpic = (action$, store) =>
 
             if (actions.length === 0) return Rx.Observable.empty();
 
-            // Emit all sortNode actions + one saveDirectContent at the end.
-            return Rx.Observable.from([...actions, saveDirectContent()]);
+            // UAT-2026-06-29 finding #1 — DISPLAY-ONLY. Emit the sortNode actions to
+            // fix the in-memory z-order, but DO NOT saveDirectContent. The canonical
+            // order is re-asserted on every map open (FIX_ANUGA_GROUPS) and ADD_LAYER,
+            // so persisting it from the reconciler is redundant — and it fired a
+            // PATCH /maps write on EVERY open (silent last_updated churn, double
+            // project-init). Genuine user mutations still persist via their own
+            // save paths (crudEpics, terrain finalize, the map Save button).
+            return Rx.Observable.from(actions);
         });
 
 // -- intra-Results ordering helpers (TASK-1903) --------------------------------
@@ -385,9 +434,11 @@ export const terrainSubOrderReconcilerEpic = (action$, store) =>
             const order = computeTerrainSubOrder(terrainGroupNode.nodes, flat, terrainModels);
             if (order === null) return Rx.Observable.empty();
 
+            // UAT-2026-06-29 finding #1 — DISPLAY-ONLY (see layerOrderReconcilerEpic).
+            // sortNode fixes the in-memory order; no saveDirectContent (re-asserted
+            // on every SET_ANUGA_TERRAIN_DATA, so persisting it is redundant churn).
             return Rx.Observable.from([
-                sortNode('Input Data.Terrain', order, sortLayers),
-                saveDirectContent()
+                sortNode('Input Data.Terrain', order, sortLayers)
             ]);
         });
 
@@ -432,5 +483,6 @@ export const resultsLayerOrderEpic = (action$, store) =>
             });
 
             if (actions.length === 0) return Rx.Observable.empty();
-            return Rx.Observable.from([...actions, saveDirectContent()]);
+            // UAT-2026-06-29 finding #1 — DISPLAY-ONLY (see layerOrderReconcilerEpic).
+            return Rx.Observable.from(actions);
         });

@@ -2,9 +2,12 @@
 //
 // Proof points required by the spec:
 //   (a) REAL reducer + REAL sortLayers → flat[] actually moves to canonical order
-//   (b) Idempotent: 2nd run on an already-canonical map dispatches nothing/no save
+//   (b) Idempotent: 2nd run on an already-canonical map dispatches nothing
 //   (c) Background group is never reordered
-//   (d) No double-save with prune (reconciler only saves when something changed)
+//   (d) DISPLAY-ONLY (UAT-2026-06-29 finding #1): the reconcilers emit sortNode
+//       to fix the in-memory order but NEVER saveDirectContent — persisting the
+//       order is redundant (re-derived on every open) and caused a PATCH /maps
+//       write on every map open. SAVE_DIRECT_CONTENT must NEVER be emitted.
 //   (e) FE/BE divergence guard: canonical Input Data order is pinned exactly
 //
 // TASK-1752 REAL-REDUCER DISCIPLINE: the sortNode/sortLayers path is driven
@@ -274,11 +277,11 @@ describe('TASK-1901 layerOrderReconcilerEpic (real reducer)', () => {
             },
             err => done(err),
             () => {
-                // At least one SORT_NODE and a SAVE_DIRECT_CONTENT
+                // At least one SORT_NODE; DISPLAY-ONLY → NO SAVE_DIRECT_CONTENT
                 const sortNodeActions = emitted.filter(a => a.type === 'SORT_NODE');
                 const saveActions = emitted.filter(a => a.type === SAVE_DIRECT_CONTENT);
                 expect(sortNodeActions.length).toBeGreaterThan(0);
-                expect(saveActions.length).toBe(1);
+                expect(saveActions.length).toBe(0);
 
                 // Verify the Input Data group node order is now canonical
                 const state = reduxStore.getState().layers;
@@ -422,8 +425,8 @@ describe('TASK-1901 layerOrderReconcilerEpic (real reducer)', () => {
         );
     }).timeout(3000);
 
-    // (d) No double-save: only one saveDirectContent per reconcile pass
-    it('(d) dispatches at most one saveDirectContent per reconcile pass (no double-save)', (done) => {
+    // (d) DISPLAY-ONLY: reorders multiple groups via sortNode but emits NO save
+    it('(d) reorders multiple out-of-order groups via sortNode and emits NO saveDirectContent', (done) => {
         // Multiple groups out-of-order → multiple sortNode, but ONE save
         const flat = [
             { id: 'l_bnd', name: 'bnd1', group: 'Input Data.Boundaries' },
@@ -467,8 +470,8 @@ describe('TASK-1901 layerOrderReconcilerEpic (real reducer)', () => {
             err => done(err),
             () => {
                 const saveActions = emitted.filter(a => a.type === SAVE_DIRECT_CONTENT);
-                // Exactly 1 save, regardless of how many groups were reordered
-                expect(saveActions.length).toBe(1);
+                // DISPLAY-ONLY: never persists, no matter how many groups were reordered
+                expect(saveActions.length).toBe(0);
                 // Multiple SORT_NODE (one per out-of-order group)
                 const sortActions = emitted.filter(a => a.type === 'SORT_NODE');
                 expect(sortActions.length).toBe(2); // Input Data + Results both out of order
@@ -628,7 +631,8 @@ describe('TASK-1903 resultsLayerOrderEpic (real reducer)', () => {
             err => done(err),
             () => {
                 expect(emitted.filter(a => a.type === 'SORT_NODE').length).toBe(1);
-                expect(emitted.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(1);
+                // DISPLAY-ONLY (UAT-2026-06-29 finding #1): no persist
+                expect(emitted.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(0);
 
                 const { getNode: gn } = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
                 const state = reduxStore.getState().layers;
@@ -881,6 +885,72 @@ describe('TASK-1902 computeTerrainSubOrder', () => {
         expect(computeTerrainSubOrder([], [], [])).toBe(null);
         expect(computeTerrainSubOrder([{ id: 'dem1' }], mkFlat(), [model1])).toBe(null);
     });
+
+    // ── UAT-2026-06-29 finding #1: model-less orphan terrain clusters ────────────
+    // When a Terrain row is deleted/superseded but its COG Datasets survive
+    // (Dataset->Terrain FK is on_delete=CASCADE), the layers linger with NO model.
+    // The FK pass can't pair them; the name-based fallback (anchored ele_<id>_ key)
+    // must still order them [contour, dem, hillshade].
+
+    it('orders a MODEL-LESS orphan DEM+hillshade cluster via name fallback', () => {
+        // ele_84855_* has NO terrain model (row deleted, COGs linger). Wrong order: hs before dem.
+        const flat = [
+            { id: 'hs855', name: 'geonode:ele_84855_hillshade_existing_02m5_photogrammtery_cog', group: 'Input Data.Terrain' },
+            { id: 'dem855', name: 'geonode:ele_84855_utm_existing_02m5_photogrammtery_cog', group: 'Input Data.Terrain' }
+        ];
+        const nodes = [{ id: 'hs855' }, { id: 'dem855' }];
+        const order = computeTerrainSubOrder(nodes, flat, []); // no models at all
+        expect(order).toNotBe(null);
+        const reorderedIds = order.map(idx => nodes[idx].id);
+        expect(reorderedIds.indexOf('dem855')).toBeLessThan(reorderedIds.indexOf('hs855'));
+    });
+
+    it('name fallback fixes the orphan WITHOUT disturbing a modelled terrain', () => {
+        // Modelled terrain 518 (FK-paired) already canonical [dem, hs];
+        // orphan 84855 (no model) wrong [hs, dem]. Fallback fixes ONLY the orphan.
+        const model = { id: 518, gn_layer_name: 'ele_518_dem_cog', gn_layer_hillshade_name: 'ele_518_hs_cog' };
+        const flat = [
+            { id: 'dem518', name: 'geonode:ele_518_dem_cog', group: 'Input Data.Terrain' },
+            { id: 'hs518', name: 'geonode:ele_518_hs_cog', group: 'Input Data.Terrain' },
+            { id: 'hs855', name: 'geonode:ele_84855_hillshade_existing_02m5_photogrammtery_cog', group: 'Input Data.Terrain' },
+            { id: 'dem855', name: 'geonode:ele_84855_utm_existing_02m5_photogrammtery_cog', group: 'Input Data.Terrain' }
+        ];
+        const nodes = [{ id: 'dem518' }, { id: 'hs518' }, { id: 'hs855' }, { id: 'dem855' }];
+        const order = computeTerrainSubOrder(nodes, flat, [model]);
+        expect(order).toNotBe(null);
+        const reorderedIds = order.map(idx => nodes[idx].id);
+        // Orphan fixed
+        expect(reorderedIds.indexOf('dem855')).toBeLessThan(reorderedIds.indexOf('hs855'));
+        // Modelled terrain still canonical, not disturbed
+        expect(reorderedIds.indexOf('dem518')).toBeLessThan(reorderedIds.indexOf('hs518'));
+        // Inter-cluster order preserved (518 cluster above 855 cluster)
+        expect(reorderedIds.indexOf('dem518')).toBeLessThan(reorderedIds.indexOf('dem855'));
+    });
+
+    it('orders a model-less orphan cluster WITH a contour to [contour, dem, hillshade]', () => {
+        const flat = [
+            { id: 'dem855', name: 'geonode:ele_84855_utm_existing_02m5_photogrammtery_cog', group: 'Input Data.Terrain' },
+            { id: 'hs855', name: 'geonode:ele_84855_hillshade_existing_02m5_photogrammtery_cog', group: 'Input Data.Terrain' },
+            { id: 'ele_84855_utm_existing_02m5_photogrammtery_cog__contours', name: 'ele_84855_utm_existing_02m5_photogrammtery_cog', style: DEM_CONTOUR_STYLE_NAME, group: 'Input Data.Terrain' }
+        ];
+        // Wrong order: dem, hs, contour
+        const nodes = [{ id: 'dem855' }, { id: 'hs855' }, { id: 'ele_84855_utm_existing_02m5_photogrammtery_cog__contours' }];
+        const order = computeTerrainSubOrder(nodes, flat, []);
+        expect(order).toNotBe(null);
+        const reorderedIds = order.map(idx => nodes[idx].id);
+        expect(reorderedIds.indexOf('ele_84855_utm_existing_02m5_photogrammtery_cog__contours')).toBeLessThan(reorderedIds.indexOf('dem855'));
+        expect(reorderedIds.indexOf('dem855')).toBeLessThan(reorderedIds.indexOf('hs855'));
+    });
+
+    it('leaves a lone model-less DEM (no hillshade) untouched — nothing to order', () => {
+        const flat = [
+            { id: 'dem855', name: 'geonode:ele_84855_utm_existing_02m5_photogrammtery_cog', group: 'Input Data.Terrain' },
+            { id: 'dem852', name: 'geonode:ele_84852_utm_copernicus_glo_30_dem_cog', group: 'Input Data.Terrain' }
+        ];
+        // Two lone DEMs (different terrain ids), no hillshades, no models → nothing to pair
+        const nodes = [{ id: 'dem855' }, { id: 'dem852' }];
+        expect(computeTerrainSubOrder(nodes, flat, [])).toBe(null);
+    });
 });
 
 // TASK-1902 epic: terrainSubOrderReconcilerEpic end-to-end
@@ -935,7 +1005,8 @@ describe('TASK-1902 terrainSubOrderReconcilerEpic (real reducer)', () => {
                 const sortActions = emitted.filter(a => a.type === 'SORT_NODE');
                 const saveActions = emitted.filter(a => a.type === SAVE_DIRECT_CONTENT);
                 expect(sortActions.length).toBe(1);
-                expect(saveActions.length).toBe(1);
+                // DISPLAY-ONLY (UAT-2026-06-29 finding #1): no persist
+                expect(saveActions.length).toBe(0);
 
                 // Verify the contour is now BEFORE dem in the Terrain group nodes
                 const state = reduxStore.getState().layers;
@@ -1054,7 +1125,8 @@ describe('TASK-1902 terrainSubOrderReconcilerEpic (real reducer)', () => {
             err => done(err),
             () => {
                 expect(emitted.filter(a => a.type === 'SORT_NODE').length).toBe(1);
-                expect(emitted.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(1);
+                // DISPLAY-ONLY (UAT-2026-06-29 finding #1): no persist
+                expect(emitted.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(0);
 
                 const { getNode: gn } = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
                 const state = reduxStore.getState().layers;
@@ -1140,7 +1212,8 @@ describe('TASK-1905 (1) BLOB-ONLY layer — no extendedParams.mapLayer', () => {
                 const sortActions = emitted.filter(a => a.type === 'SORT_NODE');
                 const saveActions = emitted.filter(a => a.type === SAVE_DIRECT_CONTENT);
                 expect(sortActions.length).toBeGreaterThan(0);
-                expect(saveActions.length).toBe(1);
+                // DISPLAY-ONLY (UAT-2026-06-29 finding #1): no persist
+                expect(saveActions.length).toBe(0);
 
                 // Verify Structures is now above Boundaries in the groups tree
                 const state = reduxStore.getState().layers;
@@ -1157,10 +1230,10 @@ describe('TASK-1905 (1) BLOB-ONLY layer — no extendedParams.mapLayer', () => {
 describe('TASK-1905 (2) LEGACY-BLOB regression — Boundaries-first old blob stabilises on 2nd reconcile', () => {
     // Simulates loading a map blob saved BEFORE the canonical order was enforced:
     // Input Data children in the old order (Boundaries first).
-    // After reconcile + saveDirectContent, re-derive groups from the saved state.
-    // A 2nd reconcile must be a no-op (stable/idempotent).
+    // After the in-memory reconcile (sortNode, DISPLAY-ONLY — no save), a 2nd
+    // reconcile must be a no-op (stable/idempotent).
 
-    it('first reconcile reorders; second reconcile is a no-op (idempotent after save)', (done) => {
+    it('first reconcile reorders in-memory; second reconcile is a no-op (idempotent)', (done) => {
         const oldOrder = [
             'Boundaries', 'Inflows', 'Rainfalls', 'Structures', 'Catchments',
             'Nodes', 'Links', 'Mesh Regions', 'Full Mesh', 'Friction', 'Friction Rasters', 'Terrain'
@@ -1207,8 +1280,9 @@ describe('TASK-1905 (2) LEGACY-BLOB regression — Boundaries-first old blob sta
             },
             err => done(err),
             () => {
-                // First run: must have done work (save emitted)
-                expect(emitted1.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(1);
+                // First run: must have done work (sortNode emitted). DISPLAY-ONLY → no save.
+                expect(emitted1.filter(a => a.type === 'SORT_NODE').length).toBeGreaterThan(0);
+                expect(emitted1.filter(a => a.type === SAVE_DIRECT_CONTENT).length).toBe(0);
 
                 // Second reconcile on the now-canonical state
                 const action2$ = makeActions$([{ type: FIX_ANUGA_GROUPS }]);
@@ -1307,25 +1381,20 @@ describe('TASK-1905 (3) REVERSIBILITY — disabling epics restores prior behavio
     }).timeout(3000);
 });
 
-describe('TASK-1905 (4) ADD_LAYER double-save — layerOrderReconcilerEpic + resultsLayerOrderEpic both fire on ADD_LAYER', () => {
-    // VERIFIED BEHAVIOUR: both layerOrderReconcilerEpic and resultsLayerOrderEpic
-    // listen to ADD_LAYER (each debounced 600ms). When a single ADD_LAYER triggers
-    // BOTH a group reorder (Input Data out of order) AND an intra-Results reorder
-    // (older run at top), TWO saveDirectContent PATCHes are produced — one from
-    // each epic.
+describe('UAT-2026-06-29 finding #1 — ADD_LAYER reconcilers are DISPLAY-ONLY (no save, no double-save)', () => {
+    // SUPERSEDES the old TASK-1905(4) "accepted double-save" policy. Both
+    // layerOrderReconcilerEpic and resultsLayerOrderEpic listen to ADD_LAYER (each
+    // debounced 600ms). The old design had each emit its own saveDirectContent, so
+    // a single ADD_LAYER that made BOTH group order AND intra-Results order dirty
+    // produced TWO PATCH /maps writes — and because the load path re-perturbs order
+    // on every map open, this fired on EVERY open (silent last_updated churn).
     //
-    // POLICY (documented, Tier-B finding):
-    //   - This is a KNOWN and ACCEPTED double-save. The two epics are independent
-    //     by design (separate concerns: group order vs intra-Results order).
-    //   - The double-save is IDEMPOTENT: both PATCHes write correct state; the
-    //     second PATCH is a no-op at the DB level for an already-correct blob.
-    //   - The frequency is LOW: only on maps that have BOTH Input Data out-of-order
-    //     AND a Results group out-of-order (legacy maps on first reconcile only;
-    //     thereafter both epics are idempotent).
-    //   - COALESCING is non-trivial (requires a shared debounced save bus); deferred
-    //     to TASK-1917 (Tier-B follow-up, epic 1898).
+    // FIX (option B, display-only): the reconcilers now emit ONLY sortNode (fix the
+    // in-memory order for display) and NEVER saveDirectContent. The canonical order
+    // is re-derived on every open, so persisting it is redundant. This kills the
+    // churn AND makes the old double-save concern (TASK-1917) moot.
 
-    it('documents: layerOrderReconcilerEpic emits 1 save AND resultsLayerOrderEpic emits 1 save independently = 2 total saves on ADD_LAYER', (done) => {
+    it('both reconcilers reorder via sortNode on ADD_LAYER and emit ZERO saveDirectContent', (done) => {
         // Setup: Input Data out-of-order (Boundaries before Structures)
         //        AND Results.Depth out-of-order (older run on top)
         const makeInitialState = () => {
@@ -1393,12 +1462,15 @@ describe('TASK-1905 (4) ADD_LAYER double-save — layerOrderReconcilerEpic + res
             if (done1 && done2) {
                 const saves1 = emitted1.filter(a => a.type === SAVE_DIRECT_CONTENT).length;
                 const saves2 = emitted2.filter(a => a.type === SAVE_DIRECT_CONTENT).length;
+                const sorts1 = emitted1.filter(a => a.type === 'SORT_NODE').length;
+                const sorts2 = emitted2.filter(a => a.type === 'SORT_NODE').length;
 
-                // Each epic emits exactly one save when its concern is dirty.
-                // Together they produce 2 saves when both are triggered by ADD_LAYER.
-                // DOCUMENTED: this is the known double-save (Tier-B, TASK-1917).
-                expect(saves1).toBe(1, 'layerOrderReconcilerEpic must emit 1 save on ADD_LAYER when group order is wrong');
-                expect(saves2).toBe(1, 'resultsLayerOrderEpic must emit 1 save on ADD_LAYER when results order is wrong');
+                // DISPLAY-ONLY: each epic still reorders (sortNode) but NEVER persists.
+                // Zero saves from either → no PATCH /maps churn, double-save moot.
+                expect(sorts1).toBeGreaterThan(0, 'layerOrderReconcilerEpic must still sortNode on ADD_LAYER when group order is wrong');
+                expect(sorts2).toBeGreaterThan(0, 'resultsLayerOrderEpic must still sortNode on ADD_LAYER when results order is wrong');
+                expect(saves1).toBe(0, 'layerOrderReconcilerEpic must NOT saveDirectContent (display-only)');
+                expect(saves2).toBe(0, 'resultsLayerOrderEpic must NOT saveDirectContent (display-only)');
 
                 done();
             }
