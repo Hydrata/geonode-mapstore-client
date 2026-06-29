@@ -22,7 +22,12 @@
  * unit tests only here.
  */
 import Rx from 'rxjs';
-import { LOAD_FEATURE_INFO, toggleMapInfoState } from '../../../../../MapStore2/web/client/actions/mapInfo';
+import {
+    LOAD_FEATURE_INFO,
+    toggleMapInfoState,
+    purgeMapInfoResults,
+    hideMapinfoMarker
+} from '../../../../../MapStore2/web/client/actions/mapInfo';
 import {
     getAllClickTargets,
     getClickTarget,
@@ -33,10 +38,15 @@ import { canEditLayer, getProjectMyRole } from '../selectorsAnuga';
 import { SET_ANUGA_PROJECT_DATA } from '../actions/dataActions';
 
 // Normalise a resolved label() result to a plain {title, subtitle, icon}.
+// Coerce each VALUE to a String (not just whitelist the keys): a future
+// read-only / W3 target whose label() returns a function- or object-valued
+// title would otherwise pass the raw value straight through into Redux state +
+// React render (D6 serialization + render hazard). String(...) guarantees a
+// scalar string for every field.
 const plainLabel = (label) => ({
-    title: label?.title || '',
-    subtitle: label?.subtitle || '',
-    icon: label?.icon || ''
+    title: String(label?.title || ''),
+    subtitle: String(label?.subtitle || ''),
+    icon: String(label?.icon || '')
 });
 
 /**
@@ -107,6 +117,24 @@ const findLayerForCandidate = (candidate, state) => {
 };
 
 /**
+ * MAP-level edit gate — mirrors the SimpleView pencil's canEditMap exactly.
+ *
+ * The pencil renders on `canEditMap && canEditLayer` (simpleViewMenuRow.js:502),
+ * where canEditMap = `!isExcludedSite && initialResource.perms.includes(
+ * 'change_resourcebase')` (simpleViewMenuRow.js:1033-1034 + 1092). There is NO
+ * shared excluded-sites helper to import — the list is an inline ["placeholder.com"]
+ * in simpleViewMenuRow (with a TODO there to move it to localConfig), so we
+ * replicate the SAME expression (optional-chaining the geonodeUrl read so an
+ * absent gnsettings can never throw inside this epic).
+ */
+const SV_EXCLUDED_SITES = ['placeholder.com'];
+const isExcludedSite = (state) =>
+    SV_EXCLUDED_SITES.map((site) => !state?.gnsettings?.geonodeUrl?.includes(site)).includes(false);
+const canEditMap = (state) =>
+    !isExcludedSite(state)
+    && state?.gnresource?.initialResource?.perms?.includes('change_resourcebase') === true;
+
+/**
  * TASK-1994 (W2.2) — EDIT-permission gate.
  *
  * Reuses the EXACT my-perms / canEditLayer helper the SimpleView edit pencil
@@ -117,13 +145,21 @@ const findLayerForCandidate = (candidate, state) => {
  * perms. Fail-closed: if the layer can't be resolved in state.layers.flat we
  * DROP the candidate — a map click must not become a perms bypass.
  *
+ * W2 self-verify FIX: ALSO require canEditMap, so a map click is never MORE
+ * permissive than the pencil (which is canEditMap && canEditLayer). A contributor
+ * / viewer who holds a layer-level grant but lacks change_resourcebase on the MAP
+ * must NOT get an EDIT opener.
+ *
  * W3 HOOK: every registered click-target today is an EDIT opener, so we gate
- * ALL candidates. When W3 (TASK-1996/1997) adds READ-ONLY targets (legacy
- * view-attributes / raster value-readout), those are NOT edit-gated — they
- * respect visibility instead. At that point, tag read-only targets on the
- * registry and skip them here (only edit-openers pass through this filter).
+ * ALL candidates on canEditMap && canEditLayer. When W3 (TASK-1996/1997) adds
+ * READ-ONLY targets (legacy view-attributes / raster value-readout), those are
+ * NOT canEditMap- or edit-gated — they respect visibility instead. At that point,
+ * tag read-only targets on the registry and route them around BOTH gates here
+ * (only edit-openers pass through this filter).
  */
 const canEditCandidateLayer = (candidate, state) => {
+    // Map-level gate first: never out-permission the pencil.
+    if (!canEditMap(state)) { return false; }
     const layer = findLayerForCandidate(candidate, state);
     if (!layer) { return false; }
     return canEditLayer(layer, undefined, getProjectMyRole(state), state?.security?.user?.pk) === true;
@@ -168,6 +204,18 @@ export const clickDisambiguationEpic = (action$, store) =>
                 // Let the default Identify popup show — do NOT swallow it.
                 return Rx.Observable.empty();
             }
+            // W2 self-verify FIX — a CANDIDATE-handled click must not leave the
+            // default Identify (GetFeatureInfo) attribute popup + click marker
+            // showing UNDER the edit form / disambiguation panel (the double-UI
+            // bug). Tear them down FIRST in BOTH the 1-candidate and >=2 branches.
+            // purgeMapInfoResults() clears the GFI responses/requests so the popup
+            // panel stops rendering (reducers/mapInfo.js PURGE_MAPINFO_RESULTS) and
+            // hideMapinfoMarker() clears the click marker — the HGeval precedent
+            // (epicsHGeval.js:222-223). Both directly mutate the mapInfo reducer, so
+            // suppression does NOT depend on the downstream CLOSE_IDENTIFY epics
+            // being registered. The 0-candidate branch above intentionally does NOT
+            // tear down (it must let the default Identify popup show).
+            const identifyTeardown = [purgeMapInfoResults(), hideMapinfoMarker()];
             if (candidates.length === 1) {
                 const candidate = candidates[0];
                 const target = getClickTarget(candidate.kind);
@@ -180,9 +228,9 @@ export const clickDisambiguationEpic = (action$, store) =>
                     console.error('clickDisambiguationEpic: buildOpenActions failed', e);
                     openActions = [];
                 }
-                return Rx.Observable.from(openActions);
+                return Rx.Observable.from([...identifyTeardown, ...openActions]);
             }
-            return Rx.Observable.of(showClickDisambiguation(candidates));
+            return Rx.Observable.from([...identifyTeardown, showClickDisambiguation(candidates)]);
         });
 
 /**
@@ -190,13 +238,20 @@ export const clickDisambiguationEpic = (action$, store) =>
  * maps so map clicks actually emit LOAD_FEATURE_INFO for clickDisambiguationEpic
  * to classify. Mirrors hgevalMapClickManagerEpic's enable/disable discipline,
  * inverted: HGeval DISABLES identify around its click-capture mode; ANUGA's
- * disambiguation NEEDS it enabled. Fires once on ANUGA project load and only
- * toggles when identify is explicitly disabled (no-op when already on / unset),
- * so it never fights the VectorDraw / bbox / profile draw tools that legitimately
- * toggle identify off mid-draw.
+ * disambiguation NEEDS it enabled.
+ *
+ * W2 self-verify FIX — fire AT MOST ONCE for the session: the FIRST
+ * SET_ANUGA_PROJECT_DATA seen while identify is explicitly disabled flips it on,
+ * then the stream completes (.take(1) after the enabled===false filter).
+ * SET_ANUGA_PROJECT_DATA also fires on many LATER refresh paths (membership ops,
+ * dataset rename, terrain add); without the one-shot guard a user who deliberately
+ * turned Identify OFF would have it flipped back ON by the next refresh. The
+ * one-shot ensures-on on first load and never fights a later deliberate off-toggle
+ * (the .take(1) equivalent of hgevalMapClickManagerEpic tracking what IT changed).
  */
 export const anugaIdentifyEnableEpic = (action$, store) =>
     action$
         .ofType(SET_ANUGA_PROJECT_DATA)
         .filter(() => store.getState()?.mapInfo?.enabled === false)
+        .take(1)
         .mapTo(toggleMapInfoState());

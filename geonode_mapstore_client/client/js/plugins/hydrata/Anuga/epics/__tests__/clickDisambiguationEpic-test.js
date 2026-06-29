@@ -12,7 +12,12 @@
  */
 import expect from 'expect';
 import Rx from 'rxjs';
-import { LOAD_FEATURE_INFO, TOGGLE_MAPINFO_STATE } from '../../../../../../MapStore2/web/client/actions/mapInfo';
+import {
+    LOAD_FEATURE_INFO,
+    TOGGLE_MAPINFO_STATE,
+    PURGE_MAPINFO_RESULTS,
+    HIDE_MAPINFO_MARKER
+} from '../../../../../../MapStore2/web/client/actions/mapInfo';
 import { setAnugaProjectData } from '../../actions/dataActions';
 import {
     registerClickTarget,
@@ -48,13 +53,18 @@ const makeActions$ = (actions) => {
 // 'editor' grants edit on any layer (role-based), and the fake-target layer
 // names are present in state.layers.flat (workspace-qualified, as live layers
 // are). Without this, every candidate would be dropped fail-closed.
+// W2 self-verify FIX-2: the epic now ALSO gates on canEditMap (mirrors the
+// SimpleView pencil: canEditMap && canEditLayer). canEditMap needs
+// gnresource.initialResource.perms to include 'change_resourcebase'; without it
+// every candidate is dropped (map-level fail-closed). Editable fixtures grant it.
 const store = { getState: () => ({
     layers: { flat: [
         { name: 'geonode:aaa_1_alpha', perms: [] },
         { name: 'geonode:bbb_2_beta', perms: [] }
     ] },
     anuga: { projects: { data: { my_role: 'editor' } } },
-    security: { user: { pk: 1 } }
+    security: { user: { pk: 1 } },
+    gnresource: { initialResource: { perms: ['change_resourcebase'] } }
 }) };
 
 // Deep walk collecting function paths (D6 guard).
@@ -127,6 +137,24 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             expect(candidates.length).toBe(2);
             expect(collectFunctionPaths(candidates)).toEqual([]);
         });
+
+        it('plainLabel coerces non-string label VALUES to strings (FIX-4)', () => {
+            // A target whose label() returns a function-valued title + numeric
+            // subtitle + null icon: plainLabel must String()-coerce each so no
+            // function/object leaks into candidate state (D6 + render hazard).
+            registerClickTarget('ccc_', {
+                match: (featureId, layerName) => String(layerName).startsWith('ccc_'),
+                label: () => ({ title: () => 'fn-title', subtitle: 42, icon: null }),
+                buildOpenActions: () => []
+            });
+            const cand = buildCandidates(fc(feature('ccc_3_gamma.1')))[0];
+            expect(typeof cand.label.title).toBe('string');
+            expect(typeof cand.label.subtitle).toBe('string');
+            expect(typeof cand.label.icon).toBe('string');
+            expect(cand.label.subtitle).toBe('42');   // number -> '42'
+            expect(cand.label.icon).toBe('');          // null -> ''
+            expect(collectFunctionPaths([cand])).toEqual([]);
+        });
     });
 
     describe('epic branching', () => {
@@ -141,21 +169,27 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             );
         });
 
-        it('1 candidate -> dispatches that target buildOpenActions directly', (done) => {
+        it('1 candidate -> tears down Identify popup+marker FIRST, then buildOpenActions', (done) => {
             const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(feature('aaa_1_alpha.7')) }]);
             const out = [];
             clickDisambiguationEpic(action$, store).subscribe(
                 a => out.push(a),
                 done,
                 () => {
-                    expect(out).toEqual([{ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' }]);
+                    // W2 self-verify FIX-1: PURGE + HIDE marker precede the opener.
+                    expect(out.map(a => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS,
+                        HIDE_MAPINFO_MARKER,
+                        'AAA:OPEN'
+                    ]);
+                    expect(out[2]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
                     expect(collectFunctionPaths(out)).toEqual([]);
                     done();
                 }
             );
         });
 
-        it('>=2 candidates -> dispatches showClickDisambiguation with plain candidates', (done) => {
+        it('>=2 candidates -> tears down Identify popup+marker FIRST, then showClickDisambiguation', (done) => {
             const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
                 feature('aaa_1_alpha.7', { description: 'A' }),
                 feature('bbb_2_beta.3')
@@ -165,9 +199,13 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                 a => out.push(a),
                 done,
                 () => {
-                    expect(out.length).toBe(1);
-                    expect(out[0].type).toBe(SHOW_CLICK_DISAMBIGUATION);
-                    expect(out[0].candidates.map(c => c.kind)).toEqual(['aaa_', 'bbb_']);
+                    // W2 self-verify FIX-1: PURGE + HIDE marker precede the panel.
+                    expect(out.map(a => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS,
+                        HIDE_MAPINFO_MARKER,
+                        SHOW_CLICK_DISAMBIGUATION
+                    ]);
+                    expect(out[2].candidates.map(c => c.kind)).toEqual(['aaa_', 'bbb_']);
                     expect(collectFunctionPaths(out)).toEqual([]);
                     done();
                 }
@@ -187,10 +225,14 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
 
     describe('permissions gate (TASK-1994 W2.2)', () => {
 
-        const stateWith = (flat, { myRole = 'editor', pk = 1 } = {}) => ({
+        // canEditMap defaults ON here (mapPerms includes change_resourcebase) so
+        // these tests isolate the layer-level canEditLayer behaviour; the dedicated
+        // canEditMap describe-block below varies the map-level perm.
+        const stateWith = (flat, { myRole = 'editor', pk = 1, mapPerms = ['change_resourcebase'] } = {}) => ({
             layers: { flat },
             anuga: { projects: { data: { my_role: myRole } } },
-            security: { user: { pk } }
+            security: { user: { pk } },
+            gnresource: { initialResource: { perms: mapPerms } }
         });
         const candAaa = { kind: 'aaa_', featureId: 'aaa_1_alpha.7', layerName: 'aaa_1_alpha', label: { title: 'Alpha', subtitle: '', icon: '' } };
 
@@ -233,7 +275,12 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                 a => out.push(a),
                 done,
                 () => {
-                    expect(out).toEqual([{ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' }]);
+                    expect(out.map(a => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS,
+                        HIDE_MAPINFO_MARKER,
+                        'AAA:OPEN'
+                    ]);
+                    expect(out[2]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
                     done();
                 }
             );
@@ -252,6 +299,35 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                 () => { expect(out).toEqual([]); done(); }
             );
         });
+
+        // W2 self-verify FIX-2: a map click must never be MORE permissive than the
+        // SimpleView pencil (canEditMap && canEditLayer). canEditMap requires
+        // change_resourcebase on the MAP's initialResource.
+        it('drops an EDIT candidate when canEditMap is false even though canEditLayer would pass', () => {
+            // role editor => canEditLayer true on aaa_, but mapPerms lacks
+            // change_resourcebase => canEditMap false => candidate dropped.
+            const state = stateWith(
+                [{ name: 'geonode:aaa_1_alpha', perms: [] }],
+                { myRole: 'editor', mapPerms: [] }
+            );
+            expect(filterEditableCandidates([candAaa], state)).toEqual([]);
+        });
+
+        it('keeps an EDIT candidate when BOTH canEditMap and canEditLayer pass', () => {
+            const state = stateWith(
+                [{ name: 'geonode:aaa_1_alpha', perms: [] }],
+                { myRole: 'editor', mapPerms: ['change_resourcebase'] }
+            );
+            expect(filterEditableCandidates([candAaa], state)).toEqual([candAaa]);
+        });
+
+        it('drops on an excluded site (canEditMap false via isExcludedSite) even with map+layer perms', () => {
+            const state = {
+                ...stateWith([{ name: 'geonode:aaa_1_alpha', perms: ['change_resourcebase'] }], { myRole: 'editor' }),
+                gnsettings: { geonodeUrl: 'https://placeholder.com' }
+            };
+            expect(filterEditableCandidates([candAaa], state)).toEqual([]);
+        });
     });
 
     describe('drawing-mode guard + identify enablement (TASK-1995 W2.3)', () => {
@@ -264,6 +340,7 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             layers: { flat: editableFlat },
             anuga: { projects: { data: { my_role: 'editor' } } },
             security: { user: { pk: 1 } },
+            gnresource: { initialResource: { perms: ['change_resourcebase'] } },
             vectorDraw
         });
         const twoFeatureClick = () => makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
@@ -296,8 +373,12 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                 a => out.push(a),
                 done,
                 () => {
-                    expect(out.length).toBe(1);
-                    expect(out[0].type).toBe(SHOW_CLICK_DISAMBIGUATION);
+                    // FIX-1 teardown precedes the panel here too.
+                    expect(out.map(a => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS,
+                        HIDE_MAPINFO_MARKER,
+                        SHOW_CLICK_DISAMBIGUATION
+                    ]);
                     done();
                 }
             );
@@ -307,6 +388,23 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             const epicStore = { getState: () => ({ mapInfo: { enabled: false } }) };
             const out = [];
             anugaIdentifyEnableEpic(makeActions$([setAnugaProjectData({ id: 5 })]), epicStore).subscribe(
+                a => out.push(a),
+                done,
+                () => { expect(out.map(a => a.type)).toEqual([TOGGLE_MAPINFO_STATE]); done(); }
+            );
+        });
+
+        it('anugaIdentifyEnableEpic fires AT MOST ONCE across multiple SET_ANUGA_PROJECT_DATA (one-shot)', (done) => {
+            // W2 self-verify FIX-3: identify stays disabled across 3 project-data
+            // refreshes, but .take(1) means only the FIRST flips it on — a later
+            // deliberate user off-toggle is never fought.
+            const epicStore = { getState: () => ({ mapInfo: { enabled: false } }) };
+            const out = [];
+            anugaIdentifyEnableEpic(makeActions$([
+                setAnugaProjectData({ id: 5 }),
+                setAnugaProjectData({ id: 5 }),
+                setAnugaProjectData({ id: 5 })
+            ]), epicStore).subscribe(
                 a => out.push(a),
                 done,
                 () => { expect(out.map(a => a.type)).toEqual([TOGGLE_MAPINFO_STATE]); done(); }
