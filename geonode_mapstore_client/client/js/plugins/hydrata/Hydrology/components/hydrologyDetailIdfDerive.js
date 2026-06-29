@@ -635,8 +635,12 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
     handleCsvDownload = () => {
         const id = this.props.result?.id;
         if (!id || !this.props.projectId) return;
+        // Honour the on-screen unit toggle so the downloaded CSV matches what
+        // the user sees: append ?units=depth when the result table is in Depth
+        // mode; omit the param (canonical mm/hr) for Intensity.
+        const query = this.state.unitMode === 'depth' ? '?units=depth' : '';
         window.open(
-            `/api/v2/anuga/projects/${this.props.projectId}/idf-tables/${id}/csv/`,
+            `/api/v2/anuga/projects/${this.props.projectId}/idf-tables/${id}/csv/${query}`,
             '_blank'
         );
     };

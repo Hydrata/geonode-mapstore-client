@@ -227,6 +227,35 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
         }
     });
 
+    it('CSV download appends ?units=depth when the result table is in Depth mode', () => {
+        // The depth/intensity toggle and the CSV download button share the same
+        // result view (this.state.unitMode); flipping to Depth must make the
+        // downloaded CSV match the on-screen depth conversion.
+        const result = {
+            id: 7,
+            durations_min: [60],
+            return_periods_yr: [2],
+            intensities_mm_per_hr: [[10.5]],
+            ci_lower_mm_per_hr: [[9.0]],
+            ci_upper_mm_per_hr: [[12.0]],
+            provenance: {}
+        };
+        const originalOpen = window.open;
+        let openedUrl = null;
+        window.open = (url) => { openedUrl = url; };
+        try {
+            mount({result, projectId: 42});
+            // Flip the result table to Depth mode via its radio control.
+            const depthRadio = container.querySelector('#idf-derive-unit-depth');
+            ReactTestUtils.Simulate.change(depthRadio, {target: {checked: true}});
+            const csvBtn = container.querySelector('#idf-derive-download-csv');
+            ReactTestUtils.Simulate.click(csvBtn);
+            expect(openedUrl).toBe('/api/v2/anuga/projects/42/idf-tables/7/csv/?units=depth');
+        } finally {
+            window.open = originalOpen;
+        }
+    });
+
     it('JSON download button creates a Blob and triggers download', () => {
         const result = {
             id: 7,
