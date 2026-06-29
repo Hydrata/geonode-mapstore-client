@@ -25,7 +25,7 @@ import mountWithProviders from '../../../../../__tests__/helpers/mountWithProvid
 import createTestStore from '../../../../../__tests__/helpers/createTestStore';
 import { UPDATE_IDF_ROW_DATA } from '../../actionsHydrology';
 import { IdfTable } from '../../classesHydrology';
-import HydrologyDetailIdfTable, { DURATION_TICKS, DURATION_X_DOMAIN } from '../hydrologyDetailIdfTable';
+import HydrologyDetailIdfTable, { DURATION_TICKS, DURATION_X_DOMAIN, computeLogYAxis } from '../hydrologyDetailIdfTable';
 
 // Wrap a real (passthrough) store's dispatch to record dispatched actions.
 function recordingStore(preloadedState) {
@@ -407,5 +407,106 @@ describe('TASK-1754 IDF-curve log duration axis', () => {
             expect(t).toBeGreaterThanOrEqualTo(lo);
             expect(t).toBeLessThanOrEqualTo(hi);
         });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-2 — IDF-curve Y-axis tick-label fix. The log Y-axis used to carry a
+// FLOATING `domain={[1, 'auto']}` plus a fixed INTENSITY_TICKS array that ran up
+// to 1000; recharts placed the out-of-scale 1000 tick at the TOP gridline (where
+// 10 belonged) — a ~100× label error for a data max of ~11. The fix pins the
+// domain to nice tick boundaries computed from the actual plotted (display-unit)
+// values via computeLogYAxis, so the top tick LABEL always sits on its line and
+// the axis tracks the depth↔intensity toggle.
+// ---------------------------------------------------------------------------
+describe('TASK-2 computeLogYAxis (pinned log Y-axis)', () => {
+    it('caps the top tick at the smallest nice tick >= dataMax (no 1000 for a ~11 max)', () => {
+        const {domain, ticks} = computeLogYAxis([2, 6, 11]);
+        // hi is 20 (smallest nice tick >= 11), NOT the old 1000.
+        expect(domain[1]).toBe(20);
+        expect(ticks).toNotInclude(1000);
+        expect(ticks[ticks.length - 1]).toBe(20);
+    });
+
+    it('pins the domain exactly on tick boundaries (lo = largest tick <= dataMin)', () => {
+        const {domain, ticks} = computeLogYAxis([2, 6, 11]);
+        expect(domain[0]).toBe(2);
+        // every returned tick lies within [lo, hi]
+        ticks.forEach(t => {
+            expect(t).toBeGreaterThanOrEqualTo(domain[0]);
+            expect(t).toBeLessThanOrEqualTo(domain[1]);
+        });
+    });
+
+    it('follows the larger DEPTH range when the unit toggle converts up', () => {
+        // depth values ~50..480 → domain [50, 500]
+        const {domain} = computeLogYAxis([50, 120, 480]);
+        expect(domain[0]).toBe(50);
+        expect(domain[1]).toBe(500);
+    });
+
+    it('falls back to a sane [1, 10] decade for empty/degenerate input', () => {
+        expect(computeLogYAxis([]).domain).toEqual([1, 10]);
+        expect(computeLogYAxis(null).domain).toEqual([1, 10]);
+        expect(computeLogYAxis([0, -5, NaN]).domain).toEqual([1, 10]);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-1 — depth↔intensity DISPLAY toggle. The manual Input grid is editable in
+// Intensity (mm/hr, the canonical stored unit) but READ-ONLY in Depth (mm): each
+// enabled cell renders its per-row converted value (intensity × duration/60) as
+// static text, never an input, so a rounded depth can never round-trip back into
+// the stored mm/hr matrix.
+// ---------------------------------------------------------------------------
+describe('TASK-1 depth↔intensity display toggle', () => {
+    it('defaults to Intensity mode (heading + editable inputs)', () => {
+        const item = new IdfTable();
+        item.rowData[0]['1yrARI'] = 12;
+        const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
+            state: { hydrology: { activeHydrologyItem: item } }
+        });
+        const intensityRadio = container.querySelector('#idf-input-unit-intensity');
+        expect(intensityRadio).toExist();
+        expect(intensityRadio.checked).toBe(true);
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(1);
+    });
+
+    it('switching to Depth makes the grid READ-ONLY and shows the per-row converted value', () => {
+        const item = new IdfTable();
+        // First row is the 5-min duration; intensity 12 mm/hr → depth 12×(5/60)=1.0 mm
+        item.rowData[0]['1yrARI'] = 12;
+        const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
+            state: { hydrology: { activeHydrologyItem: item } }
+        });
+        // intensity mode: one editable input, no read-only cells.
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(1);
+        expect(container.querySelectorAll('.sv-idf-matrix-cell--readonly').length).toBe(0);
+
+        fireEvent.click(container.querySelector('#idf-input-unit-depth'));
+
+        // depth mode: NO inputs (read-only); the enabled cell is a static value.
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
+        const ro = container.querySelector('.sv-idf-matrix-cell--readonly');
+        expect(ro).toExist();
+        expect(ro.textContent).toBe('1'); // 12 × (5/60) = 1.0 → round1 → "1"
+
+        // switching back restores the editable input at the original mm/hr value.
+        fireEvent.click(container.querySelector('#idf-input-unit-intensity'));
+        const input = container.querySelector('.sv-idf-matrix-input');
+        expect(input).toExist();
+        expect(input.value).toBe('12');
+    });
+
+    it('does NOT dispatch any row-data mutation when toggling to Depth (data untouched)', () => {
+        const item = new IdfTable();
+        item.rowData[0]['1yrARI'] = 12;
+        const { store, dispatched } = recordingStore({
+            hydrology: { activeHydrologyItem: item }
+        });
+        const { container } = mountWithProviders(<HydrologyDetailIdfTable />, { store });
+        fireEvent.click(container.querySelector('#idf-input-unit-depth'));
+        // No UPDATE_IDF_ROW_DATA fired — the conversion is render-only.
+        expect(dispatched.find(a => a && a.type === UPDATE_IDF_ROW_DATA)).toNotExist();
     });
 });

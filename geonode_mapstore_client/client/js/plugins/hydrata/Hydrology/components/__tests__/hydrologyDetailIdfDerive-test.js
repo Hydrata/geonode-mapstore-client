@@ -573,4 +573,41 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
             expect(badge).toExist();
         });
     });
+
+    // ── TASK-1 — depth↔intensity result-table display toggle ──────────────
+    // FE-only, no re-derive. The result table defaults to intensity (mm/hr); the
+    // Depth radio converts every cell (point estimate + CI band) by the PER-ROW
+    // duration/60 factor and flips the per-RP header unit. The BE payload is
+    // never mutated (conversion is render-only).
+    describe('TASK-1 depth↔intensity result toggle', () => {
+        const result = {
+            id: 11,
+            durations_min: [60, 120],
+            return_periods_yr: [10],
+            intensities_mm_per_hr: [[10], [8]],
+            ci_lower_mm_per_hr: [[9], [7]],
+            ci_upper_mm_per_hr: [[12], [9]],
+            provenance: {}
+        };
+
+        it('defaults to Intensity: radio checked + "(mm/hr)" header', () => {
+            mount({result});
+            const intensityRadio = container.querySelector('#idf-derive-unit-intensity');
+            expect(intensityRadio).toExist();
+            expect(intensityRadio.checked).toBe(true);
+            expect(container.textContent.indexOf('10-yr (mm/hr)')).toBeGreaterThan(-1);
+        });
+
+        it('switching to Depth flips the header to "(mm)" and converts cells per-row', () => {
+            mount({result});
+            const depthRadio = container.querySelector('#idf-derive-unit-depth');
+            expect(depthRadio).toExist();
+            ReactTestUtils.Simulate.change(depthRadio);
+            // header unit flips
+            expect(container.textContent.indexOf('10-yr (mm)')).toBeGreaterThan(-1);
+            expect(container.textContent.indexOf('10-yr (mm/hr)')).toBe(-1);
+            // 120-min row: intensity 8 → depth 8×(120/60)=16.0 (only appears in depth)
+            expect(container.textContent.indexOf('16.0')).toBeGreaterThan(-1);
+        });
+    });
 });

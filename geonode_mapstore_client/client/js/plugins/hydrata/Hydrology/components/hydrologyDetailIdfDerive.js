@@ -329,9 +329,26 @@ IdfDeriveMatrix.defaultProps = {
 // Result table (from W5, unchanged)
 // ---------------------------------------------------------------------------
 
+// Per-row unit conversion (display-only). Canonical stored unit is intensity
+// (mm/hr); depth_mm = intensity_mm_per_hr × (duration_min / 60), a PER-ROW
+// factor keyed on each row's own duration. The point estimate AND the CI band
+// (ci_lower/ci_upper) are all multiplied by the SAME factor so the band stays
+// attached to the estimate. Applied at the render boundary only — the BE payload
+// is never mutated, so switching back to Intensity restores the exact values.
+const intensityToDepth = (intensity, durationMin) => {
+    const i = Number(intensity);
+    const d = Number(durationMin);
+    if (!Number.isFinite(i) || !Number.isFinite(d)) return NaN;
+    return i * (d / 60);
+};
+
 // Build TanStack column defs from the IDFTable BE payload.
 // Columns: duration_min, then triplet per RP (intensity, ci_lower, ci_upper).
-const buildResultColumns = (idfTable) => {
+// unitMode ('intensity' | 'depth') flips the per-RP unit header only; the CI
+// "low/high" headers carry no unit so they read correctly under both modes.
+const buildResultColumns = (idfTable, unitMode) => {
+    const depth = unitMode === 'depth';
+    const unitLabel = depth ? 'mm' : 'mm/hr';
     const helper = createColumnHelper();
     const rps = idfTable?.return_periods_yr || [];
     const cols = [
@@ -347,7 +364,7 @@ const buildResultColumns = (idfTable) => {
                 // eslint-disable-next-line no-eq-null, eqeqeq
                 return v == null ? '' : Number(v).toFixed(1);
             },
-            header: () => <span>{`${rp}-yr (mm/hr)`}</span>,
+            header: () => <span>{`${rp}-yr (${unitLabel})`}</span>,
             id: `rp-${rp}-intensity-${idx}`
         }));
         cols.push(helper.accessor(`rp${rp}_ci_lower`, {
@@ -372,26 +389,34 @@ const buildResultColumns = (idfTable) => {
     return cols;
 };
 
-const buildResultRows = (idfTable) => {
+const buildResultRows = (idfTable, unitMode) => {
+    const depth = unitMode === 'depth';
     const durations = idfTable?.durations_min || [];
     const rps = idfTable?.return_periods_yr || [];
     const intensities = idfTable?.intensities_mm_per_hr || [];
     const ciLow = idfTable?.ci_lower_mm_per_hr || [];
     const ciHigh = idfTable?.ci_upper_mm_per_hr || [];
+    // depth conversion uses THIS row's duration (per-row factor); a null/missing
+    // raw value passes through unchanged so the cell renderer still blanks it.
+    const conv = (raw, durMin) => {
+        // eslint-disable-next-line no-eq-null, eqeqeq
+        if (raw == null) return raw;
+        return depth ? intensityToDepth(raw, durMin) : raw;
+    };
     return durations.map((d, i) => {
         const row = {duration_min: d};
         rps.forEach((rp, j) => {
-            row[`rp${rp}_intensity`] = (intensities[i] || [])[j];
-            row[`rp${rp}_ci_lower`] = (ciLow[i] || [])[j];
-            row[`rp${rp}_ci_upper`] = (ciHigh[i] || [])[j];
+            row[`rp${rp}_intensity`] = conv((intensities[i] || [])[j], d);
+            row[`rp${rp}_ci_lower`] = conv((ciLow[i] || [])[j], d);
+            row[`rp${rp}_ci_upper`] = conv((ciHigh[i] || [])[j], d);
         });
         return row;
     });
 };
 
-const ResultsTable = ({idfTable}) => {
-    const columns = React.useMemo(() => buildResultColumns(idfTable), [idfTable]);
-    const data = React.useMemo(() => buildResultRows(idfTable), [idfTable]);
+const ResultsTable = ({idfTable, unitMode}) => {
+    const columns = React.useMemo(() => buildResultColumns(idfTable, unitMode), [idfTable, unitMode]);
+    const data = React.useMemo(() => buildResultRows(idfTable, unitMode), [idfTable, unitMode]);
     const table = useReactTable({
         data,
         columns,
@@ -434,7 +459,8 @@ const ResultsTable = ({idfTable}) => {
 };
 
 ResultsTable.propTypes = {
-    idfTable: PropTypes.object
+    idfTable: PropTypes.object,
+    unitMode: PropTypes.string
 };
 
 // Trigger a browser download of the provenance manifest as JSON.
@@ -571,7 +597,11 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
             // hours display toggle — read-aid only (stored values stay minutes).
             // TASK-1497 (UAT note-4): defaults to ticked (hours) — the derive
             // matrix axis is >=60 min, so hours is the more natural read-aid.
-            showHours: true
+            showHours: true,
+            // Depth↔intensity DISPLAY unit for the result table (FE-only, no
+            // re-derive). 'intensity' (canonical mm/hr) default; 'depth' converts
+            // every cell (point estimate + CI band) by the per-row duration/60.
+            unitMode: 'intensity'
         };
     }
 
@@ -617,6 +647,10 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
 
     toggleShowHours = () => {
         this.setState(s => ({showHours: !s.showHours}));
+    };
+
+    setUnitMode = (unitMode) => {
+        this.setState({unitMode});
     };
 
     // Called by the matrix when the user toggles a row/col/cell.
@@ -871,7 +905,35 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                                 {/* TASK-1789 — provenance badge. Shows source key and
                                     grade; GPEX='screening' gets a disclaimer tooltip. */}
                                 <IdfProvenanceBadge provenance={this.props.result?.provenance} />
-                                <ResultsTable idfTable={this.props.result}/>
+                                {/* Depth↔intensity display toggle (FE-only, no re-derive).
+                                    Converts the result table cells (estimate + CI band) by
+                                    the per-row duration/60 factor; the dynamic header per
+                                    unit comes from buildResultColumns. */}
+                                <div className="sv-idf-matrix-unit-toggle-row" role="group" aria-label="Display unit">
+                                    <label className="sv-idf-matrix-unit-label" style={{marginRight: 12}}>
+                                        <input
+                                            id="idf-derive-unit-intensity"
+                                            type="radio"
+                                            name="idf-derive-unit"
+                                            checked={this.state.unitMode !== 'depth'}
+                                            onChange={() => this.setUnitMode('intensity')}
+                                        />
+                                        {' '}
+                                        Intensity (mm/hr)
+                                    </label>
+                                    <label className="sv-idf-matrix-unit-label">
+                                        <input
+                                            id="idf-derive-unit-depth"
+                                            type="radio"
+                                            name="idf-derive-unit"
+                                            checked={this.state.unitMode === 'depth'}
+                                            onChange={() => this.setUnitMode('depth')}
+                                        />
+                                        {' '}
+                                        Depth (mm)
+                                    </label>
+                                </div>
+                                <ResultsTable idfTable={this.props.result} unitMode={this.state.unitMode}/>
                                 <div className="sv-idf-derive-results-actions">
                                     <Button
                                         id={'idf-derive-download-json'}

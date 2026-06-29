@@ -73,7 +73,15 @@ const ARI_LEGEND_LABEL = ARI_COLUMNS.reduce((acc, c) => {
 // a numeric log axis with an 'auto' domain bound (the ticks render blank), so
 // we supply a fixed log-spaced set; out-of-domain ticks are dropped by recharts.
 export const DURATION_TICKS = [5, 10, 15, 30, 60, 120, 240, 360, 720, 1440, 2880, 4320];
-const INTENSITY_TICKS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+
+// Nice log-spaced Y-axis ticks spanning BOTH the intensity (~1–50 mm/hr) and the
+// depth (~1–500+ mm) display ranges. Used to PIN the Y-axis domain to its tick
+// extremes — the same fix the duration X-axis got (TASK-1754): an explicit
+// [lo, hi] domain + explicit in-range ticks stops recharts from floating an
+// 'auto' upper bound that mislabels the top tick (the "1000 where 10 belongs"
+// log-tick artifact — recharts placed an out-of-scale INTENSITY tick at the top
+// gridline). A pinned domain with allowDataOverflow keeps labels on their lines.
+const LOG_AXIS_TICKS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
 
 // TASK-1754 — fixed log-scale duration domain. Pinning to [first, last] tick
 // (5..4320 min) with allowDataOverflow keeps every DURATION_TICKS entry evenly
@@ -126,6 +134,49 @@ const round2 = (value) => {
 // intensities are clamped to <=2dp for display (TASK-1554); rowData keeps the
 // raw value.
 const displayValue = (value) => (hasCellValue(value) ? round2(value) : '');
+
+// Round to AT MOST 1 decimal place for DISPLAY only (depth values are ~1–2
+// orders larger than intensity, so 1dp reads cleanly). Strips trailing zeros:
+// 121.48 -> "121.5", 8.0 -> "8". Non-numeric input returns ''.
+const round1 = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? String(Number(n.toFixed(1))) : '';
+};
+
+// Per-row unit conversion (display-only). The canonical stored unit is intensity
+// (mm/hr); depth_mm = intensity_mm_per_hr × (duration_min / 60). The factor is
+// PER-ROW — each duration row uses its OWN duration — so it is applied at the
+// render boundary only. rowData is NEVER mutated: switching back to Intensity
+// restores the exact stored value, and (with the Depth view kept read-only) a
+// converted number can never round-trip back into the canonical matrix.
+const intensityToDepth = (intensity, durationMin) => {
+    const i = Number(intensity);
+    const d = Number(durationMin);
+    if (!Number.isFinite(i) || !Number.isFinite(d)) return NaN;
+    return i * (d / 60);
+};
+
+// Given the plotted Y values (already in the DISPLAY unit), return a log domain
+// pinned to tick boundaries plus the ticks inside it. This is the duration-axis
+// fix generalised to a data-driven range: lo = largest tick <= dataMin, hi =
+// smallest tick >= dataMax, ticks = LOG_AXIS_TICKS within [lo, hi]. Pinning the
+// domain to exact tick values (with allowDataOverflow on the axis) keeps every
+// tick LABEL on its gridline regardless of unit. Empty input falls back to a
+// sane [1, 10] decade. Exported so the axis contract is unit-assertable without
+// rendering a measurable chart in jsdom (mirrors DURATION_X_DOMAIN).
+export const computeLogYAxis = (values) => {
+    const finite = (values || []).filter(v => Number.isFinite(v) && v > 0);
+    if (!finite.length) return {domain: [1, 10], ticks: [1, 2, 5, 10]};
+    const dataMin = Math.min(...finite);
+    const dataMax = Math.max(...finite);
+    let lo = LOG_AXIS_TICKS.filter(t => t <= dataMin).pop();
+    if (lo === undefined) lo = LOG_AXIS_TICKS[0];
+    let hi = LOG_AXIS_TICKS.find(t => t >= dataMax);
+    if (hi === undefined) hi = LOG_AXIS_TICKS[LOG_AXIS_TICKS.length - 1];
+    if (hi <= lo) hi = lo * 10;
+    const ticks = LOG_AXIS_TICKS.filter(t => t >= lo && t <= hi);
+    return {domain: [lo, hi], ticks};
+};
 
 // Sanitise raw input to a float string: digits + a single dot + max 2 decimals.
 // type=text (not number) means no spinner widget; this keeps entry numeric.
@@ -208,25 +259,45 @@ const CURVE_COLOURS = ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#
 // recharts XAxis/YAxis `label` prop: the pinned recharts (0.22.4) does not
 // honour the `label={{value, position}}` object form, so the axes shipped
 // unlabelled. HTML titles render the units reliably and are version-proof.
-const IdfCurveChart = ({chartData}) => (
-    <div className="sv-idf-curve-chart-layout">
-        <div className="sv-idf-curve-yaxis-title">Intensity (mm/hr)</div>
-        <div className="sv-idf-curve-plot-area">
-            <div className="sv-idf-curve-plot">
-                <ResponsiveContainer
-                    width="100%"
-                    height="100%"
-                >
-                    <ScatterChart
-                        margin={{
-                            top: 20,
-                            right: 140,
-                            bottom: 30,
-                            left: 45
-                        }}
+const IdfCurveChart = ({chartData, unitMode}) => {
+    const depth = unitMode === 'depth';
+    // Convert each ARI series to the DISPLAY unit at the render boundary. The
+    // manual curve carries only the point estimate (no CI band), so a single
+    // per-point factor (duration/60) suffices; chartData/rowData stay mm/hr.
+    const plotData = {};
+    const plotValues = [];
+    Object.keys(chartData).forEach((key) => {
+        plotData[key] = chartData[key].map((pt) => {
+            const value = depth ? intensityToDepth(pt.intensity, pt.duration) : pt.intensity;
+            if (Number.isFinite(value)) plotValues.push(value);
+            return {...pt, value};
+        });
+    });
+    // TASK-2 fix — pin the log Y-axis domain to nice tick boundaries derived from
+    // the plotted (display-unit) values, so the top tick label sits on its line
+    // and the axis follows the unit toggle (depth ranges ~10–100× higher).
+    const {domain: yDomain, ticks: yTicks} = computeLogYAxis(plotValues);
+    const yUnit = depth ? 'mm' : 'mm/hr';
+    const yFmt = depth ? round1 : round2;
+    return (
+        <div className="sv-idf-curve-chart-layout">
+            <div className="sv-idf-curve-yaxis-title">{depth ? 'Depth (mm)' : 'Intensity (mm/hr)'}</div>
+            <div className="sv-idf-curve-plot-area">
+                <div className="sv-idf-curve-plot">
+                    <ResponsiveContainer
+                        width="100%"
+                        height="100%"
                     >
-                        <CartesianGrid/>
-                        {/* TASK-1754 — the duration axis is LOGARITHMIC across a
+                        <ScatterChart
+                            margin={{
+                                top: 20,
+                                right: 140,
+                                bottom: 30,
+                                left: 45
+                            }}
+                        >
+                            <CartesianGrid/>
+                            {/* TASK-1754 — the duration axis is LOGARITHMIC across a
                             fixed 5..4320 min domain. The earlier `domain={[5,'auto']}`
                             let recharts float the upper bound from the data, so the
                             right-hand ticks (720/1440/2880/4320) bunched and overlapped
@@ -235,71 +306,82 @@ const IdfCurveChart = ({chartData}) => (
                             evenly across the log scale and stops the right-edge crowding.
                             The series accessor stays dataKey="duration" (minutes), which
                             maps unchanged under the log scale. */}
-                        <XAxis
-                            type="number"
-                            dataKey="duration"
-                            name="Duration"
-                            unit="min"
-                            scale="log"
-                            domain={DURATION_X_DOMAIN}
-                            allowDataOverflow
-                            ticks={DURATION_TICKS}
-                            allowDecimals={false}
-                            tickFormatter={(value) => value}
-                        />
-                        <YAxis
-                            type="number"
-                            dataKey="intensity"
-                            name="Intensity"
-                            unit="mm/hr"
-                            scale="log"
-                            domain={[1, 'auto']}
-                            ticks={INTENSITY_TICKS}
-                            allowDecimals={false}
-                            tickFormatter={(value) => value}
-                        />
-                        {/* TASK-1554 — clamp tooltip intensity/duration values to <=2dp for
-                            display (round2 strips trailing zeros; non-numbers pass through). */}
-                        <Tooltip
-                            cursor={{strokeDasharray: "3 3"}}
-                            formatter={(value) => (Number.isFinite(Number(value)) ? round2(value) : value)}
-                        />
-                        {/* Legend identifies each line by its recurrence interval (ARI).
+                            <XAxis
+                                type="number"
+                                dataKey="duration"
+                                name="Duration"
+                                unit="min"
+                                scale="log"
+                                domain={DURATION_X_DOMAIN}
+                                allowDataOverflow
+                                ticks={DURATION_TICKS}
+                                allowDecimals={false}
+                                tickFormatter={(value) => value}
+                            />
+                            {/* TASK-2 — the Y-axis is LOGARITHMIC with a PINNED [lo, hi]
+                            domain sitting on nice tick boundaries (computeLogYAxis),
+                            mirroring the duration X-axis fix. The earlier
+                            `domain={[1, 'auto']}` let recharts float the upper bound,
+                            which placed an out-of-scale INTENSITY tick (e.g. 1000) at
+                            the top gridline where 10 belonged (~100× label error). The
+                            domain + ticks follow the unit toggle: dataKey="value" is the
+                            display-unit value (intensity, or per-row depth). */}
+                            <YAxis
+                                type="number"
+                                dataKey="value"
+                                name={depth ? 'Depth' : 'Intensity'}
+                                unit={yUnit}
+                                scale="log"
+                                domain={yDomain}
+                                allowDataOverflow
+                                ticks={yTicks}
+                                tickFormatter={(value) => value}
+                            />
+                            {/* TASK-1554 — clamp tooltip values for display (round2 for
+                            intensity, round1 for the larger depth values; non-numbers
+                            pass through). */}
+                            <Tooltip
+                                cursor={{strokeDasharray: "3 3"}}
+                                formatter={(value) => (Number.isFinite(Number(value)) ? yFmt(value) : value)}
+                            />
+                            {/* Legend identifies each line by its recurrence interval (ARI).
                             Vertical list on the right (one entry per PLOTTED line). */}
-                        <Legend
-                            layout="vertical"
-                            align="right"
-                            verticalAlign="middle"
-                        />
-                        {/* Only draw lines that actually hold data — buildChartData keys all
+                            <Legend
+                                layout="vertical"
+                                align="right"
+                                verticalAlign="middle"
+                            />
+                            {/* Only draw lines that actually hold data — buildChartData keys all
                             nine ARIs but leaves all-zero columns empty; plotting them would
                             add blank legend entries. Colour is keyed to the ARI's canonical
                             index so each recurrence interval keeps a stable colour. */}
-                        {Object.keys(chartData)
-                            .filter((frequency) => chartData[frequency].length > 0)
-                            .map((frequency) => {
-                                const colourIndex = ARI_COLUMNS.findIndex((c) => c.key === frequency);
-                                return (
-                                    <Scatter
-                                        key={frequency}
-                                        name={ARI_LEGEND_LABEL[frequency] || frequency}
-                                        data={chartData[frequency]}
-                                        fill={CURVE_COLOURS[colourIndex % CURVE_COLOURS.length]}
-                                        line
-                                        shape={({ cx, cy, fill }) => <circle cx={cx} cy={cy} r={3} fill={fill} />}
-                                    />
-                                );
-                            })}
-                    </ScatterChart>
-                </ResponsiveContainer>
+                            {Object.keys(plotData)
+                                .filter((frequency) => plotData[frequency].length > 0)
+                                .map((frequency) => {
+                                    const colourIndex = ARI_COLUMNS.findIndex((c) => c.key === frequency);
+                                    return (
+                                        <Scatter
+                                            key={frequency}
+                                            name={ARI_LEGEND_LABEL[frequency] || frequency}
+                                            data={plotData[frequency]}
+                                            fill={CURVE_COLOURS[colourIndex % CURVE_COLOURS.length]}
+                                            line
+                                            shape={({ cx, cy, fill }) => <circle cx={cx} cy={cy} r={3} fill={fill} />}
+                                        />
+                                    );
+                                })}
+                        </ScatterChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="sv-idf-curve-xaxis-title">Duration (min)</div>
             </div>
-            <div className="sv-idf-curve-xaxis-title">Duration (min)</div>
         </div>
-    </div>
-);
+    );
+};
 
 IdfCurveChart.propTypes = {
-    chartData: PropTypes.object
+    chartData: PropTypes.object,
+    unitMode: PropTypes.string
 };
 
 // ---------------------------------------------------------------------------
@@ -310,7 +392,7 @@ IdfCurveChart.propTypes = {
 // The panel gives the chart an explicit pixel height (ResponsiveContainer
 // measures 0 inside an auto-height flex parent → blank chart otherwise).
 // ---------------------------------------------------------------------------
-const IdfCurveModal = ({chartData, onClose, closeLabel}) => {
+const IdfCurveModal = ({chartData, unitMode, onClose, closeLabel}) => {
     if (typeof document === 'undefined') return null;
     return ReactDOM.createPortal(
         <div
@@ -333,7 +415,7 @@ const IdfCurveModal = ({chartData, onClose, closeLabel}) => {
                     >&times;</button>
                 </div>
                 <div className="sv-idf-curve-modal-body">
-                    <IdfCurveChart chartData={chartData} />
+                    <IdfCurveChart chartData={chartData} unitMode={unitMode} />
                 </div>
             </div>
         </div>,
@@ -343,6 +425,7 @@ const IdfCurveModal = ({chartData, onClose, closeLabel}) => {
 
 IdfCurveModal.propTypes = {
     chartData: PropTypes.object,
+    unitMode: PropTypes.string,
     onClose: PropTypes.func,
     closeLabel: PropTypes.string
 };
@@ -369,6 +452,13 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
 
     // TASK-1497 (UAT note-4 parity) — duration row-headers default to hours.
     const [showHours, setShowHours] = useState(true);
+
+    // Depth↔intensity DISPLAY unit (FE-only). 'intensity' (canonical mm/hr) is
+    // the default and the only EDITABLE mode; 'depth' (mm) is a render-only,
+    // READ-ONLY view (depth_mm = intensity × duration/60, per-row) so a converted
+    // value can never round-trip back into the stored mm/hr matrix.
+    const [unitMode, setUnitMode] = useState('intensity');
+    const depthMode = unitMode === 'depth';
 
     const rowData = activeHydrologyItem?.rowData || [];
 
@@ -476,7 +566,39 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                 modifier below now owns a (max-height + overflow-y:auto) scroll
                 region so EVERY duration row stays reachable. */}
             <div style={{padding: '10px', minWidth: '600px', maxWidth: '800px', marginBottom: '60px'}}>
-                <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.intensityMmHr" /></h3>
+                <h3 style={{marginTop: 0}}>
+                    {depthMode
+                        ? 'Depth (mm)'
+                        : <Message msgId="hydrata.hydrology.intensityMmHr" />}
+                </h3>
+
+                {/* Depth↔intensity display toggle (FE-only, no re-derive). Intensity
+                    is the canonical EDITABLE mode; Depth is a read-only converted view
+                    (depth_mm = intensity × duration/60, per-row). */}
+                <div className="sv-idf-matrix-unit-toggle-row" role="group" aria-label="Display unit">
+                    <label className="sv-idf-matrix-unit-label" style={{marginRight: 12}}>
+                        <input
+                            id="idf-input-unit-intensity"
+                            type="radio"
+                            name="idf-input-unit"
+                            checked={!depthMode}
+                            onChange={() => setUnitMode('intensity')}
+                        />
+                        {' '}
+                        Intensity (mm/hr)
+                    </label>
+                    <label className="sv-idf-matrix-unit-label">
+                        <input
+                            id="idf-input-unit-depth"
+                            type="radio"
+                            name="idf-input-unit"
+                            checked={depthMode}
+                            onChange={() => setUnitMode('depth')}
+                        />
+                        {' '}
+                        Depth (mm)
+                    </label>
+                </div>
 
                 {/* Hours/minutes read-aid — stored durations stay in minutes. */}
                 <div className="sv-idf-matrix-unit-toggle-row">
@@ -503,8 +625,11 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                                         <th
                                             key={col.key}
                                             className={`sv-idf-matrix-col-header${colSelected ? ' sv-idf-matrix-header--selected' : ''}`}
-                                            onClick={() => toggleCol(col.key)}
-                                            title={`Select the ${col.label} ARI column (a cell is editable only when its row is also selected)`}
+                                            onClick={depthMode ? undefined : () => toggleCol(col.key)}
+                                            style={depthMode ? {cursor: 'default'} : undefined}
+                                            title={depthMode
+                                                ? `${col.label} ARI (read-only in Depth view — switch to Intensity to edit)`
+                                                : `Select the ${col.label} ARI column (a cell is editable only when its row is also selected)`}
                                         >
                                             {col.label}
                                         </th>
@@ -519,8 +644,11 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                                     <tr key={rowIndex}>
                                         <td
                                             className={`sv-idf-matrix-row-header${rowSelected ? ' sv-idf-matrix-header--selected' : ''}`}
-                                            onClick={() => toggleRow(rowIndex)}
-                                            title={`Select all return periods for ${formatDuration(row.duration, false)} (a cell is editable only when its column is also selected)`}
+                                            onClick={depthMode ? undefined : () => toggleRow(rowIndex)}
+                                            style={depthMode ? {cursor: 'default'} : undefined}
+                                            title={depthMode
+                                                ? `${formatDuration(row.duration, false)} (read-only in Depth view — switch to Intensity to edit)`
+                                                : `Select all return periods for ${formatDuration(row.duration, false)} (a cell is editable only when its column is also selected)`}
                                         >
                                             {formatDuration(row.duration, showHours)}
                                         </td>
@@ -533,6 +661,22 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                                                         className="sv-idf-matrix-cell sv-idf-matrix-cell--empty"
                                                         title={`${formatDuration(row.duration, false)} / ${col.label}: select both this duration row and ARI column to enter an intensity (mm/hr)`}
                                                     />
+                                                );
+                                            }
+                                            // Depth view is READ-ONLY: render the per-row converted
+                                            // value (intensity × duration/60) as static text, not an
+                                            // input, so the rounded depth can never overwrite the
+                                            // canonical mm/hr value stored in rowData.
+                                            if (depthMode) {
+                                                const depthVal = round1(intensityToDepth(row[col.key], row.duration));
+                                                return (
+                                                    <td
+                                                        key={col.key}
+                                                        className="sv-idf-matrix-cell sv-idf-matrix-cell--readonly"
+                                                        title={`${formatDuration(row.duration, false)} / ${col.label}: ${depthVal} mm (read-only — switch to Intensity to edit)`}
+                                                    >
+                                                        {depthVal}
+                                                    </td>
                                                 );
                                             }
                                             return (
@@ -578,6 +722,7 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                 {hasValidData && curveOpen ?
                     <IdfCurveModal
                         chartData={chartData}
+                        unitMode={unitMode}
                         onClose={() => setCurveOpen(false)}
                         closeLabel={tr('hydrata.hydrology.idfCurveClose', 'Close')}
                     /> :

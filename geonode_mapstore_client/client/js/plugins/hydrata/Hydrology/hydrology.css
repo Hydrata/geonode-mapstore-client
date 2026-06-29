@@ -1073,6 +1073,18 @@
     background: rgba(255, 255, 255, 0.04);
 }
 
+/* Depth-view READ-ONLY cell — the depth↔intensity toggle renders the converted
+   (display-only) depth value as static text, never an input, so the Depth view
+   cannot round-trip a rounded number back into the canonical mm/hr matrix. */
+.sv-idf-matrix-cell.sv-idf-matrix-cell--readonly,
+.sv-idf-matrix-cell.sv-idf-matrix-cell--readonly:hover {
+    cursor: default;
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.04);
+}
+
 .sv-idf-matrix-input {
     width: 100%;
     min-width: 46px;

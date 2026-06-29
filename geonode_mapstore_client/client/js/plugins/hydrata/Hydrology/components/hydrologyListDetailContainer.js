@@ -361,7 +361,11 @@ class HydrologyListDetailContainerClass extends React.Component {
                             // TASK-1528 — "New Item" gets the GREEN accent (was the
                             // inherited base blue); existing items are now blue.
                             // TASK-1758 W3 conform — tokenised to --sv-accent-green.
-                            style={{marginTop: "10px", backgroundColor: "var(--sv-accent-green)"}}
+                            // UAT #3 — add breathing room BELOW the button so it
+                            // doesn't sit flush against the content beneath it.
+                            // Scoped to this button only (Save/Delete share the
+                            // .sv-hydrology-button class and must stay untouched).
+                            style={{marginTop: "10px", marginBottom: "10px", backgroundColor: "var(--sv-accent-green)"}}
                             onClick={createItem}
                         >
                             <Message msgId="hydrata.hydrology.newItem" />

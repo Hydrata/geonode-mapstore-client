@@ -40,9 +40,44 @@ const CATEGORIES = [
 const CATEGORY_GLYPHS = {
     'idf': 'glyphicon-list-alt',
     'temporal-pattern': 'glyphicon-align-left',
-    'time-series': 'glyphicon-stats',
-    'networks': 'glyphicon-road'
+    'time-series': 'glyphicon-stats'
+    // 'networks' renders a custom inline SVG (NetworksIcon below) — no glyphicon
+    // webfont glyph matches the node-and-link + rainfall mark (UAT #6).
 };
+
+// NetworksIcon — node-and-link network (one big hub + two smaller spur nodes)
+// under four uniform rainfall streaks. Inline SVG because no glyphicon webfont
+// glyph fits this mark. Uses currentColor so it inherits the rail glyph colour
+// and active/inactive theming stays consistent with the sibling glyphicons.
+// Sized 16×16 to match the .sv-hydrology-category-item-glyph box.
+const NetworksIcon = () => (
+    <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        style={{display: 'block'}}
+    >
+        {/* rainfall: 4 uniform streaks */}
+        <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M6.5 4 L5.7 6.2"/>
+            <path d="M10.5 4 L9.7 6.2"/>
+            <path d="M14.5 4 L13.7 6.2"/>
+            <path d="M18.5 4 L17.7 6.2"/>
+        </g>
+        {/* links */}
+        <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M8.5 16 L17.5 12.5 M8.5 16 L16 21"/>
+        </g>
+        {/* nodes: big hub + 2 spurs */}
+        <g fill="currentColor">
+            <circle cx="8.5" cy="16" r="2.6"/>
+            <circle cx="17.5" cy="12.5" r="1.5"/>
+            <circle cx="16" cy="21" r="1.4"/>
+        </g>
+    </svg>
+);
 
 // Map rail category ids → activeHydrologyPage values.
 // TASK-1452 (W5) entered IDF on idf-derive; UAT 2026-06-23 reverted to
@@ -98,13 +133,24 @@ const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
                             }
                         }}
                     >
-                        <span
-                            className={
-                                'sv-hydrology-category-item-glyph glyphicon '
-                                + (CATEGORY_GLYPHS[cat.id] || 'glyphicon-record')
-                            }
-                            aria-hidden="true"
-                        />
+                        {cat.id === 'networks'
+                            ? (
+                                <span
+                                    className="sv-hydrology-category-item-glyph"
+                                    aria-hidden="true"
+                                >
+                                    <NetworksIcon />
+                                </span>
+                            )
+                            : (
+                                <span
+                                    className={
+                                        'sv-hydrology-category-item-glyph glyphicon '
+                                        + (CATEGORY_GLYPHS[cat.id] || 'glyphicon-record')
+                                    }
+                                    aria-hidden="true"
+                                />
+                            )}
                         <span className="sv-hydrology-category-item-label">
                             <Message msgId={cat.msgId} />
                         </span>
