@@ -19,7 +19,10 @@
  * not 4/4) so the build-validation and rail UIs agree.
  */
 import expect from 'expect';
-import { validateScenario, validateCategoryProgress, toHHMM, getSecondsFromHHMM } from '../scenarioHelpers';
+import {
+    validateScenario, validateCategoryProgress, toHHMM, getSecondsFromHHMM,
+    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP
+} from '../scenarioHelpers';
 
 function makeValidScenario(overrides) {
     return {
@@ -405,5 +408,66 @@ describe('TASK-C Wave 3A validateCategoryProgress', () => {
             const result = validateCategoryProgress('unknownCategory', {});
             expect(result.unsaved).toBe(false);
         });
+    });
+});
+
+/*
+ * UAT #9 — duration dropdown helpers. The stored field is total SECONDS; the
+ * two dropdowns (Hours 0-72, Minutes in 5-min steps) bind to it via
+ * secondsToHM / hmToSeconds with no unit drift.
+ */
+describe('secondsToHM / hmToSeconds (UAT #9 duration dropdowns)', () => {
+    it('secondsToHM splits 1800s into 0h 30m', () => {
+        expect(secondsToHM(1800)).toEqual({hours: 0, minutes: 30});
+    });
+
+    it('secondsToHM splits 5400s into 1h 30m', () => {
+        expect(secondsToHM(5400)).toEqual({hours: 1, minutes: 30});
+    });
+
+    it('secondsToHM returns 0h 0m for null / 0 / negative / non-finite', () => {
+        expect(secondsToHM(null)).toEqual({hours: 0, minutes: 0});
+        expect(secondsToHM(0)).toEqual({hours: 0, minutes: 0});
+        expect(secondsToHM(-100)).toEqual({hours: 0, minutes: 0});
+        expect(secondsToHM(undefined)).toEqual({hours: 0, minutes: 0});
+    });
+
+    it('secondsToHM snaps off-grid minutes to the nearest 5-minute step', () => {
+        // 7 min → 5 min (nearest step); 8 min → 10 min.
+        expect(secondsToHM(7 * 60)).toEqual({hours: 0, minutes: 5});
+        expect(secondsToHM(8 * 60)).toEqual({hours: 0, minutes: 10});
+    });
+
+    it('secondsToHM carries a 58-minute snap (→60) up into the next hour', () => {
+        // 1h 58m → minutes round to 60 → carry to 2h 0m.
+        expect(secondsToHM((1 * 60 + 58) * 60)).toEqual({hours: 2, minutes: 0});
+    });
+
+    it('secondsToHM clamps hours to DURATION_MAX_HOURS', () => {
+        expect(secondsToHM((DURATION_MAX_HOURS + 10) * 3600)).toEqual({hours: DURATION_MAX_HOURS, minutes: 0});
+    });
+
+    it('hmToSeconds combines hours + minutes back into seconds', () => {
+        expect(hmToSeconds(1, 30)).toBe(5400);
+        expect(hmToSeconds(0, 30)).toBe(1800);
+        expect(hmToSeconds(0, 45)).toBe(2700);
+    });
+
+    it('hmToSeconds floors negative / non-numeric inputs at 0 (preserves duration>0 contract)', () => {
+        expect(hmToSeconds(-1, 30)).toBe(1800);
+        expect(hmToSeconds(1, 'x')).toBe(3600);
+        expect(hmToSeconds(0, 0)).toBe(0);
+    });
+
+    it('round-trips on-grid values without drift', () => {
+        [0, 300, 1800, 3600, 5400, 72 * 3600].forEach((secs) => {
+            const {hours, minutes} = secondsToHM(secs);
+            expect(hmToSeconds(hours, minutes)).toBe(secs);
+        });
+    });
+
+    it('exposes the mockup bounds (0-72 hours, 5-minute step)', () => {
+        expect(DURATION_MAX_HOURS).toBe(72);
+        expect(DURATION_MINUTE_STEP).toBe(5);
     });
 });

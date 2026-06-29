@@ -39,9 +39,10 @@ import {
 } from "../selectorsAnuga";
 import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 import {changeLayerProperties} from '../../../../../MapStore2/web/client/actions/layers';
-import {validateScenario} from './scenarioHelpers';
+import {validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES} from './scenarioHelpers';
 import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane} from './scenarioPane';
+import {ScenarioHeaderActions} from './scenarioHeaderActions';
 import {SectionHeader} from "../../SimpleView/components/primitives";
 
 /**
@@ -174,7 +175,18 @@ class AnugaScenarioMenuClass extends React.Component {
           compareMode: false,
           confirmingAction: null,
           confirmingScenario: null,
-          buildValidationError: null
+          buildValidationError: null,
+          // UAT #8 fix — the combined "Build and Run" deferred-run state machine,
+          // or null when no run is pending. Shape: {scenarioId, phase} where
+          // phase is 'awaiting-inflight' (armed; waiting for the dispatched build
+          // to actually start, i.e. enter IN_FLIGHT_STATUSES) then
+          // 'awaiting-built' (build observed in flight; waiting for it to reach
+          // 'built'). Set by handleBuildAndRunClick (only when a real build was
+          // dispatched), advanced/cleared by maybeRunAfterBuild. The two-phase
+          // gate means a bare 'built' never preceded by an observed in-flight
+          // episode (e.g. a save that did not rebuild, or the stale pre-rebuild
+          // 'built' of an already-built scenario) can never trigger a run.
+          runAfterBuild: null
       };
   }
 
@@ -198,7 +210,78 @@ class AnugaScenarioMenuClass extends React.Component {
               }
           }
       }
+      // UAT #8 fix — fire any "Build and Run" run that is now eligible.
+      this.maybeRunAfterBuild(prevProps);
   }
+
+  // UAT #8 fix — resolve the freshest copy of a scenario by id from the live
+  // props (the scenario poller writes new status into state.anuga.scenarios →
+  // this.props.scenarios). Falls back to selectedScenario for the defensive case
+  // where the awaited scenario is selected but momentarily absent from the array.
+  findFreshScenario = (scenarioId, props) => {
+      if (scenarioId == null) return null; // eslint-disable-line no-eq-null, eqeqeq
+      const list = (props && props.scenarios) || [];
+      const found = list.find((s) => s && s.id === scenarioId);
+      if (found) return found;
+      const selected = props && props.selectedScenario;
+      return selected && selected.id === scenarioId ? selected : null;
+  };
+
+  // UAT #8 fix — the combined "Build and Run" must NOT fire run in the same tick
+  // as build: run would reach the backend before status is 'built' and be
+  // rejected (or run a stale build). handleBuildAndRunClick arms a two-phase
+  // state machine; here we watch the LIVE status flowing into props and advance
+  // it, firing the run exactly once.
+  //
+  //   awaiting-inflight → the dispatched build must first be SEEN to start
+  //     (status enters IN_FLIGHT_STATUSES). Any other status — including a bare
+  //     'built' (the stale pre-rebuild artifact of an already-built scenario, or
+  //     a save that never rebuilt) — is ignored here, so a run can only follow a
+  //     real build episode.
+  //   awaiting-built → the build was observed in flight; the run fires on the
+  //     transition into 'built', then the flag is cleared so repeated post-build
+  //     prop updates can never double-run.
+  //
+  // Every settle path clears the flag so it can never leak into a future
+  // episode: built-after-inflight fires + clears; a terminal failure
+  // (error/cancelled) clears without running; and the awaited scenario vanishing
+  // from props clears too.
+  maybeRunAfterBuild = (prevProps) => {
+      const pending = this.state.runAfterBuild;
+      if (!pending) return;
+      const {scenarioId, phase} = pending;
+      const fresh = this.findFreshScenario(scenarioId, this.props);
+      if (!fresh) {
+          // Awaited scenario vanished (deleted/filtered out) — drop the intent so
+          // it can never leak. Act only on the transition (present last tick, gone
+          // now) to avoid churn.
+          if (this.findFreshScenario(scenarioId, prevProps)) {
+              this.setState({runAfterBuild: null});
+          }
+          return;
+      }
+      const status = findScenarioStatus(fresh);
+      if (RUN_FAILURE_STATES.includes(status)) {
+          // Build reached a terminal failure — drop the intent, never run nothing.
+          this.setState({runAfterBuild: null});
+          return;
+      }
+      if (phase === 'awaiting-inflight') {
+          if (IN_FLIGHT_STATUSES.includes(status)) {
+              // The dispatched build has actually started — now await its 'built'.
+              this.setState({runAfterBuild: {scenarioId, phase: 'awaiting-built'}});
+          }
+          // Otherwise keep waiting; we never fire on a 'built' seen in this phase.
+          return;
+      }
+      // phase === 'awaiting-built': the build was observed in flight; fire on the
+      // transition into 'built'. Clear BEFORE dispatching so a re-entrant prop
+      // update can't double-run.
+      if (status === 'built') {
+          this.setState({runAfterBuild: null});
+          this.handleRunClick(fresh);
+      }
+  };
 
   handleSelect = (scenario) => {
       if (this.props.selectAnugaScenario) {
@@ -285,6 +368,30 @@ class AnugaScenarioMenuClass extends React.Component {
       }
   };
 
+  // Dispatch the build/save for an already-validated scenario. Returns 'build'
+  // when an explicit server rebuild was dispatched (buildScenarioExplicit), or
+  // 'save' when the scenario was unsaved and sent to save instead. Shared by
+  // handleBuildClick (validate → dispatch) and handleBuildAndRunClick (validate →
+  // dispatch → arm) so the validation runs exactly once per click; the returned
+  // signal lets the combined action arm its deferred run ONLY for a real build —
+  // a save may not rebuild, so arming on it would leak a pending run.
+  dispatchBuild = (scenario) => {
+      let dispatched;
+      if (scenario.unsaved || !this.props.buildScenarioExplicit) {
+          if (this.props.saveAnugaScenario) {
+              this.props.saveAnugaScenario(scenario);
+          }
+          dispatched = 'save';
+      } else {
+          this.props.buildScenarioExplicit(scenario.id);
+          dispatched = 'build';
+      }
+      if (this.props.setOpenMenuGroupId) {
+          this.props.setOpenMenuGroupId(null);
+      }
+      return dispatched;
+  };
+
   handleBuildClick = (scenario) => {
       const missingField = validateScenario(scenario);
       if (missingField) {
@@ -293,16 +400,7 @@ class AnugaScenarioMenuClass extends React.Component {
           return;
       }
       this.setState({buildValidationError: null});
-      if (scenario.unsaved || !this.props.buildScenarioExplicit) {
-          if (this.props.saveAnugaScenario) {
-              this.props.saveAnugaScenario(scenario);
-          }
-      } else if (this.props.buildScenarioExplicit) {
-          this.props.buildScenarioExplicit(scenario.id);
-      }
-      if (this.props.setOpenMenuGroupId) {
-          this.props.setOpenMenuGroupId(null);
-      }
+      this.dispatchBuild(scenario);
   };
 
   handleRunClick = (scenario) => {
@@ -320,6 +418,33 @@ class AnugaScenarioMenuClass extends React.Component {
   handleRetryClick = (scenario) => {
       if (scenario?.latest_run?.id && this.props.retryAnugaRun) {
           this.props.retryAnugaRun(scenario.latest_run.id);
+      }
+  };
+
+  // UAT #8 — combined "Build and Run": semantics are ALWAYS build then run
+  // (you clicked Build), so there is ONE path — validate, dispatch the build,
+  // arm the deferred run, and let maybeRunAfterBuild fire it on the build's
+  // 'built' transition (see the state machine above). This holds even for an
+  // already-'built' scenario: the explicit rebuild flips building→built, which
+  // the awaiting-inflight→awaiting-built gate chains correctly, so we never fire
+  // inline against the stale pre-rebuild artifact.
+  //
+  // We arm ONLY when dispatchBuild reports a real 'build'. An unsaved scenario
+  // goes to save instead, and a save only rebuilds if a build-affecting field
+  // changed — arming on a save that does not rebuild would leave the flag
+  // dangling for a later unrelated build to surprise-fire. The id guard keys the
+  // build→built transition; a scenario with no id can't be tracked anyway.
+  handleBuildAndRunClick = (scenario) => {
+      const missingField = validateScenario(scenario);
+      if (missingField) {
+          this.setState({buildValidationError: missingField});
+          trackEvent('button', 'click', `anuga-scenario-menu-build-and-run-validate-missing-${missingField}`);
+          return;
+      }
+      this.setState({buildValidationError: null});
+      const dispatched = this.dispatchBuild(scenario);
+      if (dispatched === 'build' && scenario && scenario.id != null) { // eslint-disable-line no-eq-null, eqeqeq
+          this.setState({runAfterBuild: {scenarioId: scenario.id, phase: 'awaiting-inflight'}});
       }
   };
 
@@ -403,13 +528,6 @@ class AnugaScenarioMenuClass extends React.Component {
               networks={networks}
               computeInstances={computeInstances}
               onUpdateScenario={this.handleUpdateScenario}
-              onBuildClick={this.handleBuildClick}
-              onRunClick={this.handleRunClick}
-              onRetryClick={this.handleRetryClick}
-              onArchiveClick={(s) => this.openConfirm('archive', s)}
-              onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
-              onConfirmDelete={(s) => this.openConfirm('delete', s)}
-              onConfirmCancelRun={(s) => this.openConfirm('cancel-run', s)}
           />
       );
   }
@@ -423,6 +541,31 @@ class AnugaScenarioMenuClass extends React.Component {
       const resolved = getMessageById(messages, msgId);
       return resolved === msgId ? fallback : resolved;
   };
+
+  // UAT #8 — always-visible run-action strip rendered on the right of the
+  // Scenarios heading, separate from the New/Compare/Duplicate cluster. canEdit
+  // mirrors the gate ScenarioPane uses for the pane fields. Handlers reuse the
+  // existing build/run/retry/confirm chains so behaviour (and Umami analytics
+  // labels) is unchanged — only the buttons' location moved out of the Run pane.
+  renderRunActions() {
+      const {selectedScenario, myRole, currentUserId} = this.props;
+      const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
+      return (
+          <ScenarioHeaderActions
+              scenario={selectedScenario}
+              canEdit={canEdit}
+              canRunScenario={this.props.canRunScenario}
+              onBuildClick={this.handleBuildClick}
+              onRunClick={this.handleRunClick}
+              onBuildAndRunClick={this.handleBuildAndRunClick}
+              onRetryClick={this.handleRetryClick}
+              onArchiveClick={(s) => this.openConfirm('archive', s)}
+              onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
+              onConfirmDelete={(s) => this.openConfirm('delete', s)}
+              onConfirmCancelRun={(s) => this.openConfirm('cancel-run', s)}
+          />
+      );
+  }
 
   renderHeader() {
       const {canCreateScenario: canCreate, readyToCompare, selectedScenario} = this.props;
@@ -566,6 +709,7 @@ class AnugaScenarioMenuClass extends React.Component {
           >
               <div className={'sv-menu-rows-container'}>
                   {this.renderHeader()}
+                  {this.renderRunActions()}
                   {/* ISSUE 32 (TASK-1429): View results button shown on run completion */}
                   {isComplete && selectedScenario?.latest_run ? (
                       <div className="sv-anuga-view-results-bar">

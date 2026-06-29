@@ -1,9 +1,8 @@
 import React, {useEffect} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
-import {toHHMM, getSecondsFromHHMM} from './scenarioHelpers';
+import {secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP} from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
-import {ScenarioActionToolbar} from './scenarioActionToolbar';
 import {ScenarioCategoryRail} from './scenarioCategoryRail';
 import {ScenarioResourceSummary, summariseResource} from './scenarioResourceSummary';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -31,8 +30,9 @@ import {FormRow} from '../../SimpleView/components/primitives';
  *
  * Field-edit callbacks (name, dropdowns, resolution, duration, compute
  * backend) dispatch through the container's `onUpdateScenario` prop.
- * Build/Run/Log/Duplicate/Archive/Delete dispatches stay on the
- * ScenarioActionToolbar.
+ * UAT #8 — Build / Run / Build-and-Run / Retry / Download / Archive / Delete
+ * no longer render in this pane; they moved UP to the always-visible
+ * ScenarioHeaderActions strip in the Scenarios heading (anugaScenarioMenu).
  */
 
 // TASK-1416 (ISSUE 20.7): 'runConfig' + 'statusActions' merged into single 'run'
@@ -276,13 +276,22 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
-    const handleTimeChange = (e) => {
-        handleField({tempTimeString: e.target.value});
+    // UAT #9 — duration is entered via two dropdowns (Hours + Minutes), not a
+    // free-typed HH:MM string. The stored field is unchanged
+    // (scenario.duration = total SECONDS); the dropdowns bind to it through
+    // secondsToHM / hmToSeconds so there is no unit drift, and the existing
+    // "duration > 0" build validation still holds.
+    const {hours: durationHours, minutes: durationMinutes} = secondsToHM(scenario?.duration);
+    const handleHoursChange = (e) => {
+        handleField({duration: hmToSeconds(parseInt(e.target.value, 10), durationMinutes)});
     };
-    const handleTimeBlur = (e) => {
-        const seconds = Math.max(0, getSecondsFromHHMM(e.target.value));
-        handleField({duration: seconds, tempTimeString: undefined});
+    const handleMinutesChange = (e) => {
+        handleField({duration: hmToSeconds(durationHours, parseInt(e.target.value, 10))});
     };
+    const hourOptions = [];
+    for (let h = 0; h <= DURATION_MAX_HOURS; h++) hourOptions.push(h);
+    const minuteOptions = [];
+    for (let m = 0; m < 60; m += DURATION_MINUTE_STEP) minuteOptions.push(m);
     const handleResolutionChange = (e) => {
         // Empty/non-finite input: skip dispatch so the last good value is preserved (K4 guard).
         const raw = e.target.value;
@@ -327,23 +336,49 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
             <FormRow
                 extraClassName="sv-anuga-scenario-pane-section"
                 label={
-                    <label className="sv-anuga-scenario-pane-label" htmlFor="duration">
+                    <label className="sv-anuga-scenario-pane-label" htmlFor="duration-hours">
                         <Message msgId="hydrata.anuga.duration" />
                     </label>
                 }
             >
-                <div className={unitFieldClass}>
-                    <input
-                        id="duration"
-                        type="text"
-                        className="sv-scenario-input sv-scenario-input-narrow"
-                        value={scenario?.tempTimeString != null ? scenario.tempTimeString : toHHMM(scenario?.duration)} // eslint-disable-line no-eq-null, eqeqeq
-                        readOnly={!canEdit}
-                        onChange={handleTimeChange}
-                        onBlur={handleTimeBlur}
-                    />
-                    {/* TASK-1414: duration stored in seconds, displayed as hh:mm */}
-                    <span className="sv-anuga-scenario-pane-field-unit">hh:mm</span>
+                {/* UAT #9 — Option B: two labelled dropdowns (Hours 0-72,
+                    Minutes in 5-min steps), no seconds. Stored value is still
+                    scenario.duration in seconds (bound via secondsToHM /
+                    hmToSeconds). Both selects share one .sv-anuga-scenario-pane-field
+                    wrapper so the readonly-wrapper count is unchanged. */}
+                <div className={selectFieldClass}>
+                    <div className="sv-anuga-duration-widget">
+                        <div className="sv-anuga-duration-unit">
+                            <select
+                                id="duration-hours"
+                                className="sv-scenario-select sv-anuga-duration-select"
+                                value={durationHours}
+                                disabled={!canEdit}
+                                onChange={handleHoursChange}
+                            >
+                                {hourOptions.map(h => (<option key={h} value={h}>{h}</option>))}
+                            </select>
+                            <label className="sv-anuga-duration-unit-label" htmlFor="duration-hours">
+                                <Message msgId="hydrata.anuga.hours" />
+                            </label>
+                        </div>
+                        <div className="sv-anuga-duration-unit">
+                            <select
+                                id="duration-minutes"
+                                className="sv-scenario-select sv-anuga-duration-select"
+                                value={durationMinutes}
+                                disabled={!canEdit}
+                                onChange={handleMinutesChange}
+                            >
+                                {minuteOptions.map(m => (
+                                    <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                                ))}
+                            </select>
+                            <label className="sv-anuga-duration-unit-label" htmlFor="duration-minutes">
+                                <Message msgId="hydrata.anuga.minutes" />
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </FormRow>
             {/* TASK-1415: compute selector is superuser-only (FE advisory gate;
@@ -418,7 +453,8 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
  * panel laid out top-to-bottom:
  *   (a) Resolution / Duration / Compute config fields
  *   (b) Error strip (only when status=error) + Status card (ETA/progress)
- *   (c) Build / Run / Cancel / Delete action toolbar
+ *   (c) [moved] action buttons now live in the Scenarios heading
+ *       (ScenarioHeaderActions) — always visible, not gated on the Run tab (UAT #8)
  *   (d) LOG output viewer
  *
  * The former separate feedback panel (ScenarioStatusCard + ScenarioErrorStrip)
@@ -427,9 +463,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
  */
 function renderRunPane(props) {
     const {
-        scenario, canEdit, canRunScenario, isSuperuser, onUpdateScenario,
-        computeInstances, onBuildClick, onRunClick, onRetryClick,
-        onArchiveClick, onUnarchiveClick, onConfirmDelete, onConfirmCancelRun
+        scenario, canEdit, isSuperuser, onUpdateScenario, computeInstances
     } = props;
     return (
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
@@ -438,21 +472,10 @@ function renderRunPane(props) {
             {/* Section (b): status feedback (ETA, progress, error) */}
             <ScenarioErrorStrip scenario={scenario} />
             <ScenarioStatusCard scenario={scenario} />
-            {/* Section (c): action toolbar */}
-            <div className="sv-anuga-scenario-pane-actions">
-                <ScenarioActionToolbar
-                    scenario={scenario}
-                    canEdit={canEdit}
-                    canRunScenario={canRunScenario}
-                    onBuildClick={onBuildClick}
-                    onRunClick={onRunClick}
-                    onRetryClick={onRetryClick}
-                    onArchiveClick={onArchiveClick}
-                    onUnarchiveClick={onUnarchiveClick}
-                    onConfirmDelete={onConfirmDelete}
-                    onConfirmCancelRun={onConfirmCancelRun}
-                />
-            </div>
+            {/* Section (c): UAT #8 — the Build / Run / Build-and-Run / Retry /
+                Download / Archive / Delete action strip moved UP into the
+                Scenarios heading (ScenarioHeaderActions) so the user can act
+                from anywhere in the panel, not just when the Run tab is open. */}
             {/* Section (d): LOG output */}
             <ScenarioRunLog
                 log={scenario?.latest_run?.log}
@@ -609,14 +632,7 @@ ScenarioPane.propTypes = {
     meshRegions: PropTypes.array,
     networks: PropTypes.array,
     computeInstances: PropTypes.array,
-    onUpdateScenario: PropTypes.func,
-    onBuildClick: PropTypes.func,
-    onRunClick: PropTypes.func,
-    onRetryClick: PropTypes.func,
-    onArchiveClick: PropTypes.func,
-    onUnarchiveClick: PropTypes.func,
-    onConfirmDelete: PropTypes.func,
-    onConfirmCancelRun: PropTypes.func
+    onUpdateScenario: PropTypes.func
 };
 
 ScenarioPane.defaultProps = {

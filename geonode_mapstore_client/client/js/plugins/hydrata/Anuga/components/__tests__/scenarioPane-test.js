@@ -494,7 +494,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 container,
                 () => {
                     expect(container.querySelector('#resolution')).toNotExist();
-                    expect(container.querySelector('#duration')).toNotExist();
+                    expect(container.querySelector('#duration-hours')).toNotExist();
+                    expect(container.querySelector('#duration-minutes')).toNotExist();
                     done();
                 }
             );
@@ -516,7 +517,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 container,
                 () => {
                     expect(container.querySelector('#resolution')).toExist();
-                    expect(container.querySelector('#duration')).toExist();
+                    expect(container.querySelector('#duration-hours')).toExist();
+                    expect(container.querySelector('#duration-minutes')).toExist();
                     expect(container.querySelector('#compute_backend')).toNotExist();
                     done();
                 }
@@ -618,7 +620,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('duration HH:MM rendering for 1800 seconds', (done) => {
+        // UAT #9 — duration is now two dropdowns (Hours + Minutes). The stored
+        // field is still scenario.duration in SECONDS; 1800s → 0h 30m.
+        it('duration dropdowns reflect scenario.duration (1800s → 0h / 30m)', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
@@ -627,14 +631,14 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    const input = container.querySelector('#duration');
-                    expect(input.value).toBeTruthy();
+                    expect(container.querySelector('#duration-hours').value).toBe('0');
+                    expect(container.querySelector('#duration-minutes').value).toBe('30');
                     done();
                 }
             );
         });
 
-        it('duration blur converts HH:MM back to seconds via getSecondsFromHHMM', (done) => {
+        it('changing the hours dropdown dispatches duration in seconds (1h + 30m = 5400s)', (done) => {
             let captured = null;
             ReactDOM.render(
                 <ScenarioPane
@@ -645,9 +649,28 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    const input = container.querySelector('#duration');
-                    Simulate.blur(input, {target: {value: '1:00', id: 'duration'}});
-                    expect(captured.duration).toBe(3600);
+                    const hours = container.querySelector('#duration-hours');
+                    Simulate.change(hours, {target: {value: '1'}});
+                    expect(captured.duration).toBe(5400);
+                    done();
+                }
+            );
+        });
+
+        it('changing the minutes dropdown dispatches duration in seconds (0h + 45m = 2700s)', (done) => {
+            let captured = null;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                    onUpdateScenario={(s, kv) => { captured = kv; }}
+                />,
+                container,
+                () => {
+                    const minutes = container.querySelector('#duration-minutes');
+                    Simulate.change(minutes, {target: {value: '45'}});
+                    expect(captured.duration).toBe(2700);
                     done();
                 }
             );
@@ -698,7 +721,12 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('renders the action toolbar', (done) => {
+        // UAT #8 — the Build/Run/Retry/Download/Archive/Delete action strip
+        // moved UP to the Scenarios heading (ScenarioHeaderActions), so the Run
+        // pane no longer renders the in-pane toolbar. Behaviour for those
+        // buttons is covered by scenarioHeaderActions-test.js and the
+        // analytics-parity suite (which drives them through the connected menu).
+        it('does NOT render the in-pane action toolbar (moved to the heading, UAT #8)', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
@@ -707,43 +735,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
-                    done();
-                }
-            );
-        });
-
-        it('Build click flows through to onBuildClick callback', (done) => {
-            let captured = null;
-            ReactDOM.render(
-                <ScenarioPane
-                    scenario={{...baseScenario, status: 'created', unsaved: true}}
-                    selectedCategoryId={'run'}
-                    canEdit canRunScenario
-                    onBuildClick={(s) => { captured = s; }}
-                />,
-                container,
-                () => {
-                    container.querySelector('.sv-scenario-action-build').click();
-                    expect(captured?.id).toBe(21);
-                    done();
-                }
-            );
-        });
-
-        it('Delete click invokes onConfirmDelete callback', (done) => {
-            let captured = null;
-            ReactDOM.render(
-                <ScenarioPane
-                    scenario={baseScenario}
-                    selectedCategoryId={'run'}
-                    canEdit canRunScenario
-                    onConfirmDelete={(s) => { captured = s; }}
-                />,
-                container,
-                () => {
-                    container.querySelector('.sv-scenario-action-delete').click();
-                    expect(captured?.id).toBe(21);
+                    expect(container.querySelector('.sv-scenario-action-toolbar')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-action-build')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-action-delete')).toNotExist();
                     done();
                 }
             );

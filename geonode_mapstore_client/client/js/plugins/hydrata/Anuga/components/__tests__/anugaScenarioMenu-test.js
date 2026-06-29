@@ -33,7 +33,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { Provider } from 'react-redux';
 
-import { AnugaScenarioMenu } from '../anugaScenarioMenu';
+import { AnugaScenarioMenu, AnugaScenarioMenuClass } from '../anugaScenarioMenu';
 
 function makeStore({archiveFilter = 'none', scenariosArr = []} = {}) {
     const byId = {};
@@ -411,6 +411,212 @@ describe('anugaScenarioMenu — header strip wiring', () => {
 });
 
 /*
+ * UAT #8 correctness fix — "Build and Run" ALWAYS builds then runs (you clicked
+ * Build), awaiting the build before running.
+ *
+ * The container owns the chaining via ONE path: handleBuildAndRunClick validates,
+ * dispatches the build and arms a two-phase state machine; componentDidUpdate
+ * (maybeRunAfterBuild) advances it as the LIVE scenario status (flowing into
+ * this.props.scenarios via the poller) is observed entering an in-flight build
+ * state (IN_FLIGHT_STATUSES) and THEN reaching 'built', firing the run exactly
+ * once. A bare 'built' never preceded by an observed in-flight episode (a save
+ * that did not rebuild, or the stale pre-rebuild 'built' of an already-built
+ * scenario) must NOT fire. A build that reaches a failure status (error/cancelled)
+ * drops the pending run.
+ *
+ * These render the unconnected AnugaScenarioMenuClass directly with explicit
+ * props (no Provider — none of its descendants are connect()ed) so the test can
+ * push fresh scenario status by re-rendering, which drives componentDidUpdate.
+ * Dispatches are captured via spies passed as the build/run/save props.
+ */
+describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
+    let container;
+
+    // A scenario that PASSES validateScenario (name/terrain/water-source/
+    // resolution/duration/boundary all present) at the given lifecycle status.
+    function validScenario(id, status, extras = {}) {
+        return {
+            id,
+            name: `Valid ${id}`,
+            status,
+            terrain: 10,
+            boundary: 20,
+            inflow: 30,
+            rainfall: null,
+            friction: null,
+            structure: null,
+            mesh_region: null,
+            network: null,
+            resolution: 1000,
+            duration: 1800,
+            created_by: 9999,
+            unsaved: false,
+            ...extras
+        };
+    }
+
+    // Stable spies + base props shared across the re-renders of one test, so the
+    // same component instance is reused (preserving the pending-run state) while
+    // only scenarios/selectedScenario change. renderMany supports the
+    // cross-scenario case where the awaited scenario A is one of several.
+    function makeHarness() {
+        const buildCalls = [];
+        const runCalls = [];
+        const saveCalls = [];
+        const base = {
+            archiveFilter: 'none',
+            terrain: [], boundaries: [], inflows: [], rainfalls: [],
+            frictions: [], structures: [], meshRegions: [], networks: [],
+            computeInstances: [],
+            canCreateScenario: true,
+            canRunScenario: true,
+            myRole: 'editor',
+            currentUserId: 9999,
+            selectedScenarios: [],
+            readyToCompare: false,
+            flatLayers: [],
+            selectAnugaScenario: () => {},
+            setOpenMenuGroupId: () => {},
+            saveAnugaScenario: (s) => saveCalls.push(s),
+            buildScenarioExplicit: (sid) => buildCalls.push(sid),
+            runAnugaScenario: (s, b) => runCalls.push({scenario: s, backend: b})
+        };
+        const renderMany = (scenarios, selected) => {
+            ReactDOM.render(
+                <AnugaScenarioMenuClass
+                    {...base}
+                    scenarios={scenarios}
+                    selectedScenario={selected || scenarios[0]}
+                />,
+                container
+            );
+        };
+        const render = (scenario) => renderMany([scenario], scenario);
+        return {buildCalls, runCalls, saveCalls, render, renderMany};
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('(a) dispatches build but NOT run in the same tick as the click', () => {
+        const {buildCalls, runCalls, render} = makeHarness();
+        render(validScenario(31, 'created'));
+        const btn = container.querySelector('.sv-scenario-action-build-run');
+        expect(btn).toExist();
+        btn.click();
+        // Build dispatched immediately with the scenario id…
+        expect(buildCalls).toEqual([31]);
+        // …but run is deferred — it must NOT fire against the unbuilt scenario.
+        expect(runCalls.length).toBe(0);
+    });
+
+    it('(b) dispatches run once on the building→built transition', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(32, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(runCalls.length).toBe(0);
+        // Poller pushes the in-flight build status — still no run, but the
+        // state machine now arms for 'built'.
+        render(validScenario(32, 'building'));
+        expect(runCalls.length).toBe(0);
+        // Poller pushes 'built' — run fires, with the FRESH built scenario.
+        render(validScenario(32, 'built'));
+        expect(runCalls.length).toBe(1);
+        expect(runCalls[0].scenario.status).toBe('built');
+    });
+
+    it('(c) does NOT dispatch run if the build reaches a failure status', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(33, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(33, 'building'));
+        render(validScenario(33, 'error'));
+        expect(runCalls.length).toBe(0);
+        // A later transition into 'built' must NOT resurrect the dropped run.
+        render(validScenario(33, 'built'));
+        expect(runCalls.length).toBe(0);
+    });
+
+    it('(d) fires run at most once across repeated built / follow-on updates', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(34, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(34, 'building'));
+        render(validScenario(34, 'built'));
+        expect(runCalls.length).toBe(1);
+        // A second 'built' poll tick must not re-fire.
+        render(validScenario(34, 'built'));
+        expect(runCalls.length).toBe(1);
+        // Nor the in-flight status that follows once the run actually starts.
+        render(validScenario(34, 'computing'));
+        expect(runCalls.length).toBe(1);
+    });
+
+    it('(e) already-built: a REBUILD is dispatched and run fires after the rebuild reaches built', () => {
+        const {buildCalls, runCalls, render} = makeHarness();
+        render(validScenario(35, 'built'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        // Always-build semantics: a real server rebuild is dispatched even though
+        // the scenario was already built…
+        expect(buildCalls).toEqual([35]);
+        // …and the run does NOT fire inline against the stale pre-rebuild artifact.
+        expect(runCalls.length).toBe(0);
+        // The rebuild goes in flight, then settles to 'built' — run fires now.
+        render(validScenario(35, 'building'));
+        expect(runCalls.length).toBe(0);
+        render(validScenario(35, 'built'));
+        expect(runCalls.length).toBe(1);
+        expect(runCalls[0].scenario.status).toBe('built');
+        // …and exactly once — a subsequent 'built' poll tick must not re-fire.
+        render(validScenario(35, 'built'));
+        expect(runCalls.length).toBe(1);
+    });
+
+    it('(f) leak guard: a save with no in-flight episode never arms — a later unrelated building→built does NOT run', () => {
+        const {buildCalls, runCalls, saveCalls, render} = makeHarness();
+        // Unsaved scenario → handleBuildClick dispatches a SAVE, not a build, so
+        // no deferred run is armed.
+        render(validScenario(41, 'created', {unsaved: true}));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(saveCalls.length).toBe(1);
+        expect(buildCalls.length).toBe(0);
+        expect(runCalls.length).toBe(0);
+        // Later the (now-saved) scenario undergoes an unrelated build→built. With
+        // nothing armed, that transition must NOT surprise-fire a run.
+        render(validScenario(41, 'building'));
+        render(validScenario(41, 'built'));
+        expect(runCalls.length).toBe(0);
+    });
+
+    it('(g) cross-scenario: scenario B reaching built does not fire scenario A\'s armed run', () => {
+        const {runCalls, renderMany} = makeHarness();
+        const a0 = validScenario(51, 'created');
+        const b0 = validScenario(52, 'created');
+        renderMany([a0, b0], a0);
+        // Arm A's Build and Run (A is the selected scenario).
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(runCalls.length).toBe(0);
+        // B builds and reaches 'built' while A stays 'created' — A's pending run
+        // is keyed to A's id, so B's transition must NOT fire it.
+        renderMany([validScenario(51, 'created'), validScenario(52, 'building')], a0);
+        renderMany([validScenario(51, 'created'), validScenario(52, 'built')], a0);
+        expect(runCalls.length).toBe(0);
+        // A's own build→built still fires A's run (and only A's).
+        renderMany([validScenario(51, 'building'), validScenario(52, 'built')], a0);
+        renderMany([validScenario(51, 'built'), validScenario(52, 'built')], a0);
+        expect(runCalls.length).toBe(1);
+        expect(runCalls[0].scenario.id).toBe(51);
+    });
+});
+
+/*
  * Regression guard — source-text scan for window.confirm / window.alert.
  *
  * Stops the bug class from recurring (memory pin
@@ -442,11 +648,17 @@ describe('Scenarios surface — window.confirm/alert regression guard', () => {
     const toolbarRawResult = require(
         '!!raw-loader!../scenarioActionToolbar.js'
     );
+    const headerActionsRawResult = require(
+        '!!raw-loader!../scenarioHeaderActions.js'
+    );
     const menuSrc = stripComments(
         typeof menuRawResult === 'string' ? menuRawResult : (menuRawResult && menuRawResult.default)
     );
     const toolbarSrc = stripComments(
         typeof toolbarRawResult === 'string' ? toolbarRawResult : (toolbarRawResult && toolbarRawResult.default)
+    );
+    const headerActionsSrc = stripComments(
+        typeof headerActionsRawResult === 'string' ? headerActionsRawResult : (headerActionsRawResult && headerActionsRawResult.default)
     );
 
     it('anugaScenarioMenu.js (code) does not call window.confirm', () => {
@@ -465,5 +677,14 @@ describe('Scenarios surface — window.confirm/alert regression guard', () => {
 
     it('scenarioActionToolbar.js (code) does not call window.alert', () => {
         expect(toolbarSrc).toNotInclude('window.alert');
+    });
+
+    it('scenarioHeaderActions.js (code) does not call window.confirm', () => {
+        expect(headerActionsSrc).toExist();
+        expect(headerActionsSrc).toNotInclude('window.confirm');
+    });
+
+    it('scenarioHeaderActions.js (code) does not call window.alert', () => {
+        expect(headerActionsSrc).toNotInclude('window.alert');
     });
 });

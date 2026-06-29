@@ -319,7 +319,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
         });
 
         // TASK-1416: items[2] is now merged 'run' pane (was runConfig at [2]).
-        it('clicking Run (items[2]) renders resolution + duration + status card + toolbar', (done) => {
+        it('clicking Run (items[2]) renders resolution + duration + status card + header action strip', (done) => {
             const s1 = makeScenario(21, 'Baseline', {status: 'built'});
             const store = createMockStore({
                 anuga: {
@@ -334,18 +334,34 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     items[2].click(); // run (merged)
                     setTimeout(() => {
                         expect(container.querySelector('#resolution')).toExist();
-                        expect(container.querySelector('#duration')).toExist();
+                        // UAT #9: duration is now two dropdowns (Hours + Minutes), not a
+                        // single #duration input. Stored value is still scenario.duration
+                        // in seconds (bound via secondsToHM / hmToSeconds).
+                        expect(container.querySelector('#duration-hours')).toExist();
+                        expect(container.querySelector('#duration-minutes')).toExist();
                         // TASK-1415: compute_backend hidden unless isSuperuser (default=false in store)
                         expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
                         expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
-                        expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
+                        // UAT #8: the run-action controls moved OUT of the Run pane into the
+                        // always-visible header strip (ScenarioHeaderActions → #scenario-run-actions).
+                        // The legacy in-pane .sv-scenario-action-toolbar container no longer exists.
+                        expect(container.querySelector('.sv-anuga-scenario-pane-rows-run .sv-scenario-action-toolbar')).toNotExist();
+                        const strip = container.querySelector('#scenario-run-actions');
+                        expect(strip).toExist();
+                        expect(strip.className).toInclude('sv-scenario-header-run-actions');
+                        // Editor on a 'built' scenario: Build / Build-and-Run / Run all render,
+                        // and Download renders because the scenario is built.
+                        expect(strip.querySelector('.sv-scenario-action-build')).toExist();
+                        expect(strip.querySelector('.sv-scenario-action-build-run')).toExist();
+                        expect(strip.querySelector('.sv-scenario-action-run')).toExist();
+                        expect(strip.querySelector('.sv-scenario-action-download')).toExist();
                         done();
                     });
                 }
             );
         });
 
-        it('Run pane (items[2]) also shows the status card + action toolbar', (done) => {
+        it('Run pane (items[2]) status card coexists with the clickable header action strip', (done) => {
             const s1 = makeScenario(21, 'Baseline', {status: 'built'});
             const store = createMockStore({
                 anuga: {
@@ -361,8 +377,21 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     setTimeout(() => {
                         expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
                         expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
-                        expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
-                        done();
+                        // UAT #8: the action controls now live in the header strip, not the Run
+                        // pane. Assert they render there AND that one is genuinely clickable.
+                        const strip = container.querySelector('#scenario-run-actions');
+                        expect(strip).toExist();
+                        const actionButtons = strip.querySelectorAll('.sv-scenario-action-toolbar-btn');
+                        expect(actionButtons.length).toBeGreaterThanOrEqualTo(1);
+                        // Delete is present and clickable; it opens the inline confirm dialog
+                        // (NOT window.confirm, which the beforeEach guard would throw on).
+                        const deleteBtn = strip.querySelector('.sv-scenario-action-delete');
+                        expect(deleteBtn).toExist();
+                        deleteBtn.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open')).toExist();
+                            done();
+                        });
                     });
                 }
             );

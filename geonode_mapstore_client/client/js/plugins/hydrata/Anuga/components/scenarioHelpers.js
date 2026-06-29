@@ -2,6 +2,20 @@
  * Pure helpers for scenario time conversion and status display.
  */
 
+import {TERMINAL_RUN_STATES} from '../anugaConstants';
+
+// Mid-run statuses: a scenario is actively queued/building/computing. Shared by
+// the header action strip (button disable while in flight) and the container's
+// Build-and-Run state machine (which must observe a real build episode go
+// in-flight before it fires the deferred run).
+export const IN_FLIGHT_STATUSES = ['queued', 'computing', 'processing', 'building'];
+
+// Failure half of the run lifecycle — TERMINAL_RUN_STATES minus the success
+// 'complete'. Derived (not a hand-written literal) so it can never drift from
+// the canonical terminal set in anugaConstants.js. The combined "Build and Run"
+// drops its pending run when the awaited build reaches one of these.
+export const RUN_FAILURE_STATES = TERMINAL_RUN_STATES.filter((s) => s !== 'complete');
+
 export const getSecondsFromHHMM = (userInputValue) => {
     const [hours, minutes] = userInputValue.split(":");
 
@@ -31,6 +45,50 @@ export const toHHMM = (secs) => {
     const hh = String(hours).padStart(2, '0');
     const mm = String(minutes).padStart(2, '0');
     return `${hh}:${mm}`;
+};
+
+// UAT #9 — the Run-tab duration entry is two dropdowns (Hours + Minutes). The
+// stored field (scenario.duration) is unchanged: total SECONDS. These pure
+// helpers convert between the stored seconds value and the {hours, minutes}
+// the dropdowns bind to, so there is no unit drift.
+export const DURATION_MAX_HOURS = 72;        // matches the approved Option-B mockup
+export const DURATION_MINUTE_STEP = 5;       // minutes dropdown advances in 5s
+
+/**
+ * Split a stored duration (total seconds) into {hours, minutes} for the
+ * two-dropdown widget. Minutes snap to the nearest DURATION_MINUTE_STEP and
+ * hours clamp to DURATION_MAX_HOURS so the derived value always lands on a
+ * selectable option. Display-only snapping never mutates the stored value —
+ * the stored field changes only when the user picks a new option.
+ */
+export const secondsToHM = (secs) => {
+    const n = Number(secs);
+    if (!Number.isFinite(n) || n <= 0) {
+        return {hours: 0, minutes: 0};
+    }
+    const totalMinutes = Math.floor(n / 60);
+    let hours = Math.floor(totalMinutes / 60);
+    let minutes = Math.round((totalMinutes % 60) / DURATION_MINUTE_STEP) * DURATION_MINUTE_STEP;
+    if (minutes >= 60) {
+        minutes = 0;
+        hours += 1;
+    }
+    if (hours > DURATION_MAX_HOURS) {
+        hours = DURATION_MAX_HOURS;
+        minutes = 0;
+    }
+    return {hours, minutes};
+};
+
+/**
+ * Inverse of secondsToHM — combine the two dropdown values back into the
+ * stored seconds value. Negative/non-numeric inputs are floored at 0 so the
+ * existing "duration > 0" build validation contract is preserved.
+ */
+export const hmToSeconds = (hours, minutes) => {
+    const h = Math.max(0, Number(hours) || 0);
+    const m = Math.max(0, Number(minutes) || 0);
+    return (h * 60 + m) * 60;
 };
 
 export const findScenarioStatus = (scenario) => {
