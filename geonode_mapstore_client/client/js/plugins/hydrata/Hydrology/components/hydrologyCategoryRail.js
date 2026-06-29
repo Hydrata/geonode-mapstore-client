@@ -11,7 +11,8 @@ import {trackEvent} from "@js/utils/analytics";
  * Rail items:
  *   IDF             → 'idf'         (consolidates sv-idf-table + idf-derive)
  *   Temporal Patterns → 'temporal-pattern'
- *   Timeseries      → 'time-series'
+ *   Design Storms   → 'time-series'
+ *   Hydrographs     → 'hydrographs' (TASK-1985, epic-1970)
  *   Networks        → 'networks'
  *
  * Active state: lime (#cae33b) 3px left-border, panel-blue fill.
@@ -32,6 +33,11 @@ const CATEGORIES = [
         msgId: 'hydrata.hydrology.timeseries'
     },
     {
+        // TASK-1985 (epic-1970): hydrograph series split from hyetograph/design-storm.
+        id: 'hydrographs',
+        msgId: 'hydrata.hydrology.hydrographs'
+    },
+    {
         id: 'networks',
         msgId: 'hydrata.anuga.networks'
     }
@@ -40,7 +46,13 @@ const CATEGORIES = [
 const CATEGORY_GLYPHS = {
     'idf': 'glyphicon-list-alt',
     'temporal-pattern': 'glyphicon-align-left',
-    'time-series': 'glyphicon-stats'
+    'time-series': 'glyphicon-stats',
+    // TASK-1985: glyphicon-tint (water drop) chosen for hydrographs — the water
+    // drop mark is universally recognised as "water flow / liquid" and is the
+    // closest Bootstrap-3 glyph to a flow-hydrograph concept.  It is not used
+    // by any other rail item, and it visually distinguishes the Hydrographs
+    // category from the time-series/stats bar chart used for Design Storms.
+    'hydrographs': 'glyphicon-tint'
     // 'networks' renders a custom inline SVG (NetworksIcon below) — no glyphicon
     // webfont glyph matches the node-and-link + rainfall mark (UAT #6).
 };
@@ -83,10 +95,12 @@ const NetworksIcon = () => (
 // TASK-1452 (W5) entered IDF on idf-derive; UAT 2026-06-23 reverted to
 // sv-idf-table (Input/Manual) per operator. Users switch to Derive via the
 // sub-toggle.
+// TASK-1985 (epic-1970): hydrographs added at index 3.
 const CATEGORY_TO_PAGE = {
     'idf': 'sv-idf-table',
     'temporal-pattern': 'temporal-pattern',
     'time-series': 'time-series',
+    'hydrographs': 'hydrographs',
     'networks': 'networks'
 };
 
@@ -171,4 +185,4 @@ HydrologyCategoryRail.defaultProps = {
     activeHydrologyPage: 'sv-idf-table'
 };
 
-export {HydrologyCategoryRail, CATEGORIES};
+export {HydrologyCategoryRail, CATEGORIES, CATEGORY_TO_PAGE};

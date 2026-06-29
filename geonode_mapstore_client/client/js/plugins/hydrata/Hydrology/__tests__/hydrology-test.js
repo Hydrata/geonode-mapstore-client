@@ -1,5 +1,6 @@
 import expect from 'expect';
 import reducer, { hydrologyKeyMap } from '../reducersHydrology';
+import { CATEGORIES, CATEGORY_TO_PAGE, pageToCategory } from '../components/hydrologyCategoryRail';
 import {
     INIT_HYDROLOGY,
     INIT_HYDROLOGY_FULFILLED,
@@ -513,6 +514,41 @@ describe('Hydrology Plugin', () => {
         it('SET_CELERY_ANUGA_ENABLED flips celeryAnugaEnabled', () => {
             const s = reducer(undefined, setCeleryAnugaEnabled(false));
             expect(s.idfDerive.celeryAnugaEnabled).toBe(false);
+        });
+    });
+
+    // TASK-1985 — hydrologyCategoryRail: Hydrographs rail item at index 3 + page wiring.
+    describe('hydrologyCategoryRail', () => {
+        it('CATEGORIES has hydrographs at index 3 (between time-series and networks)', () => {
+            // Index 0=idf, 1=temporal-pattern, 2=time-series, 3=hydrographs, 4=networks
+            expect(CATEGORIES[3].id).toBe('hydrographs');
+            expect(CATEGORIES[3].msgId).toBe('hydrata.hydrology.hydrographs');
+            // Networks must still be last (index 4) — not displaced to index 3.
+            expect(CATEGORIES[4].id).toBe('networks');
+        });
+
+        it('CATEGORY_TO_PAGE maps hydrographs category id to hydrographs page id', () => {
+            // Accessing a non-exported (undefined) CATEGORY_TO_PAGE would give
+            // undefined here — test fails cleanly until export is added.
+            expect(CATEGORY_TO_PAGE && CATEGORY_TO_PAGE['hydrographs']).toBe('hydrographs');
+        });
+
+        it('pageToCategory round-trips the hydrographs activeHydrologyPage', () => {
+            // pageToCategory('hydrographs') must return 'hydrographs' so the rail
+            // item is highlighted when the Redux page is 'hydrographs'.
+            expect(pageToCategory('hydrographs')).toBe('hydrographs');
+        });
+    });
+
+    describe('activeHydrologyPage accepts hydrographs (TASK-1985)', () => {
+        it('SET_ACTIVE_HYDROLOGY_PAGE with hydrographs stores it in reducer', () => {
+            const initialState = {
+                isHydrologyProject: false,
+                showHydrologyMainMenu: false,
+                activeHydrologyPage: 'sv-idf-table'
+            };
+            const s = reducer(initialState, setActiveHydrologyPage('hydrographs'));
+            expect(s.activeHydrologyPage).toBe('hydrographs');
         });
     });
 });
