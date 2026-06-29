@@ -542,23 +542,13 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             case 'temporal-pattern':
                                                 return <HydrologyDetailTemporalPattern/>;
                                             case 'time-series':
-                                                // TASK-1558 (W2) — "New Item" opens the two-tab CREATE
-                                                // panel (Input|Derive); selecting a saved item shows the
-                                                // slim record-centric DETAIL (TASK-1556).
-                                                return this.state.tsCreateMode
-                                                    ? <HydrologyTimeSeriesCreatePanel
-                                                        activeTab={this.state.tsCreateTab}
-                                                        onTabChange={(tab) => this.setState({tsCreateTab: tab})}
-                                                        onBack={() => this.exitTimeSeriesCreate()}
-                                                    />
-                                                    : <HydrologyDetailTimeSeries/>;
                                             case 'hydrographs':
-                                                // TASK-1986 (epic-1970) — Hydrographs reuse the Design
-                                                // Storms Manual/Paste/Import editor verbatim. Create mode
-                                                // opens the same two-tab panel; the saved-item detail uses
-                                                // the same slim HydrologyDetailTimeSeries view. The only
-                                                // difference is that items are series_type=hydrograph and
-                                                // are stored in state.hydrology.hydrographs.
+                                                // TASK-1558 (W2) / TASK-1986 (epic-1970) — "New Item"
+                                                // opens the two-tab CREATE panel (Input|Derive); selecting
+                                                // a saved item shows the slim record-centric DETAIL
+                                                // (TASK-1556). Design Storms and Hydrographs share the
+                                                // same editor verbatim; the only distinction is
+                                                // series_type and the Redux slice they read from.
                                                 return this.state.tsCreateMode
                                                     ? <HydrologyTimeSeriesCreatePanel
                                                         activeTab={this.state.tsCreateTab}

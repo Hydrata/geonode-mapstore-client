@@ -528,8 +528,6 @@ describe('Hydrology Plugin', () => {
         });
 
         it('CATEGORY_TO_PAGE maps hydrographs category id to hydrographs page id', () => {
-            // Accessing a non-exported (undefined) CATEGORY_TO_PAGE would give
-            // undefined here — test fails cleanly until export is added.
             expect(CATEGORY_TO_PAGE && CATEGORY_TO_PAGE['hydrographs']).toBe('hydrographs');
         });
 

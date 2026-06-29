@@ -4,6 +4,8 @@ import hydrologyContainer from "./components/hydrologyContainer";
 import {
     initHydrologyEpic,
     fetchTimeSeriesEpic,
+    // TASK-1986 (epic-1970) — separate epic for series_type=hydrograph slice.
+    fetchHydrographEpic,
     fetchTemporalPatternEpic,
     fetchIdfTableEpic,
     saveHydrologyItemEpic,
@@ -30,6 +32,7 @@ export default createPlugin('Hydrology', {
     epics: {
         initHydrologyEpic,
         fetchTimeSeriesEpic,
+        fetchHydrographEpic,
         fetchTemporalPatternEpic,
         fetchIdfTableEpic,
         saveHydrologyItemEpic,
