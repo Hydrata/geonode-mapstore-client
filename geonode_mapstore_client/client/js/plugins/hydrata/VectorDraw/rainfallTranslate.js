@@ -93,7 +93,12 @@ export const synthesizeIn = (props) => {
         const hasTs = dataTimeseriesIdValue !== null && dataTimeseriesIdValue !== undefined && dataTimeseriesIdValue !== '';
         if (hasTs) {
             const id = dataTimeseriesIdValue;
-            out.data = { kind: 'timeseries', timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
+            // TASK-1970 W3 fix: reconstruct an existing DB-loaded rainfall as the
+            // 'hyetograph' kind (the rai_ timeseries-family choice), NOT the generic
+            // 'timeseries' — that kind is no longer a rai_ DiscriminatorPicker choice,
+            // so it would fall back to 'constant' and mis-show a rainfall-linked series as a
+            // blank Constant (with a silent link-loss path if the user then typed a value).
+            out.data = { kind: 'hyetograph', timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
         } else if (hasConstant) {
             const c = dataConstantValue;
             out.data = { kind: 'constant', constant: typeof c === 'number' ? c : parseFloat(c) };

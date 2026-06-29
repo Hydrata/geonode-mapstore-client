@@ -114,9 +114,10 @@ describe('TASK-1404 rainfallTranslate.synthesizeIn', () => {
         expect(out.data_timeseries_id).toBe(undefined);
     });
 
-    it('synthesizes timeseries kind from data_timeseries_id', () => {
+    it('synthesizes hyetograph kind from data_timeseries_id', () => {
         const out = synthesizeIn({ data_timeseries_id: 5 });
-        expect(out.data).toEqual({ kind: 'timeseries', timeseries_id: 5 });
+        // TASK-1970 W3: rai_ reconstructs to 'hyetograph', the rai_ timeseries-family kind.
+        expect(out.data).toEqual({ kind: 'hyetograph', timeseries_id: 5 });
         expect(out.data_timeseries_id).toBe(undefined);
         expect(out.data_constant).toBe(undefined);
     });

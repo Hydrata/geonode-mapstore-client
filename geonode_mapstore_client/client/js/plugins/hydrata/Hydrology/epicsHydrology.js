@@ -85,10 +85,10 @@ const V1_TO_V2_HYDROLOGY = {
 
 const v2Hydrology = (page) => V1_TO_V2_HYDROLOGY[page] || page;
 
-async function fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction) {
+async function fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction, queryString = '') {
     try {
         const response = await axios.get(
-            `/api/v2/anuga/projects/${projectId}/${v2Hydrology(endpoint)}/`
+            `/api/v2/anuga/projects/${projectId}/${v2Hydrology(endpoint)}/${queryString}`
         );
         // Unwrap DRF pagination — a reducer .map() TypeError propagates
         // through redux-observable and tears down every merged epic timer
@@ -135,7 +135,12 @@ export const fetchTimeSeriesEpic = (action$, store) =>
                 const endpoint = "time-series";
                 const dispatchFunction = setHydrologyTimeSeriesData;
                 const errorFunction = errorHydrologyTimeSeriesData;
-                response = fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction);
+                // TASK-1970 W3 fix: Design Storms = hyetographs ONLY. The BE list
+                // returns ALL series_type rows when unfiltered, so without this
+                // filter hydrograph rows (created in the Hydrographs panel) leak
+                // into the Design Storms list — the mirror of fetchHydrographEpic's
+                // ?series_type=hydrograph.
+                response = fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction, '?series_type=hyetograph');
             } catch (error) {
                 response = Rx.Observable.empty();
             }

@@ -259,6 +259,12 @@ const createTimeSeriesFromJson = (timeSeriesJson) => {
     timeSeriesInstance.description = timeSeriesJson?.description;
     timeSeriesInstance.source = timeSeriesJson?.source;
     timeSeriesInstance.owner = timeSeriesJson?.owner;
+    // TASK-1970 W3: carry the domain discriminator + display units onto the FE
+    // model so a consumer can distinguish a hydrograph (flow) from a hyetograph
+    // (rainfall/design-storm) object; previously dropped, leaving series_type
+    // undefined on every fetched/saved item.
+    timeSeriesInstance.series_type = timeSeriesJson?.series_type;
+    timeSeriesInstance.units = timeSeriesJson?.units;
     // See createIdfTableFromJson: guard against a non-object `data` so a single
     // malformed record can't throw in-reducer and kill the epic stream.
     if (timeSeriesJson?.data && typeof timeSeriesJson.data === 'object') {

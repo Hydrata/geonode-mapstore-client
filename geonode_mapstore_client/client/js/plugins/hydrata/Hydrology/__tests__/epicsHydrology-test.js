@@ -97,14 +97,15 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
         );
     });
 
-    it('fetchTimeSeriesEpic GETs /api/v2/anuga/projects/{pid}/time-series/', (done) => {
+    it('fetchTimeSeriesEpic GETs /api/v2/anuga/projects/{pid}/time-series/?series_type=hyetograph', (done) => {
         const action$ = mockActions([{ type: FETCH_HYDROLOGY_TIME_SERIES_DATA }]);
         const sub = fetchTimeSeriesEpic(action$, store).subscribe(
             () => {},
             err => done(err),
             () => {
                 const lastGet = mockAxios.history.get.slice(-1)[0];
-                expect(lastGet.url).toBe(`/api/v2/anuga/projects/${projectId}/time-series/`);
+                // TASK-1970 W3: Design Storms list is filtered to hyetographs only.
+                expect(lastGet.url).toBe(`/api/v2/anuga/projects/${projectId}/time-series/?series_type=hyetograph`);
                 if (sub) sub.unsubscribe();
                 done();
             }
