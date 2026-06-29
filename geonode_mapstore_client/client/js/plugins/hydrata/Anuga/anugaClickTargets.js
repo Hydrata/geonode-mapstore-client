@@ -68,8 +68,8 @@ export const registerAnugaClickTargets = () => {
                 // The per-feature human title disambiguates same-type features
                 // in the chooser. PostGIS column is lowercase 'description';
                 // Title-case fallback covers legacy rows (mirrors getProp).
-                subtitle: (feature && feature.properties
-                    && (feature.properties.description || feature.properties.Description)) || '',
+                subtitle: feature?.properties?.description
+                    || feature?.properties?.Description || '',
                 icon: 'pencil'
             }),
             buildOpenActions: (feature) => {

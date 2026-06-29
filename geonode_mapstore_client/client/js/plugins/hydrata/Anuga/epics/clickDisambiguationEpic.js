@@ -32,9 +32,9 @@ import { showClickDisambiguation } from '../actions/clickDisambiguationActions';
 
 // Normalise a resolved label() result to a plain {title, subtitle, icon}.
 const plainLabel = (label) => ({
-    title: (label && label.title) || '',
-    subtitle: (label && label.subtitle) || '',
-    icon: (label && label.icon) || ''
+    title: label?.title || '',
+    subtitle: label?.subtitle || '',
+    icon: label?.icon || ''
 });
 
 /**
