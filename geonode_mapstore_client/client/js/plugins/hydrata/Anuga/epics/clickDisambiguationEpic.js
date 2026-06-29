@@ -182,59 +182,96 @@ export const isVectorDrawActive = (state) => {
     return !!phase && phase !== 'idle' && phase !== 'cancelling';
 };
 
-export const clickDisambiguationEpic = (action$, store) =>
-    action$
+// W2 CORRECTIVE-3 (epic 1969) — per-click aggregation window. MapStore's
+// getFeatureInfoOnFeatureInfoClick (MapStore2 epics/identify.js) `mergeMap`s over
+// EACH queryable layer and dispatches a SEPARATE LOAD_FEATURE_INFO per layer, each
+// carrying only THAT layer's features. ANUGA's editable objects live in SEPARATE
+// GeoServer layers (boundary / inflow / rainfall / structure / …), so one click =
+// a BURST of single-layer LOAD_FEATURE_INFO actions. We buffer the burst until it
+// goes quiet, then classify the UNION — otherwise the >=2 disambiguation panel
+// (the W2.1 headline feature) NEVER fires for the normal cross-layer case and
+// multiple 1-candidate opens race (last layer wins). 300ms is comfortably longer
+// than the parallel GFI round-trips of one click yet short enough to feel instant;
+// a straggler layer slower than this just lands in a follow-up (rare, benign).
+// Mirrors swamm's catchBmpFeatureClick INTENT, but swamm's BMP types share ONE
+// layer so a single response already carried them all — ANUGA must aggregate.
+export const CLICK_AGGREGATION_DEBOUNCE_MS = 300;
+
+/**
+ * Classify the UNION of all features under one click into editable candidates and
+ * produce the open/disambiguate actions. `allFeatures` is the concatenation of
+ * every buffered LOAD_FEATURE_INFO's `data.features` for a single click.
+ *   0 candidates -> []      (let the default Identify popup show; do NOT swallow it)
+ *   1 candidate  -> teardown + that target's buildOpenActions() (open directly)
+ *   >=2          -> teardown + showClickDisambiguation(candidates) (panel = W2.1)
+ */
+export const buildClickActions = (allFeatures, store) => {
+    const state = store.getState();
+    // TASK-1995 (W2.3) — drawing-mode guard: never hijack a click while a
+    // VectorDraw draw/edit phase is active. A mid-draw GFI click must flow to the
+    // active VectorDraw flow, not pop the disambiguation list.
+    if (isVectorDrawActive(state)) {
+        return [];
+    }
+    // Classify, then drop EDIT candidates on layers the user may not edit
+    // (TASK-1994 W2.2) before branching on the count.
+    const candidates = filterEditableCandidates(
+        buildCandidates({ type: 'FeatureCollection', features: allFeatures }),
+        state
+    );
+    if (candidates.length === 0) {
+        // Let the default Identify popup show — do NOT swallow it.
+        return [];
+    }
+    // W2 self-verify FIX — a CANDIDATE-handled click must not leave the default
+    // Identify (GetFeatureInfo) attribute popup + click marker showing UNDER the
+    // edit form / disambiguation panel (the double-UI bug). Tear them down FIRST in
+    // BOTH the 1-candidate and >=2 branches. purgeMapInfoResults() clears the GFI
+    // responses/requests so the popup panel stops rendering
+    // (reducers/mapInfo.js PURGE_MAPINFO_RESULTS) and hideMapinfoMarker() clears the
+    // click marker — the HGeval precedent (epicsHGeval.js:222-223). Both directly
+    // mutate the mapInfo reducer, so suppression does NOT depend on the downstream
+    // CLOSE_IDENTIFY epics being registered. The 0-candidate branch above
+    // intentionally does NOT tear down (it must let the default Identify popup show).
+    const identifyTeardown = [purgeMapInfoResults(), hideMapinfoMarker()];
+    if (candidates.length === 1) {
+        const candidate = candidates[0];
+        const target = getClickTarget(candidate.kind);
+        const feature = allFeatures.find((f) => f && f.id === candidate.featureId);
+        let openActions = [];
+        try {
+            openActions = target.buildOpenActions(feature, store.getState) || [];
+        } catch (e) {
+            console.error('clickDisambiguationEpic: buildOpenActions failed', e);
+            openActions = [];
+        }
+        return [...identifyTeardown, ...openActions];
+    }
+    return [...identifyTeardown, showClickDisambiguation(candidates)];
+};
+
+export const clickDisambiguationEpic = (action$, store) => {
+    // Only the application/json FeatureCollection path is supported (text/plain
+    // drops the per-feature layer-name prefix needed to disambiguate — W0 gate;
+    // anugaIdentifyJsonFormatEpic guarantees json on ANUGA maps). Non-json /
+    // empty responses fall through untouched (never buffered).
+    const featureInfo$ = action$
         .ofType(LOAD_FEATURE_INFO)
-        .switchMap((action) => {
-            const data = action && action.data;
-            // Only the application/json FeatureCollection path is supported
-            // (text/plain drops the per-feature layer-name prefix needed to
-            // disambiguate — W0 gate). Anything else falls through untouched.
-            if (!data || data.type !== 'FeatureCollection') {
-                return Rx.Observable.empty();
-            }
-            const state = store.getState();
-            // TASK-1995 (W2.3) — drawing-mode guard: never hijack a click while
-            // a VectorDraw draw/edit phase is active. A mid-draw GFI click must
-            // flow to the active VectorDraw flow, not pop the disambiguation list.
-            if (isVectorDrawActive(state)) {
-                return Rx.Observable.empty();
-            }
-            // Classify, then drop EDIT candidates on layers the user may not
-            // edit (TASK-1994 W2.2) before branching on the count.
-            const candidates = filterEditableCandidates(buildCandidates(data), state);
-            if (candidates.length === 0) {
-                // Let the default Identify popup show — do NOT swallow it.
-                return Rx.Observable.empty();
-            }
-            // W2 self-verify FIX — a CANDIDATE-handled click must not leave the
-            // default Identify (GetFeatureInfo) attribute popup + click marker
-            // showing UNDER the edit form / disambiguation panel (the double-UI
-            // bug). Tear them down FIRST in BOTH the 1-candidate and >=2 branches.
-            // purgeMapInfoResults() clears the GFI responses/requests so the popup
-            // panel stops rendering (reducers/mapInfo.js PURGE_MAPINFO_RESULTS) and
-            // hideMapinfoMarker() clears the click marker — the HGeval precedent
-            // (epicsHGeval.js:222-223). Both directly mutate the mapInfo reducer, so
-            // suppression does NOT depend on the downstream CLOSE_IDENTIFY epics
-            // being registered. The 0-candidate branch above intentionally does NOT
-            // tear down (it must let the default Identify popup show).
-            const identifyTeardown = [purgeMapInfoResults(), hideMapinfoMarker()];
-            if (candidates.length === 1) {
-                const candidate = candidates[0];
-                const target = getClickTarget(candidate.kind);
-                const feature = (data.features || [])
-                    .find((f) => f && f.id === candidate.featureId);
-                let openActions = [];
-                try {
-                    openActions = target.buildOpenActions(feature, store.getState) || [];
-                } catch (e) {
-                    console.error('clickDisambiguationEpic: buildOpenActions failed', e);
-                    openActions = [];
-                }
-                return Rx.Observable.from([...identifyTeardown, ...openActions]);
-            }
-            return Rx.Observable.from([...identifyTeardown, showClickDisambiguation(candidates)]);
+        .filter((action) => action && action.data && action.data.type === 'FeatureCollection');
+    // Buffer the per-layer burst of one click (flush CLICK_AGGREGATION_DEBOUNCE_MS
+    // after the last response; in unit tests the source completes, which also
+    // flushes the buffer), then classify the cross-layer UNION and branch once.
+    return featureInfo$
+        .buffer(featureInfo$.debounceTime(CLICK_AGGREGATION_DEBOUNCE_MS))
+        .filter((batch) => batch.length > 0)
+        .switchMap((batch) => {
+            const allFeatures = batch.reduce(
+                (acc, action) => acc.concat((action.data && action.data.features) || []),
+                []
+            );
+            return Rx.Observable.from(buildClickActions(allFeatures, store));
         });
+};
 
 /**
  * TASK-1995 (W2.3) — ensure the Identify (GetFeatureInfo) tool is ON for ANUGA

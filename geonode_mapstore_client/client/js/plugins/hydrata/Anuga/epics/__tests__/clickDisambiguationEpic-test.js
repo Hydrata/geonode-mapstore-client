@@ -223,6 +223,60 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                 () => { expect(out).toEqual([]); done(); }
             );
         });
+
+        // W2 CORRECTIVE-3 — the headline regression guard. MapStore issues ONE
+        // LOAD_FEATURE_INFO PER LAYER (getFeatureInfoOnFeatureInfoClick mergeMaps
+        // over queryableLayers), so a click on an inflow inside a rainfall polygon
+        // arrives as a BURST of single-layer single-feature actions, NOT one
+        // multi-feature action. The epic must buffer the burst and classify the
+        // UNION — else the >=2 panel never fires for cross-layer clicks and multiple
+        // 1-candidate opens race (last layer wins). Pre-fix this was the operator's
+        // W2-UAT failure: "inflow/boundary inside a rainfall polygon doesn't disambiguate".
+        it('aggregates a BURST of per-layer LOAD_FEATURE_INFO actions -> >=2 across layers shows the panel', (done) => {
+            const action$ = makeActions$([
+                { type: LOAD_FEATURE_INFO, data: fc(feature('aaa_1_alpha.7', { description: 'A' })) },
+                { type: LOAD_FEATURE_INFO, data: fc(feature('bbb_2_beta.3')) }
+            ]);
+            const out = [];
+            clickDisambiguationEpic(action$, store).subscribe(
+                a => out.push(a),
+                done,
+                () => {
+                    expect(out.map(a => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS,
+                        HIDE_MAPINFO_MARKER,
+                        SHOW_CLICK_DISAMBIGUATION
+                    ]);
+                    // both layers' features classified into the one panel
+                    expect(out[2].candidates.map(c => c.kind)).toEqual(['aaa_', 'bbb_']);
+                    expect(collectFunctionPaths(out)).toEqual([]);
+                    done();
+                }
+            );
+        });
+
+        it('aggregates a per-layer burst where only ONE layer is editable -> opens that one directly', (done) => {
+            // e.g. click hits an editable inflow + a NON-registered/zero-id raster layer:
+            // union has 1 editable candidate -> direct open, no panel.
+            const action$ = makeActions$([
+                { type: LOAD_FEATURE_INFO, data: fc(feature('zzz_9_unregistered.1')) },
+                { type: LOAD_FEATURE_INFO, data: fc(feature('aaa_1_alpha.7')) }
+            ]);
+            const out = [];
+            clickDisambiguationEpic(action$, store).subscribe(
+                a => out.push(a),
+                done,
+                () => {
+                    expect(out.map(a => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS,
+                        HIDE_MAPINFO_MARKER,
+                        'AAA:OPEN'
+                    ]);
+                    expect(out[2]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
+                    done();
+                }
+            );
+        });
     });
 
     describe('permissions gate (TASK-1994 W2.2)', () => {
