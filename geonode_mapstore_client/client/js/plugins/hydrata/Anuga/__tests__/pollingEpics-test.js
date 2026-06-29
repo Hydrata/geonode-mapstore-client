@@ -23,6 +23,7 @@ import {
     SET_ANUGA_INFLOW_DATA,
     SET_ANUGA_RAINFALL_DATA,
     SET_ANUGA_PROJECT_DATA,
+    SET_ANUGA_TERRAIN_DATA,
     SET_ANUGA_INIT_IN_FLIGHT
 } from '../actionsAnuga';
 import {
@@ -688,12 +689,18 @@ describe('Polling Epics', () => {
         // defers classification. If still missing on the next tick → really
         // orphaned, skip + mark handled. Real DEMs can take up to an hour
         // to process, so any time-window based rescue is wrong.
-        it('should dispatch initAnuga on first miss, then orphan-skip on next tick if still missing', (done) => {
+        it('should dispatch initAnuga on first miss (null-projectId fallback), then orphan-skip on next tick if still missing', (done) => {
+            // UAT-2026-06-29 finding #1 (option C): with a projectId available the
+            // first-miss now refetches ONLY the terrain list (see the dedicated
+            // refetch test below). This state has NO anuga.projects.data.id, so
+            // getProjectId()===null and the epic takes the defensive initAnuga()
+            // fallback — the path asserted here.
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [], groups: [] },
-                    // Loaded list missing the candidate's terrain_id=6
+                    // Loaded list missing the candidate's terrain_id=6; no projectId
+                    // in state → getProjectId()===null → initAnuga() fallback.
                     anuga: { resources: { terrainLoaded: true, terrain: [{ id: 7 }, { id: 8 }] } }
                 })
             };
@@ -838,7 +845,11 @@ describe('Polling Epics', () => {
         });
 
         it('once orphan-marked-handled, subsequent ticks are no-ops even if terrain reappears', (done) => {
-            // True-orphan: terrain state is loaded, terrain_id absent.
+            // True-orphan: terrain state is loaded, terrain_id absent. (No
+            // projectId in state → the first-miss refresh is the initAnuga()
+            // fallback; production refetches only the terrain list. The
+            // refreshAttempted→'orphaned' convergence asserted here is identical
+            // either way — it does not depend on the refresh dispatch.)
             // Tick 1: 'unknown' → dispatch initAnuga, refreshAttempted=42.
             // Tick 2: still missing, refreshAttempted has 42 → 'orphaned' →
             //   mark handled.
@@ -939,7 +950,11 @@ describe('Polling Epics', () => {
         it('should ADD_LAYER on the next tick once initAnuga refresh delivers the missing terrain row', (done) => {
             // Real-world fresh-upload race: Celery stamps the new Terrain
             // in DB and emits process.complete BEFORE the FE's cached
-            // terrain list has been refetched. Under refresh-then-defer:
+            // terrain list has been refetched. (No projectId in state → the
+            // first-miss refresh is the initAnuga() fallback asserted here;
+            // production refetches only the terrain list — same convergence:
+            // the row lands in resources.terrain and tick 2 classifies
+            // 'present' → ADD_LAYER.) Under refresh-then-defer:
             //   tick 1: id missing from loaded list → 'unknown' → epic
             //           dispatches initAnuga + adds to refreshAttempted
             //   (initAnuga refetch lands new row in state.anuga.resources.terrain)
@@ -988,6 +1003,105 @@ describe('Polling Epics', () => {
                 sub.unsubscribe();
                 done();
             } catch (e) { sub.unsubscribe(); done(e); }
+        });
+
+        it('refetches ONLY the terrain list (not a full initAnuga) on an orphan first-miss when a projectId is set', (done) => {
+            // UAT-2026-06-29 finding #1 (option C residual) — the production path
+            // (full rationale in pollingEpics.js taskCompleteLayerEpic refreshNeeded
+            // branch). A terrain_create pointing at a deleted Terrain row (terrain_id
+            // absent from the loaded list) used to fire a full initAnuga() on
+            // first-miss; with a projectId available it now refetches ONLY the
+            // terrain list (one GET → SET_ANUGA_TERRAIN_DATA), which is all
+            // orphanStatus() needs. No INIT_ANUGA, no ADD_LAYER (orphaned, not
+            // re-added).
+            const mock = mockAxios();
+            // Terrain GET returns a list WITHOUT terrain_id=6 → orphan stays missing.
+            mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(200, [{ id: 7 }, { id: 8 }]);
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [], groups: [] },
+                anuga: {
+                    projects: { data: { id: 15283 } },
+                    resources: { terrainLoaded: true, terrain: [{ id: 7 }, { id: 8 }] }
+                }
+            };
+            testEpic(
+                taskCompleteLayerEpic,
+                1,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 'orphan-ele-6-pid',
+                        process_type: 'terrain_create',
+                        status: 'complete',
+                        metadata: {
+                            project_id: 15283,
+                            terrain_id: 6,
+                            is_first_upload: false,
+                            mapstore_layers: [
+                                { name: 'geonode:ele_6_dem', type: 'wms', url: '/geoserver/ows' },
+                                { name: 'geonode:ele_6_hs', type: 'wms', url: '/geoserver/ows' }
+                            ]
+                        }
+                    }]
+                },
+                (actions) => {
+                    expect(actions.filter(a => a.type === INIT_ANUGA).length).toBe(0);
+                    expect(actions.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                    const terrainSets = actions.filter(a => a.type === SET_ANUGA_TERRAIN_DATA);
+                    expect(terrainSets.length).toBe(1);
+                    expect(terrainSets[0].data).toEqual([{ id: 7 }, { id: 8 }]);
+                },
+                state,
+                done
+            );
+        });
+
+        it('falls back to an empty terrain ARRAY (not {}) when the orphan refetch GET fails', (done) => {
+            // Hardening (code-review): fetchResourceEndpoint catches a failed GET
+            // to {data: []}, NOT {data: {}}. A non-array {} would crash every
+            // terrain consumer (.map/.forEach/.some) — including the
+            // terrainSubOrderReconcilerEpic this refetch is meant to re-drive, and
+            // `terrain || []` does NOT rescue {}. On a 500 the orphan refetch must
+            // still dispatch setAnugaTerrainData with an array.
+            const mock = mockAxios();
+            mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(500);
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [], groups: [] },
+                anuga: {
+                    projects: { data: { id: 15283 } },
+                    resources: { terrainLoaded: true, terrain: [{ id: 7 }, { id: 8 }] }
+                }
+            };
+            testEpic(
+                taskCompleteLayerEpic,
+                1,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 'orphan-ele-6-fail',
+                        process_type: 'terrain_create',
+                        status: 'complete',
+                        metadata: {
+                            project_id: 15283,
+                            terrain_id: 6,
+                            is_first_upload: false,
+                            mapstore_layers: [
+                                { name: 'geonode:ele_6_dem', type: 'wms', url: '/geoserver/ows' }
+                            ]
+                        }
+                    }]
+                },
+                (actions) => {
+                    const terrainSets = actions.filter(a => a.type === SET_ANUGA_TERRAIN_DATA);
+                    expect(terrainSets.length).toBe(1);
+                    expect(Array.isArray(terrainSets[0].data)).toBe(true);
+                    expect(terrainSets[0].data).toEqual([]);
+                },
+                state,
+                done
+            );
         });
 
         it('should not dispatch initAnuga while terrainLoaded is false (initAnugaEpic is the natural fetcher)', (done) => {

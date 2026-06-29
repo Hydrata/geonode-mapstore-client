@@ -153,7 +153,13 @@ const resourceEndpoints = [
 
 const fetchResourceEndpoint = (endpoint, projectId) => Rx.Observable
     .from(anugaApi.getResourceList(projectId, endpoint))
-    .catch(() => Rx.Observable.of({data: {}}))
+    // Every resourceEndpoints route is a V2 LIST endpoint (success → array), and
+    // every consumer iterates the result with array methods (.map/.forEach/.some
+    // in the Inputs/Networks panels, pruneOrphanTerrainLayersEpic,
+    // computeTerrainSubOrder). A failure fallback of `{}` is a non-array that
+    // crashes all of them (and `x || []` does NOT rescue `{}`), so fall back to
+    // an empty ARRAY — the correct "no rows" sentinel for a list fetch.
+    .catch(() => Rx.Observable.of({data: []}))
     .switchMap(response => Rx.Observable.of(response.data));
 
 export const initAnugaEpic = (action$, store) =>
@@ -959,9 +965,6 @@ export const taskCompleteLayerEpic = (action$, store) => {
                 .filter(c => c.status === 'present')
                 .map(c => c.process);
             const observables = [];
-            if (refreshNeeded.length > 0) {
-                observables.push(Rx.Observable.of(initAnuga()));
-            }
             const refreshedEndpoints = new Set();
             newlyCompleted.forEach(p => {
                 const dispatch = modelClassDispatch[p.metadata?.model_class];
@@ -1005,6 +1008,32 @@ export const taskCompleteLayerEpic = (action$, store) => {
                     );
                 }
             });
+            // UAT-2026-06-29 finding #1 (option C residual): the orphan
+            // CLASSIFICATION refresh — refetch the terrain LIST only, not a full
+            // initAnuga(). The refresh-then-defer exists solely so orphanStatus()
+            // can decide an 'unknown' terrain_create whose terrain_id is absent
+            // from the loaded list (e.g. a model-less orphan whose CASCADE-
+            // surviving COGs linger after the Terrain row was deleted, like
+            // ele_84855). A full initAnuga() re-fired POST /from-map + getProjectV2
+            // + the whole resource fan-out + polling restart on EVERY open of an
+            // orphan-bearing map (a 2nd from-map ~10s after the first, right after
+            // the closed-panel TaskMonitor poll). All orphanStatus() needs is a
+            // fresh terrain list, so refetch ONLY that — the same surgical pattern
+            // as the non-terrain layer_create branch above. setAnugaTerrainData
+            // sets terrainLoaded=true and re-drives the (display-only)
+            // terrainSubOrderReconcilerEpic, so orphan ordering is preserved;
+            // convergence to 'orphaned' is driven by refreshAttempted.add() above,
+            // independent of this dispatch. currentProjectId is non-null here (the
+            // 'unknown' branch requires terrainLoaded===true, set only after a
+            // project-scoped fetch); the initAnuga() fallback is defensive.
+            // PUSHED LAST (after the add-loop): concat() subscribes sequentially,
+            // so an async fetch placed first would block the synchronous addLayer /
+            // buildTerrainAddSequence dispatches behind a network round-trip.
+            if (refreshNeeded.length > 0) {
+                observables.push(currentProjectId
+                    ? fetchResourceEndpoint('terrain', currentProjectId).map(setAnugaTerrainData)
+                    : Rx.Observable.of(initAnuga()));
+            }
             return observables.length > 0
                 ? Rx.Observable.concat(...observables)
                 : Rx.Observable.empty();
