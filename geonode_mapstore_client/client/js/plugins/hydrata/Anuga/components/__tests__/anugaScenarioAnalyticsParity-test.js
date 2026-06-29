@@ -25,7 +25,7 @@
  *     dropped from the rail in the Option A redesign).
  *   - anuga-scenario-menu-build-validate-missing-{field} — fires only
  *     when Build is clicked on an invalid scenario; covered by the
- *     scenarioActionToolbar / Build code-path tests.
+ *     scenarioHeaderActions / Build code-path tests.
  *   - anuga-scenario-menu-select-scenario-{id}: covered by
  *     scenarioRail-test.js (where the spy is local). The label is keyed
  *     on scenario.id (integer) rather than scenario.name to keep Umami

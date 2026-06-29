@@ -645,17 +645,11 @@ describe('Scenarios surface — window.confirm/alert regression guard', () => {
     const menuRawResult = require(
         '!!raw-loader!../anugaScenarioMenu.js'
     );
-    const toolbarRawResult = require(
-        '!!raw-loader!../scenarioActionToolbar.js'
-    );
     const headerActionsRawResult = require(
         '!!raw-loader!../scenarioHeaderActions.js'
     );
     const menuSrc = stripComments(
         typeof menuRawResult === 'string' ? menuRawResult : (menuRawResult && menuRawResult.default)
-    );
-    const toolbarSrc = stripComments(
-        typeof toolbarRawResult === 'string' ? toolbarRawResult : (toolbarRawResult && toolbarRawResult.default)
     );
     const headerActionsSrc = stripComments(
         typeof headerActionsRawResult === 'string' ? headerActionsRawResult : (headerActionsRawResult && headerActionsRawResult.default)
@@ -668,15 +662,6 @@ describe('Scenarios surface — window.confirm/alert regression guard', () => {
 
     it('anugaScenarioMenu.js (code) does not call window.alert', () => {
         expect(menuSrc).toNotInclude('window.alert');
-    });
-
-    it('scenarioActionToolbar.js (code) does not call window.confirm', () => {
-        expect(toolbarSrc).toExist();
-        expect(toolbarSrc).toNotInclude('window.confirm');
-    });
-
-    it('scenarioActionToolbar.js (code) does not call window.alert', () => {
-        expect(toolbarSrc).toNotInclude('window.alert');
     });
 
     it('scenarioHeaderActions.js (code) does not call window.confirm', () => {

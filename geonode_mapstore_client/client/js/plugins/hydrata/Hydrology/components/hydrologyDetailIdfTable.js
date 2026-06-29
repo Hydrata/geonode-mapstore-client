@@ -434,7 +434,7 @@ IdfCurveModal.propTypes = {
 const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, context) => {
     // Resolve a msgId to a plain string for title/aria-label attributes (the
     // <Message> component only renders JSX children). Mirrors the canonical
-    // idiom in Anuga/scenarioActionToolbar: getMessageById returns the msgId
+    // idiom in Anuga/scenarioHeaderActions: getMessageById returns the msgId
     // itself when the key is missing, so compare to detect the unresolved case
     // and fall back to English before i18n has loaded.
     const tr = (msgId, fallback) => {
@@ -739,7 +739,7 @@ HydrologyDetailIdfTable.propTypes = {
 
 // Pull intl messages off React legacy context so getMessageById can resolve
 // the disabled-curve-button + modal-close labels at render time (mirrors
-// Anuga/scenarioActionToolbar).
+// Anuga/scenarioHeaderActions).
 HydrologyDetailIdfTable.contextTypes = {
     messages: PropTypes.object
 };

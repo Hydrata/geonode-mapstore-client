@@ -61,9 +61,10 @@ import {SectionHeader} from "../../SimpleView/components/primitives";
  * Redux state read: scenarios, archiveFilter, resources (8 dropdown arrays),
  * canCreateScenario, canRunScenario, myRole, currentUserId, selectedScenario.
  *
- * Container delegates all heavy field renders to ScenarioPane, all
- * status/action-button renders to ScenarioActionToolbar (via ScenarioPane),
- * all rail item renders to ScenarioRailItem.
+ * Container delegates all heavy field renders to ScenarioPane, the
+ * always-visible run-action buttons to ScenarioHeaderActions (the header
+ * strip; UAT #8 moved these out of the Run pane), and all rail item renders
+ * to ScenarioRailItem.
  */
 // Unified registry for the 5 inline-confirm dialog actions. One entry per
 // confirmingAction state; both renderConfirmDialog (body + confirm msgIds)
