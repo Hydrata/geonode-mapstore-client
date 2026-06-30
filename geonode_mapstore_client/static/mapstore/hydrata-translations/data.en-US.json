@@ -430,6 +430,7 @@
         "deriveStaleBadge": "Base IDF changed since this was saved",
         "deriveRegenerate": "Regenerate",
         "deriveTickToSave": "Tick the storms to save",
+        "deriveNoTemporalPatterns": "No Temporal Patterns in this project yet. Create a Temporal Pattern first, then derive design storms from it.",
         "filterToggle": "Search items",
         "filterPlaceholder": "Search by name…",
         "success": "Success",

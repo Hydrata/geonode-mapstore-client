@@ -422,6 +422,7 @@
         "deriveStaleBadge": "La table IDF de base a changé depuis l'enregistrement",
         "deriveRegenerate": "Régénérer",
         "deriveTickToSave": "Cochez les tempêtes à enregistrer",
+        "deriveNoTemporalPatterns": "Aucun patron temporel dans ce projet. Créez d'abord un patron temporel, puis dérivez-en des tempêtes de projet.",
         "filterToggle": "Rechercher des éléments",
         "filterPlaceholder": "Rechercher par nom…",
         "success": "Succès",

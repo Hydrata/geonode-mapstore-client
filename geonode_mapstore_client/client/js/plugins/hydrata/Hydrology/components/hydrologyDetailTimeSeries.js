@@ -45,7 +45,7 @@ import {
     previewDesignStormsRequest,
     saveDesignStormsRequest
 } from '../actionsHydrology';
-import {PRESET_FAMILIES, ALTERNATING_BLOCK} from '../temporalPatternPresets';
+import {PRESET_FAMILIES, ALTERNATING_BLOCK, CUSTOM} from '../temporalPatternPresets';
 import ManualPasteGrid from './ManualPasteGrid';
 // TASK-1760 (epic-1758 W1) — chassis primitives. Card carries the dark-glass
 // frame for the design-storm cards (default variant) and the dark-frame/light-body
@@ -294,6 +294,38 @@ HyetographChart.propTypes = {
  */
 export function previewKey(preview) {
     return `${preview.pattern}|${preview.ari}|${preview.duration_min}`;
+}
+
+/**
+ * TASK-2007 (epic-2001 W2a) — map a selected project Temporal Pattern item to
+ * the BE design-storm pattern parameters.
+ *
+ * The Derive dropdown now lists the project's OWN TemporalPattern rows (decision
+ * 5), so the selected value is a TemporalPattern row, not a hardcoded
+ * PRESET_FAMILIES id. The BE derive engine still keys on a pattern string (+ a
+ * custom_curve for CUSTOM rows, threaded in W2c / TASK-2006), so resolve:
+ *   - pattern_type 'custom'            -> {patternKey: 'custom', customCurve: data.rowData}
+ *   - pattern_type 'alternating_block' -> {patternKey: 'alternating_block'}
+ *   - pattern_type 'preset'            -> {patternKey: <pattern_key>}  (e.g. 'SCS_TYPE_II')
+ *
+ * Defensive fallbacks: a row missing pattern_type but carrying pattern_key is
+ * treated as a preset; a CUSTOM row's curve comes from data.rowData (the
+ * {t, cum} ordinates TemporalPattern.clean() validates).
+ *
+ * @param {object} item a TemporalPattern row from state.hydrology.temporalPatterns
+ * @returns {{patternKey: string|null, customCurve: object[]|null}}
+ */
+export function resolveDerivePattern(item) {
+    if (!item) return {patternKey: null, customCurve: null};
+    if (item.pattern_type === CUSTOM) {
+        const rowData = (item.data && item.data.rowData) || null;
+        return {patternKey: CUSTOM, customCurve: rowData};
+    }
+    if (item.pattern_type === ALTERNATING_BLOCK) {
+        return {patternKey: ALTERNATING_BLOCK, customCurve: null};
+    }
+    // preset (or a legacy row with only pattern_key set).
+    return {patternKey: item.pattern_key || null, customCurve: null};
 }
 
 const PreviewCard = ({preview, isFocused, onFocus, onAttach, attachInFlight, rainfallPk}) => {
@@ -1152,13 +1184,24 @@ const DesignStormDerive = ({
     onPreview,
     onSave
 }) => {
-    const presetIds = new Set(PRESET_FAMILIES.map(f => f.id));
-    const customPatterns = (temporalPatterns || [])
-        .filter(tp => tp.pattern_type === 'custom' || !presetIds.has(tp.id));
-    const patternOptions = [
-        ...PRESET_FAMILIES.map(f => ({id: f.id, label: f.label})),
-        ...customPatterns.map(tp => ({id: tp.id || tp.name, label: tp.name}))
-    ];
+    // TASK-2007 (epic-2001 W2a): the dropdown lists the project's OWN Temporal
+    // Pattern items STRICTLY (decision 5) — NOT the hardcoded PRESET_FAMILIES.
+    // Standard patterns (SCS/Huff/Alternating Block) are reached by the user
+    // first CREATING a project Temporal Pattern from a preset family (an
+    // existing flow). A new project therefore starts EMPTY -> deliberate gate
+    // -> empty-state nudge. The option value is the TemporalPattern id (string)
+    // so a project can carry several items of the same pattern_type.
+    const patternItems = (temporalPatterns || []).filter(tp => tp && tp.id != null);
+    const patternOptions = patternItems.map(tp => ({
+        id: String(tp.id),
+        label: tp.name
+    }));
+
+    // Resolve the selected Temporal Pattern row to its BE pattern + (custom)
+    // curve. selectedPattern holds the TemporalPattern id as a string.
+    const selectedItem = patternItems.find(tp => String(tp.id) === String(selectedPattern));
+    const {patternKey: selectedPatternKey, customCurve: selectedCustomCurve} =
+        resolveDerivePattern(selectedItem);
 
     // Local tick state — a Set of previewKey strings.
     const [ticked, setTicked] = useState(new Set());
@@ -1182,8 +1225,10 @@ const DesignStormDerive = ({
     //   - timestep: per-cell, a divisor of the duration (~24 steps) so the BE's
     //     `duration_min % timestep_min == 0` rule holds for sub-60-min durations
     //     (a fixed 60 would 400 a 5/10/30-min duration). (Decision D3.)
-    const buildCells = useCallback((pattern) => {
-        if (!selectedIdfTableId || !selectedTable || !pattern) return [];
+    // TASK-2007 (W2a): cells carry the RESOLVED BE pattern (patternKey) — and,
+    // for a custom-curve item, the custom_curve threaded into the W2c batch.
+    const buildCells = useCallback((patternKey, customCurve) => {
+        if (!selectedIdfTableId || !selectedTable || !patternKey) return [];
         const columnDefs = selectedTable.columnDefs || [];
         const rowData = selectedTable.rowData || [];
         const durations = rowData
@@ -1198,30 +1243,37 @@ const DesignStormDerive = ({
         const cells = [];
         for (const ari of aris) {
             for (const duration of durations) {
-                cells.push({
-                    pattern,
+                const cell = {
+                    pattern: patternKey,
                     ari,
                     duration_min: duration,
                     timestep_min: pickTimestep(duration)
-                });
+                };
+                // Only a custom-curve item carries custom_curve (additive; the
+                // BE ignores it for non-custom patterns).
+                if (patternKey === CUSTOM && customCurve) {
+                    cell.custom_curve = customCurve;
+                }
+                cells.push(cell);
             }
         }
         return cells;
     }, [selectedIdfTableId, selectedTable]);
 
-    // Auto-trigger preview when IDF + pattern are both set. Mirrors the
-    // DesignStormsBrowser auto-refresh useEffect (lines 321-325).
+    // Auto-trigger preview when IDF + a resolvable pattern are both set. Mirrors
+    // the DesignStormsBrowser auto-refresh useEffect (lines 321-325).
     useEffect(() => {
-        if (selectedIdfTableId && selectedPattern && !previewInFlight) {
-            const cells = buildCells(selectedPattern);
+        if (selectedIdfTableId && selectedPatternKey && !previewInFlight) {
+            const cells = buildCells(selectedPatternKey, selectedCustomCurve);
             if (cells.length > 0) {
                 onPreview(cells, Number(selectedIdfTableId), 60);
             }
         }
     }, [selectedIdfTableId, selectedPattern]); // eslint-disable-line
 
-    // Filter previews to the current pattern.
-    const patternPreviews = (previews || []).filter(p => p.pattern === selectedPattern);
+    // Filter previews to the resolved BE pattern key (the preview echoes the BE
+    // pattern, e.g. 'custom' / 'SCS_TYPE_II', NOT the TemporalPattern id).
+    const patternPreviews = (previews || []).filter(p => p.pattern === selectedPatternKey);
 
     const toggleTick = (key) => {
         setTicked(prev => {
@@ -1235,20 +1287,29 @@ const DesignStormDerive = ({
         if (!onSave || ticked.size === 0 || saveInFlight) return;
         const tickedCells = patternPreviews
             .filter(p => ticked.has(previewKey(p)))
-            .map(p => ({
-                pattern: p.pattern,
-                ari: p.ari,
-                duration_min: p.duration_min,
-                // preview always echoes timestep_min; fall back to a valid divisor
-                // (never a fixed 60, which would 400 a sub-60-min duration).
-                timestep_min: p.timestep_min || pickTimestep(p.duration_min)
-            }));
+            .map(p => {
+                const cell = {
+                    pattern: p.pattern,
+                    ari: p.ari,
+                    duration_min: p.duration_min,
+                    // preview always echoes timestep_min; fall back to a valid divisor
+                    // (never a fixed 60, which would 400 a sub-60-min duration).
+                    timestep_min: p.timestep_min || pickTimestep(p.duration_min)
+                };
+                // TASK-2007 (W2a): re-thread the custom_curve on save so the W2c
+                // save batch can derive the custom row (the preview echo does not
+                // carry the curve back).
+                if (p.pattern === CUSTOM && selectedCustomCurve) {
+                    cell.custom_curve = selectedCustomCurve;
+                }
+                return cell;
+            });
         if (tickedCells.length > 0) {
             onSave(tickedCells, Number(selectedIdfTableId));
         }
     };
 
-    const noSelection = !selectedIdfTableId || !selectedPattern;
+    const noSelection = !selectedIdfTableId || !selectedPatternKey;
 
     return (
         <Card
@@ -1276,22 +1337,30 @@ const DesignStormDerive = ({
                     </select>
                 </div>
 
-                {/* Temporal-pattern picker */}
+                {/* Temporal-pattern picker — TASK-2007 (W2a): strictly the
+                    project's own Temporal Pattern items. Empty project -> nudge. */}
                 <div style={{marginBottom: 10}}>
                     <label htmlFor="ds-derive-pattern" className="sv-design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
                         <Message msgId="hydrata.hydrology.temporalPattern" />
                     </label>
-                    <select
-                        id="ds-derive-pattern"
-                        className="sv-hydrology-text-input"
-                        style={{width: '100%'}}
-                        value={selectedPattern ?? ALTERNATING_BLOCK}
-                        onChange={e => onChange({selectedPattern: e.target.value})}
-                    >
-                        {patternOptions.map(opt => (
-                            <option key={opt.id} value={opt.id}>{opt.label}</option>
-                        ))}
-                    </select>
+                    {patternOptions.length === 0 ? (
+                        <div id="ds-derive-no-patterns">
+                            <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoTemporalPatterns" />} />
+                        </div>
+                    ) : (
+                        <select
+                            id="ds-derive-pattern"
+                            className="sv-hydrology-text-input"
+                            style={{width: '100%'}}
+                            value={selectedPattern != null ? String(selectedPattern) : ''}
+                            onChange={e => onChange({selectedPattern: e.target.value || null})}
+                        >
+                            <option value="">-- select a Temporal Pattern --</option>
+                            {patternOptions.map(opt => (
+                                <option key={opt.id} value={opt.id}>{opt.label}</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 {/* Preview area */}
@@ -1415,7 +1484,10 @@ const DesignStormCreatePanel = ({
 }) => {
     // Derive-tab selections are LOCAL — kept here so clearing IDF/pattern
     // cancels any in-flight preview at source.
-    const [deriveSpec, setDeriveSpec] = useState({selectedIdfTableId: null, selectedPattern: ALTERNATING_BLOCK});
+    // TASK-2007 (W2a): selectedPattern now holds a project TemporalPattern id
+    // (string), not a hardcoded pattern constant — start unselected so the
+    // strict dropdown begins on its '-- select a Temporal Pattern --' placeholder.
+    const [deriveSpec, setDeriveSpec] = useState({selectedIdfTableId: null, selectedPattern: null});
     // When hideDerive, force tab to 'input' regardless of caller state — a stale
     // tsCreateTab='derive' must not leak DesignStormDerive into the Hydrographs panel.
     const tab = (hideDerive || !activeTab) ? 'input' : activeTab;

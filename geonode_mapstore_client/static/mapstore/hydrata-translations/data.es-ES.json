@@ -422,6 +422,7 @@
         "deriveStaleBadge": "La IDF base cambió desde que se guardó",
         "deriveRegenerate": "Regenerar",
         "deriveTickToSave": "Marque las tormentas para guardar",
+        "deriveNoTemporalPatterns": "Aún no hay patrones temporales en este proyecto. Cree primero un patrón temporal y luego derive tormentas de diseño a partir de él.",
         "filterToggle": "Buscar elementos",
         "filterPlaceholder": "Buscar por nombre…",
         "success": "Éxito",

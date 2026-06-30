@@ -1222,4 +1222,139 @@ describe('Hydrology Plugin', () => {
             expect(result.ticks).toEqual([0, 10, 20]);
         });
     });
+
+    // TASK-2007 (epic-2001 W2a) — the Derive pattern dropdown is sourced
+    // STRICTLY from the project's own Temporal Pattern items (NOT the hardcoded
+    // PRESET_FAMILIES); an empty project shows an empty-state nudge; a selected
+    // item maps to the correct BE pattern (preset_key / alternating_block /
+    // custom + custom_curve).
+    describe('TASK-2007 DesignStormDerive strict project Temporal Pattern dropdown', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { act } = require('react-dom/test-utils');
+        const { DesignStormDerive, resolveDerivePattern } = require('../components/hydrologyDetailTimeSeries');
+
+        const baseProps = {
+            idfTables: [],
+            selectedIdfTableId: null,
+            selectedPattern: null,
+            onChange: () => {},
+            previews: [],
+            previewInFlight: false,
+            saveInFlight: false,
+            lastSavedCount: null,
+            onPreview: () => {},
+            onSave: () => {}
+        };
+
+        const render = (props) => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            // act() flushes useEffect (the auto-preview dispatch) synchronously.
+            act(() => {
+                ReactDOM.render(
+                    React.createElement(DesignStormDerive, {...baseProps, ...props}),
+                    container
+                );
+            });
+            return container;
+        };
+        const cleanup = (container) => {
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        };
+
+        // AC1: options come from temporalPatterns, NOT PRESET_FAMILIES.
+        it('AC1: dropdown options are the project Temporal Pattern items only', () => {
+            const temporalPatterns = [
+                {id: 11, name: 'Project SCS II', pattern_type: 'preset', pattern_key: 'SCS_TYPE_II'},
+                {id: 12, name: 'Project AltBlock', pattern_type: 'alternating_block'}
+            ];
+            const container = render({temporalPatterns});
+            const select = container.querySelector('#ds-derive-pattern');
+            expect(select).toExist();
+            const optionLabels = Array.from(select.querySelectorAll('option')).map(o => o.textContent);
+            // placeholder + the two project items, and NO PRESET_FAMILIES labels.
+            expect(optionLabels).toContain('Project SCS II');
+            expect(optionLabels).toContain('Project AltBlock');
+            expect(optionLabels.some(l => /SCS \/ NRCS/.test(l))).toBe(false);
+            expect(optionLabels.some(l => /Alternating Block \(Default\)/.test(l))).toBe(false);
+            // option values are the TemporalPattern ids.
+            const optionValues = Array.from(select.querySelectorAll('option')).map(o => o.value);
+            expect(optionValues).toContain('11');
+            expect(optionValues).toContain('12');
+            cleanup(container);
+        });
+
+        // AC2: a custom-curve item appears and is selectable.
+        it('AC2: a custom-curve Temporal Pattern item appears as an option', () => {
+            const temporalPatterns = [
+                {id: 21, name: 'My Custom Curve', pattern_type: 'custom',
+                    data: {rowData: [{t: 0, cum: 0}, {t: 1, cum: 100}]}}
+            ];
+            const container = render({temporalPatterns});
+            const select = container.querySelector('#ds-derive-pattern');
+            const optionLabels = Array.from(select.querySelectorAll('option')).map(o => o.textContent);
+            expect(optionLabels).toContain('My Custom Curve');
+            cleanup(container);
+        });
+
+        // AC3: empty project -> empty-state nudge, no <select>.
+        it('AC3: empty project shows the empty-state nudge and no dropdown', () => {
+            const container = render({temporalPatterns: []});
+            expect(container.querySelector('#ds-derive-pattern')).toBe(null);
+            expect(container.querySelector('#ds-derive-no-patterns')).toExist();
+            cleanup(container);
+        });
+
+        // AC4: resolver maps each pattern_type to the right BE pattern params.
+        it('AC4: resolveDerivePattern maps preset -> pattern_key', () => {
+            const r = resolveDerivePattern({id: 1, pattern_type: 'preset', pattern_key: 'SCS_TYPE_II'});
+            expect(r.patternKey).toBe('SCS_TYPE_II');
+            expect(r.customCurve).toBe(null);
+        });
+        it('AC4: resolveDerivePattern maps alternating_block -> alternating_block', () => {
+            const r = resolveDerivePattern({id: 2, pattern_type: 'alternating_block'});
+            expect(r.patternKey).toBe('alternating_block');
+            expect(r.customCurve).toBe(null);
+        });
+        it('AC4: resolveDerivePattern maps custom -> custom + data.rowData curve', () => {
+            const curve = [{t: 0, cum: 0}, {t: 1, cum: 100}];
+            const r = resolveDerivePattern({id: 3, pattern_type: 'custom', data: {rowData: curve}});
+            expect(r.patternKey).toBe('custom');
+            expect(r.customCurve).toEqual(curve);
+        });
+
+        // AC4 (integration): selecting a custom item builds preview cells that
+        // carry pattern='custom' + the custom_curve threaded into the W2c batch.
+        it('AC4: selecting a custom item dispatches preview cells with custom_curve', () => {
+            const curve = [{t: 0, cum: 0}, {t: 0.5, cum: 60}, {t: 1, cum: 100}];
+            const temporalPatterns = [
+                {id: 31, name: 'Custom', pattern_type: 'custom', data: {rowData: curve}}
+            ];
+            const idfTables = [{
+                id: 7,
+                name: 'IDF 7',
+                columnDefs: [
+                    {accessorKey: 'duration', header: 'Duration'},
+                    {accessorKey: 'rp100', header: '100yr ARI'}
+                ],
+                rowData: [{duration: 360, rp100: 12.5}]
+            }];
+            let previewArgs = null;
+            const container = render({
+                temporalPatterns,
+                idfTables,
+                selectedIdfTableId: 7,
+                selectedPattern: '31',
+                onPreview: (cells, idfId) => { previewArgs = {cells, idfId}; }
+            });
+            expect(previewArgs).toExist();
+            expect(previewArgs.cells.length).toBeGreaterThan(0);
+            const cell = previewArgs.cells[0];
+            expect(cell.pattern).toBe('custom');
+            expect(cell.custom_curve).toEqual(curve);
+            cleanup(container);
+        });
+    });
 });
