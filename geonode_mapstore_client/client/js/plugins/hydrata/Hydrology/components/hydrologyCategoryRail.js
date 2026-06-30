@@ -46,16 +46,41 @@ const CATEGORIES = [
 const CATEGORY_GLYPHS = {
     'idf': 'glyphicon-list-alt',
     'temporal-pattern': 'glyphicon-align-left',
-    'time-series': 'glyphicon-stats',
-    // TASK-1985: glyphicon-tint (water drop) chosen for hydrographs — the water
-    // drop mark is universally recognised as "water flow / liquid" and is the
-    // closest Bootstrap-3 glyph to a flow-hydrograph concept.  It is not used
-    // by any other rail item, and it visually distinguishes the Hydrographs
-    // category from the time-series/stats bar chart used for Design Storms.
-    'hydrographs': 'glyphicon-tint'
-    // 'networks' renders a custom inline SVG (NetworksIcon below) — no glyphicon
-    // webfont glyph matches the node-and-link + rainfall mark (UAT #6).
+    'time-series': 'glyphicon-stats'
+    // 'hydrographs' renders HydrographIcon inline SVG (TASK-2023, W5.1) — an
+    // X-Y axis + rise/fall curve distinguishes flow from the rainfall bar-stats
+    // glyph used by Design Storms. 'networks' renders NetworksIcon.
 };
+
+// HydrographIcon — X-Y axis pair + a rise/fall curve representing a flow
+// hydrograph. Inline SVG because no Bootstrap-3 glyphicon matches this mark.
+// Sized 16×16 to match .sv-hydrology-category-item-glyph; uses currentColor so
+// active/inactive theming stays consistent with the sibling glyphicons.
+// TASK-2023 (W5.1): replaces the misleading water-drop (glyphicon-tint).
+const HydrographIcon = () => (
+    <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        style={{display: 'block'}}
+    >
+        {/* Y-axis */}
+        <line x1="4" y1="2" x2="4" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        {/* X-axis */}
+        <line x1="4" y1="20" x2="22" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        {/* Rise/fall hydrograph curve: flat base, steep rise, smooth peak, gradual recession */}
+        <path
+            d="M4 19 L7 19 Q9 19 11 12 Q13 5 14 8 Q15 11 17 16 Q19 20 22 19"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+        />
+    </svg>
+);
 
 // NetworksIcon — node-and-link network (one big hub + two smaller spur nodes)
 // under four uniform rainfall streaks. Inline SVG because no glyphicon webfont
@@ -156,15 +181,24 @@ const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
                                     <NetworksIcon />
                                 </span>
                             )
-                            : (
-                                <span
-                                    className={
-                                        'sv-hydrology-category-item-glyph glyphicon '
-                                        + (CATEGORY_GLYPHS[cat.id] || 'glyphicon-record')
-                                    }
-                                    aria-hidden="true"
-                                />
-                            )}
+                            : cat.id === 'hydrographs'
+                                ? (
+                                    <span
+                                        className="sv-hydrology-category-item-glyph"
+                                        aria-hidden="true"
+                                    >
+                                        <HydrographIcon />
+                                    </span>
+                                )
+                                : (
+                                    <span
+                                        className={
+                                            'sv-hydrology-category-item-glyph glyphicon '
+                                            + (CATEGORY_GLYPHS[cat.id] || 'glyphicon-record')
+                                        }
+                                        aria-hidden="true"
+                                    />
+                                )}
                         <span className="sv-hydrology-category-item-label">
                             <Message msgId={cat.msgId} />
                         </span>

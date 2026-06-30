@@ -549,4 +549,62 @@ describe('Hydrology Plugin', () => {
             expect(s.activeHydrologyPage).toBe('hydrographs');
         });
     });
+
+    // TASK-2023 (W5.1) — Hydrographs rail icon: inline-SVG, not glyphicon-tint.
+    describe('TASK-2023 hydrologyCategoryRail hydrographs icon', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const TestUtils = require('react-dom/test-utils');
+        const { HydrologyCategoryRail } = require('../components/hydrologyCategoryRail');
+
+        it('hydrographs rail item renders an <svg>, NOT a .glyphicon-tint span', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyCategoryRail, {
+                    activeHydrologyPage: 'hydrographs',
+                    onSelectCategory: () => {}
+                }),
+                container
+            );
+            // No glyphicon-tint span anywhere in the rail
+            const tintSpans = container.querySelectorAll('.glyphicon-tint');
+            expect(tintSpans.length).toBe(0);
+            // Exactly one svg element exists (the HydrographIcon)
+            const svgs = container.querySelectorAll('svg');
+            // Networks also has an svg — but when hydrographs is active, total >= 1
+            // We need the hydrographs item's glyph span to contain an svg
+            const items = container.querySelectorAll('.sv-hydrology-category-item');
+            const hydrographsItem = Array.from(items).find(el =>
+                el.getAttribute('aria-selected') === 'true'
+            );
+            expect(hydrographsItem).toExist();
+            const itemSvgs = hydrographsItem.querySelectorAll('svg');
+            expect(itemSvgs.length).toBe(1);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('networks and other rail items are unchanged (no regression)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyCategoryRail, {
+                    activeHydrologyPage: 'networks',
+                    onSelectCategory: () => {}
+                }),
+                container
+            );
+            // networks item still has an svg
+            const items = container.querySelectorAll('.sv-hydrology-category-item');
+            const networksItem = Array.from(items).find(el =>
+                el.getAttribute('aria-selected') === 'true'
+            );
+            expect(networksItem).toExist();
+            const networksSvgs = networksItem.querySelectorAll('svg');
+            expect(networksSvgs.length).toBe(1);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
 });
