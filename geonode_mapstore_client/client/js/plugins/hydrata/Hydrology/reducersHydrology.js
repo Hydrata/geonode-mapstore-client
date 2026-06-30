@@ -148,7 +148,16 @@ const initialState = {
     projection: initialProjection,
     // TASK-1986 (epic-1970): separate list for series_type=hydrograph rows
     // (fetched via ?series_type=hydrograph, managed by hydrologyKeyMap).
-    hydrographs: []
+    hydrographs: [],
+    // TASK-2002 (epic-2001 W1a): the unsaved Design-Storms (time-series) Create
+    // draft. CREATE_HYDROLOGY_FORM for 'time-series' routes the new TimeSeries()
+    // here INSTEAD of optimistically appending it to the rail list (timeSeriess),
+    // so the rail only ever renders persisted rows (no phantom). The draft is also
+    // the activeHydrologyItem while the Create panel is open; edits (name/source/
+    // description + grid rows) target it; Save persists it (CREATE_HYDROLOGY_ITEM_
+    // SUCCESS appends the real row + clears this) and Exit (SET_ACTIVE_HYDROLOGY_
+    // ITEM to a non-draft / null) discards it. Hydrographs create is unaffected.
+    draftTimeSeries: null
 };
 
 export const hydrologyKeyMap = {
@@ -323,11 +332,33 @@ export default ( state = initialState, action) => {
             activeHydrologyPage: action.pageName
         };
     case SET_ACTIVE_HYDROLOGY_ITEM:
+        // TASK-2002 (epic-2001 W1a): selecting a saved row or leaving the Create
+        // panel (exitTimeSeriesCreate dispatches setActiveHydrologyItem(real|null))
+        // DISCARDS the in-flight time-series draft. Guard against clearing it when
+        // the new active item IS the draft itself (the draft is normally seated by
+        // CREATE_HYDROLOGY_FORM, not via this action, but stay defensive).
         return {
             ...state,
-            activeHydrologyItem: action.item
+            activeHydrologyItem: action.item,
+            draftTimeSeries:
+                (state.draftTimeSeries && action.item && action.item.id === state.draftTimeSeries.id)
+                    ? state.draftTimeSeries
+                    : null
         };
     case UPDATE_ACTIVE_HYDROLOGY_ITEM: {
+        // TASK-2002 (epic-2001 W1a): the time-series Create draft lives in
+        // draftTimeSeries, not in the rail list — name/source/description edits to
+        // it must mutate the draft (it is also the activeHydrologyItem). Handle it
+        // first so the list .map() below is reserved for persisted rows.
+        if (state.draftTimeSeries && action.item && action.item.id === state.draftTimeSeries.id) {
+            state.draftTimeSeries.updateProperties(action.kv);
+            state.draftTimeSeries.unsaved = true;
+            return {
+                ...state,
+                draftTimeSeries: state.draftTimeSeries,
+                activeHydrologyItem: state.draftTimeSeries
+            };
+        }
         const pageName = hydrologyKeyMap[action.activeHydrologyPage];
         let updatedActiveHydrologyItem;
         return {
@@ -374,6 +405,19 @@ export default ( state = initialState, action) => {
         if (autoNameLabel) {
             newHydrologyItem.name = nextAutoName(autoNameLabel, state[pageName] || []);
         }
+        // TASK-2002 (epic-2001 W1a): the Design-Storms (time-series) draft does NOT
+        // optimistically append to the rail list — it lives in its own
+        // draftTimeSeries slice so the rail only ever renders persisted rows (kills
+        // the phantom by construction). The auto-name above still indexes off the
+        // persisted state.timeSeriess list. All OTHER pages (idf / temporal /
+        // hydrographs) keep the optimistic append, unchanged.
+        if (action.activeHydrologyPage === 'time-series') {
+            return {
+                ...state,
+                draftTimeSeries: newHydrologyItem,
+                activeHydrologyItem: newHydrologyItem
+            };
+        }
         return {
             ...state,
             [pageName]: [...state[pageName], newHydrologyItem],
@@ -414,6 +458,23 @@ export default ( state = initialState, action) => {
         } else if (action.activeHydrologyPage === 'time-series' || action.activeHydrologyPage === 'hydrographs') {
             // TASK-1986: hydrographs share the TimeSeries serialiser.
             updatedActiveHydrologyItem = createTimeSeriesFromJson(action.item);
+        }
+        // TASK-2002 (epic-2001 W1a): the Design-Storms (time-series) draft is NOT in
+        // the rail list (it lives in draftTimeSeries), so there is no optimistic
+        // temp row to reconcile — APPEND the persisted row to the rail and clear the
+        // draft. (Guard against a double-append if a refetch/temp row already placed
+        // the real id.) Other pages keep the original temp-row reconcile.
+        if (action.activeHydrologyPage === 'time-series') {
+            updatedActiveHydrologyItem.unsaved = false;
+            const alreadyPresent = state.timeSeriess.some((item) => item.id === action.item.id);
+            return {
+                ...state,
+                timeSeriess: alreadyPresent
+                    ? state.timeSeriess.map((item) => (item.id === action.item.id ? updatedActiveHydrologyItem : item))
+                    : [...state.timeSeriess, updatedActiveHydrologyItem],
+                draftTimeSeries: null,
+                activeHydrologyItem: updatedActiveHydrologyItem
+            };
         }
         return {
             ...state,
@@ -561,10 +622,19 @@ export default ( state = initialState, action) => {
                 return ts;
             });
         }
+        // TASK-2002 (epic-2001 W1a): the time-series Create draft is not in either
+        // list — grid edits to it must mutate the draftTimeSeries slice in place.
+        let updatedDraft = state.draftTimeSeries;
+        if (!updatedTimeSeries && updatedDraft && updatedDraft.id === action.timeSeriesId) {
+            updatedDraft.updateRowValues(action.rowIndex, action.columnId, action.value);
+            updatedDraft.unsaved = true;
+            updatedTimeSeries = updatedDraft;
+        }
         return {
             ...state,
             timeSeriess: updatedTimeSeriess,
             hydrographs: updatedHydrographs,
+            draftTimeSeries: updatedDraft,
             activeHydrologyItem: updatedTimeSeries || state.activeHydrologyItem
         };
     }
@@ -590,10 +660,19 @@ export default ( state = initialState, action) => {
                 return ts;
             });
         }
+        // TASK-2002 (epic-2001 W1a): paste/replace into the time-series Create draft
+        // (draftTimeSeries slice — not in either list) mutates the draft in place.
+        let updatedDraft = state.draftTimeSeries;
+        if (!updatedTimeSeries && updatedDraft && updatedDraft.id === action.timeSeriesId) {
+            updatedDraft.setRowData(action.newRowData);
+            updatedDraft.unsaved = true;
+            updatedTimeSeries = updatedDraft;
+        }
         return {
             ...state,
             timeSeriess: updatedTimeSeriess,
             hydrographs: updatedHydrographs,
+            draftTimeSeries: updatedDraft,
             activeHydrologyItem: updatedTimeSeries || state.activeHydrologyItem
         };
     }

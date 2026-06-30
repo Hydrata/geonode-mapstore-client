@@ -284,13 +284,18 @@ describe('Hydrology Plugin', () => {
                 expect(state.activeHydrologyItem.name).toBe('Temporal Pattern 01');
             });
 
-            it('time-series on empty tab → "Design Storm 01"', () => {
+            // TASK-2002 (epic-2001 W1a): the Design-Storms (time-series) draft no
+            // longer lands in the rail list (state.timeSeriess) — it goes to the
+            // dedicated state.draftTimeSeries slice. The auto-name is still
+            // computed off the persisted list, so the FIRST draft is 'Design Storm 01'.
+            it('time-series on empty tab → "Design Storm 01" in the draft slice (rail unchanged)', () => {
                 const state = reducer(
                     { ...initialState, timeSeriess: [] },
                     createHydrologyForm('time-series')
                 );
-                expect(state.timeSeriess.length).toBe(1);
-                expect(state.timeSeriess[0].name).toBe('Design Storm 01');
+                expect(state.timeSeriess.length).toBe(0);
+                expect(state.draftTimeSeries).toExist();
+                expect(state.draftTimeSeries.name).toBe('Design Storm 01');
                 expect(state.activeHydrologyItem.name).toBe('Design Storm 01');
             });
 
@@ -324,7 +329,10 @@ describe('Hydrology Plugin', () => {
                 expect(state.temporalPatterns[2].name).toBe('Temporal Pattern 03');
             });
 
-            it('time-series with existing ...01/...02 → "Design Storm 03"', () => {
+            // TASK-2002 (epic-2001 W1a): auto-name still indexes off the persisted
+            // rail list (timeSeriess), but the new draft lands in draftTimeSeries —
+            // the rail length is UNCHANGED (no phantom row).
+            it('time-series with existing ...01/...02 → "Design Storm 03" draft (rail stays at 2)', () => {
                 const state = reducer(
                     {
                         ...initialState,
@@ -335,8 +343,9 @@ describe('Hydrology Plugin', () => {
                     },
                     createHydrologyForm('time-series')
                 );
-                expect(state.timeSeriess.length).toBe(3);
-                expect(state.timeSeriess[2].name).toBe('Design Storm 03');
+                expect(state.timeSeriess.length).toBe(2);
+                expect(state.draftTimeSeries.name).toBe('Design Storm 03');
+                expect(state.activeHydrologyItem.name).toBe('Design Storm 03');
             });
 
             // Numbering keys off the MAX trailing int, not the count: a gap
@@ -379,6 +388,137 @@ describe('Hydrology Plugin', () => {
                 expect(reconciled.idfTables.length).toBe(1);
                 expect(reconciled.idfTables[0].id).toBe(42);
                 expect(reconciled.idfTables[0].name).toBe('IDF Table 01');
+            });
+        });
+
+        // TASK-2002 (epic-2001 W1a) — the Design Storms (time-series) Create flow
+        // must NOT insert an optimistic phantom row into the rail (state.timeSeriess).
+        // The new TimeSeries() draft lives in a dedicated state.draftTimeSeries slice;
+        // the rail renders only persisted rows; Save persists + surfaces the real row;
+        // Exit discards the draft. The Hydrographs create flow (separate slice) is
+        // unchanged — it still appends to state.hydrographs.
+        describe('TASK-2002 dedicated draftTimeSeries slice (no phantom rail row)', () => {
+            it('AC1+AC2: createHydrologyForm("time-series") leaves timeSeriess unchanged and fills draftTimeSeries', () => {
+                const start = { ...initialState, timeSeriess: [{ id: 1, name: 'Design Storm 01' }] };
+                const state = reducer(start, createHydrologyForm('time-series'));
+                // rail length unchanged (AC1)
+                expect(state.timeSeriess.length).toBe(1);
+                expect(state.timeSeriess[0].id).toBe(1);
+                // draft lives in its own slice (AC2)
+                expect(state.draftTimeSeries).toExist();
+                expect(state.draftTimeSeries.name).toBe('Design Storm 02');
+                expect(typeof state.draftTimeSeries.id).toBe('string');
+                expect(state.draftTimeSeries.id.includes('temp')).toBe(true);
+                // the draft is the active item (so the editor renders it)
+                expect(state.activeHydrologyItem).toBe(state.draftTimeSeries);
+            });
+
+            it('AC3: exit (setActiveHydrologyItem(null)) discards the draft and leaves timeSeriess unchanged', () => {
+                const created = reducer(
+                    { ...initialState, timeSeriess: [{ id: 1, name: 'Design Storm 01' }] },
+                    createHydrologyForm('time-series')
+                );
+                expect(created.draftTimeSeries).toExist();
+                const exited = reducer(created, setActiveHydrologyItem(null));
+                expect(exited.draftTimeSeries).toBe(null);
+                expect(exited.timeSeriess.length).toBe(1);
+                expect(exited.activeHydrologyItem).toBe(null);
+            });
+
+            it('exit by selecting a saved row also clears the draft (no residue)', () => {
+                const created = reducer(
+                    { ...initialState, timeSeriess: [{ id: 1, name: 'Design Storm 01' }] },
+                    createHydrologyForm('time-series')
+                );
+                const saved = { id: 1, name: 'Design Storm 01' };
+                const exited = reducer(created, setActiveHydrologyItem(saved));
+                expect(exited.draftTimeSeries).toBe(null);
+                expect(exited.activeHydrologyItem).toBe(saved);
+                expect(exited.timeSeriess.length).toBe(1);
+            });
+
+            it('AC4: CREATE_HYDROLOGY_ITEM_SUCCESS surfaces the real row in the rail and clears the draft', () => {
+                const created = reducer(
+                    { ...initialState, timeSeriess: [] },
+                    createHydrologyForm('time-series')
+                );
+                expect(created.timeSeriess.length).toBe(0);
+                expect(created.draftTimeSeries.name).toBe('Design Storm 01');
+                const reconciled = reducer(created, {
+                    type: 'CREATE_HYDROLOGY_ITEM_SUCCESS',
+                    activeHydrologyPage: 'time-series',
+                    item: { id: 77, name: 'Design Storm 01', data: { columnDefs: [], rowData: [] } }
+                });
+                expect(reconciled.timeSeriess.length).toBe(1);
+                expect(reconciled.timeSeriess[0].id).toBe(77);
+                expect(reconciled.timeSeriess[0].name).toBe('Design Storm 01');
+                expect(reconciled.draftTimeSeries).toBe(null);
+                expect(reconciled.activeHydrologyItem.id).toBe(77);
+            });
+
+            it('CREATE_HYDROLOGY_ITEM_SUCCESS does not duplicate the row on the persisted list', () => {
+                const start = {
+                    ...initialState,
+                    timeSeriess: [{ id: 1, name: 'Design Storm 01' }]
+                };
+                const created = reducer(start, createHydrologyForm('time-series'));
+                const reconciled = reducer(created, {
+                    type: 'CREATE_HYDROLOGY_ITEM_SUCCESS',
+                    activeHydrologyPage: 'time-series',
+                    item: { id: 2, name: 'Design Storm 02', data: { columnDefs: [], rowData: [] } }
+                });
+                expect(reconciled.timeSeriess.length).toBe(2);
+                expect(reconciled.timeSeriess.map(t => t.id)).toEqual([1, 2]);
+            });
+
+            it('edits route to the draft: UPDATE_ACTIVE_HYDROLOGY_ITEM renames the draft (not the rail)', () => {
+                const created = reducer(
+                    { ...initialState, timeSeriess: [{ id: 1, name: 'Design Storm 01' }] },
+                    createHydrologyForm('time-series')
+                );
+                const draftId = created.draftTimeSeries.id;
+                const renamed = reducer(created, {
+                    type: 'UPDATE_ACTIVE_HYDROLOGY_ITEM',
+                    activeHydrologyPage: 'time-series',
+                    item: { id: draftId },
+                    kv: { name: 'My storm' }
+                });
+                expect(renamed.draftTimeSeries.name).toBe('My storm');
+                expect(renamed.draftTimeSeries.unsaved).toBe(true);
+                expect(renamed.activeHydrologyItem.name).toBe('My storm');
+                // rail untouched
+                expect(renamed.timeSeriess[0].name).toBe('Design Storm 01');
+            });
+
+            it('grid edits route to the draft: UPDATE_TIME_SERIES_ROW_DATA mutates the draft rowData', () => {
+                const created = reducer(
+                    { ...initialState, timeSeriess: [] },
+                    createHydrologyForm('time-series')
+                );
+                const draftId = created.draftTimeSeries.id;
+                const edited = reducer(created, {
+                    type: 'UPDATE_TIME_SERIES_ROW_DATA',
+                    timeSeriesId: draftId,
+                    rowIndex: 1,
+                    columnId: 'value',
+                    value: 42
+                });
+                expect(edited.draftTimeSeries.rowData[1].value).toBe(42);
+                expect(edited.activeHydrologyItem.rowData[1].value).toBe(42);
+            });
+
+            it('Hydrographs create flow is unchanged: still appends to state.hydrographs (no draft slice)', () => {
+                const state = reducer(
+                    { ...initialState, hydrographs: [] },
+                    createHydrologyForm('hydrographs')
+                );
+                expect(state.hydrographs.length).toBe(1);
+                expect(state.hydrographs[0].series_type).toBe('hydrograph');
+                expect(state.hydrographs[0].name).toBe('Hydrograph 01');
+                // A hydrographs create must NOT seat a time-series draft (this
+                // minimal fixture doesn't seed draftTimeSeries, so it stays unset).
+                expect(state.draftTimeSeries).toNotExist();
+                expect(state.activeHydrologyItem).toBe(state.hydrographs[0]);
             });
         });
 
