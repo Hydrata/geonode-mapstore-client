@@ -147,10 +147,26 @@ const HyetographChart = ({rowData, timestepMin, title, activeHydrologyPage}) => 
     const durationMin = data.length ? data[data.length - 1].elapsedMin : 0;
     const maxIntensity = data.reduce((m, d) => Math.max(m, d.intensity), 0);
     const {ticks: yTicks, max: yMax} = niceIntensityTicks(maxIntensity);
-    const {ticks: xTicks} = niceTimeTicks(durationMin);
+    // TASK-2032 (W5.10): capture interval alongside ticks so the hydrograph LineChart
+    // can extend its domain + ticks one interval past the final data point.
+    const {ticks: xTicks, interval: xInterval} = niceTimeTicks(durationMin);
 
     // TASK-2027/2028/2030: page discriminator.
     const isHydrograph = activeHydrologyPage === 'hydrographs';
+
+    // TASK-2032 (W5.10): extend the LineChart (hydrograph-only) X-axis one tick past the
+    // last data point so the curve has visible white-space after it (truncation cue).
+    // xDomainMax = durationMin + one tick interval; extended ticks = base ticks +
+    // one additional tick at the interval boundary (if the last base tick <= durationMin).
+    // The BarChart (Design Storms) uses the unmodified xTicks + domain=[0,durationMin].
+    const xDomainMax = isHydrograph ? durationMin + xInterval : durationMin;
+    const xTicksExtended = (() => {
+        if (!isHydrograph) return xTicks;
+        const lastBase = xTicks.length ? xTicks[xTicks.length - 1] : 0;
+        const extended = lastBase <= durationMin ? [...xTicks, lastBase + xInterval] : [...xTicks];
+        // Keep only ticks that are <= xDomainMax so recharts renders them.
+        return extended.filter(t => t <= xDomainMax);
+    })();
 
     // TASK-2030: summary stat values (computed unconditionally; only one is rendered).
     // Hydrograph: integral of flow over time = sum(flow_m3s * timestep_seconds) in m3.
@@ -192,11 +208,13 @@ const HyetographChart = ({rowData, timestepMin, title, activeHydrologyPage}) => 
                                     margin={{top: 10, right: 20, left: 8, bottom: 8}}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
+                                    {/* TASK-2032 (W5.10): domain + ticks extended one interval past
+                                        the last data point (LineChart / hydrograph branch ONLY). */}
                                     <XAxis
                                         dataKey="elapsedMin"
                                         type="number"
-                                        domain={[0, durationMin]}
-                                        ticks={xTicks}
+                                        domain={[0, xDomainMax]}
+                                        ticks={xTicksExtended}
                                         tickFormatter={formatElapsedMin}
                                         height={28}
                                         tick={{fontSize: 10, fill: '#333'}}
