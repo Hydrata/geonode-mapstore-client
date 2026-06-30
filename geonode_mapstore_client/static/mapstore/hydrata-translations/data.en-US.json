@@ -425,6 +425,7 @@
         "backToList": "Back to list",
         "derivePreviewComingSoon": "Preview & Save coming in the next step.",
         "deriveSaveTheseN": "Save these {n}",
+        "deriveActionButton": "Derive",
         "deriveSavedToast": "Saved {n} design storm(s)",
         "deriveNoPreviews": "Pick an IDF table and pattern to preview storms",
         "deriveStaleBadge": "Base IDF changed since this was saved",

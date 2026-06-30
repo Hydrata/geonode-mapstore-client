@@ -1475,7 +1475,9 @@ const DesignStormDerive = ({
                                 >
                                     {saveInFlight
                                         ? 'Saving…'
-                                        : <Message msgId="hydrata.hydrology.deriveSaveTheseN" msgParams={{n: ticked.size}} />
+                                        // TASK-2009 (W2d): label is now 'Derive' (new i18n key);
+                                        // the dispatch (handleSave -> onSave -> mode='save') is unchanged.
+                                        : <Message msgId="hydrata.hydrology.deriveActionButton" />
                                     }
                                 </button>
                                 {lastSavedCount !== null && (

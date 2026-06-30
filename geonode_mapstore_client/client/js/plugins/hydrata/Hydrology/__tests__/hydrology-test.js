@@ -1494,4 +1494,71 @@ describe('Hydrology Plugin', () => {
             cleanup(container);
         });
     });
+
+    // TASK-2009 (epic-2001 W2d) — the action button reads 'Derive' (new i18n
+    // key deriveActionButton) and still dispatches the existing save flow
+    // (handleSave -> onSave -> mode='save'); no endpoint change.
+    describe('TASK-2009 DesignStormDerive action button relabel', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { act } = require('react-dom/test-utils');
+        const { DesignStormDerive } = require('../components/hydrologyDetailTimeSeries');
+
+        const baseProps = {
+            idfTables: [{
+                id: 7, name: 'IDF 7',
+                columnDefs: [
+                    {accessorKey: 'duration', header: 'Duration'},
+                    {accessorKey: 'rp100', header: '100yr ARI'}
+                ],
+                rowData: [{duration: 60, rp100: 18.0}]
+            }],
+            temporalPatterns: [{id: 51, name: 'SCS II', pattern_type: 'preset', pattern_key: 'SCS_TYPE_II'}],
+            selectedIdfTableId: 7,
+            selectedPattern: '51',
+            onChange: () => {},
+            previews: [{pattern: 'SCS_TYPE_II', ari: 100, duration_min: 60, timestep_min: 5, total_depth_mm: 18.0}],
+            previewInFlight: false,
+            saveInFlight: false,
+            lastSavedCount: null,
+            onPreview: () => {},
+            onSave: () => {}
+        };
+        const render = (props) => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            act(() => {
+                ReactDOM.render(React.createElement(DesignStormDerive, {...baseProps, ...props}), container);
+            });
+            return container;
+        };
+        const cleanup = (container) => {
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        };
+
+        // AC1: the button reads the new 'Derive' i18n key, not the old one.
+        it('AC1: action button uses the deriveActionButton i18n key (not deriveSaveTheseN)', () => {
+            const container = render();
+            const btn = container.querySelector('#sv-ds-derive-save-btn');
+            expect(btn).toExist();
+            // Message without intl context renders the msgId string.
+            expect(btn.textContent).toContain('deriveActionButton');
+            expect(btn.textContent).toNotContain('deriveSaveTheseN');
+            cleanup(container);
+        });
+
+        // AC2/AC3: clicking still dispatches the existing save flow, unchanged.
+        it('AC2: clicking dispatches onSave (mode=save) with the ticked cell', () => {
+            let saveArgs = null;
+            const container = render({onSave: (cells, idfId) => { saveArgs = {cells, idfId}; }});
+            act(() => { container.querySelector('[id="ds-derive-tick-SCS_TYPE_II|100|60"]').click(); });
+            act(() => { container.querySelector('#sv-ds-derive-save-btn').click(); });
+            expect(saveArgs).toExist();
+            expect(saveArgs.idfId).toBe(7);
+            expect(saveArgs.cells.length).toBe(1);
+            expect(saveArgs.cells[0].pattern).toBe('SCS_TYPE_II');
+            cleanup(container);
+        });
+    });
 });
