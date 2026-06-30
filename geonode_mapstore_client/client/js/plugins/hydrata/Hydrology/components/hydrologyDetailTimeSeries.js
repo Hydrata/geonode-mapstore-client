@@ -1222,7 +1222,7 @@ const DesignStormDerive = ({
     // existing flow). A new project therefore starts EMPTY -> deliberate gate
     // -> empty-state nudge. The option value is the TemporalPattern id (string)
     // so a project can carry several items of the same pattern_type.
-    const patternItems = (temporalPatterns || []).filter(tp => tp && tp.id != null);
+    const patternItems = (temporalPatterns || []).filter(tp => tp && tp.id !== null && tp.id !== undefined);
     const patternOptions = patternItems.map(tp => ({
         id: String(tp.id),
         label: tp.name
@@ -1395,7 +1395,7 @@ const DesignStormDerive = ({
                             id="ds-derive-pattern"
                             className="sv-hydrology-text-input"
                             style={{width: '100%'}}
-                            value={selectedPattern != null ? String(selectedPattern) : ''}
+                            value={(selectedPattern !== null && selectedPattern !== undefined) ? String(selectedPattern) : ''}
                             onChange={e => onChange({selectedPattern: e.target.value || null})}
                         >
                             <option value="">-- select a Temporal Pattern --</option>
@@ -1443,7 +1443,7 @@ const DesignStormDerive = ({
                                     }
                                     const key = previewKey(preview);
                                     const checked = ticked.has(key);
-                                    const depth = preview.total_depth_mm != null
+                                    const depth = (preview.total_depth_mm !== null && preview.total_depth_mm !== undefined)
                                         ? `${preview.total_depth_mm.toFixed(1)} mm`
                                         : '';
                                     return (
