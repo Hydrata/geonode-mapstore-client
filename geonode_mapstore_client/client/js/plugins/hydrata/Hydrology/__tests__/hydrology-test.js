@@ -864,6 +864,87 @@ describe('Hydrology Plugin', () => {
         });
     });
 
+    // TASK-2003 (epic-2001 W1b) — the Input|Derive create-mode control is a
+    // semantic RADIO group (role=radiogroup with two role=radio inputs), not a
+    // pair of segmented <button>s, and uses its own i18n keys (createModeInput /
+    // createModeDerive) instead of reusing the IDF idfModeManual/idfModeDerive.
+    describe('TASK-2003 DesignStormCreatePanel Input|Derive radio group', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { DesignStormCreatePanel } = require('../components/hydrologyDetailTimeSeries');
+
+        const baseProps = {
+            activeHydrologyItem: {id: 'temp-1', name: 'Design Storm 01', rowData: [], columnDefs: []},
+            idfTables: [],
+            temporalPatterns: [],
+            activeTab: 'input',
+            onTabChange: () => {},
+            previews: [],
+            previewInFlight: false,
+            saveInFlight: false,
+            lastSavedCount: null,
+            previewDesignStorms: () => {},
+            saveDesignStorms: () => {},
+            updateTimeSeriesRowData: () => {},
+            replaceTimeSeriesRowData: () => {}
+        };
+
+        const render = (props) => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(DesignStormCreatePanel, {...baseProps, ...props}),
+                container
+            );
+            return container;
+        };
+        const cleanup = (container) => {
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        };
+
+        it('renders a role=radiogroup containing two role=radio inputs', () => {
+            const container = render({hideDerive: false});
+            const group = container.querySelector('[role="radiogroup"]');
+            expect(group).toExist();
+            const radios = container.querySelectorAll('[role="radio"]');
+            expect(radios.length).toBe(2);
+            cleanup(container);
+        });
+
+        it('the two radios keep the ds-create-tab-input / ds-create-tab-derive ids', () => {
+            const container = render({hideDerive: false});
+            expect(container.querySelector('#ds-create-tab-input')).toExist();
+            expect(container.querySelector('#ds-create-tab-derive')).toExist();
+            cleanup(container);
+        });
+
+        it('default selection (activeTab=input) checks Input, not Derive', () => {
+            const container = render({hideDerive: false, activeTab: 'input'});
+            const inputRadio = container.querySelector('#ds-create-tab-input');
+            const deriveRadio = container.querySelector('#ds-create-tab-derive');
+            expect(inputRadio.getAttribute('aria-checked')).toBe('true');
+            expect(deriveRadio.getAttribute('aria-checked')).toBe('false');
+            cleanup(container);
+        });
+
+        it('selecting the Derive radio fires onTabChange("derive")', () => {
+            let called = null;
+            const container = render({hideDerive: false, onTabChange: (t) => { called = t; }});
+            const deriveRadio = container.querySelector('#ds-create-tab-derive');
+            deriveRadio.click();
+            expect(called).toBe('derive');
+            cleanup(container);
+        });
+
+        it('hideDerive=true: no radiogroup rendered (Hydrographs page unchanged)', () => {
+            const container = render({hideDerive: true});
+            expect(container.querySelector('[role="radiogroup"]')).toBe(null);
+            expect(container.querySelector('#ds-create-tab-derive')).toBe(null);
+            cleanup(container);
+        });
+    });
+
     // TASK-2031 (W5.9) — Hydrographs saved-detail: editable ManualPasteGrid for selected hydrograph.
     describe('TASK-2031 HydrologyTimeSeries editable grid for saved hydrograph', () => {
         const React = require('react');

@@ -1422,26 +1422,48 @@ const DesignStormCreatePanel = ({
 
     return (
         <div id="design-storm-create-panel">
-            {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup.
+            {/* Input | Derive create-mode control.
+                TASK-2003 (epic-2001 W1b): converted from a segmented pair of
+                <button>s to a semantic RADIO group (role=radiogroup with two
+                role=radio options) — picking one of two mutually-exclusive create
+                modes is a radio choice, not an action. Keeps the
+                #ds-create-tab-input / #ds-create-tab-derive ids and the
+                sv-hydrology-idf-subtoggle / sv-hydrology-idf-segment classes so
+                the existing styling + tests still resolve. Uses its own
+                createModeInput / createModeDerive i18n keys (no longer reuses the
+                IDF idfModeManual / idfModeDerive).
                 TASK-2024: hidden on the Hydrographs page (hideDerive=true). */}
             {!hideDerive && (
-                <div className="sv-hydrology-idf-subtoggle" role="group" aria-label="Create mode">
-                    <button
-                        id="ds-create-tab-input"
-                        type="button"
-                        className={'sv-hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
-                        onClick={() => onTabChange('input')}
-                    >
-                        <Message msgId="hydrata.hydrology.idfModeManual" />
-                    </button>
-                    <button
-                        id="ds-create-tab-derive"
-                        type="button"
-                        className={'sv-hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
-                        onClick={() => onTabChange('derive')}
-                    >
-                        <Message msgId="hydrata.hydrology.idfModeDerive" />
-                    </button>
+                <div
+                    className="sv-hydrology-idf-subtoggle"
+                    role="radiogroup"
+                    aria-label="Create mode"
+                >
+                    {[
+                        {value: 'input', id: 'ds-create-tab-input', msgId: 'hydrata.hydrology.createModeInput'},
+                        {value: 'derive', id: 'ds-create-tab-derive', msgId: 'hydrata.hydrology.createModeDerive'}
+                    ].map((opt) => {
+                        const checked = tab === opt.value;
+                        return (
+                            <div
+                                key={opt.value}
+                                id={opt.id}
+                                role="radio"
+                                aria-checked={checked}
+                                tabIndex={checked ? 0 : -1}
+                                className={'sv-hydrology-idf-segment' + (checked ? ' is-active' : '')}
+                                onClick={() => onTabChange(opt.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        onTabChange(opt.value);
+                                    }
+                                }}
+                            >
+                                <Message msgId={opt.msgId} />
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
