@@ -83,16 +83,61 @@ const resolveKind = (featureId, layerName) => {
 
 /**
  * Pure classifier: a GFI FeatureCollection -> ordered candidate list.
- * Filters empty-id features (rasters return id="") and un-parseable ids, and
- * any feature that matches no registered target. label() is resolved HERE
- * (classify time) and stored as a plain object.
+ *
+ * VECTOR PATH (non-empty featureId):
+ *   Filters un-parseable ids and features that match no registered target.
+ *   label() is resolved HERE (classify time) and stored as a plain object.
+ *
+ * RASTER PATH (empty featureId, W3.2):
+ *   Raster coverage hits have id="" (empty).  The epic annotates each feature
+ *   with _anugaLayerName (from action.layer.name) so we can match them here.
+ *   Only readOnly-tagged registry targets handle the raster path.  The value is
+ *   encoded in a SYNTHETIC featureId of the form "<layerName>#raster[=<val>]"
+ *   so it survives the candidate->panel->opener round-trip (C5 note: GRAY_INDEX
+ *   assumed; see rasterClickTargets.js).
  */
 export const buildCandidates = (featureCollection) => {
     const features = (featureCollection && featureCollection.features) || [];
     const candidates = [];
     features.forEach((feature) => {
         const featureId = feature && feature.id;
-        if (!featureId) { return; }              // filter empty-id (rasters)
+
+        // RASTER PATH — empty id but layer name was annotated by the classify$ stream
+        if (!featureId) {
+            const rawLayerName = feature && feature._anugaLayerName;
+            if (!rawLayerName) { return; }                      // no annotation, skip
+            const layerName = rawLayerName.replace(/^[^:./]+:/, '');  // strip workspace
+            const kind = resolveKind('', layerName);
+            if (!kind) { return; }                              // no registered raster target
+            const target = getClickTarget(kind);
+            if (!target || !target.readOnly) { return; }        // rasters must be readOnly
+            let label;
+            try {
+                label = target.label(feature);
+            } catch (e) {
+                label = null;
+            }
+            // Encode the band value in the synthetic featureId so buildOpenActions can
+            // recover it at click time (via the panel's resolveCandidateOpenActions path
+            // which passes only {id: candidate.featureId} — no original feature).
+            // The value lives in label.subtitle but encoding it in the id is more robust.
+            const rawValue = (() => {
+                // Mirror extractBandValue from rasterClickTargets without importing it
+                // (avoids potential circular dep); read GRAY_INDEX or first numeric prop.
+                const props = feature && feature.properties;
+                if (!props) { return null; }
+                if (typeof props.GRAY_INDEX === 'number') { return props.GRAY_INDEX; }
+                const first = Object.values(props).find((v) => typeof v === 'number');
+                return first !== undefined ? first : null;
+            })();
+            const syntheticFeatureId = rawValue !== null
+                ? `${layerName}#raster=${rawValue}`
+                : `${layerName}#raster`;
+            candidates.push({ kind, featureId: syntheticFeatureId, layerName, label: plainLabel(label) });
+            return;
+        }
+
+        // VECTOR PATH — parse featureId to extract layerName
         const parsed = parseFeatureId(featureId);
         if (!parsed) { return; }
         const { layerName } = parsed;
@@ -177,6 +222,20 @@ export const filterEditableCandidates = (candidates, state) =>
     (candidates || []).filter((c) => canEditCandidateLayer(c, state));
 
 /**
+ * W3 VISIBILITY GATE — for read-only targets (legacy view-attrs / raster
+ * readout), we respect layer VISIBILITY rather than edit permissions. A layer
+ * that is turned off in the map (visibility:false) should not produce a
+ * disambiguation candidate even in read-only mode. Falls through to false when
+ * the layer is absent from state.layers.flat (belt-and-suspenders).
+ */
+export const isLayerVisible = (candidate, state) => {
+    const layer = findLayerForCandidate(candidate, state);
+    if (!layer) { return false; }
+    // layer.visibility defaults to true; only explicit false hides it.
+    return layer.visibility !== false;
+};
+
+/**
  * TASK-1995 (W2.3) — true while a VectorDraw draw/edit phase is in progress.
  * Mirrors the swammContainer vectorDrawActive gate: any phase other than the
  * resting 'idle' / transient 'cancelling' means the user is mid-flow and the
@@ -221,12 +280,25 @@ export const buildClickActions = (allFeatures, store) => {
         // the deferred dock is released (pre-fix behaviour: the default popup may show).
         return [hideClickDisambiguation()];
     }
-    // Classify, then drop EDIT candidates on layers the user may not edit
-    // (TASK-1994 W2.2) before branching on the count.
-    const candidates = filterEditableCandidates(
-        buildCandidates({ type: 'FeatureCollection', features: allFeatures }),
+    // W3 (TASK-1996/1997) — C1 PERMS-GATE PARTITION:
+    // Classify ALL candidates (edit + read-only), then route them through separate
+    // gates before re-unioning for the 0/1/>=2 branch.
+    //
+    //   EDIT candidates   → filterEditableCandidates (canEditMap && canEditLayer)
+    //   READ-ONLY targets → isLayerVisible only (bypasses the edit-perms gate;
+    //                        registry target.readOnly === true is the tag)
+    //
+    // The registry lookup at candidate.kind drives the partition: if the registered
+    // target is flagged readOnly the candidate is read-only, otherwise it is edit.
+    const allCandidates = buildCandidates({ type: 'FeatureCollection', features: allFeatures });
+    const editCandidates = filterEditableCandidates(
+        allCandidates.filter((c) => !getClickTarget(c.kind)?.readOnly),
         state
     );
+    const readOnlyCandidates = allCandidates
+        .filter((c) => getClickTarget(c.kind)?.readOnly)
+        .filter((c) => isLayerVisible(c, state));
+    const candidates = [...editCandidates, ...readOnlyCandidates];
     if (candidates.length === 0) {
         // 0-candidate fallthrough (invariant #1): let the default Identify popup show.
         // hideClickDisambiguation() clears `aggregating` WITHOUT purging, so the
@@ -250,7 +322,12 @@ export const buildClickActions = (allFeatures, store) => {
     if (candidates.length === 1) {
         const candidate = candidates[0];
         const target = getClickTarget(candidate.kind);
-        const feature = allFeatures.find((f) => f && f.id === candidate.featureId);
+        // For VECTOR candidates, find the original GFI feature (has full properties).
+        // For RASTER candidates, featureId is a SYNTHETIC string (e.g. "ele_42_cog#raster=12.3")
+        // that won't match any real feature; fall back to {id: candidate.featureId} so the
+        // opener can recover the encoded band value via parseRasterFeatureId.
+        const feature = allFeatures.find((f) => f && f.id === candidate.featureId)
+            || { id: candidate.featureId };
         let openActions = [];
         try {
             openActions = target.buildOpenActions(feature, store.getState) || [];
@@ -302,10 +379,17 @@ export const clickDisambiguationEpic = (action$, store) => {
         .buffer(featureInfo$.debounceTime(CLICK_AGGREGATION_DEBOUNCE_MS))
         .filter((batch) => batch.length > 0)
         .switchMap((batch) => {
-            const allFeatures = batch.reduce(
-                (acc, action) => acc.concat((action.data && action.data.features) || []),
-                []
-            );
+            // W3.2 (TASK-1997) — annotate each feature with the layer name from the
+            // action so buildCandidates can identify raster features (featureId="")
+            // by their source layer. Vector features (non-empty featureId) already
+            // encode the layer name inside their id; rasters do not.
+            const allFeatures = batch.reduce((acc, action) => {
+                const features = (action.data && action.data.features) || [];
+                const layerName = action.layer && action.layer.name;
+                return acc.concat(features.map((f) =>
+                    layerName ? Object.assign({}, f, { _anugaLayerName: layerName }) : f
+                ));
+            }, []);
             return Rx.Observable.from(buildClickActions(allFeatures, store));
         });
     return Rx.Observable.merge(arm$, classify$);

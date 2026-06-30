@@ -59,7 +59,11 @@ export const registerClickTarget = (kind, target) => {
             : () => ({ title: kind, subtitle: '', icon: '' }),
         buildOpenActions: typeof target.buildOpenActions === 'function'
             ? target.buildOpenActions
-            : () => []
+            : () => [],
+        // W3 — read-only flag. true = this target is a view/readout, NOT an EDIT opener.
+        // The classifier epic routes read-only candidates AROUND the edit-perms gate
+        // (filterEditableCandidates) and instead checks layer visibility only.
+        readOnly: target.readOnly === true
     };
 };
 

@@ -40,6 +40,7 @@ import {
     clickDisambiguationEpic,
     buildCandidates,
     filterEditableCandidates,
+    isLayerVisible,
     isVectorDrawActive,
     anugaIdentifyEnableEpic,
     anugaIdentifyJsonFormatEpic
@@ -731,6 +732,403 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             cd = clickDisambiguationReducer(cd, hideClickDisambiguation());
             expect(mi.requests.length).toBe(1);     // not purged
             expect(gateOpen(mi, cd)).toBe(true);    // default Identify popup REVEALED
+        });
+    });
+
+    // =========================================================================
+    // W3 (TASK-1996/1997/1998) — read-only perms-gate partition (C1), raster
+    // candidate classification (C5), and 0/1/>=2 UX across all kinds.
+    // =========================================================================
+    describe('W3 — read-only perms-gate partition (C1, TASK-1996/1997)', () => {
+
+        // A readOnly target registered for 'ro_' prefix.
+        const registerReadOnlyTarget = () => {
+            registerClickTarget('ro_', {
+                match: (featureId, layerName) => !!featureId && String(layerName).startsWith('ro_'),
+                label: (f) => ({ title: 'Read Only', subtitle: f.properties?.name || '', icon: 'list' }),
+                buildOpenActions: (f) => [{ type: 'RO:VIEW', featureId: f.id }],
+                readOnly: true
+            });
+        };
+
+        // isLayerVisible helper tests
+        describe('isLayerVisible', () => {
+            const candidate = (layerName) => ({ kind: 'ro_', featureId: `${layerName}.1`, layerName });
+
+            it('returns true when layer.visibility is unset (default)', () => {
+                const state = { layers: { flat: [{ name: 'geonode:ro_1_x' }] } };
+                expect(isLayerVisible(candidate('ro_1_x'), state)).toBe(true);
+            });
+
+            it('returns true when layer.visibility is true', () => {
+                const state = { layers: { flat: [{ name: 'geonode:ro_1_x', visibility: true }] } };
+                expect(isLayerVisible(candidate('ro_1_x'), state)).toBe(true);
+            });
+
+            it('returns false when layer.visibility is false (layer turned off)', () => {
+                const state = { layers: { flat: [{ name: 'geonode:ro_1_x', visibility: false }] } };
+                expect(isLayerVisible(candidate('ro_1_x'), state)).toBe(false);
+            });
+
+            it('returns false when layer is absent from state.layers.flat (fail-closed)', () => {
+                expect(isLayerVisible(candidate('ro_1_x'), { layers: { flat: [] } })).toBe(false);
+            });
+        });
+
+        // C1: read-only candidate on a layer the user CANNOT edit still appears
+        describe('perms-gate partition via buildCandidates + filterEditableCandidates', () => {
+
+            beforeEach(() => {
+                cleanClickTargets();
+                // one edit target + one readOnly target
+                registerClickTarget('aaa_', {
+                    match: (id, ln) => String(ln).startsWith('aaa_'),
+                    label: () => ({ title: 'Edit', subtitle: '', icon: 'pencil' }),
+                    buildOpenActions: (f) => [{ type: 'AAA:OPEN', featureId: f.id }]
+                });
+                registerReadOnlyTarget();
+            });
+            afterEach(() => cleanClickTargets());
+
+            it('read-only candidate on non-editable layer is NOT dropped by filterEditableCandidates', () => {
+                // viewer role + no mapPerms => editCandidates filtered to []
+                // but the readOnly candidate bypasses the filter
+                const viewerState = {
+                    layers: { flat: [{ name: 'geonode:ro_1_x' }] },
+                    anuga: { projects: { data: { my_role: 'viewer' } } },
+                    security: { user: { pk: 1 } },
+                    gnresource: { initialResource: { perms: [] } }  // no change_resourcebase
+                };
+                const candidates = buildCandidates({ type: 'FeatureCollection', features: [
+                    { type: 'Feature', id: 'ro_1_x.3', properties: {} }
+                ] });
+                expect(candidates.length).toBe(1);
+                expect(candidates[0].kind).toBe('ro_');
+                // filterEditableCandidates only processes edit targets — it should NOT
+                // drop the readOnly candidate (it is not in its input set).
+                // Directly verify: filterEditableCandidates receives ONLY non-readOnly candidates
+                const editOnly = candidates.filter((c) => !store.getState && true);  // all
+                // Simulate the partition: readOnly candidates bypass the filter entirely
+                const editCandidates = filterEditableCandidates(
+                    candidates.filter((c) => c.kind !== 'ro_'),  // no edit candidates
+                    viewerState
+                );
+                const readOnlyCandidates = candidates.filter((c) => c.kind === 'ro_');
+                expect(editCandidates.length).toBe(0);
+                expect(readOnlyCandidates.length).toBe(1);
+                expect(readOnlyCandidates[0].kind).toBe('ro_');
+            });
+
+            it('epic: read-only candidate on a non-editable layer survives (C1)', (done) => {
+                // User is a viewer (can't edit), layer IS visible.
+                // The ro_ candidate should survive the W3 partition and trigger a direct open.
+                const viewerStore = { getState: () => ({
+                    layers: { flat: [{ name: 'geonode:ro_1_x', visibility: true }] },
+                    anuga: { projects: { data: { my_role: 'viewer' } } },
+                    security: { user: { pk: 1 } },
+                    gnresource: { initialResource: { perms: [] } }  // no edit perm
+                }) };
+                const action$ = makeActions$([{
+                    type: LOAD_FEATURE_INFO,
+                    data: { type: 'FeatureCollection', features: [{ type: 'Feature', id: 'ro_1_x.3', properties: {} }] },
+                    layer: { name: 'geonode:ro_1_x' }
+                }]);
+                const out = [];
+                clickDisambiguationEpic(action$, viewerStore).subscribe(
+                    (a) => out.push(a), done,
+                    () => {
+                        // 1 readOnly candidate -> teardown + HIDE + RO:VIEW
+                        expect(out.map((a) => a.type)).toEqual([
+                            PURGE_MAPINFO_RESULTS,
+                            HIDE_MAPINFO_MARKER,
+                            HIDE_CLICK_DISAMBIGUATION,
+                            'RO:VIEW'
+                        ]);
+                        expect(out[3].featureId).toBe('ro_1_x.3');
+                        expect(collectFunctionPaths(out)).toEqual([]);
+                        done();
+                    }
+                );
+            });
+
+            it('epic: read-only candidate on a hidden layer is dropped (visibility gate)', (done) => {
+                const hiddenLayerStore = { getState: () => ({
+                    layers: { flat: [{ name: 'geonode:ro_1_x', visibility: false }] },
+                    anuga: { projects: { data: { my_role: 'editor' } } },
+                    security: { user: { pk: 1 } },
+                    gnresource: { initialResource: { perms: ['change_resourcebase'] } }
+                }) };
+                const action$ = makeActions$([{
+                    type: LOAD_FEATURE_INFO,
+                    data: { type: 'FeatureCollection', features: [{ type: 'Feature', id: 'ro_1_x.3', properties: {} }] },
+                    layer: { name: 'geonode:ro_1_x' }
+                }]);
+                const out = [];
+                clickDisambiguationEpic(action$, hiddenLayerStore).subscribe(
+                    (a) => out.push(a), done,
+                    () => {
+                        // 0 candidates -> fallthrough
+                        expect(out.map((a) => a.type)).toEqual([HIDE_CLICK_DISAMBIGUATION]);
+                        done();
+                    }
+                );
+            });
+
+            it('epic: mixed edit+readOnly — both survive when user CAN edit', (done) => {
+                const editableStore = { getState: () => ({
+                    layers: { flat: [
+                        { name: 'geonode:aaa_1_alpha', perms: [] },
+                        { name: 'geonode:ro_1_x', visibility: true }
+                    ] },
+                    anuga: { projects: { data: { my_role: 'editor' } } },
+                    security: { user: { pk: 1 } },
+                    gnresource: { initialResource: { perms: ['change_resourcebase'] } }
+                }) };
+                const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
+                    feature('aaa_1_alpha.7'),
+                    feature('ro_1_x.3')
+                ), layer: null }]);
+                const out = [];
+                clickDisambiguationEpic(action$, editableStore).subscribe(
+                    (a) => out.push(a), done,
+                    () => {
+                        // 2 candidates (edit + readOnly) → panel shown
+                        expect(out.map((a) => a.type)).toEqual([
+                            PURGE_MAPINFO_RESULTS,
+                            HIDE_MAPINFO_MARKER,
+                            SHOW_CLICK_DISAMBIGUATION
+                        ]);
+                        expect(out[2].candidates.map((c) => c.kind).sort()).toEqual(['aaa_', 'ro_']);
+                        expect(collectFunctionPaths(out)).toEqual([]);
+                        done();
+                    }
+                );
+            });
+
+            it('epic: edit dropped (no perm) + readOnly survives → 1 candidate opens directly (W3.3)', (done) => {
+                // Viewer can't edit aaa_, but ro_ is visible.
+                const viewerStore2 = { getState: () => ({
+                    layers: { flat: [
+                        { name: 'geonode:aaa_1_alpha', perms: [] },
+                        { name: 'geonode:ro_1_x', visibility: true }
+                    ] },
+                    anuga: { projects: { data: { my_role: 'viewer' } } },
+                    security: { user: { pk: 1 } },
+                    gnresource: { initialResource: { perms: [] } }
+                }) };
+                const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
+                    feature('aaa_1_alpha.7'),
+                    feature('ro_1_x.3')
+                ), layer: null }]);
+                const out = [];
+                clickDisambiguationEpic(action$, viewerStore2).subscribe(
+                    (a) => out.push(a), done,
+                    () => {
+                        // edit dropped -> only ro_ survives -> 1 candidate -> direct open
+                        expect(out.map((a) => a.type)).toEqual([
+                            PURGE_MAPINFO_RESULTS,
+                            HIDE_MAPINFO_MARKER,
+                            HIDE_CLICK_DISAMBIGUATION,
+                            'RO:VIEW'
+                        ]);
+                        expect(out[3].featureId).toBe('ro_1_x.3');
+                        done();
+                    }
+                );
+            });
+        });
+    });
+
+    describe('W3 — raster candidate classification (C5, TASK-1997)', () => {
+
+        const registerRasterTarget = () => {
+            registerClickTarget('fri_raster_', {
+                match: (featureId, layerName) => String(layerName).startsWith('fri_raster_'),
+                label: (f) => {
+                    const v = f && f.properties && typeof f.properties.GRAY_INDEX === 'number'
+                        ? f.properties.GRAY_INDEX : null;
+                    return {
+                        title: 'Friction raster',
+                        subtitle: v !== null ? `Mannings n = ${v}` : 'Value unavailable',
+                        icon: 'check-circle'
+                    };
+                },
+                buildOpenActions: (f) => [{ type: 'RASTER:READOUT', id: f.id }],
+                readOnly: true
+            });
+        };
+
+        beforeEach(() => { cleanClickTargets(); registerRasterTarget(); });
+        afterEach(() => cleanClickTargets());
+
+        it('buildCandidates includes a raster feature annotated with _anugaLayerName', () => {
+            const rasterFeature = {
+                type: 'Feature',
+                id: '',
+                properties: { GRAY_INDEX: 0.04 },
+                _anugaLayerName: 'geonode:fri_raster_4_friction'
+            };
+            const candidates = buildCandidates({ type: 'FeatureCollection', features: [rasterFeature] });
+            expect(candidates.length).toBe(1);
+            expect(candidates[0].kind).toBe('fri_raster_');
+            expect(candidates[0].layerName).toBe('fri_raster_4_friction');
+            // Synthetic featureId encodes the band value
+            expect(candidates[0].featureId).toContain('fri_raster_4_friction#raster');
+            expect(candidates[0].label.subtitle).toBe('Mannings n = 0.04');
+        });
+
+        it('buildCandidates: raster feature without _anugaLayerName is still skipped', () => {
+            const rasterFeature = { type: 'Feature', id: '', properties: { GRAY_INDEX: 0.04 } };
+            const candidates = buildCandidates({ type: 'FeatureCollection', features: [rasterFeature] });
+            expect(candidates.length).toBe(0);
+        });
+
+        it('buildCandidates: raster candidate featureId is structuredClone-safe (D6)', () => {
+            const rasterFeature = {
+                type: 'Feature', id: '',
+                properties: { GRAY_INDEX: 0.04 },
+                _anugaLayerName: 'fri_raster_4_friction'
+            };
+            const candidates = buildCandidates({ type: 'FeatureCollection', features: [rasterFeature] });
+            expect(collectFunctionPaths(candidates)).toEqual([]);
+            expect(() => structuredClone(candidates)).toNotThrow();
+        });
+
+        it('epic: raster feature is classified via _anugaLayerName annotation (C5)', (done) => {
+            const rasterStore = { getState: () => ({
+                layers: { flat: [{ name: 'geonode:fri_raster_4_friction', visibility: true }] },
+                anuga: { projects: { data: { my_role: 'viewer' } } },
+                security: { user: { pk: 1 } },
+                gnresource: { initialResource: { perms: [] } }
+            }) };
+            const action$ = makeActions$([{
+                type: LOAD_FEATURE_INFO,
+                data: { type: 'FeatureCollection', features: [
+                    { type: 'Feature', id: '', properties: { GRAY_INDEX: 0.04 } }
+                ] },
+                layer: { name: 'geonode:fri_raster_4_friction' }
+            }]);
+            const out = [];
+            clickDisambiguationEpic(action$, rasterStore).subscribe(
+                (a) => out.push(a), done,
+                () => {
+                    // 1 readOnly raster candidate -> direct opener
+                    expect(out.map((a) => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS,
+                        HIDE_MAPINFO_MARKER,
+                        HIDE_CLICK_DISAMBIGUATION,
+                        'RASTER:READOUT'
+                    ]);
+                    // featureId in opener is the synthetic id
+                    expect(out[3].id).toContain('fri_raster_4_friction#raster');
+                    expect(collectFunctionPaths(out)).toEqual([]);
+                    done();
+                }
+            );
+        });
+    });
+
+    describe('W3.3 — 0/1/>=2 branch UX across all kinds (TASK-1998)', () => {
+
+        beforeEach(() => {
+            cleanClickTargets();
+            // Edit target
+            registerClickTarget('aaa_', {
+                match: (id, ln) => String(ln).startsWith('aaa_'),
+                label: () => ({ title: 'Edit', subtitle: '', icon: 'pencil' }),
+                buildOpenActions: (f) => [{ type: 'AAA:OPEN', featureId: f.id }]
+            });
+            // ReadOnly target
+            registerClickTarget('ro_', {
+                match: (id, ln) => !!id && String(ln).startsWith('ro_'),
+                label: () => ({ title: 'ReadOnly', subtitle: '', icon: 'list' }),
+                buildOpenActions: (f) => [{ type: 'RO:VIEW', featureId: f.id }],
+                readOnly: true
+            });
+        });
+        afterEach(() => cleanClickTargets());
+
+        const editableState = {
+            layers: { flat: [
+                { name: 'geonode:aaa_1_alpha', perms: [], visibility: true },
+                { name: 'geonode:ro_1_x', visibility: true }
+            ] },
+            anuga: { projects: { data: { my_role: 'editor' } } },
+            security: { user: { pk: 1 } },
+            gnresource: { initialResource: { perms: ['change_resourcebase'] } }
+        };
+
+        it('0 candidates (no registered layers hit) → fallthrough to default Identify (W3.3 AC2)', (done) => {
+            const zeroStore = { getState: () => editableState };
+            const action$ = makeActions$([{
+                type: LOAD_FEATURE_INFO,
+                data: fc(feature('zzz_9_other.1')),
+                layer: null
+            }]);
+            const out = [];
+            clickDisambiguationEpic(action$, zeroStore).subscribe(
+                (a) => out.push(a), done,
+                () => { expect(out.map((a) => a.type)).toEqual([HIDE_CLICK_DISAMBIGUATION]); done(); }
+            );
+        });
+
+        it('1 readOnly candidate → opens directly, no list (W3.3 AC1)', (done) => {
+            const oneReadOnlyStore = { getState: () => editableState };
+            const action$ = makeActions$([{
+                type: LOAD_FEATURE_INFO,
+                data: fc(feature('ro_1_x.3')),
+                layer: null
+            }]);
+            const out = [];
+            clickDisambiguationEpic(action$, oneReadOnlyStore).subscribe(
+                (a) => out.push(a), done,
+                () => {
+                    expect(out.map((a) => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS, HIDE_MAPINFO_MARKER, HIDE_CLICK_DISAMBIGUATION, 'RO:VIEW'
+                    ]);
+                    done();
+                }
+            );
+        });
+
+        it('1 edit candidate → opens directly, no list (W3.3 AC1)', (done) => {
+            const oneEditStore = { getState: () => editableState };
+            const action$ = makeActions$([{
+                type: LOAD_FEATURE_INFO,
+                data: fc(feature('aaa_1_alpha.7')),
+                layer: null
+            }]);
+            const out = [];
+            clickDisambiguationEpic(action$, oneEditStore).subscribe(
+                (a) => out.push(a), done,
+                () => {
+                    expect(out.map((a) => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS, HIDE_MAPINFO_MARKER, HIDE_CLICK_DISAMBIGUATION, 'AAA:OPEN'
+                    ]);
+                    done();
+                }
+            );
+        });
+
+        it('>=2 candidates (1 edit + 1 readOnly) → shows list (W3.3 AC3)', (done) => {
+            const twoStore = { getState: () => editableState };
+            const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
+                feature('aaa_1_alpha.7'),
+                feature('ro_1_x.3')
+            ), layer: null }]);
+            const out = [];
+            clickDisambiguationEpic(action$, twoStore).subscribe(
+                (a) => out.push(a), done,
+                () => {
+                    expect(out.map((a) => a.type)).toEqual([
+                        PURGE_MAPINFO_RESULTS, HIDE_MAPINFO_MARKER, SHOW_CLICK_DISAMBIGUATION
+                    ]);
+                    // Both kinds in the panel
+                    const kinds = out[2].candidates.map((c) => c.kind).sort();
+                    expect(kinds).toEqual(['aaa_', 'ro_']);
+                    done();
+                }
+            );
         });
     });
 });

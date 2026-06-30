@@ -90,8 +90,16 @@ import {
 // registerDiscriminator(...) module-load registration; kept out of
 // anugaClickTargets.js itself so the W1 unit tests can clean() the registry.
 import { registerAnugaClickTargets } from "./anugaClickTargets";
+// TASK-1996 (epic 1969 W3.1) — register the 7 legacy FeatureGrid prefixes as
+// read-only view-attributes openers.
+import { registerLegacyClickTargets } from "./legacyClickTargets";
+// TASK-1997 (epic 1969 W3.2) — register raster (fri_raster_, terrain COG)
+// prefixes as read-only value-readout openers.
+import { registerRasterClickTargets } from "./rasterClickTargets";
 
 registerAnugaClickTargets();
+registerLegacyClickTargets();
+registerRasterClickTargets();
 // TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
 import {
     twLoadDataEpic,

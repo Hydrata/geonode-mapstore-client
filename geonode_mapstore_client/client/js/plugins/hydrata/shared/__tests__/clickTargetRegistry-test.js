@@ -131,6 +131,49 @@ describe('clickTargetRegistry (TASK-1990 W1.1)', () => {
         });
     });
 
+    describe('readOnly field (W3)', () => {
+
+        it('stores readOnly:true on a target registered with readOnly:true', () => {
+            registerClickTarget('ro_', {
+                match: () => true,
+                label: () => ({ title: 'RO', subtitle: '', icon: 'list' }),
+                buildOpenActions: () => [],
+                readOnly: true
+            });
+            expect(getClickTarget('ro_').readOnly).toBe(true);
+        });
+
+        it('readOnly defaults to false when not specified', () => {
+            registerClickTarget('rw_', {
+                match: () => true,
+                buildOpenActions: () => [{ type: 'RW:OPEN' }]
+            });
+            expect(getClickTarget('rw_').readOnly).toBe(false);
+        });
+
+        it('readOnly:false stays false', () => {
+            registerClickTarget('rw2_', {
+                match: () => true,
+                readOnly: false
+            });
+            expect(getClickTarget('rw2_').readOnly).toBe(false);
+        });
+
+        it('readOnly does not affect match / label / buildOpenActions behaviour', () => {
+            registerClickTarget('ro2_', {
+                match: (id) => id === 'ro2_test.1',
+                label: () => ({ title: 'T', subtitle: 'S', icon: 'I' }),
+                buildOpenActions: () => [{ type: 'RO2:OPEN' }],
+                readOnly: true
+            });
+            const t = getClickTarget('ro2_');
+            expect(t.readOnly).toBe(true);
+            expect(t.match('ro2_test.1', 'ro2_test')).toBe(true);
+            expect(t.label({})).toEqual({ title: 'T', subtitle: 'S', icon: 'I' });
+            expect(t.buildOpenActions({})).toEqual([{ type: 'RO2:OPEN' }]);
+        });
+    });
+
     describe('parseFeatureId', () => {
 
         it('splits "<layerName>.<fid>" on the LAST dot', () => {
