@@ -1493,6 +1493,20 @@ describe('Hydrology Plugin', () => {
             expect(saveArgs.cells[0].duration_min).toBe(60);
             cleanup(container);
         });
+
+        // TASK-2011 (W3b): the saved cell carries the Temporal Pattern item id
+        // so the BE can re-key the REPLACE per item (two SCS-II presets no longer
+        // clobber each other). selectedPattern='51' -> temporal_pattern_id 51.
+        it('TASK-2011: saving a ticked cell includes temporal_pattern_id', () => {
+            let saveArgs = null;
+            const container = renderDerive({onSave: (cells, idfId) => { saveArgs = {cells, idfId}; }});
+            act(() => { container.querySelector('[id="ds-derive-tick-SCS_TYPE_II|100|60"]').click(); });
+            act(() => { container.querySelector('#sv-ds-derive-save-btn').click(); });
+            expect(saveArgs).toExist();
+            expect(saveArgs.cells.length).toBe(1);
+            expect(saveArgs.cells[0].temporal_pattern_id).toBe(51);
+            cleanup(container);
+        });
     });
 
     // TASK-2009 (epic-2001 W2d) — the action button reads 'Derive' (new i18n

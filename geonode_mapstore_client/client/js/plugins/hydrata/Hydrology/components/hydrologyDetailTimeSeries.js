@@ -1258,7 +1258,18 @@ const DesignStormDerive = ({
     //     (a fixed 60 would 400 a 5/10/30-min duration). (Decision D3.)
     // TASK-2007 (W2a): cells carry the RESOLVED BE pattern (patternKey) — and,
     // for a custom-curve item, the custom_curve threaded into the W2c batch.
-    const buildCells = useCallback((patternKey, customCurve) => {
+    // TASK-2011 (W3b): the selected Temporal Pattern ITEM id. After W2a's strict
+    // dropdown every derive/save targets a real project item, so this is always
+    // available. It re-keys the BE mode='save' REPLACE on (idf, temporal_pattern_id)
+    // so two items sharing a pattern_key (two SCS-II presets, or two custom items)
+    // don't clobber each other's auto-derived rows. Coerced to Number — the option
+    // value is the id as a string.
+    const selectedTemporalPatternId =
+        selectedItem && selectedItem.id !== null && selectedItem.id !== undefined
+            ? Number(selectedItem.id)
+            : null;
+
+    const buildCells = useCallback((patternKey, customCurve, temporalPatternId) => {
         if (!selectedIdfTableId || !selectedTable || !patternKey) return [];
         const {durations, aris} = deriveMatrixAxes(selectedTable);
         const cells = [];
@@ -1270,6 +1281,12 @@ const DesignStormDerive = ({
                     duration_min: duration,
                     timestep_min: pickTimestep(duration)
                 };
+                // TASK-2011: tag each cell with the Temporal Pattern item id so
+                // the BE save can re-key the REPLACE per item (additive — a cell
+                // without it falls back to the legacy pattern-keyed REPLACE).
+                if (temporalPatternId !== null && temporalPatternId !== undefined) {
+                    cell.temporal_pattern_id = temporalPatternId;
+                }
                 // Only a custom-curve item carries custom_curve (additive; the
                 // BE ignores it for non-custom patterns).
                 if (patternKey === CUSTOM && customCurve) {
@@ -1285,7 +1302,9 @@ const DesignStormDerive = ({
     // the DesignStormsBrowser auto-refresh useEffect (lines 321-325).
     useEffect(() => {
         if (selectedIdfTableId && selectedPatternKey && !previewInFlight) {
-            const cells = buildCells(selectedPatternKey, selectedCustomCurve);
+            const cells = buildCells(
+                selectedPatternKey, selectedCustomCurve, selectedTemporalPatternId
+            );
             if (cells.length > 0) {
                 onPreview(cells, Number(selectedIdfTableId), 60);
             }
@@ -1339,6 +1358,14 @@ const DesignStormDerive = ({
                     // (never a fixed 60, which would 400 a sub-60-min duration).
                     timestep_min: p.timestep_min || pickTimestep(p.duration_min)
                 };
+                // TASK-2011 (W3b): re-attach the Temporal Pattern item id on save
+                // (the preview echo does not carry it back) so the BE keys the
+                // REPLACE per item — two items sharing a pattern_key no longer
+                // clobber each other's auto-derived rows.
+                if (selectedTemporalPatternId !== null
+                    && selectedTemporalPatternId !== undefined) {
+                    cell.temporal_pattern_id = selectedTemporalPatternId;
+                }
                 // TASK-2007 (W2a): re-thread the custom_curve on save so the W2c
                 // save batch can derive the custom row (the preview echo does not
                 // carry the curve back).
