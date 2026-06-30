@@ -47,6 +47,8 @@ import {
 } from '../actionsHydrology';
 import {PRESET_FAMILIES, ALTERNATING_BLOCK, CUSTOM} from '../temporalPatternPresets';
 import ManualPasteGrid from './ManualPasteGrid';
+// TASK-2008 (epic-2001 W2b) — shared RP x duration tick/cross matrix primitive.
+import MatrixGrid from './MatrixGrid';
 // TASK-1760 (epic-1758 W1) — chassis primitives. Card carries the dark-glass
 // frame for the design-storm cards (default variant) and the dark-frame/light-body
 // carve-out for the recharts hyetograph cards (variant="chart", TASK-1534).
@@ -326,6 +328,35 @@ export function resolveDerivePattern(item) {
     }
     // preset (or a legacy row with only pattern_key set).
     return {patternKey: item.pattern_key || null, customCurve: null};
+}
+
+/**
+ * TASK-2008 (epic-2001 W2b) — derive the RP x duration matrix axes from a FE
+ * IDF table object. The FE represents an IDF as a grid (columnDefs = RP columns
+ * + a duration column; rowData = one row per duration), so the axes come from
+ * there — NOT from return_periods_yr / durations_min arrays (which the FE IDF
+ * object does not carry). Shared by buildCells (preview/save) and the matrix
+ * render so the cells and the grid axes never drift.
+ *   - durations: each rowData row's positive `duration`.
+ *   - aris: the RP columns (every columnDef except `duration`) that carry at
+ *     least one non-zero intensity, parsed from the header (e.g. "100yr ARI"
+ *     -> 100). An all-zero column = no IDF data for that RP -> dropped.
+ *
+ * @returns {{durations: number[], aris: number[]}}
+ */
+export function deriveMatrixAxes(table) {
+    if (!table) return {durations: [], aris: []};
+    const columnDefs = table.columnDefs || [];
+    const rowData = table.rowData || [];
+    const durations = rowData
+        .map(r => Number(r.duration))
+        .filter(d => d > 0);
+    const aris = columnDefs
+        .filter(c => c.accessorKey && c.accessorKey !== 'duration')
+        .filter(c => rowData.some(r => Number(r[c.accessorKey]) > 0))
+        .map(c => parseFloat(String(c.header || c.id).replace(/[^0-9.]/g, '')))
+        .filter(v => v > 0);
+    return {durations, aris};
 }
 
 const PreviewCard = ({preview, isFocused, onFocus, onAttach, attachInFlight, rainfallPk}) => {
@@ -1229,17 +1260,7 @@ const DesignStormDerive = ({
     // for a custom-curve item, the custom_curve threaded into the W2c batch.
     const buildCells = useCallback((patternKey, customCurve) => {
         if (!selectedIdfTableId || !selectedTable || !patternKey) return [];
-        const columnDefs = selectedTable.columnDefs || [];
-        const rowData = selectedTable.rowData || [];
-        const durations = rowData
-            .map(r => Number(r.duration))
-            .filter(d => d > 0);
-        const aris = columnDefs
-            .filter(c => c.accessorKey && c.accessorKey !== 'duration')
-            // keep only RP columns that carry at least one non-zero intensity
-            .filter(c => rowData.some(r => Number(r[c.accessorKey]) > 0))
-            .map(c => parseFloat(String(c.header || c.id).replace(/[^0-9.]/g, '')))
-            .filter(v => v > 0);
+        const {durations, aris} = deriveMatrixAxes(selectedTable);
         const cells = [];
         for (const ari of aris) {
             for (const duration of durations) {
@@ -1274,6 +1295,28 @@ const DesignStormDerive = ({
     // Filter previews to the resolved BE pattern key (the preview echoes the BE
     // pattern, e.g. 'custom' / 'SCS_TYPE_II', NOT the TemporalPattern id).
     const patternPreviews = (previews || []).filter(p => p.pattern === selectedPatternKey);
+
+    // TASK-2008 (W2b): RP x duration matrix. Rows = durations, cols = return
+    // periods (both off the selected IDF). A cell is DERIVABLE iff a preview
+    // exists for that (ari, duration); a non-derivable cell renders a disabled
+    // cross (mirrors the BE silent-skip — e.g. a sparse-IDF gap). The tick key
+    // matches the preview's previewKey so save (handleSave) is unchanged.
+    const {durations: matrixDurations, aris: matrixAris} = deriveMatrixAxes(selectedTable);
+    const previewByCell = new Map(
+        patternPreviews.map(p => [`${p.ari}|${p.duration_min}`, p])
+    );
+    const matrixRows = matrixDurations.map(d => ({
+        key: String(d),
+        duration: d,
+        label: d >= 60 ? `${(d / 60).toFixed(1)} hr` : `${d} min`,
+        title: `${d} min duration`
+    }));
+    const matrixCols = matrixAris.map(ari => ({
+        key: String(ari),
+        ari,
+        label: `${ari}yr`,
+        title: `${ari}-year ARI`
+    }));
 
     const toggleTick = (key) => {
         setTicked(prev => {
@@ -1379,29 +1422,43 @@ const DesignStormDerive = ({
                             <p className="sv-design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>
                                 <Message msgId="hydrata.hydrology.deriveTickToSave" />
                             </p>
-                            {patternPreviews.map(preview => {
-                                const key = previewKey(preview);
-                                const checked = ticked.has(key);
-                                return (
-                                    <div key={key} className="sv-ds-derive-preview-row" style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
-                                        <input
-                                            type="checkbox"
-                                            className="sv-ds-derive-tick"
-                                            checked={checked}
-                                            onChange={() => toggleTick(key)}
+                            {/* TASK-2008 (W2b): RP x duration tick/cross matrix. */}
+                            <MatrixGrid
+                                tableId="ds-derive-matrix"
+                                className="sv-ds-derive-matrix"
+                                cornerLabel={<Message msgId="hydrata.hydrology.duration" />}
+                                rows={matrixRows}
+                                cols={matrixCols}
+                                renderCell={(row, col) => {
+                                    const preview = previewByCell.get(`${col.ari}|${row.duration}`);
+                                    if (!preview) {
+                                        // Non-derivable (e.g. sparse-IDF gap): disabled cross.
+                                        return (
+                                            <span
+                                                className="sv-ds-derive-cell sv-ds-derive-cell--disabled"
+                                                title={`No IDF data for ${col.ari}yr / ${row.label} — cannot derive`}
+                                                aria-label="not derivable"
+                                            >✕</span>
+                                        );
+                                    }
+                                    const key = previewKey(preview);
+                                    const checked = ticked.has(key);
+                                    const depth = preview.total_depth_mm != null
+                                        ? `${preview.total_depth_mm.toFixed(1)} mm`
+                                        : '';
+                                    return (
+                                        <button
+                                            type="button"
                                             id={`ds-derive-tick-${key}`}
-                                            aria-label={`Select ${key}`}
-                                        />
-                                        <label htmlFor={`ds-derive-tick-${key}`} style={{flex: 1, margin: 0, cursor: 'pointer'}}>
-                                            <PreviewCard
-                                                preview={preview}
-                                                isFocused={false}
-                                                onFocus={() => {}}
-                                            />
-                                        </label>
-                                    </div>
-                                );
-                            })}
+                                            className={`sv-ds-derive-cell sv-ds-derive-tick${checked ? ' sv-ds-derive-cell--ticked' : ''}`}
+                                            aria-pressed={checked}
+                                            aria-label={`${checked ? 'Deselect' : 'Select'} ${col.ari}yr ${row.label}`}
+                                            title={`${col.ari}yr / ${row.label}${depth ? ' — ' + depth : ''}`}
+                                            onClick={() => toggleTick(key)}
+                                        >{checked ? '✓' : ''}</button>
+                                    );
+                                }}
+                            />
                             {/* Save these N button */}
                             <div style={{marginTop: 10, display: 'flex', alignItems: 'center', gap: 10}}>
                                 <button

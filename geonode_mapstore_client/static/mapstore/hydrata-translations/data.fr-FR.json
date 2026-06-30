@@ -423,6 +423,7 @@
         "deriveRegenerate": "Régénérer",
         "deriveTickToSave": "Cochez les tempêtes à enregistrer",
         "deriveNoTemporalPatterns": "Aucun patron temporel dans ce projet. Créez d'abord un patron temporel, puis dérivez-en des tempêtes de projet.",
+        "duration": "Durée",
         "filterToggle": "Rechercher des éléments",
         "filterPlaceholder": "Rechercher par nom…",
         "success": "Succès",

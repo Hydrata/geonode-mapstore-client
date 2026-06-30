@@ -1357,4 +1357,141 @@ describe('Hydrology Plugin', () => {
             cleanup(container);
         });
     });
+
+    // TASK-2008 (epic-2001 W2b) — the Derive preview is a shared MatrixGrid
+    // primitive: a RP (columns) x duration (rows) tick/cross grid for the single
+    // selected Temporal Pattern. Derivable cells (a preview exists) are tick
+    // toggles; non-derivable cells render a disabled cross.
+    describe('TASK-2008 MatrixGrid RP x duration derive matrix', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { act } = require('react-dom/test-utils');
+        const MatrixGrid = require('../components/MatrixGrid').default;
+        const { DesignStormDerive } = require('../components/hydrologyDetailTimeSeries');
+
+        const renderEl = (el) => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            act(() => { ReactDOM.render(el, container); });
+            return container;
+        };
+        const cleanup = (container) => {
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        };
+
+        // AC4 (primitive): MatrixGrid renders corner + col headers + row headers
+        // + a cell per (row, col) via renderCell, with no IDF-edit coupling.
+        it('AC4: MatrixGrid renders a corner, column headers, row headers and cells', () => {
+            const rows = [{key: '60', label: '60 min'}, {key: '360', label: '6.0 hr'}];
+            const cols = [{key: '10', label: '10yr'}, {key: '100', label: '100yr'}];
+            const container = renderEl(React.createElement(MatrixGrid, {
+                tableId: 'test-matrix',
+                cornerLabel: 'Duration',
+                rows,
+                cols,
+                renderCell: (row, col) => `${row.key}:${col.key}`
+            }));
+            const table = container.querySelector('#test-matrix');
+            expect(table).toExist();
+            const headerCells = table.querySelectorAll('thead th');
+            // corner + 2 col headers
+            expect(headerCells.length).toBe(3);
+            const bodyRows = table.querySelectorAll('tbody tr');
+            expect(bodyRows.length).toBe(2);
+            // each body row: 1 row-header + 2 cells
+            expect(bodyRows[0].querySelectorAll('td').length).toBe(3);
+            // no IDF intensity-edit input leaked into the primitive
+            expect(table.querySelector('.sv-idf-matrix-input')).toBe(null);
+            cleanup(container);
+        });
+
+        const idfTables = [{
+            id: 7,
+            name: 'IDF 7',
+            columnDefs: [
+                {accessorKey: 'duration', header: 'Duration'},
+                {accessorKey: 'rp10', header: '10yr ARI'},
+                {accessorKey: 'rp100', header: '100yr ARI'}
+            ],
+            rowData: [
+                {duration: 60, rp10: 8.0, rp100: 18.0},
+                {duration: 360, rp10: 3.0, rp100: 7.0}
+            ]
+        }];
+        const temporalPatterns = [
+            {id: 51, name: 'SCS II', pattern_type: 'preset', pattern_key: 'SCS_TYPE_II'}
+        ];
+        // Previews echo the BE pattern key + ari/duration_min/total_depth_mm.
+        const previews = [
+            {pattern: 'SCS_TYPE_II', ari: 10, duration_min: 60, timestep_min: 5, total_depth_mm: 8.0},
+            {pattern: 'SCS_TYPE_II', ari: 100, duration_min: 60, timestep_min: 5, total_depth_mm: 18.0},
+            {pattern: 'SCS_TYPE_II', ari: 10, duration_min: 360, timestep_min: 15, total_depth_mm: 18.0}
+            // (100yr / 360min intentionally MISSING -> non-derivable cell)
+        ];
+        const deriveProps = {
+            idfTables,
+            temporalPatterns,
+            selectedIdfTableId: 7,
+            selectedPattern: '51',
+            onChange: () => {},
+            previews,
+            previewInFlight: false,
+            saveInFlight: false,
+            lastSavedCount: null,
+            onPreview: () => {},
+            onSave: () => {}
+        };
+        const renderDerive = (props) => renderEl(
+            React.createElement(DesignStormDerive, {...deriveProps, ...props})
+        );
+
+        // AC1: the matrix renders for the selected pattern.
+        it('AC1: a RP x duration matrix renders in the derive panel', () => {
+            const container = renderDerive();
+            const matrix = container.querySelector('#ds-derive-matrix');
+            expect(matrix).toExist();
+            // 2 durations -> 2 body rows; 2 RP cols.
+            expect(matrix.querySelectorAll('tbody tr').length).toBe(2);
+            expect(matrix.querySelectorAll('thead th').length).toBe(3); // corner + 2 RP
+            cleanup(container);
+        });
+
+        // AC3: the missing (100yr / 360min) cell renders a disabled cross.
+        it('AC3: a non-derivable cell renders a disabled cross', () => {
+            const container = renderDerive();
+            const disabled = container.querySelectorAll('.sv-ds-derive-cell--disabled');
+            expect(disabled.length).toBe(1);
+            expect(disabled[0].textContent).toBe('✕');
+            cleanup(container);
+        });
+
+        // AC2: ticking a derivable cell selects it (maps to the right preview).
+        it('AC2: ticking a derivable cell toggles its tick state', () => {
+            const container = renderDerive();
+            // previewKey for (SCS_TYPE_II, 10, 60)
+            const tickBtn = container.querySelector('[id="ds-derive-tick-SCS_TYPE_II|10|60"]');
+            expect(tickBtn).toExist();
+            expect(tickBtn.getAttribute('aria-pressed')).toBe('false');
+            act(() => { tickBtn.click(); });
+            const after = container.querySelector('[id="ds-derive-tick-SCS_TYPE_II|10|60"]');
+            expect(after.getAttribute('aria-pressed')).toBe('true');
+            cleanup(container);
+        });
+
+        // AC5: a ticked cell saved via handleSave maps to the right BE cell.
+        it('AC2/AC5: saving a ticked cell dispatches the right {pattern, ari, duration_min}', () => {
+            let saveArgs = null;
+            const container = renderDerive({onSave: (cells, idfId) => { saveArgs = {cells, idfId}; }});
+            act(() => { container.querySelector('[id="ds-derive-tick-SCS_TYPE_II|100|60"]').click(); });
+            act(() => { container.querySelector('#sv-ds-derive-save-btn').click(); });
+            expect(saveArgs).toExist();
+            expect(saveArgs.idfId).toBe(7);
+            expect(saveArgs.cells.length).toBe(1);
+            expect(saveArgs.cells[0].pattern).toBe('SCS_TYPE_II');
+            expect(saveArgs.cells[0].ari).toBe(100);
+            expect(saveArgs.cells[0].duration_min).toBe(60);
+            cleanup(container);
+        });
+    });
 });
