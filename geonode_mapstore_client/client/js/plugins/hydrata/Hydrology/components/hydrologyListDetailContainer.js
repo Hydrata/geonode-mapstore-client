@@ -549,11 +549,14 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 // (TASK-1556). Design Storms and Hydrographs share the
                                                 // same editor verbatim; the only distinction is
                                                 // series_type and the Redux slice they read from.
+                                                // TASK-2024 (W5.2): hideDerive=true on the Hydrographs
+                                                // page — IDF->rainfall derivation is meaningless for flow.
                                                 return this.state.tsCreateMode
                                                     ? <HydrologyTimeSeriesCreatePanel
                                                         activeTab={this.state.tsCreateTab}
                                                         onTabChange={(tab) => this.setState({tsCreateTab: tab})}
                                                         onBack={() => this.exitTimeSeriesCreate()}
+                                                        hideDerive={this.props.activeHydrologyPage === 'hydrographs'}
                                                     />
                                                     : <HydrologyDetailTimeSeries/>;
                                             default:

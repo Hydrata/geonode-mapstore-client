@@ -1262,6 +1262,10 @@ const DesignStormCreatePanel = ({
     temporalPatterns,
     activeTab,
     onTabChange,
+    // TASK-2024 (W5.2): when true (Hydrographs page), hide the Derive button + body.
+    // Derive = IDF->design-storm rainfall derivation, meaningless for flow hydrographs.
+    // Design Storms pass hideDerive=false (default) — their Derive flow is unaffected.
+    hideDerive,
     // TASK-1561 (W3b) — projection/save props threaded from connect
     previews,
     previewInFlight,
@@ -1275,33 +1279,39 @@ const DesignStormCreatePanel = ({
     // Derive-tab selections are LOCAL — kept here so clearing IDF/pattern
     // cancels any in-flight preview at source.
     const [deriveSpec, setDeriveSpec] = useState({selectedIdfTableId: null, selectedPattern: ALTERNATING_BLOCK});
-    const tab = activeTab || 'input';
+    // When hideDerive, force tab to 'input' regardless of caller state — a stale
+    // tsCreateTab='derive' must not leak DesignStormDerive into the Hydrographs panel.
+    const tab = (hideDerive || !activeTab) ? 'input' : activeTab;
 
     return (
         <div id="design-storm-create-panel">
-            {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup. */}
-            <div className="sv-hydrology-idf-subtoggle" role="group" aria-label="Create mode">
-                <button
-                    id="ds-create-tab-input"
-                    type="button"
-                    className={'sv-hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
-                    onClick={() => onTabChange('input')}
-                >
-                    <Message msgId="hydrata.hydrology.idfModeManual" />
-                </button>
-                <button
-                    id="ds-create-tab-derive"
-                    type="button"
-                    className={'sv-hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
-                    onClick={() => onTabChange('derive')}
-                >
-                    <Message msgId="hydrata.hydrology.idfModeDerive" />
-                </button>
-            </div>
+            {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup.
+                TASK-2024: hidden on the Hydrographs page (hideDerive=true). */}
+            {!hideDerive && (
+                <div className="sv-hydrology-idf-subtoggle" role="group" aria-label="Create mode">
+                    <button
+                        id="ds-create-tab-input"
+                        type="button"
+                        className={'sv-hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
+                        onClick={() => onTabChange('input')}
+                    >
+                        <Message msgId="hydrata.hydrology.idfModeManual" />
+                    </button>
+                    <button
+                        id="ds-create-tab-derive"
+                        type="button"
+                        className={'sv-hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
+                        onClick={() => onTabChange('derive')}
+                    >
+                        <Message msgId="hydrata.hydrology.idfModeDerive" />
+                    </button>
+                </div>
+            )}
 
             {/* Active tab body */}
             <div style={{marginTop: 10}}>
-                {tab === 'derive' ? (
+                {/* TASK-2024: hideDerive short-circuits Derive body; Hydrographs always shows ManualPasteGrid. */}
+                {!hideDerive && tab === 'derive' ? (
                     <DesignStormDerive
                         idfTables={idfTables}
                         temporalPatterns={temporalPatterns}
@@ -1333,6 +1343,8 @@ DesignStormCreatePanel.propTypes = {
     temporalPatterns: PropTypes.array,
     activeTab: PropTypes.string,
     onTabChange: PropTypes.func.isRequired,
+    // TASK-2024 (W5.2): true on the Hydrographs page — hides the Derive button + body.
+    hideDerive: PropTypes.bool,
     previews: PropTypes.array,
     previewInFlight: PropTypes.bool,
     saveInFlight: PropTypes.bool,

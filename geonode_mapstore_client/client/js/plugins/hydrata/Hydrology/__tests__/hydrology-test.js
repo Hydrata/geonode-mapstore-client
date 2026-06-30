@@ -607,4 +607,66 @@ describe('Hydrology Plugin', () => {
             document.body.removeChild(container);
         });
     });
+
+    // TASK-2024 (W5.2) — Hydrographs create panel: hideDerive removes Derive button + body.
+    describe('TASK-2024 DesignStormCreatePanel hideDerive', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { DesignStormCreatePanel } = require('../components/hydrologyDetailTimeSeries');
+
+        const baseProps = {
+            activeHydrologyItem: {id: 'temp-1', name: 'Hydrograph 01', rowData: [], columnDefs: []},
+            idfTables: [],
+            temporalPatterns: [],
+            activeTab: 'input',
+            onTabChange: () => {},
+            previews: [],
+            previewInFlight: false,
+            saveInFlight: false,
+            lastSavedCount: null,
+            previewDesignStorms: () => {},
+            saveDesignStorms: () => {},
+            updateTimeSeriesRowData: () => {},
+            replaceTimeSeriesRowData: () => {}
+        };
+
+        it('with hideDerive=true: no #ds-create-tab-derive button and DesignStormDerive not mounted', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(DesignStormCreatePanel, {...baseProps, hideDerive: true}),
+                container
+            );
+            const deriveBtn = container.querySelector('#ds-create-tab-derive');
+            expect(deriveBtn).toBe(null);
+            // Even if a stale tab='derive' is passed, no DesignStormDerive panel renders
+            ReactDOM.unmountComponentAtNode(container);
+            ReactDOM.render(
+                React.createElement(DesignStormCreatePanel, {...baseProps, hideDerive: true, activeTab: 'derive'}),
+                container
+            );
+            const deriveBtnStale = container.querySelector('#ds-create-tab-derive');
+            expect(deriveBtnStale).toBe(null);
+            // ManualPasteGrid should still render (Input path present)
+            const createPanel = container.querySelector('#design-storm-create-panel');
+            expect(createPanel).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('without hideDerive: both Input and Derive buttons present (Design Storms unchanged)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(DesignStormCreatePanel, {...baseProps, hideDerive: false}),
+                container
+            );
+            const inputBtn = container.querySelector('#ds-create-tab-input');
+            const deriveBtn = container.querySelector('#ds-create-tab-derive');
+            expect(inputBtn).toExist();
+            expect(deriveBtn).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
 });
