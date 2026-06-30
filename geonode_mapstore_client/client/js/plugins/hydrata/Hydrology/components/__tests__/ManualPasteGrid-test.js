@@ -54,11 +54,14 @@ describe('ManualPasteGrid TASK-2026 (W5.4) page-aware value-column header', () =
         const headerHtml = container.querySelector('thead').innerHTML;
         expect(headerHtml.includes('Rainfall')).toBe(true);
         expect(headerHtml.includes('mm/hr')).toBe(true);
+        // TASK-2005 (epic-2001 W1d): Design-Storm value-column header is now
+        // 'Rainfall (mm/hr)' only — no Flow string in the non-hydrograph branch.
+        expect(headerHtml.includes('Flow')).toBe(false);
         ReactDOM.unmountComponentAtNode(container);
         document.body.removeChild(container);
     });
 
-    it('series_type=hyetograph (Design Storms): header unchanged (Rainfall present)', () => {
+    it('series_type=hyetograph (Design Storms): header is Rainfall-only (no Flow)', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
         ReactDOM.render(
@@ -72,6 +75,8 @@ describe('ManualPasteGrid TASK-2026 (W5.4) page-aware value-column header', () =
         const headerHtml = container.querySelector('thead').innerHTML;
         expect(headerHtml.includes('Rainfall')).toBe(true);
         expect(headerHtml.includes('mm/hr')).toBe(true);
+        // TASK-2005 (epic-2001 W1d): hyetograph design-storm branch is rainfall-only.
+        expect(headerHtml.includes('Flow')).toBe(false);
         ReactDOM.unmountComponentAtNode(container);
         document.body.removeChild(container);
     });

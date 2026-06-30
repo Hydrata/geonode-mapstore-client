@@ -139,9 +139,12 @@ class HydrologyListDetailContainerClass extends React.Component {
         this.setState({tsCreateMode: true, tsCreateTab: 'input'});
     }
 
-    // Exit Create mode. The unsaved instance is discarded by clearing the active
-    // item so it does not orphan in the list (the reducer drops temp-* ids that
-    // were never saved). Callers that select a real saved item pass it through.
+    // Exit Create mode. TASK-2002 (epic-2001 W1a): the unsaved draft now lives in
+    // the dedicated state.draftTimeSeries slice (never in the rail list), so it
+    // cannot orphan a phantom row. Dispatching setActiveHydrologyItem(real|null)
+    // both clears the active item AND discards the draft (the SET_ACTIVE_HYDROLOGY_
+    // ITEM reducer drops draftTimeSeries when the active item is not the draft).
+    // Callers that select a real saved item pass it through.
     exitTimeSeriesCreate = (selectedItem) => {
         this.setState({tsCreateMode: false});
         if (selectedItem) {

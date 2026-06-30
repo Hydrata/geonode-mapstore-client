@@ -1550,3 +1550,39 @@
     gap: 6px;
     margin-bottom: 8px;
 }
+
+/* TASK-2008 (epic-2001 W2b) — Design-Storm Derive RP x duration tick/cross
+   matrix. Reuses the IDF matrix table chrome (.sv-idf-matrix-*) for visual
+   parity (UAT req 5); these rules only style the tick/cross cell contents and
+   do NOT couple to the IDF intensity-edit cell (.sv-idf-matrix-input). */
+.sv-matrix-grid-wrapper {
+    margin-bottom: 8px;
+}
+.sv-ds-derive-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 22px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--sv-accent-green, #27ca3b);
+    user-select: none;
+}
+.sv-ds-derive-cell--ticked {
+    background: rgba(39, 202, 59, 0.22);
+    font-weight: 700;
+}
+.sv-ds-derive-cell:hover {
+    background: rgba(255, 255, 255, 0.10);
+}
+.sv-ds-derive-cell--disabled {
+    color: rgba(255, 255, 255, 0.28);
+    cursor: not-allowed;
+}
+.sv-ds-derive-cell--disabled:hover {
+    background: transparent;
+}

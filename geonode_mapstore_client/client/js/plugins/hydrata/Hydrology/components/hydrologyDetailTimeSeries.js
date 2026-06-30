@@ -45,8 +45,10 @@ import {
     previewDesignStormsRequest,
     saveDesignStormsRequest
 } from '../actionsHydrology';
-import {PRESET_FAMILIES, ALTERNATING_BLOCK} from '../temporalPatternPresets';
+import {PRESET_FAMILIES, ALTERNATING_BLOCK, CUSTOM} from '../temporalPatternPresets';
 import ManualPasteGrid from './ManualPasteGrid';
+// TASK-2008 (epic-2001 W2b) — shared RP x duration tick/cross matrix primitive.
+import MatrixGrid from './MatrixGrid';
 // TASK-1760 (epic-1758 W1) — chassis primitives. Card carries the dark-glass
 // frame for the design-storm cards (default variant) and the dark-frame/light-body
 // carve-out for the recharts hyetograph cards (variant="chart", TASK-1534).
@@ -294,6 +296,67 @@ HyetographChart.propTypes = {
  */
 export function previewKey(preview) {
     return `${preview.pattern}|${preview.ari}|${preview.duration_min}`;
+}
+
+/**
+ * TASK-2007 (epic-2001 W2a) — map a selected project Temporal Pattern item to
+ * the BE design-storm pattern parameters.
+ *
+ * The Derive dropdown now lists the project's OWN TemporalPattern rows (decision
+ * 5), so the selected value is a TemporalPattern row, not a hardcoded
+ * PRESET_FAMILIES id. The BE derive engine still keys on a pattern string (+ a
+ * custom_curve for CUSTOM rows, threaded in W2c / TASK-2006), so resolve:
+ *   - pattern_type 'custom'            -> {patternKey: 'custom', customCurve: data.rowData}
+ *   - pattern_type 'alternating_block' -> {patternKey: 'alternating_block'}
+ *   - pattern_type 'preset'            -> {patternKey: <pattern_key>}  (e.g. 'SCS_TYPE_II')
+ *
+ * Defensive fallbacks: a row missing pattern_type but carrying pattern_key is
+ * treated as a preset; a CUSTOM row's curve comes from data.rowData (the
+ * {t, cum} ordinates TemporalPattern.clean() validates).
+ *
+ * @param {object} item a TemporalPattern row from state.hydrology.temporalPatterns
+ * @returns {{patternKey: string|null, customCurve: object[]|null}}
+ */
+export function resolveDerivePattern(item) {
+    if (!item) return {patternKey: null, customCurve: null};
+    if (item.pattern_type === CUSTOM) {
+        const rowData = (item.data && item.data.rowData) || null;
+        return {patternKey: CUSTOM, customCurve: rowData};
+    }
+    if (item.pattern_type === ALTERNATING_BLOCK) {
+        return {patternKey: ALTERNATING_BLOCK, customCurve: null};
+    }
+    // preset (or a legacy row with only pattern_key set).
+    return {patternKey: item.pattern_key || null, customCurve: null};
+}
+
+/**
+ * TASK-2008 (epic-2001 W2b) — derive the RP x duration matrix axes from a FE
+ * IDF table object. The FE represents an IDF as a grid (columnDefs = RP columns
+ * + a duration column; rowData = one row per duration), so the axes come from
+ * there — NOT from return_periods_yr / durations_min arrays (which the FE IDF
+ * object does not carry). Shared by buildCells (preview/save) and the matrix
+ * render so the cells and the grid axes never drift.
+ *   - durations: each rowData row's positive `duration`.
+ *   - aris: the RP columns (every columnDef except `duration`) that carry at
+ *     least one non-zero intensity, parsed from the header (e.g. "100yr ARI"
+ *     -> 100). An all-zero column = no IDF data for that RP -> dropped.
+ *
+ * @returns {{durations: number[], aris: number[]}}
+ */
+export function deriveMatrixAxes(table) {
+    if (!table) return {durations: [], aris: []};
+    const columnDefs = table.columnDefs || [];
+    const rowData = table.rowData || [];
+    const durations = rowData
+        .map(r => Number(r.duration))
+        .filter(d => d > 0);
+    const aris = columnDefs
+        .filter(c => c.accessorKey && c.accessorKey !== 'duration')
+        .filter(c => rowData.some(r => Number(r[c.accessorKey]) > 0))
+        .map(c => parseFloat(String(c.header || c.id).replace(/[^0-9.]/g, '')))
+        .filter(v => v > 0);
+    return {durations, aris};
 }
 
 const PreviewCard = ({preview, isFocused, onFocus, onAttach, attachInFlight, rainfallPk}) => {
@@ -1152,13 +1215,24 @@ const DesignStormDerive = ({
     onPreview,
     onSave
 }) => {
-    const presetIds = new Set(PRESET_FAMILIES.map(f => f.id));
-    const customPatterns = (temporalPatterns || [])
-        .filter(tp => tp.pattern_type === 'custom' || !presetIds.has(tp.id));
-    const patternOptions = [
-        ...PRESET_FAMILIES.map(f => ({id: f.id, label: f.label})),
-        ...customPatterns.map(tp => ({id: tp.id || tp.name, label: tp.name}))
-    ];
+    // TASK-2007 (epic-2001 W2a): the dropdown lists the project's OWN Temporal
+    // Pattern items STRICTLY (decision 5) — NOT the hardcoded PRESET_FAMILIES.
+    // Standard patterns (SCS/Huff/Alternating Block) are reached by the user
+    // first CREATING a project Temporal Pattern from a preset family (an
+    // existing flow). A new project therefore starts EMPTY -> deliberate gate
+    // -> empty-state nudge. The option value is the TemporalPattern id (string)
+    // so a project can carry several items of the same pattern_type.
+    const patternItems = (temporalPatterns || []).filter(tp => tp && tp.id !== null && tp.id !== undefined);
+    const patternOptions = patternItems.map(tp => ({
+        id: String(tp.id),
+        label: tp.name
+    }));
+
+    // Resolve the selected Temporal Pattern row to its BE pattern + (custom)
+    // curve. selectedPattern holds the TemporalPattern id as a string.
+    const selectedItem = patternItems.find(tp => String(tp.id) === String(selectedPattern));
+    const {patternKey: selectedPatternKey, customCurve: selectedCustomCurve} =
+        resolveDerivePattern(selectedItem);
 
     // Local tick state — a Set of previewKey strings.
     const [ticked, setTicked] = useState(new Set());
@@ -1182,46 +1256,86 @@ const DesignStormDerive = ({
     //   - timestep: per-cell, a divisor of the duration (~24 steps) so the BE's
     //     `duration_min % timestep_min == 0` rule holds for sub-60-min durations
     //     (a fixed 60 would 400 a 5/10/30-min duration). (Decision D3.)
-    const buildCells = useCallback((pattern) => {
-        if (!selectedIdfTableId || !selectedTable || !pattern) return [];
-        const columnDefs = selectedTable.columnDefs || [];
-        const rowData = selectedTable.rowData || [];
-        const durations = rowData
-            .map(r => Number(r.duration))
-            .filter(d => d > 0);
-        const aris = columnDefs
-            .filter(c => c.accessorKey && c.accessorKey !== 'duration')
-            // keep only RP columns that carry at least one non-zero intensity
-            .filter(c => rowData.some(r => Number(r[c.accessorKey]) > 0))
-            .map(c => parseFloat(String(c.header || c.id).replace(/[^0-9.]/g, '')))
-            .filter(v => v > 0);
+    // TASK-2007 (W2a): cells carry the RESOLVED BE pattern (patternKey) — and,
+    // for a custom-curve item, the custom_curve threaded into the W2c batch.
+    // TASK-2011 (W3b): the selected Temporal Pattern ITEM id. After W2a's strict
+    // dropdown every derive/save targets a real project item, so this is always
+    // available. It re-keys the BE mode='save' REPLACE on (idf, temporal_pattern_id)
+    // so two items sharing a pattern_key (two SCS-II presets, or two custom items)
+    // don't clobber each other's auto-derived rows. Coerced to Number — the option
+    // value is the id as a string.
+    const selectedTemporalPatternId =
+        selectedItem && selectedItem.id !== null && selectedItem.id !== undefined
+            ? Number(selectedItem.id)
+            : null;
+
+    const buildCells = useCallback((patternKey, customCurve, temporalPatternId) => {
+        if (!selectedIdfTableId || !selectedTable || !patternKey) return [];
+        const {durations, aris} = deriveMatrixAxes(selectedTable);
         const cells = [];
         for (const ari of aris) {
             for (const duration of durations) {
-                cells.push({
-                    pattern,
+                const cell = {
+                    pattern: patternKey,
                     ari,
                     duration_min: duration,
                     timestep_min: pickTimestep(duration)
-                });
+                };
+                // TASK-2011: tag each cell with the Temporal Pattern item id so
+                // the BE save can re-key the REPLACE per item (additive — a cell
+                // without it falls back to the legacy pattern-keyed REPLACE).
+                if (temporalPatternId !== null && temporalPatternId !== undefined) {
+                    cell.temporal_pattern_id = temporalPatternId;
+                }
+                // Only a custom-curve item carries custom_curve (additive; the
+                // BE ignores it for non-custom patterns).
+                if (patternKey === CUSTOM && customCurve) {
+                    cell.custom_curve = customCurve;
+                }
+                cells.push(cell);
             }
         }
         return cells;
     }, [selectedIdfTableId, selectedTable]);
 
-    // Auto-trigger preview when IDF + pattern are both set. Mirrors the
-    // DesignStormsBrowser auto-refresh useEffect (lines 321-325).
+    // Auto-trigger preview when IDF + a resolvable pattern are both set. Mirrors
+    // the DesignStormsBrowser auto-refresh useEffect (lines 321-325).
     useEffect(() => {
-        if (selectedIdfTableId && selectedPattern && !previewInFlight) {
-            const cells = buildCells(selectedPattern);
+        if (selectedIdfTableId && selectedPatternKey && !previewInFlight) {
+            const cells = buildCells(
+                selectedPatternKey, selectedCustomCurve, selectedTemporalPatternId
+            );
             if (cells.length > 0) {
                 onPreview(cells, Number(selectedIdfTableId), 60);
             }
         }
     }, [selectedIdfTableId, selectedPattern]); // eslint-disable-line
 
-    // Filter previews to the current pattern.
-    const patternPreviews = (previews || []).filter(p => p.pattern === selectedPattern);
+    // Filter previews to the resolved BE pattern key (the preview echoes the BE
+    // pattern, e.g. 'custom' / 'SCS_TYPE_II', NOT the TemporalPattern id).
+    const patternPreviews = (previews || []).filter(p => p.pattern === selectedPatternKey);
+
+    // TASK-2008 (W2b): RP x duration matrix. Rows = durations, cols = return
+    // periods (both off the selected IDF). A cell is DERIVABLE iff a preview
+    // exists for that (ari, duration); a non-derivable cell renders a disabled
+    // cross (mirrors the BE silent-skip — e.g. a sparse-IDF gap). The tick key
+    // matches the preview's previewKey so save (handleSave) is unchanged.
+    const {durations: matrixDurations, aris: matrixAris} = deriveMatrixAxes(selectedTable);
+    const previewByCell = new Map(
+        patternPreviews.map(p => [`${p.ari}|${p.duration_min}`, p])
+    );
+    const matrixRows = matrixDurations.map(d => ({
+        key: String(d),
+        duration: d,
+        label: d >= 60 ? `${(d / 60).toFixed(1)} hr` : `${d} min`,
+        title: `${d} min duration`
+    }));
+    const matrixCols = matrixAris.map(ari => ({
+        key: String(ari),
+        ari,
+        label: `${ari}yr`,
+        title: `${ari}-year ARI`
+    }));
 
     const toggleTick = (key) => {
         setTicked(prev => {
@@ -1235,20 +1349,37 @@ const DesignStormDerive = ({
         if (!onSave || ticked.size === 0 || saveInFlight) return;
         const tickedCells = patternPreviews
             .filter(p => ticked.has(previewKey(p)))
-            .map(p => ({
-                pattern: p.pattern,
-                ari: p.ari,
-                duration_min: p.duration_min,
-                // preview always echoes timestep_min; fall back to a valid divisor
-                // (never a fixed 60, which would 400 a sub-60-min duration).
-                timestep_min: p.timestep_min || pickTimestep(p.duration_min)
-            }));
+            .map(p => {
+                const cell = {
+                    pattern: p.pattern,
+                    ari: p.ari,
+                    duration_min: p.duration_min,
+                    // preview always echoes timestep_min; fall back to a valid divisor
+                    // (never a fixed 60, which would 400 a sub-60-min duration).
+                    timestep_min: p.timestep_min || pickTimestep(p.duration_min)
+                };
+                // TASK-2011 (W3b): re-attach the Temporal Pattern item id on save
+                // (the preview echo does not carry it back) so the BE keys the
+                // REPLACE per item — two items sharing a pattern_key no longer
+                // clobber each other's auto-derived rows.
+                if (selectedTemporalPatternId !== null
+                    && selectedTemporalPatternId !== undefined) {
+                    cell.temporal_pattern_id = selectedTemporalPatternId;
+                }
+                // TASK-2007 (W2a): re-thread the custom_curve on save so the W2c
+                // save batch can derive the custom row (the preview echo does not
+                // carry the curve back).
+                if (p.pattern === CUSTOM && selectedCustomCurve) {
+                    cell.custom_curve = selectedCustomCurve;
+                }
+                return cell;
+            });
         if (tickedCells.length > 0) {
             onSave(tickedCells, Number(selectedIdfTableId));
         }
     };
 
-    const noSelection = !selectedIdfTableId || !selectedPattern;
+    const noSelection = !selectedIdfTableId || !selectedPatternKey;
 
     return (
         <Card
@@ -1276,22 +1407,30 @@ const DesignStormDerive = ({
                     </select>
                 </div>
 
-                {/* Temporal-pattern picker */}
+                {/* Temporal-pattern picker — TASK-2007 (W2a): strictly the
+                    project's own Temporal Pattern items. Empty project -> nudge. */}
                 <div style={{marginBottom: 10}}>
                     <label htmlFor="ds-derive-pattern" className="sv-design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
                         <Message msgId="hydrata.hydrology.temporalPattern" />
                     </label>
-                    <select
-                        id="ds-derive-pattern"
-                        className="sv-hydrology-text-input"
-                        style={{width: '100%'}}
-                        value={selectedPattern ?? ALTERNATING_BLOCK}
-                        onChange={e => onChange({selectedPattern: e.target.value})}
-                    >
-                        {patternOptions.map(opt => (
-                            <option key={opt.id} value={opt.id}>{opt.label}</option>
-                        ))}
-                    </select>
+                    {patternOptions.length === 0 ? (
+                        <div id="ds-derive-no-patterns">
+                            <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoTemporalPatterns" />} />
+                        </div>
+                    ) : (
+                        <select
+                            id="ds-derive-pattern"
+                            className="sv-hydrology-text-input"
+                            style={{width: '100%'}}
+                            value={(selectedPattern !== null && selectedPattern !== undefined) ? String(selectedPattern) : ''}
+                            onChange={e => onChange({selectedPattern: e.target.value || null})}
+                        >
+                            <option value="">-- select a Temporal Pattern --</option>
+                            {patternOptions.map(opt => (
+                                <option key={opt.id} value={opt.id}>{opt.label}</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 {/* Preview area */}
@@ -1310,29 +1449,43 @@ const DesignStormDerive = ({
                             <p className="sv-design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>
                                 <Message msgId="hydrata.hydrology.deriveTickToSave" />
                             </p>
-                            {patternPreviews.map(preview => {
-                                const key = previewKey(preview);
-                                const checked = ticked.has(key);
-                                return (
-                                    <div key={key} className="sv-ds-derive-preview-row" style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
-                                        <input
-                                            type="checkbox"
-                                            className="sv-ds-derive-tick"
-                                            checked={checked}
-                                            onChange={() => toggleTick(key)}
+                            {/* TASK-2008 (W2b): RP x duration tick/cross matrix. */}
+                            <MatrixGrid
+                                tableId="ds-derive-matrix"
+                                className="sv-ds-derive-matrix"
+                                cornerLabel={<Message msgId="hydrata.hydrology.duration" />}
+                                rows={matrixRows}
+                                cols={matrixCols}
+                                renderCell={(row, col) => {
+                                    const preview = previewByCell.get(`${col.ari}|${row.duration}`);
+                                    if (!preview) {
+                                        // Non-derivable (e.g. sparse-IDF gap): disabled cross.
+                                        return (
+                                            <span
+                                                className="sv-ds-derive-cell sv-ds-derive-cell--disabled"
+                                                title={`No IDF data for ${col.ari}yr / ${row.label} — cannot derive`}
+                                                aria-label="not derivable"
+                                            >✕</span>
+                                        );
+                                    }
+                                    const key = previewKey(preview);
+                                    const checked = ticked.has(key);
+                                    const depth = (preview.total_depth_mm !== null && preview.total_depth_mm !== undefined)
+                                        ? `${preview.total_depth_mm.toFixed(1)} mm`
+                                        : '';
+                                    return (
+                                        <button
+                                            type="button"
                                             id={`ds-derive-tick-${key}`}
-                                            aria-label={`Select ${key}`}
-                                        />
-                                        <label htmlFor={`ds-derive-tick-${key}`} style={{flex: 1, margin: 0, cursor: 'pointer'}}>
-                                            <PreviewCard
-                                                preview={preview}
-                                                isFocused={false}
-                                                onFocus={() => {}}
-                                            />
-                                        </label>
-                                    </div>
-                                );
-                            })}
+                                            className={`sv-ds-derive-cell sv-ds-derive-tick${checked ? ' sv-ds-derive-cell--ticked' : ''}`}
+                                            aria-pressed={checked}
+                                            aria-label={`${checked ? 'Deselect' : 'Select'} ${col.ari}yr ${row.label}`}
+                                            title={`${col.ari}yr / ${row.label}${depth ? ' — ' + depth : ''}`}
+                                            onClick={() => toggleTick(key)}
+                                        >{checked ? '✓' : ''}</button>
+                                    );
+                                }}
+                            />
                             {/* Save these N button */}
                             <div style={{marginTop: 10, display: 'flex', alignItems: 'center', gap: 10}}>
                                 <button
@@ -1349,7 +1502,9 @@ const DesignStormDerive = ({
                                 >
                                     {saveInFlight
                                         ? 'Saving…'
-                                        : <Message msgId="hydrata.hydrology.deriveSaveTheseN" msgParams={{n: ticked.size}} />
+                                        // TASK-2009 (W2d): label is now 'Derive' (new i18n key);
+                                        // the dispatch (handleSave -> onSave -> mode='save') is unchanged.
+                                        : <Message msgId="hydrata.hydrology.deriveActionButton" />
                                     }
                                 </button>
                                 {lastSavedCount !== null && (
@@ -1415,33 +1570,58 @@ const DesignStormCreatePanel = ({
 }) => {
     // Derive-tab selections are LOCAL — kept here so clearing IDF/pattern
     // cancels any in-flight preview at source.
-    const [deriveSpec, setDeriveSpec] = useState({selectedIdfTableId: null, selectedPattern: ALTERNATING_BLOCK});
+    // TASK-2007 (W2a): selectedPattern now holds a project TemporalPattern id
+    // (string), not a hardcoded pattern constant — start unselected so the
+    // strict dropdown begins on its '-- select a Temporal Pattern --' placeholder.
+    const [deriveSpec, setDeriveSpec] = useState({selectedIdfTableId: null, selectedPattern: null});
     // When hideDerive, force tab to 'input' regardless of caller state — a stale
     // tsCreateTab='derive' must not leak DesignStormDerive into the Hydrographs panel.
     const tab = (hideDerive || !activeTab) ? 'input' : activeTab;
 
     return (
         <div id="design-storm-create-panel">
-            {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup.
+            {/* Input | Derive create-mode control.
+                TASK-2003 (epic-2001 W1b): converted from a segmented pair of
+                <button>s to a semantic RADIO group (role=radiogroup with two
+                role=radio options) — picking one of two mutually-exclusive create
+                modes is a radio choice, not an action. Keeps the
+                #ds-create-tab-input / #ds-create-tab-derive ids and the
+                sv-hydrology-idf-subtoggle / sv-hydrology-idf-segment classes so
+                the existing styling + tests still resolve. Uses its own
+                createModeInput / createModeDerive i18n keys (no longer reuses the
+                IDF idfModeManual / idfModeDerive).
                 TASK-2024: hidden on the Hydrographs page (hideDerive=true). */}
             {!hideDerive && (
-                <div className="sv-hydrology-idf-subtoggle" role="group" aria-label="Create mode">
-                    <button
-                        id="ds-create-tab-input"
-                        type="button"
-                        className={'sv-hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
-                        onClick={() => onTabChange('input')}
-                    >
-                        <Message msgId="hydrata.hydrology.idfModeManual" />
-                    </button>
-                    <button
-                        id="ds-create-tab-derive"
-                        type="button"
-                        className={'sv-hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
-                        onClick={() => onTabChange('derive')}
-                    >
-                        <Message msgId="hydrata.hydrology.idfModeDerive" />
-                    </button>
+                <div
+                    className="sv-hydrology-idf-subtoggle"
+                    role="radiogroup"
+                    aria-label="Create mode"
+                >
+                    {[
+                        {value: 'input', id: 'ds-create-tab-input', msgId: 'hydrata.hydrology.createModeInput'},
+                        {value: 'derive', id: 'ds-create-tab-derive', msgId: 'hydrata.hydrology.createModeDerive'}
+                    ].map((opt) => {
+                        const checked = tab === opt.value;
+                        return (
+                            <div
+                                key={opt.value}
+                                id={opt.id}
+                                role="radio"
+                                aria-checked={checked}
+                                tabIndex={checked ? 0 : -1}
+                                className={'sv-hydrology-idf-segment' + (checked ? ' is-active' : '')}
+                                onClick={() => onTabChange(opt.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        onTabChange(opt.value);
+                                    }
+                                }}
+                            >
+                                <Message msgId={opt.msgId} />
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 

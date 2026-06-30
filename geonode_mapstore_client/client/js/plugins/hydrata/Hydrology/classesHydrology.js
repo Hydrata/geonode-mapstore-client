@@ -494,6 +494,11 @@ export class TimeSeries {
                 accessorKey: "value"
             }
         ];
+        // TASK-2004 (epic-2001 W1c): seed a new Design Storm / time-series with
+        // an all-ZERO short grid (4 representative hourly timestamps) so the
+        // Create panel opens an empty editable hyetograph rather than a fake
+        // 0/10/30/0 sample storm the user has to clear. Keeps the 4-row grid so
+        // the chart/grid still render with a visible time axis.
         this.rowData = [
             {
                 "timestamp": new Date("2000-01-01T00:00:00").toISOString().slice(0, -1),
@@ -501,11 +506,11 @@ export class TimeSeries {
             },
             {
                 "timestamp": new Date("2000-01-01T01:00:00").toISOString().slice(0, -1),
-                "value": 10
+                "value": 0
             },
             {
                 "timestamp": new Date("2000-01-01T02:00:00").toISOString().slice(0, -1),
-                "value": 30
+                "value": 0
             },
             {
                 "timestamp": new Date("2000-01-01T03:00:00").toISOString().slice(0, -1),
