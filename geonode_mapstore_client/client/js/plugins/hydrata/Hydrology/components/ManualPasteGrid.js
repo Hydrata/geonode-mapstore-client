@@ -201,10 +201,15 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                     </div>
                 </div>
                 <div style={{padding: '10px'}}>
+                    {/* TASK-2027/2028/2030 (W5.5/W5.6/W5.8): pass page discriminator so
+                        the preview chart renders as line+m3/s for hydrographs vs bar+mm/hr
+                        for design storms. Derived from series_type on the item (data-truthful,
+                        avoids adding a separate prop chain from the create panel). */}
                     <HyetographChart
                         rowData={rowData || []}
                         timestepMin={estimateTimestepMin(rowData || [])}
                         title={activeHydrologyItem?.name || 'Preview'}
+                        activeHydrologyPage={activeHydrologyItem?.series_type === 'hydrograph' ? 'hydrographs' : 'time-series'}
                     />
                 </div>
             </div>

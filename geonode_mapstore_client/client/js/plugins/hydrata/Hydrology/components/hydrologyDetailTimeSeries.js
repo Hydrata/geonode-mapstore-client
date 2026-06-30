@@ -26,6 +26,8 @@ import PropTypes from 'prop-types';
 import {
     BarChart,
     Bar,
+    LineChart,
+    Line,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -118,7 +120,17 @@ export function formatElapsedMin(min) {
     return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
 
-const HyetographChart = ({rowData, timestepMin, title}) => {
+// TASK-2027/2028/2030 (W5.5/W5.6/W5.8): HyetographChart now accepts
+// activeHydrologyPage to discriminate hydrograph vs hyetograph presentation.
+// When activeHydrologyPage==='hydrographs':
+//   - Renders a LineChart (continuous flow curve) instead of BarChart (rainfall bars).
+//   - Y-axis label: 'Flow (m3/s)' instead of 'Intensity (mm/hr)'.
+//   - Tooltip: 'm3/s' unit + 'Flow' label.
+//   - No entrance animation (isAnimationActive=false on the Line series).
+//   - Summary stat: 'Estimated Total Flow Volume (m3)' = integral(flow*timestep_s).
+// Design Storms (no activeHydrologyPage or activeHydrologyPage!=='hydrographs'):
+//   - All existing behaviour preserved verbatim (BarChart, mm/hr, depth, animation).
+const HyetographChart = ({rowData, timestepMin, title, activeHydrologyPage}) => {
     const chartData = rowDataToHyetograph(rowData);
     if (!chartData.length) return null;
     const ts = timestepMin || 6;
@@ -136,8 +148,32 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
     const maxIntensity = data.reduce((m, d) => Math.max(m, d.intensity), 0);
     const {ticks: yTicks, max: yMax} = niceIntensityTicks(maxIntensity);
     const {ticks: xTicks} = niceTimeTicks(durationMin);
-    // Convert mm/hr intensity × (timestep/60) = mm depth per interval for total
-    const totalDepth = data.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
+
+    // TASK-2027/2028/2030: page discriminator.
+    const isHydrograph = activeHydrologyPage === 'hydrographs';
+
+    // TASK-2030: summary stat.
+    // Hydrograph: integral of flow over time = sum(flow_m3s * timestep_seconds) in m3.
+    // Design Storm: mm/hr intensity × (timestep/60) = mm depth per interval for total.
+    const summaryLine = isHydrograph
+        ? (() => {
+            const totalVolume = data.reduce((s, d) => s + d.intensity * ts * 60, 0).toFixed(1);
+            return (
+                <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
+                    Estimated Total Flow Volume (m3): <strong>{totalVolume} m3</strong>
+                </p>
+            );
+        })()
+        : (() => {
+            // Convert mm/hr intensity × (timestep/60) = mm depth per interval for total
+            const totalDepth = data.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
+            return (
+                <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
+                    Estimated total depth: <strong>{totalDepth} mm</strong>
+                </p>
+            );
+        })();
+
     return (
         <div id="design-storm-hyetograph" className="sv-hyetograph-chart-card">
             {title && (
@@ -145,43 +181,82 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
                     {title}
                 </p>
             )}
-            <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
-                Estimated total depth: <strong>{totalDepth} mm</strong>
-            </p>
+            {summaryLine}
             {/* HTML axis-title layout — mirrors IdfCurveChart (.sv-idf-curve-*) because
                 recharts 0.22.4 silently IGNORES the YAxis/XAxis `label` object prop,
                 so axis units must be HTML around the SVG, not a recharts <Label>. */}
             <div className="sv-hyetograph-chart-layout">
-                <div className="sv-hyetograph-yaxis-title">Intensity (mm/hr)</div>
+                {/* TASK-2028: Y-axis label switches per page. */}
+                <div className="sv-hyetograph-yaxis-title">
+                    {isHydrograph ? 'Flow (m3/s)' : 'Intensity (mm/hr)'}
+                </div>
                 <div className="sv-hyetograph-plot-area">
                     <div className="sv-hyetograph-plot">
                         <ResponsiveContainer width="100%" height={260}>
-                            <BarChart
-                                data={data}
-                                margin={{top: 10, right: 20, left: 8, bottom: 8}}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
-                                <XAxis
-                                    dataKey="elapsedMin"
-                                    type="number"
-                                    domain={[0, durationMin]}
-                                    ticks={xTicks}
-                                    tickFormatter={formatElapsedMin}
-                                    height={28}
-                                    tick={{fontSize: 10, fill: '#333'}}
-                                />
-                                <YAxis
-                                    domain={[0, yMax]}
-                                    ticks={yTicks}
-                                    allowDecimals={false}
-                                    tick={{fontSize: 10, fill: '#333'}}
-                                />
-                                <Tooltip
-                                    labelFormatter={(v) => `Time ${formatElapsedMin(v)}`}
-                                    formatter={(v) => [`${v.toFixed(2)} mm/hr`, 'Intensity']}
-                                />
-                                <Bar dataKey="intensity" fill="#5178af" />
-                            </BarChart>
+                            {/* TASK-2028: LineChart for hydrographs; BarChart for Design Storms. */}
+                            {isHydrograph ? (
+                                <LineChart
+                                    data={data}
+                                    margin={{top: 10, right: 20, left: 8, bottom: 8}}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
+                                    <XAxis
+                                        dataKey="elapsedMin"
+                                        type="number"
+                                        domain={[0, durationMin]}
+                                        ticks={xTicks}
+                                        tickFormatter={formatElapsedMin}
+                                        height={28}
+                                        tick={{fontSize: 10, fill: '#333'}}
+                                    />
+                                    <YAxis
+                                        domain={[0, yMax]}
+                                        ticks={yTicks}
+                                        allowDecimals={false}
+                                        tick={{fontSize: 10, fill: '#333'}}
+                                    />
+                                    <Tooltip
+                                        labelFormatter={(v) => `Time ${formatElapsedMin(v)}`}
+                                        formatter={(v) => [`${v.toFixed(3)} m3/s`, 'Flow']}
+                                    />
+                                    {/* TASK-2027: isAnimationActive=false for hydrographs (no live-preview). */}
+                                    <Line
+                                        type="monotone"
+                                        dataKey="intensity"
+                                        stroke="#5178af"
+                                        dot={false}
+                                        strokeWidth={2}
+                                        isAnimationActive={false}
+                                    />
+                                </LineChart>
+                            ) : (
+                                <BarChart
+                                    data={data}
+                                    margin={{top: 10, right: 20, left: 8, bottom: 8}}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
+                                    <XAxis
+                                        dataKey="elapsedMin"
+                                        type="number"
+                                        domain={[0, durationMin]}
+                                        ticks={xTicks}
+                                        tickFormatter={formatElapsedMin}
+                                        height={28}
+                                        tick={{fontSize: 10, fill: '#333'}}
+                                    />
+                                    <YAxis
+                                        domain={[0, yMax]}
+                                        ticks={yTicks}
+                                        allowDecimals={false}
+                                        tick={{fontSize: 10, fill: '#333'}}
+                                    />
+                                    <Tooltip
+                                        labelFormatter={(v) => `Time ${formatElapsedMin(v)}`}
+                                        formatter={(v) => [`${v.toFixed(2)} mm/hr`, 'Intensity']}
+                                    />
+                                    <Bar dataKey="intensity" fill="#5178af" />
+                                </BarChart>
+                            )}
                         </ResponsiveContainer>
                     </div>
                     <div className="sv-hyetograph-xaxis-title">Time from start (h:mm)</div>
@@ -194,7 +269,9 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
 HyetographChart.propTypes = {
     rowData: PropTypes.array,
     timestepMin: PropTypes.number,
-    title: PropTypes.string
+    title: PropTypes.string,
+    // TASK-2025/2027/2028/2030: page discriminator. 'hydrographs' -> flow presentation.
+    activeHydrologyPage: PropTypes.string
 };
 
 // ---------------------------------------------------------------------------
