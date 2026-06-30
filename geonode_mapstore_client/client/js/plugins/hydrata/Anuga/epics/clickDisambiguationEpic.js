@@ -38,6 +38,10 @@ import {
     parseFeatureId
 } from '../../shared/clickTargetRegistry';
 import {
+    extractBandValue,
+    buildRasterFeatureId
+} from '../rasterClickTargets';
+import {
     showClickDisambiguation,
     hideClickDisambiguation,
     armClickAggregation
@@ -121,18 +125,8 @@ export const buildCandidates = (featureCollection) => {
             // recover it at click time (via the panel's resolveCandidateOpenActions path
             // which passes only {id: candidate.featureId} — no original feature).
             // The value lives in label.subtitle but encoding it in the id is more robust.
-            const rawValue = (() => {
-                // Mirror extractBandValue from rasterClickTargets without importing it
-                // (avoids potential circular dep); read GRAY_INDEX or first numeric prop.
-                const props = feature && feature.properties;
-                if (!props) { return null; }
-                if (typeof props.GRAY_INDEX === 'number') { return props.GRAY_INDEX; }
-                const first = Object.values(props).find((v) => typeof v === 'number');
-                return first !== undefined ? first : null;
-            })();
-            const syntheticFeatureId = rawValue !== null
-                ? `${layerName}#raster=${rawValue}`
-                : `${layerName}#raster`;
+            const rawValue = extractBandValue(feature);
+            const syntheticFeatureId = buildRasterFeatureId(layerName, rawValue);
             candidates.push({ kind, featureId: syntheticFeatureId, layerName, label: plainLabel(label) });
             return;
         }
