@@ -152,27 +152,11 @@ const HyetographChart = ({rowData, timestepMin, title, activeHydrologyPage}) => 
     // TASK-2027/2028/2030: page discriminator.
     const isHydrograph = activeHydrologyPage === 'hydrographs';
 
-    // TASK-2030: summary stat.
+    // TASK-2030: summary stat values (computed unconditionally; only one is rendered).
     // Hydrograph: integral of flow over time = sum(flow_m3s * timestep_seconds) in m3.
     // Design Storm: mm/hr intensity × (timestep/60) = mm depth per interval for total.
-    const summaryLine = isHydrograph
-        ? (() => {
-            const totalVolume = data.reduce((s, d) => s + d.intensity * ts * 60, 0).toFixed(1);
-            return (
-                <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
-                    Estimated Total Flow Volume (m3): <strong>{totalVolume} m3</strong>
-                </p>
-            );
-        })()
-        : (() => {
-            // Convert mm/hr intensity × (timestep/60) = mm depth per interval for total
-            const totalDepth = data.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
-            return (
-                <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
-                    Estimated total depth: <strong>{totalDepth} mm</strong>
-                </p>
-            );
-        })();
+    const totalVolume = data.reduce((s, d) => s + d.intensity * ts * 60, 0).toFixed(1);
+    const totalDepth = data.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
 
     return (
         <div id="design-storm-hyetograph" className="sv-hyetograph-chart-card">
@@ -181,7 +165,15 @@ const HyetographChart = ({rowData, timestepMin, title, activeHydrologyPage}) => 
                     {title}
                 </p>
             )}
-            {summaryLine}
+            {isHydrograph ? (
+                <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
+                    Estimated Total Flow Volume (m3): <strong>{totalVolume} m3</strong>
+                </p>
+            ) : (
+                <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
+                    Estimated total depth: <strong>{totalDepth} mm</strong>
+                </p>
+            )}
             {/* HTML axis-title layout — mirrors IdfCurveChart (.sv-idf-curve-*) because
                 recharts 0.22.4 silently IGNORES the YAxis/XAxis `label` object prop,
                 so axis units must be HTML around the SVG, not a recharts <Label>. */}
