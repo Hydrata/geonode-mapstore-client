@@ -123,7 +123,7 @@ export const ClickDisambiguationPanel = ({ candidates, onSelect, onClose }) => {
                                             aria-hidden="true"
                                         />
                                     ) : null}
-                                    <strong>{label.title || candidate.kind}</strong>
+                                    <strong>{candidate.layerTitle || label.title || candidate.kind}</strong>
                                 </div>
                                 {label.subtitle ? (
                                     <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: 2 }}>
@@ -139,13 +139,39 @@ export const ClickDisambiguationPanel = ({ candidates, onSelect, onClose }) => {
     );
 };
 
+// Strip an optional leading workspace namespace so a BARE candidate layerName
+// matches the workspace-qualified state.layers.flat name ("geonode:<layer>").
+const bareLayerName = (name) => String(name || '').replace(/^[^:./]+:/, '');
+
+/**
+ * Resolve a layer's human-readable title from state.layers.flat by candidate
+ * layerName (namespace-insensitive). This is what disambiguates same-TYPE rows
+ * in the chooser — e.g. several "Terrain elevation" rasters become "Copernicus
+ * GLO-30 DEM" vs "Combined surface (derived)". Returns null when the layer is
+ * absent (or untitled) so the row falls back to the generic type label.
+ */
+export const resolveLayerTitle = (layerName, state) => {
+    const flat = state?.layers?.flat || [];
+    const bare = bareLayerName(layerName);
+    const layer = flat.find((l) => l && bareLayerName(l.name) === bare);
+    return (layer && layer.title) || null;
+};
+
 // W2 gate: only surface candidates when there are >= 2 to disambiguate. Below
-// that, the presentational component renders null (the single-candidate +
-// empty-list refinements are W3.3).
+// that, the presentational component renders null (single-candidate skip-list +
+// empty-list fallthrough are W3.3). Each surfaced candidate is enriched
+// (presentation-only, NOT stored in Redux / dispatched — D6 unaffected) with the
+// live layer title so the row shows the actual object layer, not just its type.
 export const mapStateToProps = (state) => {
     const candidates = state?.anuga?.clickDisambiguation?.candidates || [];
+    if (candidates.length < 2) {
+        return { candidates: [] };
+    }
     return {
-        candidates: candidates.length >= 2 ? candidates : []
+        candidates: candidates.map((c) => ({
+            ...c,
+            layerTitle: resolveLayerTitle(c.layerName, state)
+        }))
     };
 };
 

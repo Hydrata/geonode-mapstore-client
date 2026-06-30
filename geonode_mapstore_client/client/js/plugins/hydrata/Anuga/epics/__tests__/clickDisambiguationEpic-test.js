@@ -39,6 +39,7 @@ import clickDisambiguationReducer from '../../reducers/clickDisambiguationReduce
 import {
     clickDisambiguationEpic,
     buildCandidates,
+    buildClickActions,
     filterEditableCandidates,
     isLayerVisible,
     isVectorDrawActive,
@@ -1094,6 +1095,46 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                     done();
                 }
             );
+        });
+
+        // T3(b) — S2 empty-opener fallthrough (UAT 2026-06-30):
+        // A lone raster candidate whose buildOpenActions returns [] must fall through
+        // to the default Identify popup — no purge, no hide-marker (no teardown).
+        it('1 raster candidate with empty-opener [] → [HIDE_CLICK_DISAMBIGUATION] only (no teardown, fallthrough to default popup)', () => {
+            // Register a raster target whose opener is the real no-op ([] = value
+            // shown in label.subtitle; native GFI popup IS the readout).
+            cleanClickTargets();
+            registerClickTarget('fri_raster_', {
+                match: (featureId, layerName) => String(layerName).startsWith('fri_raster_'),
+                label: (f) => ({
+                    title: 'Friction raster',
+                    subtitle: f && f.properties && f.properties.GRAY_INDEX !== undefined
+                        ? `Mannings n = ${f.properties.GRAY_INDEX}` : 'Value unavailable',
+                    icon: 'check-circle'
+                }),
+                buildOpenActions: () => [],   // ← the no-op; value in label.subtitle
+                readOnly: true
+            });
+            const rasterStore = { getState: () => ({
+                layers: { flat: [{ name: 'geonode:fri_raster_4_friction', visibility: true }] },
+                anuga: { projects: { data: { my_role: 'viewer' } } },
+                security: { user: { pk: 1 } },
+                gnresource: { initialResource: { perms: [] } }
+            }) };
+            // Raster feature: empty featureId + _anugaLayerName annotation (set by classify$).
+            const rasterGfiFeat = {
+                type: 'Feature',
+                id: '',
+                properties: { GRAY_INDEX: 0.04 },
+                _anugaLayerName: 'geonode:fri_raster_4_friction'
+            };
+            const actions = buildClickActions([rasterGfiFeat], rasterStore);
+            // Fallthrough: HIDE_CLICK_DISAMBIGUATION (clears aggregating flag),
+            // NO purgeMapInfoResults, NO hideMapinfoMarker.
+            expect(actions.map((a) => a.type)).toEqual([HIDE_CLICK_DISAMBIGUATION]);
+            expect(actions.map((a) => a.type)).toNotContain(PURGE_MAPINFO_RESULTS);
+            expect(actions.map((a) => a.type)).toNotContain(HIDE_MAPINFO_MARKER);
+            expect(collectFunctionPaths(actions)).toEqual([]);
         });
 
         it('1 edit candidate → opens directly, no list (W3.3 AC1)', (done) => {

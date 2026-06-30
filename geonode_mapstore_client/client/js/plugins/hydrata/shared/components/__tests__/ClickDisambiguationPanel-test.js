@@ -17,6 +17,7 @@ import mountWithProviders from '../../../../../__tests__/helpers/mountWithProvid
 import ConnectedPanel, {
     ClickDisambiguationPanel,
     resolveCandidateOpenActions,
+    resolveLayerTitle,
     mapStateToProps
 } from '../ClickDisambiguationPanel';
 import {
@@ -184,11 +185,80 @@ describe('ClickDisambiguationPanel (TASK-1993 W2.1)', () => {
 
     describe('mapStateToProps gate', () => {
 
-        it('surfaces [] below 2 candidates and the list at >= 2', () => {
+        it('surfaces [] for 0 candidates (no state)', () => {
             expect(mapStateToProps({}).candidates).toEqual([]);
-            expect(mapStateToProps({ anuga: { clickDisambiguation: { candidates: [candidate('bdy_', 'b.1')] } } }).candidates).toEqual([]);
-            const two = [candidate('bdy_', 'b.1'), candidate('inf_', 'i.2')];
-            expect(mapStateToProps({ anuga: { clickDisambiguation: { candidates: two } } }).candidates).toEqual(two);
+        });
+
+        it('surfaces [] for fewer than 2 candidates (W2 gate)', () => {
+            expect(mapStateToProps({
+                anuga: { clickDisambiguation: { candidates: [candidate('bdy_', 'b.1')] } }
+            }).candidates).toEqual([]);
+        });
+
+        it('enriches each candidate with layerTitle from state.layers.flat (S3)', () => {
+            const two = [candidate('bdy_', 'bdy_1_b.1'), candidate('inf_', 'inf_2_i.2')];
+            const state = {
+                anuga: { clickDisambiguation: { candidates: two } },
+                layers: { flat: [
+                    { name: 'geonode:bdy_1_b', title: 'North Wall Boundary', visibility: true },
+                    { name: 'geonode:inf_2_i', title: 'Upstream Inflow', visibility: true }
+                ] }
+            };
+            const result = mapStateToProps(state);
+            expect(result.candidates.length).toBe(2);
+            expect(result.candidates[0].layerTitle).toBe('North Wall Boundary');
+            expect(result.candidates[1].layerTitle).toBe('Upstream Inflow');
+            // Other candidate fields are preserved
+            expect(result.candidates[0].kind).toBe('bdy_');
+            expect(result.candidates[1].featureId).toBe('inf_2_i.2');
+        });
+
+        it('sets layerTitle null when the layer is absent from state.layers.flat (falls back to label.title)', () => {
+            const two = [candidate('bdy_', 'bdy_1_b.1'), candidate('inf_', 'inf_2_i.2')];
+            const state = {
+                anuga: { clickDisambiguation: { candidates: two } },
+                layers: { flat: [] }
+            };
+            const result = mapStateToProps(state);
+            expect(result.candidates[0].layerTitle).toBe(null);
+            expect(result.candidates[1].layerTitle).toBe(null);
+        });
+    });
+
+    describe('resolveLayerTitle (S3 helper)', () => {
+
+        it('returns the title for an exact match (bare layerName vs namespace-qualified flat name)', () => {
+            const state = { layers: { flat: [
+                { name: 'geonode:ele_5_x_cog', title: 'Copernicus DEM', visibility: true }
+            ] } };
+            expect(resolveLayerTitle('ele_5_x_cog', state)).toBe('Copernicus DEM');
+        });
+
+        it('matches namespace-insensitively (bare candidate name vs workspace-qualified flat name)', () => {
+            const state = { layers: { flat: [
+                { name: 'geonode:ele_5_x_cog', title: 'Copernicus DEM', visibility: true }
+            ] } };
+            // candidate layerName is bare (no workspace prefix), flat has geonode: prefix
+            expect(resolveLayerTitle('ele_5_x_cog', state)).toBe('Copernicus DEM');
+            // also works when candidate already has a namespace prefix
+            expect(resolveLayerTitle('geonode:ele_5_x_cog', state)).toBe('Copernicus DEM');
+        });
+
+        it('returns null when no layer matches', () => {
+            const state = { layers: { flat: [
+                { name: 'geonode:other_layer', title: 'Other', visibility: true }
+            ] } };
+            expect(resolveLayerTitle('ele_5_x_cog', state)).toBe(null);
+        });
+
+        it('returns null when state.layers.flat is absent', () => {
+            expect(resolveLayerTitle('ele_5_x_cog', {})).toBe(null);
+            expect(resolveLayerTitle('ele_5_x_cog', { layers: {} })).toBe(null);
+        });
+
+        it('returns null when the matching layer has no title', () => {
+            const state = { layers: { flat: [{ name: 'geonode:ele_5_x_cog' }] } };
+            expect(resolveLayerTitle('ele_5_x_cog', state)).toBe(null);
         });
     });
 });

@@ -12,29 +12,32 @@
  *   GeoServer behaviour for single-band coverages. The band property is extracted as
  *   feature.properties.GRAY_INDEX, falling back to the first numeric property value.
  *   If GRAY_INDEX is absent (live GFI shape differs from standard), the subtitle
- *   reads "Value unavailable" and the opener shows the same. The value is encoded
- *   in the SYNTHETIC featureId used for the candidate so it survives the label→panel
- *   round-trip and can be read back by buildOpenActions at click time.
+ *   reads "Value unavailable". The value is shown in the panel ROW (label.subtitle).
  *   NOTE: GFI raster property name (GRAY_INDEX) is assumed standard; live
- *   verification is recommended before the W3 gate pass (see novel_questions C5).
+ *   verification is recommended (see novel_questions C5).
+ *
+ * READ-ONLY, NO ACTION (UAT 2026-06-30): the band value is already shown in the
+ *   panel row (label.subtitle), so clicking a raster row dispatches NO action — the
+ *   redundant value toast was distracting (terrain rasters are full-coverage, so a
+ *   click almost always surfaces several). buildOpenActions returns []. A LONE raster
+ *   click (1 candidate, no other object under the point) falls through to the default
+ *   Identify popup — see clickDisambiguationEpic buildClickActions (empty-opener
+ *   fallthrough). So the value is always visible: the panel row when >=2, MapStore's
+ *   native GFI popup when it is the only thing under the click.
  *
  * C1 (perms-gate partition): both raster targets carry readOnly:true, routing them
  *   AROUND filterEditableCandidates in buildClickActions (visibility gate only).
  *
- * C2 (D6): all dispatched actions are plain objects.
- *   show({title,message}, level) → {type: SHOW_NOTIFICATION, title, message, uid: Number, level}
- *   structuredClone-safe.
+ * C2 (D6): a no-op opener ([]) is trivially structuredClone-safe — nothing is
+ *   dispatched, so no function can ride an action.
  *
  * SYNTHETIC featureId: since raster features have id="", we create a synthetic id of
- *   the form "<layerName>#raster[=<value>]" that (a) is a unique React key for the panel
- *   row, (b) encodes the extracted band value so buildOpenActions can recover it at
- *   click time without needing to re-access the original feature or state.
+ *   the form "<layerName>#raster[=<value>]" that is a unique React key for the panel row.
  *
  * C4: mirrors anugaClickTargets.js / legacyClickTargets.js (register-in-loop, called
  *   explicitly by Anuga.js).
  */
 import { registerClickTarget } from '../shared/clickTargetRegistry';
-import { show } from '../../../../MapStore2/web/client/actions/notifications';
 
 // Strip an optional leading workspace namespace.
 const bareLayerName = (name) => String(name || '').replace(/^[^:./]+:/, '');
@@ -119,22 +122,10 @@ export const registerRasterClickTargets = () => {
             };
         },
 
-        // buildOpenActions() is called either:
-        //   (a) directly (1-candidate path) — feature is the original GFI feature
-        //   (b) via resolveCandidateOpenActions (panel selection) — feature is
-        //       {id: syntheticFeatureId} (the value is encoded in the id).
-        // Both paths recover the value; (b) falls back to the encoded id.
-        buildOpenActions: (feature) => {
-            let value = extractBandValue(feature);
-            if (value === null) {
-                value = parseRasterFeatureId(feature && feature.id);
-            }
-            const formatted = formatBandValue(value, 3);
-            const message = formatted !== null ? `Mannings n = ${formatted}` : 'Value unavailable';
-            // show() → {type: SHOW_NOTIFICATION, title, message, uid: Number, level}
-            // All fields are plain scalars — structuredClone-safe (D6 / C2).
-            return [show({ title: 'Friction raster', message }, 'info')];
-        },
+        // READ-ONLY value-readout: the Mannings n value is shown in the panel row
+        // (label.subtitle above). Clicking is informational -> NO action (no toast).
+        // A lone friction-raster click falls through to the default Identify popup.
+        buildOpenActions: () => [],
 
         // W3 read-only tag: bypasses filterEditableCandidates in buildClickActions.
         readOnly: true
@@ -161,21 +152,11 @@ export const registerRasterClickTargets = () => {
             };
         },
 
-        buildOpenActions: (feature, getState) => {
-            let value = extractBandValue(feature);
-            if (value === null) {
-                value = parseRasterFeatureId(feature && feature.id);
-            }
-            // Final fallback: cursorElevation from state (updated by cursorElevationEpic
-            // on mousemove — might be slightly stale relative to click position).
-            if (value === null && typeof getState === 'function') {
-                const stateValue = getState()?.anuga?.resources?.cursorElevation;
-                if (typeof stateValue === 'number') { value = stateValue; }
-            }
-            const formatted = formatBandValue(value, 2);
-            const message = formatted !== null ? `${formatted} m` : 'Value unavailable';
-            return [show({ title: 'Terrain elevation', message }, 'info')];
-        },
+        // READ-ONLY value-readout: the elevation is shown in the panel row
+        // (label.subtitle above). Clicking is informational -> NO action (no toast;
+        // the toast was distracting on full-coverage terrain). A lone terrain click
+        // falls through to the default Identify popup.
+        buildOpenActions: () => [],
 
         readOnly: true
     });

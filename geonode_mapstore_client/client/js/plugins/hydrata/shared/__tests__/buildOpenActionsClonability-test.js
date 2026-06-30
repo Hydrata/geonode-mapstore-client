@@ -167,12 +167,17 @@ describe('buildOpenActions structured-clone safety (TASK-1999 W4.1)', () => {
     });
 
     // ------------------------------------------------------------------
-    // Live registry walk: FAILS if any opener added later leaks a function.
-    // This is the load-bearing AC#3: it walks getAllClickTargets() at test
+    // Live registry walk: FAILS if any EDIT or LEGACY opener leaks a function
+    // or silently returns []. RASTER kinds are explicitly no-ops ([]) — the
+    // value is shown in label.subtitle; clicking dispatches nothing. Only the
+    // EDIT+LEGACY families MUST be non-empty (a broken edit/legacy opener that
+    // silently returns [] still FAILS this walk — the original false-pass guard,
+    // now scoped to the families that DO emit).
+    // This is the load-bearing AC#3: walks getAllClickTargets() at test
     // run time, NOT a hardcoded list, so new registrations are automatically
     // covered.
     // ------------------------------------------------------------------
-    it('LIVE REGISTRY WALK: every registered buildOpenActions is non-empty and clone-safe', () => {
+    it('LIVE REGISTRY WALK: EDIT+LEGACY are non-empty and clone-safe; RASTER openers return [] (no-op)', () => {
         const targets = getAllClickTargets();
         const kinds = Object.keys(targets);
         expect(kinds.length).toBeGreaterThan(16);
@@ -181,12 +186,17 @@ describe('buildOpenActions structured-clone safety (TASK-1999 W4.1)', () => {
             const { feature, getState } = buildTestInput(kind);
             const actions = targets[kind].buildOpenActions(feature, getState);
 
-            // Non-empty guard: an opener returning [] is a FALSE PASS (the leak
-            // never gets serialized), so we require at least one action per kind.
-            if (actions.length === 0) {
+            // Non-empty guard for EDIT+LEGACY: a broken opener silently returning []
+            // is a FALSE PASS (the leak never gets serialized), so we require at
+            // least one action. RASTER kinds are exempt — they are read-only
+            // value-readouts whose value is shown in the panel row, so [] is correct.
+            const isRaster = RASTER_KINDS.indexOf(kind) !== -1;
+            if (!isRaster && actions.length === 0) {
                 throw new Error(`kind "${kind}" buildOpenActions returned [] — test input is wrong or opener is broken`);
             }
 
+            // Clone-check every emitted action (RASTER [] → forEach is a no-op,
+            // trivially safe; the guard is satisfied by the [] assertion below).
             actions.forEach((action, i) => {
                 assertNoFunctions(action, `kind "${kind}" action[${i}]`);
                 assertStructuredClone(action);
@@ -282,8 +292,12 @@ describe('buildOpenActions structured-clone safety (TASK-1999 W4.1)', () => {
 
     // ------------------------------------------------------------------
     // RASTER read-only family (2 kinds: fri_raster_ terrain_raster)
+    // UAT 2026-06-30: value shown in label.subtitle (panel row); clicking
+    // dispatches NO action. A lone raster click falls through to the default
+    // Identify popup. [] is trivially D6-safe (nothing dispatched → no function
+    // can ride an action).
     // ------------------------------------------------------------------
-    describe('RASTER READ-ONLY openers (2 kinds → show() notification)', () => {
+    describe('RASTER READ-ONLY openers (2 kinds → [] no-op, value shown in label.subtitle)', () => {
 
         it('covers exactly the 2 expected raster kinds', () => {
             expect(RASTER_KINDS.length).toBe(2);
@@ -294,28 +308,32 @@ describe('buildOpenActions structured-clone safety (TASK-1999 W4.1)', () => {
         RASTER_KINDS.forEach((kind) => {
             describe(`RASTER "${kind}"`, () => {
 
-                it('buildOpenActions returns a non-empty list (1 show notification)', () => {
+                it('buildOpenActions returns [] (read-only no-op: value in label.subtitle, D6)', () => {
                     const { feature, getState } = buildTestInput(kind);
                     const actions = getClickTarget(kind).buildOpenActions(feature, getState);
-                    expect(actions.length).toBe(1);
+                    expect(actions).toEqual([]);
                 });
 
-                it('action carries NO function values (D6, C2)', () => {
+                it('[] carries NO function values (D6, C2 — trivially true, documented)', () => {
                     const { feature, getState } = buildTestInput(kind);
                     const actions = getClickTarget(kind).buildOpenActions(feature, getState);
+                    // [] → forEach is a no-op; the invariant is trivially satisfied.
                     actions.forEach((a) => assertNoFunctions(a, `RASTER "${kind}"`));
+                    expect(actions).toEqual([]);
                 });
 
-                it('structuredClone(action) does not throw DataCloneError', () => {
+                it('structuredClone([]) does not throw (D6 — trivially safe)', () => {
                     const { feature, getState } = buildTestInput(kind);
                     const actions = getClickTarget(kind).buildOpenActions(feature, getState);
                     actions.forEach((a) => assertStructuredClone(a));
+                    expect(actions).toEqual([]);
                 });
 
-                it('MessageChannel (exact prod mechanism) does not throw', () => {
+                it('MessageChannel([]) does not throw (D6 — trivially safe)', () => {
                     const { feature, getState } = buildTestInput(kind);
                     const actions = getClickTarget(kind).buildOpenActions(feature, getState);
                     actions.forEach((a) => assertMessageChannel(a));
+                    expect(actions).toEqual([]);
                 });
             });
         });

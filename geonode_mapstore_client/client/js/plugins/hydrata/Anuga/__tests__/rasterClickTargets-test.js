@@ -7,9 +7,12 @@
  *   (c) registerRasterClickTargets() registers fri_raster_ and terrain_raster
  *       with readOnly:true.
  *   (d) match(): correct prefix matching; empty featureId is ok (raster path).
- *   (e) label(): value in subtitle from feature.properties.GRAY_INDEX.
- *   (f) buildOpenActions(): SHOW_NOTIFICATION action, plain, structuredClone-safe.
- *   (g) buildOpenActions() recovers value from synthetic featureId (panel path).
+ *   (e) label(): value in subtitle from feature.properties.GRAY_INDEX (UNCHANGED).
+ *   (f) buildOpenActions(): returns [] — READ-ONLY value-readout (UAT 2026-06-30).
+ *       The band value is shown in label.subtitle (panel row); clicking dispatches
+ *       NO action. A lone raster click falls through to the default Identify popup.
+ *       [] is trivially structuredClone-safe (D6 / C2).
+ *   (g) parseRasterFeatureId is still exported and tested (now-unused-but-valid util).
  */
 import expect from 'expect';
 import {
@@ -125,25 +128,20 @@ describe('rasterClickTargets (TASK-1997 W3.2)', () => {
         });
 
         describe('buildOpenActions()', () => {
-            it('returns a SHOW_NOTIFICATION action with the Mannings n value (C3)', () => {
-                const actions = t().buildOpenActions(
-                    feature('', { GRAY_INDEX: 0.04 })
-                );
-                expect(actions.length).toBe(1);
-                expect(actions[0].type).toBe('SHOW_NOTIFICATION');
-                expect(actions[0].message).toContain('0.04');
+            it('returns [] (read-only value-readout: Mannings n already shown in label.subtitle)', () => {
+                const actions = t().buildOpenActions(feature('', { GRAY_INDEX: 0.04 }));
+                expect(actions).toEqual([]);
             });
-            it('recovers value from synthetic featureId (panel round-trip)', () => {
+            it('returns [] with a synthetic featureId (fallthrough to default Identify popup, not a panel round-trip)', () => {
                 const syntheticId = buildRasterFeatureId('fri_raster_4_friction', 0.04);
                 const actions = t().buildOpenActions(feature(syntheticId));
-                expect(actions[0].type).toBe('SHOW_NOTIFICATION');
-                expect(actions[0].message).toContain('0.04');
+                expect(actions).toEqual([]);
             });
-            it('shows "Value unavailable" when no value found', () => {
+            it('returns [] when no GRAY_INDEX (no toast, no action)', () => {
                 const actions = t().buildOpenActions(feature('fri_raster_4_friction#raster', {}));
-                expect(actions[0].message).toContain('unavailable');
+                expect(actions).toEqual([]);
             });
-            it('all actions are structuredClone-safe (D6, W4.1 AC3)', () => {
+            it('[] is trivially structuredClone-safe (D6, C2)', () => {
                 const actions = t().buildOpenActions(feature('', { GRAY_INDEX: 0.04 }));
                 expect(collectFunctionPaths(actions)).toEqual([]);
                 expect(() => structuredClone(actions)).toNotThrow();
@@ -179,22 +177,19 @@ describe('rasterClickTargets (TASK-1997 W3.2)', () => {
         });
 
         describe('buildOpenActions()', () => {
-            it('returns a SHOW_NOTIFICATION action with elevation in metres (C3)', () => {
+            it('returns [] (read-only value-readout: elevation already shown in label.subtitle)', () => {
                 const actions = t().buildOpenActions(feature('', { GRAY_INDEX: 12.34 }));
-                expect(actions[0].type).toBe('SHOW_NOTIFICATION');
-                expect(actions[0].message).toContain('12.34');
-                expect(actions[0].message).toContain('m');
+                expect(actions).toEqual([]);
             });
-            it('falls back to state.anuga.resources.cursorElevation when GRAY_INDEX absent', () => {
+            it('returns [] regardless of feature input (no state fallback needed — opener is no-op)', () => {
                 const getState = () => ({ anuga: { resources: { cursorElevation: 5.5 } } });
                 const actions = t().buildOpenActions(
-                    feature('ele_42_cog#raster'),  // no value in synthetic id
+                    feature('ele_42_cog#raster'),
                     getState
                 );
-                expect(actions[0].type).toBe('SHOW_NOTIFICATION');
-                expect(actions[0].message).toContain('5.5');
+                expect(actions).toEqual([]);
             });
-            it('all actions are structuredClone-safe (D6, W4.1 AC3)', () => {
+            it('[] is trivially structuredClone-safe (D6, C2)', () => {
                 const actions = t().buildOpenActions(feature('', { GRAY_INDEX: 42.1 }));
                 expect(collectFunctionPaths(actions)).toEqual([]);
                 expect(() => structuredClone(actions)).toNotThrow();

@@ -318,8 +318,7 @@ export const buildClickActions = (allFeatures, store) => {
         const target = getClickTarget(candidate.kind);
         // For VECTOR candidates, find the original GFI feature (has full properties).
         // For RASTER candidates, featureId is a SYNTHETIC string (e.g. "ele_42_cog#raster=12.3")
-        // that won't match any real feature; fall back to {id: candidate.featureId} so the
-        // opener can recover the encoded band value via parseRasterFeatureId.
+        // that won't match any real feature; fall back to {id: candidate.featureId}.
         const feature = allFeatures.find((f) => f && f.id === candidate.featureId)
             || { id: candidate.featureId };
         let openActions = [];
@@ -328,6 +327,14 @@ export const buildClickActions = (allFeatures, store) => {
         } catch (e) {
             console.error('clickDisambiguationEpic: buildOpenActions failed', e);
             openActions = [];
+        }
+        if (openActions.length === 0) {
+            // A single NO-ACTION candidate (a read-only raster value-readout: the value
+            // is shown natively by the default Identify popup, so there is nothing to
+            // "open"). Fall through like the 0-candidate case — do NOT tear down the
+            // default popup; just clear the W2-corrective-4 aggregating flag so the dock
+            // is revealed (the native GFI popup IS the readout for a lone raster click).
+            return [hideClickDisambiguation()];
         }
         // purge FIRST (empties requests[] -> dock already closed), THEN clear the
         // W2-corrective-4 `aggregating` flag, THEN open: ordering so the flag-clear can
