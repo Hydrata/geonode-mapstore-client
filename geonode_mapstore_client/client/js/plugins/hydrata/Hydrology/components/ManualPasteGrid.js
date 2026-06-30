@@ -82,10 +82,13 @@ const buildColumns = (isHydrograph) => [
     columnHelper.accessor('value', {
         cell: TableCell,
         // Hydrograph: Flow (m3/s) only — rainfall option removed (TASK-2026).
-        // Design Storm: original dual-unit header retained.
+        // Design Storm: Rainfall (mm/hr) only — TASK-2001 W1d (TASK-2005) makes
+        // the Design Storms create panel rainfall-only now that TASK-1970 split
+        // hydrographs (flow) out into their own page. Only the else branch
+        // changed; the isHydrograph branch keeps 'Flow (m3/s)' (no 1970 W5.4 regression).
         header: () => isHydrograph
             ? <span>Flow (m3/s)</span>
-            : <span>Flow (m3/s) or<br/>Rainfall (mm/hr)</span>,
+            : <span>Rainfall (mm/hr)</span>,
         meta: {
             type: 'number'
         }
