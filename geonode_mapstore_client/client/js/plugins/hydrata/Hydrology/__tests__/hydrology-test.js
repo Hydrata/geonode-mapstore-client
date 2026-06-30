@@ -522,6 +522,37 @@ describe('Hydrology Plugin', () => {
             });
         });
 
+        // TASK-2004 (epic-2001 W1c) — a freshly-created Design Storm (time-series)
+        // draft seeds an ALL-ZERO short grid (a few hourly timestamps, every value
+        // 0) so Create opens an empty editable hyetograph rather than a fake
+        // 0/10/30/0 sample storm the user has to clear first. The grid keeps a few
+        // rows so the chart/grid still render with a visible time axis.
+        describe('TASK-2004 new Design Storm seeds an all-zero short grid', () => {
+            it('AC: the time-series draft rowData is non-empty and EVERY value is 0', () => {
+                const state = reducer(
+                    { ...initialState, timeSeriess: [] },
+                    createHydrologyForm('time-series')
+                );
+                const draft = state.draftTimeSeries;
+                expect(draft).toExist();
+                const rowData = draft.rowData;
+                // A short grid (keeps the time axis visible) — non-empty...
+                expect(Array.isArray(rowData)).toBe(true);
+                expect(rowData.length).toBeGreaterThan(0);
+                // ...and EVERY seeded value is 0 (no fake sample storm).
+                expect(rowData.every(r => Number(r.value) === 0)).toBe(true);
+                // each row still carries a timestamp (the visible time axis).
+                expect(rowData.every(r => typeof r.timestamp === 'string' && r.timestamp.length > 0)).toBe(true);
+            });
+
+            it('AC: a brand-new TimeSeries() instance is seeded all-zero (the class default)', () => {
+                const { TimeSeries } = require('../classesHydrology');
+                const ts = new TimeSeries();
+                expect(ts.rowData.length).toBeGreaterThan(0);
+                expect(ts.rowData.every(r => Number(r.value) === 0)).toBe(true);
+            });
+        });
+
         it('should handle DELETE_HYDROLOGY_ITEM_SUCCESS for sv-idf-table', () => {
             const stateWithItems = {
                 ...initialState,
