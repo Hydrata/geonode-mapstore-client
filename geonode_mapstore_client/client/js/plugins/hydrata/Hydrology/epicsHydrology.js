@@ -150,8 +150,11 @@ export const fetchTimeSeriesEpic = (action$, store) =>
 // TASK-1986 (epic-1970) — fetch only series_type=hydrograph rows.
 // Stored in state.hydrology.hydrographs (separate from timeSeriess so each
 // panel sees only its own type without client-side filtering).
-// Uses the same async-Promise pattern as fetchTimeSeriesEpic / fetchAndDispatch,
-// with a ?series_type=hydrograph query-string appended to the list URL.
+// TASK-2015 (epic-1970 W7): DRY'd onto the shared fetchAndDispatch helper —
+// mirrors fetchTimeSeriesEpic, with a ?series_type=hydrograph query-string.
+// The errorFunction preserves the prior NON-FATAL behaviour: on an axios
+// failure dispatch setHydrologyHydrographData([]) so the panel still renders
+// (an empty list) rather than tearing down the merged epic timers.
 export const fetchHydrographEpic = (action$, store) =>
     action$
         .ofType(FETCH_HYDROLOGY_HYDROGRAPH_DATA)
@@ -159,19 +162,11 @@ export const fetchHydrographEpic = (action$, store) =>
             let response;
             try {
                 const projectId = store.getState()?.anuga?.projects?.data?.id;
-                response = (async () => {
-                    try {
-                        const res = await axios.get(
-                            `/api/v2/anuga/projects/${projectId}/time-series/?series_type=hydrograph`
-                        );
-                        const data = res.data;
-                        const payload = Array.isArray(data) ? data : (data?.results ?? []);
-                        return setHydrologyHydrographData(payload);
-                    } catch (_err) {
-                        // Non-fatal — return empty list so the panel still renders.
-                        return setHydrologyHydrographData([]);
-                    }
-                })();
+                const endpoint = "time-series";
+                const dispatchFunction = setHydrologyHydrographData;
+                // Non-fatal: an empty list keeps the Hydrographs panel rendering.
+                const errorFunction = () => setHydrologyHydrographData([]);
+                response = fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction, '?series_type=hydrograph');
             } catch (error) {
                 response = Rx.Observable.empty();
             }
