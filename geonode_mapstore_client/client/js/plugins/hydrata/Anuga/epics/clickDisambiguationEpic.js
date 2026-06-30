@@ -26,6 +26,7 @@
 import Rx from 'rxjs';
 import {
     LOAD_FEATURE_INFO,
+    FEATURE_INFO_CLICK,
     toggleMapInfoState,
     changeMapInfoFormat,
     purgeMapInfoResults,
@@ -36,7 +37,11 @@ import {
     getClickTarget,
     parseFeatureId
 } from '../../shared/clickTargetRegistry';
-import { showClickDisambiguation } from '../actions/clickDisambiguationActions';
+import {
+    showClickDisambiguation,
+    hideClickDisambiguation,
+    armClickAggregation
+} from '../actions/clickDisambiguationActions';
 import { canEditLayer, getProjectMyRole } from '../selectorsAnuga';
 import { SET_ANUGA_PROJECT_DATA } from '../actions/dataActions';
 
@@ -211,7 +216,10 @@ export const buildClickActions = (allFeatures, store) => {
     // VectorDraw draw/edit phase is active. A mid-draw GFI click must flow to the
     // active VectorDraw flow, not pop the disambiguation list.
     if (isVectorDrawActive(state)) {
-        return [];
+        // The click belongs to the active draw/edit flow, not disambiguation.
+        // hideClickDisambiguation() clears the W2-corrective-4 `aggregating` flag so
+        // the deferred dock is released (pre-fix behaviour: the default popup may show).
+        return [hideClickDisambiguation()];
     }
     // Classify, then drop EDIT candidates on layers the user may not edit
     // (TASK-1994 W2.2) before branching on the count.
@@ -220,8 +228,13 @@ export const buildClickActions = (allFeatures, store) => {
         state
     );
     if (candidates.length === 0) {
-        // Let the default Identify popup show — do NOT swallow it.
-        return [];
+        // 0-candidate fallthrough (invariant #1): let the default Identify popup show.
+        // hideClickDisambiguation() clears `aggregating` WITHOUT purging, so the
+        // surviving GFI responses (requests[] intact) render the default popup as the
+        // FINAL state — revealed once, not flashed. The W2-corrective-4 flag is what
+        // kept the dock deferred during the 300ms aggregation window; clearing it here
+        // is the deliberate REVEAL.
+        return [hideClickDisambiguation()];
     }
     // W2 self-verify FIX — a CANDIDATE-handled click must not leave the default
     // Identify (GetFeatureInfo) attribute popup + click marker showing UNDER the
@@ -245,8 +258,13 @@ export const buildClickActions = (allFeatures, store) => {
             console.error('clickDisambiguationEpic: buildOpenActions failed', e);
             openActions = [];
         }
-        return [...identifyTeardown, ...openActions];
+        // purge FIRST (empties requests[] -> dock already closed), THEN clear the
+        // W2-corrective-4 `aggregating` flag, THEN open: ordering so the flag-clear can
+        // never re-open the dock (requests are already empty when aggregating goes false).
+        return [...identifyTeardown, hideClickDisambiguation(), ...openActions];
     }
+    // >=2: showClickDisambiguation() alone clears `aggregating` in the reducer (the
+    // panel reads only state.anuga.clickDisambiguation.candidates, independent of the purge).
     return [...identifyTeardown, showClickDisambiguation(candidates)];
 };
 
@@ -258,10 +276,29 @@ export const clickDisambiguationEpic = (action$, store) => {
     const featureInfo$ = action$
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => action && action.data && action.data.type === 'FeatureCollection');
+    // W2-corrective-4 (epic 1969) — the "Identify-dock flash" fix. MapStore's default
+    // Identify dock is open while requests[] is in flight (IdentifyContainer.jsx:117
+    // `open={enabled && requests.length !== 0}`), so during the 300ms aggregation window
+    // it renders the accumulating GFI responses, and FIX-1's purge only fires at flush
+    // -> a ~300ms flash. We ARM an `aggregating` flag at the START of the burst (the core
+    // dock gate AND-s in `!aggregating`); the branch CLEARS it at flush.
+    //
+    // Arm ONCE per click, on the FIRST FeatureCollection of the burst:
+    //   switchMap(FEATURE_INFO_CLICK) is the per-click latch — take(1) arms once and
+    //   ignores every later/straggler response of the SAME click (so a layer that answers
+    //   after the 0-candidate reveal can NOT re-suppress the just-revealed popup), and a
+    //   NEW click starts a fresh inner. Epic-driven (not reducer-driven on raw
+    //   LOAD_FEATURE_INFO) so SET shares the epic's page-scope with CLEAR: a stuck flag on
+    //   a muted preview/dataset page is structurally impossible. Arming on the first
+    //   FeatureCollection (not on FEATURE_INFO_CLICK) guarantees a buffer flush — and thus
+    //   a clear — always follows, since the arm trigger IS the buffer's input.
+    const arm$ = action$
+        .ofType(FEATURE_INFO_CLICK)
+        .switchMap(() => featureInfo$.take(1).mapTo(armClickAggregation()));
     // Buffer the per-layer burst of one click (flush CLICK_AGGREGATION_DEBOUNCE_MS
     // after the last response; in unit tests the source completes, which also
     // flushes the buffer), then classify the cross-layer UNION and branch once.
-    return featureInfo$
+    const classify$ = featureInfo$
         .buffer(featureInfo$.debounceTime(CLICK_AGGREGATION_DEBOUNCE_MS))
         .filter((batch) => batch.length > 0)
         .switchMap((batch) => {
@@ -271,6 +308,7 @@ export const clickDisambiguationEpic = (action$, store) => {
             );
             return Rx.Observable.from(buildClickActions(allFeatures, store));
         });
+    return Rx.Observable.merge(arm$, classify$);
 };
 
 /**

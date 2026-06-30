@@ -14,11 +14,14 @@ import expect from 'expect';
 import Rx from 'rxjs';
 import {
     LOAD_FEATURE_INFO,
+    FEATURE_INFO_CLICK,
+    NEW_MAPINFO_REQUEST,
     TOGGLE_MAPINFO_STATE,
     CHANGE_MAPINFO_FORMAT,
     PURGE_MAPINFO_RESULTS,
     HIDE_MAPINFO_MARKER
 } from '../../../../../../MapStore2/web/client/actions/mapInfo';
+import mapInfoReducer from '../../../../../../MapStore2/web/client/reducers/mapInfo';
 import { setAnugaProjectData } from '../../actions/dataActions';
 import {
     registerClickTarget,
@@ -26,8 +29,11 @@ import {
 } from '../../../shared/clickTargetRegistry';
 import {
     SHOW_CLICK_DISAMBIGUATION,
+    HIDE_CLICK_DISAMBIGUATION,
+    ARM_CLICK_AGGREGATION,
     showClickDisambiguation,
-    hideClickDisambiguation
+    hideClickDisambiguation,
+    armClickAggregation
 } from '../../actions/clickDisambiguationActions';
 import clickDisambiguationReducer from '../../reducers/clickDisambiguationReducer';
 import {
@@ -161,17 +167,24 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
 
     describe('epic branching', () => {
 
-        it('0 editable candidates -> no-op (default Identify popup shows)', (done) => {
+        it('0 editable candidates -> clears aggregating so the default Identify popup shows', (done) => {
+            // W2-corrective-4: was a bare no-op ([]); now the branch emits
+            // hideClickDisambiguation() to CLEAR the dock-suppression flag (without
+            // purging), revealing the default Identify popup as the final state.
             const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(feature(''), feature('zzz_9_x.1')) }]);
             const out = [];
             clickDisambiguationEpic(action$, store).subscribe(
                 a => out.push(a),
                 done,
-                () => { expect(out).toEqual([]); done(); }
+                () => {
+                    expect(out.map(a => a.type)).toEqual([HIDE_CLICK_DISAMBIGUATION]);
+                    expect(collectFunctionPaths(out)).toEqual([]);
+                    done();
+                }
             );
         });
 
-        it('1 candidate -> tears down Identify popup+marker FIRST, then buildOpenActions', (done) => {
+        it('1 candidate -> tears down Identify popup+marker FIRST, clears aggregating, then buildOpenActions', (done) => {
             const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(feature('aaa_1_alpha.7')) }]);
             const out = [];
             clickDisambiguationEpic(action$, store).subscribe(
@@ -179,12 +192,15 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                 done,
                 () => {
                     // W2 self-verify FIX-1: PURGE + HIDE marker precede the opener.
+                    // W2-corrective-4: HIDE_CLICK_DISAMBIGUATION clears `aggregating`
+                    // AFTER the purge (requests already empty => no dock re-open).
                     expect(out.map(a => a.type)).toEqual([
                         PURGE_MAPINFO_RESULTS,
                         HIDE_MAPINFO_MARKER,
+                        HIDE_CLICK_DISAMBIGUATION,
                         'AAA:OPEN'
                     ]);
-                    expect(out[2]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
+                    expect(out[3]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
                     expect(collectFunctionPaths(out)).toEqual([]);
                     done();
                 }
@@ -270,9 +286,10 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                     expect(out.map(a => a.type)).toEqual([
                         PURGE_MAPINFO_RESULTS,
                         HIDE_MAPINFO_MARKER,
+                        HIDE_CLICK_DISAMBIGUATION,
                         'AAA:OPEN'
                     ]);
-                    expect(out[2]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
+                    expect(out[3]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
                     done();
                 }
             );
@@ -334,15 +351,18 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                     expect(out.map(a => a.type)).toEqual([
                         PURGE_MAPINFO_RESULTS,
                         HIDE_MAPINFO_MARKER,
+                        HIDE_CLICK_DISAMBIGUATION,
                         'AAA:OPEN'
                     ]);
-                    expect(out[2]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
+                    expect(out[3]).toEqual({ type: 'AAA:OPEN', featureId: 'aaa_1_alpha.7' });
                     done();
                 }
             );
         });
 
-        it('epic: when NO clicked layer is editable, falls through to the default Identify popup (no-op)', (done) => {
+        it('epic: when NO clicked layer is editable, clears aggregating + falls through to the default Identify popup', (done) => {
+            // W2-corrective-4: was [] (bare no-op); now hideClickDisambiguation() clears
+            // the dock-suppression flag so the default popup reveals.
             const permStore = { getState: () => stateWith([], { myRole: 'viewer' }) };
             const action$ = makeActions$([{ type: LOAD_FEATURE_INFO, data: fc(
                 feature('aaa_1_alpha.7'),
@@ -352,7 +372,7 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
             clickDisambiguationEpic(action$, permStore).subscribe(
                 a => out.push(a),
                 done,
-                () => { expect(out).toEqual([]); done(); }
+                () => { expect(out.map(a => a.type)).toEqual([HIDE_CLICK_DISAMBIGUATION]); done(); }
             );
         });
 
@@ -413,12 +433,14 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
         });
 
         it('suppresses disambiguation while a VectorDraw draw/edit phase is active (AC1)', (done) => {
+            // W2-corrective-4: was [] (bare no-op); now hideClickDisambiguation() clears
+            // the dock-suppression flag (the click belongs to the draw flow).
             const drawingStore = { getState: () => baseState({ phase: 'drawing' }) };
             const out = [];
             clickDisambiguationEpic(twoFeatureClick(), drawingStore).subscribe(
                 a => out.push(a),
                 done,
-                () => { expect(out).toEqual([]); done(); }
+                () => { expect(out.map(a => a.type)).toEqual([HIDE_CLICK_DISAMBIGUATION]); done(); }
             );
         });
 
@@ -549,28 +571,166 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
         });
     });
 
+    // W2-corrective-4 (epic 1969) — the epic ARMS the dock-suppression flag once per
+    // click, on the FIRST FeatureCollection of the burst, via
+    // switchMap(FEATURE_INFO_CLICK -> featureInfo$.take(1)). This is the per-click latch
+    // that defeats the straggler re-arm flicker (a layer answering AFTER the branch
+    // cannot re-suppress the revealed popup) and, being epic-driven, makes a stuck flag
+    // on a muted page structurally impossible.
+    describe('arm$ per-click latch (W2-corrective-4)', () => {
+        const armsIn = (out) => out.filter(a => a.type === ARM_CLICK_AGGREGATION).length;
+        // non-matching feature -> classify yields 0 candidates -> branch is [HIDE], so the
+        // only ARM(s) come from arm$, isolating the latch behaviour.
+        const click = { type: FEATURE_INFO_CLICK };
+        const fcLoad = () => ({ type: LOAD_FEATURE_INFO, data: fc(feature('zzz_9_x.1')) });
+
+        it('does NOT arm without a FEATURE_INFO_CLICK (a bare GFI response never arms)', (done) => {
+            const out = [];
+            clickDisambiguationEpic(makeActions$([fcLoad()]), store).subscribe(
+                a => out.push(a), done,
+                () => { expect(armsIn(out)).toBe(0); done(); }
+            );
+        });
+
+        it('does NOT arm on a click that yields NO FeatureCollection (the stuck-flag guard)', (done) => {
+            // The load-bearing reason for switchMap(() => featureInfo$.take(1)) rather than
+            // a naive .mapTo(arm) directly on FEATURE_INFO_CLICK: arm ONLY after a real
+            // FeatureCollection arrives. A click returning text/plain "no features were
+            // found" (non-FeatureCollection) must NOT arm — otherwise the flag would be set
+            // with no classify flush ever firing to clear it (stuck dock; breaks
+            // invariants #1/#5). A naive mapTo(arm)-on-click would (wrongly) arm here.
+            const out = [];
+            clickDisambiguationEpic(makeActions$([
+                { type: FEATURE_INFO_CLICK },
+                { type: LOAD_FEATURE_INFO, data: 'fid = 5\nno features were found' }
+            ]), store).subscribe(
+                a => out.push(a), done,
+                () => { expect(armsIn(out)).toBe(0); done(); }
+            );
+        });
+
+        it('does NOT arm on a bare click with no GFI response at all', (done) => {
+            const out = [];
+            clickDisambiguationEpic(makeActions$([{ type: FEATURE_INFO_CLICK }]), store).subscribe(
+                a => out.push(a), done,
+                () => { expect(armsIn(out)).toBe(0); done(); }
+            );
+        });
+
+        it('arms exactly ONCE per click even across a multi-layer burst (no re-arm within a click)', (done) => {
+            const out = [];
+            clickDisambiguationEpic(makeActions$([click, fcLoad(), fcLoad(), fcLoad()]), store).subscribe(
+                a => out.push(a), done,
+                () => {
+                    expect(armsIn(out)).toBe(1);
+                    // the single ARM precedes the flush branch
+                    expect(out[0].type).toBe(ARM_CLICK_AGGREGATION);
+                    done();
+                }
+            );
+        });
+
+        it('re-arms on a NEW click (the latch resets per click)', (done) => {
+            const out = [];
+            clickDisambiguationEpic(makeActions$([click, fcLoad(), click, fcLoad()]), store).subscribe(
+                a => out.push(a), done,
+                () => { expect(armsIn(out)).toBe(2); done(); }
+            );
+        });
+    });
+
     describe('reducer slice', () => {
 
-        it('defaults to {candidates: []}', () => {
+        it('defaults to {candidates: [], aggregating: false}', () => {
             expect(clickDisambiguationReducer(undefined, { type: '@@INIT' }))
-                .toEqual({ candidates: [] });
+                .toEqual({ candidates: [], aggregating: false });
         });
 
-        it('SHOW stores the candidates', () => {
+        it('SHOW stores the candidates and clears aggregating', () => {
             const candidates = [{ kind: 'aaa_', featureId: 'aaa_1_x.1', layerName: 'aaa_1_x', label: { title: 'A', subtitle: '', icon: '' } }];
-            expect(clickDisambiguationReducer(undefined, showClickDisambiguation(candidates)))
-                .toEqual({ candidates });
+            expect(clickDisambiguationReducer({ candidates: [], aggregating: true }, showClickDisambiguation(candidates)))
+                .toEqual({ candidates, aggregating: false });
         });
 
-        it('HIDE clears the candidates', () => {
-            const seeded = { candidates: [{ kind: 'aaa_' }] };
+        it('HIDE clears the candidates and aggregating', () => {
+            const seeded = { candidates: [{ kind: 'aaa_' }], aggregating: true };
             expect(clickDisambiguationReducer(seeded, hideClickDisambiguation()))
-                .toEqual({ candidates: [] });
+                .toEqual({ candidates: [], aggregating: false });
         });
 
         it('SHOW with no candidates falls back to []', () => {
             expect(clickDisambiguationReducer(undefined, { type: SHOW_CLICK_DISAMBIGUATION }))
-                .toEqual({ candidates: [] });
+                .toEqual({ candidates: [], aggregating: false });
+        });
+    });
+
+    // W2-corrective-4 (epic 1969) — the Identify-dock-flash fix. The reducer holds a
+    // plain `aggregating` boolean that the core Identify dock gate AND-s with as
+    // `!anugaAggregating`. SET is epic-driven (ARM_CLICK_AGGREGATION) and CLEAR is on
+    // every branch + FEATURE_INFO_CLICK, so a stuck flag is structurally impossible.
+    describe('aggregating flag — reducer lifecycle + stuck-proofing', () => {
+
+        it('ARM_CLICK_AGGREGATION sets aggregating true (epic-driven SET, idempotent)', () => {
+            expect(clickDisambiguationReducer({ candidates: [], aggregating: false }, armClickAggregation()).aggregating).toBe(true);
+            // idempotent: a second arm returns the SAME object (no redundant render)
+            const armed = { candidates: [], aggregating: true };
+            expect(clickDisambiguationReducer(armed, armClickAggregation())).toBe(armed);
+        });
+
+        it('does NOT arm on a raw LOAD_FEATURE_INFO (FeatureCollection or not) — only the epic arms', () => {
+            // The high-severity stuck trap was a reducer that armed on a raw
+            // FeatureCollection LOAD_FEATURE_INFO; the globally-mounted slice would then
+            // get stuck true on a page where the epic is muted. The reducer must NOT
+            // react to LOAD_FEATURE_INFO at all.
+            const s = { candidates: [], aggregating: false };
+            expect(clickDisambiguationReducer(s, { type: LOAD_FEATURE_INFO, data: fc(feature('aaa_1_x.1')) }).aggregating).toBe(false);
+            expect(clickDisambiguationReducer(s, { type: LOAD_FEATURE_INFO, data: 'text/plain blob' }).aggregating).toBe(false);
+        });
+
+        it('FEATURE_INFO_CLICK clears aggregating (start-of-click + cross-map stuck recovery)', () => {
+            expect(clickDisambiguationReducer({ candidates: [], aggregating: true }, { type: FEATURE_INFO_CLICK }).aggregating).toBe(false);
+            // no-op (same object) when already false
+            const idle = { candidates: [], aggregating: false };
+            expect(clickDisambiguationReducer(idle, { type: FEATURE_INFO_CLICK })).toBe(idle);
+        });
+
+        it('CANNOT get stuck: an armed flag is always cleared by the next click', () => {
+            let s = clickDisambiguationReducer(undefined, armClickAggregation());
+            expect(s.aggregating).toBe(true);
+            s = clickDisambiguationReducer(s, { type: FEATURE_INFO_CLICK });
+            expect(s.aggregating).toBe(false);
+        });
+    });
+
+    // The behavioural proof the corrective targets: compute the core Identify dock gate
+    // (IdentifyContainer.jsx: `enabled && requests.length !== 0 && !anugaAggregating`)
+    // from the REAL core mapInfo reducer + our anuga reducer across a click's lifecycle.
+    describe('dock gate behaviour (combines core mapInfo reducer + anuga reducer)', () => {
+        // mirrors IdentifyContainer.jsx:117 exactly
+        const gateOpen = (mi, cd) => true && (mi.requests || []).length !== 0 && !cd.aggregating;
+        const aRequest = { type: NEW_MAPINFO_REQUEST, reqId: 0, request: {} };
+
+        it('>=1-candidate click: dock is NEVER open (suppressed during aggregation, requests purged after)', () => {
+            // click fired a GFI request -> requests non-empty
+            let mi = mapInfoReducer(undefined, aRequest);
+            expect(mi.requests.length).toBe(1);
+            // first FeatureCollection -> epic arms -> aggregating true
+            let cd = clickDisambiguationReducer(undefined, armClickAggregation());
+            expect(gateOpen(mi, cd)).toBe(false);   // suppressed DURING the 300ms window
+            // branch (>=2): purge empties requests, SHOW clears aggregating
+            mi = mapInfoReducer(mi, { type: PURGE_MAPINFO_RESULTS });
+            cd = clickDisambiguationReducer(cd, showClickDisambiguation([{ kind: 'aaa_' }, { kind: 'bbb_' }]));
+            expect(gateOpen(mi, cd)).toBe(false);   // still closed AFTER the branch (requests empty)
+        });
+
+        it('0-candidate click: dock STAYS open as the default popup (invariant #1 — reveal, not flash)', () => {
+            let mi = mapInfoReducer(undefined, aRequest);   // requests non-empty
+            let cd = clickDisambiguationReducer(undefined, armClickAggregation());
+            expect(gateOpen(mi, cd)).toBe(false);   // suppressed during the window
+            // 0-candidate branch: HIDE clears aggregating WITHOUT a purge -> requests survive
+            cd = clickDisambiguationReducer(cd, hideClickDisambiguation());
+            expect(mi.requests.length).toBe(1);     // not purged
+            expect(gateOpen(mi, cd)).toBe(true);    // default Identify popup REVEALED
         });
     });
 });

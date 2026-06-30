@@ -13,6 +13,11 @@
 
 export const SHOW_CLICK_DISAMBIGUATION = 'ANUGA:SHOW_CLICK_DISAMBIGUATION';
 export const HIDE_CLICK_DISAMBIGUATION = 'ANUGA:HIDE_CLICK_DISAMBIGUATION';
+// W2-corrective-4 (epic 1969) — arm the "aggregating" flag that defers the default
+// MapStore Identify dock while clickDisambiguationEpic buffers a per-click cross-layer
+// GetFeatureInfo burst. Plain {type} only (D6). Dispatched by the epic (NOT the
+// reducer) so SET shares the epic's page-scope with CLEAR — see clickDisambiguationEpic.
+export const ARM_CLICK_AGGREGATION = 'ANUGA:ARM_CLICK_AGGREGATION';
 
 export const showClickDisambiguation = (candidates) => ({
     type: SHOW_CLICK_DISAMBIGUATION,
@@ -21,4 +26,8 @@ export const showClickDisambiguation = (candidates) => ({
 
 export const hideClickDisambiguation = () => ({
     type: HIDE_CLICK_DISAMBIGUATION
+});
+
+export const armClickAggregation = () => ({
+    type: ARM_CLICK_AGGREGATION
 });
