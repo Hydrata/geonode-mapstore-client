@@ -404,7 +404,6 @@
         "idfModeDerive": "Derive",
         "createModeInput": "Input",
         "createModeDerive": "Derive",
-        "createModeLabel": "Create mode",
         "idfTables": "IDF Tables",
         "idfTable": "IDF Table",
         "intensityMmHr": "Intensity (mm/hr)",

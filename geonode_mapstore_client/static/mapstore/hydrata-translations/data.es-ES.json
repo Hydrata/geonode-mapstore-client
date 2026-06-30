@@ -438,7 +438,6 @@
         "idfModeDerive": "Derive",
         "createModeInput": "Entrada",
         "createModeDerive": "Derivar",
-        "createModeLabel": "Modo de creación",
         "networksDelineationPlaceholder": "La delineación y creación de redes estarán disponibles en el futuro épico de Redes.",
         "networksManageInInputs": "gestionar en Entradas",
         "networksNoScenarioTerrain": "no definido",

@@ -624,7 +624,7 @@ export default ( state = initialState, action) => {
         }
         // TASK-2002 (epic-2001 W1a): the time-series Create draft is not in either
         // list — grid edits to it must mutate the draftTimeSeries slice in place.
-        let updatedDraft = state.draftTimeSeries;
+        const updatedDraft = state.draftTimeSeries;
         if (!updatedTimeSeries && updatedDraft && updatedDraft.id === action.timeSeriesId) {
             updatedDraft.updateRowValues(action.rowIndex, action.columnId, action.value);
             updatedDraft.unsaved = true;
@@ -662,7 +662,7 @@ export default ( state = initialState, action) => {
         }
         // TASK-2002 (epic-2001 W1a): paste/replace into the time-series Create draft
         // (draftTimeSeries slice — not in either list) mutates the draft in place.
-        let updatedDraft = state.draftTimeSeries;
+        const updatedDraft = state.draftTimeSeries;
         if (!updatedTimeSeries && updatedDraft && updatedDraft.id === action.timeSeriesId) {
             updatedDraft.setRowData(action.newRowData);
             updatedDraft.unsaved = true;
