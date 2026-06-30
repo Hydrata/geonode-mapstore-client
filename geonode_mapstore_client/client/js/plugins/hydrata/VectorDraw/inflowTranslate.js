@@ -21,6 +21,7 @@
  * of the two per-column keys (never both, never the legacy `data` text).
  */
 import { registerTranslate, getProp } from './translateRegistry';
+import { DISCRIMINATOR_KIND } from './discriminatorRegistry';
 
 /**
  * TASK-850 — Translate the structured form `data` value the TimeDataPicker
@@ -56,7 +57,7 @@ export const translateOut = (input) => {
         // TASK-1984: hydrograph is the inf_ timeseries-family kind (filtered
         // fetch); it carries the same timeseries_id shape as 'timeseries' and
         // maps to the same wire column. Treat both identically.
-        if (data.kind === 'timeseries' || data.kind === 'hydrograph') {
+        if (data.kind === DISCRIMINATOR_KIND.TIMESERIES || data.kind === DISCRIMINATOR_KIND.HYDROGRAPH) {
             const id = data.timeseries_id;
             // Only emit when an id was actually picked; otherwise leave
             // both null so the BE CHECK fires + save returns an error.
@@ -116,7 +117,7 @@ export const synthesizeIn = (props) => {
     // as already-structured so a form value {kind:'hydrograph', timeseries_id:5}
     // is passed through unchanged (not re-synthesized from DB per-column keys).
     const hasStructuredData = dataValue && typeof dataValue === 'object'
-        && (dataValue.kind === 'constant' || dataValue.kind === 'timeseries' || dataValue.kind === 'hydrograph');
+        && (dataValue.kind === 'constant' || dataValue.kind === DISCRIMINATOR_KIND.TIMESERIES || dataValue.kind === DISCRIMINATOR_KIND.HYDROGRAPH);
     if (!hasStructuredData) {
         const hasConstant = dataConstantValue !== null && dataConstantValue !== undefined && dataConstantValue !== '';
         const hasTs = dataTimeseriesIdValue !== null && dataTimeseriesIdValue !== undefined && dataTimeseriesIdValue !== '';
@@ -127,7 +128,7 @@ export const synthesizeIn = (props) => {
             // 'timeseries' — that kind is no longer an inf_ DiscriminatorPicker choice,
             // so it would fall back to 'constant' and mis-show a flow-linked inflow as a
             // blank Constant (with a silent link-loss path if the user then typed a value).
-            out.data = { kind: 'hydrograph', timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
+            out.data = { kind: DISCRIMINATOR_KIND.HYDROGRAPH, timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
         } else if (hasConstant) {
             const c = dataConstantValue;
             out.data = { kind: 'constant', constant: typeof c === 'number' ? c : parseFloat(c) };

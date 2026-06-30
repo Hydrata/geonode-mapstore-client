@@ -16,6 +16,7 @@
  * both XOR columns NULL → Postgres rejects with rai_data_xor violation.
  */
 import { registerTranslate, getProp } from './translateRegistry';
+import { DISCRIMINATOR_KIND } from './discriminatorRegistry';
 
 /**
  * Translate the structured form `data` value the TimeDataPicker writes into
@@ -42,7 +43,7 @@ export const translateOut = (input) => {
         // TASK-1984: hyetograph is the rai_ timeseries-family kind (filtered
         // fetch); it carries the same timeseries_id shape as 'timeseries' and
         // maps to the same wire column. Treat both identically.
-        if (data.kind === 'timeseries' || data.kind === 'hyetograph') {
+        if (data.kind === DISCRIMINATOR_KIND.TIMESERIES || data.kind === DISCRIMINATOR_KIND.HYETOGRAPH) {
             const id = data.timeseries_id;
             if (id !== null && id !== undefined && id !== '') {
                 props.data_timeseries_id = typeof id === 'number' ? id : parseInt(id, 10);
@@ -86,7 +87,7 @@ export const synthesizeIn = (props) => {
     // as already-structured so a form value {kind:'hyetograph', timeseries_id:5}
     // is passed through unchanged (not re-synthesized from DB per-column keys).
     const hasStructuredData = dataValue && typeof dataValue === 'object'
-        && (dataValue.kind === 'constant' || dataValue.kind === 'timeseries' || dataValue.kind === 'hyetograph');
+        && (dataValue.kind === 'constant' || dataValue.kind === DISCRIMINATOR_KIND.TIMESERIES || dataValue.kind === DISCRIMINATOR_KIND.HYETOGRAPH);
 
     if (!hasStructuredData) {
         const hasConstant = dataConstantValue !== null && dataConstantValue !== undefined && dataConstantValue !== '';
@@ -98,7 +99,7 @@ export const synthesizeIn = (props) => {
             // 'timeseries' — that kind is no longer a rai_ DiscriminatorPicker choice,
             // so it would fall back to 'constant' and mis-show a rainfall-linked series as a
             // blank Constant (with a silent link-loss path if the user then typed a value).
-            out.data = { kind: 'hyetograph', timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
+            out.data = { kind: DISCRIMINATOR_KIND.HYETOGRAPH, timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
         } else if (hasConstant) {
             const c = dataConstantValue;
             out.data = { kind: 'constant', constant: typeof c === 'number' ? c : parseFloat(c) };

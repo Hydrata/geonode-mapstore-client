@@ -43,6 +43,32 @@
  * FormField.js).
  */
 
+/*
+ * TASK-2016 (epic-1970 W7) — single source of truth for the registry-KIND
+ * vocabulary (vocabulary "A"). These are the serializable `kind` strings a
+ * DiscriminatorPicker choice declares ({kind: 'timeseries'|'hydrograph'|
+ * 'hyetograph'}) and that the inf_/rai_/bdy_ translators emit/recognize on the
+ * structured `data` value. They are the choice-discriminator identity ONLY.
+ *
+ * DO NOT use these for either of the two LOOK-ALIKE vocabularies:
+ *   (B) the `series_type` FIELD value on a TimeSeries row ('hydrograph' /
+ *       'hyetograph') — that lives in the Hydrology slice (reducersHydrology /
+ *       ManualPasteGrid); same strings, different role.
+ *   (C) the Hydrology page/category ids ('hydrographs' PLURAL, 'time-series'
+ *       HYPHENATED, 'temporal-pattern', 'sv-idf-table').
+ * 'hyetograph' is BOTH a registry kind (here) and a series_type value (B) —
+ * only the registry-kind role belongs to this constant.
+ *
+ * NOTE: 'constant' is a registry kind too, but it is OUTSIDE this epic's
+ * declared vocabulary-A scope (the three time-series-family kinds) and is left
+ * as an inline literal.
+ */
+export const DISCRIMINATOR_KIND = {
+    TIMESERIES: 'timeseries',
+    HYDROGRAPH: 'hydrograph',
+    HYETOGRAPH: 'hyetograph'
+};
+
 let discriminators = {};
 
 // Register a render component (and optional fetch loader) for a discriminator
