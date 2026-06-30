@@ -45,6 +45,11 @@ import {
     anugaIdentifyEnableEpic,
     anugaIdentifyJsonFormatEpic
 } from '../clickDisambiguationEpic';
+// W4 (TASK-2000) integration imports — real ANUGA click-target registrar + panel resolver
+import { registerAnugaClickTargets } from '../../anugaClickTargets';
+import { resolveCandidateOpenActions } from '../../../shared/components/ClickDisambiguationPanel';
+import { START_VECTOR_DRAW } from '../../../VectorDraw/actionsVectorDraw';
+import { ANUGA_FEATURE_CONFIG } from '../../../SimpleView/components/simpleViewMenuRow';
 
 const makeActions$ = (actions) => {
     const subject = new Rx.Subject();
@@ -1130,5 +1135,114 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                 }
             );
         });
+    });
+});
+
+// =============================================================================
+// W4 integration (TASK-2000) — bdy_ + inf_ overlap → panel → select boundary
+//   → startVectorDraw EDIT (the full end-to-end path with REAL registrars).
+//
+// This test drives the EXACT production sequence:
+//   1. Map click hits TWO overlapping layers (bdy_ + inf_): MapStore fires one
+//      LOAD_FEATURE_INFO per layer — the W2 corrective-3 burst pattern.
+//   2. clickDisambiguationEpic buffers the burst → buildClickActions → 2 edit
+//      candidates → SHOW_CLICK_DISAMBIGUATION (panel shows).
+//   3. User clicks the BOUNDARY row in the panel → resolveCandidateOpenActions
+//      (ClickDisambiguationPanel.js:51-61) is called at click time (D6: no
+//      function ever entered state; opener resolved from the module-side registry).
+//   4. startVectorDraw is dispatched with the boundary layerName, featureId,
+//      allowPick:false, and the bdy_ formConfig (seeding the EDIT branch).
+// =============================================================================
+describe('W4 integration — bdy_ + inf_ overlap → panel → select boundary → startVectorDraw EDIT (TASK-2000)', () => {
+
+    // Both bdy_ and inf_ layers present + editor role: both candidates survive
+    // filterEditableCandidates (my_role editor + change_resourcebase on map).
+    const integStore = { getState: () => ({
+        layers: { flat: [
+            { name: 'geonode:bdy_1_boundary', perms: [] },
+            { name: 'geonode:inf_1_inflow', perms: [] }
+        ] },
+        anuga: { projects: { data: { my_role: 'editor' } } },
+        security: { user: { pk: 1 } },
+        gnresource: { initialResource: { perms: ['change_resourcebase'] } }
+    }) };
+
+    beforeEach(() => {
+        cleanClickTargets();
+        registerAnugaClickTargets();
+    });
+    afterEach(() => cleanClickTargets());
+
+    it('burst of bdy_+inf_ LOAD_FEATURE_INFO → SHOW panel with 2 candidates', (done) => {
+        const action$ = makeActions$([
+            { type: LOAD_FEATURE_INFO,
+              data: fc(feature('bdy_1_boundary.3', { description: 'My Boundary' })),
+              layer: { name: 'geonode:bdy_1_boundary' } },
+            { type: LOAD_FEATURE_INFO,
+              data: fc(feature('inf_1_inflow.7', { description: 'My Inflow' })),
+              layer: { name: 'geonode:inf_1_inflow' } }
+        ]);
+        const out = [];
+        clickDisambiguationEpic(action$, integStore).subscribe(
+            (a) => out.push(a),
+            done,
+            () => {
+                expect(out.map((a) => a.type)).toEqual([
+                    PURGE_MAPINFO_RESULTS,
+                    HIDE_MAPINFO_MARKER,
+                    SHOW_CLICK_DISAMBIGUATION
+                ]);
+                const candidates = out[2].candidates;
+                expect(candidates.map((c) => c.kind).sort()).toEqual(['bdy_', 'inf_']);
+                // D6: no functions in the dispatched action
+                expect(collectFunctionPaths(out)).toEqual([]);
+                done();
+            }
+        );
+    });
+
+    it('selecting the boundary candidate resolves startVectorDraw EDIT with correct params', (done) => {
+        const action$ = makeActions$([
+            { type: LOAD_FEATURE_INFO,
+              data: fc(feature('bdy_1_boundary.3', { description: 'My Boundary' })),
+              layer: { name: 'geonode:bdy_1_boundary' } },
+            { type: LOAD_FEATURE_INFO,
+              data: fc(feature('inf_1_inflow.7', { description: 'My Inflow' })),
+              layer: { name: 'geonode:inf_1_inflow' } }
+        ]);
+        const out = [];
+        clickDisambiguationEpic(action$, integStore).subscribe(
+            (a) => out.push(a),
+            done,
+            () => {
+                // Extract the boundary candidate from the disambiguation panel action
+                const showAction = out.find((a) => a.type === SHOW_CLICK_DISAMBIGUATION);
+                expect(showAction).toExist();
+                const bdyCandidate = showAction.candidates.find((c) => c.kind === 'bdy_');
+                expect(bdyCandidate).toExist();
+                expect(bdyCandidate.featureId).toBe('bdy_1_boundary.3');
+                expect(bdyCandidate.layerName).toBe('bdy_1_boundary');
+
+                // Simulate panel row-click: resolveCandidateOpenActions resolves the
+                // opener at click time from the module-side registry (D6 — no function
+                // was ever stored in the candidate or Redux state).
+                const openActions = resolveCandidateOpenActions(bdyCandidate, integStore.getState);
+                expect(openActions.length).toBe(1);
+                const openAction = openActions[0];
+
+                // Assert startVectorDraw EDIT parameters (the EDIT branch: featureId
+                // set, allowPick:false, per-prefix formConfig seeding the popup).
+                expect(openAction.type).toBe(START_VECTOR_DRAW);
+                expect(openAction.config.layerName).toBe('geonode:bdy_1_boundary');
+                expect(openAction.config.featureId).toBe('bdy_1_boundary.3');
+                expect(openAction.config.allowPick).toBe(false);
+                expect(openAction.config.formConfig).toBe(ANUGA_FEATURE_CONFIG['bdy_'].formConfig);
+                expect(openAction.config.owner).toBe('anuga');
+
+                // D6: the resolved open action must also be function-free
+                expect(collectFunctionPaths([openAction])).toEqual([]);
+                done();
+            }
+        );
     });
 });
