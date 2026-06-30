@@ -17,6 +17,7 @@ import { mockAxios as setupMockAxios } from '../../../../__tests__/helpers';
 
 const {
     fetchTimeSeriesEpic,
+    fetchHydrographEpic,
     fetchTemporalPatternEpic,
     fetchIdfTableEpic,
     saveHydrologyItemEpic,
@@ -36,8 +37,10 @@ const reducer = require('../reducersHydrology').default;
 
 const {
     FETCH_HYDROLOGY_TIME_SERIES_DATA,
+    FETCH_HYDROLOGY_HYDROGRAPH_DATA,
     FETCH_HYDROLOGY_TEMPORAL_PATTERN_DATA,
     FETCH_HYDROLOGY_IDF_TABLE_DATA,
+    SET_HYDROLOGY_HYDROGRAPH_DATA,
     SET_HYDROLOGY_TIME_SERIES_DATA,
     SET_HYDROLOGY_TEMPORAL_PATTERN_DATA,
     SET_HYDROLOGY_IDF_TABLE_DATA,
@@ -106,6 +109,44 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
                 const lastGet = mockAxios.history.get.slice(-1)[0];
                 // TASK-1970 W3: Design Storms list is filtered to hyetographs only.
                 expect(lastGet.url).toBe(`/api/v2/anuga/projects/${projectId}/time-series/?series_type=hyetograph`);
+                if (sub) sub.unsubscribe();
+                done();
+            }
+        );
+    });
+
+    // TASK-2015 (epic-1970 W7) — fetchHydrographEpic was DRY'd onto the shared
+    // fetchAndDispatch helper (it previously had its own inline axios.get +
+    // DRF-unwrap IIFE). These guards pin (1) the ?series_type=hydrograph filter
+    // and (2) the NON-FATAL empty-list-on-error fallback that must survive the
+    // refactor.
+    it('fetchHydrographEpic GETs /api/v2/anuga/projects/{pid}/time-series/?series_type=hydrograph', (done) => {
+        const action$ = mockActions([{ type: FETCH_HYDROLOGY_HYDROGRAPH_DATA }]);
+        const sub = fetchHydrographEpic(action$, store).subscribe(
+            () => {},
+            err => done(err),
+            () => {
+                const lastGet = mockAxios.history.get.slice(-1)[0];
+                expect(lastGet.url).toBe(`/api/v2/anuga/projects/${projectId}/time-series/?series_type=hydrograph`);
+                if (sub) sub.unsubscribe();
+                done();
+            }
+        );
+    });
+
+    it('fetchHydrographEpic on an axios error still dispatches SET_HYDROLOGY_HYDROGRAPH_DATA with an empty list (non-fatal)', (done) => {
+        mockAxios.reset();
+        mockAxios.onGet().reply(500, { detail: 'boom' });
+        const action$ = mockActions([{ type: FETCH_HYDROLOGY_HYDROGRAPH_DATA }]);
+        const collected = [];
+        const sub = fetchHydrographEpic(action$, store).subscribe(
+            action => collected.push(action),
+            err => done(err),
+            () => {
+                expect(collected.length).toBe(1);
+                expect(collected[0].type).toBe(SET_HYDROLOGY_HYDROGRAPH_DATA);
+                expect(Array.isArray(collected[0].payload)).toBe(true);
+                expect(collected[0].payload.length).toBe(0);
                 if (sub) sub.unsubscribe();
                 done();
             }

@@ -57,6 +57,11 @@ import {
     setAnugaInputMenu
 } from '../../Anuga/actionsAnuga';
 import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
+// TASK-2016 (epic-1970 W7) — registry-KIND vocabulary single source of truth.
+// The `kind` stays a plain serializable STRING in the formConfig (the
+// DISCRIMINATOR_KIND.* members ARE strings) so startVectorDraw remains
+// structured-clone-safe.
+import { DISCRIMINATOR_KIND } from '../../VectorDraw/discriminatorRegistry';
 // TASK-826 (W3.3) — Inline `discriminator-picker` choices for Boundary +
 // Inflow `data` fields.
 //
@@ -228,7 +233,7 @@ const ANUGA_FEATURE_CONFIG = {
                     choices: [
                         {kind: 'constant', label: 'Constant',
                             defaultValue: {constant: null}},
-                        {kind: 'timeseries', label: 'TimeSeries',
+                        {kind: DISCRIMINATOR_KIND.TIMESERIES, label: 'TimeSeries',
                             defaultValue: {timeseries_id: null}}
                     ]}
             ]
@@ -258,7 +263,7 @@ const ANUGA_FEATURE_CONFIG = {
                     choices: [
                         {kind: 'constant', label: 'Constant',
                             defaultValue: {constant: null}, unit: 'm³/s'},
-                        {kind: 'hydrograph', label: 'Hydrograph',
+                        {kind: DISCRIMINATOR_KIND.HYDROGRAPH, label: 'Hydrograph',
                             defaultValue: {timeseries_id: null}}
                     ]}
             ]
@@ -301,7 +306,7 @@ const ANUGA_FEATURE_CONFIG = {
                     choices: [
                         {kind: 'constant', label: 'Constant',
                             defaultValue: {constant: null}, unit: 'mm/hr'},
-                        {kind: 'hyetograph', label: 'Hyetograph / Design Storm',
+                        {kind: DISCRIMINATOR_KIND.HYETOGRAPH, label: 'Hyetograph / Design Storm',
                             defaultValue: {timeseries_id: null}}
                     ]}
             ]

@@ -22,6 +22,8 @@ import {
     deleteFeature
 } from '../actionsVectorDraw';
 import { show } from '../../../../../MapStore2/web/client/actions/notifications';
+// TASK-2016 (epic-1970 W7) — registry-KIND vocabulary single source of truth.
+import { DISCRIMINATOR_KIND } from '../discriminatorRegistry';
 // TASK-795 review I9 (TASK-802) — synthesizeTimeBoundaryFormValue is now
 // invoked once at EDIT-load time (vectorDrawStartEpic) and the structured
 // `data` shape is persisted in Redux from that moment. The popup just
@@ -87,7 +89,7 @@ export const validateTimeBoundaryFormValues = (formValues) => {
         && data.kind === 'constant'
         && data.constant !== null && data.constant !== undefined && data.constant !== '';
     const hasStructuredTs = data && typeof data === 'object'
-        && data.kind === 'timeseries'
+        && data.kind === DISCRIMINATOR_KIND.TIMESERIES
         && data.timeseries_id !== null && data.timeseries_id !== undefined && data.timeseries_id !== '';
     // Also accept the per-column shape that the EDIT-mode seeded values
     // arrive in BEFORE the picker has rendered + synthesized them. Without

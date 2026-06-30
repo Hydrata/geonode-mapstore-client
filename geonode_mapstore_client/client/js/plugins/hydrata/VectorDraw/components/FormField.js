@@ -3,7 +3,7 @@ import { connect } from 'react-redux';
 import axios from '../../../../../MapStore2/web/client/libs/ajax';
 import { getProjectId } from '../../Anuga/selectorsAnuga';
 import { register, get } from '../widgetRegistry';
-import { registerDiscriminator } from '../discriminatorRegistry';
+import { registerDiscriminator, DISCRIMINATOR_KIND } from '../discriminatorRegistry';
 import { DiscriminatorPicker } from './DiscriminatorPicker';
 import { ErrorStrip } from '../../SimpleView/components/primitives';
 
@@ -179,7 +179,7 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) =
         // Use the current value's kind so hydrograph/hyetograph pickers emit
         // the correct kind, not always 'timeseries'. Falls back to 'timeseries'
         // when value is absent (initial mount before any radio selection).
-        const emitKind = value?.kind || 'timeseries';
+        const emitKind = value?.kind || DISCRIMINATOR_KIND.TIMESERIES;
         onChange({ kind: emitKind, timeseries_id: Number.isNaN(id) ? null : id });
     };
     return (
@@ -244,7 +244,7 @@ export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOp
     const choices = [
         { kind: 'constant', label: 'Constant', render: ConstantInput },
         {
-            kind: 'timeseries',
+            kind: DISCRIMINATOR_KIND.TIMESERIES,
             label: 'TimeSeries',
             render: TimeSeriesSelect,
             // Pass timeSeriesOptions through as injected options when it's an
@@ -269,7 +269,7 @@ export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOp
             if (newKind === 'constant') {
                 const existing = typeof value?.constant === 'number' ? value.constant : null;
                 onChange(field.name, { kind: 'constant', constant: existing });
-            } else if (newKind === 'timeseries' || newKind === 'hydrograph' || newKind === 'hyetograph') {
+            } else if (newKind === DISCRIMINATOR_KIND.TIMESERIES || newKind === DISCRIMINATOR_KIND.HYDROGRAPH || newKind === DISCRIMINATOR_KIND.HYETOGRAPH) {
                 // TASK-1984: hydrograph + hyetograph are timeseries-family kinds —
                 // they carry timeseries_id (same shape as 'timeseries'). Preserve
                 // an existing timeseries_id through the kind-switch reset so the
@@ -383,15 +383,17 @@ register({ name: 'discriminator-picker', component: DiscriminatorPickerWidget })
 // `timeseries` is kept for the Boundary 'Time' picker (show-all, no series_type
 // filter) and for back-compat with any external callers (see AC3).
 registerDiscriminator({ kind: 'constant', render: ConstantInput });
-registerDiscriminator({ kind: 'timeseries', render: TimeSeriesSelect, fetch: fetchTimeSeries });
+registerDiscriminator({ kind: DISCRIMINATOR_KIND.TIMESERIES, render: TimeSeriesSelect, fetch: fetchTimeSeries });
 
 // TASK-1984 — split 'timeseries' into two filtered kinds for Inflow + Rainfall.
 // Each is an arrow wrapper that calls fetchTimeSeries(pid, seriesType) so the
 // BE only returns rows of the relevant type. The render component stays
 // TimeSeriesSelect (same UI); only the fetch is filtered.
 // 'timeseries' remains registered for the Boundary 'Time' generic show-all (AC3).
-registerDiscriminator({ kind: 'hydrograph', render: TimeSeriesSelect, fetch: (pid) => fetchTimeSeries(pid, 'hydrograph') });
-registerDiscriminator({ kind: 'hyetograph', render: TimeSeriesSelect, fetch: (pid) => fetchTimeSeries(pid, 'hyetograph') });
+// NOTE: the 2nd arg to fetchTimeSeries is the series_type FILTER value
+// (vocabulary B), NOT the registry kind — kept as a literal on purpose.
+registerDiscriminator({ kind: DISCRIMINATOR_KIND.HYDROGRAPH, render: TimeSeriesSelect, fetch: (pid) => fetchTimeSeries(pid, 'hydrograph') });
+registerDiscriminator({ kind: DISCRIMINATOR_KIND.HYETOGRAPH, render: TimeSeriesSelect, fetch: (pid) => fetchTimeSeries(pid, 'hyetograph') });
 
 const FormField = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
     const Component = get(field.type) || get('text');
