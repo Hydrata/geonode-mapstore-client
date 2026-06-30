@@ -937,13 +937,20 @@ export function estimateTimestepMin(rowData) {
 // Those components remain exported in this file for the Create panel and W3.
 // ---------------------------------------------------------------------------
 
-const HydrologyTimeSeries = ({activeHydrologyItem}) => {
+const HydrologyTimeSeries = ({activeHydrologyItem, activeHydrologyPage}) => {
     // TASK-1556 (AC2) — feed the SAVED record's rowData to the existing
     // exported HyetographChart (the only gap was that activeHydrologyItem.rowData
     // was never wired in). .rowData is the saved Array<{timestamp,value}>
     // (reducer's createTimeSeriesFromJson sets it via instance.data = json.data).
     const rowData = activeHydrologyItem?.rowData || [];
     const hasData = Array.isArray(rowData) && rowData.length > 0;
+    // TASK-2025 (W5.3): page-aware labels. 'hydrographs' -> 'Hydrograph' title +
+    // noHydrographData empty-state; 'time-series' (Design Storms) unchanged.
+    const isHydrograph = activeHydrologyPage === 'hydrographs';
+    const titleFallback = isHydrograph ? 'Hydrograph' : 'Design Storm';
+    const emptyMsgId = isHydrograph
+        ? 'hydrata.hydrology.noHydrographData'
+        : 'hydrata.hydrology.noTimeSeriesData';
 
     return (
         <div id="timeseries-detail-hyetograph" style={{maxWidth: 720}}>
@@ -951,11 +958,12 @@ const HydrologyTimeSeries = ({activeHydrologyItem}) => {
                 <HyetographChart
                     rowData={rowData}
                     timestepMin={estimateTimestepMin(rowData)}
-                    title={activeHydrologyItem?.name || 'Design Storm'}
+                    title={activeHydrologyItem?.name || titleFallback}
+                    activeHydrologyPage={activeHydrologyPage}
                 />
             ) : (
                 <p className="sv-design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
-                    <Message msgId="hydrata.hydrology.noTimeSeriesData" />
+                    <Message msgId={emptyMsgId} />
                 </p>
             )}
         </div>
@@ -963,15 +971,19 @@ const HydrologyTimeSeries = ({activeHydrologyItem}) => {
 };
 
 HydrologyTimeSeries.propTypes = {
-    activeHydrologyItem: PropTypes.object
+    activeHydrologyItem: PropTypes.object,
+    // TASK-2025 (W5.3): page discriminator for label / empty-state / chart behaviour.
+    activeHydrologyPage: PropTypes.string
 };
 
 // TASK-1556 (W2) — the slim detail only needs the active item. The
 // design-storm/projection/idf state + dispatch wiring moved to the Create
 // panel (TASK-1558), which owns its own connect.
+// TASK-2025 (W5.3): also thread activeHydrologyPage for page-aware labels.
 const mapStateToProps = (state) => {
     return {
-        activeHydrologyItem: state?.hydrology?.activeHydrologyItem
+        activeHydrologyItem: state?.hydrology?.activeHydrologyItem,
+        activeHydrologyPage: state?.hydrology?.activeHydrologyPage
     };
 };
 

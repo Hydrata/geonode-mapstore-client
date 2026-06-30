@@ -608,6 +608,49 @@ describe('Hydrology Plugin', () => {
         });
     });
 
+    // TASK-2025 (W5.3) — page-aware labels: Hydrograph vs Design Storm.
+    // Message component without intl context renders <span>{msgId}</span>,
+    // so we check innerHTML/textContent for the msgId string.
+    describe('TASK-2025 HydrologyTimeSeries page-aware labels', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { HydrologyTimeSeriesClass } = require('../components/hydrologyDetailTimeSeries');
+
+        it('hydrographs page: empty-state contains noHydrographData msgId text', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyTimeSeriesClass, {
+                    activeHydrologyItem: {id: 1, name: 'Test', rowData: []},
+                    activeHydrologyPage: 'hydrographs'
+                }),
+                container
+            );
+            const text = container.innerHTML;
+            expect(text.includes('hydrata.hydrology.noHydrographData')).toBe(true);
+            expect(text.includes('hydrata.hydrology.noTimeSeriesData')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('time-series page: empty-state contains noTimeSeriesData msgId (Design Storms unchanged)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyTimeSeriesClass, {
+                    activeHydrologyItem: {id: 1, name: 'Test', rowData: []},
+                    activeHydrologyPage: 'time-series'
+                }),
+                container
+            );
+            const text = container.innerHTML;
+            expect(text.includes('hydrata.hydrology.noTimeSeriesData')).toBe(true);
+            expect(text.includes('hydrata.hydrology.noHydrographData')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
     // TASK-2024 (W5.2) — Hydrographs create panel: hideDerive removes Derive button + body.
     describe('TASK-2024 DesignStormCreatePanel hideDerive', () => {
         const React = require('react');
