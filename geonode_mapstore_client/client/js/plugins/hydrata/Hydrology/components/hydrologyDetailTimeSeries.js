@@ -1006,7 +1006,15 @@ export function estimateTimestepMin(rowData) {
 // Those components remain exported in this file for the Create panel and W3.
 // ---------------------------------------------------------------------------
 
-const HydrologyTimeSeries = ({activeHydrologyItem, activeHydrologyPage}) => {
+// TASK-2031 (W5.9): HydrologyTimeSeries receives dispatch props so the
+// editable ManualPasteGrid can update + replace row data for saved hydrographs.
+// The wiring mirrors createPanelDispatchToProps (below) exactly.
+const HydrologyTimeSeries = ({
+    activeHydrologyItem,
+    activeHydrologyPage,
+    dispatchUpdateRowData,
+    dispatchReplaceRowData
+}) => {
     // TASK-1556 (AC2) — feed the SAVED record's rowData to the existing
     // exported HyetographChart (the only gap was that activeHydrologyItem.rowData
     // was never wired in). .rowData is the saved Array<{timestamp,value}>
@@ -1023,17 +1031,35 @@ const HydrologyTimeSeries = ({activeHydrologyItem, activeHydrologyPage}) => {
 
     return (
         <div id="timeseries-detail-hyetograph" style={{maxWidth: 720}}>
-            {hasData ? (
-                <HyetographChart
-                    rowData={rowData}
-                    timestepMin={estimateTimestepMin(rowData)}
-                    title={activeHydrologyItem?.name || titleFallback}
-                    activeHydrologyPage={activeHydrologyPage}
-                />
+            {/* TASK-2031 (W5.9): hydrographs page -> editable ManualPasteGrid (table + live
+                line-chart preview). Design Storms page -> unchanged read-only HyetographChart.
+                ManualPasteGrid derives activeHydrologyPage from item.series_type internally,
+                so the preview chart inside it shows the correct flow/line presentation. */}
+            {isHydrograph ? (
+                hasData ? (
+                    <ManualPasteGrid
+                        activeHydrologyItem={activeHydrologyItem}
+                        dispatchUpdateRowData={dispatchUpdateRowData}
+                        dispatchReplaceRowData={dispatchReplaceRowData}
+                    />
+                ) : (
+                    <p className="sv-design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
+                        <Message msgId={emptyMsgId} />
+                    </p>
+                )
             ) : (
-                <p className="sv-design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
-                    <Message msgId={emptyMsgId} />
-                </p>
+                hasData ? (
+                    <HyetographChart
+                        rowData={rowData}
+                        timestepMin={estimateTimestepMin(rowData)}
+                        title={activeHydrologyItem?.name || titleFallback}
+                        activeHydrologyPage={activeHydrologyPage}
+                    />
+                ) : (
+                    <p className="sv-design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
+                        <Message msgId={emptyMsgId} />
+                    </p>
+                )
             )}
         </div>
     );
@@ -1042,13 +1068,18 @@ const HydrologyTimeSeries = ({activeHydrologyItem, activeHydrologyPage}) => {
 HydrologyTimeSeries.propTypes = {
     activeHydrologyItem: PropTypes.object,
     // TASK-2025 (W5.3): page discriminator for label / empty-state / chart behaviour.
-    activeHydrologyPage: PropTypes.string
+    activeHydrologyPage: PropTypes.string,
+    // TASK-2031 (W5.9): dispatch props for the editable hydrograph grid.
+    dispatchUpdateRowData: PropTypes.func,
+    dispatchReplaceRowData: PropTypes.func
 };
 
 // TASK-1556 (W2) — the slim detail only needs the active item. The
 // design-storm/projection/idf state + dispatch wiring moved to the Create
 // panel (TASK-1558), which owns its own connect.
 // TASK-2025 (W5.3): also thread activeHydrologyPage for page-aware labels.
+// TASK-2031 (W5.9): add mapDispatchToProps to wire updateTimeSeriesRowData +
+// replaceTimeSeriesRowData — mirrors createPanelDispatchToProps exactly.
 const mapStateToProps = (state) => {
     return {
         activeHydrologyItem: state?.hydrology?.activeHydrologyItem,
@@ -1056,8 +1087,15 @@ const mapStateToProps = (state) => {
     };
 };
 
+const mapDispatchToProps = (dispatch) => ({
+    dispatchUpdateRowData: (timeSeriesId, rowIndex, columnId, value) =>
+        dispatch(updateTimeSeriesRowData(timeSeriesId, rowIndex, columnId, value)),
+    dispatchReplaceRowData: (timeSeriesId, newRowData) =>
+        dispatch(replaceTimeSeriesRowData(timeSeriesId, newRowData))
+});
+
 export {HydrologyTimeSeries as HydrologyTimeSeriesClass};
-export default connect(mapStateToProps)(HydrologyTimeSeries);
+export default connect(mapStateToProps, mapDispatchToProps)(HydrologyTimeSeries);
 
 // ---------------------------------------------------------------------------
 // TASK-1558 (W2) — Derive tab SHELL.

@@ -863,4 +863,142 @@ describe('Hydrology Plugin', () => {
             document.body.removeChild(container);
         });
     });
+
+    // TASK-2031 (W5.9) — Hydrographs saved-detail: editable ManualPasteGrid for selected hydrograph.
+    describe('TASK-2031 HydrologyTimeSeries editable grid for saved hydrograph', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { HydrologyTimeSeriesClass } = require('../components/hydrologyDetailTimeSeries');
+
+        const rowData = [
+            {timestamp: '2025-01-01T00:00:00', value: 5},
+            {timestamp: '2025-01-01T00:10:00', value: 10}
+        ];
+
+        const savedHydrograph = {
+            id: 42,
+            name: 'River Q',
+            series_type: 'hydrograph',
+            rowData,
+            columnDefs: []
+        };
+
+        const savedDesignStorm = {
+            id: 7,
+            name: 'ARI 100',
+            series_type: 'time-series',
+            rowData,
+            columnDefs: []
+        };
+
+        const noop = () => {};
+
+        // AC1 + AC4: hydrographs page -> ManualPasteGrid editable input present.
+        it('AC1: hydrographs page + saved item renders editable input (ManualPasteGrid), not read-only chart only', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyTimeSeriesClass, {
+                    activeHydrologyItem: savedHydrograph,
+                    activeHydrologyPage: 'hydrographs',
+                    dispatchUpdateRowData: noop,
+                    dispatchReplaceRowData: noop
+                }),
+                container
+            );
+            // ManualPasteGrid renders an editable <input> for each value cell
+            const inputs = container.querySelectorAll('input');
+            expect(inputs.length).toBeGreaterThan(0);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // AC3: time-series (Design Storms) page -> NO editable input, read-only chart only.
+        it('AC3: time-series page + saved item does NOT render editable input (read-only chart only)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyTimeSeriesClass, {
+                    activeHydrologyItem: savedDesignStorm,
+                    activeHydrologyPage: 'time-series',
+                    dispatchUpdateRowData: noop,
+                    dispatchReplaceRowData: noop
+                }),
+                container
+            );
+            // No editable inputs — only the read-only hyetograph chart
+            const inputs = container.querySelectorAll('input');
+            expect(inputs.length).toBe(0);
+            // Chart wrapper present
+            const chart = container.querySelector('#design-storm-hyetograph');
+            expect(chart).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // TASK-2032 (W5.10) — Hydrograph X-axis extends one tick past the final data point.
+    describe('TASK-2032 HyetographChart hydrograph X-axis extension', () => {
+        const { niceTimeTicks } = require('../components/hydrologyDetailTimeSeries');
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { HyetographChart } = require('../components/hydrologyDetailTimeSeries');
+
+        const rowData = [
+            {timestamp: '2025-01-01T00:00:00', value: 5},
+            {timestamp: '2025-01-01T00:10:00', value: 10},
+            {timestamp: '2025-01-01T00:20:00', value: 3}
+        ];
+        // durationMin = 20; niceTimeTicks(20) -> interval=10; xDomainMax=30
+
+        // AC1 + AC4: hydrograph XAxis domain max > durationMin, extended tick rendered.
+        it('AC1/AC4: hydrograph chart renders an x-axis tick beyond durationMin', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 10,
+                    activeHydrologyPage: 'hydrographs'
+                }),
+                container
+            );
+            // niceTimeTicks(20) -> ticks=[0,10,20], interval=10 -> extended ticks=[0,10,20,30]
+            // The chart wrapper must exist
+            const chart = container.querySelector('#design-storm-hyetograph');
+            expect(chart).toExist();
+            // Verify extended tick labels render — recharts emits tick text "0:30"
+            const html = container.innerHTML;
+            expect(html.includes('0:30')).toBe(true);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // AC3: Design Storms BarChart XAxis stays at durationMin (no extended tick).
+        it('AC3: design-storm chart does NOT render an x-axis tick beyond durationMin', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 10
+                    // no activeHydrologyPage -> Design Storms path
+                }),
+                container
+            );
+            const html = container.innerHTML;
+            // durationMin=20, niceTimeTicks(20) -> ticks=[0,10,20] -> "0:20" is the last tick
+            // For design-storms the domain stays [0,20] and ticks=[0,10,20] -> no "0:30"
+            expect(html.includes('0:30')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // niceTimeTicks sanity: interval is returned correctly.
+        it('niceTimeTicks returns interval as well as ticks', () => {
+            const result = niceTimeTicks(20);
+            expect(result.interval).toBe(10);
+            expect(result.ticks).toEqual([0, 10, 20]);
+        });
+    });
 });
