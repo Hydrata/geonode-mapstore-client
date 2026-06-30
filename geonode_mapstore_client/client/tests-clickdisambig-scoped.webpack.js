@@ -1,9 +1,12 @@
-// Scoped test entry (epic 1969 W3): the clickDisambiguation epic+reducer suite,
+// Scoped test entry (epic 1969 W3+W4): the clickDisambiguation epic+reducer suite,
 // the clickTargetRegistry unit tests, the ClickDisambiguationPanel tests,
-// the W3 target registration tests, and the core IdentifyContainer test
-// (W2-corrective-4 dock-defer prop).
+// the W3 target registration tests, the core IdentifyContainer test
+// (W2-corrective-4 dock-defer prop), and the W4.1 buildOpenActions clonability guard.
 var registry = require.context('./js/plugins/hydrata/shared/__tests__', false, /clickTargetRegistry-test\.jsx?$/);
 registry.keys().forEach(registry);
+// W4.1 (TASK-1999) — buildOpenActions clonability across ALL 17 click-target kinds
+var clonability = require.context('./js/plugins/hydrata/shared/__tests__', false, /buildOpenActionsClonability-test\.jsx?$/);
+clonability.keys().forEach(clonability);
 var panel = require.context('./js/plugins/hydrata/shared/components/__tests__', false, /ClickDisambiguationPanel-test\.jsx?$/);
 panel.keys().forEach(panel);
 var anuga = require.context('./js/plugins/hydrata/Anuga/epics/__tests__', false, /clickDisambiguationEpic-test\.jsx?$/);
