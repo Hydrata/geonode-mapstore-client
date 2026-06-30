@@ -177,13 +177,14 @@ describe('TASK-850 inflowTranslate.synthesizeIn', () => {
             expect(out.description).toBe('Rain');
         });
 
-        it('data_timeseries_id=42 → {kind:"timeseries", timeseries_id:42}; strips per-column keys', () => {
+        it('data_timeseries_id=42 → {kind:"hydrograph", timeseries_id:42}; strips per-column keys', () => {
             const out = synthesizeIn({
                 description: 'Storm',
                 type: 'Surface',
                 data_timeseries_id: 42
             });
-            expect(out.data).toEqual({ kind: 'timeseries', timeseries_id: 42 });
+            // TASK-1970 W3: inf_ reconstructs to 'hydrograph', the inf_ timeseries-family kind.
+            expect(out.data).toEqual({ kind: 'hydrograph', timeseries_id: 42 });
             expect(out.data_constant).toBe(undefined);
             expect(out.data_timeseries_id).toBe(undefined);
         });
@@ -195,15 +196,15 @@ describe('TASK-850 inflowTranslate.synthesizeIn', () => {
 
         it('coerces string data_timeseries_id to int', () => {
             const out = synthesizeIn({ data_timeseries_id: '13' });
-            expect(out.data).toEqual({ kind: 'timeseries', timeseries_id: 13 });
+            expect(out.data).toEqual({ kind: 'hydrograph', timeseries_id: 13 });
         });
 
         // Timeseries beats constant when both are present (defensive — BE
         // CHECK forbids this state, but we should still produce a sensible
         // shape if a corrupted row sneaks in).
-        it('both per-column keys present: timeseries wins', () => {
+        it('both per-column keys present: timeseries-id column wins (→ hydrograph)', () => {
             const out = synthesizeIn({ data_constant: 1.5, data_timeseries_id: 9 });
-            expect(out.data).toEqual({ kind: 'timeseries', timeseries_id: 9 });
+            expect(out.data).toEqual({ kind: 'hydrograph', timeseries_id: 9 });
         });
     });
 

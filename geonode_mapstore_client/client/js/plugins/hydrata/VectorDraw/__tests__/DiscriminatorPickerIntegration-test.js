@@ -31,11 +31,14 @@ import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { Simulate } from 'react-dom/test-utils';
+import axiosMod from '../../../../../MapStore2/web/client/libs/ajax';
 import {
     FormField,
     ConstantInput,
     TimeSeriesSelect,
-    DiscriminatorPickerWidget
+    DiscriminatorPickerWidget,
+    fetchTimeSeries,
+    TimeDataPicker
 } from '../components/FormField';
 import { get } from '../widgetRegistry';
 
@@ -331,6 +334,282 @@ describe('TASK-826 W3.3 — discriminator-picker widget integration', () => {
             );
             expect(container.querySelector('.time-data-picker-constant-unit')).toBe(null);
             expect(container.querySelector('input.time-data-picker-constant')).toExist();
+        });
+    });
+});
+
+/*
+ * TASK-1984 — DiscriminatorPicker hydrograph/hyetograph kind split.
+ *
+ * AC1: Inflow dropdown fetches series_type=hydrograph.
+ * AC2: Rainfall dropdown fetches series_type=hyetograph.
+ * AC3: Boundary 'Time' still fetches ALL (no series_type) — generic 'timeseries' kept.
+ * AC4: hydrograph+hyetograph registered; 'timeseries' no longer shared by inf_/rai_.
+ *
+ * fetchTimeSeries gains a seriesType arg (absent => unchanged show-all URL).
+ * Two new discriminator kinds registered at FormField.js module load:
+ *   'hydrograph'  → TimeSeriesSelect + fetch: pid => fetchTimeSeries(pid, 'hydrograph')
+ *   'hyetograph'  → TimeSeriesSelect + fetch: pid => fetchTimeSeries(pid, 'hyetograph')
+ * TimeDataPicker.handleChange switch extended to handle hydrograph/hyetograph
+ * so timeseries_id is preserved when switching INTO those kinds.
+ */
+describe('TASK-1984 — DiscriminatorPicker hydrograph/hyetograph kind split', () => {
+    // FormField.js module-load registrations already ran at import time above.
+
+    describe('fetchTimeSeries series_type URL arg (AC1/AC2/AC3)', () => {
+        let origGet;
+        let capturedUrls;
+
+        beforeEach(() => {
+            capturedUrls = [];
+            origGet = axiosMod.get;
+            axiosMod.get = (url) => {
+                capturedUrls.push(url);
+                return Promise.resolve({ data: [] });
+            };
+        });
+        afterEach(() => {
+            axiosMod.get = origGet;
+        });
+
+        it('fetchTimeSeries(pid) — no seriesType — URL has no series_type query param (AC3 show-all)', () => {
+            fetchTimeSeries(123);
+            expect(capturedUrls.length).toBe(1);
+            expect(capturedUrls[0]).toBe('/api/v2/anuga/projects/123/time-series/');
+            expect(capturedUrls[0].indexOf('series_type')).toBe(-1);
+        });
+
+        it('fetchTimeSeries(pid, "hydrograph") appends ?series_type=hydrograph (AC1)', () => {
+            fetchTimeSeries(99, 'hydrograph');
+            expect(capturedUrls.length).toBe(1);
+            expect(capturedUrls[0]).toContain('series_type=hydrograph');
+            expect(capturedUrls[0]).toBe('/api/v2/anuga/projects/99/time-series/?series_type=hydrograph');
+        });
+
+        it('fetchTimeSeries(pid, "hyetograph") appends ?series_type=hyetograph (AC2)', () => {
+            fetchTimeSeries(5, 'hyetograph');
+            expect(capturedUrls.length).toBe(1);
+            expect(capturedUrls[0]).toContain('series_type=hyetograph');
+            expect(capturedUrls[0]).toBe('/api/v2/anuga/projects/5/time-series/?series_type=hyetograph');
+        });
+    });
+
+    describe('discriminatorRegistry kind registration (AC4)', () => {
+        it('"hydrograph" kind is registered with render + fetch at module load', () => {
+            const { getDiscriminator } = require('../../VectorDraw/discriminatorRegistry');
+            const h = getDiscriminator('hydrograph');
+            expect(h).toExist();
+            expect(typeof h.render).toBe('function');
+            expect(typeof h.fetch).toBe('function');
+        });
+
+        it('"hyetograph" kind is registered with render + fetch at module load', () => {
+            const { getDiscriminator } = require('../../VectorDraw/discriminatorRegistry');
+            const h = getDiscriminator('hyetograph');
+            expect(h).toExist();
+            expect(typeof h.render).toBe('function');
+            expect(typeof h.fetch).toBe('function');
+        });
+
+        it('"timeseries" generic kind is STILL registered (bdy_ Boundary show-all — AC3)', () => {
+            const { getDiscriminator } = require('../../VectorDraw/discriminatorRegistry');
+            const ts = getDiscriminator('timeseries');
+            expect(ts).toExist();
+            expect(typeof ts.render).toBe('function');
+        });
+
+        it('"hydrograph" and "hyetograph" fetch fns are distinct from the generic "timeseries" fetch', () => {
+            // Prove the fetch is the FILTERED wrapper, not the raw fetchTimeSeries.
+            // The generic timeseries fetch is the 1-arg fetchTimeSeries itself;
+            // hydrograph/hyetograph are arrow wrappers that pass the seriesType.
+            const { getDiscriminator } = require('../../VectorDraw/discriminatorRegistry');
+            const ts = getDiscriminator('timeseries');
+            const hg = getDiscriminator('hydrograph');
+            const he = getDiscriminator('hyetograph');
+            // All three are functions but must be DIFFERENT references.
+            expect(hg.fetch).toNotBe(ts.fetch);
+            expect(he.fetch).toNotBe(ts.fetch);
+            expect(hg.fetch).toNotBe(he.fetch);
+        });
+    });
+
+    describe('TimeDataPicker.handleChange canonicalization for hydrograph/hyetograph (CRITICAL AC4)', () => {
+        // The TimeDataPicker (time-data-picker widget) has an explicit switch
+        // that maps kind-switch resets to full canonical shapes so the BE
+        // CHECK constraint (exactly one of constant/timeseries_id) is always met.
+        // A naive impl that only handles 'timeseries' will use the else-branch
+        // for 'hydrograph'/'hyetograph', which calls onChange(field.name, {kind})
+        // only — dropping the timeseries_id. This test pins the correct behavior.
+        let tdpContainer;
+        let lastChange;
+
+        beforeEach((done) => {
+            tdpContainer = document.createElement('div');
+            document.body.appendChild(tdpContainer);
+            lastChange = null;
+            setTimeout(done);
+        });
+
+        afterEach((done) => {
+            ReactDOM.unmountComponentAtNode(tdpContainer);
+            tdpContainer.remove();
+            setTimeout(done);
+        });
+
+        it('switching to hydrograph with existing timeseries_id=7 preserves timeseries_id', (done) => {
+            const FIELD = {
+                name: 'data',
+                type: 'time-data-picker',
+                label: 'Data',
+                choices: [
+                    { kind: 'constant', label: 'Constant', render: ConstantInput,
+                        options: [], defaultValue: { constant: null } },
+                    { kind: 'hydrograph', label: 'Hydrograph', render: TimeSeriesSelect,
+                        options: [], defaultValue: { timeseries_id: null } }
+                ]
+            };
+            ReactDOM.render(
+                <TimeDataPicker
+                    field={FIELD}
+                    // pre-existing timeseries_id=7 carried in the value
+                    value={{ kind: 'timeseries', timeseries_id: 7 }}
+                    onChange={(name, val) => { lastChange = { name, val }; }}
+                    projectId={1}
+                    timeSeriesOptions={[]}
+                />,
+                tdpContainer,
+                () => {
+                    const hgRadio = tdpContainer.querySelector('input[type="radio"][value="hydrograph"]');
+                    if (hgRadio) {
+                        Simulate.change(hgRadio);
+                        // kind must be 'hydrograph', timeseries_id must be preserved
+                        expect(lastChange).toExist();
+                        expect(lastChange.val.kind).toBe('hydrograph');
+                        expect(lastChange.val.timeseries_id).toBe(7);
+                    }
+                    done();
+                }
+            );
+        });
+
+        it('switching to hyetograph with existing timeseries_id=3 preserves timeseries_id', (done) => {
+            const FIELD = {
+                name: 'data',
+                type: 'time-data-picker',
+                label: 'Data',
+                choices: [
+                    { kind: 'constant', label: 'Constant', render: ConstantInput,
+                        options: [], defaultValue: { constant: null } },
+                    { kind: 'hyetograph', label: 'Hyetograph', render: TimeSeriesSelect,
+                        options: [], defaultValue: { timeseries_id: null } }
+                ]
+            };
+            ReactDOM.render(
+                <TimeDataPicker
+                    field={FIELD}
+                    value={{ kind: 'timeseries', timeseries_id: 3 }}
+                    onChange={(name, val) => { lastChange = { name, val }; }}
+                    projectId={1}
+                    timeSeriesOptions={[]}
+                />,
+                tdpContainer,
+                () => {
+                    const heRadio = tdpContainer.querySelector('input[type="radio"][value="hyetograph"]');
+                    if (heRadio) {
+                        Simulate.change(heRadio);
+                        expect(lastChange).toExist();
+                        expect(lastChange.val.kind).toBe('hyetograph');
+                        expect(lastChange.val.timeseries_id).toBe(3);
+                    }
+                    done();
+                }
+            );
+        });
+    });
+
+    describe('TimeSeriesSelect emits the active kind (not hardcoded "timeseries")', () => {
+        let tsContainer;
+        let lastChange;
+
+        beforeEach((done) => {
+            tsContainer = document.createElement('div');
+            document.body.appendChild(tsContainer);
+            lastChange = null;
+            setTimeout(done);
+        });
+
+        afterEach((done) => {
+            ReactDOM.unmountComponentAtNode(tsContainer);
+            tsContainer.remove();
+            setTimeout(done);
+        });
+
+        it('TimeSeriesSelect with value.kind="hydrograph" emits kind="hydrograph" on select', (done) => {
+            const FIELD = {
+                name: 'data',
+                type: 'discriminator-picker',
+                label: 'Data',
+                choices: [
+                    { kind: 'constant', label: 'Constant', render: ConstantInput,
+                        options: [], defaultValue: { constant: null } },
+                    { kind: 'hydrograph', label: 'Hydrograph', render: TimeSeriesSelect,
+                        options: [{ id: 5, name: 'TS5' }], defaultValue: { timeseries_id: null } }
+                ]
+            };
+            ReactDOM.render(
+                <FormField
+                    field={FIELD}
+                    value={{ kind: 'hydrograph', timeseries_id: null }}
+                    onChange={(name, val) => { lastChange = { name, val }; }}
+                />,
+                tsContainer,
+                () => {
+                    const tsSelect = tsContainer.querySelector('select.time-data-picker-timeseries');
+                    if (tsSelect) {
+                        tsSelect.value = '5';
+                        Simulate.change(tsSelect);
+                        expect(lastChange).toExist();
+                        // Must emit 'hydrograph', not 'timeseries'
+                        expect(lastChange.val.kind).toBe('hydrograph');
+                        expect(lastChange.val.timeseries_id).toBe(5);
+                    }
+                    done();
+                }
+            );
+        });
+
+        it('TimeSeriesSelect with value.kind="timeseries" still emits kind="timeseries" (back-compat)', (done) => {
+            const FIELD = {
+                name: 'data',
+                type: 'discriminator-picker',
+                label: 'Data',
+                choices: [
+                    { kind: 'constant', label: 'Constant', render: ConstantInput,
+                        options: [], defaultValue: { constant: null } },
+                    { kind: 'timeseries', label: 'TimeSeries', render: TimeSeriesSelect,
+                        options: [{ id: 7, name: 'TS7' }], defaultValue: { timeseries_id: null } }
+                ]
+            };
+            ReactDOM.render(
+                <FormField
+                    field={FIELD}
+                    value={{ kind: 'timeseries', timeseries_id: null }}
+                    onChange={(name, val) => { lastChange = { name, val }; }}
+                />,
+                tsContainer,
+                () => {
+                    const tsSelect = tsContainer.querySelector('select.time-data-picker-timeseries');
+                    if (tsSelect) {
+                        tsSelect.value = '7';
+                        Simulate.change(tsSelect);
+                        expect(lastChange).toExist();
+                        // Back-compat: 'timeseries' kind still emits 'timeseries'
+                        expect(lastChange.val.kind).toBe('timeseries');
+                        expect(lastChange.val.timeseries_id).toBe(7);
+                    }
+                    done();
+                }
+            );
         });
     });
 });

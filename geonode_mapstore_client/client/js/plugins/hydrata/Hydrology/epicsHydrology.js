@@ -9,6 +9,10 @@ import {
     fetchHydrologyTimeSeriesData,
     setHydrologyTimeSeriesData,
     errorHydrologyTimeSeriesData,
+    // TASK-1986 (epic-1970) — hydrograph slice
+    FETCH_HYDROLOGY_HYDROGRAPH_DATA,
+    fetchHydrologyHydrographData,
+    setHydrologyHydrographData,
     FETCH_HYDROLOGY_TEMPORAL_PATTERN_DATA,
     fetchHydrologyTemporalPatternData,
     setHydrologyTemporalPatternData,
@@ -73,15 +77,18 @@ import {getAnugaConfig} from '../Anuga/api/anugaApi';
 const V1_TO_V2_HYDROLOGY = {
     'time-series': 'time-series',
     'temporal-pattern': 'temporal-patterns',
-    'sv-idf-table': 'idf-tables'
+    'sv-idf-table': 'idf-tables',
+    // TASK-1986 (epic-1970): hydrographs share the BE time-series endpoint
+    // (series_type=hydrograph filter applied at fetch time; POST stamps the type).
+    'hydrographs': 'time-series'
 };
 
 const v2Hydrology = (page) => V1_TO_V2_HYDROLOGY[page] || page;
 
-async function fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction) {
+async function fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction, queryString = '') {
     try {
         const response = await axios.get(
-            `/api/v2/anuga/projects/${projectId}/${v2Hydrology(endpoint)}/`
+            `/api/v2/anuga/projects/${projectId}/${v2Hydrology(endpoint)}/${queryString}`
         );
         // Unwrap DRF pagination — a reducer .map() TypeError propagates
         // through redux-observable and tears down every merged epic timer
@@ -108,7 +115,9 @@ export const initHydrologyEpic = (action$, store) =>
                 response = Rx.Observable.of(
                     fetchHydrologyTimeSeriesData(),
                     fetchHydrologyTemporalPatternData(),
-                    fetchHydrologyIdfTableData()
+                    fetchHydrologyIdfTableData(),
+                    // TASK-1986 (epic-1970): fetch hydrograph series separately
+                    fetchHydrologyHydrographData()
                 );
             } catch (error) {
                 response = Rx.Observable.empty();
@@ -126,7 +135,43 @@ export const fetchTimeSeriesEpic = (action$, store) =>
                 const endpoint = "time-series";
                 const dispatchFunction = setHydrologyTimeSeriesData;
                 const errorFunction = errorHydrologyTimeSeriesData;
-                response = fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction);
+                // TASK-1970 W3 fix: Design Storms = hyetographs ONLY. The BE list
+                // returns ALL series_type rows when unfiltered, so without this
+                // filter hydrograph rows (created in the Hydrographs panel) leak
+                // into the Design Storms list — the mirror of fetchHydrographEpic's
+                // ?series_type=hydrograph.
+                response = fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction, '?series_type=hyetograph');
+            } catch (error) {
+                response = Rx.Observable.empty();
+            }
+            return response;
+        });
+
+// TASK-1986 (epic-1970) — fetch only series_type=hydrograph rows.
+// Stored in state.hydrology.hydrographs (separate from timeSeriess so each
+// panel sees only its own type without client-side filtering).
+// Uses the same async-Promise pattern as fetchTimeSeriesEpic / fetchAndDispatch,
+// with a ?series_type=hydrograph query-string appended to the list URL.
+export const fetchHydrographEpic = (action$, store) =>
+    action$
+        .ofType(FETCH_HYDROLOGY_HYDROGRAPH_DATA)
+        .mergeMap(() => {
+            let response;
+            try {
+                const projectId = store.getState()?.anuga?.projects?.data?.id;
+                response = (async () => {
+                    try {
+                        const res = await axios.get(
+                            `/api/v2/anuga/projects/${projectId}/time-series/?series_type=hydrograph`
+                        );
+                        const data = res.data;
+                        const payload = Array.isArray(data) ? data : (data?.results ?? []);
+                        return setHydrologyHydrographData(payload);
+                    } catch (_err) {
+                        // Non-fatal — return empty list so the panel still renders.
+                        return setHydrologyHydrographData([]);
+                    }
+                })();
             } catch (error) {
                 response = Rx.Observable.empty();
             }

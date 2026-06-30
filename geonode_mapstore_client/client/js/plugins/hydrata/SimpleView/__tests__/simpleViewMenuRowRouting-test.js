@@ -466,7 +466,7 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(f.showWhen).toEqual({ field: 'boundary', equals: 'Time' });
         });
 
-        it('inf_ data field is the compound discriminator-picker (TASK-850 W2.3-FE migration + TASK-826 W3.3)', () => {
+        it('inf_ data field is the compound discriminator-picker (TASK-850 W2.3-FE migration + TASK-826 W3.3 + TASK-1984)', () => {
             // TASK-850 (W2.3-FE) — Inflow migrated to the Constant/TimeSeries
             // picker once TASK-820 landed the FeatureDataMixin BE refactor
             // (data_constant FLOAT XOR data_timeseries_id INTEGER, inf_data_xor
@@ -474,16 +474,18 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             // no discriminator field, every row carries a data value.
             // TASK-826 (W3.3) — generalized from 'time-data-picker' alias to
             // explicit 'discriminator-picker' with inline `choices`.
+            // TASK-1984 — timeseries-family kind split: inf_ now uses
+            // kind='hydrograph' (filtered fetch) instead of generic 'timeseries'.
             const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'data');
             expect(f).toExist();
             expect(f.type).toBe('discriminator-picker');
             // Regression guard against re-introducing the legacy bare text
             // field — the BE no longer accepts plain `data` writes.
             expect(f.type).toNotBe('text');
-            // TASK-826 (W3.3) — same 2 kinds as bdy_ (constant + timeseries).
+            // TASK-1984 — inf_ timeseries-family kind is 'hydrograph' (filtered).
             expect(Array.isArray(f.choices)).toBe(true);
             expect(f.choices.length).toBe(2);
-            expect(f.choices.map(c => c.kind)).toEqual(['constant', 'timeseries']);
+            expect(f.choices.map(c => c.kind)).toEqual(['constant', 'hydrograph']);
             // No discriminator → no showWhen (cf. bdy_ above).
             expect(f.showWhen).toBe(undefined);
             // No `default` — the picker handles its own empty state, and
@@ -615,6 +617,61 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(ANUGA_FEATURE_CONFIG).toBeA('object');
             expect(STRUCTURE_METHODS).toBeA(Array);
             expect(getDeleteDatasetType).toBeA('function');
+        });
+    });
+
+    /*
+     * TASK-1984 — ANUGA_FEATURE_CONFIG Discriminator kind split.
+     *
+     * inf_ (Inflow): timeseries-family kind must be 'hydrograph' (filtered fetch).
+     * rai_ (Rainfall): timeseries-family kind must be 'hyetograph' (filtered fetch).
+     * bdy_ (Boundary): timeseries-family kind stays 'timeseries' (show-all — AC3).
+     *
+     * The value shape ({timeseries_id: null} defaultValue) is identical for all
+     * three; only the kind label and the fetch seriesType filter differ.
+     */
+    describe('TASK-1984 ANUGA_FEATURE_CONFIG Discriminator kind split (inf_ hydrograph / rai_ hyetograph / bdy_ timeseries)', () => {
+        it('inf_ data field timeseries-family choice uses kind="hydrograph" (AC1 — filtered fetch)', () => {
+            const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'data');
+            const tsChoice = f.choices.find(c => c.kind !== 'constant');
+            expect(tsChoice).toExist();
+            expect(tsChoice.kind).toBe('hydrograph');
+            // defaultValue shape unchanged: still {timeseries_id: null}
+            expect(tsChoice.defaultValue).toEqual({ timeseries_id: null });
+        });
+
+        it('rai_ data field timeseries-family choice uses kind="hyetograph" (AC2 — filtered fetch)', () => {
+            const f = ANUGA_FEATURE_CONFIG.rai_.formConfig.fields.find(x => x.name === 'data');
+            const tsChoice = f.choices.find(c => c.kind !== 'constant');
+            expect(tsChoice).toExist();
+            expect(tsChoice.kind).toBe('hyetograph');
+            // defaultValue shape unchanged: still {timeseries_id: null}
+            expect(tsChoice.defaultValue).toEqual({ timeseries_id: null });
+        });
+
+        it('bdy_ data field timeseries-family choice STAYS kind="timeseries" (AC3 — show-all)', () => {
+            const f = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields.find(x => x.name === 'data');
+            const tsChoice = f.choices.find(c => c.kind !== 'constant');
+            expect(tsChoice).toExist();
+            expect(tsChoice.kind).toBe('timeseries');
+        });
+
+        it('inf_ choices are serializable (no render/fetch functions — DataCloneError guard)', () => {
+            const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'data');
+            f.choices.forEach(c => {
+                expect(typeof c.render).toNotBe('function');
+                expect(typeof c.fetch).toNotBe('function');
+            });
+            expect(() => structuredClone(f)).toNotThrow();
+        });
+
+        it('rai_ choices are serializable (no render/fetch functions — DataCloneError guard)', () => {
+            const f = ANUGA_FEATURE_CONFIG.rai_.formConfig.fields.find(x => x.name === 'data');
+            f.choices.forEach(c => {
+                expect(typeof c.render).toNotBe('function');
+                expect(typeof c.fetch).toNotBe('function');
+            });
+            expect(() => structuredClone(f)).toNotThrow();
         });
     });
 });

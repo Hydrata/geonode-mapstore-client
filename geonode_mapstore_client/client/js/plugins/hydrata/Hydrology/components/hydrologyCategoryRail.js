@@ -11,7 +11,8 @@ import {trackEvent} from "@js/utils/analytics";
  * Rail items:
  *   IDF             → 'idf'         (consolidates sv-idf-table + idf-derive)
  *   Temporal Patterns → 'temporal-pattern'
- *   Timeseries      → 'time-series'
+ *   Design Storms   → 'time-series'
+ *   Hydrographs     → 'hydrographs' (TASK-1985, epic-1970)
  *   Networks        → 'networks'
  *
  * Active state: lime (#cae33b) 3px left-border, panel-blue fill.
@@ -32,6 +33,11 @@ const CATEGORIES = [
         msgId: 'hydrata.hydrology.timeseries'
     },
     {
+        // TASK-1985 (epic-1970): hydrograph series split from hyetograph/design-storm.
+        id: 'hydrographs',
+        msgId: 'hydrata.hydrology.hydrographs'
+    },
+    {
         id: 'networks',
         msgId: 'hydrata.anuga.networks'
     }
@@ -41,9 +47,40 @@ const CATEGORY_GLYPHS = {
     'idf': 'glyphicon-list-alt',
     'temporal-pattern': 'glyphicon-align-left',
     'time-series': 'glyphicon-stats'
-    // 'networks' renders a custom inline SVG (NetworksIcon below) — no glyphicon
-    // webfont glyph matches the node-and-link + rainfall mark (UAT #6).
+    // 'hydrographs' renders HydrographIcon inline SVG (TASK-2023, W5.1) — an
+    // X-Y axis + rise/fall curve distinguishes flow from the rainfall bar-stats
+    // glyph used by Design Storms. 'networks' renders NetworksIcon.
 };
+
+// HydrographIcon — X-Y axis pair + a rise/fall curve representing a flow
+// hydrograph. Inline SVG because no Bootstrap-3 glyphicon matches this mark.
+// Sized 16×16 to match .sv-hydrology-category-item-glyph; uses currentColor so
+// active/inactive theming stays consistent with the sibling glyphicons.
+// TASK-2023 (W5.1): replaces the misleading water-drop (glyphicon-tint).
+const HydrographIcon = () => (
+    <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        style={{display: 'block'}}
+    >
+        {/* Y-axis */}
+        <line x1="4" y1="2" x2="4" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        {/* X-axis */}
+        <line x1="4" y1="20" x2="22" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        {/* Rise/fall hydrograph curve: flat base, steep rise, smooth peak, gradual recession */}
+        <path
+            d="M4 19 L7 19 Q9 19 11 12 Q13 5 14 8 Q15 11 17 16 Q19 20 22 19"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+        />
+    </svg>
+);
 
 // NetworksIcon — node-and-link network (one big hub + two smaller spur nodes)
 // under four uniform rainfall streaks. Inline SVG because no glyphicon webfont
@@ -83,10 +120,12 @@ const NetworksIcon = () => (
 // TASK-1452 (W5) entered IDF on idf-derive; UAT 2026-06-23 reverted to
 // sv-idf-table (Input/Manual) per operator. Users switch to Derive via the
 // sub-toggle.
+// TASK-1985 (epic-1970): hydrographs added at index 3.
 const CATEGORY_TO_PAGE = {
     'idf': 'sv-idf-table',
     'temporal-pattern': 'temporal-pattern',
     'time-series': 'time-series',
+    'hydrographs': 'hydrographs',
     'networks': 'networks'
 };
 
@@ -142,15 +181,24 @@ const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
                                     <NetworksIcon />
                                 </span>
                             )
-                            : (
-                                <span
-                                    className={
-                                        'sv-hydrology-category-item-glyph glyphicon '
-                                        + (CATEGORY_GLYPHS[cat.id] || 'glyphicon-record')
-                                    }
-                                    aria-hidden="true"
-                                />
-                            )}
+                            : cat.id === 'hydrographs'
+                                ? (
+                                    <span
+                                        className="sv-hydrology-category-item-glyph"
+                                        aria-hidden="true"
+                                    >
+                                        <HydrographIcon />
+                                    </span>
+                                )
+                                : (
+                                    <span
+                                        className={
+                                            'sv-hydrology-category-item-glyph glyphicon '
+                                            + (CATEGORY_GLYPHS[cat.id] || 'glyphicon-record')
+                                        }
+                                        aria-hidden="true"
+                                    />
+                                )}
                         <span className="sv-hydrology-category-item-label">
                             <Message msgId={cat.msgId} />
                         </span>
@@ -171,4 +219,4 @@ HydrologyCategoryRail.defaultProps = {
     activeHydrologyPage: 'sv-idf-table'
 };
 
-export {HydrologyCategoryRail, CATEGORIES};
+export {HydrologyCategoryRail, CATEGORIES, CATEGORY_TO_PAGE};

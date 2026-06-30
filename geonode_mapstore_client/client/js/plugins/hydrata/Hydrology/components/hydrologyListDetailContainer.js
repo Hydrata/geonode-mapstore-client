@@ -68,7 +68,9 @@ import {canManageAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 const hydrologyAutoNameMsgId = {
     'sv-idf-table': 'hydrata.hydrology.idfTable',
     'temporal-pattern': 'hydrata.hydrology.temporalPattern',
-    'time-series': 'hydrata.hydrology.timeSeries'
+    'time-series': 'hydrata.hydrology.timeSeries',
+    // TASK-1986 (epic-1970): hydrograph page auto-name key.
+    'hydrographs': 'hydrata.hydrology.hydrograph'
 };
 
 class HydrologyListDetailContainerClass extends React.Component {
@@ -166,7 +168,8 @@ class HydrologyListDetailContainerClass extends React.Component {
         const selectItem = (item) => {
             // TASK-1558 — selecting a SAVED list item always shows the slim
             // detail (exit Create mode if it was open) on the time-series page.
-            if (this.props.activeHydrologyPage === 'time-series' && this.state.tsCreateMode) {
+            // TASK-1986: also exit create mode on the hydrographs page (same pattern).
+            if ((this.props.activeHydrologyPage === 'time-series' || this.props.activeHydrologyPage === 'hydrographs') && this.state.tsCreateMode) {
                 this.setState({tsCreateMode: false});
             }
             this.props.setActiveHydrologyItem(item);
@@ -205,7 +208,8 @@ class HydrologyListDetailContainerClass extends React.Component {
             this.props.createHydrologyForm(page, autoNameLabel);
             // TASK-1558 — on the time-series page, "New Item" opens the two-tab
             // Create panel (Input|Derive) rather than the slim detail.
-            if (page === 'time-series') {
+            // TASK-1986: hydrographs page reuses the same Create panel.
+            if (page === 'time-series' || page === 'hydrographs') {
                 this.enterTimeSeriesCreate();
             }
         };
@@ -469,12 +473,13 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             boxSizing: 'border-box'
                                         }}>
                                             <p style={{marginRight: '5px', width: "100px"}}><Message msgId="hydrata.hydrology.source" /></p>
-                                            {this.props.activeHydrologyPage === 'time-series' ? (
+                                            {(this.props.activeHydrologyPage === 'time-series' || this.props.activeHydrologyPage === 'hydrographs') ? (
                                                 // TASK-1556 (W2) — on the Design Storms (time-series) page the
                                                 // detail is a SLIM record view: source is provenance, shown
-                                                // READ-ONLY. Empty / the placeholder default reads "Manual
-                                                // entry". The sv-idf-table/temporal-pattern pages keep an editable
-                                                // <input> (out of scope), so this branch is page-gated.
+                                                // READ-ONLY. TASK-1986: same treatment for the Hydrographs page.
+                                                // Empty / the placeholder default reads "Manual entry". The
+                                                // sv-idf-table/temporal-pattern pages keep an editable <input>
+                                                // (out of scope), so this branch is page-gated.
                                                 <p
                                                     id={'source'}
                                                     className={'hydrology-source-provenance'}
@@ -537,14 +542,21 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             case 'temporal-pattern':
                                                 return <HydrologyDetailTemporalPattern/>;
                                             case 'time-series':
-                                                // TASK-1558 (W2) — "New Item" opens the two-tab CREATE
-                                                // panel (Input|Derive); selecting a saved item shows the
-                                                // slim record-centric DETAIL (TASK-1556).
+                                            case 'hydrographs':
+                                                // TASK-1558 (W2) / TASK-1986 (epic-1970) — "New Item"
+                                                // opens the two-tab CREATE panel (Input|Derive); selecting
+                                                // a saved item shows the slim record-centric DETAIL
+                                                // (TASK-1556). Design Storms and Hydrographs share the
+                                                // same editor verbatim; the only distinction is
+                                                // series_type and the Redux slice they read from.
+                                                // TASK-2024 (W5.2): hideDerive=true on the Hydrographs
+                                                // page — IDF->rainfall derivation is meaningless for flow.
                                                 return this.state.tsCreateMode
                                                     ? <HydrologyTimeSeriesCreatePanel
                                                         activeTab={this.state.tsCreateTab}
                                                         onTabChange={(tab) => this.setState({tsCreateTab: tab})}
                                                         onBack={() => this.exitTimeSeriesCreate()}
+                                                        hideDerive={this.props.activeHydrologyPage === 'hydrographs'}
                                                     />
                                                     : <HydrologyDetailTimeSeries/>;
                                             default:

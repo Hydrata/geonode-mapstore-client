@@ -66,7 +66,12 @@ TableCell.propTypes = {
 
 const columnHelper = createColumnHelper();
 
-const columns = [
+// TASK-2026 (W5.4): The value-column header is page/series-aware.
+// Build the columns array inside the component so it can read activeHydrologyItem.
+// This factory is called inside ManualPasteGrid on every render — TanStack Table
+// memoises the row model, so a new columns reference is harmless here (the grid
+// is a pure editor, not a large virtualised list). The timestamp column is stable.
+const buildColumns = (isHydrograph) => [
     columnHelper.accessor('timestamp', {
         cell: TableCell,
         header: () => <span><Message msgId="hydrata.hydrology.timestamp" /></span>,
@@ -76,7 +81,11 @@ const columns = [
     }),
     columnHelper.accessor('value', {
         cell: TableCell,
-        header: () => <span>Flow (m3/s) or<br/>Rainfall (mm/hr)</span>,
+        // Hydrograph: Flow (m3/s) only — rainfall option removed (TASK-2026).
+        // Design Storm: original dual-unit header retained.
+        header: () => isHydrograph
+            ? <span>Flow (m3/s)</span>
+            : <span>Flow (m3/s) or<br/>Rainfall (mm/hr)</span>,
         meta: {
             type: 'number'
         }
@@ -90,6 +99,10 @@ const columns = [
 const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchReplaceRowData}) => {
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
+    // TASK-2026 (W5.4): derive isHydrograph from the item's series_type so the
+    // value-column header shows 'Flow (m3/s)' only for hydrographs.
+    const isHydrograph = activeHydrologyItem?.series_type === 'hydrograph';
+    const columns = buildColumns(isHydrograph);
 
     const pasteDivRef = useRef();
 
@@ -201,10 +214,15 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                     </div>
                 </div>
                 <div style={{padding: '10px'}}>
+                    {/* TASK-2027/2028/2030 (W5.5/W5.6/W5.8): pass page discriminator so
+                        the preview chart renders as line+m3/s for hydrographs vs bar+mm/hr
+                        for design storms. Derived from series_type on the item (data-truthful,
+                        avoids adding a separate prop chain from the create panel). */}
                     <HyetographChart
                         rowData={rowData || []}
                         timestepMin={estimateTimestepMin(rowData || [])}
                         title={activeHydrologyItem?.name || 'Preview'}
+                        activeHydrologyPage={activeHydrologyItem?.series_type === 'hydrograph' ? 'hydrographs' : 'time-series'}
                     />
                 </div>
             </div>
@@ -219,4 +237,6 @@ ManualPasteGrid.propTypes = {
 };
 
 export default ManualPasteGrid;
-export {ManualPasteGrid, TableCell, columns};
+// TASK-2026: columns is now built inside the component (buildColumns factory);
+// export buildColumns for testing. TableCell exported for render isolation tests.
+export {ManualPasteGrid, TableCell, buildColumns};

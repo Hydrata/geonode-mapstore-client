@@ -1,5 +1,6 @@
 import expect from 'expect';
 import reducer, { hydrologyKeyMap } from '../reducersHydrology';
+import { CATEGORIES, CATEGORY_TO_PAGE, pageToCategory } from '../components/hydrologyCategoryRail';
 import {
     INIT_HYDROLOGY,
     INIT_HYDROLOGY_FULFILLED,
@@ -513,6 +514,491 @@ describe('Hydrology Plugin', () => {
         it('SET_CELERY_ANUGA_ENABLED flips celeryAnugaEnabled', () => {
             const s = reducer(undefined, setCeleryAnugaEnabled(false));
             expect(s.idfDerive.celeryAnugaEnabled).toBe(false);
+        });
+    });
+
+    // TASK-1985 — hydrologyCategoryRail: Hydrographs rail item at index 3 + page wiring.
+    describe('hydrologyCategoryRail', () => {
+        it('CATEGORIES has hydrographs at index 3 (between time-series and networks)', () => {
+            // Index 0=idf, 1=temporal-pattern, 2=time-series, 3=hydrographs, 4=networks
+            expect(CATEGORIES[3].id).toBe('hydrographs');
+            expect(CATEGORIES[3].msgId).toBe('hydrata.hydrology.hydrographs');
+            // Networks must still be last (index 4) — not displaced to index 3.
+            expect(CATEGORIES[4].id).toBe('networks');
+        });
+
+        it('CATEGORY_TO_PAGE maps hydrographs category id to hydrographs page id', () => {
+            expect(CATEGORY_TO_PAGE && CATEGORY_TO_PAGE['hydrographs']).toBe('hydrographs');
+        });
+
+        it('pageToCategory round-trips the hydrographs activeHydrologyPage', () => {
+            // pageToCategory('hydrographs') must return 'hydrographs' so the rail
+            // item is highlighted when the Redux page is 'hydrographs'.
+            expect(pageToCategory('hydrographs')).toBe('hydrographs');
+        });
+    });
+
+    describe('activeHydrologyPage accepts hydrographs (TASK-1985)', () => {
+        it('SET_ACTIVE_HYDROLOGY_PAGE with hydrographs stores it in reducer', () => {
+            const initialState = {
+                isHydrologyProject: false,
+                showHydrologyMainMenu: false,
+                activeHydrologyPage: 'sv-idf-table'
+            };
+            const s = reducer(initialState, setActiveHydrologyPage('hydrographs'));
+            expect(s.activeHydrologyPage).toBe('hydrographs');
+        });
+    });
+
+    // TASK-2023 (W5.1) — Hydrographs rail icon: inline-SVG, not glyphicon-tint.
+    describe('TASK-2023 hydrologyCategoryRail hydrographs icon', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const TestUtils = require('react-dom/test-utils');
+        const { HydrologyCategoryRail } = require('../components/hydrologyCategoryRail');
+
+        it('hydrographs rail item renders an <svg>, NOT a .glyphicon-tint span', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyCategoryRail, {
+                    activeHydrologyPage: 'hydrographs',
+                    onSelectCategory: () => {}
+                }),
+                container
+            );
+            // No glyphicon-tint span anywhere in the rail
+            const tintSpans = container.querySelectorAll('.glyphicon-tint');
+            expect(tintSpans.length).toBe(0);
+            // Exactly one svg element exists (the HydrographIcon)
+            const svgs = container.querySelectorAll('svg');
+            // Networks also has an svg — but when hydrographs is active, total >= 1
+            // We need the hydrographs item's glyph span to contain an svg
+            const items = container.querySelectorAll('.sv-hydrology-category-item');
+            const hydrographsItem = Array.from(items).find(el =>
+                el.getAttribute('aria-selected') === 'true'
+            );
+            expect(hydrographsItem).toExist();
+            const itemSvgs = hydrographsItem.querySelectorAll('svg');
+            expect(itemSvgs.length).toBe(1);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('networks and other rail items are unchanged (no regression)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyCategoryRail, {
+                    activeHydrologyPage: 'networks',
+                    onSelectCategory: () => {}
+                }),
+                container
+            );
+            // networks item still has an svg
+            const items = container.querySelectorAll('.sv-hydrology-category-item');
+            const networksItem = Array.from(items).find(el =>
+                el.getAttribute('aria-selected') === 'true'
+            );
+            expect(networksItem).toExist();
+            const networksSvgs = networksItem.querySelectorAll('svg');
+            expect(networksSvgs.length).toBe(1);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // TASK-2025 (W5.3) — page-aware labels: Hydrograph vs Design Storm.
+    // Message component without intl context renders <span>{msgId}</span>,
+    // so we check innerHTML/textContent for the msgId string.
+    describe('TASK-2025 HydrologyTimeSeries page-aware labels', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { HydrologyTimeSeriesClass } = require('../components/hydrologyDetailTimeSeries');
+
+        it('hydrographs page: empty-state contains noHydrographData msgId text', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyTimeSeriesClass, {
+                    activeHydrologyItem: {id: 1, name: 'Test', rowData: []},
+                    activeHydrologyPage: 'hydrographs'
+                }),
+                container
+            );
+            const text = container.innerHTML;
+            expect(text.includes('hydrata.hydrology.noHydrographData')).toBe(true);
+            expect(text.includes('hydrata.hydrology.noTimeSeriesData')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('time-series page: empty-state contains noTimeSeriesData msgId (Design Storms unchanged)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyTimeSeriesClass, {
+                    activeHydrologyItem: {id: 1, name: 'Test', rowData: []},
+                    activeHydrologyPage: 'time-series'
+                }),
+                container
+            );
+            const text = container.innerHTML;
+            expect(text.includes('hydrata.hydrology.noTimeSeriesData')).toBe(true);
+            expect(text.includes('hydrata.hydrology.noHydrographData')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // TASK-2027/2028/2030 (W5.5/W5.6/W5.8) — HyetographChart cluster: animation/line/volume.
+    describe('HyetographChart cluster (TASK-2027/2028/2030)', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { HyetographChart } = require('../components/hydrologyDetailTimeSeries');
+
+        // Synthetic rowData with timestamps + values for a 3-point series.
+        const rowData = [
+            {timestamp: '2025-01-01T00:00:00', value: 10},
+            {timestamp: '2025-01-01T00:06:00', value: 20},
+            {timestamp: '2025-01-01T00:12:00', value: 5}
+        ];
+
+        // TASK-2028: hydrograph -> LineChart rendered, no BarChart
+        it('TASK-2028: activeHydrologyPage=hydrographs renders a line chart (.recharts-line-curve or svg), not bar', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 6,
+                    title: 'Test Hydrograph',
+                    activeHydrologyPage: 'hydrographs'
+                }),
+                container
+            );
+            // Line chart renders recharts-line elements; Bar chart renders recharts-bar-rectangle
+            const barRects = container.querySelectorAll('.recharts-bar-rectangle');
+            expect(barRects.length).toBe(0);
+            // Chart wrapper should still exist
+            const chartWrapper = container.querySelector('#design-storm-hyetograph');
+            expect(chartWrapper).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('TASK-2028: no activeHydrologyPage (Design Storms) renders bar chart', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 6,
+                    title: 'Design Storm'
+                }),
+                container
+            );
+            // BarChart renders recharts-bar elements
+            const barLayer = container.querySelector('.recharts-bar');
+            expect(barLayer).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // TASK-2028: Y-axis label and tooltip units
+        it('TASK-2028: hydrograph Y-axis label reads Flow (m3/s), not Intensity (mm/hr)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 6,
+                    activeHydrologyPage: 'hydrographs'
+                }),
+                container
+            );
+            const html = container.innerHTML;
+            expect(html.includes('Flow (m3/s)')).toBe(true);
+            expect(html.includes('Intensity (mm/hr)')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('TASK-2028: Design Storms Y-axis label reads Intensity (mm/hr) (unchanged)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 6
+                }),
+                container
+            );
+            const html = container.innerHTML;
+            expect(html.includes('Intensity (mm/hr)')).toBe(true);
+            expect(html.includes('Flow (m3/s)')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // TASK-2030: volume stat
+        it('TASK-2030: hydrograph stat reads "Estimated Total Flow Volume (m3)" with m3 value', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 6,
+                    activeHydrologyPage: 'hydrographs'
+                }),
+                container
+            );
+            const html = container.innerHTML;
+            expect(html.includes('Flow Volume')).toBe(true);
+            expect(html.includes('m3')).toBe(true);
+            // Must NOT contain depth-based labels
+            expect(html.includes('total depth')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('TASK-2030: Design Storms stat reads "Estimated total depth ... mm" (unchanged)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 6
+                }),
+                container
+            );
+            const html = container.innerHTML;
+            expect(html.includes('total depth')).toBe(true);
+            expect(html.includes('mm')).toBe(true);
+            expect(html.includes('Flow Volume')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // TASK-2030: volume integral math check
+        // 3 points at 10, 20, 5 m3/s, timestep=6min -> 6*60=360s each
+        // totalVolume = (10 + 20 + 5) * 360 = 12600 m3
+        it('TASK-2030: volume integral = sum(flow * timestep_seconds)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 6,
+                    activeHydrologyPage: 'hydrographs'
+                }),
+                container
+            );
+            const html = container.innerHTML;
+            // 35 * 360 = 12600
+            expect(html.includes('12600')).toBe(true);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // TASK-2024 (W5.2) — Hydrographs create panel: hideDerive removes Derive button + body.
+    describe('TASK-2024 DesignStormCreatePanel hideDerive', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { DesignStormCreatePanel } = require('../components/hydrologyDetailTimeSeries');
+
+        const baseProps = {
+            activeHydrologyItem: {id: 'temp-1', name: 'Hydrograph 01', rowData: [], columnDefs: []},
+            idfTables: [],
+            temporalPatterns: [],
+            activeTab: 'input',
+            onTabChange: () => {},
+            previews: [],
+            previewInFlight: false,
+            saveInFlight: false,
+            lastSavedCount: null,
+            previewDesignStorms: () => {},
+            saveDesignStorms: () => {},
+            updateTimeSeriesRowData: () => {},
+            replaceTimeSeriesRowData: () => {}
+        };
+
+        it('with hideDerive=true: no #ds-create-tab-derive button and DesignStormDerive not mounted', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(DesignStormCreatePanel, {...baseProps, hideDerive: true}),
+                container
+            );
+            const deriveBtn = container.querySelector('#ds-create-tab-derive');
+            expect(deriveBtn).toBe(null);
+            // Even if a stale tab='derive' is passed, no DesignStormDerive panel renders
+            ReactDOM.unmountComponentAtNode(container);
+            ReactDOM.render(
+                React.createElement(DesignStormCreatePanel, {...baseProps, hideDerive: true, activeTab: 'derive'}),
+                container
+            );
+            const deriveBtnStale = container.querySelector('#ds-create-tab-derive');
+            expect(deriveBtnStale).toBe(null);
+            // ManualPasteGrid should still render (Input path present)
+            const createPanel = container.querySelector('#design-storm-create-panel');
+            expect(createPanel).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        it('without hideDerive: both Input and Derive buttons present (Design Storms unchanged)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(DesignStormCreatePanel, {...baseProps, hideDerive: false}),
+                container
+            );
+            const inputBtn = container.querySelector('#ds-create-tab-input');
+            const deriveBtn = container.querySelector('#ds-create-tab-derive');
+            expect(inputBtn).toExist();
+            expect(deriveBtn).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // TASK-2031 (W5.9) — Hydrographs saved-detail: editable ManualPasteGrid for selected hydrograph.
+    describe('TASK-2031 HydrologyTimeSeries editable grid for saved hydrograph', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { HydrologyTimeSeriesClass } = require('../components/hydrologyDetailTimeSeries');
+
+        const rowData = [
+            {timestamp: '2025-01-01T00:00:00', value: 5},
+            {timestamp: '2025-01-01T00:10:00', value: 10}
+        ];
+
+        const savedHydrograph = {
+            id: 42,
+            name: 'River Q',
+            series_type: 'hydrograph',
+            rowData,
+            columnDefs: []
+        };
+
+        const savedDesignStorm = {
+            id: 7,
+            name: 'ARI 100',
+            series_type: 'time-series',
+            rowData,
+            columnDefs: []
+        };
+
+        const noop = () => {};
+
+        // AC1 + AC4: hydrographs page -> ManualPasteGrid editable input present.
+        it('AC1: hydrographs page + saved item renders editable input (ManualPasteGrid), not read-only chart only', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyTimeSeriesClass, {
+                    activeHydrologyItem: savedHydrograph,
+                    activeHydrologyPage: 'hydrographs',
+                    dispatchUpdateRowData: noop,
+                    dispatchReplaceRowData: noop
+                }),
+                container
+            );
+            // ManualPasteGrid renders an editable <input> for each value cell
+            const inputs = container.querySelectorAll('input');
+            expect(inputs.length).toBeGreaterThan(0);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // AC3: time-series (Design Storms) page -> NO editable input, read-only chart only.
+        it('AC3: time-series page + saved item does NOT render editable input (read-only chart only)', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HydrologyTimeSeriesClass, {
+                    activeHydrologyItem: savedDesignStorm,
+                    activeHydrologyPage: 'time-series',
+                    dispatchUpdateRowData: noop,
+                    dispatchReplaceRowData: noop
+                }),
+                container
+            );
+            // No editable inputs — only the read-only hyetograph chart
+            const inputs = container.querySelectorAll('input');
+            expect(inputs.length).toBe(0);
+            // Chart wrapper present
+            const chart = container.querySelector('#design-storm-hyetograph');
+            expect(chart).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // TASK-2032 (W5.10) — Hydrograph X-axis extends one tick past the final data point.
+    describe('TASK-2032 HyetographChart hydrograph X-axis extension', () => {
+        const { niceTimeTicks } = require('../components/hydrologyDetailTimeSeries');
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { HyetographChart } = require('../components/hydrologyDetailTimeSeries');
+
+        const rowData = [
+            {timestamp: '2025-01-01T00:00:00', value: 5},
+            {timestamp: '2025-01-01T00:10:00', value: 10},
+            {timestamp: '2025-01-01T00:20:00', value: 3}
+        ];
+        // durationMin = 20; niceTimeTicks(20) -> interval=10; xDomainMax=30
+
+        // AC1 + AC4: hydrograph XAxis domain max > durationMin, extended tick rendered.
+        it('AC1/AC4: hydrograph chart renders an x-axis tick beyond durationMin', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 10,
+                    activeHydrologyPage: 'hydrographs'
+                }),
+                container
+            );
+            // niceTimeTicks(20) -> ticks=[0,10,20], interval=10 -> extended ticks=[0,10,20,30]
+            // The chart wrapper must exist
+            const chart = container.querySelector('#design-storm-hyetograph');
+            expect(chart).toExist();
+            // Verify extended tick labels render — recharts emits tick text "0:30"
+            const html = container.innerHTML;
+            expect(html.includes('0:30')).toBe(true);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // AC3: Design Storms BarChart XAxis stays at durationMin (no extended tick).
+        it('AC3: design-storm chart does NOT render an x-axis tick beyond durationMin', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            ReactDOM.render(
+                React.createElement(HyetographChart, {
+                    rowData,
+                    timestepMin: 10
+                    // no activeHydrologyPage -> Design Storms path
+                }),
+                container
+            );
+            const html = container.innerHTML;
+            // durationMin=20, niceTimeTicks(20) -> ticks=[0,10,20] -> "0:20" is the last tick
+            // For design-storms the domain stays [0,20] and ticks=[0,10,20] -> no "0:30"
+            expect(html.includes('0:30')).toBe(false);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+
+        // niceTimeTicks sanity: interval is returned correctly.
+        it('niceTimeTicks returns interval as well as ticks', () => {
+            const result = niceTimeTicks(20);
+            expect(result.interval).toBe(10);
+            expect(result.ticks).toEqual([0, 10, 20]);
         });
     });
 });

@@ -26,6 +26,8 @@ import PropTypes from 'prop-types';
 import {
     BarChart,
     Bar,
+    LineChart,
+    Line,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -118,7 +120,17 @@ export function formatElapsedMin(min) {
     return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
 
-const HyetographChart = ({rowData, timestepMin, title}) => {
+// TASK-2027/2028/2030 (W5.5/W5.6/W5.8): HyetographChart now accepts
+// activeHydrologyPage to discriminate hydrograph vs hyetograph presentation.
+// When activeHydrologyPage==='hydrographs':
+//   - Renders a LineChart (continuous flow curve) instead of BarChart (rainfall bars).
+//   - Y-axis label: 'Flow (m3/s)' instead of 'Intensity (mm/hr)'.
+//   - Tooltip: 'm3/s' unit + 'Flow' label.
+//   - No entrance animation (isAnimationActive=false on the Line series).
+//   - Summary stat: 'Estimated Total Flow Volume (m3)' = integral(flow*timestep_s).
+// Design Storms (no activeHydrologyPage or activeHydrologyPage!=='hydrographs'):
+//   - All existing behaviour preserved verbatim (BarChart, mm/hr, depth, animation).
+const HyetographChart = ({rowData, timestepMin, title, activeHydrologyPage}) => {
     const chartData = rowDataToHyetograph(rowData);
     if (!chartData.length) return null;
     const ts = timestepMin || 6;
@@ -135,9 +147,33 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
     const durationMin = data.length ? data[data.length - 1].elapsedMin : 0;
     const maxIntensity = data.reduce((m, d) => Math.max(m, d.intensity), 0);
     const {ticks: yTicks, max: yMax} = niceIntensityTicks(maxIntensity);
-    const {ticks: xTicks} = niceTimeTicks(durationMin);
-    // Convert mm/hr intensity × (timestep/60) = mm depth per interval for total
+    // TASK-2032 (W5.10): capture interval alongside ticks so the hydrograph LineChart
+    // can extend its domain + ticks one interval past the final data point.
+    const {ticks: xTicks, interval: xInterval} = niceTimeTicks(durationMin);
+
+    // TASK-2027/2028/2030: page discriminator.
+    const isHydrograph = activeHydrologyPage === 'hydrographs';
+
+    // TASK-2032 (W5.10): extend the LineChart (hydrograph-only) X-axis one tick past the
+    // last data point so the curve has visible white-space after it (truncation cue).
+    // xDomainMax = durationMin + one tick interval; extended ticks = base ticks +
+    // one additional tick at the interval boundary (if the last base tick <= durationMin).
+    // The BarChart (Design Storms) uses the unmodified xTicks + domain=[0,durationMin].
+    const xDomainMax = isHydrograph ? durationMin + xInterval : durationMin;
+    const xTicksExtended = (() => {
+        if (!isHydrograph) return xTicks;
+        const lastBase = xTicks.length ? xTicks[xTicks.length - 1] : 0;
+        const extended = lastBase <= durationMin ? [...xTicks, lastBase + xInterval] : [...xTicks];
+        // Keep only ticks that are <= xDomainMax so recharts renders them.
+        return extended.filter(t => t <= xDomainMax);
+    })();
+
+    // TASK-2030: summary stat values (computed unconditionally; only one is rendered).
+    // Hydrograph: integral of flow over time = sum(flow_m3s * timestep_seconds) in m3.
+    // Design Storm: mm/hr intensity × (timestep/60) = mm depth per interval for total.
+    const totalVolume = data.reduce((s, d) => s + d.intensity * ts * 60, 0).toFixed(1);
     const totalDepth = data.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
+
     return (
         <div id="design-storm-hyetograph" className="sv-hyetograph-chart-card">
             {title && (
@@ -145,43 +181,92 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
                     {title}
                 </p>
             )}
-            <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
-                Estimated total depth: <strong>{totalDepth} mm</strong>
-            </p>
+            {isHydrograph ? (
+                <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
+                    Estimated Total Flow Volume (m3): <strong>{totalVolume} m3</strong>
+                </p>
+            ) : (
+                <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
+                    Estimated total depth: <strong>{totalDepth} mm</strong>
+                </p>
+            )}
             {/* HTML axis-title layout — mirrors IdfCurveChart (.sv-idf-curve-*) because
                 recharts 0.22.4 silently IGNORES the YAxis/XAxis `label` object prop,
                 so axis units must be HTML around the SVG, not a recharts <Label>. */}
             <div className="sv-hyetograph-chart-layout">
-                <div className="sv-hyetograph-yaxis-title">Intensity (mm/hr)</div>
+                {/* TASK-2028: Y-axis label switches per page. */}
+                <div className="sv-hyetograph-yaxis-title">
+                    {isHydrograph ? 'Flow (m3/s)' : 'Intensity (mm/hr)'}
+                </div>
                 <div className="sv-hyetograph-plot-area">
                     <div className="sv-hyetograph-plot">
                         <ResponsiveContainer width="100%" height={260}>
-                            <BarChart
-                                data={data}
-                                margin={{top: 10, right: 20, left: 8, bottom: 8}}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
-                                <XAxis
-                                    dataKey="elapsedMin"
-                                    type="number"
-                                    domain={[0, durationMin]}
-                                    ticks={xTicks}
-                                    tickFormatter={formatElapsedMin}
-                                    height={28}
-                                    tick={{fontSize: 10, fill: '#333'}}
-                                />
-                                <YAxis
-                                    domain={[0, yMax]}
-                                    ticks={yTicks}
-                                    allowDecimals={false}
-                                    tick={{fontSize: 10, fill: '#333'}}
-                                />
-                                <Tooltip
-                                    labelFormatter={(v) => `Time ${formatElapsedMin(v)}`}
-                                    formatter={(v) => [`${v.toFixed(2)} mm/hr`, 'Intensity']}
-                                />
-                                <Bar dataKey="intensity" fill="#5178af" />
-                            </BarChart>
+                            {/* TASK-2028: LineChart for hydrographs; BarChart for Design Storms. */}
+                            {isHydrograph ? (
+                                <LineChart
+                                    data={data}
+                                    margin={{top: 10, right: 20, left: 8, bottom: 8}}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
+                                    {/* TASK-2032 (W5.10): domain + ticks extended one interval past
+                                        the last data point (LineChart / hydrograph branch ONLY). */}
+                                    <XAxis
+                                        dataKey="elapsedMin"
+                                        type="number"
+                                        domain={[0, xDomainMax]}
+                                        ticks={xTicksExtended}
+                                        tickFormatter={formatElapsedMin}
+                                        height={28}
+                                        tick={{fontSize: 10, fill: '#333'}}
+                                    />
+                                    <YAxis
+                                        domain={[0, yMax]}
+                                        ticks={yTicks}
+                                        allowDecimals={false}
+                                        tick={{fontSize: 10, fill: '#333'}}
+                                    />
+                                    <Tooltip
+                                        labelFormatter={(v) => `Time ${formatElapsedMin(v)}`}
+                                        formatter={(v) => [`${v.toFixed(3)} m3/s`, 'Flow']}
+                                    />
+                                    {/* TASK-2027: isAnimationActive=false for hydrographs (no live-preview). */}
+                                    <Line
+                                        type="monotone"
+                                        dataKey="intensity"
+                                        stroke="#5178af"
+                                        dot={false}
+                                        strokeWidth={2}
+                                        isAnimationActive={false}
+                                    />
+                                </LineChart>
+                            ) : (
+                                <BarChart
+                                    data={data}
+                                    margin={{top: 10, right: 20, left: 8, bottom: 8}}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
+                                    <XAxis
+                                        dataKey="elapsedMin"
+                                        type="number"
+                                        domain={[0, durationMin]}
+                                        ticks={xTicks}
+                                        tickFormatter={formatElapsedMin}
+                                        height={28}
+                                        tick={{fontSize: 10, fill: '#333'}}
+                                    />
+                                    <YAxis
+                                        domain={[0, yMax]}
+                                        ticks={yTicks}
+                                        allowDecimals={false}
+                                        tick={{fontSize: 10, fill: '#333'}}
+                                    />
+                                    <Tooltip
+                                        labelFormatter={(v) => `Time ${formatElapsedMin(v)}`}
+                                        formatter={(v) => [`${v.toFixed(2)} mm/hr`, 'Intensity']}
+                                    />
+                                    <Bar dataKey="intensity" fill="#5178af" />
+                                </BarChart>
+                            )}
                         </ResponsiveContainer>
                     </div>
                     <div className="sv-hyetograph-xaxis-title">Time from start (h:mm)</div>
@@ -194,7 +279,9 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
 HyetographChart.propTypes = {
     rowData: PropTypes.array,
     timestepMin: PropTypes.number,
-    title: PropTypes.string
+    title: PropTypes.string,
+    // TASK-2025/2027/2028/2030: page discriminator. 'hydrographs' -> flow presentation.
+    activeHydrologyPage: PropTypes.string
 };
 
 // ---------------------------------------------------------------------------
@@ -937,46 +1024,96 @@ export function estimateTimestepMin(rowData) {
 // Those components remain exported in this file for the Create panel and W3.
 // ---------------------------------------------------------------------------
 
-const HydrologyTimeSeries = ({activeHydrologyItem}) => {
+// TASK-2031 (W5.9): HydrologyTimeSeries receives dispatch props so the
+// editable ManualPasteGrid can update + replace row data for saved hydrographs.
+// The wiring mirrors createPanelDispatchToProps (below) exactly.
+const HydrologyTimeSeries = ({
+    activeHydrologyItem,
+    activeHydrologyPage,
+    dispatchUpdateRowData,
+    dispatchReplaceRowData
+}) => {
     // TASK-1556 (AC2) — feed the SAVED record's rowData to the existing
     // exported HyetographChart (the only gap was that activeHydrologyItem.rowData
     // was never wired in). .rowData is the saved Array<{timestamp,value}>
     // (reducer's createTimeSeriesFromJson sets it via instance.data = json.data).
     const rowData = activeHydrologyItem?.rowData || [];
     const hasData = Array.isArray(rowData) && rowData.length > 0;
+    // TASK-2025 (W5.3): page-aware labels. 'hydrographs' -> 'Hydrograph' title +
+    // noHydrographData empty-state; 'time-series' (Design Storms) unchanged.
+    const isHydrograph = activeHydrologyPage === 'hydrographs';
+    const titleFallback = isHydrograph ? 'Hydrograph' : 'Design Storm';
+    const emptyMsgId = isHydrograph
+        ? 'hydrata.hydrology.noHydrographData'
+        : 'hydrata.hydrology.noTimeSeriesData';
 
     return (
         <div id="timeseries-detail-hyetograph" style={{maxWidth: 720}}>
-            {hasData ? (
-                <HyetographChart
-                    rowData={rowData}
-                    timestepMin={estimateTimestepMin(rowData)}
-                    title={activeHydrologyItem?.name || 'Design Storm'}
-                />
+            {/* TASK-2031 (W5.9): hydrographs page -> editable ManualPasteGrid (table + live
+                line-chart preview). Design Storms page -> unchanged read-only HyetographChart.
+                ManualPasteGrid derives activeHydrologyPage from item.series_type internally,
+                so the preview chart inside it shows the correct flow/line presentation. */}
+            {isHydrograph ? (
+                hasData ? (
+                    <ManualPasteGrid
+                        activeHydrologyItem={activeHydrologyItem}
+                        dispatchUpdateRowData={dispatchUpdateRowData}
+                        dispatchReplaceRowData={dispatchReplaceRowData}
+                    />
+                ) : (
+                    <p className="sv-design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
+                        <Message msgId={emptyMsgId} />
+                    </p>
+                )
             ) : (
-                <p className="sv-design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
-                    <Message msgId="hydrata.hydrology.noTimeSeriesData" />
-                </p>
+                hasData ? (
+                    <HyetographChart
+                        rowData={rowData}
+                        timestepMin={estimateTimestepMin(rowData)}
+                        title={activeHydrologyItem?.name || titleFallback}
+                        activeHydrologyPage={activeHydrologyPage}
+                    />
+                ) : (
+                    <p className="sv-design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
+                        <Message msgId={emptyMsgId} />
+                    </p>
+                )
             )}
         </div>
     );
 };
 
 HydrologyTimeSeries.propTypes = {
-    activeHydrologyItem: PropTypes.object
+    activeHydrologyItem: PropTypes.object,
+    // TASK-2025 (W5.3): page discriminator for label / empty-state / chart behaviour.
+    activeHydrologyPage: PropTypes.string,
+    // TASK-2031 (W5.9): dispatch props for the editable hydrograph grid.
+    dispatchUpdateRowData: PropTypes.func,
+    dispatchReplaceRowData: PropTypes.func
 };
 
 // TASK-1556 (W2) — the slim detail only needs the active item. The
 // design-storm/projection/idf state + dispatch wiring moved to the Create
 // panel (TASK-1558), which owns its own connect.
+// TASK-2025 (W5.3): also thread activeHydrologyPage for page-aware labels.
+// TASK-2031 (W5.9): add mapDispatchToProps to wire updateTimeSeriesRowData +
+// replaceTimeSeriesRowData — mirrors createPanelDispatchToProps exactly.
 const mapStateToProps = (state) => {
     return {
-        activeHydrologyItem: state?.hydrology?.activeHydrologyItem
+        activeHydrologyItem: state?.hydrology?.activeHydrologyItem,
+        activeHydrologyPage: state?.hydrology?.activeHydrologyPage
     };
 };
 
+const mapDispatchToProps = (dispatch) => ({
+    dispatchUpdateRowData: (timeSeriesId, rowIndex, columnId, value) =>
+        dispatch(updateTimeSeriesRowData(timeSeriesId, rowIndex, columnId, value)),
+    dispatchReplaceRowData: (timeSeriesId, newRowData) =>
+        dispatch(replaceTimeSeriesRowData(timeSeriesId, newRowData))
+});
+
 export {HydrologyTimeSeries as HydrologyTimeSeriesClass};
-export default connect(mapStateToProps)(HydrologyTimeSeries);
+export default connect(mapStateToProps, mapDispatchToProps)(HydrologyTimeSeries);
 
 // ---------------------------------------------------------------------------
 // TASK-1558 (W2) — Derive tab SHELL.
@@ -1262,6 +1399,10 @@ const DesignStormCreatePanel = ({
     temporalPatterns,
     activeTab,
     onTabChange,
+    // TASK-2024 (W5.2): when true (Hydrographs page), hide the Derive button + body.
+    // Derive = IDF->design-storm rainfall derivation, meaningless for flow hydrographs.
+    // Design Storms pass hideDerive=false (default) — their Derive flow is unaffected.
+    hideDerive,
     // TASK-1561 (W3b) — projection/save props threaded from connect
     previews,
     previewInFlight,
@@ -1275,33 +1416,39 @@ const DesignStormCreatePanel = ({
     // Derive-tab selections are LOCAL — kept here so clearing IDF/pattern
     // cancels any in-flight preview at source.
     const [deriveSpec, setDeriveSpec] = useState({selectedIdfTableId: null, selectedPattern: ALTERNATING_BLOCK});
-    const tab = activeTab || 'input';
+    // When hideDerive, force tab to 'input' regardless of caller state — a stale
+    // tsCreateTab='derive' must not leak DesignStormDerive into the Hydrographs panel.
+    const tab = (hideDerive || !activeTab) ? 'input' : activeTab;
 
     return (
         <div id="design-storm-create-panel">
-            {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup. */}
-            <div className="sv-hydrology-idf-subtoggle" role="group" aria-label="Create mode">
-                <button
-                    id="ds-create-tab-input"
-                    type="button"
-                    className={'sv-hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
-                    onClick={() => onTabChange('input')}
-                >
-                    <Message msgId="hydrata.hydrology.idfModeManual" />
-                </button>
-                <button
-                    id="ds-create-tab-derive"
-                    type="button"
-                    className={'sv-hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
-                    onClick={() => onTabChange('derive')}
-                >
-                    <Message msgId="hydrata.hydrology.idfModeDerive" />
-                </button>
-            </div>
+            {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup.
+                TASK-2024: hidden on the Hydrographs page (hideDerive=true). */}
+            {!hideDerive && (
+                <div className="sv-hydrology-idf-subtoggle" role="group" aria-label="Create mode">
+                    <button
+                        id="ds-create-tab-input"
+                        type="button"
+                        className={'sv-hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
+                        onClick={() => onTabChange('input')}
+                    >
+                        <Message msgId="hydrata.hydrology.idfModeManual" />
+                    </button>
+                    <button
+                        id="ds-create-tab-derive"
+                        type="button"
+                        className={'sv-hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
+                        onClick={() => onTabChange('derive')}
+                    >
+                        <Message msgId="hydrata.hydrology.idfModeDerive" />
+                    </button>
+                </div>
+            )}
 
             {/* Active tab body */}
             <div style={{marginTop: 10}}>
-                {tab === 'derive' ? (
+                {/* TASK-2024: hideDerive short-circuits Derive body; Hydrographs always shows ManualPasteGrid. */}
+                {!hideDerive && tab === 'derive' ? (
                     <DesignStormDerive
                         idfTables={idfTables}
                         temporalPatterns={temporalPatterns}
@@ -1333,6 +1480,8 @@ DesignStormCreatePanel.propTypes = {
     temporalPatterns: PropTypes.array,
     activeTab: PropTypes.string,
     onTabChange: PropTypes.func.isRequired,
+    // TASK-2024 (W5.2): true on the Hydrographs page — hides the Derive button + body.
+    hideDerive: PropTypes.bool,
     previews: PropTypes.array,
     previewInFlight: PropTypes.bool,
     saveInFlight: PropTypes.bool,

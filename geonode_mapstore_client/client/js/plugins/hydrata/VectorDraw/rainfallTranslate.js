@@ -39,7 +39,10 @@ export const translateOut = (input) => {
     delete props.data;
 
     if (data && typeof data === 'object') {
-        if (data.kind === 'timeseries') {
+        // TASK-1984: hyetograph is the rai_ timeseries-family kind (filtered
+        // fetch); it carries the same timeseries_id shape as 'timeseries' and
+        // maps to the same wire column. Treat both identically.
+        if (data.kind === 'timeseries' || data.kind === 'hyetograph') {
             const id = data.timeseries_id;
             if (id !== null && id !== undefined && id !== '') {
                 props.data_timeseries_id = typeof id === 'number' ? id : parseInt(id, 10);
@@ -79,15 +82,23 @@ export const synthesizeIn = (props) => {
     const dataConstantValue = getProp(out, 'data_constant', 'Data_Constant');
     const dataTimeseriesIdValue = getProp(out, 'data_timeseries_id', 'Data_Timeseries_Id');
 
+    // TASK-1984: 'hyetograph' is the rai_ timeseries-family kind; recognize it
+    // as already-structured so a form value {kind:'hyetograph', timeseries_id:5}
+    // is passed through unchanged (not re-synthesized from DB per-column keys).
     const hasStructuredData = dataValue && typeof dataValue === 'object'
-        && (dataValue.kind === 'constant' || dataValue.kind === 'timeseries');
+        && (dataValue.kind === 'constant' || dataValue.kind === 'timeseries' || dataValue.kind === 'hyetograph');
 
     if (!hasStructuredData) {
         const hasConstant = dataConstantValue !== null && dataConstantValue !== undefined && dataConstantValue !== '';
         const hasTs = dataTimeseriesIdValue !== null && dataTimeseriesIdValue !== undefined && dataTimeseriesIdValue !== '';
         if (hasTs) {
             const id = dataTimeseriesIdValue;
-            out.data = { kind: 'timeseries', timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
+            // TASK-1970 W3 fix: reconstruct an existing DB-loaded rainfall as the
+            // 'hyetograph' kind (the rai_ timeseries-family choice), NOT the generic
+            // 'timeseries' — that kind is no longer a rai_ DiscriminatorPicker choice,
+            // so it would fall back to 'constant' and mis-show a rainfall-linked series as a
+            // blank Constant (with a silent link-loss path if the user then typed a value).
+            out.data = { kind: 'hyetograph', timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
         } else if (hasConstant) {
             const c = dataConstantValue;
             out.data = { kind: 'constant', constant: typeof c === 'number' ? c : parseFloat(c) };

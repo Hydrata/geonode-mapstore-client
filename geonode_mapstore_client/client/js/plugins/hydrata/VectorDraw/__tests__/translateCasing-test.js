@@ -176,11 +176,12 @@ describe('TASK-824 inflowTranslate.synthesizeIn case-tolerance', () => {
             expect(out.description).toBe('Storm');
         });
 
-        it('resolves Title-case Data_Timeseries_Id → structured timeseries', () => {
+        it('resolves Title-case Data_Timeseries_Id → structured hydrograph', () => {
             const out = inflowSynthesizeIn({
                 Data_Timeseries_Id: 42
             });
-            expect(out.data).toEqual({ kind: 'timeseries', timeseries_id: 42 });
+            // TASK-1970 W3: inf_ reconstructs to 'hydrograph' (the inf_ timeseries-family kind).
+            expect(out.data).toEqual({ kind: 'hydrograph', timeseries_id: 42 });
             expect(out.Data_Timeseries_Id).toBe(undefined);
         });
 
@@ -214,7 +215,8 @@ describe('TASK-824 inflowTranslate.synthesizeIn case-tolerance', () => {
                 data_timeseries_id: 3,
                 Data_Timeseries_Id: 999
             });
-            expect(out.data).toEqual({ kind: 'timeseries', timeseries_id: 3 });
+            // TASK-1970 W3: inf_ reconstructs to 'hydrograph' (the inf_ timeseries-family kind).
+            expect(out.data).toEqual({ kind: 'hydrograph', timeseries_id: 3 });
             expect(out.Data_Timeseries_Id).toBe(undefined);
         });
     });
