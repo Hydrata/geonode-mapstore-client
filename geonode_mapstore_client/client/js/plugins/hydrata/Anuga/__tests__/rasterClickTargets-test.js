@@ -229,6 +229,13 @@ describe('rasterClickTargets (TASK-1997 W3.2)', () => {
                 expect(lbl.subtitle).toNotMatch(/\bm\b/);
                 expect(lbl.subtitle).toMatch(/142/);
             });
+            it('does NOT drop trailing zeros off an integer value (formatBandValue(v,0) regression)', () => {
+                // formatBandValue's trailing-zero regex assumes a decimal-point
+                // context; at decimals=0 it would wrongly strip "140" -> "14" and
+                // "100" -> "1". terrain_hillshade must round directly instead.
+                expect(t().label(feature('', { GRAY_INDEX: 140 })).subtitle).toBe('Shading: 140');
+                expect(t().label(feature('', { GRAY_INDEX: 100 })).subtitle).toBe('Shading: 100');
+            });
         });
 
         it('resolveKind (via the real classifier) picks terrain_hillshade over terrain_raster for a hillshade layer', () => {

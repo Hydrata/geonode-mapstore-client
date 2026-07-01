@@ -198,7 +198,12 @@ export const registerRasterClickTargets = () => {
 
         label: (feature) => {
             const value = extractBandValue(feature);
-            const formatted = formatBandValue(value, 0);
+            // NOT formatBandValue(value, 0): its trailing-zero regex
+            // (/\.?0+$/) assumes a decimal-point context (correct for
+            // decimals>=1, e.g. "20.00" -> "20") but at decimals=0 there is
+            // no decimal point, so it wrongly strips trailing zeros off a
+            // bare integer too (140 -> "14", 100 -> "1"). Round directly.
+            const formatted = value === null || value === undefined ? null : String(Math.round(value));
             // No unit — a hillshade band is a unitless 0-255 shading intensity,
             // not a physical elevation. Dropping the "m" was the F7 fix.
             return {
