@@ -26,6 +26,10 @@ import {
     parseRasterFeatureId,
     registerRasterClickTargets
 } from '../rasterClickTargets';
+// TASK-2040 (F7) — end-to-end proof that the hillshade/terrain_raster overlap
+// resolves to the RIGHT kind via the real classifier (resolveKind's
+// longest-kind-wins rule), not just a unit-level match() call.
+import { buildCandidates } from '../epics/clickDisambiguationEpic';
 
 const collectFunctionPaths = (obj, path = 'root', acc = []) => {
     if (!obj || typeof obj !== 'object') { return acc; }
@@ -194,6 +198,132 @@ describe('rasterClickTargets (TASK-1997 W3.2)', () => {
                 expect(collectFunctionPaths(actions)).toEqual([]);
                 expect(() => structuredClone(actions)).toNotThrow();
             });
+        });
+    });
+
+    // ── TASK-2040 (F7): terrain_hillshade split out of terrain_raster ──────
+    describe('terrain_hillshade target', () => {
+        const t = () => getClickTarget('terrain_hillshade');
+
+        it('is registered readOnly', () => {
+            expect(t().readOnly).toBe(true);
+        });
+
+        describe('match()', () => {
+            it('matches a hillshade COG layer (which ALSO matches terrain_raster\'s regex)', () => {
+                const hillshadeName = 'ele_91158_hillshade_merewether_cog';
+                expect(t().match('', hillshadeName)).toBe(true);
+                // The overlap this target exists to resolve: terrain_raster's regex is
+                // permissive enough to ALSO match the hillshade filename.
+                expect(getClickTarget('terrain_raster').match('', hillshadeName)).toBe(true);
+            });
+            it('does not match a true elevation COG layer (no "hillshade" token)', () => {
+                expect(t().match('', 'ele_42_utm_cog')).toBe(false);
+            });
+        });
+
+        describe('label()', () => {
+            it('never renders a unit ("m") — a hillshade band is unitless shading, not elevation', () => {
+                const lbl = t().label(feature('', { GRAY_INDEX: 142 }));
+                expect(lbl.title).toBe('Terrain hillshade');
+                expect(lbl.subtitle).toNotMatch(/\bm\b/);
+                expect(lbl.subtitle).toMatch(/142/);
+            });
+        });
+
+        it('resolveKind (via the real classifier) picks terrain_hillshade over terrain_raster for a hillshade layer', () => {
+            const hillshadeFeature = {
+                type: 'Feature',
+                id: '',
+                properties: { GRAY_INDEX: 142 },
+                _anugaLayerName: 'geonode:ele_91158_hillshade_merewether_cog'
+            };
+            const candidates = buildCandidates({ type: 'FeatureCollection', features: [hillshadeFeature] });
+            expect(candidates.length).toBe(1);
+            expect(candidates[0].kind).toBe('terrain_hillshade');
+            expect(candidates[0].label.title).toBe('Terrain hillshade');
+            expect(candidates[0].label.subtitle).toNotMatch(/\bm\b/);
+        });
+
+        it('resolveKind still picks terrain_raster for a true elevation layer (no regression)', () => {
+            const elevationFeature = {
+                type: 'Feature',
+                id: '',
+                properties: { GRAY_INDEX: 12.34 },
+                _anugaLayerName: 'geonode:ele_91158_utm_merewether_cog'
+            };
+            const candidates = buildCandidates({ type: 'FeatureCollection', features: [elevationFeature] });
+            expect(candidates.length).toBe(1);
+            expect(candidates[0].kind).toBe('terrain_raster');
+            expect(candidates[0].label.subtitle).toBe('12.34 m');
+        });
+    });
+
+    // ── TASK-2040 (F7): ANUGA result rasters ────────────────────────────────
+    describe('result raster targets (depth_max / velocity_max / depth_integrated_velocity_max)', () => {
+        it('are registered readOnly', () => {
+            expect(getClickTarget('depth_max').readOnly).toBe(true);
+            expect(getClickTarget('velocity_max').readOnly).toBe(true);
+            expect(getClickTarget('depth_integrated_velocity_max').readOnly).toBe(true);
+        });
+
+        describe('depth_max', () => {
+            const t = () => getClickTarget('depth_max');
+            it('matches the real published layer name (run<id>_depth_max_cog)', () => {
+                expect(t().match('', 'run1255_depth_max_cog')).toBe(true);
+                expect(t().match('', 'geonode:run1255_depth_max_cog')).toBe(true);
+            });
+            it('does not match a momentum layer (no accidental substring overlap)', () => {
+                expect(t().match('', 'run1255_depthintegratedvelocity_max_cog')).toBe(false);
+            });
+            it('label() reads the depth value in metres', () => {
+                const lbl = t().label(feature('', { GRAY_INDEX: 1.234 }));
+                expect(lbl.title).toBe('Depth Max');
+                expect(lbl.subtitle).toBe('Depth: 1.23 m');
+            });
+            it('buildOpenActions returns [] (read-only value-readout)', () => {
+                expect(t().buildOpenActions(feature('', { GRAY_INDEX: 1.234 }))).toEqual([]);
+            });
+        });
+
+        describe('velocity_max', () => {
+            const t = () => getClickTarget('velocity_max');
+            it('matches the real published layer name (run<id>_velocity_max_cog)', () => {
+                expect(t().match('', 'run1255_velocity_max_cog')).toBe(true);
+            });
+            it('label() reads the velocity value in m/s', () => {
+                const lbl = t().label(feature('', { GRAY_INDEX: 0.856 }));
+                expect(lbl.title).toBe('Velocity Max');
+                expect(lbl.subtitle).toBe('Velocity: 0.86 m/s');
+            });
+        });
+
+        describe('depth_integrated_velocity_max (Momentum Max)', () => {
+            const t = () => getClickTarget('depth_integrated_velocity_max');
+            it('matches the real published layer name (run<id>_depthintegratedvelocity_max_cog)', () => {
+                expect(t().match('', 'run1255_depthintegratedvelocity_max_cog')).toBe(true);
+            });
+            it('does not match a plain depth_max layer (no accidental substring overlap)', () => {
+                expect(t().match('', 'run1255_depth_max_cog')).toBe(false);
+            });
+            it('label() reads the momentum value in m²/s, titled "Momentum Max"', () => {
+                const lbl = t().label(feature('', { GRAY_INDEX: 2.5 }));
+                expect(lbl.title).toBe('Momentum Max');
+                expect(lbl.subtitle).toMatch(/2\.5/);
+            });
+        });
+
+        it('resolveKind (via the real classifier) resolves a live depth_max GFI hit end to end', () => {
+            const depthFeature = {
+                type: 'Feature',
+                id: '',
+                properties: { GRAY_INDEX: 1.5 },
+                _anugaLayerName: 'geonode:run1255_depth_max_cog'
+            };
+            const candidates = buildCandidates({ type: 'FeatureCollection', features: [depthFeature] });
+            expect(candidates.length).toBe(1);
+            expect(candidates[0].kind).toBe('depth_max');
+            expect(candidates[0].label.subtitle).toBe('Depth: 1.5 m');
         });
     });
 });

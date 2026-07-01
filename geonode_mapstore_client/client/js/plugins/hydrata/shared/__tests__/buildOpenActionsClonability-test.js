@@ -64,8 +64,17 @@ const registerAll = () => {
     registerRasterClickTargets();
 };
 
-// The two known raster kind strings (static; rasterClickTargets.js registers both).
-const RASTER_KINDS = ['fri_raster_', 'terrain_raster'];
+// The known raster kind strings (static; rasterClickTargets.js registers all
+// of these). TASK-2040 (F7, epic 2037 W2) added terrain_hillshade (split out
+// of terrain_raster's over-permissive match — see rasterClickTargets.js) and
+// the 3 ANUGA result rasters (depth_max / velocity_max /
+// depth_integrated_velocity_max). All are read-only value-readouts whose
+// buildOpenActions is unconditionally [] — same D6/C2 no-op contract as the
+// original 2.
+const RASTER_KINDS = [
+    'fri_raster_', 'terrain_raster', 'terrain_hillshade',
+    'depth_max', 'velocity_max', 'depth_integrated_velocity_max'
+];
 
 /**
  * Build a plausible {feature, getState} for each kind so buildOpenActions actually
@@ -299,10 +308,12 @@ describe('buildOpenActions structured-clone safety (TASK-1999 W4.1)', () => {
     // ------------------------------------------------------------------
     describe('RASTER READ-ONLY openers (2 kinds → [] no-op, value shown in label.subtitle)', () => {
 
-        it('covers exactly the 2 expected raster kinds', () => {
-            expect(RASTER_KINDS.length).toBe(2);
-            expect(RASTER_KINDS.indexOf('fri_raster_')).toNotBe(-1);
-            expect(RASTER_KINDS.indexOf('terrain_raster')).toNotBe(-1);
+        it('covers exactly the 6 expected raster kinds', () => {
+            expect(RASTER_KINDS.length).toBe(6);
+            ['fri_raster_', 'terrain_raster', 'terrain_hillshade',
+                'depth_max', 'velocity_max', 'depth_integrated_velocity_max'].forEach((k) => {
+                expect(RASTER_KINDS.indexOf(k)).toNotBe(-1);
+            });
         });
 
         RASTER_KINDS.forEach((kind) => {

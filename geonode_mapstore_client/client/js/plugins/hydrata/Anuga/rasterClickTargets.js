@@ -1,6 +1,18 @@
 /*
  * TASK-1997 (W3.2) — Register raster types with READ-ONLY value-readout openers.
  *
+ * TASK-2040 (F7, epic 2037 W2) — added the three ANUGA RESULT rasters
+ * (depth_max / velocity_max / depth_integrated_velocity_max) so a modeller
+ * can click a flood-output raster and read its value the same way they
+ * already can for friction/terrain inputs (dogfood finding: clicking a
+ * result layer did nothing — no value readout was registered for it at
+ * all). Also split the hillshade layer OUT of the terrain_raster match —
+ * it was silently matching /ele_\d+.*cog/ (its filename shares the `ele_`
+ * prefix, see gn_anuga.utils.create_hillshade_from_terrain_tif +
+ * upload_tif_file's COG suffix) and rendering as "Terrain elevation ... m",
+ * but a hillshade is a 0-255 shading visualization, not an elevation value —
+ * the "m" unit was actively wrong, not just missing.
+ *
  * Raster layers (friction rasters, terrain COG) produce a GFI feature with
  * id="" (empty) — the current buildCandidates filters these out.  W3.2 re-includes
  * them via the raster path in buildCandidates (empty featureId + _anugaLayerName
@@ -158,6 +170,121 @@ export const registerRasterClickTargets = () => {
         // falls through to the default Identify popup.
         buildOpenActions: () => [],
 
+        readOnly: true
+    });
+
+    // -------------------------------------------------------------------------
+    // terrain_hillshade — Hillshade COG rasters (TASK-2040, F7)
+    //
+    // gn_anuga.utils.create_hillshade_from_terrain_tif names the file
+    // `ele_<terrain_id>_hillshade_<token>.tif`, and upload_tif_file (called for
+    // EVERY raster, hillshade included) always converts to COG and derives the
+    // dataset name from the file basename — so the published hillshade layer is
+    // `ele_<terrain_id>_hillshade_<token>_cog`, which ALSO matches terrain_raster's
+    // /ele_\d+.*cog/ regex above. Without this target, a hillshade click was
+    // silently classified as terrain_raster and rendered "Terrain elevation ...
+    // <value> m" — actively wrong (a hillshade band is a 0-255 shading intensity,
+    // not an elevation in metres).
+    //
+    // 'terrain_hillshade' (18 chars) is LONGER than 'terrain_raster' (14 chars),
+    // so resolveKind()'s longest-kind-wins rule picks THIS target for any layer
+    // whose name contains "hillshade" — no change to terrain_raster's regex
+    // needed; true elevation layers (no "hillshade" token) still resolve there.
+    registerClickTarget('terrain_hillshade', {
+        match: (featureId, layerName) => {
+            const name = bareLayerName(layerName);
+            return /hillshade/.test(name) && /ele_\d+.*cog/.test(name);
+        },
+
+        label: (feature) => {
+            const value = extractBandValue(feature);
+            const formatted = formatBandValue(value, 0);
+            // No unit — a hillshade band is a unitless 0-255 shading intensity,
+            // not a physical elevation. Dropping the "m" was the F7 fix.
+            return {
+                title: 'Terrain hillshade',
+                subtitle: formatted !== null ? `Shading: ${formatted}` : 'Value unavailable',
+                icon: 'adjust'
+            };
+        },
+
+        // READ-ONLY value-readout, same rationale as terrain_raster above.
+        buildOpenActions: () => [],
+
+        readOnly: true
+    });
+
+    // -------------------------------------------------------------------------
+    // ANUGA result rasters (TASK-2040, F7) — depth_max / velocity_max /
+    // depth_integrated_velocity_max ("Momentum Max" in the FE group label,
+    // gn_anuga.services.RESULT_LAYER_SPECS / RESULTS_GROUP_MAP).
+    //
+    // Published dataset name is always `run<run.id>_<name_token>_cog`
+    // (gn_anuga.services._idempotent_result_layer / _assert_result_owned_by_run
+    // docstring) — anchored regexes below match that exactly, so a partial
+    // substring match can never misclassify one result kind as another (e.g.
+    // "depth_max" vs "depthintegratedvelocity_max" never collide).
+    //
+    // Before this target existed, clicking a flood-output raster dispatched NO
+    // registered target -> fell through silently, so a modeller could not read
+    // a depth/velocity/momentum value off the map at all (dogfood F7).
+    // -------------------------------------------------------------------------
+    registerClickTarget('depth_max', {
+        match: (featureId, layerName) =>
+            /^run\d+_depth_max_cog$/.test(bareLayerName(layerName)),
+
+        label: (feature) => {
+            const value = extractBandValue(feature);
+            const formatted = formatBandValue(value, 2);
+            return {
+                title: 'Depth Max',
+                subtitle: formatted !== null ? `Depth: ${formatted} m` : 'Value unavailable',
+                icon: 'tint'
+            };
+        },
+
+        buildOpenActions: () => [],
+        readOnly: true
+    });
+
+    registerClickTarget('velocity_max', {
+        match: (featureId, layerName) =>
+            /^run\d+_velocity_max_cog$/.test(bareLayerName(layerName)),
+
+        label: (feature) => {
+            const value = extractBandValue(feature);
+            const formatted = formatBandValue(value, 2);
+            return {
+                title: 'Velocity Max',
+                subtitle: formatted !== null ? `Velocity: ${formatted} m/s` : 'Value unavailable',
+                icon: 'flash'
+            };
+        },
+
+        buildOpenActions: () => [],
+        readOnly: true
+    });
+
+    // name_token is 'depthintegratedvelocity_max' (no separating underscore —
+    // see gn_anuga.services.RESULT_LAYER_SPECS comment: it is the internal
+    // RESULTS_GROUP_MAP routing token, not a display string).
+    registerClickTarget('depth_integrated_velocity_max', {
+        match: (featureId, layerName) =>
+            /^run\d+_depthintegratedvelocity_max_cog$/.test(bareLayerName(layerName)),
+
+        label: (feature) => {
+            const value = extractBandValue(feature);
+            const formatted = formatBandValue(value, 2);
+            return {
+                // "Momentum" matches the FE group-rename (pollingEpics.js:
+                // Results.Depth Integrated Velocity -> Results.Momentum, TASK-1429).
+                title: 'Momentum Max',
+                subtitle: formatted !== null ? `Momentum: ${formatted} m²/s` : 'Value unavailable',
+                icon: 'random'
+            };
+        },
+
+        buildOpenActions: () => [],
         readOnly: true
     });
 };
