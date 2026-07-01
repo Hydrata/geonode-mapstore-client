@@ -99,7 +99,7 @@ const ScenarioCategoryRail = ({scenario, boundaries, selectedCategoryId, onSelec
     // default only downgrades on an explicit `false`, so an in-flight
     // resources.boundaries load never flashes a false "not ready".
     const selectedBoundary = (boundaries || []).find(b => b && b.id === scenario?.boundary);
-    const boundaryHasFeatures = selectedBoundary ? selectedBoundary.has_features : undefined;
+    const boundaryHasFeatures = selectedBoundary?.has_features;
 
     return (
         <div
