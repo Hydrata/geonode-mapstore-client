@@ -194,6 +194,23 @@ export const validateCategoryProgress = (category, scenario) => {
         // category-rail tag counts them as a single slot
         // (terrain + boundary + (inflow|rainfall) = 3).
         const hasTerrain = scenario.terrain != null && scenario.terrain !== ''; // eslint-disable-line no-eq-null, eqeqeq
+        // KNOWN GAP (TASK-2038, F3, dogfood 2026-07-01): hasBoundary only
+        // checks that a Boundary row is SELECTED, not that its underlying
+        // gn_layer PostGIS table has any FEATURES. An auto-scaffolded
+        // project boundary can be selected (satisfying this check) while
+        // still holding zero drawn/uploaded features, so this can read
+        // 3/3 "ready" and then hard-fail at build time
+        // (gn_anuga/utils.py in_place_trim_terrain_tif_with_boundary:
+        // "No boundary features found"). Left unfixed here: investigation
+        // found no client-observable feature-count signal for a WMS-typed
+        // ANUGA input layer (state.layers.flat carries a static placeholder
+        // bbox — [-180,180,-90,90] — for a boundary Dataset REGARDLESS of
+        // whether it holds 0 or N features, confirmed empirically against
+        // localhost project 15834's boundary and 30 others; type is always
+        // 'wms', never inline vector features). A real fix needs a BE
+        // feature-count contract (e.g. a feature_count field on
+        // BoundarySerializerV2) threaded through resources.boundaries —
+        // see epic TASK-2037 wave report for the full evidence trail.
         const hasBoundary = scenario.boundary != null && scenario.boundary !== ''; // eslint-disable-line no-eq-null, eqeqeq
         const hasWaterSource = (scenario.inflow != null && scenario.inflow !== '') // eslint-disable-line no-eq-null, eqeqeq
             || (scenario.rainfall != null && scenario.rainfall !== ''); // eslint-disable-line no-eq-null, eqeqeq
