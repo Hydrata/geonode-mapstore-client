@@ -24,6 +24,8 @@ import { Provider } from 'react-redux';
 import TestUtils from 'react-dom/test-utils';
 import MockAdapter from 'axios-mock-adapter';
 import axios from '@mapstore/framework/libs/ajax';
+import Localized from '@mapstore/framework/components/I18N/Localized';
+const { enData } = require('../../../../../__tests__/fixtures/translations');
 
 const SET_PANEL = 'ANUGA:SET_TERRAIN_UPLOAD_CRS_PANEL';
 
@@ -105,6 +107,71 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
             );
         }).then((ctx) => flush().then(() => ctx));
     }
+
+    // TASK-2039 (F4) — mounts through the real Localized wrapper (IntlProvider +
+    // legacy `messages` context) seeded with the REAL en-US translation file, so
+    // <Message> resolves actual strings and tr() resolves real aria-label text —
+    // the same wiring the app uses in production. The plain `mount()` helper
+    // above renders WITHOUT an intl context (Message.jsx's raw-msgId fallback),
+    // so it cannot prove the i18n bug is fixed; this one can.
+    function mountLocalized(detectResult, uiOverrides = {}, resourceOverrides = {}) {
+        const { TerrainUploadCrsPanel } = require('../terrainUploadCrsPanel');
+        const store = createMockStore(uiOverrides, resourceOverrides);
+        const detectGeotiffCrs = () => Promise.resolve(detectResult);
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}>
+                    <Localized locale="en-US" messages={enData.messages}>
+                        <TerrainUploadCrsPanel detectGeotiffCrs={detectGeotiffCrs} />
+                    </Localized>
+                </Provider>,
+                container,
+                () => resolve({ store })
+            );
+        }).then((ctx) => flush().then(() => ctx));
+    }
+
+    // ── TASK-2039 (F4): i18n + detected-CRS + a11y ─────────────────────────
+    describe('TASK-2039 i18n + detected CRS + a11y', () => {
+        it('detected CRS → renders NO raw "terrainCrs" key text, and shows the interpolated CRS', () => {
+            return mountLocalized({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
+                const panel = container.querySelector('[data-testid="terrain-crs-panel"]');
+                expect(panel).toExist();
+                // No raw msgId fragment anywhere in the rendered panel (title, labels,
+                // detected-CRS row, footer buttons).
+                expect(container.textContent).toNotMatch(/terrainCrs/);
+                // The detected-CRS row surfaces the ACTUAL CRS to the user (the
+                // dogfood finding: "hides the detected CRS ... user CANNOT see which
+                // CRS was detected").
+                const detected = container.querySelector('[data-testid="terrain-crs-detected"]');
+                expect(detected).toExist();
+                expect(detected.textContent).toMatch(/EPSG:32756/);
+            });
+        });
+
+        it('missing CRS (picker required) → renders NO raw "terrainCrs" key text', () => {
+            return mountLocalized({ hasCrs: false, epsg: null, label: null }).then(() => {
+                expect(container.textContent).toNotMatch(/terrainCrs/);
+            });
+        });
+
+        it('footer buttons carry real accessible names (aria-label), not raw msgIds', () => {
+            return mountLocalized({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
+                const cancel = container.querySelector('[data-testid="terrain-crs-cancel"]');
+                const confirm = container.querySelector('[data-testid="terrain-crs-confirm"]');
+                expect(cancel.getAttribute('aria-label')).toBe('Cancel');
+                expect(confirm.getAttribute('aria-label')).toBe('Confirm');
+            });
+        });
+
+        it('panel title and labels render real English text (not raw msgIds)', () => {
+            return mountLocalized({ hasCrs: false, epsg: null, label: null }).then(() => {
+                const panel = container.querySelector('[data-testid="terrain-crs-panel"]');
+                expect(panel.textContent).toMatch(/Title/);
+                expect(panel.textContent).toMatch(/coordinate system/i);
+            });
+        });
+    });
 
     it('does NOT render when terrainUploadCrsPanelVisible=false', () => {
         return mount({ hasCrs: false }, { terrainUploadCrsPanelVisible: false }).then(() => {

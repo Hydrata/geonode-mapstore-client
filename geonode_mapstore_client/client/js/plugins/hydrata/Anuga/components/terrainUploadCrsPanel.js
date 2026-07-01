@@ -42,6 +42,7 @@ import { connect } from 'react-redux';
 import { Button } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
+import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import { PanelShell, PanelHeader, ErrorStrip, FormRow } from '../../SimpleView/components/primitives';
 import {
     setTerrainUploadCrsPanel,
@@ -236,6 +237,18 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         if (recommended) push(recommended, `${recommended} (recommended for this area)`);
         return shortcuts;
     }
+
+    // TASK-2039 (F4) — a11y: resolve a terrainCrs* message id to plain text for
+    // aria-label (screen readers announce a11y attributes, not <Message> children,
+    // and must never speak a raw msgId). getMessageById returns the msgId itself
+    // on a lookup miss (locale not yet loaded / message undefined) — the fallback
+    // covers that gap so the button always has a real accessible name. Matches the
+    // tr() pattern in anugaScenarioMenu.js / anugaInputStarterCard.js.
+    tr = (msgId, fallback) => {
+        const messages = (this.context && this.context.messages) || {};
+        const resolved = getMessageById(messages, msgId);
+        return resolved === msgId ? fallback : resolved;
+    };
 
     handleSelectChange = (value) => {
         this.setState({ selectedCrs: value });
@@ -452,6 +465,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                     <Button
                         data-testid="terrain-crs-cancel"
                         bsStyle="default"
+                        aria-label={this.tr('hydrata.anuga.terrainCrsCancel', 'Cancel')}
                         onClick={this.handleCancel}
                     >
                         <Message msgId="hydrata.anuga.terrainCrsCancel" />
@@ -460,6 +474,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                         data-testid="terrain-crs-confirm"
                         bsStyle="success"
                         style={{ marginLeft: 8 }}
+                        aria-label={this.tr('hydrata.anuga.terrainCrsConfirm', 'Confirm')}
                         disabled={this._confirmDisabled()}
                         onClick={this.handleConfirm}
                     >
@@ -470,6 +485,13 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         );
     }
 }
+
+// TASK-2039 (F4) — pull intl messages off React legacy context so tr() can
+// resolve aria-label text at render time. Matches the pattern used by
+// anugaScenarioMenu.js / hgevalSignupForm.js.
+TerrainUploadCrsPanelClass.contextTypes = {
+    messages: PropTypes.object
+};
 
 // Derive existing-terrain CRS strings + an AOI bbox for the shortcuts.
 //   terrainCrs        — distinct `crs` values off the terrain resource rows.

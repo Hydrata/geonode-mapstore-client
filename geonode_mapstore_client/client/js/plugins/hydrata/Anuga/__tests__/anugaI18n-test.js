@@ -75,6 +75,35 @@ describe('Anuga i18n', () => {
         });
     });
 
+    // TASK-2039 (F4, epic 2037 W2) — the terrain-upload CRS confirm panel
+    // rendered raw msgIds (never defined in any translation file) because
+    // the component referenced these ids but no data.*.json ever defined
+    // them. Pin the full set so it can never silently regress again.
+    it('terrainCrs* keys (F4, terrainUploadCrsPanel.js) exist and are non-empty', () => {
+        const terrainCrsKeys = [
+            'hydrata.anuga.terrainCrsPanelTitle',
+            'hydrata.anuga.terrainCrsTitleLabel',
+            'hydrata.anuga.terrainCrsDetecting',
+            'hydrata.anuga.terrainCrsDetected',
+            'hydrata.anuga.terrainCrsRequiredPrompt',
+            'hydrata.anuga.terrainCrsOptionalPrompt',
+            'hydrata.anuga.terrainCrsSourceLabel',
+            'hydrata.anuga.terrainCrsFreeformLabel',
+            'hydrata.anuga.terrainCrsWillVerify',
+            'hydrata.anuga.terrainCrsCancel',
+            'hydrata.anuga.terrainCrsConfirm'
+        ];
+        terrainCrsKeys.forEach((key) => {
+            expect(enMessages[key]).toExist(`Missing key: ${key}`);
+            expect(enMessages[key].length).toBeGreaterThan(0, `Empty value for key: ${key}`);
+            expect(frMessages[key]).toExist(`Missing French translation for: ${key}`);
+        });
+        // The detected-CRS message MUST carry the {crs} interpolation placeholder —
+        // without it the actual detected CRS can never be surfaced to the user
+        // (the dogfood-flagged trust gap).
+        expect(enMessages['hydrata.anuga.terrainCrsDetected']).toMatch(/\{crs\}/);
+    });
+
     it('core navigation keys exist', () => {
         const requiredKeys = [
             'hydrata.anuga.inputs',
