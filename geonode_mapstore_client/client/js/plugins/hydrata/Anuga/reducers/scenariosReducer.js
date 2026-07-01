@@ -84,7 +84,12 @@ export default (state = initialState, action) => {
                     name: "",
                     code: null,
                     description: "",
-                    resolution: 1000,
+                    // TASK-2038 (F5): matches the BE default
+                    // (gn_anuga/models/scenario.py: resolution FloatField
+                    // default=100) — resolution is the target triangle EDGE
+                    // LENGTH in metres, not an area; 1000 collapsed a small
+                    // domain to ~1 triangle (dogfood 2026-07-01).
+                    resolution: 100,
                     constant_rainfall: null,
                     duration: null,
                     status: "new",
