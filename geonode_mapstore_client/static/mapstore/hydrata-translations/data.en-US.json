@@ -583,6 +583,12 @@
     "gnviewer": {
       "pluginLoadError": "A page component failed to load. Please reload to try again.",
       "reload": "Reload page"
+    },
+    "resourcesCatalog": {
+      "my-resourcesSection": {
+        "noContentYetTitle": "No resources yet",
+        "noContentYetContent": "You haven't created any resources yet. Use \"Create New Project\" above to get started."
+      }
     }
   }
 }

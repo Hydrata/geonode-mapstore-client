@@ -583,6 +583,12 @@
     "gnviewer": {
       "pluginLoadError": "Un composant de la page n'a pas pu se charger. Veuillez recharger pour réessayer.",
       "reload": "Recharger la page"
+    },
+    "resourcesCatalog": {
+      "my-resourcesSection": {
+        "noContentYetTitle": "Aucune ressource pour le moment",
+        "noContentYetContent": "Vous n'avez pas encore créé de ressources. Utilisez « Créer un nouveau projet » ci-dessus pour commencer."
+      }
     }
   }
 }

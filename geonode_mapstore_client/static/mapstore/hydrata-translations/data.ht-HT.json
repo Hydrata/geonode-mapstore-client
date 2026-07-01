@@ -583,6 +583,12 @@
     "gnviewer": {
       "pluginLoadError": "Yon eleman paj la pa t kapab chaje. Tanpri rechaje pou eseye ankò.",
       "reload": "Rechaje paj la"
+    },
+    "resourcesCatalog": {
+      "my-resourcesSection": {
+        "noContentYetTitle": "Poko gen resous",
+        "noContentYetContent": "Ou poko kreye okenn resous. Itilize \"Kreye Nouvo Pwojè\" anwo a pou kòmanse."
+      }
     }
   }
 }
