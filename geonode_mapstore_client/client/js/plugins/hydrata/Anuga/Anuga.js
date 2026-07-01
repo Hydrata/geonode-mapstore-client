@@ -78,6 +78,28 @@ import {
     // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch.
     warmTilesOnMapOpenEpic
 } from "./epicsAnuga";
+// TASK-1995 (epic 1969 W2.3) — map-click disambiguation: the classifier epic
+// (drawing-guarded + perms-gated) and the Identify-ON enabler.
+import {
+    clickDisambiguationEpic,
+    anugaIdentifyEnableEpic,
+    anugaIdentifyJsonFormatEpic
+} from "./epics/clickDisambiguationEpic";
+// TASK-1995 (epic 1969 W2.3) — register the 8 editable ANUGA vector prefixes
+// into the click-target registry ONCE at module load. Mirrors FormField.js's
+// registerDiscriminator(...) module-load registration; kept out of
+// anugaClickTargets.js itself so the W1 unit tests can clean() the registry.
+import { registerAnugaClickTargets } from "./anugaClickTargets";
+// TASK-1996 (epic 1969 W3.1) — register the 7 legacy FeatureGrid prefixes as
+// read-only view-attributes openers.
+import { registerLegacyClickTargets } from "./legacyClickTargets";
+// TASK-1997 (epic 1969 W3.2) — register raster (fri_raster_, terrain COG)
+// prefixes as read-only value-readout openers.
+import { registerRasterClickTargets } from "./rasterClickTargets";
+
+registerAnugaClickTargets();
+registerLegacyClickTargets();
+registerRasterClickTargets();
 // TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
 import {
     twLoadDataEpic,
@@ -193,6 +215,13 @@ export default createPlugin('Anuga', {
         resultsLayerOrderEpic,
         // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch (warm visible COGs).
         warmTilesOnMapOpenEpic,
+        // TASK-1995 (epic 1969 W2.3) — map-click disambiguation (classify GFI ->
+        // open editable vector) + ensure Identify is ON for ANUGA maps + force
+        // application/json info_format (W2 corrective: live Identify default is
+        // text/plain, which the classifier's FeatureCollection guard would drop).
+        clickDisambiguationEpic,
+        anugaIdentifyEnableEpic,
+        anugaIdentifyJsonFormatEpic,
         // TASK-1645 (W1.5): TerrainWorkbench recipe epics registered under Anuga plugin.
         twLoadDataEpic,
         twSelectSurfaceForTerrainEpic,

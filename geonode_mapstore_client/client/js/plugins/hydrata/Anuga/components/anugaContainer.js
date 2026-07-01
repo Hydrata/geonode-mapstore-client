@@ -48,6 +48,10 @@ import {MembershipPanel} from "./membershipPanel";
 import RunPollingPausedBanner from "./runPollingPausedBanner";
 // TASK-1857 (W3.3) — 2D cursor-elevation readout in the MapFooter.
 import ElevationReadout from './ElevationReadout';
+// TASK-1993 (epic 1969 W2.1) — map-click disambiguation chooser. Mounted at the
+// container level like the other ANUGA panels; self-gates on
+// state.anuga.clickDisambiguation.candidates (renders null below 2 candidates).
+import ClickDisambiguationPanel from '../../shared/components/ClickDisambiguationPanel';
 // TASK-1861 (W4.4) — depth/result line-profile tool panel. Mounted at the
 // container level (like TerrainBboxPanel) so closing a menu can't unmount it
 // mid-draw; self-gates on profilePanelVisible.
@@ -345,6 +349,10 @@ export class AnugaContainer extends React.Component {
                         re-mount churn. Returns null when the slice is
                         falsy, so DOM cost is one stub div until it fires. */}
                     <RunPollingPausedBanner/>
+                    {/* TASK-1993 (epic 1969 W2.1): map-click disambiguation
+                        chooser. Self-gates on state.anuga.clickDisambiguation
+                        (renders null below 2 candidates) like the other panels. */}
+                    <ClickDisambiguationPanel/>
                 </div>
             ) :
             null;
