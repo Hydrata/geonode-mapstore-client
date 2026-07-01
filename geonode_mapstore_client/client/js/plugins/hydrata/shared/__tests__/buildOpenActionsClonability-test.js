@@ -12,8 +12,10 @@
  *
  * THIS TEST extends the coverage to EVERY action produced by EVERY registered
  * buildOpenActions: the 8 ANUGA vector EDIT openers, the 7 legacy read-only openers,
- * and the 2 raster read-only openers. D6 INVARIANT: no function may ride in any
- * dispatched action or Redux state.
+ * and the 6 raster read-only openers (TASK-2040, epic 2037 W2, added
+ * terrain_hillshade + depth_max/velocity_max/depth_integrated_velocity_max
+ * to the original fri_raster_/terrain_raster pair). D6 INVARIANT: no function
+ * may ride in any dispatched action or Redux state.
  *
  * HARNESS cloned from VectorDraw/__tests__/startVectorDrawClonability-test.js.
  * Three checks per kind:
@@ -64,8 +66,17 @@ const registerAll = () => {
     registerRasterClickTargets();
 };
 
-// The two known raster kind strings (static; rasterClickTargets.js registers both).
-const RASTER_KINDS = ['fri_raster_', 'terrain_raster'];
+// The known raster kind strings (static; rasterClickTargets.js registers all
+// of these). TASK-2040 (F7, epic 2037 W2) added terrain_hillshade (split out
+// of terrain_raster's over-permissive match — see rasterClickTargets.js) and
+// the 3 ANUGA result rasters (depth_max / velocity_max /
+// depth_integrated_velocity_max). All are read-only value-readouts whose
+// buildOpenActions is unconditionally [] — same D6/C2 no-op contract as the
+// original 2.
+const RASTER_KINDS = [
+    'fri_raster_', 'terrain_raster', 'terrain_hillshade',
+    'depth_max', 'velocity_max', 'depth_integrated_velocity_max'
+];
 
 /**
  * Build a plausible {feature, getState} for each kind so buildOpenActions actually
@@ -149,9 +160,9 @@ describe('buildOpenActions structured-clone safety (TASK-1999 W4.1)', () => {
     // ------------------------------------------------------------------
     // Sanity / family coverage gate
     // ------------------------------------------------------------------
-    it('registry has >= 17 kinds covering ANUGA EDIT + LEGACY + RASTER families', () => {
+    it('registry has >= 21 kinds covering ANUGA EDIT + LEGACY + RASTER families', () => {
         const kinds = Object.keys(getAllClickTargets());
-        expect(kinds.length).toBeGreaterThan(16);  // >= 17
+        expect(kinds.length).toBeGreaterThan(20);  // >= 21 (8 EDIT + 7 LEGACY + 6 RASTER)
         // ANUGA EDIT family (8)
         ANUGA_VECTOR_PREFIXES.forEach((p) => {
             expect(kinds.indexOf(p)).toNotBe(-1);
@@ -160,7 +171,7 @@ describe('buildOpenActions structured-clone safety (TASK-1999 W4.1)', () => {
         LEGACY_PREFIXES.forEach((p) => {
             expect(kinds.indexOf(p)).toNotBe(-1);
         });
-        // RASTER family (2)
+        // RASTER family (6, TASK-2040)
         RASTER_KINDS.forEach((p) => {
             expect(kinds.indexOf(p)).toNotBe(-1);
         });
@@ -291,18 +302,22 @@ describe('buildOpenActions structured-clone safety (TASK-1999 W4.1)', () => {
     });
 
     // ------------------------------------------------------------------
-    // RASTER read-only family (2 kinds: fri_raster_ terrain_raster)
+    // RASTER read-only family (6 kinds: fri_raster_ terrain_raster
+    // terrain_hillshade depth_max velocity_max
+    // depth_integrated_velocity_max — TASK-2040 added the last 4)
     // UAT 2026-06-30: value shown in label.subtitle (panel row); clicking
     // dispatches NO action. A lone raster click falls through to the default
     // Identify popup. [] is trivially D6-safe (nothing dispatched → no function
     // can ride an action).
     // ------------------------------------------------------------------
-    describe('RASTER READ-ONLY openers (2 kinds → [] no-op, value shown in label.subtitle)', () => {
+    describe('RASTER READ-ONLY openers (6 kinds → [] no-op, value shown in label.subtitle)', () => {
 
-        it('covers exactly the 2 expected raster kinds', () => {
-            expect(RASTER_KINDS.length).toBe(2);
-            expect(RASTER_KINDS.indexOf('fri_raster_')).toNotBe(-1);
-            expect(RASTER_KINDS.indexOf('terrain_raster')).toNotBe(-1);
+        it('covers exactly the 6 expected raster kinds', () => {
+            expect(RASTER_KINDS.length).toBe(6);
+            ['fri_raster_', 'terrain_raster', 'terrain_hillshade',
+                'depth_max', 'velocity_max', 'depth_integrated_velocity_max'].forEach((k) => {
+                expect(RASTER_KINDS.indexOf(k)).toNotBe(-1);
+            });
         });
 
         RASTER_KINDS.forEach((kind) => {

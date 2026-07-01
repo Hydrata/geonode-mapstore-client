@@ -217,6 +217,58 @@ describe('TASK-C Wave 3A validateCategoryProgress', () => {
             expect(result.total).toBe(3);
             expect(result.tag).toBe('3/3');
         });
+
+        // TASK-2045 (F3, epic 2037 W1b) — hasBoundary requires SELECTION
+        // *and* feature-presence. An auto-scaffolded boundary with zero
+        // PostGIS features must NOT read "ready" (previously it did, then
+        // hard-failed the BE build). The presence signal is BE-only
+        // (BoundarySerializerV2.has_features) so the caller
+        // (scenarioCategoryRail) resolves it and passes it as
+        // opts.boundaryHasFeatures.
+        describe('boundary feature-presence gating (opts.boundaryHasFeatures)', () => {
+            it('returns 2/3 + warn when boundary is selected but has NO features (opts.boundaryHasFeatures=false)', () => {
+                const s = {terrain: 1, boundary: 2, inflow: 3};
+                const result = validateCategoryProgress('inputs', s, {boundaryHasFeatures: false});
+                expect(result.satisfied).toBe(2);
+                expect(result.total).toBe(3);
+                expect(result.tag).toBe('2/3');
+                expect(result.severity).toBe('warn');
+            });
+
+            it('returns 3/3 + ok when boundary is selected AND has features (opts.boundaryHasFeatures=true)', () => {
+                const s = {terrain: 1, boundary: 2, inflow: 3};
+                const result = validateCategoryProgress('inputs', s, {boundaryHasFeatures: true});
+                expect(result.satisfied).toBe(3);
+                expect(result.total).toBe(3);
+                expect(result.tag).toBe('3/3');
+                expect(result.severity).toBe('ok');
+            });
+
+            it('does not count an unselected boundary even when boundaryHasFeatures=true', () => {
+                const s = {terrain: 1, boundary: null, inflow: 3};
+                const result = validateCategoryProgress('inputs', s, {boundaryHasFeatures: true});
+                expect(result.satisfied).toBe(2);
+                expect(result.total).toBe(3);
+                expect(result.tag).toBe('2/3');
+            });
+
+            it('defaults to satisfied (backward-safe) when opts is omitted entirely, preserving legacy selection-only callers', () => {
+                const s = {terrain: 1, boundary: 2, inflow: 3};
+                const result = validateCategoryProgress('inputs', s);
+                expect(result.satisfied).toBe(3);
+                expect(result.total).toBe(3);
+                expect(result.tag).toBe('3/3');
+                expect(result.severity).toBe('ok');
+            });
+
+            it('defaults to satisfied when opts is supplied but boundaryHasFeatures is omitted/undefined', () => {
+                const s = {terrain: 1, boundary: 2, inflow: 3};
+                const result = validateCategoryProgress('inputs', s, {});
+                expect(result.satisfied).toBe(3);
+                expect(result.total).toBe(3);
+                expect(result.severity).toBe('ok');
+            });
+        });
     });
 
     describe('advanced category', () => {

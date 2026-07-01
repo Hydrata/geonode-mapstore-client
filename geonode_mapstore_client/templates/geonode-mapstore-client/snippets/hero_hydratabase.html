@@ -55,9 +55,16 @@
                             <span class="input-group-addon">
                                 <i id="signup-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleSignupPasswordVisibility()" style="cursor: pointer;"></i>
                             </span>
-                            {% if form.password.errors %}
+                            {% if form.password1.errors %}
                                 <div class="home-page-form-error-messages">
-                                    {% for error in form.password.errors %}
+                                    {% for error in form.password1.errors %}
+                                        <p class="error-message">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.password2.errors %}
+                                <div class="home-page-form-error-messages">
+                                    {% for error in form.password2.errors %}
                                         <p class="error-message">{{ error }}</p>
                                     {% endfor %}
                                 </div>
@@ -123,6 +130,13 @@
                 <div class="form-footer">
                     {% csrf_token %}
                     {{ form.captcha }}
+                    {% if form.captcha.errors %}
+                        <div class="home-page-form-error-messages">
+                            {% for error in form.captcha.errors %}
+                                <p class="error-message">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                     {% if form.non_field_errors %}
                       <div class="alert alert-danger" role="alert">
                         {% for error in form.non_field_errors %}

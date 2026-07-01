@@ -176,8 +176,23 @@ export const validateScenario = (scenario) => {
  * Defensive contract: null/undefined scenarios return a no-op tag
  * ({satisfied: 0, total: N, tag: '—', severity: 'warn'}) so the rail
  * still renders before a scenario is selected.
+ *
+ * @param {object} [opts] — TASK-2045 (F3, epic 2037 W1b). Only the
+ *   'inputs' category reads this. `opts.boundaryHasFeatures` is a BE-only
+ *   signal (BoundarySerializerV2.has_features via resources.boundaries) —
+ *   an auto-scaffolded boundary can be SELECTED while its underlying
+ *   PostGIS table holds zero features, which used to read "ready" here and
+ *   then hard-fail the BE build (gn_anuga/utils.py
+ *   in_place_trim_terrain_tif_with_boundary: "No boundary features found").
+ *   Backward-safe default: when `opts` is omitted, or
+ *   `opts.boundaryHasFeatures` is anything other than the literal `false`
+ *   (including undefined — e.g. the boundaries list hasn't loaded yet, or a
+ *   legacy caller that predates this fix), selection-only truthiness is
+ *   preserved. The caller (scenarioCategoryRail) is the one place that
+ *   MUST resolve the real boolean and pass it explicitly, so a genuinely
+ *   empty boundary reads NOT-ready once resources.boundaries has loaded.
  */
-export const validateCategoryProgress = (category, scenario) => {
+export const validateCategoryProgress = (category, scenario, opts) => {
     // Defensive: missing scenario means tag rendering should be neutral.
     if (!scenario || typeof scenario !== 'object') {
         return {satisfied: 0, total: 0, tag: '—', severity: 'warn', unsaved: false};
@@ -194,7 +209,13 @@ export const validateCategoryProgress = (category, scenario) => {
         // category-rail tag counts them as a single slot
         // (terrain + boundary + (inflow|rainfall) = 3).
         const hasTerrain = scenario.terrain != null && scenario.terrain !== ''; // eslint-disable-line no-eq-null, eqeqeq
-        const hasBoundary = scenario.boundary != null && scenario.boundary !== ''; // eslint-disable-line no-eq-null, eqeqeq
+        // TASK-2045 (F3, epic 2037 W1b) — a boundary must be SELECTED *and*
+        // have at least one feature. `opts.boundaryHasFeatures === false` is
+        // the only value that downgrades readiness; see the JSDoc above for
+        // the full backward-safe-default contract.
+        const boundarySelected = scenario.boundary != null && scenario.boundary !== ''; // eslint-disable-line no-eq-null, eqeqeq
+        const boundaryHasFeatures = !(opts && opts.boundaryHasFeatures === false);
+        const hasBoundary = boundarySelected && boundaryHasFeatures;
         const hasWaterSource = (scenario.inflow != null && scenario.inflow !== '') // eslint-disable-line no-eq-null, eqeqeq
             || (scenario.rainfall != null && scenario.rainfall !== ''); // eslint-disable-line no-eq-null, eqeqeq
         const satisfied = (hasTerrain ? 1 : 0) + (hasBoundary ? 1 : 0) + (hasWaterSource ? 1 : 0);

@@ -579,6 +579,7 @@ const ScenarioPane = (props) => {
             <div className="sv-anuga-scenario-pane-shell">
                 <ScenarioCategoryRail
                     scenario={scenario}
+                    boundaries={props.boundaries}
                     selectedCategoryId={resolvedCategory}
                     onSelectCategory={onSelectCategory}
                 />

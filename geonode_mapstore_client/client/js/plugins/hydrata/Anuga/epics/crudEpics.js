@@ -278,6 +278,20 @@ export const cancelAnugaRunEpic = (action$) =>
         );
 
 // New: retry a failed run
+//
+// TASK-2042 (F2-residual): retry now re-enqueues a fresh build for the
+// scenario (BE dispatch_scenario_build), not just resets the errored run —
+// so the run this epic was told to retry (action.runId) stays 'created'
+// permanently while the REAL new work lands on a brand-new Run row the BE
+// creates asynchronously (build_simulation_package always creates a new Run;
+// see its docstring). Polling that old, now-superseded run id would show a
+// permanently-static 'created' status — misleading, not just useless — so
+// this no longer arms startActiveRunPolling. The Scenarios panel already
+// polls scenario status continuously while it is mounted
+// (anugaContainer.js's Scenarios-tab toggle calls startAnugaScenarioPolling,
+// and Retry is only reachable from inside that mounted panel), so the
+// scenario's computed_status (created -> building -> built) is already live
+// without any extra polling here.
 export const retryAnugaRunEpic = (action$) =>
     action$
         .ofType(RETRY_ANUGA_RUN)
@@ -285,13 +299,9 @@ export const retryAnugaRunEpic = (action$) =>
             Rx.Observable.from(
                 anugaApi.retryRun(action.runId)
             )
-                .concatMap((response) => {
-                    const runId = response?.data?.id;
-                    return Rx.Observable.of(
-                        show({"message": "hydrata.anuga.retrySuccess"}, "success"),
-                        ...(runId ? [startActiveRunPolling(runId)] : [])
-                    );
-                })
+                .concatMap(() => Rx.Observable.of(
+                    show({"message": "hydrata.anuga.retrySuccess"}, "success")
+                ))
                 .catch(() => Rx.Observable.of(
                     show({"message": "hydrata.anuga.retryError"}, "error")
                 ))

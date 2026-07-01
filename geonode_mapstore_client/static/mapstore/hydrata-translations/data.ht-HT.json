@@ -232,7 +232,7 @@
         "rainfall": "Lapli",
         "rainfalls": "Lapli",
         "createRainfall": "Kreye Lapli",
-        "resolutionM2": "Rezolisyon(m2)",
+        "resolutionM2": "Rezolisyon",
         "results": "Rezilta",
         "viewResults": "Wè Rezilta",
         "retry": "Eseye ankò",
@@ -293,6 +293,17 @@
         "terrainBboxConfirmReselect": "Chwazi ankò",
         "terrainBboxCreateErrorTitle": "Telechajman terèn lan echwe",
         "terrainBboxCreateErrorBody": "Pa kapab kreye terèn lan. {detail}",
+        "terrainCrsPanelTitle": "Konfime sistèm kòdone terèn nan",
+        "terrainCrsTitleLabel": "Tit",
+        "terrainCrsDetecting": "N ap detekte sistèm kòdone a…",
+        "terrainCrsDetected": "SKR detekte: {crs}",
+        "terrainCrsRequiredPrompt": "Fichye sa a pa gen sistèm kòdone. Chwazi SKR li te kreye ladan l.",
+        "terrainCrsOptionalPrompt": "Ou ka chwazi sistèm kòdone a si ou konnen l.",
+        "terrainCrsSourceLabel": "SKR sous",
+        "terrainCrsFreeformLabel": "Kòd EPSG",
+        "terrainCrsWillVerify": "N ap verifye kòd sa a lè fichye a telechaje.",
+        "terrainCrsCancel": "Anile",
+        "terrainCrsConfirm": "Konfime",
         "profilePanelTitle": "Pwofil pwofondè / elevasyon",
         "profileHelp": "Trase yon liy sou kat la pou li elevasyon ak nenpòt rezilta pwofondè/vitès inondasyon sou li.",
         "profileDrawButton": "Trase liy pwofil",
@@ -572,6 +583,12 @@
     "gnviewer": {
       "pluginLoadError": "Yon eleman paj la pa t kapab chaje. Tanpri rechaje pou eseye ankò.",
       "reload": "Rechaje paj la"
+    },
+    "resourcesCatalog": {
+      "my-resourcesSection": {
+        "noContentYetTitle": "Poko gen resous",
+        "noContentYetContent": "Ou poko kreye okenn resous. Itilize \"Kreye Nouvo Pwojè\" anwo a pou kòmanse."
+      }
     }
   }
 }

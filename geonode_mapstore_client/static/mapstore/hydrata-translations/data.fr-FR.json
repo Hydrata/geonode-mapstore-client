@@ -232,7 +232,7 @@
         "rainfall": "Précipitations",
         "rainfalls": "Précipitations",
         "createRainfall": "Créer Précipitations",
-        "resolutionM2": "Resolution(m2)",
+        "resolutionM2": "Resolution",
         "results": "Résultats",
         "viewResults": "Voir les Résultats",
         "retry": "Réessayer",
@@ -293,6 +293,17 @@
         "terrainBboxConfirmReselect": "Sélectionner à nouveau",
         "terrainBboxCreateErrorTitle": "Échec du téléchargement du terrain",
         "terrainBboxCreateErrorBody": "Impossible de créer le terrain. {detail}",
+        "terrainCrsPanelTitle": "Confirmer le système de coordonnées du terrain",
+        "terrainCrsTitleLabel": "Titre",
+        "terrainCrsDetecting": "Détection du système de coordonnées…",
+        "terrainCrsDetected": "SCR détecté : {crs}",
+        "terrainCrsRequiredPrompt": "Ce fichier n'a pas de système de coordonnées. Sélectionnez le SCR dans lequel il a été créé.",
+        "terrainCrsOptionalPrompt": "Sélectionnez éventuellement le système de coordonnées si vous le connaissez.",
+        "terrainCrsSourceLabel": "SCR source",
+        "terrainCrsFreeformLabel": "Code EPSG",
+        "terrainCrsWillVerify": "Nous vérifierons ce code lors du téléversement du fichier.",
+        "terrainCrsCancel": "Annuler",
+        "terrainCrsConfirm": "Confirmer",
         "profilePanelTitle": "Profil de profondeur / d'altitude",
         "profileHelp": "Tracez une ligne sur la carte pour lire l'altitude et les résultats de profondeur/vitesse de crue le long de celle-ci.",
         "profileDrawButton": "Tracer une ligne de profil",
@@ -572,6 +583,12 @@
     "gnviewer": {
       "pluginLoadError": "Un composant de la page n'a pas pu se charger. Veuillez recharger pour réessayer.",
       "reload": "Recharger la page"
+    },
+    "resourcesCatalog": {
+      "my-resourcesSection": {
+        "noContentYetTitle": "Aucune ressource pour le moment",
+        "noContentYetContent": "Vous n'avez pas encore créé de ressources. Utilisez « Créer un nouveau projet » ci-dessus pour commencer."
+      }
     }
   }
 }

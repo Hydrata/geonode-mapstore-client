@@ -293,6 +293,17 @@
         "terrainBboxConfirmReselect": "Re-select area",
         "terrainBboxCreateErrorTitle": "Terrain download failed",
         "terrainBboxCreateErrorBody": "Could not create the terrain. {detail}",
+        "terrainCrsPanelTitle": "Confirm terrain coordinate system",
+        "terrainCrsTitleLabel": "Title",
+        "terrainCrsDetecting": "Detecting coordinate system…",
+        "terrainCrsDetected": "Detected CRS: {crs}",
+        "terrainCrsRequiredPrompt": "This file has no coordinate system. Select the CRS it was authored in.",
+        "terrainCrsOptionalPrompt": "Optionally select the coordinate system if you know it.",
+        "terrainCrsSourceLabel": "Source CRS",
+        "terrainCrsFreeformLabel": "EPSG code",
+        "terrainCrsWillVerify": "We'll verify this code when the file uploads.",
+        "terrainCrsCancel": "Cancel",
+        "terrainCrsConfirm": "Confirm",
         "profilePanelTitle": "Depth / elevation profile",
         "profileHelp": "Draw a line on the map to read elevation and any flood depth/velocity results along it.",
         "profileDrawButton": "Draw profile line",
@@ -572,6 +583,12 @@
     "gnviewer": {
       "pluginLoadError": "A page component failed to load. Please reload to try again.",
       "reload": "Reload page"
+    },
+    "resourcesCatalog": {
+      "my-resourcesSection": {
+        "noContentYetTitle": "No resources yet",
+        "noContentYetContent": "You haven't created any resources yet. Use \"Create New Project\" above to get started."
+      }
     }
   }
 }
