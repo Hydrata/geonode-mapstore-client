@@ -79,7 +79,7 @@ const ITEMS_BY_SECTION = SECTIONS.reduce((acc, s) => {
     return acc;
 }, {});
 
-const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, context) => {
+const ScenarioCategoryRail = ({scenario, boundaries, selectedCategoryId, onSelectCategory}, context) => {
     const handleSelect = (categoryId) => {
         if (onSelectCategory) onSelectCategory(categoryId);
         trackEvent('button', 'click', `anuga-scenario-menu-category-${categoryId}`);
@@ -89,6 +89,17 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, 
     const railAriaLabel = resolvedRailLabel === 'hydrata.anuga.categoryRailAriaLabel'
         ? 'Scenario categories'
         : resolvedRailLabel;
+
+    // TASK-2045 (F3, epic 2037 W1b) — resolve the scenario's selected
+    // boundary against the `boundaries` resource list (same id-lookup idiom
+    // as scenarioResourceSummary's summariseResource) so validateCategoryProgress
+    // can gate 'inputs' readiness on feature-presence, not selection alone.
+    // Left `undefined` (rather than coerced to a boolean) when the boundary
+    // isn't found in the list yet — validateCategoryProgress's backward-safe
+    // default only downgrades on an explicit `false`, so an in-flight
+    // resources.boundaries load never flashes a false "not ready".
+    const selectedBoundary = (boundaries || []).find(b => b && b.id === scenario?.boundary);
+    const boundaryHasFeatures = selectedBoundary ? selectedBoundary.has_features : undefined;
 
     return (
         <div
@@ -103,7 +114,7 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, 
                 >
                     {ITEMS_BY_SECTION[section.id].map(cat => {
                         const isActive = cat.id === selectedCategoryId;
-                        const progress = validateCategoryProgress(cat.id, scenario);
+                        const progress = validateCategoryProgress(cat.id, scenario, {boundaryHasFeatures});
                         const className = [
                             'sv-anuga-scenario-category-item',
                             isActive ? 'is-active' : '',
@@ -169,6 +180,7 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, 
 
 ScenarioCategoryRail.propTypes = {
     scenario: PropTypes.object,
+    boundaries: PropTypes.array,
     selectedCategoryId: PropTypes.string,
     onSelectCategory: PropTypes.func
 };
@@ -187,6 +199,8 @@ ScenarioCategoryRail.contextTypes = {
 // comparator is sufficient: scenario object reference change drives
 // per-category progress recomputation; selectedCategoryId is a string;
 // onSelectCategory identity is stable from the parent's bound method.
+// TASK-2045 — boundaries (array reference) is also shallow-compared by the
+// default comparator, so a resources.boundaries reload still re-renders.
 const MemoScenarioCategoryRail = React.memo(ScenarioCategoryRail);
 
 export {MemoScenarioCategoryRail as ScenarioCategoryRail, CATEGORIES, SECTIONS};
