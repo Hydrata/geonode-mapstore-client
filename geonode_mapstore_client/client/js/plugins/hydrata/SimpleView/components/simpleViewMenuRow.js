@@ -243,6 +243,20 @@ const ANUGA_FEATURE_CONFIG = {
         geomType: 'LineString',
         formConfig: {
             title: 'Inflow',
+            // TASK-2083 (epic 2077) — optional formConfig-driven hint rendered
+            // by the SHARED VectorDrawPopup picker (PickerView, VectorDraw/
+            // components/VectorDrawPopup.js) next to its "+ Add new" row.
+            // VectorDrawPopup itself carries no inflow-specific copy — it just
+            // renders `formConfig.addAnotherHint` (an i18n msgId) when present,
+            // so only formConfigs that declare this key show a hint; a
+            // boundary/friction/etc. picker (no `addAnotherHint`) renders
+            // nothing extra. Clarifies the two distinct '+' decision points:
+            // this picker's "+ Add new" adds another inflow location to the
+            // SAME Inflow, whereas the top-level '+' in the Inflows rail
+            // section (InputSection.js / anugaInputMenu.js renderCreateControls)
+            // creates a separate Inflow layer that a scenario cannot combine
+            // with this one (a scenario has a single `inflow` FK).
+            addAnotherHint: 'hydrata.anuga.inflowAddAnotherHint',
             fields: [
                 {name: 'description', type: 'text', label: 'Title'},
                 // why: TASK-955 promoted Rainfall to a top-level `'rai_'` model

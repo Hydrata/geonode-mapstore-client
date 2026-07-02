@@ -113,6 +113,16 @@
     border: none;
 }
 
+/* TASK-2083 (epic 2077) — formConfig-driven "+ Add new" hint (currently only
+   the inf_ picker declares formConfig.addAnotherHint). Muted + smaller than
+   the row text so it reads as supporting copy, not another actionable row. */
+.sv-vector-draw-popup .sv-vector-draw-picker-add-new-hint {
+    padding: 0 4px 8px 4px;
+    font-size: 0.85em;
+    opacity: 0.75;
+    line-height: 1.4;
+}
+
 /* Trash icon on each picker row. Inline opacity:0.7 in JSX is the
    resting state; deepen to full on hover so users get a clear affordance
    that the icon is interactive. */

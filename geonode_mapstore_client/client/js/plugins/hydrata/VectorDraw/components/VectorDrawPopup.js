@@ -13,6 +13,13 @@ import FormField from './FormField';
 // so its <h4>+chrome are exempt from the TASK-784 font-uniformity walk (the
 // test's primitive-subtree exemption now includes .sv-panel-header).
 import { ErrorStrip, EmptyState, PanelHeader } from '../../SimpleView/components/primitives';
+// TASK-2083 (epic 2077) — renders the optional formConfig-driven
+// `addAnotherHint` msgId next to the picker's "+ Add new" row. VectorDrawPopup
+// is a SHARED component (boundary/inflow/friction/etc. all route through it),
+// so it must stay formConfig-agnostic: no hardcoded inflow copy lives here,
+// only a conditional render of whatever hint (if any) the caller's
+// formConfig supplies.
+import Message from '@mapstore/framework/components/I18N/Message';
 import {
     cancelVectorDraw,
     submitForm,
@@ -278,6 +285,17 @@ export const PickerView = ({
                         >
                             <span>+ Add new</span>
                         </div>
+                        {/* TASK-2083 (epic 2077) — formConfig-driven hint (AC2: no
+                            hardcoded inflow string in this SHARED component). Only
+                            renders when the caller's formConfig declares
+                            `addAnotherHint` (currently only the inf_ formConfig in
+                            simpleViewMenuRow.js); a boundary/friction/etc. picker
+                            has no such key and this renders nothing. */}
+                        {formConfig?.addAnotherHint ? (
+                            <div className="sv-vector-draw-picker-add-new-hint">
+                                <Message msgId={formConfig.addAnotherHint} />
+                            </div>
+                        ) : null}
                         {filteredList.length === 0 && filterText ? (
                             // TASK-1669 — shared EmptyState primitive replaces the
                             // bespoke italic placeholder. The legacy

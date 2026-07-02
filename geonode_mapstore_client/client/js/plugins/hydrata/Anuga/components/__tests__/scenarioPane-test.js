@@ -237,6 +237,52 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
+        // TASK-2083 (epic 2077) — inflow-row empty-state helper. Explains that
+        // an Inflow (the layer) can hold multiple inflow locations (features
+        // inside it), each with its own hydrograph.
+        describe('Inflow row multi-location helper (TASK-2083)', () => {
+            it('renders the helper when the scenario has no inflow assigned', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, inflow: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                        expect(help).toExist();
+                        expect(help.textContent).toInclude('hydrata.anuga.inflowMultiLocationHelp');
+                        done();
+                    }
+                );
+            });
+
+            it('omits the helper once the scenario has an inflow assigned', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={baseScenario /* inflow: 5, assigned */}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                        expect(help).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
         it('name field is readOnly when canEdit false', (done) => {
             ReactDOM.render(
                 <ScenarioPane

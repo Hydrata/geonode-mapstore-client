@@ -236,6 +236,18 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
             {renderResourceSummary(scenario, 'boundary', boundaries)}
             {renderSelectField('inflow', 'hydrata.anuga.inflow', scenario?.inflow, inflows, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'inflow', inflows)}
+            {/* TASK-2083 (epic 2077) — empty-state helper explaining an Inflow
+                (the layer) can hold more than one inflow location (a feature
+                inside it), each with its own hydrograph. Shown only while the
+                scenario has no Inflow assigned yet — once one is picked, the
+                resource summary above carries the context instead. */}
+            {!scenario?.inflow ?
+                <div className="sv-anuga-scenario-pane-section sv-anuga-scenario-pane-section--help">
+                    <span className="sv-anuga-scenario-pane-help">
+                        <Message msgId="hydrata.anuga.inflowMultiLocationHelp" />
+                    </span>
+                </div> : null
+            }
             {renderSelectField('rainfall', 'hydrata.anuga.rainfall', scenario?.rainfall, rainfalls, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'rainfall', rainfalls)}
         </div>
