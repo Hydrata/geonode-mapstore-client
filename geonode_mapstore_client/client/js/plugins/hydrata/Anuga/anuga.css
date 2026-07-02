@@ -1697,6 +1697,23 @@ div that holds the feature-grid */
     white-space: pre-wrap;
 }
 
+/* Inflow anchor-mismatch warning (TASK-2085, epic-2077 — Inputs pane,
+   pre-build advisory when a scenario's inflow-location series have
+   mismatched first-timestamp anchors). Amber, matching the .is-warn
+   category-tag token — advisory, not blocking, so it stays visually
+   distinct from the red error strip above. */
+.sv-anuga-scenario-anchor-mismatch-warning {
+    margin: 6px 10px 8px;
+    background: rgba(240, 173, 78, 0.14);
+    border: 1px solid rgba(240, 173, 78, 0.30);
+    border-left: 3px solid #f0ad4e;
+    padding: 8px 12px;
+    border-radius: 3px;
+    font-size: 11.5px;
+    color: #f7d6a3;
+    line-height: 1.45;
+}
+
 /* Empty-pane glyph (no scenario selected) */
 .sv-anuga-scenario-empty-pane-glyph {
     margin-right: 8px;

@@ -201,6 +201,7 @@
         "inflowAddAnotherHint": "Ajouter ici crée un autre emplacement d'inflow dans cet Inflow. Le bouton + de la liste des Inflows crée à la place un Inflow distinct — un scénario ne peut pas combiner deux Inflows.",
         "inflowSelectHydrograph": "Sélectionner un hydrogramme",
         "inflowNoHydrographsAvailable": "Aucun hydrogramme disponible, créez-en un d'abord",
+        "inflowAnchorMismatchWarning": "Les heures de début des emplacements d'inflow ne correspondent pas : {names}. Les exécutions fusionnent ces séries en temps absolu — la série la plus tardive répétera silencieusement sa première valeur pendant l'écart. Vérifiez les heures de début avant de construire.",
         "inputs": "Entrées",
         "introduction": "Introduction",
         "links": "Liens",

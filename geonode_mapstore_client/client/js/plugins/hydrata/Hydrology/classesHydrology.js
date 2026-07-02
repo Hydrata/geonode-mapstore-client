@@ -499,21 +499,31 @@ export class TimeSeries {
         // Create panel opens an empty editable hyetograph rather than a fake
         // 0/10/30/0 sample storm the user has to clear. Keeps the 4-row grid so
         // the chart/grid still render with a visible time axis.
+        //
+        // TASK-2085 (epic-2077): these MUST be literal UTC ISO strings, not a
+        // `new Date("2000-01-01T00:00:00").toISOString()` round-trip. That
+        // round-trip parses the naive (no "Z"/offset) literal as LOCAL time
+        // (ES2015 Date Time String spec), then `.toISOString()` converts back
+        // to UTC — so in any viewer ahead of UTC (e.g. UTC+10) the seed rolls
+        // back to 1999-12-31. Writing the literal directly is tz-independent
+        // and matches the BE derive convention of anchoring new rows at a
+        // fixed 2000-01-01 UTC (design_storm.py:718-729, tz-aware
+        // `datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.utc)`).
         this.rowData = [
             {
-                "timestamp": new Date("2000-01-01T00:00:00").toISOString().slice(0, -1),
+                "timestamp": "2000-01-01T00:00:00.000",
                 "value": 0
             },
             {
-                "timestamp": new Date("2000-01-01T01:00:00").toISOString().slice(0, -1),
+                "timestamp": "2000-01-01T01:00:00.000",
                 "value": 0
             },
             {
-                "timestamp": new Date("2000-01-01T02:00:00").toISOString().slice(0, -1),
+                "timestamp": "2000-01-01T02:00:00.000",
                 "value": 0
             },
             {
-                "timestamp": new Date("2000-01-01T03:00:00").toISOString().slice(0, -1),
+                "timestamp": "2000-01-01T03:00:00.000",
                 "value": 0
             }
         ];

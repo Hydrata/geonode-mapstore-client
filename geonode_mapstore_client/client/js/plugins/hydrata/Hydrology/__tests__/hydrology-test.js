@@ -573,6 +573,54 @@ describe('Hydrology Plugin', () => {
                 expect(ts.rowData.length).toBeGreaterThan(0);
                 expect(ts.rowData.every(r => Number(r.value) === 0)).toBe(true);
             });
+
+            // TASK-2085 (epic-2077) AC1 — the seed used to be built via
+            // `new Date("2000-01-01T00:00:00").toISOString()`, which parses the
+            // naive literal as LOCAL time then converts to UTC — in any viewer
+            // ahead of UTC (e.g. UTC+10) that rolled the seed back to
+            // 1999-12-31. The fix writes the literal UTC string directly, so
+            // the seed year must read 2000 regardless of the viewer's
+            // timezone. Simulate a UTC+10 viewer by making any bare
+            // (timezone-less) ISO string passed to `new Date(...)` resolve as
+            // if parsed in UTC+10 — exactly how a real UTC+10 browser parses
+            // "2000-01-01T00:00:00" (no "Z"/offset) per the ES2015 Date Time
+            // String spec local-time fallback. The regression-era code would
+            // fail this (seeding 1999-12-31T14:00 under the stub); the fixed
+            // code seeds literal strings with no Date() call at all, so it
+            // passes independent of the stub.
+            it('AC1: TimeSeries() seeds rowData at 2000-01-01 even when the viewer is UTC+10 (no 1999 rollback)', () => {
+                const RealDate = global.Date;
+                class UtcPlus10Date extends RealDate {
+                    constructor(...args) {
+                        if (
+                            args.length === 1 &&
+                            typeof args[0] === 'string' &&
+                            !/[Zz]|[+-]\d{2}:?\d{2}$/.test(args[0])
+                        ) {
+                            // No timezone designator on the input string — a
+                            // UTC+10 browser resolves this as UTC+10 local time.
+                            super(`${args[0]}+10:00`);
+                        } else {
+                            super(...args);
+                        }
+                    }
+                }
+                global.Date = UtcPlus10Date;
+                try {
+                    delete require.cache[require.resolve('../classesHydrology')];
+                    const { TimeSeries } = require('../classesHydrology');
+                    const ts = new TimeSeries();
+                    expect(ts.rowData.length).toBeGreaterThan(0);
+                    ts.rowData.forEach(row => {
+                        expect(typeof row.timestamp).toBe('string');
+                        expect(row.timestamp.startsWith('2000-01-01')).toBe(true);
+                        expect(row.timestamp.startsWith('1999-12-31')).toBe(false);
+                    });
+                } finally {
+                    global.Date = RealDate;
+                    delete require.cache[require.resolve('../classesHydrology')];
+                }
+            });
         });
 
         it('should handle DELETE_HYDROLOGY_ITEM_SUCCESS for sv-idf-table', () => {

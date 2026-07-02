@@ -201,6 +201,7 @@
         "inflowAddAnotherHint": "Adding here creates another inflow location in this Inflow. The + button in the Inflows list creates a separate Inflow instead — a scenario cannot combine two Inflows.",
         "inflowSelectHydrograph": "Select hydrograph",
         "inflowNoHydrographsAvailable": "No hydrographs available, create one first",
+        "inflowAnchorMismatchWarning": "Inflow location start times don't match: {names}. Runs merge these on absolute time — the later series will silently hold its first value over the gap. Check start times before building.",
         "inputs": "Inputs",
         "introduction": "Introduction",
         "links": "Links",
