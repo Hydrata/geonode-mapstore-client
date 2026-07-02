@@ -1586,3 +1586,18 @@
 .sv-ds-derive-cell--disabled:hover {
     background: transparent;
 }
+/* UAT 2026-07-02 #4: tickable cells render as white boxes so they stand out
+   against the low-contrast disabled crosses. Compound selectors out-rank the
+   single-class rules above, so the ticked tint is restated on white. */
+.sv-ds-derive-cell.sv-ds-derive-tick {
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+.sv-ds-derive-cell.sv-ds-derive-tick:hover {
+    background: #ffffff;
+}
+.sv-ds-derive-cell.sv-ds-derive-cell--ticked {
+    background: #d9f5de;
+    font-weight: 700;
+}
