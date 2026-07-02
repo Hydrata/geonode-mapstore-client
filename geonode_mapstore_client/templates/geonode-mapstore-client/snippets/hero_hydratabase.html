@@ -39,7 +39,7 @@
                 <div class="form-content">
                     <div class="form-group">
                         <label for="signup_email">{% trans "Email:" %}</label>
-                        <input type="text" id="signup_email" name="email" placeholder="required" class="home-page-register-text-input" autocomplete="email" aria-label="{% trans 'New account email' %}"/>
+                        <input type="text" id="signup_email" name="email" value="{{ form.email.value|default:'' }}" placeholder="required" class="home-page-register-text-input" autocomplete="email" aria-label="{% trans 'New account email' %}"/>
                         {% if form.email.errors %}
                             <div class="home-page-form-error-messages">
                                 {% for error in form.email.errors %}
@@ -50,6 +50,7 @@
                     </div>
                     <div class="form-group">
                         <label for="signup_password1">{% trans "Password:" %}</label>
+                        <p class="home-page-form-help-text" id="signup-password-hint">{{ form.password1.help_text }}</p>
                         <div class="input-group">
                             <input type="password" id="signup_password1" name="password1" placeholder="required" class="form-control home-page-register-text-input" autocomplete="new-password" aria-label="{% trans 'New account password' %}"/>
                             <span class="input-group-addon">
@@ -73,7 +74,7 @@
                     </div>
                     <div class="form-group">
                       <label for="signup_first_name">{% trans "First name:" %}</label>
-                      <input type="text" id="signup_first_name" name="first_name" placeholder="required" class="home-page-register-text-input"/>
+                      <input type="text" id="signup_first_name" name="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="required" class="home-page-register-text-input"/>
                         {% if form.first_name.errors %}
                             <div class="home-page-form-error-messages">
                                 {% for error in form.first_name.errors %}
@@ -84,7 +85,7 @@
                     </div>
                     <div class="form-group">
                       <label for="signup_last_name">{% trans "Last name:" %}</label>
-                      <input type="text" id="signup_last_name" name="last_name" placeholder="required" class="home-page-register-text-input"/>
+                      <input type="text" id="signup_last_name" name="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="required" class="home-page-register-text-input"/>
                         {% if form.last_name.errors %}
                             <div class="home-page-form-error-messages">
                                 {% for error in form.last_name.errors %}
@@ -95,7 +96,7 @@
                     </div>
                     <div class="form-group">
                       <label for="signup_organization">{% trans "Organisation:" %}</label>
-                      <input type="text" id="signup_organization" name="organization" placeholder="required" class="home-page-register-text-input"/>
+                      <input type="text" id="signup_organization" name="organization" value="{{ form.organization.value|default:'' }}" placeholder="required" class="home-page-register-text-input"/>
                         {% if form.organization.errors %}
                             <div class="home-page-form-error-messages">
                                 {% for error in form.organization.errors %}
@@ -105,7 +106,7 @@
                         {% endif %}
                     </div>
                     <div class="form-group">
-                      <input type="checkbox" id="signup_privacy_policy" name="privacy_policy" class="align-checkbox-left"/>
+                      <input type="checkbox" id="signup_privacy_policy" name="privacy_policy" class="align-checkbox-left"{% if form.privacy_policy.value %} checked{% endif %}/>
                       <label for="signup_privacy_policy">{% blocktrans %}I have reviewed and agree to Hydrata's <br/><a href="/privacy-policy">Privacy Policy</a>{% endblocktrans %}</label>
                         {% if form.privacy_policy.errors %}
                             <div class="home-page-form-error-messages">
@@ -116,7 +117,7 @@
                         {% endif %}
                     </div>
                     <div class="form-group">
-                      <input type="checkbox" id="signup_terms_and_conditions" name="terms_and_conditions" class="align-checkbox-left"/>
+                      <input type="checkbox" id="signup_terms_and_conditions" name="terms_and_conditions" class="align-checkbox-left"{% if form.terms_and_conditions.value %} checked{% endif %}/>
                         <label for="signup_terms_and_conditions">{% blocktrans %}I have reviewed and agree to Hydrata's <br/><a href="/terms-and-conditions">Terms and Conditions</a>{% endblocktrans %}</label>
                         {% if form.terms_and_conditions.errors %}
                             <div class="home-page-form-error-messages">
