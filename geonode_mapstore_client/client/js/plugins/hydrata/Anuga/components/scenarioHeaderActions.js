@@ -118,9 +118,16 @@ const ScenarioHeaderActions = (props, context) => {
 
     // Download is the built-package presigned URL; shown when the scenario is
     // BUILT (UAT #8) and also when complete so the result package stays
-    // reachable after a run finishes.
-    const showDownload = isBuilt || isComplete;
-    const downloadHref = scenario?.latest_run?.s3_package_url;
+    // reachable after a run finishes. TASK-2078: package download href/gate is
+    // a RESULT consumer per D1 — ALSO shown (and the href points there) when a
+    // latest_complete_run exists, even if a newer latest_run is now in-flight
+    // or errored (isBuilt/isComplete, derived from latest_run's status, would
+    // otherwise hide/break the download for that window). Falls back to
+    // latest_run's package for the plain built-but-not-yet-run case, where no
+    // complete run exists yet.
+    const latestCompleteRun = scenario?.latest_complete_run;
+    const showDownload = isBuilt || isComplete || !!latestCompleteRun;
+    const downloadHref = latestCompleteRun?.s3_package_url || scenario?.latest_run?.s3_package_url;
 
     const fireDebounced = (key, handler, eventName) => () => {
         if (handler) handler(scenario);

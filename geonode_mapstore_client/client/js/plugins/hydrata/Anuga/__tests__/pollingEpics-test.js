@@ -109,6 +109,95 @@ describe('Polling Epics', () => {
         it('should listen for START_ANUGA_SCENARIO_POLLING', () => {
             expect(typeof pollAnugaScenarioEpic).toBe('function');
         });
+
+        // TASK-2078 — result-load gate moved to latest_complete_run so a newer
+        // in-flight/errored latest_run never hides an older complete run's
+        // results (D1: result COG loading is a RESULT consumer).
+        describe('TASK-2078 — latest_complete_run result loading', () => {
+            it('loads result COGs from latest_complete_run when a newer latest_run is in-flight (AC1)', (done) => {
+                const mock = mockAxios();
+                mock.onGet(/\/api\/v2\/anuga\/projects\/1\/scenarios\//).reply(200, [{
+                    id: 55,
+                    computed_status: 'computing',
+                    // Newer run is in-flight and has NO result rasters yet.
+                    latest_run: { id: 2, status: 'computing' },
+                    // Older run is complete and carries the actual result COGs.
+                    latest_complete_run: {
+                        id: 1,
+                        status: 'complete',
+                        gn_layer_depth_max: {
+                            name: 'geonode:run1_depth_max_cog', title: 'Depth Max',
+                            catalogURL: '/geoserver/ows', group: 'Results.Depth'
+                        },
+                        gn_layer_velocity_max: {
+                            name: 'geonode:run1_velocity_max_cog', title: 'Velocity Max',
+                            catalogURL: '/geoserver/ows', group: 'Results.Velocity'
+                        },
+                        gn_layer_depth_integrated_velocity_max: {
+                            name: 'geonode:run1_depthintegratedvelocity_max_cog', title: 'Momentum Max',
+                            catalogURL: '/geoserver/ows', group: 'Results.Depth Integrated Velocity'
+                        }
+                    }
+                }]);
+                const state = {
+                    anuga: {
+                        projects: { data: { id: 1 } },
+                        scenarios: { byId: { 55: { id: 55, isLoaded: false } }, archiveFilter: 'none' }
+                    },
+                    layers: { flat: [] }
+                };
+                testEpic(
+                    pollAnugaScenarioEpic,
+                    6,
+                    { type: START_ANUGA_SCENARIO_POLLING },
+                    (actions) => {
+                        const addLayers = actions.filter(a => a.type === 'ADD_LAYER');
+                        expect(addLayers.length).toBe(3);
+                        // The layers added MUST come from latest_complete_run's
+                        // (id 1) COGs, never latest_run (id 2, in-flight, no
+                        // result rasters at all).
+                        expect(addLayers.map(a => a.layer.name).sort()).toEqual([
+                            'geonode:run1_depth_max_cog',
+                            'geonode:run1_depthintegratedvelocity_max_cog',
+                            'geonode:run1_velocity_max_cog'
+                        ].sort());
+                        expect(actions.filter(a => a.type === 'SET_ANUGA_SCENARIO_IS_LOADED').length).toBe(1);
+                        expect(actions.filter(a => a.type === 'REFRESH_LAYERS').length).toBe(1);
+                    },
+                    state,
+                    done
+                );
+            });
+
+            it('does not load results when only an in-flight run exists (no latest_complete_run yet)', (done) => {
+                const mock = mockAxios();
+                mock.onGet(/\/api\/v2\/anuga\/projects\/1\/scenarios\//).reply(200, [{
+                    id: 55,
+                    computed_status: 'computing',
+                    latest_run: { id: 2, status: 'computing' },
+                    latest_complete_run: null
+                }]);
+                const state = {
+                    anuga: {
+                        projects: { data: { id: 1 } },
+                        scenarios: { byId: { 55: { id: 55, isLoaded: false } }, archiveFilter: 'none' }
+                    },
+                    layers: { flat: [] }
+                };
+                testEpic(
+                    pollAnugaScenarioEpic,
+                    1,
+                    { type: START_ANUGA_SCENARIO_POLLING },
+                    (actions) => {
+                        expect(actions.length).toBe(1);
+                        expect(actions[0].type).toBe('SET_ANUGA_POLLING_DATA');
+                        expect(actions.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                    },
+                    state,
+                    done
+                );
+            });
+        });
     });
 
     // TASK-1897 — cross-project contamination defence-in-depth. The stale-layer

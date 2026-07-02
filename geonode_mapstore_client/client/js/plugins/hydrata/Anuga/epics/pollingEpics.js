@@ -244,10 +244,13 @@ export const initAnugaEpic = (action$, store) =>
                 );
         });
 
+// TASK-2078: result-load "already loaded?" check reads latest_complete_run —
+// the run whose COGs are actually eligible to be on the map — not latest_run
+// (which may be a newer in-flight/errored run with no result layers yet).
 const isScenarioLoaded = (scenario, state) => {
-    const depth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_depth_max?.name);
-    const velocityDepth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_depth_integrated_velocity_max?.name);
-    const velocity = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_velocity_max?.name);
+    const depth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_complete_run?.gn_layer_depth_max?.name);
+    const velocityDepth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_complete_run?.gn_layer_depth_integrated_velocity_max?.name);
+    const velocity = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_complete_run?.gn_layer_velocity_max?.name);
     return !!depth?.length && !!velocityDepth?.length && !!velocity?.length;
 };
 
@@ -264,14 +267,16 @@ const isScenarioLoaded = (scenario, state) => {
 export const RESULT_LAYER_NAME_RE = /(^|:)run\d+_.+_cog$/;
 
 // Choose which currently-loaded result layers to remove before (re)adding a
-// scenario's latest-run results. Within the result-layer set we match the
-// latest run's own layers by run-unique NAME (idempotent re-add) and a
-// SUPERSEDED previous run of the SAME scenario by title — the scenario API
-// exposes only `latest_run` (no run lineage), so title is the only same-scenario
-// proxy available, and it is safe here because it is scoped to result layers and
-// a map shows a single project. The authoritative cross-project guarantee lives
-// in the backend (the run-scoped FK lookup in _idempotent_result_layer); this
-// keeps the FE from ever mutating a foreign or non-result layer.
+// scenario's result layers (sourced from latest_complete_run — TASK-2078).
+// Within the result-layer set we match the target run's own layers by
+// run-unique NAME (idempotent re-add) and a SUPERSEDED previous run of the
+// SAME scenario by title — the scenario API exposes only `latest_run` /
+// `latest_complete_run` (no full run lineage/history), so title is the only
+// same-scenario proxy available, and it is safe here because it is scoped to
+// result layers and a map shows a single project. The authoritative
+// cross-project guarantee lives in the backend (the run-scoped FK lookup in
+// _idempotent_result_layer); this keeps the FE from ever mutating a foreign
+// or non-result layer.
 export const selectStaleResultLayers = (flatLayers, latestRun) => {
     const names = [
         latestRun?.gn_layer_depth_integrated_velocity_max?.name,
@@ -308,8 +313,15 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                             .of(setAnugaPollingData(response.data))
                             .switchMap((action) => {
                                 const scenariosById = store.getState()?.anuga?.scenarios?.byId || {};
+                                // TASK-2078: the result-load gate is the presence
+                                // of a COMPLETE run (latest_complete_run), NOT
+                                // computed_status/latest_run's status — a newer
+                                // in-flight or errored run must never hide an
+                                // older complete run's results. This is a RESULT
+                                // consumer per D1; the status pill/card/error
+                                // strip/run log stay on latest_run elsewhere.
                                 let backendScenariosToLoadResults = action.scenarios?.filter(scenario =>
-                                    (scenario.computed_status === 'complete' || scenario.latest_run?.status === 'complete')
+                                    !!scenario.latest_complete_run
                                 );
                                 let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
                                     const frontendScenario = scenariosById[scenarioBackend.id];
@@ -326,15 +338,15 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 // title match against arbitrary layers.
                                 let existingResultLayers = selectStaleResultLayers(
                                     store.getState()?.layers?.flat,
-                                    scenarioToLoadResults?.latest_run
+                                    scenarioToLoadResults?.latest_complete_run
                                 );
                                 if (scenarioToLoadResults &&
-                                    scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
-                                    scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
-                                    scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.catalogURL &&
-                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.name) &&
-                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.name) &&
-                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.name)
+                                    scenarioToLoadResults?.latest_complete_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
+                                    scenarioToLoadResults?.latest_complete_run?.gn_layer_depth_max?.catalogURL &&
+                                    scenarioToLoadResults?.latest_complete_run?.gn_layer_velocity_max?.catalogURL &&
+                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_complete_run?.gn_layer_depth_integrated_velocity_max?.name) &&
+                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_complete_run?.gn_layer_depth_max?.name) &&
+                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_complete_run?.gn_layer_velocity_max?.name)
                                 ) {
                                     // ISSUE 32 (TASK-1429): remap BE group name
                                     // "Results.Depth Integrated Velocity" → "Results.Momentum"
@@ -346,9 +358,9 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                         }
                                         return layer;
                                     };
-                                    const depthVelocityLayer = remapGroup(scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max);
-                                    const depthLayer = scenarioToLoadResults.latest_run.gn_layer_depth_max;
-                                    const velocityLayer = scenarioToLoadResults.latest_run.gn_layer_velocity_max;
+                                    const depthVelocityLayer = remapGroup(scenarioToLoadResults.latest_complete_run.gn_layer_depth_integrated_velocity_max);
+                                    const depthLayer = scenarioToLoadResults.latest_complete_run.gn_layer_depth_max;
+                                    const velocityLayer = scenarioToLoadResults.latest_complete_run.gn_layer_velocity_max;
                                     // Remove every superseded stale result layer
                                     // (variable count; never dispatch
                                     // removeLayer(undefined)) before re-adding.

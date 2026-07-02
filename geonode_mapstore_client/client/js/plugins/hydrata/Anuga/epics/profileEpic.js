@@ -16,8 +16,10 @@
  *        — no crash when no terrain/result is present, AC-5);
  *     3. discovers the layers to sample: the active terrain DEM ('dem') plus the
  *        SELECTED scenario's result rasters (depth_max / velocity_max /
- *        depthintegratedvelocity_max) from latest_run, with the geonode:
- *        workspace prefix STRIPPED to bare names (W3 LESSON: the BE
+ *        depthintegratedvelocity_max) from latest_complete_run (TASK-2078 —
+ *        cross-section sampling is a RESULT consumer; a newer in-flight or
+ *        errored latest_run must not blank/break the profile), with the
+ *        geonode: workspace prefix STRIPPED to bare names (W3 LESSON: the BE
  *        resolve_coverage_vsi_path matches the bare coveragestore name);
  *     4. calls the W4.3 endpoint (anugaApi.getTerrainProfile) with the WKT line,
  *        the comma-joined layer set, and a fixed sample count;
@@ -54,8 +56,9 @@ export const PROFILE_DRAW_OWNER = 'terrain-profile';
 // bounding the /vsis3 read cost.
 export const PROFILE_SAMPLES = 100;
 
-// The three ANUGA result rasters exposed on latest_run, in chart order, with the
-// human label used as the trace name. Keys map to the run serializer fields.
+// The three ANUGA result rasters exposed on a Run (read via latest_complete_run
+// — TASK-2078), in chart order, with the human label used as the trace name.
+// Keys map to the run serializer fields.
 // `role` (TASK-1862, W4.5) lets the cross-section chart find the terrain + depth
 // rasters UNAMBIGUOUSLY (water surface = terrain + DEPTH = stage) instead of
 // sniffing the layer name: depth is role='depth', the rest role='other'.
@@ -109,11 +112,14 @@ export function extractLineFromDrawAction(action) {
 
 /**
  * Build the ordered {key,label} entries to sample: 'dem' first, then the
- * SELECTED scenario's result rasters (latest_run.gn_layer_*) as BARE layer
- * names.  The LABEL is sourced AUTHORITATIVELY from the run field (not from
- * sniffing the layer name) so it is correct regardless of how the coverage
- * is named — localhost result layers are temp-file-named (tmp*_cog) while prod
- * uses run_<…>_<token>_cog, and both must label as "Depth (max)" etc.
+ * SELECTED scenario's result rasters (latest_complete_run.gn_layer_*) as BARE
+ * layer names. TASK-2078: reads latest_complete_run, NOT latest_run — a newer
+ * in-flight/errored run has no (or stale) result rasters, so sampling must
+ * stay pinned to the last COMPLETE run's COGs. The LABEL is sourced
+ * AUTHORITATIVELY from the run field (not from sniffing the layer name) so it
+ * is correct regardless of how the coverage is named — localhost result
+ * layers are temp-file-named (tmp*_cog) while prod uses run_<…>_<token>_cog,
+ * and both must label as "Depth (max)" etc.
  * Returns [{key:'dem', label:'Elevation', role:'dem'}, {key:'<bare>',
  * label:'Depth (max)', role:'depth'}, …]. Always includes 'dem'. `role`
  * (TASK-1862) drives the cross-section chart (terrain=dem, water surface=depth).
@@ -121,7 +127,7 @@ export function extractLineFromDrawAction(action) {
 export function getProfileTraces(state) {
     const traces = [{ key: 'dem', label: 'Elevation', role: 'dem' }];
     const scenario = getSelectedScenario(state);
-    const run = scenario && scenario.latest_run;
+    const run = scenario && scenario.latest_complete_run;
     if (run) {
         RESULT_LAYER_FIELDS.forEach(({ field, label, role }) => {
             const name = run[field] && run[field].name;

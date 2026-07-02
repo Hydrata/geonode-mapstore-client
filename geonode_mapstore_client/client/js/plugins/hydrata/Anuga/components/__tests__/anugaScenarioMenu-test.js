@@ -408,6 +408,93 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(closeBtn).toNotExist();
         });
     });
+
+    // ----------------------------------------------------------------
+    // TASK-2078 — View Results gate + freshness banner (D1: RESULT
+    // consumers read latest_complete_run; the status pill/card/error strip
+    // stay on latest_run untouched, tested separately).
+    // ----------------------------------------------------------------
+    describe('TASK-2078 — View Results gate + freshness banner', () => {
+        it('shows View Results from the OLDER complete run while a newer run is in-flight (AC1)', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_run: {id: 2, status: 'computing'},
+                latest_complete_run: {id: 1, status: 'complete'}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-btn-view-results')).toExist();
+        });
+
+        it('hides View Results when there is no complete run yet (only an in-flight run)', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_run: {id: 2, status: 'computing'},
+                latest_complete_run: null
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-btn-view-results')).toNotExist();
+        });
+
+        it('shows the freshness banner when latest_run is newer + in-flight (AC1)', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_run: {id: 2, status: 'computing'},
+                latest_complete_run: {id: 1, status: 'complete'}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-results-freshness-banner')).toExist();
+        });
+
+        it('shows the freshness banner when latest_run is newer + errored', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_run: {id: 2, status: 'error'},
+                latest_complete_run: {id: 1, status: 'complete'}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-results-freshness-banner')).toExist();
+        });
+
+        it('clears the banner once the newer run also completes (AC2: latest_run === latest_complete_run)', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_run: {id: 2, status: 'complete'},
+                latest_complete_run: {id: 2, status: 'complete'}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-results-freshness-banner')).toNotExist();
+            // Results still shown — View Results stays enabled.
+            expect(container.querySelector('.sv-anuga-btn-view-results')).toExist();
+        });
+
+        it('does not show the banner when there is no complete run at all', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_run: {id: 2, status: 'computing'},
+                latest_complete_run: null
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-results-freshness-banner')).toNotExist();
+        });
+    });
 });
 
 /*

@@ -240,6 +240,30 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
+    // TASK-2078: package download href/gate is a RESULT consumer (D1) —
+    // reads latest_complete_run so a newer in-flight/errored latest_run
+    // never hides/breaks the download of the last-good result package.
+    it('TASK-2078: Download stays visible + points at latest_complete_run\'s package while a newer run is in-flight (AC1)', (done) => {
+        ReactDOM.render(
+            <ScenarioHeaderActions
+                scenario={{
+                    ...baseScenario,
+                    status: 'computing',
+                    latest_run: {id: 10, status: 'computing'},
+                    latest_complete_run: {id: 9, status: 'complete', s3_package_url: 'https://x/complete-run-9.zip'}
+                }}
+                canEdit canRunScenario
+            />,
+            container,
+            () => {
+                const dl = container.querySelector('.sv-scenario-action-download');
+                expect(dl).toExist();
+                expect(dl.getAttribute('href')).toBe('https://x/complete-run-9.zip');
+                done();
+            }
+        );
+    });
+
     it('Delete (non-running) routes through onConfirmDelete + fires the delete label', (done) => {
         let captured = null;
         ReactDOM.render(
