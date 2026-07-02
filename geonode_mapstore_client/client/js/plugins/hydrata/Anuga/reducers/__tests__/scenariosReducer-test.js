@@ -13,12 +13,41 @@ import {
     BUILD_SCENARIO_SUCCESS,
     BUILD_SCENARIO_ERROR
 } from '../../actions/comparisonActions';
+import {SET_ANUGA_POLLING_DATA} from '../../actions/dataActions';
 
 describe('TASK-2038 scenariosReducer ADD_ANUGA_SCENARIO default resolution', () => {
     it('stamps the new temp scenario with resolution 100 (matches the BE default)', () => {
         const state = scenariosReducer(undefined, {type: ADD_ANUGA_SCENARIO});
         const tempId = state.allIds[0];
         expect(state.byId[tempId].resolution).toBe(100);
+    });
+});
+
+// TASK-2078 — the 8s poll (SET_ANUGA_POLLING_DATA) merge must refresh
+// latest_complete_run on an already-loaded scenario, else every store-state
+// D1 result consumer (View Results gate, freshness banner, cross-section
+// profile, download) reads a value frozen at init and goes stale until reload.
+describe('TASK-2078 scenariosReducer SET_ANUGA_POLLING_DATA merges latest_complete_run', () => {
+    const baseState = () => ({
+        byId: {3: {id: 3, name: 'S3', selected: true, latest_run: {id: 5}, latest_complete_run: null}},
+        allIds: [3],
+        selectedId: 3,
+        archiveFilter: 'none'
+    });
+    it('refreshes latest_complete_run on an already-loaded scenario from a poll tick', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 3, latest_run: {id: 6, status: 'building'}, latest_complete_run: {id: 5, status: 'complete'}, status: 'building'}]
+        });
+        expect(state.byId[3].latest_complete_run).toEqual({id: 5, status: 'complete'});
+        expect(state.byId[3].latest_run).toEqual({id: 6, status: 'building'});
+    });
+    it('clears latest_complete_run to null when the backend reports none (mirrors latest_run)', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 3, latest_run: {id: 6}, status: 'building'}]
+        });
+        expect(state.byId[3].latest_complete_run).toBe(null);
     });
 });
 

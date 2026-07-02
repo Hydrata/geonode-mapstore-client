@@ -732,6 +732,24 @@ div that holds the feature-grid */
     color: var(--sv-warning-color, #fcf8e3);
 }
 
+/* TASK-2078 results-freshness banner + TASK-2079 build-conflict notice — both
+ * are inline informational lozenges (a newer run building/errored; a build
+ * already in flight). sv info-token tint over glass, matching the wider
+ * .sv-membership-invite-disabled info pattern so they don't render as raw text. */
+.sv-anuga-results-freshness-banner,
+.sv-scenario-build-conflict-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    background-color: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
+    border: 1px solid var(--sv-info-border, #5bc0de);
+    border-radius: var(--sv-card-radius, 4px);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
 /* Membership sv-scenario-table (member + invitation rows) — dark cells/borders.
  * The react-bootstrap Table was swapped for the chassis Table surface="dark"
  * (extraClassName="sv-scenario-table"); these rules give the bespoke header/cells

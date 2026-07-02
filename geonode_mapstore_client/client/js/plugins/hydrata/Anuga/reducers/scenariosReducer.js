@@ -61,6 +61,14 @@ export default (state = initialState, action) => {
                 newById[backendScenario.id] = {
                     ...existing,
                     latest_run: backendScenario?.latest_run ?? null,
+                    // TASK-2078: latest_complete_run MUST be in this merge
+                    // whitelist too — 2078 repointed the FE result consumers
+                    // (View Results gate, freshness banner, cross-section
+                    // profile, download) from latest_run to latest_complete_run.
+                    // Without this line the 8s poll never refreshes it on an
+                    // already-loaded scenario, so it stays frozen at init value
+                    // and those consumers go stale until a page reload.
+                    latest_complete_run: backendScenario?.latest_complete_run ?? null,
                     status: backendScenario?.status || 'unsaved',
                     computed_status: backendScenario?.computed_status || backendScenario?.status,
                     latest_run_is_valid: backendScenario?.latest_run_is_valid
@@ -214,14 +222,10 @@ export default (state = initialState, action) => {
     // action-only, no reducer at all). A fresh Build click optimistically
     // clears any stale conflict lozenge left over from a prior 409 before
     // the new request resolves.
-    case BUILD_SCENARIO: {
-        const id = action.scenarioId;
-        if (!id || !state.byId[id] || !state.byId[id].buildConflict) return state;
-        return {
-            ...state,
-            byId: { ...state.byId, [id]: { ...state.byId[id], buildConflict: null } }
-        };
-    }
+    // A fresh Build click (BUILD_SCENARIO) and a successful build
+    // (BUILD_SCENARIO_SUCCESS) both optimistically clear any stale conflict
+    // lozenge left over from a prior 409 — identical logic, shared here.
+    case BUILD_SCENARIO:
     case BUILD_SCENARIO_SUCCESS: {
         const id = action.scenarioId;
         if (!id || !state.byId[id] || !state.byId[id].buildConflict) return state;
