@@ -84,6 +84,73 @@ describe('ManualPasteGrid TASK-2026 (W5.4) page-aware value-column header', () =
     });
 });
 
+describe('TASK-2084 (epic-2077) — page-aware editor heading', () => {
+    const noop = () => {};
+    const baseItem = {
+        id: 'temp-1',
+        name: 'Test',
+        columnDefs: [],
+        rowData: []
+    };
+
+    // No IntlProvider in this bare-render test, so <Message> falls back to
+    // rendering the raw msgId — the established assertion pattern for this
+    // codebase (see DiscriminatorPickerIntegration-test.js AC1).
+    it('series_type=hydrograph: h3 heading resolves to the hydrograph msgId', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        ReactDOM.render(
+            React.createElement(ManualPasteGrid, {
+                activeHydrologyItem: {...baseItem, series_type: 'hydrograph'},
+                dispatchUpdateRowData: noop,
+                dispatchReplaceRowData: noop
+            }),
+            container
+        );
+        const heading = container.querySelector('h3');
+        expect(heading).toExist();
+        expect(heading.textContent).toBe('hydrata.hydrology.hydrograph');
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('no series_type (Design Storms): h3 heading resolves to the timeSeries (Design Storm) msgId', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        ReactDOM.render(
+            React.createElement(ManualPasteGrid, {
+                activeHydrologyItem: baseItem,
+                dispatchUpdateRowData: noop,
+                dispatchReplaceRowData: noop
+            }),
+            container
+        );
+        const heading = container.querySelector('h3');
+        expect(heading).toExist();
+        expect(heading.textContent).toBe('hydrata.hydrology.timeSeries');
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('series_type=hyetograph (Design Storms): h3 heading resolves to the timeSeries (Design Storm) msgId, not hydrograph', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        ReactDOM.render(
+            React.createElement(ManualPasteGrid, {
+                activeHydrologyItem: {...baseItem, series_type: 'hyetograph'},
+                dispatchUpdateRowData: noop,
+                dispatchReplaceRowData: noop
+            }),
+            container
+        );
+        const heading = container.querySelector('h3');
+        expect(heading).toExist();
+        expect(heading.textContent).toBe('hydrata.hydrology.timeSeries');
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+});
+
 // ---------------------------------------------------------------------------
 // TASK-2081 (epic-2077 W1) — drop the local rowData mirror; table + chart now
 // read activeHydrologyItem.rowData directly (ManualPasteGrid.js). A committed

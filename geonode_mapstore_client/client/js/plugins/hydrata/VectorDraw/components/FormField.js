@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Button } from 'react-bootstrap';
 import axios from '../../../../../MapStore2/web/client/libs/ajax';
@@ -8,6 +9,7 @@ import { registerDiscriminator, DISCRIMINATOR_KIND } from '../discriminatorRegis
 import { DiscriminatorPicker } from './DiscriminatorPicker';
 import { ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
 import Message from '@mapstore/framework/components/I18N/Message';
+import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 // TASK-2082 — the Inflow hydrograph picker's empty-state link opens the
 // Hydrology panel on the Hydrographs page. actionsHydrology.js is a leaf
 // module (no imports of its own) so this does not create an import cycle.
@@ -187,14 +189,40 @@ export const ConstantInput = ({ value, onChange, field }) => {
 //     onFocus alone cannot cover the empty->non-empty transition — see the
 //     hydrologyMainMenuOpen close-transition effect in DiscriminatorPicker.js
 //     for the mechanism that actually closes that gap.
-export const TimeSeriesSelect = ({ value, onChange, options, loading, error, dispatch, onRefetchOptions }) => {
+// TASK-2084 (epic-2077) — `kind` (added below, alongside the pre-existing
+// props) is the ACTIVE CHOICE's kind, threaded down from DiscriminatorPicker's
+// own radio-selection state (see `<ActiveRender ... kind={kind} />` in
+// DiscriminatorPicker.js). It is the noun-sweep's kind-aware copy signal:
+// 'hydrograph' (Inflow) gets Hydrograph(s) wording; every other kind
+// (the boundary 'timeseries' kind, and 'hyetograph') keeps the existing
+// generic 'TimeSeries' copy untouched, per the epic-1970 decision that the
+// boundary 'Time' picker stays generic. `value?.kind` is intentionally NOT
+// the primary signal here — it is unset on a fresh form (no radio touched
+// yet / the kind-switch reset hasn't round-tripped through Redux), whereas
+// `kind` is correct from this component's very first render (a choice's
+// render is only ever mounted while that choice IS the active one). A
+// `value?.kind` fallback is kept only for defensive back-compat with any
+// caller that doesn't thread the new prop through.
+export const TimeSeriesSelect = ({ value, onChange, options, loading, error, dispatch, onRefetchOptions, kind }, context) => {
     const tsValue = (typeof value?.timeseries_id === 'number' || typeof value?.timeseries_id === 'string')
         ? value.timeseries_id
         : '';
     const list = Array.isArray(options) ? options : [];
     const isEmpty = !loading && list.length === 0;
-    const activeKind = value?.kind || DISCRIMINATOR_KIND.TIMESERIES;
-    const isHydrographEmpty = isEmpty && activeKind === DISCRIMINATOR_KIND.HYDROGRAPH;
+    const activeKind = kind || value?.kind || DISCRIMINATOR_KIND.TIMESERIES;
+    const isHydrographKind = activeKind === DISCRIMINATOR_KIND.HYDROGRAPH;
+    const isHydrographEmpty = isEmpty && isHydrographKind;
+    // <option> content is plain-text-only (HTML content model — and this
+    // codebase's own convention: <Message> renders a <span>, invalid inside
+    // <option>; see NetworksPane.js). Resolve via legacy context.messages
+    // instead, with an English fallback for pre-i18n-load / no-IntlProvider
+    // renders — mirrors the `tr` idiom in hydrologyDetailIdfTable.js /
+    // Anuga/scenarioHeaderActions.js.
+    const tr = (msgId, fallback) => {
+        const messages = (context && context.messages) || {};
+        const resolved = getMessageById(messages, msgId);
+        return resolved === msgId ? fallback : resolved;
+    };
     const handleChange = (e) => {
         const raw = e.target.value;
         const id = raw === '' ? null : parseInt(raw, 10);
@@ -237,8 +265,12 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error, dis
                     {loading
                         ? 'Loading…'
                         : (isEmpty
-                            ? 'No TimeSeries available, create one first'
-                            : 'Select TimeSeries')}
+                            ? (isHydrographKind
+                                ? tr('hydrata.anuga.inflowNoHydrographsAvailable', 'No hydrographs available, create one first')
+                                : 'No TimeSeries available, create one first')
+                            : (isHydrographKind
+                                ? tr('hydrata.anuga.inflowSelectHydrograph', 'Select hydrograph')
+                                : 'Select TimeSeries'))}
                 </option>
                 {list.map(ts => (
                     <option key={ts.id} value={ts.id}>{ts.name}</option>
@@ -274,6 +306,13 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error, dis
             ) : null}
         </React.Fragment>
     );
+};
+
+// Pull intl messages off React legacy context so the `tr` helper above can
+// resolve the kind-aware placeholder copy at render time (mirrors
+// Hydrology/hydrologyDetailIdfTable.js + Anuga/scenarioHeaderActions.js).
+TimeSeriesSelect.contextTypes = {
+    messages: PropTypes.object
 };
 
 // Fetch helper for the 'timeseries' / 'hydrograph' / 'hyetograph' kinds.

@@ -823,3 +823,119 @@ describe('TASK-2082 — Inflow hydrograph picker empty-state link', () => {
         });
     });
 });
+
+/*
+ * TASK-2084 (epic-2077) — Hydrograph noun sweep: kind-aware TimeSeriesSelect
+ * placeholder/label copy.
+ *
+ * DiscriminatorPicker threads its own `kind` state (the ACTIVE CHOICE, i.e.
+ * the radio selection) down to the active render component as a `kind` prop
+ * (see DiscriminatorPicker.js `<ActiveRender ... kind={kind} />`). TimeSeriesSelect
+ * uses THAT — not `value?.kind` — to decide whether to show 'Hydrograph(s)'
+ * copy. `value?.kind` is deliberately NOT the signal under test: it can be
+ * absent on a fresh form (no round-trip through Redux yet), which is exactly
+ * why these tests seed `value` with NO `kind` key at all for the "fresh form"
+ * cases below.
+ *
+ * No IntlProvider/Localized ancestor in these bare-render tests, so
+ * TimeSeriesSelect's `tr()` helper (context.messages driven) falls back to
+ * its English default text — the assertions below pin that fallback text.
+ */
+describe('TASK-2084 (epic-2077) — TimeSeriesSelect kind-aware placeholder copy', () => {
+    let container;
+    const onChange = () => {};
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        container.className = 'sv-vector-draw-popup';
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        container.remove();
+    });
+
+    describe('hydrograph kind (Inflow) — branches on the CHOICE kind, not value.kind', () => {
+        const HYDROGRAPH_ONLY_FIELD = {
+            name: 'data',
+            type: 'discriminator-picker',
+            label: 'Data',
+            // A single 'hydrograph' choice: DiscriminatorPicker's fallbackKind
+            // (choices[0].kind) seeds its `kind` state to 'hydrograph' even
+            // when `value` carries no `kind` key — the fresh-form case.
+            choices: [
+                { kind: 'hydrograph', label: 'Hydrograph', render: TimeSeriesSelect,
+                    options: [], defaultValue: { timeseries_id: null } }
+            ]
+        };
+
+        it('AC2/3: fresh form (value has NO kind key) still shows hydrograph-aware empty copy — proves the CHOICE kind drives it, not value.kind', () => {
+            ReactDOM.render(
+                <FormField
+                    field={HYDROGRAPH_ONLY_FIELD}
+                    value={{ timeseries_id: null }}
+                    onChange={onChange}
+                />,
+                container
+            );
+            const option = container.querySelector('select.time-data-picker-timeseries option');
+            expect(option.textContent).toBe('No hydrographs available, create one first');
+            expect(option.textContent).toNotContain('TimeSeries');
+        });
+
+        it('AC2: non-empty hydrograph picker shows "Select hydrograph" (no value.kind set)', () => {
+            const field = {
+                ...HYDROGRAPH_ONLY_FIELD,
+                choices: [
+                    { kind: 'hydrograph', label: 'Hydrograph', render: TimeSeriesSelect,
+                        options: [{ id: 5, name: 'Storm hydrograph' }], defaultValue: { timeseries_id: null } }
+                ]
+            };
+            ReactDOM.render(
+                <FormField field={field} value={{ timeseries_id: null }} onChange={onChange} />,
+                container
+            );
+            const option = container.querySelector('select.time-data-picker-timeseries option');
+            expect(option.textContent).toBe('Select hydrograph');
+            expect(option.textContent).toNotContain('TimeSeries');
+        });
+    });
+
+    describe('boundary "timeseries" kind stays generic (epic-1970 decision) — regression guard', () => {
+        const TIMESERIES_FIELD = {
+            name: 'data',
+            type: 'discriminator-picker',
+            label: 'Data',
+            choices: [
+                { kind: 'timeseries', label: 'TimeSeries', render: TimeSeriesSelect,
+                    options: [], defaultValue: { timeseries_id: null } }
+            ]
+        };
+
+        it('empty boundary picker copy is UNCHANGED ("No TimeSeries available...")', () => {
+            ReactDOM.render(
+                <FormField field={TIMESERIES_FIELD} value={{ timeseries_id: null }} onChange={onChange} />,
+                container
+            );
+            const option = container.querySelector('select.time-data-picker-timeseries option');
+            expect(option.textContent).toBe('No TimeSeries available, create one first');
+        });
+
+        it('non-empty boundary picker copy is UNCHANGED ("Select TimeSeries")', () => {
+            const field = {
+                ...TIMESERIES_FIELD,
+                choices: [
+                    { kind: 'timeseries', label: 'TimeSeries', render: TimeSeriesSelect,
+                        options: [{ id: 7, name: 'Series A' }], defaultValue: { timeseries_id: null } }
+                ]
+            };
+            ReactDOM.render(
+                <FormField field={field} value={{ timeseries_id: null }} onChange={onChange} />,
+                container
+            );
+            const option = container.querySelector('select.time-data-picker-timeseries option');
+            expect(option.textContent).toBe('Select TimeSeries');
+        });
+    });
+});

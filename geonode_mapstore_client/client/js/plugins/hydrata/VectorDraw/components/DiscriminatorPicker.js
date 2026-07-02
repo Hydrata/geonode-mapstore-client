@@ -316,6 +316,15 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId, dispatc
                     field={field}
                     dispatch={dispatch}
                     onRefetchOptions={() => refetchKind(kind)}
+                    // TASK-2084 (epic-2077) — the ACTIVE CHOICE's kind (this
+                    // picker's own `kind` state, i.e. `activeChoice.kind`), not
+                    // `value.kind`. Render components (TimeSeriesSelect) use
+                    // this to select kind-aware copy ('hydrograph' vs the
+                    // generic boundary 'timeseries') — it is reliable from the
+                    // very first render because a choice's render is only ever
+                    // mounted while that choice IS the active one, whereas
+                    // `value.kind` can still be unset/stale on a fresh form.
+                    kind={kind}
                 />
             ) : null}
         </div>

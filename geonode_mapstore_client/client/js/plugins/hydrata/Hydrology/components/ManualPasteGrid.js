@@ -200,8 +200,12 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                     marginBottom: '16px'
                 }}>
                     <div>
+                        {/* TASK-2084 (epic-2077) — page-aware editor heading: 'Hydrograph'
+                            for a flow series (reuses the same isHydrograph signal that
+                            already drives the value-column header above), 'Design Storm'
+                            (the existing hydrata.hydrology.timeSeries copy) for rainfall. */}
                         <h3 style={{marginTop: 0}}>
-                            <Message msgId="hydrata.hydrology.timeSeries" />
+                            <Message msgId={isHydrograph ? 'hydrata.hydrology.hydrograph' : 'hydrata.hydrology.timeSeries'} />
                         </h3>
                         <table className="time-series-table">
                             <thead>

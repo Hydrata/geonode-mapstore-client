@@ -199,6 +199,8 @@
         "inflows": "Antre Dlo yo",
         "inflowMultiLocationHelp": "Yon Antre Dlo ka kenbe plizyè pwen antre dlo, chak ak pwòp idwogram pa li.",
         "inflowAddAnotherHint": "Ajoute isit la kreye yon lòt pwen antre dlo nan menm Antre Dlo sa a. Bouton + nan lis Antre Dlo yo pito kreye yon lòt Antre Dlo separe — yon senaryo pa ka konbine de Antre Dlo.",
+        "inflowSelectHydrograph": "Chwazi idwograf",
+        "inflowNoHydrographsAvailable": "Pa gen okenn idwograf disponib, kreye youn dabò",
         "inputs": "Antre",
         "introduction": "Entwodiksyon",
         "links": "Lyen",

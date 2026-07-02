@@ -199,6 +199,8 @@
         "inflows": "Inflows",
         "inflowMultiLocationHelp": "One Inflow can hold multiple inflow locations, each with its own hydrograph.",
         "inflowAddAnotherHint": "Adding here creates another inflow location in this Inflow. The + button in the Inflows list creates a separate Inflow instead — a scenario cannot combine two Inflows.",
+        "inflowSelectHydrograph": "Select hydrograph",
+        "inflowNoHydrographsAvailable": "No hydrographs available, create one first",
         "inputs": "Inputs",
         "introduction": "Introduction",
         "links": "Links",
