@@ -1050,8 +1050,16 @@ describe('Hydrology Plugin', () => {
 
             const valueInputs = container.querySelectorAll('table.time-series-table tbody input[type="number"]');
             expect(valueInputs.length).toBe(2);
+            // change + blur are two SEPARATE native events; each gets its own
+            // act() so React flushes TableCell's onChange state update (a
+            // fresh 'value' closure) before onBlur reads it. Batching both
+            // inside one act() call defers the flush past onBlur, so onBlur's
+            // closure would read the PRE-edit value (a real repro gap this
+            // regression test hit — see ManualPasteGrid-test.js TASK-2081).
             act(() => {
                 fireEvent.change(valueInputs[0], {target: {value: '100'}});
+            });
+            act(() => {
                 fireEvent.blur(valueInputs[0]);
             });
 

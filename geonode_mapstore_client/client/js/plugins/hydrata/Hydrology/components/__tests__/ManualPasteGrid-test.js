@@ -141,8 +141,18 @@ describe('TASK-2081 (epic-2077) — live update after committed edit', () => {
 
         const valueInputs = container.querySelectorAll('table.time-series-table tbody input[type="number"]');
         expect(valueInputs.length).toBe(2);
+        // change + blur are two SEPARATE native events; each gets its own
+        // act() so React flushes TableCell's onChange state update (a fresh
+        // 'value' closure) before onBlur reads it. Batching both inside one
+        // act() call defers the flush past onBlur, so onBlur's closure reads
+        // the PRE-edit value ('0', not '100') — this was the actual failure
+        // mode reproduced while root-causing TASK-2081 (a test bug, not an
+        // implementation bug: ManualPasteGrid's renderTick correctly forces
+        // a fresh re-render once onBlur commits the real typed value).
         act(() => {
             fireEvent.change(valueInputs[0], {target: {value: '100'}});
+        });
+        act(() => {
             fireEvent.blur(valueInputs[0]);
         });
 
