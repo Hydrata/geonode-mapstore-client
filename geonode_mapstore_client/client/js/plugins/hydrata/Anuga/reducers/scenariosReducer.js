@@ -10,7 +10,14 @@ import {
     SET_ANUGA_SCENARIO_ARCHIVE_FILTER,
     SELECT_ANUGA_SCENARIO,
     TOGGLE_SCENARIO_SELECTED,
-    SET_ANUGA_SCENARIO_IS_LOADED
+    SET_ANUGA_SCENARIO_IS_LOADED,
+    // TASK-2079 — build-dedup: BUILD_SCENARIO_ERROR previously had no
+    // reducer (action-only); a benign 409 (conflict: true) now stashes
+    // `buildConflict` on the scenario so it can render inline near the
+    // Build button instead of a toast.
+    BUILD_SCENARIO,
+    BUILD_SCENARIO_SUCCESS,
+    BUILD_SCENARIO_ERROR
 } from "../actionsAnuga";
 
 const initialState = {
@@ -201,6 +208,40 @@ export default (state = initialState, action) => {
                 ...state.byId,
                 [action.scenarioId]: { ...existing, isLoaded: action.isLoaded }
             }
+        };
+    }
+    // TASK-2079 — build-dedup reducer for BUILD_SCENARIO_ERROR (previously
+    // action-only, no reducer at all). A fresh Build click optimistically
+    // clears any stale conflict lozenge left over from a prior 409 before
+    // the new request resolves.
+    case BUILD_SCENARIO: {
+        const id = action.scenarioId;
+        if (!id || !state.byId[id] || !state.byId[id].buildConflict) return state;
+        return {
+            ...state,
+            byId: { ...state.byId, [id]: { ...state.byId[id], buildConflict: null } }
+        };
+    }
+    case BUILD_SCENARIO_SUCCESS: {
+        const id = action.scenarioId;
+        if (!id || !state.byId[id] || !state.byId[id].buildConflict) return state;
+        return {
+            ...state,
+            byId: { ...state.byId, [id]: { ...state.byId[id], buildConflict: null } }
+        };
+    }
+    case BUILD_SCENARIO_ERROR: {
+        const id = action.scenarioId;
+        if (!id || !state.byId[id]) return state;
+        // A REAL failure (conflict: false) is surfaced by the 'Build failed'
+        // toast (comparisonActions.buildScenarioError) — no inline state to
+        // set here, but still clear any stale conflict lozenge.
+        const buildConflict = action.conflict
+            ? { runId: action.runId, status: action.runStatus, detail: action.detail }
+            : null;
+        return {
+            ...state,
+            byId: { ...state.byId, [id]: { ...state.byId[id], buildConflict } }
         };
     }
     default:

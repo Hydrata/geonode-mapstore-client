@@ -376,6 +376,18 @@ class AnugaScenarioMenuClass extends React.Component {
   // dispatch → arm) so the validation runs exactly once per click; the returned
   // signal lets the combined action arm its deferred run ONLY for a real build —
   // a save may not rebuild, so arming on it would leak a pending run.
+  //
+  // TASK-2079 — Build-and-Run piggyback survives a benign 409: this method
+  // dispatches BUILD_SCENARIO synchronously and returns 'build' regardless of
+  // how the (async) POST /build/ eventually resolves — 202 (this request's
+  // own build) OR 409 (the BE build-dedup guard found one ALREADY in flight
+  // for the scenario). Either way handleBuildAndRunClick below arms
+  // runAfterBuild, and maybeRunAfterBuild's gate watches the LIVE polled
+  // scenario status, not this dispatch's outcome — so a 409 still lets the
+  // armed run fire once the EXISTING in-flight build reaches 'built'. A 409
+  // only ever surfaces as the benign inline `buildConflict` info near the
+  // Build button (scenarioHeaderActions.js) — never the 'Build failed' toast,
+  // which stays reserved for a REAL failure (comparisonActions.buildScenarioError).
   dispatchBuild = (scenario) => {
       let dispatched;
       if (scenario.unsaved || !this.props.buildScenarioExplicit) {

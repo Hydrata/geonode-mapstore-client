@@ -154,6 +154,26 @@ const ScenarioHeaderActions = (props, context) => {
                     <Message msgId="hydrata.anuga.build" />
                 </Button> : null
             }
+            {/* TASK-2079: a benign 409 (build-dedup guard — a build is
+                already in flight/just-dispatched for this scenario) shows
+                inline info here instead of the 'Build failed' toast. Does
+                NOT block the Build-and-Run piggyback: maybeRunAfterBuild
+                (anugaScenarioMenu.js) arms off the synchronous dispatch
+                click, then rides the live scenario-status poll to observe
+                the EXISTING in-flight build through to 'built' regardless
+                of whether this POST 202'd or 409'd. */}
+            {canEdit && scenario.buildConflict ?
+                <span
+                    className="sv-scenario-build-conflict-info"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+                    {' '}
+                    {tr('hydrata.anuga.buildAlreadyInProgress',
+                        'A build is already in progress for this scenario.')}
+                </span> : null
+            }
             {canEdit && canRunScenario ?
                 <Button
                     bsStyle={'primary'}

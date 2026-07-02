@@ -1287,8 +1287,10 @@ describe('ANUGA Epics', () => {
         });
 
         it('buildScenarioEpic POSTs to /build/ and emits success thunk on 202', (done) => {
+            // TASK-2079: build() now creates the Run at request time and
+            // returns its id — {'status': 'created', run_id, scenario_id}.
             mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/42/build/').reply(202, {
-                status: 'building', scenario_id: 42
+                status: 'created', run_id: 501, scenario_id: 42
             });
 
             const action$ = mockActions([{ type: BUILD_SCENARIO, scenarioId: 42 }]);
@@ -1334,6 +1336,51 @@ describe('ANUGA Epics', () => {
                     );
                     expect(errorAction).toExist();
                     expect(errorAction.scenarioId).toBe(99);
+                    // A real (5xx) failure DOES show the 'Build failed' toast.
+                    const notification = dispatched.find(
+                        d => typeof d.type === 'string' && d.type.indexOf('NOTIFICATION') !== -1
+                    );
+                    expect(notification).toExist();
+                    done();
+                });
+        });
+
+        // TASK-2079: the BE build-dedup guard 409s when a build is already in
+        // flight for the scenario — this must surface as benign inline info
+        // near the Build button (scenarioHeaderActions.js reads
+        // scenario.buildConflict), NOT the 'Build failed' toast.
+        it('buildScenarioEpic emits a benign (non-toast) error thunk on 409 conflict', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/55/build/').reply(409, {
+                status: 'building', run_id: 501, detail: 'A build is already in progress for this scenario.'
+            });
+
+            const action$ = mockActions([{ type: BUILD_SCENARIO, scenarioId: 55 }]);
+            const emitted = [];
+
+            buildScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(typeof emitted[0]).toBe('function');
+                    const dispatched = [];
+                    emitted[0]((a) => dispatched.push(a));
+
+                    // NO 'Build failed' toast for a 409.
+                    const notification = dispatched.find(
+                        d => typeof d.type === 'string' && d.type.indexOf('NOTIFICATION') !== -1
+                    );
+                    expect(notification).toNotExist();
+
+                    // BUILD_SCENARIO_ERROR still fires, but flagged benign
+                    // with the real in-flight run's status/id carried through.
+                    const errorAction = dispatched.find(
+                        d => d.type === BUILD_SCENARIO_ERROR
+                    );
+                    expect(errorAction).toExist();
+                    expect(errorAction.scenarioId).toBe(55);
+                    expect(errorAction.conflict).toBe(true);
+                    expect(errorAction.runId).toBe(501);
+                    expect(errorAction.runStatus).toBe('building');
+                    expect(errorAction.detail).toBe('A build is already in progress for this scenario.');
                     done();
                 });
         });

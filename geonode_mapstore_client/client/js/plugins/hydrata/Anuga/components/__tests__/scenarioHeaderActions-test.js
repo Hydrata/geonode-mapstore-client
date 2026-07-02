@@ -304,6 +304,41 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
+    // TASK-2079: a 409 (build-dedup guard — a build is already in flight for
+    // this scenario) surfaces as benign inline info next to the Build
+    // button, NOT the 'Build failed' toast (that lives in
+    // comparisonActions.buildScenarioError). scenariosReducer.js stashes it
+    // on the scenario as `buildConflict`.
+    it('shows a benign inline conflict message when scenario.buildConflict is set', (done) => {
+        ReactDOM.render(
+            <ScenarioHeaderActions
+                scenario={{
+                    ...baseScenario,
+                    buildConflict: {runId: 501, status: 'building', detail: 'A build is already in progress for this scenario.'}
+                }}
+                canEdit canRunScenario
+            />,
+            container,
+            () => {
+                const info = container.querySelector('.sv-scenario-build-conflict-info');
+                expect(info).toExist();
+                expect(info.textContent).toInclude('A build is already in progress for this scenario.');
+                done();
+            }
+        );
+    });
+
+    it('does NOT show the conflict message when scenario.buildConflict is absent', (done) => {
+        ReactDOM.render(
+            <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+            container,
+            () => {
+                expect(container.querySelector('.sv-scenario-build-conflict-info')).toNotExist();
+                done();
+            }
+        );
+    });
+
     it('never calls window.confirm / window.alert', (done) => {
         ReactDOM.render(
             <ScenarioHeaderActions

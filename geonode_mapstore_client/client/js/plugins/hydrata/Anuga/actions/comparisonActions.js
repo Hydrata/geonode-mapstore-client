@@ -102,6 +102,41 @@ function buildScenarioSuccess(scenarioId) {
 
 function buildScenarioError(scenarioId, error) {
     return (dispatch) => {
+        // TASK-2079: a 409 means the BE build-dedup guard found a build
+        // ALREADY in flight (or just-dispatched, not yet picked up — see
+        // BUILD_DEDUP_BLOCKING_STATUS_VALUES, api_v2.py) for this scenario —
+        // it is NOT a failure, so no 'Build failed' toast. The reducer
+        // (scenariosReducer.js) picks up `conflict: true` below and stashes
+        // {runId, runStatus, detail} on the scenario as `buildConflict`,
+        // which scenarioHeaderActions.js renders as benign inline info next
+        // to the Build button. The Build-and-Run piggyback
+        // (anugaScenarioMenu.js's maybeRunAfterBuild) is UNAFFECTED by this
+        // 409 either way — it arms off the synchronous dispatch call, not
+        // this epic's response, and rides the live scenario-status poll to
+        // observe the EXISTING in-flight build through to 'built'.
+        // Shape note: MapStore's axios response interceptor (MapStore2/web/
+        // client/libs/ajax.js) rejects with `{...error.response, originalError:
+        // error}` — i.e. the response's OWN fields (status, data, …) are
+        // spread onto the error directly; `error.response` itself is NOT
+        // preserved on that object (only on error.originalError.response, the
+        // raw axios error). So `error.status` / `error.data` are the reliable
+        // reads here — `error?.response?.status` is always undefined post-
+        // interceptor, which is why it's listed first only as a defensive
+        // no-op fallback (?? short-circuits past it to error?.status).
+        const status = error?.response?.status ?? error?.status;
+        if (status === 409) {
+            const data = error?.response?.data ?? error?.data ?? {};
+            dispatch({
+                type: BUILD_SCENARIO_ERROR,
+                scenarioId,
+                error,
+                conflict: true,
+                runId: data.run_id,
+                runStatus: data.status,
+                detail: data.detail
+            });
+            return;
+        }
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Build failed',
@@ -111,7 +146,7 @@ function buildScenarioError(scenarioId, error) {
             uid: uuidv1(),
             level: 'error'
         });
-        dispatch({ type: BUILD_SCENARIO_ERROR, scenarioId, error });
+        dispatch({ type: BUILD_SCENARIO_ERROR, scenarioId, error, conflict: false });
     };
 }
 

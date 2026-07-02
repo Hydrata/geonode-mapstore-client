@@ -364,6 +364,15 @@ export const compareScenarioEpic = (action$, store) =>
 // when the user clicks Build on a scenario row that has no unsaved changes
 // (otherwise SAVE_ANUGA_SCENARIO is dispatched, which now only triggers a
 // rebuild when a BUILD_AFFECTING_FIELDS field is in the diff).
+//
+// TASK-2079: the BE build-dedup guard 409s this POST when a build is already
+// in flight for the scenario. buildScenarioError (comparisonActions.js)
+// distinguishes that 409 from a real failure — no 'Build failed' toast, just
+// a benign BUILD_SCENARIO_ERROR{conflict: true, runId, runStatus, detail} the
+// scenariosReducer stashes as `buildConflict`, surfaced inline near the
+// Build button (scenarioHeaderActions.js). This epic itself stays a plain
+// success/error passthrough; the 409-vs-real-failure branch lives entirely
+// in buildScenarioError so every caller of it gets the same benign handling.
 export const buildScenarioEpic = (action$, store) =>
     action$
         .ofType(BUILD_SCENARIO)
