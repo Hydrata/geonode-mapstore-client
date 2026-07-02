@@ -312,7 +312,9 @@ describe('Anuga Plugin', () => {
             expect(state.scenarios.allIds.length).toBe(1);
             const newId = state.scenarios.allIds[0];
             expect(state.scenarios.byId[newId]).toExist();
-            expect(state.scenarios.byId[newId].resolution).toBe(1000);
+            // TASK-2038 (F5): FE default matches the BE model default
+            // (gn_anuga/models/scenario.py resolution FloatField default=100).
+            expect(state.scenarios.byId[newId].resolution).toBe(100);
             expect(state.scenarios.byId[newId].id).toBe(null);
         });
 
