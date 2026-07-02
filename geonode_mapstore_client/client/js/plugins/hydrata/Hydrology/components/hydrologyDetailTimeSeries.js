@@ -332,31 +332,63 @@ export function resolveDerivePattern(item) {
 
 /**
  * TASK-2008 (epic-2001 W2b) — derive the RP x duration matrix axes from a FE
- * IDF table object. The FE represents an IDF as a grid (columnDefs = RP columns
- * + a duration column; rowData = one row per duration), so the axes come from
- * there — NOT from return_periods_yr / durations_min arrays (which the FE IDF
- * object does not carry). Shared by buildCells (preview/save) and the matrix
- * render so the cells and the grid axes never drift.
- *   - durations: each rowData row's positive `duration`.
- *   - aris: the RP columns (every columnDef except `duration`) that carry at
- *     least one non-zero intensity, parsed from the header (e.g. "100yr ARI"
- *     -> 100). An all-zero column = no IDF data for that RP -> dropped.
+ * IDF table object. Shared by buildCells (preview/save) and the matrix render
+ * so the cells and the grid axes never drift.
  *
- * @returns {{durations: number[], aris: number[]}}
+ * UAT 2026-07-02: the axes now reflect the IDF's DECLARED data, not the subset
+ * of columns that happen to carry values (the old all-zero-column drop meant a
+ * 9-RP table with values typed into only 2/10/100yr rendered just 3 columns).
+ *   - aris: the table's declared `return_periods_yr` axis (carried onto the
+ *     reducer instance as `returnPeriodsYr` — see createIdfTableFromJson),
+ *     falling back to every RP columnDef parsed from the header (e.g.
+ *     "100yr ARI" -> 100) for a local/unsaved table.
+ *   - durations: the declared `durations_min` axis (`durationsMin`), falling
+ *     back to each rowData row's positive `duration` (identical for a
+ *     BE-serialized table — the adapter emits one row per durations_min entry).
+ *   - derivable: per-cell IDF data presence, keyed `${ari}|${duration}`. A cell
+ *     whose rp x duration has no IDF value (0 / missing) is NOT derivable and
+ *     renders a disabled cross; buildCells skips it so no preview is requested.
+ *
+ * @returns {{durations: number[], aris: number[], derivable: Set<string>}}
  */
 export function deriveMatrixAxes(table) {
-    if (!table) return {durations: [], aris: []};
+    if (!table) return {durations: [], aris: [], derivable: new Set()};
     const columnDefs = table.columnDefs || [];
     const rowData = table.rowData || [];
-    const durations = rowData
-        .map(r => Number(r.duration))
-        .filter(d => d > 0);
-    const aris = columnDefs
-        .filter(c => c.accessorKey && c.accessorKey !== 'duration')
-        .filter(c => rowData.some(r => Number(r[c.accessorKey]) > 0))
-        .map(c => parseFloat(String(c.header || c.id).replace(/[^0-9.]/g, '')))
-        .filter(v => v > 0);
-    return {durations, aris};
+    // RP -> grid accessorKey, parsed from the fixed columnDefs headers.
+    const keyByAri = new Map(
+        columnDefs
+            .filter(c => c.accessorKey && c.accessorKey !== 'duration')
+            .map(c => [parseFloat(String(c.header || c.id).replace(/[^0-9.]/g, '')), c.accessorKey])
+    );
+    const durations = (
+        Array.isArray(table.durationsMin) && table.durationsMin.length > 0
+            ? table.durationsMin.map(Number)
+            : rowData.map(r => Number(r.duration))
+    ).filter(d => d > 0);
+    const aris = (
+        Array.isArray(table.returnPeriodsYr) && table.returnPeriodsYr.length > 0
+            ? table.returnPeriodsYr.map(Number)
+            : [...keyByAri.keys()]
+    )
+        .filter(v => v > 0)
+        .sort((a, b) => a - b);
+    // Per-cell data presence. An RP outside the fixed FE column set has no
+    // accessorKey — its values are invisible to the grid, so its cells stay
+    // non-derivable (mirrors the IDF editor, which renders only the fixed nine).
+    const rowByDuration = new Map(rowData.map(r => [Number(r.duration), r]));
+    const derivable = new Set();
+    for (const ari of aris) {
+        const key = keyByAri.get(ari);
+        if (!key) continue;
+        for (const duration of durations) {
+            const row = rowByDuration.get(duration);
+            if (row && Number(row[key]) > 0) {
+                derivable.add(`${ari}|${duration}`);
+            }
+        }
+    }
+    return {durations, aris, derivable};
 }
 
 const PreviewCard = ({preview, isFocused, onFocus, onAttach, attachInFlight, rainfallPk}) => {
@@ -1245,14 +1277,12 @@ const DesignStormDerive = ({
 
     const selectedTable = (idfTables || []).find(t => t.id === Number(selectedIdfTableId));
 
-    // Build the derive cells from the selected IDF. The FE represents an IDF as
-    // a grid (columnDefs = RP columns + a duration column; rowData = one row per
-    // duration), so the axes come from there — NOT from return_periods_yr /
-    // durations_min arrays (which the FE IDF object does not carry).
-    //   - durations: each rowData row's `duration`.
-    //   - ARIs: the RP columns (every columnDef except the duration column),
-    //     parsed from the header (e.g. "100yr ARI" -> 100), keeping only columns
-    //     that actually carry data (an all-zero column = no IDF data for that RP).
+    // Build the derive cells from the selected IDF. The axes come from
+    // deriveMatrixAxes (the table's DECLARED return_periods_yr / durations_min,
+    // grid columnDefs/rowData as fallback — see its doc), and only DERIVABLE
+    // cells (the rp x duration holds an IDF value) are sent for preview: a
+    // no-data cell must render a disabled cross, so requesting a preview for it
+    // (the BE would echo a 0 mm storm) would wrongly make it tickable.
     //   - timestep: per-cell, a divisor of the duration (~24 steps) so the BE's
     //     `duration_min % timestep_min == 0` rule holds for sub-60-min durations
     //     (a fixed 60 would 400 a 5/10/30-min duration). (Decision D3.)
@@ -1271,10 +1301,13 @@ const DesignStormDerive = ({
 
     const buildCells = useCallback((patternKey, customCurve, temporalPatternId) => {
         if (!selectedIdfTableId || !selectedTable || !patternKey) return [];
-        const {durations, aris} = deriveMatrixAxes(selectedTable);
+        const {durations, aris, derivable} = deriveMatrixAxes(selectedTable);
         const cells = [];
         for (const ari of aris) {
             for (const duration of durations) {
+                // UAT 2026-07-02: no IDF value at this rp x duration -> the
+                // matrix renders a disabled cross; don't request a preview.
+                if (!derivable.has(`${ari}|${duration}`)) continue;
                 const cell = {
                     pattern: patternKey,
                     ari,
@@ -1316,11 +1349,14 @@ const DesignStormDerive = ({
     const patternPreviews = (previews || []).filter(p => p.pattern === selectedPatternKey);
 
     // TASK-2008 (W2b): RP x duration matrix. Rows = durations, cols = return
-    // periods (both off the selected IDF). A cell is DERIVABLE iff a preview
-    // exists for that (ari, duration); a non-derivable cell renders a disabled
-    // cross (mirrors the BE silent-skip — e.g. a sparse-IDF gap). The tick key
-    // matches the preview's previewKey so save (handleSave) is unchanged.
-    const {durations: matrixDurations, aris: matrixAris} = deriveMatrixAxes(selectedTable);
+    // periods (both the selected IDF's DECLARED axes — UAT 2026-07-02). A cell
+    // is DERIVABLE iff the IDF holds a value at that (ari, duration) AND a
+    // preview exists for it; a non-derivable cell renders a disabled cross
+    // (a sparse-IDF gap, or the BE silent-skip). Gating on the derivable set
+    // (not just preview existence) also keeps a stale preview from a previously
+    // selected table from making a no-data cell tickable. The tick key matches
+    // the preview's previewKey so save (handleSave) is unchanged.
+    const {durations: matrixDurations, aris: matrixAris, derivable: matrixDerivable} = deriveMatrixAxes(selectedTable);
     const previewByCell = new Map(
         patternPreviews.map(p => [`${p.ari}|${p.duration_min}`, p])
     );
@@ -1446,9 +1482,40 @@ const DesignStormDerive = ({
                         <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
                     ) : (
                         <div>
-                            <p className="sv-design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>
-                                <Message msgId="hydrata.hydrology.deriveTickToSave" />
-                            </p>
+                            {/* Action row — UAT 2026-07-02: lives ABOVE the scrollable
+                                matrix (it used to render below it, below the fold and
+                                hard to find). Button id/behaviour/i18n key (TASK-2009)
+                                and the disabled gate are unchanged; placement only. */}
+                            <div style={{marginBottom: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10}}>
+                                <button
+                                    id="sv-ds-derive-save-btn"
+                                    type="button"
+                                    className={ticked.size > 0 && !saveInFlight ? 'sv-hydrology-button sv-ds-derive-save-btn' : 'sv-hydrology-button-disabled sv-ds-derive-save-btn'}
+                                    disabled={ticked.size === 0 || saveInFlight}
+                                    onClick={handleSave}
+                                    style={{
+                                        // TASK-1758 W3 conform — tokenised active/save green.
+                                        backgroundColor: ticked.size > 0 && !saveInFlight ? 'var(--sv-accent-green)' : 'rgba(39,202,59,0.4)',
+                                        minWidth: 120
+                                    }}
+                                >
+                                    {saveInFlight
+                                        ? 'Saving…'
+                                        // TASK-2009 (W2d): label is now 'Derive' (new i18n key);
+                                        // the dispatch (handleSave -> onSave -> mode='save') is unchanged.
+                                        : <Message msgId="hydrata.hydrology.deriveActionButton" />
+                                    }
+                                </button>
+                                <p className="sv-design-storm-hint" style={{margin: 0, fontSize: '0.82rem'}}>
+                                    <Message msgId="hydrata.hydrology.deriveTickToSave" />
+                                </p>
+                                {lastSavedCount !== null && (
+                                    <span className="sv-ds-derive-saved-toast" style={{fontSize: '0.82rem', color: 'var(--sv-accent-lime)'}}>
+                                        <Message msgId="hydrata.hydrology.deriveSavedToast" msgParams={{n: lastSavedCount.created}} />
+                                        {lastSavedCount.replaced > 0 ? ` (replaced ${lastSavedCount.replaced})` : ''}
+                                    </span>
+                                )}
+                            </div>
                             {/* TASK-2008 (W2b): RP x duration tick/cross matrix. */}
                             <MatrixGrid
                                 tableId="ds-derive-matrix"
@@ -1457,7 +1524,10 @@ const DesignStormDerive = ({
                                 rows={matrixRows}
                                 cols={matrixCols}
                                 renderCell={(row, col) => {
-                                    const preview = previewByCell.get(`${col.ari}|${row.duration}`);
+                                    const cellKey = `${col.ari}|${row.duration}`;
+                                    const preview = matrixDerivable.has(cellKey)
+                                        ? previewByCell.get(cellKey)
+                                        : undefined;
                                     if (!preview) {
                                         // Non-derivable (e.g. sparse-IDF gap): disabled cross.
                                         return (
@@ -1486,34 +1556,6 @@ const DesignStormDerive = ({
                                     );
                                 }}
                             />
-                            {/* Save these N button */}
-                            <div style={{marginTop: 10, display: 'flex', alignItems: 'center', gap: 10}}>
-                                <button
-                                    id="sv-ds-derive-save-btn"
-                                    type="button"
-                                    className={ticked.size > 0 && !saveInFlight ? 'sv-hydrology-button sv-ds-derive-save-btn' : 'sv-hydrology-button-disabled sv-ds-derive-save-btn'}
-                                    disabled={ticked.size === 0 || saveInFlight}
-                                    onClick={handleSave}
-                                    style={{
-                                        // TASK-1758 W3 conform — tokenised active/save green.
-                                        backgroundColor: ticked.size > 0 && !saveInFlight ? 'var(--sv-accent-green)' : 'rgba(39,202,59,0.4)',
-                                        minWidth: 120
-                                    }}
-                                >
-                                    {saveInFlight
-                                        ? 'Saving…'
-                                        // TASK-2009 (W2d): label is now 'Derive' (new i18n key);
-                                        // the dispatch (handleSave -> onSave -> mode='save') is unchanged.
-                                        : <Message msgId="hydrata.hydrology.deriveActionButton" />
-                                    }
-                                </button>
-                                {lastSavedCount !== null && (
-                                    <span className="sv-ds-derive-saved-toast" style={{fontSize: '0.82rem', color: 'var(--sv-accent-lime)'}}>
-                                        <Message msgId="hydrata.hydrology.deriveSavedToast" msgParams={{n: lastSavedCount.created}} />
-                                        {lastSavedCount.replaced > 0 ? ` (replaced ${lastSavedCount.replaced})` : ''}
-                                    </span>
-                                )}
-                            </div>
                         </div>
                     )}
                 </div>

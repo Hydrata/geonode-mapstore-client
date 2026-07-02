@@ -224,6 +224,20 @@ const createIdfTableFromJson = (idfTableJson) => {
     if (idfTableJson?.data && typeof idfTableJson.data === 'object') {
         idfTableInstance.data = idfTableJson.data;
     }
+    // TASK-2008 follow-up (UAT 2026-07-02): carry the table's DECLARED axes so
+    // the Derive matrix can render its RP columns from return_periods_yr (an
+    // ERA5-derived table may declare a subset of the fixed nine FE columns).
+    // Stored CAMEL-CASE on purpose: saveHydrologyItemEpic spreads the item's
+    // own props into the PATCH body, and a snake_case `return_periods_yr` own
+    // prop would flip the BE serializer's `arrays_supplied` guard
+    // (serializers_v2.IDFTableSerializerV2.to_internal_value) and silently drop
+    // the user's rowData edits on save. DRF ignores the unknown camelCase keys.
+    if (Array.isArray(idfTableJson?.return_periods_yr)) {
+        idfTableInstance.returnPeriodsYr = idfTableJson.return_periods_yr;
+    }
+    if (Array.isArray(idfTableJson?.durations_min)) {
+        idfTableInstance.durationsMin = idfTableJson.durations_min;
+    }
     return idfTableInstance;
 };
 

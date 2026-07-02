@@ -233,6 +233,28 @@ describe('Hydrology Plugin', () => {
             expect(state.idfTables[0].name).toBe('No data key');
         });
 
+        // UAT 2026-07-02 — the DECLARED IDF axes ride onto the instance so the
+        // Derive matrix can render every return_periods_yr column. Camel-case
+        // ON PURPOSE: saveHydrologyItemEpic spreads own props into the PATCH
+        // body, and an own snake_case `return_periods_yr` would flip the BE
+        // serializer's `arrays_supplied` guard and drop rowData edits on save.
+        it('SET_HYDROLOGY_IDF_TABLE_DATA carries declared axes as camelCase (never snake_case own props)', () => {
+            const state = reducer(initialState, {
+                type: SET_HYDROLOGY_IDF_TABLE_DATA,
+                payload: [{
+                    id: 4,
+                    name: 'Declared axes',
+                    return_periods_yr: [0.5, 2, 100],
+                    durations_min: [30, 60]
+                }]
+            });
+            const table = state.idfTables[0];
+            expect(table.returnPeriodsYr).toEqual([0.5, 2, 100]);
+            expect(table.durationsMin).toEqual([30, 60]);
+            expect(Object.prototype.hasOwnProperty.call(table, 'return_periods_yr')).toBe(false);
+            expect(Object.prototype.hasOwnProperty.call(table, 'durations_min')).toBe(false);
+        });
+
         it('should handle SET_HYDROLOGY_TEMPORAL_PATTERN_DATA', () => {
             const patternData = [
                 { id: 1, name: 'Pattern 1', data: [] }
@@ -1538,6 +1560,146 @@ describe('Hydrology Plugin', () => {
             expect(saveArgs.cells[0].temporal_pattern_id).toBe(51);
             cleanup(container);
         });
+
+        // UAT 2026-07-02 — the matrix columns are the IDF's DECLARED
+        // return_periods_yr axis (reducer carries it as returnPeriodsYr), NOT
+        // the subset of RP columns that happen to hold values. Cells whose
+        // rp x duration has no IDF value stay disabled crosses.
+        describe('UAT 2026-07-02 IDF-driven RP columns', () => {
+            const {deriveMatrixAxes} = require('../components/hydrologyDetailTimeSeries');
+
+            // The fixed nine-RP columnDefs the FE IdfTable always carries
+            // (classesHydrology.js) — the BE `data` adapter zero-fills every key.
+            const NINE_COLS = [
+                {accessorKey: 'duration', header: 'Duration (min)'},
+                {accessorKey: '0-5yrARI', header: '0.5yr ARI'},
+                {accessorKey: '1yrARI', header: '1yr ARI'},
+                {accessorKey: '2yrARI', header: '2yr ARI'},
+                {accessorKey: '5yrARI', header: '5yr ARI'},
+                {accessorKey: '10yrARI', header: '10yr ARI'},
+                {accessorKey: '20yrARI', header: '20yr ARI'},
+                {accessorKey: '50yrARI', header: '50yr ARI'},
+                {accessorKey: '100yrARI', header: '100yr ARI'},
+                {accessorKey: '500yrARI', header: '500yr ARI'}
+            ];
+            const zeroRow = (duration, values = {}) => ({
+                'duration': duration,
+                '0-5yrARI': 0, '1yrARI': 0, '2yrARI': 0, '5yrARI': 0, '10yrARI': 0,
+                '20yrARI': 0, '50yrARI': 0, '100yrARI': 0, '500yrARI': 0,
+                ...values
+            });
+            // Mirrors the UAT table (IDF Table 01a): nine DECLARED RPs, values
+            // typed into only the 2/10/100yr columns.
+            const uatTable = {
+                id: 8,
+                name: 'IDF Table 01a',
+                returnPeriodsYr: [0.5, 1, 2, 5, 10, 20, 50, 100, 500],
+                durationsMin: [30, 60],
+                columnDefs: NINE_COLS,
+                rowData: [
+                    zeroRow(30, {'2yrARI': 12, '10yrARI': 16, '100yrARI': 22}),
+                    zeroRow(60, {'2yrARI': 8, '10yrARI': 11, '100yrARI': 15})
+                ]
+            };
+            const uatPreviews = [];
+            [30, 60].forEach(duration => {
+                [2, 10, 100].forEach(ari => {
+                    uatPreviews.push({
+                        pattern: 'SCS_TYPE_II', ari, duration_min: duration,
+                        timestep_min: 5, total_depth_mm: 9.0
+                    });
+                });
+            });
+
+            it('renders a column per DECLARED return period, labelled {RP}yr', () => {
+                const container = renderDerive({
+                    idfTables: [uatTable], selectedIdfTableId: 8, previews: uatPreviews
+                });
+                const matrix = container.querySelector('#ds-derive-matrix');
+                expect(matrix).toExist();
+                const colHeaders = [...matrix.querySelectorAll('thead th.sv-matrix-grid-col-header')];
+                expect(colHeaders.map(th => th.textContent)).toEqual(
+                    ['0.5yr', '1yr', '2yr', '5yr', '10yr', '20yr', '50yr', '100yr', '500yr']
+                );
+                cleanup(container);
+            });
+
+            it('gapped table: only the cells holding IDF values are tickable; the rest cross', () => {
+                const container = renderDerive({
+                    idfTables: [uatTable], selectedIdfTableId: 8, previews: uatPreviews
+                });
+                const matrix = container.querySelector('#ds-derive-matrix');
+                // 2 durations x 3 populated RPs = 6 ticks; 2 x 9 - 6 = 12 crosses.
+                expect(matrix.querySelectorAll('.sv-ds-derive-tick').length).toBe(6);
+                expect(matrix.querySelectorAll('.sv-ds-derive-cell--disabled').length).toBe(12);
+                expect(matrix.querySelector('[id="ds-derive-tick-SCS_TYPE_II|2|30"]')).toExist();
+                cleanup(container);
+            });
+
+            it('a no-data cell stays a cross even when a (stale) preview exists for it', () => {
+                const stale = [...uatPreviews, {
+                    pattern: 'SCS_TYPE_II', ari: 0.5, duration_min: 60,
+                    timestep_min: 5, total_depth_mm: 0.0
+                }];
+                const container = renderDerive({
+                    idfTables: [uatTable], selectedIdfTableId: 8, previews: stale
+                });
+                expect(container.querySelector('[id="ds-derive-tick-SCS_TYPE_II|0.5|60"]')).toBe(null);
+                expect(container.querySelectorAll('.sv-ds-derive-tick').length).toBe(6);
+                cleanup(container);
+            });
+
+            it('a non-default DECLARED RP subset drives the columns (ERA5-style table)', () => {
+                const subsetTable = {
+                    ...uatTable,
+                    id: 9,
+                    returnPeriodsYr: [2, 100]
+                };
+                const container = renderDerive({
+                    idfTables: [subsetTable], selectedIdfTableId: 9, previews: uatPreviews
+                });
+                const matrix = container.querySelector('#ds-derive-matrix');
+                const colHeaders = [...matrix.querySelectorAll('thead th.sv-matrix-grid-col-header')];
+                expect(colHeaders.map(th => th.textContent)).toEqual(['2yr', '100yr']);
+                cleanup(container);
+            });
+
+            it('the auto-preview request skips no-data cells', () => {
+                let previewArgs = null;
+                const container = renderDerive({
+                    idfTables: [uatTable], selectedIdfTableId: 8, previews: [],
+                    onPreview: (cells, idfId) => { previewArgs = {cells, idfId}; }
+                });
+                expect(previewArgs).toExist();
+                expect(previewArgs.idfId).toBe(8);
+                expect(previewArgs.cells.length).toBe(6);
+                expect(previewArgs.cells.filter(c => [2, 10, 100].indexOf(c.ari) === -1).length).toBe(0);
+                cleanup(container);
+            });
+
+            it('deriveMatrixAxes prefers the declared axes and reports per-cell data presence', () => {
+                const axes = deriveMatrixAxes(uatTable);
+                expect(axes.aris).toEqual([0.5, 1, 2, 5, 10, 20, 50, 100, 500]);
+                expect(axes.durations).toEqual([30, 60]);
+                expect(axes.derivable.has('2|30')).toBe(true);
+                expect(axes.derivable.has('0.5|30')).toBe(false);
+                expect(axes.derivable.size).toBe(6);
+            });
+
+            it('deriveMatrixAxes falls back to every RP columnDef for a local table (no declared axes)', () => {
+                const localTable = {
+                    columnDefs: NINE_COLS,
+                    rowData: [zeroRow(60, {'2yrARI': 8})]
+                };
+                const axes = deriveMatrixAxes(localTable);
+                // ALL nine grid columns — including all-zero ones (they render
+                // as crosses), not just the columns that carry data.
+                expect(axes.aris).toEqual([0.5, 1, 2, 5, 10, 20, 50, 100, 500]);
+                expect(axes.durations).toEqual([60]);
+                expect(axes.derivable.has('2|60')).toBe(true);
+                expect(axes.derivable.size).toBe(1);
+            });
+        });
     });
 
     // TASK-2009 (epic-2001 W2d) — the action button reads 'Derive' (new i18n
@@ -1590,6 +1752,22 @@ describe('Hydrology Plugin', () => {
             // Message without intl context renders the msgId string.
             expect(btn.textContent).toContain('deriveActionButton');
             expect(btn.textContent).toNotContain('deriveSaveTheseN');
+            cleanup(container);
+        });
+
+        // UAT 2026-07-02 — placement: the action button renders ABOVE the
+        // scrollable RP x duration matrix (it used to sit below it, below the
+        // fold and hard to find). Same id/behaviour/i18n key; DOM order only.
+        it('UAT 2026-07-02: the action button renders before (above) the matrix', () => {
+            const container = render();
+            const btn = container.querySelector('#sv-ds-derive-save-btn');
+            const matrix = container.querySelector('#ds-derive-matrix');
+            expect(btn).toExist();
+            expect(matrix).toExist();
+            // The button must PRECEDE the matrix in document order.
+            const matrixFollowsButton =
+                !!(btn.compareDocumentPosition(matrix) & Node.DOCUMENT_POSITION_FOLLOWING);
+            expect(matrixFollowsButton).toBe(true);
             cleanup(container);
         });
 
