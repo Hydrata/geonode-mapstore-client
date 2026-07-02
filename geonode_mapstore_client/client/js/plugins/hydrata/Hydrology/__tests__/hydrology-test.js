@@ -995,6 +995,77 @@ describe('Hydrology Plugin', () => {
         });
     });
 
+    // TASK-2081 (epic-2077 W1) — full-loop regression through the REAL
+    // reducer + REAL react-redux connect() (not a stub/passthrough store).
+    // reducersHydrology.js's UPDATE_TIME_SERIES_ROW_DATA case deliberately
+    // mutates the TimeSeries instance IN PLACE — activeHydrologyItem keeps
+    // the SAME object identity before/after the dispatch (a stable ref so
+    // ag-grid isn't torn down mid-typing, epic-2077 D4). That means plain
+    // reference-equality-based connect() bail-out would otherwise skip
+    // re-rendering HydrologyTimeSeries entirely after a committed cell edit;
+    // ManualPasteGrid's local renderTick (ManualPasteGrid.js) is what forces
+    // the re-render that picks the mutated .rowData back up. This test proves
+    // the wiring end-to-end, not just ManualPasteGrid's own internal logic
+    // (see ManualPasteGrid-test.js TASK-2081 for the component-level cases).
+    describe('TASK-2081 real-reducer + real-connect: live update after committed edit', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { act } = require('react-dom/test-utils');
+        const { Provider } = require('react-redux');
+        const { createStore, combineReducers } = require('redux');
+        const { fireEvent } = require('@testing-library/react');
+        const { TimeSeries } = require('../classesHydrology');
+        const HydrologyTimeSeries = require('../components/hydrologyDetailTimeSeries').default;
+
+        function buildStore(item) {
+            return createStore(combineReducers({ hydrology: reducer }), {
+                hydrology: {
+                    activeHydrologyPage: 'hydrographs',
+                    activeHydrologyItem: item,
+                    hydrographs: [item],
+                    timeSeriess: [],
+                    draftTimeSeries: null
+                }
+            });
+        }
+
+        it('AC1: committing a cell edit through the real store updates the Estimated Total Flow Volume, no reload', () => {
+            const item = new TimeSeries();
+            item.series_type = 'hydrograph';
+            item.rowData = [
+                {timestamp: '2025-01-01T00:00:00', value: 0},
+                {timestamp: '2025-01-01T00:06:00', value: 0}
+            ];
+            const store = buildStore(item);
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            act(() => {
+                ReactDOM.render(
+                    React.createElement(Provider, {store}, React.createElement(HydrologyTimeSeries)),
+                    container
+                );
+            });
+            expect(container.textContent.includes('0.0 m3')).toBe(true);
+
+            const valueInputs = container.querySelectorAll('table.time-series-table tbody input[type="number"]');
+            expect(valueInputs.length).toBe(2);
+            act(() => {
+                fireEvent.change(valueInputs[0], {target: {value: '100'}});
+                fireEvent.blur(valueInputs[0]);
+            });
+
+            // Regression guard for the connect() bail-out gap: the reducer
+            // mutates the SAME TimeSeries instance in place, so this only
+            // passes if something (ManualPasteGrid's renderTick) forces a
+            // fresh re-render after the dispatch.
+            expect(container.textContent.includes('36000.0 m3')).toBe(true);
+
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
     // TASK-2024 (W5.2) — Hydrographs create panel: hideDerive removes Derive button + body.
     describe('TASK-2024 DesignStormCreatePanel hideDerive', () => {
         const React = require('react');

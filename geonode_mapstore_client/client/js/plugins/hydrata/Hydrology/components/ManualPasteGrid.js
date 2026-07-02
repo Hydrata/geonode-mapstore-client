@@ -100,14 +100,36 @@ const buildColumns = (isHydrograph) => [
 // ---------------------------------------------------------------------------
 
 const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchReplaceRowData}) => {
-    const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
-    const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
     // TASK-2026 (W5.4): derive isHydrograph from the item's series_type so the
     // value-column header shows 'Flow (m3/s)' only for hydrographs.
     const isHydrograph = activeHydrologyItem?.series_type === 'hydrograph';
     const columns = buildColumns(isHydrograph);
 
     const pasteDivRef = useRef();
+
+    // TASK-2081 (epic-2077): table + chart read activeHydrologyItem.rowData
+    // DIRECTLY below (no local rowData/columnDefs mirror — the old mirror was
+    // only "synced" by an effect that also listed rowData in its own deps,
+    // making it a no-op after the first render; columnDefs was never even read
+    // outside that effect). updateRowValues/setRowData (classesHydrology.js
+    // :549-557/:563-565) already replace .rowData with a NEW array immutably
+    // on a committed edit or paste.
+    //
+    // BUT: the reducer deliberately keeps the SAME activeHydrologyItem object
+    // reference on a data-only mutation (reducersHydrology.js UPDATE_TIME_SERIES_
+    // ROW_DATA / REPLACE_TIME_SERIES_ROW_DATA mutate the instance in place — a
+    // stable ref so the ag-grid editor isn't torn down mid-typing, epic-2077 D4).
+    // That means react-redux's connect() (pinned react-redux 6.0.0) sees an
+    // UNCHANGED mapStateToProps output and bails out of re-rendering the
+    // HydrologyTimeSeries tree entirely — reading activeHydrologyItem.rowData
+    // "directly" is not by itself reactive to an in-place mutation. The sibling
+    // editable grid (hydrologyDetailIdfTable.js commitCell/refreshChart) hits
+    // the exact same gap and solves it the same way: a local re-render trigger
+    // fired right alongside the commit dispatch. renderTick carries no data of
+    // its own (it is not a rowData mirror) — it exists only to force this
+    // component to re-evaluate its props, at which point activeHydrologyItem.
+    // rowData is read fresh.
+    const [, setRenderTick] = useState(0);
 
     const parsePastedData = (pastedData) => {
         return pastedData.split('\n')
@@ -127,7 +149,7 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                 let pastedData = paste.getData('text');
                 let newRowData = parsePastedData(pastedData);
                 dispatchReplaceRowData(activeHydrologyItem.id, newRowData);
-                setRowData(newRowData);
+                setRenderTick(t => t + 1);
             }
         };
         const pasteDiv = pasteDivRef.current;
@@ -137,18 +159,14 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
         };
     }, [activeHydrologyItem]);
 
-    useEffect(() => {
-        setColumnDefs(activeHydrologyItem?.columnDefs);
-        setRowData(activeHydrologyItem?.rowData);
-    }, [activeHydrologyItem, rowData, columnDefs]);
-
     const table = useReactTable({
         columns: columns,
-        data: rowData || [],
+        data: activeHydrologyItem?.rowData || [],
         getCoreRowModel: getCoreRowModel(),
         meta: {
             updateData: (rowIndex, columnId, value) => {
                 dispatchUpdateRowData(activeHydrologyItem.id, rowIndex, columnId, value);
+                setRenderTick(t => t + 1);
             }
         }
     });
@@ -222,8 +240,8 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                         for design storms. Derived from series_type on the item (data-truthful,
                         avoids adding a separate prop chain from the create panel). */}
                     <HyetographChart
-                        rowData={rowData || []}
-                        timestepMin={estimateTimestepMin(rowData || [])}
+                        rowData={activeHydrologyItem?.rowData || []}
+                        timestepMin={estimateTimestepMin(activeHydrologyItem?.rowData || [])}
                         title={activeHydrologyItem?.name || 'Preview'}
                         activeHydrologyPage={activeHydrologyItem?.series_type === 'hydrograph' ? 'hydrographs' : 'time-series'}
                     />
