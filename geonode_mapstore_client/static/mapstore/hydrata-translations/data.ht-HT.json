@@ -425,6 +425,8 @@
         "hydrographDropdownLabel": "Idwograf",
         "hyetographDropdownLabel": "Iyetograf / Tanpèt konsepsyon",
         "noHydrographData": "Poko gen done pou idwograf sa a.",
+        "hydrographPickerEmptyHint": "Poko gen idwograf — kreye youn nan Idwoloji → Idwograf yo.",
+        "hydrographPickerOpenLink": "Louvri Idwoloji → Idwograf yo",
         "backToList": "Tounen nan lis la",
         "derivePreviewComingSoon": "Apèsi ak Sove ap vini nan pwochen etap la.",
         "deriveSaveTheseN": "Sove {n} sa yo",

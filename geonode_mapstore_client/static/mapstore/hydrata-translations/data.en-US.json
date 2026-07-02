@@ -433,6 +433,8 @@
         "hydrographDropdownLabel": "Hydrograph",
         "hyetographDropdownLabel": "Hyetograph / Design Storm",
         "noHydrographData": "No data for this hydrograph yet.",
+        "hydrographPickerEmptyHint": "No hydrographs yet — create one under Hydrology → Hydrographs.",
+        "hydrographPickerOpenLink": "Open Hydrology → Hydrographs",
         "backToList": "Back to list",
         "derivePreviewComingSoon": "Preview & Save coming in the next step.",
         "deriveSaveTheseN": "Save these {n}",

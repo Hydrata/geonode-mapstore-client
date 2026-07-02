@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getDiscriminator } from '../discriminatorRegistry';
 
 // Resolve the effective render component / fetch loader for a choice.
@@ -39,6 +39,13 @@ const resolveFetch = (choice) => {
  *   onChange   — `(newValue) => void`. Receives the full value object;
  *                NOT wrapped by DiscriminatorPicker.
  *   projectId  — optional, threaded into per-kind `fetch(projectId)`.
+ *   dispatch   — optional. Passed straight through to the active render
+ *                component (e.g. TimeSeriesSelect uses it to open the
+ *                Hydrology panel from an empty-state link — TASK-2082).
+ *   hydrologyMainMenuOpen — optional bool. When this transitions
+ *                true -> false (the Hydrology panel just closed), the
+ *                currently active kind's options are refetched — see
+ *                "refetch on return" below.
  *
  * field.choices = [{ kind, label, options?, fetch?, render }]
  *   kind     — string identifier; appears as the radio value + as value.kind.
@@ -119,7 +126,7 @@ const resolveFetch = (choice) => {
  *       projectId={4}
  *   />
  */
-export const DiscriminatorPicker = ({ field, value, onChange, projectId }) => {
+export const DiscriminatorPicker = ({ field, value, onChange, projectId, dispatch, hydrologyMainMenuOpen }) => {
     const choices = Array.isArray(field?.choices) ? field.choices : [];
     const fallbackKind = choices[0]?.kind;
     // Initial radio state: seed from value.kind when it matches a declared
@@ -203,6 +210,57 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId }) => {
         return () => { cancelled = true; };
     }, [projectId]);
 
+    // TASK-2082 — refetch a single kind's options on demand. The mount-time
+    // effect above only re-runs on [projectId], so a hydrograph/timeseries
+    // row created AFTER mount (e.g. via the Hydrology panel) never appears
+    // in an already-mounted picker without this. Skips kinds with injected
+    // `options` (test/bypass path), same guard as the mount-time fetch.
+    const refetchKind = (kindToRefetch) => {
+        const choice = choices.find(c => c.kind === kindToRefetch);
+        if (!choice) return;
+        const fetchFn = resolveFetch(choice);
+        if (typeof fetchFn !== 'function') return;
+        if (Array.isArray(choice.options)) return;
+        setLoadingByKind(prev => ({ ...prev, [choice.kind]: true }));
+        Promise.resolve()
+            .then(() => fetchFn(projectId))
+            .then(list => {
+                const arr = Array.isArray(list) ? list : [];
+                setOptionsByKind(prev => ({ ...prev, [choice.kind]: arr }));
+                setLoadingByKind(prev => ({ ...prev, [choice.kind]: false }));
+                setErrorByKind(prev => ({ ...prev, [choice.kind]: null }));
+            })
+            .catch(err => {
+                setErrorByKind(prev => ({
+                    ...prev,
+                    [choice.kind]: err?.message || 'Failed to load'
+                }));
+                setOptionsByKind(prev => ({ ...prev, [choice.kind]: [] }));
+                setLoadingByKind(prev => ({ ...prev, [choice.kind]: false }));
+            });
+    };
+
+    // TASK-2082 — "menu-close" refetch trigger. This picker renders a plain
+    // HTML <select> (not react-select), so there is no menu-open/menu-close
+    // event to hook — worse, the select is `disabled` whenever its options
+    // list is empty (see TimeSeriesSelect), and a disabled control can never
+    // receive focus, so an onFocus-only refetch can NEVER fire for the exact
+    // "zero hydrographs -> create one -> come back" case this exists for.
+    // The reliable equivalent available in this app is the Hydrology panel's
+    // own open/close state: VectorDrawPopup (and this picker inside it) is a
+    // separate top-level plugin that stays mounted the whole time the
+    // Hydrology panel is open, so we detect the user's return by watching
+    // `hydrologyMainMenuOpen` go true -> false and refetch the active kind
+    // then. onFocus (in TimeSeriesSelect) covers the general/non-empty case.
+    const hydrologyMainMenuOpenRef = useRef(hydrologyMainMenuOpen);
+    useEffect(() => {
+        const wasOpen = hydrologyMainMenuOpenRef.current;
+        hydrologyMainMenuOpenRef.current = hydrologyMainMenuOpen;
+        if (wasOpen && !hydrologyMainMenuOpen) {
+            refetchKind(kind);
+        }
+    }, [hydrologyMainMenuOpen]);
+
     // Radio change handler — emits the minimal reset value `{kind: newKind}`.
     // Each kind's render component fills in its own keys on the next user
     // interaction; this prevents stale keys from a previous kind leaking
@@ -256,6 +314,8 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId }) => {
                     loading={activeLoading}
                     error={activeError}
                     field={field}
+                    dispatch={dispatch}
+                    onRefetchOptions={() => refetchKind(kind)}
                 />
             ) : null}
         </div>

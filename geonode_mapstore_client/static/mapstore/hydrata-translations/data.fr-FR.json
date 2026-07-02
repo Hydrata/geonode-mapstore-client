@@ -425,6 +425,8 @@
         "hydrographDropdownLabel": "Hydrogramme",
         "hyetographDropdownLabel": "Hyétogramme / Pluie de projet",
         "noHydrographData": "Aucune donnée pour cet hydrogramme pour le moment.",
+        "hydrographPickerEmptyHint": "Aucun hydrogramme pour le moment — créez-en un dans Hydrology → Hydrogrammes.",
+        "hydrographPickerOpenLink": "Ouvrir Hydrology → Hydrogrammes",
         "backToList": "Retour à la liste",
         "derivePreviewComingSoon": "L'aperçu et l'enregistrement arrivent à l'étape suivante.",
         "deriveSaveTheseN": "Enregistrer ces {n}",
