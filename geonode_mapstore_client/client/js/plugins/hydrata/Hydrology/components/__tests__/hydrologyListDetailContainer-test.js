@@ -23,6 +23,9 @@ import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 
 import { HydrologyListDetailContainerClass, HydrologyListDetailContainer } from '../hydrologyListDetailContainer';
+// UAT 2026-07-02 — real TimeSeries class for the create-mode footer tests (the
+// draft must carry the temp-… id + rowData/columnDefs the create panel reads).
+import { TimeSeries } from '../../classesHydrology';
 
 // Minimal passthrough Redux store so connected child components (HydrologyDetailIdfDerive)
 // can find a store in context without needing any real state.
@@ -452,5 +455,186 @@ describe('TASK-1509 — Save disabled on invalid custom curve', () => {
         renderConnected(validCustom);
         const save = saveButton();
         expect(save.disabled).toBe(false);
+    });
+});
+
+// UAT 2026-07-02 — footer Save/Delete visibility. Save is the SOLE dispatcher
+// of saveHydrologyItem (the only PATCH/POST path for every editor this
+// container hosts — grid/curve/text edits all merely mark Redux `unsaved`),
+// so it must stay wherever an item is being edited. The footer is hidden only
+// where both buttons are no-ops/footguns:
+//   • no active item (Save would POST undefined; Delete would TypeError in
+//     the delete epic);
+//   • the Design-Storms Create panel Derive tab, whose own "Derive & Save"
+//     button persists via saveDesignStormsRequest (a footer Save there would
+//     POST the empty draft as a junk row).
+// Delete is additionally hidden for a never-persisted temp-id draft (nothing
+// on the BE to DELETE — the request could only 404).
+describe('UAT 2026-07-02 — footer Save/Delete visibility', () => {
+    let container;
+    const noop = () => {};
+
+    const baseProps = {
+        activeHydrologyItems: [],
+        setActiveHydrologyItem: noop,
+        setActiveHydrologyPage: noop,
+        updateActiveHydrologyItem: noop,
+        saveHydrologyItem: noop,
+        createHydrologyForm: noop,
+        deleteHydrologyItem: noop,
+        canManageHydrology: true
+    };
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        if (container.parentNode) { container.parentNode.removeChild(container); }
+    });
+
+    // Store for renders whose detail children are connected components. The
+    // manager role turns canManageAnugaMap → canManageHydrology ON for the
+    // connected-container cases.
+    function makeStore(hydrologyExtra = {}) {
+        const state = {
+            hydrology: {
+                activeHydrologyPage: 'time-series',
+                activeHydrologyItem: null,
+                timeSeriess: [],
+                hydrographs: [],
+                idfTables: [],
+                temporalPatterns: [],
+                idfDerive: { lat: null, lon: null },
+                ...hydrologyExtra
+            },
+            anuga: { projects: { data: { id: 1, my_role: 'manager' } } }
+        };
+        return createStore((s = state) => s, state);
+    }
+
+    function renderConnected(item) {
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <Provider store={makeStore({
+                    activeHydrologyPage: 'temporal-pattern',
+                    activeHydrologyItem: item,
+                    temporalPatterns: [item]
+                })}>
+                    <HydrologyListDetailContainer/>
+                </Provider>,
+                container
+            );
+        });
+    }
+
+    // A valid custom temporal pattern (mirrors the TASK-1509 fixtures) so the
+    // connected render's customCurveError stays null; only the id varies.
+    const patternItem = (id) => ({
+        id, name: 'C', unsaved: true, pattern_type: 'custom',
+        rowData: [{t: 0, cum: 0}, {t: 0.5, cum: 60}, {t: 1, cum: 100}]
+    });
+
+    it('hides the footer entirely when no item is selected', () => {
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <HydrologyListDetailContainerClass
+                    {...baseProps}
+                    activeHydrologyPage="temporal-pattern"
+                    activeHydrologyItem={null}
+                />,
+                container
+            );
+        });
+        // "Select an item" placeholder renders; no Save/Delete to act on.
+        expect(container.querySelector('#hydrology-detail-container')).toExist();
+        expect(container.querySelector('#hydrology-list-detail-footer')).toNotExist();
+    });
+
+    it('shows Delete + Save for a PERSISTED active item (manager)', () => {
+        renderConnected(patternItem(5));
+        const footer = container.querySelector('#hydrology-list-detail-footer');
+        expect(footer).toExist();
+        const buttons = footer.querySelectorAll('button');
+        expect(buttons.length).toBe(2);
+        // Delete first (red), Save last (green) — assert via the inline tokens.
+        expect(buttons[0].style.backgroundColor).toInclude('glyph-delete');
+        expect(buttons[1].style.backgroundColor).toInclude('accent-green');
+    });
+
+    it('hides Delete (keeps Save) for a never-persisted temp-id item', () => {
+        renderConnected(patternItem('temp-abc123'));
+        const footer = container.querySelector('#hydrology-list-detail-footer');
+        expect(footer).toExist();
+        const buttons = footer.querySelectorAll('button');
+        // Save only — a temp-… draft has no BE row to DELETE.
+        expect(buttons.length).toBe(1);
+        expect(buttons[0].style.backgroundColor).toInclude('accent-green');
+    });
+
+    it('Design-Storms Create panel: Input tab keeps Save (the POST path); Derive tab hides the footer', () => {
+        const draft = new TimeSeries();
+        // CREATE_HYDROLOGY_FORM stamps unsaved=true on every new draft
+        // (reducersHydrology) — mirror it so Save renders its enabled style.
+        draft.unsaved = true;
+        let instance = null;
+        const store = makeStore({ activeHydrologyItem: draft });
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <Provider store={store}>
+                    <HydrologyListDetailContainerClass
+                        ref={(el) => { instance = el; }}
+                        {...baseProps}
+                        activeHydrologyPage="time-series"
+                        activeHydrologyItem={draft}
+                    />
+                </Provider>,
+                container
+            );
+        });
+        // Input tab: the footer Save is the draft's ONLY persistence (POST)
+        // path — it must stay; Delete is hidden (temp-id draft).
+        ReactTestUtils.act(() => { instance.setState({ tsCreateMode: true, tsCreateTab: 'input' }); });
+        let footer = container.querySelector('#hydrology-list-detail-footer');
+        expect(footer).toExist();
+        expect(footer.querySelectorAll('button').length).toBe(1);
+        expect(footer.querySelectorAll('button')[0].style.backgroundColor).toInclude('accent-green');
+        // Derive tab: persistence is the Derive flow's own "Derive & Save"
+        // button — the footer disappears entirely.
+        ReactTestUtils.act(() => { instance.setState({ tsCreateTab: 'derive' }); });
+        expect(container.querySelector('#design-storm-create-panel')).toExist();
+        expect(container.querySelector('#hydrology-list-detail-footer')).toNotExist();
+    });
+
+    it('Hydrographs create mode keeps the footer even with a stale derive tab (page-scoped conditional)', () => {
+        const draft = new TimeSeries();
+        draft.series_type = 'hydrograph';
+        draft.unsaved = true; // mirrors CREATE_HYDROLOGY_FORM
+        let instance = null;
+        const store = makeStore({
+            activeHydrologyPage: 'hydrographs',
+            activeHydrologyItem: draft
+        });
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <Provider store={store}>
+                    <HydrologyListDetailContainerClass
+                        ref={(el) => { instance = el; }}
+                        {...baseProps}
+                        activeHydrologyPage="hydrographs"
+                        activeHydrologyItem={draft}
+                    />
+                </Provider>,
+                container
+            );
+        });
+        // hideDerive forces the Input tab on the Hydrographs page, so even a
+        // (theoretically) stale tsCreateTab='derive' must NOT hide the footer
+        // Save — it is the hydrograph draft's only POST path.
+        ReactTestUtils.act(() => { instance.setState({ tsCreateMode: true, tsCreateTab: 'derive' }); });
+        const footer = container.querySelector('#hydrology-list-detail-footer');
+        expect(footer).toExist();
+        expect(footer.querySelectorAll('button').length).toBe(1);
     });
 });

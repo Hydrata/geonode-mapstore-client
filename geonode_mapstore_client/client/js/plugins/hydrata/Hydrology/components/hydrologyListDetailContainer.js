@@ -395,6 +395,33 @@ class HydrologyListDetailContainerClass extends React.Component {
         // TASK-1557 (W2) — gate the footer Delete on MANAGER (mirrors the
         // per-row trash gate); the BE 403s a non-manager regardless.
         const canManageHydrology = this.props.canManageHydrology;
+        // UAT 2026-07-02 — footer Save/Delete visibility. Save is LOAD-BEARING:
+        // it is the SOLE dispatcher of saveHydrologyItem, i.e. the only
+        // PATCH/POST path for every editor this container hosts (IDF grid,
+        // temporal-pattern curve/preset, design-storm + hydrograph drafts and
+        // name/description edits — those all only mark Redux state `unsaved`).
+        // So it stays wherever an item is being edited, and the footer is
+        // hidden only where both buttons are no-ops or footguns:
+        //   • no active item — Save would POST `undefined`; Delete would
+        //     TypeError inside deleteHydrologyItemEpic. Nothing to act on.
+        //   • the Design-Storms Create panel's DERIVE tab — persistence there
+        //     is the Derive flow's own "Derive & Save" button
+        //     (saveDesignStormsRequest); the footer Save would POST the empty
+        //     draft as a junk Design Storm row.
+        // Delete is additionally hidden while the active item is a
+        // never-persisted draft (temp-… id from CREATE_HYDROLOGY_FORM): there
+        // is no BE row to DELETE (the request could only 404); discard is
+        // Back-to-list / selecting another row. The persisted test mirrors the
+        // save epic's own POST-vs-PATCH id check.
+        const activeItem = this.props.activeHydrologyItem;
+        const onDeriveCreateTab = this.props.activeHydrologyPage === 'time-series'
+            && this.state.tsCreateMode
+            && this.state.tsCreateTab === 'derive';
+        const showFooter = !!activeItem && !onDeriveCreateTab;
+        const activeItemIsPersisted = !!activeItem && (
+            typeof activeItem.id === 'number'
+            || (typeof activeItem.id === 'string' && !isNaN(Number(activeItem.id)))
+        );
         const IdfSubToggle = isIdfPage ? (
             <div className={"sv-hydrology-idf-subtoggle"} role="group" aria-label="IDF mode">
                 <button
@@ -572,10 +599,12 @@ class HydrologyListDetailContainerClass extends React.Component {
                         </div>
                     </div>
                 </div>
-                <div id={"hydrology-list-detail-footer"}>
+                {showFooter && (<div id={"hydrology-list-detail-footer"}>
                     {/* TASK-1438: shared ConfirmOverlay replaces the inline copy-paste.
-                        TASK-1557 (W2): the whole Delete affordance is MANAGER-gated. */}
-                    {canManageHydrology && (this.state.deleteConfirmVisible ? (
+                        TASK-1557 (W2): the whole Delete affordance is MANAGER-gated.
+                        UAT 2026-07-02: …and hidden for a never-persisted draft
+                        (nothing on the BE to delete — see showFooter block above). */}
+                    {canManageHydrology && activeItemIsPersisted && (this.state.deleteConfirmVisible ? (
                         <ConfirmOverlay
                             wrapperClassName="hydrology-delete-confirm"
                             buttonClassName="sv-hydrology-button"
@@ -608,7 +637,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                     >
                         <Message msgId="hydrata.hydrology.save" />
                     </button>
-                </div>
+                </div>)}
             </div>
         );
     }
