@@ -9,6 +9,8 @@ from django.conf import settings
 from django.templatetags.static import static
 from rest_framework.response import Response
 from django.core.cache import cache
+from django.contrib.admin.views.decorators import staff_member_required
+from django.views.generic import TemplateView
 
 
 def _parse_value(value, schema):
@@ -173,3 +175,17 @@ class PluginsConfigView(APIView):
         )
 
         return Response({"plugins": plugins})
+
+
+# TASK-1964 (epic 1952 W5.1) — staff-only run-actuals dashboard, top-level
+# /runs (operator: "stage the fe app at hydrata.com/runs", NOT /anuga/runs).
+#
+# staff_member_required is the server-side leg of the triple staff gate (see
+# AnugaRunsDashboard.jsx header for the other two): a non-staff request is
+# redirected to the admin login rather than ever receiving the dashboard
+# HTML/bundle. The page itself does no further DB work — it just serves the
+# shell template; all data comes from the already-staff-gated
+# /api/v2/anuga/admin/runs/ API (TASK-1962, IsAdminUser).
+runs_dashboard = staff_member_required(
+    TemplateView.as_view(template_name="geonode-mapstore-client/pages/runs.html")
+)

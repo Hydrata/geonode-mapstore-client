@@ -615,3 +615,15 @@ export function getAnugaConfig() {
         .then(r => r.data)
         .catch(() => ({ default_compute_backend: 'local' }));
 }
+
+// -- Staff run-actuals ledger (TASK-1964, epic 1952 W5.1) ------------------
+
+// GET /api/v2/anuga/admin/runs/ — staff-only (IsAdminUser), fleet-wide Batch
+// resource ledger (AdminRunResourceViewSetV2, TASK-1962/W4.1). Non-staff get
+// a 401/403 from the BE; this call does not itself gate access, it just
+// surfaces whatever the API returns. `params` carries the server-filterable
+// query params (see runsDashboardUtils.buildServerParams) — page_size
+// defaults to the API max (500) so the whole (small) corpus comes back in
+// one request.
+export const listAdminRunLedger = (params = {}) =>
+    axios.get(parseDevHostname('/api/v2/anuga/admin/runs/'), { params: { page_size: 500, ...params } });

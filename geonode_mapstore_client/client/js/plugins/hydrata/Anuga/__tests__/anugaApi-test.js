@@ -66,7 +66,9 @@ describe('anugaApi', () => {
             // TASK-1861 (W4.4) — multi-raster line-profile sampler
             'getTerrainProfile',
             // TASK-1943 (W2.6) — warm-tiles-on-map-open
-            'warmTiles'
+            'warmTiles',
+            // TASK-1964 (epic 1952 W5.1) — staff run-actuals ledger fetch
+            'listAdminRunLedger'
         ];
 
         expectedFunctions.forEach(name => {
@@ -75,7 +77,7 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 64 API functions', () => {
+        it('should export exactly 65 API functions', () => {
             // Branch baseline (epic/1587) ships 55 exported functions (the
             // historical "53→54" comment chain undercounted by one; the live
             // module is 55). TASK-1729 adds 4: presignTerrainUpload +
@@ -85,10 +87,11 @@ describe('anugaApi', () => {
             // Orphan-terrain self-heal adds 1: datasetExistsByPk = 62.
             // TASK-1881 (epic 1884 W3) adds 1: finalizeTerrainUploadWithRetry = 63.
             // TASK-1943 (W2.6) adds 1: warmTiles = 64.
+            // TASK-1964 (epic 1952 W5.1) adds 1: listAdminRunLedger = 65.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(64);
+            expect(exportedFunctions.length).toBe(65);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {

@@ -1,0 +1,551 @@
+/*
+ * TASK-1964/1965 (epic 1952 W5) — staff /runs run-actuals dashboard styling.
+ *
+ * Design brief: match the Hydrata frontend look on a full, light page (this is
+ * NOT a map-overlay panel, so the dark --sv-* glass tokens don't apply — we
+ * borrow only Hydrata's brand colours, Montserrat, 4px radius, and the status
+ * vocabulary). The signature is the CPU↔GPU duality rendered as a blue↔green
+ * spine (see MODE_COLORS in runsDashboardUtils.js) plus a faint triangular
+ * finite-volume-mesh motif in the navy hero — the most characteristic artifact
+ * of ANUGA's world.
+ *
+ * Scoped under .anuga-runs-dashboard so nothing leaks into the GeoNode chrome.
+ */
+
+.anuga-runs-dashboard {
+    /* Brand + surface tokens (Hydrata navy/blue + green accent) */
+    --ard-navy: #0c3756;
+    --ard-navy-2: #0a2a44;
+    --ard-brand: #397aab;
+    --ard-cpu: #3a7ca5;   /* CPU = baseline blue */
+    --ard-gpu: #2fa84f;   /* GPU = accelerated green */
+    --ard-lime: #cae33b;  /* the spark accent, used sparingly */
+    --ard-ink: #1b2b38;
+    --ard-muted: #5d6f7c;
+    --ard-faint: #8598a6;
+    --ard-line: #e3e9ef;
+    --ard-surface: #ffffff;
+    --ard-bg: #eef3f7;
+    --ard-ok: #2e9e4f;
+    --ard-ok-bg: #e7f6ec;
+    --ard-warn: #b7791f;
+    --ard-warn-bg: #fbf1dd;
+    --ard-err: #c8402f;
+    --ard-err-bg: #fbe9e6;
+    --ard-radius: 6px;
+    --ard-shadow: 0 1px 2px rgba(12, 55, 86, 0.06), 0 4px 16px rgba(12, 55, 86, 0.06);
+
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--ard-bg);
+    color: var(--ard-ink);
+    font-family: 'Montserrat', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    padding-bottom: 48px;
+}
+
+.anuga-runs-dashboard *,
+.anuga-runs-dashboard *::before,
+.anuga-runs-dashboard *::after {
+    box-sizing: border-box;
+}
+
+/* Tabular figures everywhere numbers matter — the numbers ARE the content. */
+.anuga-runs-dashboard .ard-kpi__value,
+.anuga-runs-dashboard .anuga-runs-grid td,
+.anuga-runs-dashboard .anuga-benchmark-table td {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* Neutralise any inherited container padding so the hero can run full width. */
+.gn-runs-page {
+    padding: 0;
+    margin: 0;
+}
+#anuga-runs-dashboard-root {
+    width: 100%;
+}
+
+/* ── Denied state ─────────────────────────────────────────────────────── */
+.anuga-runs-dashboard--denied {
+    max-width: 560px;
+    margin: 64px auto;
+    padding: 32px 36px;
+    background: var(--ard-surface);
+    border: 1px solid var(--ard-line);
+    border-left: 4px solid var(--ard-err);
+    border-radius: var(--ard-radius);
+    box-shadow: var(--ard-shadow);
+}
+.anuga-runs-dashboard--denied h2 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    color: var(--ard-navy);
+}
+.anuga-runs-dashboard--denied p {
+    margin: 0;
+    color: var(--ard-muted);
+}
+
+/* ── Hero band ────────────────────────────────────────────────────────── */
+.ard-hero {
+    position: relative;
+    background:
+        radial-gradient(120% 140% at 88% -20%, rgba(47, 168, 79, 0.22), transparent 55%),
+        linear-gradient(135deg, var(--ard-navy) 0%, var(--ard-navy-2) 100%);
+    color: #fff;
+    overflow: hidden;
+}
+/* Triangular finite-volume mesh motif — three line families at 0/60/120°. */
+.ard-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 34px),
+        repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 34px),
+        repeating-linear-gradient(120deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 34px);
+    pointer-events: none;
+}
+.ard-hero__inner {
+    position: relative;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 30px 32px 26px;
+}
+.ard-hero__eyebrow {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ard-lime);
+    margin-bottom: 8px;
+}
+.ard-hero__title {
+    margin: 0;
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+}
+.ard-hero__subtitle {
+    margin: 8px 0 0;
+    max-width: 640px;
+    font-size: 13.5px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+/* ── KPI band (inside hero) ───────────────────────────────────────────── */
+.ard-kpis {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+}
+.ard-kpi {
+    position: relative;
+    padding: 13px 15px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--ard-radius);
+    backdrop-filter: blur(2px);
+}
+.ard-kpi::after {
+    content: "";
+    position: absolute;
+    left: 15px;
+    bottom: 0;
+    width: 26px;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: var(--ard-lime);
+    opacity: 0.85;
+}
+.ard-kpi--status.is-ok::after { background: var(--ard-ok); }
+.ard-kpi--status.is-warn::after { background: #e0a800; }
+.ard-kpi--status.is-err::after { background: var(--ard-err); }
+.ard-kpi__label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.62);
+}
+.ard-kpi__value {
+    display: block;
+    margin-top: 5px;
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+}
+.ard-kpi__sub {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+}
+.ard-kpi__slash { color: rgba(255, 255, 255, 0.35); font-weight: 400; }
+.ard-mode-cpu { color: #8fc0e0; }
+.ard-mode-gpu { color: #8be0a3; }
+
+/* ── Filters toolbar ──────────────────────────────────────────────────── */
+.anuga-runs-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 16px;
+    max-width: 1440px;
+    margin: -16px auto 0;
+    padding: 16px 20px;
+    background: var(--ard-surface);
+    border: 1px solid var(--ard-line);
+    border-radius: var(--ard-radius);
+    box-shadow: var(--ard-shadow);
+    position: relative;
+    z-index: 2;
+}
+/* the toolbar sits in a padded rail so its shadow/rounding read on the bg */
+.ard-toolbar-rail {
+    padding: 0 32px;
+}
+.anuga-runs-filters > h4 {
+    width: 100%;
+    margin: 0 0 2px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ard-faint);
+}
+.ard-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ard-field > label,
+.anuga-runs-filters > label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ard-muted);
+}
+.anuga-runs-filters select,
+.anuga-runs-filters input[type="text"],
+.anuga-runs-filters input[type="date"] {
+    height: 32px;
+    min-width: 116px;
+    padding: 0 9px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ard-ink);
+    background: #fff;
+    border: 1px solid var(--ard-line);
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.anuga-runs-filters select:focus,
+.anuga-runs-filters input:focus {
+    border-color: var(--ard-brand);
+    box-shadow: 0 0 0 3px rgba(57, 122, 171, 0.15);
+}
+.ard-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ard-ink);
+    background: #f5f8fb;
+    border: 1px solid var(--ard-line);
+    border-radius: 4px;
+    cursor: pointer;
+}
+.ard-check input { margin: 0; cursor: pointer; }
+
+/* ── Layout: sections + cards ─────────────────────────────────────────── */
+.ard-main {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 32px;
+}
+.ard-section {
+    margin-top: 26px;
+}
+.ard-section__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ard-navy);
+}
+.ard-section__title::before {
+    content: "";
+    width: 4px;
+    height: 15px;
+    border-radius: 2px;
+    background: var(--ard-lime);
+}
+.ard-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.ard-cards--single { display: block; }
+
+.anuga-runs-chart {
+    min-width: 0;
+    padding: 16px 18px 14px;
+    background: var(--ard-surface);
+    border: 1px solid var(--ard-line);
+    border-radius: var(--ard-radius);
+    box-shadow: var(--ard-shadow);
+}
+.anuga-runs-chart--wide { width: 100%; }
+.anuga-runs-chart__title,
+.anuga-runs-chart h5 {
+    margin: 0 0 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ard-navy);
+}
+.anuga-runs-chart__empty {
+    margin: 0;
+    padding: 28px 8px;
+    color: var(--ard-faint);
+    font-size: 12.5px;
+    text-align: center;
+}
+/* recharts renders on white (per --sv-chart-surface note): keep axes legible */
+.anuga-runs-chart .recharts-cartesian-axis-tick text,
+.anuga-benchmark-chart .recharts-cartesian-axis-tick text {
+    fill: var(--ard-muted);
+    font-size: 11px;
+}
+.anuga-runs-chart .recharts-legend-item-text {
+    color: var(--ard-muted) !important;
+    font-size: 12px;
+}
+
+/* ── Loading / error / empty (main) ──────────────────────────────────── */
+.ard-state {
+    max-width: 1440px;
+    margin: 26px auto 0;
+    padding: 40px 32px;
+    text-align: center;
+    color: var(--ard-muted);
+    font-size: 14px;
+}
+.ard-state--error { color: var(--ard-err); }
+
+/* ── Run ledger table ─────────────────────────────────────────────────── */
+.ard-card--table {
+    width: 100%;
+    padding: 0;
+    overflow-x: auto;
+    background: var(--ard-surface);
+    border: 1px solid var(--ard-line);
+    border-radius: var(--ard-radius);
+    box-shadow: var(--ard-shadow);
+}
+.anuga-runs-grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+.anuga-runs-grid thead th {
+    position: sticky;
+    top: 0;
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ard-muted);
+    background: #f4f8fb;
+    border-bottom: 1px solid var(--ard-line);
+    white-space: nowrap;
+    user-select: none;
+}
+.anuga-runs-grid thead th:hover { color: var(--ard-navy); }
+.anuga-runs-grid tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eef2f6;
+    white-space: nowrap;
+    color: var(--ard-ink);
+}
+.anuga-runs-grid tbody tr:nth-child(even) td { background: #fafcfd; }
+.anuga-runs-grid tbody tr:hover td { background: #eff6fb; }
+/* Right-align the numeric columns (Triangles, Wall, $/run) */
+.anuga-runs-grid td.ard-num,
+.anuga-runs-grid th.ard-num { text-align: right; }
+.anuga-runs-grid td.ard-mono {
+    font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 11.5px;
+    color: var(--ard-muted);
+}
+
+/* Mode chip (CPU blue / GPU green) + status pills */
+.ard-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 11px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.ard-chip--cpu { color: #245b7d; background: #e2eef6; }
+.ard-chip--gpu { color: #1c7a3a; background: #e2f4e8; }
+.ard-pill {
+    display: inline-block;
+    padding: 2px 9px 2px 8px;
+    border-radius: 11px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+.ard-pill::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: 1px;
+    background: currentColor;
+}
+.ard-pill.is-ok { color: var(--ard-ok); background: var(--ard-ok-bg); }
+.ard-pill.is-warn { color: var(--ard-warn); background: var(--ard-warn-bg); }
+.ard-pill.is-err { color: var(--ard-err); background: var(--ard-err-bg); }
+
+/* ── CPU vs GPU showcase (the signature section) ─────────────────────── */
+.ard-section--showcase {
+    max-width: 1440px;
+    margin: 34px auto 0;
+    padding: 0 32px;
+}
+.anuga-cpu-vs-gpu-showcase {
+    padding: 24px 26px 26px;
+    background:
+        radial-gradient(90% 120% at 100% 0%, rgba(47, 168, 79, 0.06), transparent 60%),
+        var(--ard-surface);
+    border: 1px solid var(--ard-line);
+    border-top: 3px solid var(--ard-gpu);
+    border-radius: var(--ard-radius);
+    box-shadow: var(--ard-shadow);
+}
+.anuga-cpu-vs-gpu-showcase > h2 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ard-navy);
+}
+.anuga-benchmark-provenance {
+    margin: 6px 0 18px;
+    font-size: 11.5px;
+    color: var(--ard-faint);
+    max-width: 900px;
+}
+.anuga-benchmark-provenance strong { color: var(--ard-muted); }
+.anuga-cpu-vs-gpu-showcase h5 {
+    margin: 22px 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ard-navy);
+}
+/* Speedup hero stat */
+.ard-speedup-hero {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 4px 0 8px;
+    padding: 16px 20px;
+    background: linear-gradient(120deg, rgba(47, 168, 79, 0.10), rgba(202, 227, 59, 0.10));
+    border: 1px solid #dcecdf;
+    border-left: 4px solid var(--ard-gpu);
+    border-radius: var(--ard-radius);
+}
+.ard-speedup-hero__num {
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ard-gpu);
+    font-variant-numeric: tabular-nums;
+}
+.ard-speedup-hero__label {
+    font-size: 13px;
+    color: var(--ard-muted);
+}
+.ard-speedup-hero__label strong { color: var(--ard-navy); }
+.anuga-benchmark-chart { max-width: 640px; }
+
+.anuga-benchmark-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.anuga-benchmark-table th {
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ard-muted);
+    background: #f4f8fb;
+    border-bottom: 1px solid var(--ard-line);
+    white-space: nowrap;
+}
+.anuga-benchmark-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eef2f6;
+    white-space: nowrap;
+}
+.anuga-benchmark-table tbody tr:hover td { background: #f7fafc; }
+.anuga-benchmark-evidence {
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    color: var(--ard-faint);
+    text-transform: uppercase;
+}
+.ard-table-scroll { width: 100%; overflow-x: auto; }
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+    .ard-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 960px) {
+    .ard-cards { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+    .ard-hero__inner,
+    .ard-main,
+    .ard-toolbar-rail,
+    .ard-section--showcase { padding-left: 16px; padding-right: 16px; }
+    .ard-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ard-hero__title { font-size: 22px; }
+    .anuga-runs-chart { width: 100%; }
+}
+
+/* Respect reduced motion — nothing animates, but keep the contract explicit. */
+@media (prefers-reduced-motion: reduce) {
+    .anuga-runs-dashboard * { transition: none !important; }
+}

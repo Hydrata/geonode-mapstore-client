@@ -1,0 +1,34 @@
+{% extends "page.html" %}
+{% load static %}
+{% load client_version %}
+
+{% comment %}
+TASK-1964 (epic 1952 W5.1) — staff-only run-actuals dashboard shell.
+
+Extends page.html directly (same base the other pages/*.html use, e.g.
+datasets.html via resource_page_catalog.html) so we inherit the GeoNode
+head/header/footer/theme and the always-on _geonode_config.html include
+(auth/session context for the CSRF-carrying axios calls the bundle makes).
+
+Unlike the catalogue pages (datasets/maps/documents/...), this page does
+NOT load the full MapStore app bundle (gn-components.js) — it overrides
+ms_scripts with its own lightweight bundle (js/apps/gn-runs.jsx compiles to
+mapstore/dist/js/gn-runs.js) that mounts a plain React root. See
+gn-runs.jsx / AnugaRunsDashboard.jsx for why (no map, no plugin config, no
+Redux dependency — the full app bootstrap would be pure overhead here).
+
+Server-side staff gate lives on the view (views.py::runs_dashboard, wrapped
+in staff_member_required) — a non-staff GET never reaches this template.
+{% endcomment %}
+
+{% block page_class %}gn-runs-dashboard{% endblock %}
+
+{% block container %}
+    <div class="gn-runs-page">
+        <div id="anuga-runs-dashboard-root"></div>
+    </div>
+{% endblock container %}
+
+{% block ms_scripts %}
+    <script id="gn-runs-script" src="{% static 'mapstore/dist/js/gn-runs.js' %}?{% client_version %}"></script>
+{% endblock ms_scripts %}
