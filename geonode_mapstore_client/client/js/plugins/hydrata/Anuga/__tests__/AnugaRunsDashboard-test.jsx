@@ -1,6 +1,5 @@
 /**
- * TASK-1964 (epic 1952 W5.1) — /runs staff run-actuals dashboard.
- * (Extended by a follow-up commit for TASK-1965's CPU-vs-GPU showcase.)
+ * TASK-1964/1965 (epic 1952 W5) — /runs staff dashboard + CPU-vs-GPU showcase.
  *
  * Covers:
  *   - runsDashboardUtils pure helpers (server/client filter split, chart
@@ -10,8 +9,8 @@
  *   - the runs grid renders rows from a mocked API payload.
  *   - a filter narrows BOTH the grid and (by construction, since they share
  *     the same filteredRecords) the charts.
- *   - >=3 chart types render (tri-vs-walltime scatter, $/run, success-rate),
- *     and the dashboard renders gracefully when the ledger returns 0 rows.
+ *   - >=3 chart types render plus the CPU-vs-GPU benchmark showcase, and the
+ *     showcase still renders when the ledger returns 0 rows (empty-state).
  *
  * axios is mocked via axios-mock-adapter against the SAME ajax singleton
  * anugaApi.js imports (same relative depth as api/anugaApi.js — see
@@ -216,7 +215,7 @@ describe('AnugaRunsDashboard (component)', () => {
         }, 10);
     });
 
-    it('renders >=3 chart types (tri-vs-walltime, $/run, success-rate)', (done) => {
+    it('renders >=3 chart types plus the CPU-vs-GPU benchmark showcase', (done) => {
         mockAxios.onGet(LEDGER_URL).reply(200, { count: FIXTURE_RECORDS.length, results: FIXTURE_RECORDS });
 
         ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
@@ -225,11 +224,16 @@ describe('AnugaRunsDashboard (component)', () => {
             expect(host.querySelector('[data-testid="anuga-chart-tri-vs-walltime"]')).toExist();
             expect(host.querySelector('[data-testid="anuga-chart-cost-per-run"]')).toExist();
             expect(host.querySelector('[data-testid="anuga-chart-success-rate"]')).toExist();
+            expect(host.querySelector('[data-testid="anuga-cpu-vs-gpu-showcase"]')).toExist();
+            // the showcase is scenario data, not the ledger — assert its own
+            // provenance banner + comparison table rendered too.
+            expect(host.querySelector('[data-testid="anuga-benchmark-provenance"]')).toExist();
+            expect(host.querySelectorAll('[data-testid="anuga-benchmark-row"]').length).toBeGreaterThan(0);
             done();
         }, 10);
     });
 
-    it('empty-state: renders gracefully when the live ledger returns 0 rows', (done) => {
+    it('empty-state: the showcase still renders when the live ledger returns 0 rows', (done) => {
         mockAxios.onGet(LEDGER_URL).reply(200, { count: 0, results: [] });
 
         ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
@@ -237,6 +241,9 @@ describe('AnugaRunsDashboard (component)', () => {
         setTimeout(() => {
             expect(host.querySelector('[data-testid="anuga-runs-empty"]')).toExist();
             expect(host.querySelectorAll('[data-testid="anuga-runs-grid-row"]').length).toBe(0);
+            // the benchmark snapshot is independent of the ledger fetch.
+            expect(host.querySelector('[data-testid="anuga-cpu-vs-gpu-showcase"]')).toExist();
+            expect(host.querySelectorAll('[data-testid="anuga-benchmark-row"]').length).toBeGreaterThan(0);
             done();
         }, 10);
     });

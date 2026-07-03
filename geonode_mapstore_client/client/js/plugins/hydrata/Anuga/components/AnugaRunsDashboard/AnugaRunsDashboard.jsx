@@ -31,8 +31,10 @@ import RunsGrid from './RunsGrid';
 import TriVsWalltimeScatter from './charts/TriVsWalltimeScatter';
 import CostPerRunChart from './charts/CostPerRunChart';
 import SuccessRateChart from './charts/SuccessRateChart';
-// CpuVsGpuShowcase (TASK-1965, curated benchmark corpus) is wired in below —
-// see the follow-up commit that adds charts/CpuVsGpuShowcase.jsx.
+// TASK-1965 (W5.2) — curated CPU-vs-GPU benchmark corpus, always rendered
+// (independent of the live ledger fetch above — see its own header comment
+// for why the two data sources are kept separate).
+import CpuVsGpuShowcase from './charts/CpuVsGpuShowcase';
 
 const AnugaRunsDashboard = ({ user }) => {
     const [records, setRecords] = useState([]);
@@ -111,6 +113,7 @@ const AnugaRunsDashboard = ({ user }) => {
                     )}
                 </div>
             </div>
+            <CpuVsGpuShowcase />
         </div>
     );
 };
