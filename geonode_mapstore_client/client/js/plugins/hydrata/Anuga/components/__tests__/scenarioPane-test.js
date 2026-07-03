@@ -2,7 +2,9 @@ import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import {Simulate} from 'react-dom/test-utils';
+import Localized from '@mapstore/framework/components/I18N/Localized';
 import {ScenarioPane, formatBuildLog} from '../scenarioPane';
+const {enData} = require('../../../../../__tests__/fixtures/translations');
 
 /**
  * TASK-C-scenarios-miller Wave 3A — per-category pane assertions.
@@ -235,6 +237,159 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     done();
                 }
             );
+        });
+
+        // TASK-2083 (epic 2077) — inflow-row empty-state helper. Explains that
+        // an Inflow (the layer) can hold multiple inflow locations (features
+        // inside it), each with its own hydrograph.
+        describe('Inflow row multi-location helper (TASK-2083)', () => {
+            it('renders the helper when the scenario has no inflow assigned', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, inflow: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                        expect(help).toExist();
+                        expect(help.textContent).toInclude('hydrata.anuga.inflowMultiLocationHelp');
+                        done();
+                    }
+                );
+            });
+
+            it('omits the helper once the scenario has an inflow assigned', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={baseScenario /* inflow: 5, assigned */}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                        expect(help).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
+        // TASK-2085 (epic-2077, part (b)) — pre-build warning when the
+        // scenario's inflow-location series have mismatched first-timestamp
+        // anchors (scenario.inflow_anchor_mismatch, BE-computed).
+        describe('Inflow anchor-mismatch warning (TASK-2085)', () => {
+            const mismatchedScenario = {
+                ...baseScenario,
+                inflow_anchor_mismatch: {
+                    series: [
+                        {timeseries_id: 101, name: 'Hydrograph A', first_timestamp: '2000-01-01T00:00:00.000'},
+                        {timeseries_id: 102, name: 'Hydrograph B', first_timestamp: '2000-01-01T01:00:00.000'}
+                    ]
+                }
+            };
+
+            it('AC2 (mismatched): renders a visible warning (bare render, no intl — raw msgId fallback)', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={mismatchedScenario}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        const warning = container.querySelector('.sv-anuga-scenario-anchor-mismatch-warning');
+                        expect(warning).toExist();
+                        expect(warning.getAttribute('role')).toBe('alert');
+                        expect(warning.textContent).toInclude('hydrata.anuga.inflowAnchorMismatchWarning');
+                        done();
+                    }
+                );
+            });
+
+            // Mounts through the real Localized wrapper (IntlProvider), seeded with
+            // the REAL en-US translation file (mirrors terrainUploadCrsPanel-test.js's
+            // mountLocalized pattern) — proves the {names} msgParam actually threads
+            // through to FormattedMessage and interpolates BOTH series names, not
+            // just that the msgId was passed. The plain bare-render test above
+            // cannot prove this (Message.jsx's no-intl fallback ignores msgParams).
+            it('AC2 (mismatched, localized): interpolated copy names BOTH series', (done) => {
+                ReactDOM.render(
+                    <Localized locale="en-US" messages={enData.messages}>
+                        <ScenarioPane
+                            scenario={mismatchedScenario}
+                            selectedCategoryId={'inputs'}
+                            canEdit
+                            terrain={terrainOpts}
+                            boundaries={boundaryOpts}
+                            inflows={inflowOpts}
+                            rainfalls={rainfallOpts}
+                        />
+                    </Localized>,
+                    container,
+                    () => {
+                        const warning = container.querySelector('.sv-anuga-scenario-anchor-mismatch-warning');
+                        expect(warning).toExist();
+                        // No raw msgId leaking into the rendered copy.
+                        expect(warning.textContent).toNotMatch(/inflowAnchorMismatchWarning/);
+                        expect(warning.textContent).toInclude('Hydrograph A');
+                        expect(warning.textContent).toInclude('Hydrograph B');
+                        done();
+                    }
+                );
+            });
+
+            it('AC2 (matched): omits the warning when inflow_anchor_mismatch is null', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, inflow_anchor_mismatch: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-anchor-mismatch-warning')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the warning when the field is simply absent (legacy/older scenario payload)', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-anchor-mismatch-warning')).toNotExist();
+                        done();
+                    }
+                );
+            });
         });
 
         it('name field is readOnly when canEdit false', (done) => {

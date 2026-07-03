@@ -1,11 +1,19 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import { Button } from 'react-bootstrap';
 import axios from '../../../../../MapStore2/web/client/libs/ajax';
 import { getProjectId } from '../../Anuga/selectorsAnuga';
 import { register, get } from '../widgetRegistry';
 import { registerDiscriminator, DISCRIMINATOR_KIND } from '../discriminatorRegistry';
 import { DiscriminatorPicker } from './DiscriminatorPicker';
-import { ErrorStrip } from '../../SimpleView/components/primitives';
+import { ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
+import Message from '@mapstore/framework/components/I18N/Message';
+import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
+// TASK-2082 — the Inflow hydrograph picker's empty-state link opens the
+// Hydrology panel on the Hydrographs page. actionsHydrology.js is a leaf
+// module (no imports of its own) so this does not create an import cycle.
+import { setHydrologyMainMenu, setActiveHydrologyPage, setActiveHydrologyItem } from '../../Hydrology/actionsHydrology';
 
 // TASK-784 polish — all font / size / weight rules live in
 // vectorDrawPopup.css (`.sv-vector-draw-popup *` resets to inherit,
@@ -167,12 +175,54 @@ export const ConstantInput = ({ value, onChange, field }) => {
 // every user selection, keeping the Redux value's kind stable. Back-compat:
 // when value.kind is 'timeseries' (bdy_ / legacy rows), the emitted kind
 // stays 'timeseries'. When value is absent/undefined, falls back to 'timeseries'.
-export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) => {
+//
+// TASK-2082 — `dispatch` (optional) and `onRefetchOptions` (optional) are
+// threaded down from DiscriminatorPicker (which gets `dispatch` from the
+// FormField redux connect() default mapDispatchToProps, and computes
+// `onRefetchOptions` itself — see DiscriminatorPicker.js). Only the
+// HYDROGRAPH kind's empty state uses them:
+//   - `dispatch` opens the Hydrology panel on the Hydrographs page from the
+//     empty-state link so the user can go create one.
+//   - `onRefetchOptions` (wired to the select's onFocus) re-fetches this
+//     kind's options so a hydrograph created in the interim appears without
+//     a page reload. NOTE: a disabled <select> can never receive focus, so
+//     onFocus alone cannot cover the empty->non-empty transition — see the
+//     hydrologyMainMenuOpen close-transition effect in DiscriminatorPicker.js
+//     for the mechanism that actually closes that gap.
+// TASK-2084 (epic-2077) — `kind` (added below, alongside the pre-existing
+// props) is the ACTIVE CHOICE's kind, threaded down from DiscriminatorPicker's
+// own radio-selection state (see `<ActiveRender ... kind={kind} />` in
+// DiscriminatorPicker.js). It is the noun-sweep's kind-aware copy signal:
+// 'hydrograph' (Inflow) gets Hydrograph(s) wording; every other kind
+// (the boundary 'timeseries' kind, and 'hyetograph') keeps the existing
+// generic 'TimeSeries' copy untouched, per the epic-1970 decision that the
+// boundary 'Time' picker stays generic. `value?.kind` is intentionally NOT
+// the primary signal here — it is unset on a fresh form (no radio touched
+// yet / the kind-switch reset hasn't round-tripped through Redux), whereas
+// `kind` is correct from this component's very first render (a choice's
+// render is only ever mounted while that choice IS the active one). A
+// `value?.kind` fallback is kept only for defensive back-compat with any
+// caller that doesn't thread the new prop through.
+export const TimeSeriesSelect = ({ value, onChange, options, loading, error, dispatch, onRefetchOptions, kind }, context) => {
     const tsValue = (typeof value?.timeseries_id === 'number' || typeof value?.timeseries_id === 'string')
         ? value.timeseries_id
         : '';
     const list = Array.isArray(options) ? options : [];
     const isEmpty = !loading && list.length === 0;
+    const activeKind = kind || value?.kind || DISCRIMINATOR_KIND.TIMESERIES;
+    const isHydrographKind = activeKind === DISCRIMINATOR_KIND.HYDROGRAPH;
+    const isHydrographEmpty = isEmpty && isHydrographKind;
+    // <option> content is plain-text-only (HTML content model — and this
+    // codebase's own convention: <Message> renders a <span>, invalid inside
+    // <option>; see NetworksPane.js). Resolve via legacy context.messages
+    // instead, with an English fallback for pre-i18n-load / no-IntlProvider
+    // renders — mirrors the `tr` idiom in hydrologyDetailIdfTable.js /
+    // Anuga/scenarioHeaderActions.js.
+    const tr = (msgId, fallback) => {
+        const messages = (context && context.messages) || {};
+        const resolved = getMessageById(messages, msgId);
+        return resolved === msgId ? fallback : resolved;
+    };
     const handleChange = (e) => {
         const raw = e.target.value;
         const id = raw === '' ? null : parseInt(raw, 10);
@@ -182,12 +232,32 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) =
         const emitKind = value?.kind || DISCRIMINATOR_KIND.TIMESERIES;
         onChange({ kind: emitKind, timeseries_id: Number.isNaN(id) ? null : id });
     };
+    const handleFocus = () => {
+        if (typeof onRefetchOptions === 'function') {
+            onRefetchOptions();
+        }
+    };
+    // TASK-2082 — opens the Hydrology panel on the Hydrographs page. Mirrors
+    // hydrologyMainMenu.js's handleSelectCategory (the rail's own "jump to
+    // category X" handler): setActiveHydrologyItem(null) is added on top of
+    // the 2 actions named in the spec so the panel lands on a clean
+    // create/select state rather than whatever item was last active on a
+    // different page.
+    const handleOpenHydrology = (e) => {
+        e.preventDefault();
+        if (typeof dispatch === 'function') {
+            dispatch(setHydrologyMainMenu(true));
+            dispatch(setActiveHydrologyPage('hydrographs'));
+            dispatch(setActiveHydrologyItem(null));
+        }
+    };
     return (
         <React.Fragment>
             <select
                 className="time-data-picker-timeseries"
                 value={tsValue}
                 onChange={handleChange}
+                onFocus={handleFocus}
                 disabled={loading || isEmpty}
                 style={{flex: 1}}
             >
@@ -195,8 +265,12 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) =
                     {loading
                         ? 'Loading…'
                         : (isEmpty
-                            ? 'No TimeSeries available, create one first'
-                            : 'Select TimeSeries')}
+                            ? (isHydrographKind
+                                ? tr('hydrata.anuga.inflowNoHydrographsAvailable', 'No hydrographs available, create one first')
+                                : 'No TimeSeries available, create one first')
+                            : (isHydrographKind
+                                ? tr('hydrata.anuga.inflowSelectHydrograph', 'Select hydrograph')
+                                : 'Select TimeSeries'))}
                 </option>
                 {list.map(ts => (
                     <option key={ts.id} value={ts.id}>{ts.name}</option>
@@ -208,8 +282,37 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) =
                 is exempt from the popup font-uniformity walk. */}
             <ErrorStrip message={error} style={{margin: '4px 0 0 0'}} />
             {/* ErrorStrip self-hides when message is empty/null. */}
+            {/* TASK-2082 — the hydrograph-kind empty state gets actionable
+                copy + a link, replacing the "create one first" dead-end. A
+                <select><option> cannot host an interactive child element, so
+                this renders as a sibling block below the (disabled) select,
+                not inside the option text. */}
+            {isHydrographEmpty ? (
+                <EmptyState
+                    extraClassName="time-data-picker-hydrograph-empty"
+                    heading={<Message msgId="hydrata.hydrology.hydrographPickerEmptyHint" />}
+                    style={{alignItems: 'flex-start', textAlign: 'left', padding: '6px 0 0 0'}}
+                >
+                    <Button
+                        bsStyle="link"
+                        bsSize="small"
+                        className="time-data-picker-open-hydrology-link"
+                        style={{padding: 0}}
+                        onClick={handleOpenHydrology}
+                    >
+                        <Message msgId="hydrata.hydrology.hydrographPickerOpenLink" />
+                    </Button>
+                </EmptyState>
+            ) : null}
         </React.Fragment>
     );
+};
+
+// Pull intl messages off React legacy context so the `tr` helper above can
+// resolve the kind-aware placeholder copy at render time (mirrors
+// Hydrology/hydrologyDetailIdfTable.js + Anuga/scenarioHeaderActions.js).
+TimeSeriesSelect.contextTypes = {
+    messages: PropTypes.object
 };
 
 // Fetch helper for the 'timeseries' / 'hydrograph' / 'hyetograph' kinds.
@@ -236,7 +339,7 @@ export const fetchTimeSeries = (projectId, seriesType) => {
         });
 };
 
-export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
+export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOptions, dispatch, hydrologyMainMenuOpen }) => {
     // Build the choices descriptor for DiscriminatorPicker. The 'timeseries'
     // kind's `options` prop is the injection point used by tests + by
     // callers that want to bypass the per-form fetch; when undefined,
@@ -297,6 +400,8 @@ export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOp
                 value={value}
                 onChange={handleChange}
                 projectId={projectId}
+                dispatch={dispatch}
+                hydrologyMainMenuOpen={hydrologyMainMenuOpen}
             />
         </div>
     );
@@ -314,7 +419,7 @@ export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOp
 // kind-switch reset payload — the wrapper merges `defaultValue` with any
 // typed-existing values from the current `value` so toggling kinds doesn't
 // drop a value the user already typed.
-const DiscriminatorPickerWidget = ({ field, value, onChange, projectId }) => {
+const DiscriminatorPickerWidget = ({ field, value, onChange, projectId, dispatch, hydrologyMainMenuOpen }) => {
     const choices = Array.isArray(field?.choices) ? field.choices : [];
 
     const handleChange = (newValue) => {
@@ -346,6 +451,8 @@ const DiscriminatorPickerWidget = ({ field, value, onChange, projectId }) => {
                 value={value}
                 onChange={handleChange}
                 projectId={projectId}
+                dispatch={dispatch}
+                hydrologyMainMenuOpen={hydrologyMainMenuOpen}
             />
         </div>
     );
@@ -395,13 +502,24 @@ registerDiscriminator({ kind: DISCRIMINATOR_KIND.TIMESERIES, render: TimeSeriesS
 registerDiscriminator({ kind: DISCRIMINATOR_KIND.HYDROGRAPH, render: TimeSeriesSelect, fetch: (pid) => fetchTimeSeries(pid, 'hydrograph') });
 registerDiscriminator({ kind: DISCRIMINATOR_KIND.HYETOGRAPH, render: TimeSeriesSelect, fetch: (pid) => fetchTimeSeries(pid, 'hyetograph') });
 
-const FormField = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
+// TASK-2082 — `dispatch` and `hydrologyMainMenuOpen` are forwarded through to
+// every widget (most ignore them; only the hydrograph-family discriminator
+// picker uses them — see TimeSeriesSelect / DiscriminatorPicker.js).
+// `dispatch` is not passed explicitly by any caller — it arrives on the
+// CONNECTED default export below via react-redux's default
+// mapDispatchToProps (`dispatch => ({dispatch})`, injected automatically
+// when connect() is called with only mapStateToProps).
+const FormField = ({ field, value, onChange, projectId, timeSeriesOptions, dispatch, hydrologyMainMenuOpen }) => {
     const Component = get(field.type) || get('text');
-    return <Component field={field} value={value} onChange={onChange} projectId={projectId} timeSeriesOptions={timeSeriesOptions} />;
+    return <Component field={field} value={value} onChange={onChange} projectId={projectId} timeSeriesOptions={timeSeriesOptions} dispatch={dispatch} hydrologyMainMenuOpen={hydrologyMainMenuOpen} />;
 };
 
 const mapStateToProps = (state) => ({
-    projectId: getProjectId(state)
+    projectId: getProjectId(state),
+    // TASK-2082 — true while the Hydrology panel is open. DiscriminatorPicker
+    // watches this for a true->false ("the user just closed it, probably
+    // after creating a hydrograph") transition to refetch its options.
+    hydrologyMainMenuOpen: !!state?.hydrology?.showHydrologyMainMenu
 });
 
 // Default export is the redux-connected wrapper so the time-data-picker

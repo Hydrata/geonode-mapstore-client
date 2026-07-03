@@ -44,7 +44,10 @@ const makeState = () => ({
                 3: {
                     id: 3,
                     selected: true,
-                    latest_run: {
+                    // TASK-2078: getProfileTraces samples the latest COMPLETE run's
+                    // result rasters (a completed run is both latest_run and
+                    // latest_complete_run when no newer run exists).
+                    latest_complete_run: {
                         id: 99,
                         gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog' },
                         gn_layer_velocity_max: { name: 'geonode:run_42_3_99_velocity_max_cog' },

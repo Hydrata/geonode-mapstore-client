@@ -573,6 +573,54 @@ describe('Hydrology Plugin', () => {
                 expect(ts.rowData.length).toBeGreaterThan(0);
                 expect(ts.rowData.every(r => Number(r.value) === 0)).toBe(true);
             });
+
+            // TASK-2085 (epic-2077) AC1 — the seed used to be built via
+            // `new Date("2000-01-01T00:00:00").toISOString()`, which parses the
+            // naive literal as LOCAL time then converts to UTC — in any viewer
+            // ahead of UTC (e.g. UTC+10) that rolled the seed back to
+            // 1999-12-31. The fix writes the literal UTC string directly, so
+            // the seed year must read 2000 regardless of the viewer's
+            // timezone. Simulate a UTC+10 viewer by making any bare
+            // (timezone-less) ISO string passed to `new Date(...)` resolve as
+            // if parsed in UTC+10 — exactly how a real UTC+10 browser parses
+            // "2000-01-01T00:00:00" (no "Z"/offset) per the ES2015 Date Time
+            // String spec local-time fallback. The regression-era code would
+            // fail this (seeding 1999-12-31T14:00 under the stub); the fixed
+            // code seeds literal strings with no Date() call at all, so it
+            // passes independent of the stub.
+            it('AC1: TimeSeries() seeds rowData at 2000-01-01 even when the viewer is UTC+10 (no 1999 rollback)', () => {
+                const RealDate = global.Date;
+                class UtcPlus10Date extends RealDate {
+                    constructor(...args) {
+                        if (
+                            args.length === 1 &&
+                            typeof args[0] === 'string' &&
+                            !/[Zz]|[+-]\d{2}:?\d{2}$/.test(args[0])
+                        ) {
+                            // No timezone designator on the input string — a
+                            // UTC+10 browser resolves this as UTC+10 local time.
+                            super(`${args[0]}+10:00`);
+                        } else {
+                            super(...args);
+                        }
+                    }
+                }
+                global.Date = UtcPlus10Date;
+                try {
+                    delete require.cache[require.resolve('../classesHydrology')];
+                    const { TimeSeries } = require('../classesHydrology');
+                    const ts = new TimeSeries();
+                    expect(ts.rowData.length).toBeGreaterThan(0);
+                    ts.rowData.forEach(row => {
+                        expect(typeof row.timestamp).toBe('string');
+                        expect(row.timestamp.startsWith('2000-01-01')).toBe(true);
+                        expect(row.timestamp.startsWith('1999-12-31')).toBe(false);
+                    });
+                } finally {
+                    global.Date = RealDate;
+                    delete require.cache[require.resolve('../classesHydrology')];
+                }
+            });
         });
 
         it('should handle DELETE_HYDROLOGY_ITEM_SUCCESS for sv-idf-table', () => {
@@ -990,6 +1038,85 @@ describe('Hydrology Plugin', () => {
             const html = container.innerHTML;
             // 35 * 360 = 12600
             expect(html.includes('12600')).toBe(true);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // TASK-2081 (epic-2077 W1) — full-loop regression through the REAL
+    // reducer + REAL react-redux connect() (not a stub/passthrough store).
+    // reducersHydrology.js's UPDATE_TIME_SERIES_ROW_DATA case deliberately
+    // mutates the TimeSeries instance IN PLACE — activeHydrologyItem keeps
+    // the SAME object identity before/after the dispatch (a stable ref so
+    // ag-grid isn't torn down mid-typing, epic-2077 D4). That means plain
+    // reference-equality-based connect() bail-out would otherwise skip
+    // re-rendering HydrologyTimeSeries entirely after a committed cell edit;
+    // ManualPasteGrid's local renderTick (ManualPasteGrid.js) is what forces
+    // the re-render that picks the mutated .rowData back up. This test proves
+    // the wiring end-to-end, not just ManualPasteGrid's own internal logic
+    // (see ManualPasteGrid-test.js TASK-2081 for the component-level cases).
+    describe('TASK-2081 real-reducer + real-connect: live update after committed edit', () => {
+        const React = require('react');
+        const ReactDOM = require('react-dom');
+        const { act } = require('react-dom/test-utils');
+        const { Provider } = require('react-redux');
+        const { createStore, combineReducers } = require('redux');
+        const { fireEvent } = require('@testing-library/react');
+        const { TimeSeries } = require('../classesHydrology');
+        const HydrologyTimeSeries = require('../components/hydrologyDetailTimeSeries').default;
+
+        function buildStore(item) {
+            return createStore(combineReducers({ hydrology: reducer }), {
+                hydrology: {
+                    activeHydrologyPage: 'hydrographs',
+                    activeHydrologyItem: item,
+                    hydrographs: [item],
+                    timeSeriess: [],
+                    draftTimeSeries: null
+                }
+            });
+        }
+
+        it('AC1: committing a cell edit through the real store updates the Estimated Total Flow Volume, no reload', () => {
+            const item = new TimeSeries();
+            item.series_type = 'hydrograph';
+            item.rowData = [
+                {timestamp: '2025-01-01T00:00:00', value: 0},
+                {timestamp: '2025-01-01T00:06:00', value: 0}
+            ];
+            const store = buildStore(item);
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            act(() => {
+                ReactDOM.render(
+                    React.createElement(Provider, {store}, React.createElement(HydrologyTimeSeries)),
+                    container
+                );
+            });
+            expect(container.textContent.includes('0.0 m3')).toBe(true);
+
+            const valueInputs = container.querySelectorAll('table.time-series-table tbody input[type="number"]');
+            expect(valueInputs.length).toBe(2);
+            // change + blur are two SEPARATE native events; each gets its own
+            // act() so React flushes TableCell's onChange state update (a
+            // fresh 'value' closure) before onBlur reads it. Batching both
+            // inside one act() call defers the flush past onBlur, so onBlur's
+            // closure would read the PRE-edit value (a real repro gap this
+            // regression test hit — see ManualPasteGrid-test.js TASK-2081).
+            act(() => {
+                fireEvent.change(valueInputs[0], {target: {value: '100'}});
+            });
+            act(() => {
+                fireEvent.blur(valueInputs[0]);
+            });
+
+            // Regression guard for the connect() bail-out gap: the reducer
+            // mutates the SAME TimeSeries instance in place, so this only
+            // passes if something (ManualPasteGrid's renderTick) forces a
+            // fresh re-render after the dispatch.
+            expect(container.textContent.includes('36000.0 m3')).toBe(true);
+
             ReactDOM.unmountComponentAtNode(container);
             document.body.removeChild(container);
         });

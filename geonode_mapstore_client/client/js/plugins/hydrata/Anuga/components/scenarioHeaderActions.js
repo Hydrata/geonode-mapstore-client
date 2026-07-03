@@ -118,9 +118,16 @@ const ScenarioHeaderActions = (props, context) => {
 
     // Download is the built-package presigned URL; shown when the scenario is
     // BUILT (UAT #8) and also when complete so the result package stays
-    // reachable after a run finishes.
-    const showDownload = isBuilt || isComplete;
-    const downloadHref = scenario?.latest_run?.s3_package_url;
+    // reachable after a run finishes. TASK-2078: package download href/gate is
+    // a RESULT consumer per D1 — ALSO shown (and the href points there) when a
+    // latest_complete_run exists, even if a newer latest_run is now in-flight
+    // or errored (isBuilt/isComplete, derived from latest_run's status, would
+    // otherwise hide/break the download for that window). Falls back to
+    // latest_run's package for the plain built-but-not-yet-run case, where no
+    // complete run exists yet.
+    const latestCompleteRun = scenario?.latest_complete_run;
+    const showDownload = isBuilt || isComplete || !!latestCompleteRun;
+    const downloadHref = latestCompleteRun?.s3_package_url || scenario?.latest_run?.s3_package_url;
 
     const fireDebounced = (key, handler, eventName) => () => {
         if (handler) handler(scenario);
@@ -146,6 +153,26 @@ const ScenarioHeaderActions = (props, context) => {
                 >
                     <Message msgId="hydrata.anuga.build" />
                 </Button> : null
+            }
+            {/* TASK-2079: a benign 409 (build-dedup guard — a build is
+                already in flight/just-dispatched for this scenario) shows
+                inline info here instead of the 'Build failed' toast. Does
+                NOT block the Build-and-Run piggyback: maybeRunAfterBuild
+                (anugaScenarioMenu.js) arms off the synchronous dispatch
+                click, then rides the live scenario-status poll to observe
+                the EXISTING in-flight build through to 'built' regardless
+                of whether this POST 202'd or 409'd. */}
+            {canEdit && scenario.buildConflict ?
+                <span
+                    className="sv-scenario-build-conflict-info"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+                    {' '}
+                    {tr('hydrata.anuga.buildAlreadyInProgress',
+                        'A build is already in progress for this scenario.')}
+                </span> : null
             }
             {canEdit && canRunScenario ?
                 <Button

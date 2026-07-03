@@ -45,7 +45,11 @@ import { END_DRAWING, CHANGE_DRAWING_STATUS } from '../../../../../MapStore2/web
 // A WGS84 project so reprojection is a pass-through and we can assert the WKT
 // numerically.  The DEM map layer + terrain resource match across the geonode:
 // prefix (terrain gn_layer_name is bare).  The selected scenario carries a
-// latest_run with the three result gn_layer_* objects (geonode:-prefixed names).
+// latest_complete_run with the three result gn_layer_* objects (geonode:-prefixed
+// names) — TASK-2078: cross-section sampling reads latest_complete_run, NOT
+// latest_run (a newer in-flight/errored run must not blank/break the profile).
+// `latest_run` mirrors `latest_complete_run` here (the common single-run case);
+// tests that need latest_run/latest_complete_run to DIVERGE override it.
 const makeState = ({
     terrainLoaded = true,
     withResults = true,
@@ -71,6 +75,14 @@ const makeState = ({
                     selected: true,
                     latest_run: withResults ? {
                         id: 99,
+                        status: 'complete',
+                        gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog', title: 'Depth max' },
+                        gn_layer_velocity_max: { name: 'geonode:run_42_3_99_velocity_max_cog', title: 'Velocity max' },
+                        gn_layer_depth_integrated_velocity_max: { name: 'geonode:run_42_3_99_depthintegratedvelocity_max_cog', title: 'Momentum max' }
+                    } : null,
+                    latest_complete_run: withResults ? {
+                        id: 99,
+                        status: 'complete',
                         gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog', title: 'Depth max' },
                         gn_layer_velocity_max: { name: 'geonode:run_42_3_99_velocity_max_cog', title: 'Velocity max' },
                         gn_layer_depth_integrated_velocity_max: { name: 'geonode:run_42_3_99_depthintegratedvelocity_max_cog', title: 'Momentum max' }
@@ -175,7 +187,9 @@ describe('profileEpic — pure helpers (TASK-1861)', () => {
             // not sniffed from the layer name.
             const state = makeState();
             // Swap in temp-file-style names that DON'T contain the *_max tokens.
-            const run = state.anuga.scenarios.byId[3].latest_run;
+            // TASK-2078: getProfileTraces reads latest_complete_run, so mutate
+            // that (not latest_run) to affect the traces under test.
+            const run = state.anuga.scenarios.byId[3].latest_complete_run;
             run.gn_layer_depth_max.name = 'geonode:tmpabc_cog';
             run.gn_layer_velocity_max.name = 'geonode:tmpdef_cog';
             run.gn_layer_depth_integrated_velocity_max.name = 'geonode:tmpghi_cog';
@@ -189,6 +203,30 @@ describe('profileEpic — pure helpers (TASK-1861)', () => {
         it('keys match getProfileLayers exactly (no drift)', () => {
             const state = makeState();
             expect(getProfileTraces(state).map(t => t.key)).toEqual(getProfileLayers(state));
+        });
+
+        // TASK-2078 — cross-section sampling is a RESULT consumer (D1): it must
+        // read latest_complete_run, not latest_run, so a newer in-flight/errored
+        // run never blanks or breaks the profile tool.
+        describe('TASK-2078 — samples latest_complete_run, not latest_run', () => {
+            it('samples the complete run\'s rasters even when a newer, different latest_run is in-flight (AC1)', () => {
+                const state = makeState();
+                const scenario = state.anuga.scenarios.byId[3];
+                // Newer in-flight run, no result rasters at all yet — must be ignored.
+                scenario.latest_run = { id: 100, status: 'computing' };
+                const keys = getProfileLayers(state);
+                expect(keys).toContain('dem');
+                expect(keys).toContain('run_42_3_99_depth_max_cog');
+                expect(keys).toContain('run_42_3_99_velocity_max_cog');
+                expect(keys).toContain('run_42_3_99_depthintegratedvelocity_max_cog');
+            });
+
+            it('returns just dem when latest_complete_run is absent, even if a newer in-flight latest_run exists', () => {
+                const state = makeState({ withResults: false });
+                state.anuga.scenarios.byId[3].latest_run = { id: 100, status: 'computing' };
+                const keys = getProfileLayers(state);
+                expect(keys).toEqual(['dem']);
+            });
         });
     });
 });

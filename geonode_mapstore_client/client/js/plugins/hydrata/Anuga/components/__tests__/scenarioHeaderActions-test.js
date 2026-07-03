@@ -240,6 +240,30 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
+    // TASK-2078: package download href/gate is a RESULT consumer (D1) —
+    // reads latest_complete_run so a newer in-flight/errored latest_run
+    // never hides/breaks the download of the last-good result package.
+    it('TASK-2078: Download stays visible + points at latest_complete_run\'s package while a newer run is in-flight (AC1)', (done) => {
+        ReactDOM.render(
+            <ScenarioHeaderActions
+                scenario={{
+                    ...baseScenario,
+                    status: 'computing',
+                    latest_run: {id: 10, status: 'computing'},
+                    latest_complete_run: {id: 9, status: 'complete', s3_package_url: 'https://x/complete-run-9.zip'}
+                }}
+                canEdit canRunScenario
+            />,
+            container,
+            () => {
+                const dl = container.querySelector('.sv-scenario-action-download');
+                expect(dl).toExist();
+                expect(dl.getAttribute('href')).toBe('https://x/complete-run-9.zip');
+                done();
+            }
+        );
+    });
+
     it('Delete (non-running) routes through onConfirmDelete + fires the delete label', (done) => {
         let captured = null;
         ReactDOM.render(
@@ -275,6 +299,41 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 cancel.click();
                 expect(captured?.id).toBe(21);
                 expect(labels()).toInclude('anuga-scenario-menu-cancel-run');
+                done();
+            }
+        );
+    });
+
+    // TASK-2079: a 409 (build-dedup guard — a build is already in flight for
+    // this scenario) surfaces as benign inline info next to the Build
+    // button, NOT the 'Build failed' toast (that lives in
+    // comparisonActions.buildScenarioError). scenariosReducer.js stashes it
+    // on the scenario as `buildConflict`.
+    it('shows a benign inline conflict message when scenario.buildConflict is set', (done) => {
+        ReactDOM.render(
+            <ScenarioHeaderActions
+                scenario={{
+                    ...baseScenario,
+                    buildConflict: {runId: 501, status: 'building', detail: 'A build is already in progress for this scenario.'}
+                }}
+                canEdit canRunScenario
+            />,
+            container,
+            () => {
+                const info = container.querySelector('.sv-scenario-build-conflict-info');
+                expect(info).toExist();
+                expect(info.textContent).toInclude('A build is already in progress for this scenario.');
+                done();
+            }
+        );
+    });
+
+    it('does NOT show the conflict message when scenario.buildConflict is absent', (done) => {
+        ReactDOM.render(
+            <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+            container,
+            () => {
+                expect(container.querySelector('.sv-scenario-build-conflict-info')).toNotExist();
                 done();
             }
         );

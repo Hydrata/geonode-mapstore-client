@@ -376,6 +376,18 @@ class AnugaScenarioMenuClass extends React.Component {
   // dispatch → arm) so the validation runs exactly once per click; the returned
   // signal lets the combined action arm its deferred run ONLY for a real build —
   // a save may not rebuild, so arming on it would leak a pending run.
+  //
+  // TASK-2079 — Build-and-Run piggyback survives a benign 409: this method
+  // dispatches BUILD_SCENARIO synchronously and returns 'build' regardless of
+  // how the (async) POST /build/ eventually resolves — 202 (this request's
+  // own build) OR 409 (the BE build-dedup guard found one ALREADY in flight
+  // for the scenario). Either way handleBuildAndRunClick below arms
+  // runAfterBuild, and maybeRunAfterBuild's gate watches the LIVE polled
+  // scenario status, not this dispatch's outcome — so a 409 still lets the
+  // armed run fire once the EXISTING in-flight build reaches 'built'. A 409
+  // only ever surfaces as the benign inline `buildConflict` info near the
+  // Build button (scenarioHeaderActions.js) — never the 'Build failed' toast,
+  // which stays reserved for a REAL failure (comparisonActions.buildScenarioError).
   dispatchBuild = (scenario) => {
       let dispatched;
       if (scenario.unsaved || !this.props.buildScenarioExplicit) {
@@ -701,8 +713,28 @@ class AnugaScenarioMenuClass extends React.Component {
 
   render() {
       const {selectedScenario} = this.props;
-      const isComplete = selectedScenario?.computed_status === 'complete'
-          || selectedScenario?.latest_run?.status === 'complete';
+      // TASK-2078: View Results gate is a RESULT consumer per D1 — presence
+      // of a COMPLETE run (latest_complete_run), NOT computed_status /
+      // latest_run's status. A newer in-flight or errored latest_run must
+      // never hide an older complete run's View Results affordance.
+      const latestCompleteRun = selectedScenario?.latest_complete_run;
+      const hasCompleteResults = !!latestCompleteRun;
+      // Freshness banner (NEW element, TASK-2078): shown only when latest_run
+      // is a DIFFERENT, newer run than latest_complete_run AND is itself
+      // in-flight or errored. The status pill/card/error strip/run log stay
+      // on latest_run untouched (ScenarioHeaderActions) — this banner does
+      // not replace them.
+      const latestRun = selectedScenario?.latest_run;
+      const latestRunIsNewer = !!latestRun && latestRun.id !== latestCompleteRun?.id;
+      const latestRunFailed = latestRunIsNewer && RUN_FAILURE_STATES.includes(latestRun.status);
+      const latestRunInFlight = latestRunIsNewer && IN_FLIGHT_STATUSES.includes(latestRun.status);
+      const showFreshnessBanner = hasCompleteResults && (latestRunFailed || latestRunInFlight);
+      const freshnessBannerMsgId = latestRunFailed
+          ? 'hydrata.anuga.resultsFreshnessBannerFailed'
+          : 'hydrata.anuga.resultsFreshnessBannerBuilding';
+      const freshnessBannerFallback = latestRunFailed
+          ? `A newer run failed — results shown are from run ${latestCompleteRun?.id}`
+          : `A newer run is building — results shown are from run ${latestCompleteRun?.id}`;
       return (
           <div
               id={'anuga-scenario-menu'}
@@ -712,7 +744,7 @@ class AnugaScenarioMenuClass extends React.Component {
                   {this.renderHeader()}
                   {this.renderRunActions()}
                   {/* ISSUE 32 (TASK-1429): View results button shown on run completion */}
-                  {isComplete && selectedScenario?.latest_run ? (
+                  {hasCompleteResults ? (
                       <div className="sv-anuga-view-results-bar">
                           <Button
                               bsStyle={'success'}
@@ -724,6 +756,19 @@ class AnugaScenarioMenuClass extends React.Component {
                               {' '}
                               <Message msgId="hydrata.anuga.viewResults" />
                           </Button>
+                      </div>
+                  ) : null}
+                  {/* TASK-2078: freshness banner — a newer run is building/failed
+                      while the results shown are from the last complete run. */}
+                  {showFreshnessBanner ? (
+                      <div
+                          className="sv-anuga-results-freshness-banner"
+                          role="status"
+                          aria-live="polite"
+                      >
+                          <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+                          {' '}
+                          {this.tr(freshnessBannerMsgId, freshnessBannerFallback)}
                       </div>
                   ) : null}
                   <div className={'sv-rail-pane-shell'}>
@@ -795,8 +840,12 @@ const mapDispatchToProps = (dispatch) => ({
     openTaskMonitorForRun: () => dispatch(toggleTaskMonitorPanel(true)),
     // ISSUE 32 (TASK-1429): turn on only this scenario's 3 result layers,
     // turn off all other layers in the Results group.
+    // TASK-2078: layer-name visibility toggle is a RESULT consumer per D1 —
+    // reads latest_complete_run (the run whose COGs are actually on the
+    // map), not latest_run (which may be a newer in-flight/errored run with
+    // no result layers to show yet).
     onViewResults: (scenario, flatLayers) => {
-        const run = scenario?.latest_run;
+        const run = scenario?.latest_complete_run;
         if (!run) return;
         const thisRunLayerNames = [
             run.gn_layer_depth_max?.name,

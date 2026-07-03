@@ -344,4 +344,180 @@ describe('TASK-825 DiscriminatorPicker', () => {
             }, 20);
         });
     });
+
+    /*
+     * TASK-2082 — refetch mechanisms. The mount-time fetch effect (above)
+     * only re-runs on [projectId]; a hydrograph created AFTER mount (e.g.
+     * via the Hydrology panel, while this picker stays mounted) never
+     * appears without an explicit refetch trigger.
+     */
+    describe('TASK-2082 refetch mechanisms', () => {
+        it('passes dispatch + onRefetchOptions through to the active render component', () => {
+            let lastProps = null;
+            const SpyRender = (props) => {
+                lastProps = props;
+                return <div className="spy-render" />;
+            };
+            const field = {
+                ...FIELD_BASE,
+                choices: [{ kind: 'spy', label: 'Spy', render: SpyRender, options: [] }]
+            };
+            const dispatchSpy = () => {};
+            ReactDOM.render(
+                <DiscriminatorPicker
+                    field={field}
+                    value={{ kind: 'spy' }}
+                    onChange={onChange}
+                    dispatch={dispatchSpy}
+                />,
+                container
+            );
+            expect(lastProps.dispatch).toBe(dispatchSpy);
+            expect(typeof lastProps.onRefetchOptions).toBe('function');
+        });
+
+        it('onRefetchOptions() re-invokes the active kind\'s fetch and updates its options', (done) => {
+            let callCount = 0;
+            const fetchSpy = () => {
+                callCount += 1;
+                return Promise.resolve([{ id: callCount, name: `Row-${callCount}` }]);
+            };
+            let lastProps = null;
+            const SpyRender = (props) => {
+                lastProps = props;
+                return <div className="spy-render" />;
+            };
+            const field = {
+                ...FIELD_BASE,
+                choices: [{ kind: 'ts', label: 'TS', render: SpyRender, fetch: fetchSpy }]
+            };
+            ReactDOM.render(
+                <DiscriminatorPicker
+                    field={field}
+                    value={{ kind: 'ts' }}
+                    onChange={onChange}
+                    projectId={9}
+                />,
+                container
+            );
+            setTimeout(() => {
+                try {
+                    expect(callCount).toBe(1);
+                    expect(lastProps.options).toEqual([{ id: 1, name: 'Row-1' }]);
+                    lastProps.onRefetchOptions();
+                } catch (err) {
+                    done(err);
+                    return;
+                }
+                setTimeout(() => {
+                    try {
+                        expect(callCount).toBe(2);
+                        expect(lastProps.options).toEqual([{ id: 2, name: 'Row-2' }]);
+                        done();
+                    } catch (err) {
+                        done(err);
+                    }
+                }, 20);
+            }, 20);
+        });
+
+        it('refetches the active kind when hydrologyMainMenuOpen transitions true -> false (the Hydrology panel just closed)', (done) => {
+            let callCount = 0;
+            const fetchSpy = () => {
+                callCount += 1;
+                return Promise.resolve([{ id: callCount, name: `Row-${callCount}` }]);
+            };
+            const field = {
+                ...FIELD_BASE,
+                choices: [{ kind: 'ts', label: 'TS', render: TimeSeriesRender, fetch: fetchSpy }]
+            };
+            ReactDOM.render(
+                <DiscriminatorPicker
+                    field={field}
+                    value={{ kind: 'ts', timeseries_id: null }}
+                    onChange={onChange}
+                    projectId={9}
+                    hydrologyMainMenuOpen
+                />,
+                container
+            );
+            setTimeout(() => {
+                try {
+                    expect(callCount).toBe(1);
+                } catch (err) {
+                    done(err);
+                    return;
+                }
+                // Hydrology panel closes: true -> false.
+                ReactDOM.render(
+                    <DiscriminatorPicker
+                        field={field}
+                        value={{ kind: 'ts', timeseries_id: null }}
+                        onChange={onChange}
+                        projectId={9}
+                        hydrologyMainMenuOpen={false}
+                    />,
+                    container
+                );
+                setTimeout(() => {
+                    try {
+                        expect(callCount).toBe(2);
+                        done();
+                    } catch (err) {
+                        done(err);
+                    }
+                }, 20);
+            }, 20);
+        });
+
+        it('does NOT refetch when hydrologyMainMenuOpen stays the same or flips false -> true (opening)', (done) => {
+            let callCount = 0;
+            const fetchSpy = () => {
+                callCount += 1;
+                return Promise.resolve([]);
+            };
+            const field = {
+                ...FIELD_BASE,
+                choices: [{ kind: 'ts', label: 'TS', render: TimeSeriesRender, fetch: fetchSpy }]
+            };
+            ReactDOM.render(
+                <DiscriminatorPicker
+                    field={field}
+                    value={{ kind: 'ts', timeseries_id: null }}
+                    onChange={onChange}
+                    projectId={9}
+                    hydrologyMainMenuOpen={false}
+                />,
+                container
+            );
+            setTimeout(() => {
+                try {
+                    expect(callCount).toBe(1);
+                } catch (err) {
+                    done(err);
+                    return;
+                }
+                // Opening (false -> true) must NOT trigger a refetch — only
+                // the close transition should.
+                ReactDOM.render(
+                    <DiscriminatorPicker
+                        field={field}
+                        value={{ kind: 'ts', timeseries_id: null }}
+                        onChange={onChange}
+                        projectId={9}
+                        hydrologyMainMenuOpen
+                    />,
+                    container
+                );
+                setTimeout(() => {
+                    try {
+                        expect(callCount).toBe(1);
+                        done();
+                    } catch (err) {
+                        done(err);
+                    }
+                }, 20);
+            }, 20);
+        });
+    });
 });
