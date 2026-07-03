@@ -98,6 +98,9 @@ def run_setup_hooks(*args, **kwargs):
         re_path(r"^maps$", TemplateView.as_view(template_name="geonode-mapstore-client/pages/maps.html")),
         re_path(r"^documents$", TemplateView.as_view(template_name="geonode-mapstore-client/pages/documents.html")),
         re_path(r"^geostories$", TemplateView.as_view(template_name="geonode-mapstore-client/pages/geostories.html")),
+        # TASK-1964 (epic 1952 W5.1) — staff-only run-actuals dashboard.
+        # Top-level /runs per operator instruction (NOT /anuga/runs).
+        re_path(r"^runs$", views.runs_dashboard, name="anuga-runs-dashboard"),
     ]
 
     # adding default format for metadata schema validation
