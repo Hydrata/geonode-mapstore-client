@@ -17,21 +17,23 @@ const COLUMNS = [
     { key: 'region', label: 'Region' },
     { key: 'triangle_count', label: 'Triangles' },
     { key: 'wall_s', label: 'Wall (s)' },
+    { key: 'predicted_wall_s', label: 'Pred wall (s)' },
     { key: 'cost_usd', label: '$/run' },
+    { key: 'predicted_usd', label: 'Pred $/run' },
     { key: 'run_status', label: 'Status' },
     { key: 'date', label: 'Date' }
 ];
 
-const NUM_KEYS = ['triangle_count', 'wall_s', 'cost_usd'];
+const NUM_KEYS = ['triangle_count', 'wall_s', 'predicted_wall_s', 'cost_usd', 'predicted_usd'];
 
 const formatCell = (key, value) => {
     if (value === null || value === undefined) {
         return '—';
     }
-    if (key === 'cost_usd') {
+    if (key === 'cost_usd' || key === 'predicted_usd') {
         return `$${Number(value).toFixed(2)}`;
     }
-    if (key === 'triangle_count' || key === 'wall_s') {
+    if (key === 'triangle_count' || key === 'wall_s' || key === 'predicted_wall_s') {
         return Number(value).toLocaleString();
     }
     if (key === 'date') {
