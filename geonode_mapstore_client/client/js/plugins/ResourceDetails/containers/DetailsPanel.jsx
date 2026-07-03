@@ -36,6 +36,7 @@ import moment from 'moment';
 import DetailsThumbnail from '../components/DetailsThumbnail';
 import ALink from '@mapstore/framework/plugins/ResourcesCatalog/components/ALink';
 import { parseCatalogResource } from '@js/utils/ResourceUtils';
+import { sanitizeHTML } from '@js/utils/SanitizeUtils';
 import useParsePluginConfigExpressions from '@mapstore/framework/plugins/ResourcesCatalog/hooks/useParsePluginConfigExpressions';
 import { hashLocationToHref } from '@mapstore/framework/utils/ResourcesFiltersUtils';
 import { getMonitoredStateSelector, getRouterLocation, getDetailPanelTab } from '@mapstore/framework/plugins/ResourcesCatalog/selectors/resources';
@@ -147,7 +148,7 @@ function DetailsPanel({
                     {(resource?.date_type && resource?.date) ? <>{' '}/{' '}{moment(resource.date).format('MMMM Do YYYY')}</> : null}
                 </Text>
                 {resource?.abstract
-                    ? <Text classNames={['_padding-sm']} dangerouslySetInnerHTML={{ __html: resource?.abstract }} />
+                    ? <Text classNames={['_padding-sm']} dangerouslySetInnerHTML={{ __html: sanitizeHTML(resource?.abstract) }} />
                     : null}
                 {enablePreview ? <DetailsPreview
                     resource={resource}
