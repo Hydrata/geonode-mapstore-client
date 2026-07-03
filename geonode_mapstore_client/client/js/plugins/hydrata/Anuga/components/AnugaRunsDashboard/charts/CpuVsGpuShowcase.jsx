@@ -11,16 +11,19 @@
  * the ledger fetch above returned (including a 0-row ledger).
  */
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import gpuBenchmark from '../data/gpuBenchmark.json';
 
+// The blue↔green spine: CPU configs in blues (the baseline), GPU configs in
+// greens (the accelerated path, deepest green = the fastest card), laptop ref
+// in neutral grey.
 const CONFIG_COLORS = {
-    cpu_np16: '#9d9d9d',
-    cpu_np32: '#54a24b',
-    gpu_t4: '#f2cf5b',
-    gpu_a10g: '#f58518',
-    gpu_l40s: '#e45756',
-    laptop_rtx5070: '#4c78a8'
+    cpu_np16: '#7fa8c4',
+    cpu_np32: '#397aab',
+    gpu_t4: '#8fcfa2',
+    gpu_a10g: '#2fa84f',
+    gpu_l40s: '#1c7a3a',
+    laptop_rtx5070: '#9aa7b0'
 };
 
 const CONFIG_LABELS = {
@@ -40,6 +43,9 @@ const CpuVsGpuShowcase = () => {
     const speedupChartData = speedupRows
         .filter((r) => r.speedup_vs_cpu_np32 !== null && r.speedup_vs_cpu_np32 !== undefined)
         .map((r) => ({ config: CONFIG_LABELS[r.config] || r.config, speedup: r.speedup_vs_cpu_np32, key: r.config }));
+    // Headline the best measured GPU speedup vs the np32 CPU baseline.
+    const bestSpeedup = speedupChartData.reduce((m, r) => (m && m.speedup >= r.speedup ? m : r), null);
+    const bestCard = bestSpeedup ? bestSpeedup.key.replace(/^gpu_/, '').replace(/^cpu_/, '').replace(/^laptop_/, '').toUpperCase() : null;
 
     return (
         <div className="anuga-cpu-vs-gpu-showcase" data-testid="anuga-cpu-vs-gpu-showcase">
@@ -49,27 +55,39 @@ const CpuVsGpuShowcase = () => {
                 {' '}{provenance.note}
             </p>
 
+            {bestSpeedup && (
+                <div className="ard-speedup-hero" data-testid="anuga-benchmark-speedup-hero">
+                    <span className="ard-speedup-hero__num">{bestSpeedup.speedup}×</span>
+                    <span className="ard-speedup-hero__label">
+                        faster than the <strong>CPU np32</strong> baseline on <strong>{bestCard}</strong> — same
+                        {' '}{SPEEDUP_SCENARIO} mesh (256,688 triangles)
+                    </span>
+                </div>
+            )}
+
             <h5>Speedup vs CPU (np32 baseline) — {SPEEDUP_SCENARIO}</h5>
             {speedupChartData.length === 0 ? (
-                <p data-testid="anuga-benchmark-speedup-empty">No speedup data in this snapshot.</p>
+                <p className="anuga-runs-chart__empty" data-testid="anuga-benchmark-speedup-empty">No speedup data in this snapshot.</p>
             ) : (
-                <div data-testid="anuga-chart-cpu-vs-gpu-speedup">
-                    <BarChart width={520} height={300} data={speedupChartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="config" />
-                        <YAxis label={{ value: '× CPU np32', angle: -90, position: 'insideLeft' }} />
-                        <Tooltip formatter={(value) => `${value}×`} />
-                        <Legend />
-                        <Bar dataKey="speedup" name="Speedup">
-                            {speedupChartData.map((entry) => (
-                                <Cell key={entry.key} fill={CONFIG_COLORS[entry.key] || '#4c78a8'} />
-                            ))}
-                        </Bar>
-                    </BarChart>
+                <div className="anuga-benchmark-chart" data-testid="anuga-chart-cpu-vs-gpu-speedup">
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={speedupChartData} margin={{ top: 8, right: 16, bottom: 24, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e6edf3" vertical={false} />
+                            <XAxis dataKey="config" interval={0} angle={-18} textAnchor="end" height={64} tick={{ fontSize: 10.5 }} tickLine={false} axisLine={{ stroke: '#e6edf3' }} />
+                            <YAxis label={{ value: '× CPU np32', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#5d6f7c' }} tickLine={false} axisLine={false} width={44} />
+                            <Tooltip formatter={(value) => [`${value}×`, 'speedup']} />
+                            <Bar dataKey="speedup" name="Speedup" radius={[3, 3, 0, 0]} maxBarSize={54} isAnimationActive={false}>
+                                {speedupChartData.map((entry) => (
+                                    <Cell key={entry.key} fill={CONFIG_COLORS[entry.key] || '#397aab'} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             )}
 
             <h5>Full comparison corpus</h5>
+            <div className="ard-table-scroll">
             <table className="anuga-benchmark-table" data-testid="anuga-benchmark-comparison-table">
                 <thead>
                     <tr>
@@ -100,8 +118,10 @@ const CpuVsGpuShowcase = () => {
                     ))}
                 </tbody>
             </table>
+            </div>
 
             <h5>GPU VRAM / mesh-size ceiling (scaling.csv)</h5>
+            <div className="ard-table-scroll">
             <table className="anuga-benchmark-table" data-testid="anuga-benchmark-scaling-table">
                 <thead>
                     <tr>
@@ -130,6 +150,7 @@ const CpuVsGpuShowcase = () => {
                     ))}
                 </tbody>
             </table>
+            </div>
         </div>
     );
 };

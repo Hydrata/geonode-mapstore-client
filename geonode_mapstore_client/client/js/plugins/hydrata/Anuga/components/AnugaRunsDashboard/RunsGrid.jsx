@@ -22,6 +22,8 @@ const COLUMNS = [
     { key: 'date', label: 'Date' }
 ];
 
+const NUM_KEYS = ['triangle_count', 'wall_s', 'cost_usd'];
+
 const formatCell = (key, value) => {
     if (value === null || value === undefined) {
         return '—';
@@ -36,6 +38,43 @@ const formatCell = (key, value) => {
         return String(value).slice(0, 19).replace('T', ' ');
     }
     return value;
+};
+
+// complete = the sole success status; failed/oom/error read as failures; any
+// other transient status (created/running) reads as pending.
+const statusPillClass = (status) => {
+    if (status === 'complete') {
+        return 'is-ok';
+    }
+    if (status === 'failed' || status === 'oom' || status === 'error') {
+        return 'is-err';
+    }
+    return 'is-warn';
+};
+
+const cellClassName = (key) => {
+    if (NUM_KEYS.includes(key)) {
+        return 'ard-num';
+    }
+    if (key === 'run_id') {
+        return 'ard-mono';
+    }
+    return '';
+};
+
+// Mode → blue/green chip; status → coloured pill; run_id falls back to the
+// Batch job_id so a run without a resolved Run FK still shows an identifier.
+const renderCell = (key, value, record) => {
+    if (key === 'mode' && value) {
+        return <span className={`ard-chip ard-chip--${value === 'gpu' ? 'gpu' : 'cpu'}`}>{String(value).toUpperCase()}</span>;
+    }
+    if (key === 'run_status' && value) {
+        return <span className={`ard-pill ${statusPillClass(value)}`}>{value}</span>;
+    }
+    if (key === 'run_id') {
+        return value || record.job_id || '—';
+    }
+    return formatCell(key, value);
 };
 
 const compareValues = (a, b) => {
@@ -74,6 +113,7 @@ const RunsGrid = ({ records = [] }) => {
                     {COLUMNS.map((col) => (
                         <th
                             key={col.key}
+                            className={cellClassName(col.key)}
                             data-testid={`anuga-runs-grid-header-${col.key}`}
                             onClick={() => toggleSort(col.key)}
                             style={{ cursor: 'pointer' }}
@@ -87,7 +127,7 @@ const RunsGrid = ({ records = [] }) => {
                 {sorted.map((record) => (
                     <tr key={record.id} data-testid="anuga-runs-grid-row">
                         {COLUMNS.map((col) => (
-                            <td key={col.key}>{formatCell(col.key, record[col.key])}</td>
+                            <td key={col.key} className={cellClassName(col.key)}>{renderCell(col.key, record[col.key], record)}</td>
                         ))}
                     </tr>
                 ))}

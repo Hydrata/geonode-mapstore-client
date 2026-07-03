@@ -137,3 +137,124 @@ export const buildSuccessRateSeries = (records = []) => {
 };
 
 export const isStaffUser = (user) => !!(user && (user.is_staff || user.is_superuser));
+
+// -- Shared presentation tokens --------------------------------------------
+// The CPU/GPU duality is the dashboard's visual spine: CPU = Hydrata brand
+// blue (the baseline), GPU = Hydrata green (the accelerated path). Every place
+// the two modes appear (KPI split, scatter, over-time bars, ledger pills) reuses
+// these exact colours so the eye reads "blue = CPU, green = GPU" everywhere.
+export const MODE_COLORS = { cpu: '#3a7ca5', gpu: '#2fa84f' };
+export const MODE_LABELS = { cpu: 'CPU', gpu: 'GPU' };
+
+// -- Formatters (shared by KPI band, grid, tooltips) -----------------------
+export const formatUsd = (v, dp = 2) =>
+    (v === null || v === undefined || Number.isNaN(Number(v))) ? '—' : `$${Number(v).toFixed(dp)}`;
+
+export const formatInt = (v) =>
+    (v === null || v === undefined || Number.isNaN(Number(v))) ? '—' : Number(v).toLocaleString();
+
+/** Human wall-clock: 42s / 6m 12s / 5h 7m. */
+export const formatWalltime = (s) => {
+    if (s === null || s === undefined || Number.isNaN(Number(s))) {
+        return '—';
+    }
+    const sec = Math.round(Number(s));
+    if (sec < 60) {
+        return `${sec}s`;
+    }
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (h > 0) {
+        return `${h}h ${m}m`;
+    }
+    return `${m}m ${sec % 60}s`;
+};
+
+export const formatPct = (rate) =>
+    (rate === null || rate === undefined || Number.isNaN(Number(rate))) ? '—' : `${Math.round(rate * 1000) / 10}%`;
+
+// -- Overview KPIs ----------------------------------------------------------
+/** Headline aggregates for the hero band, over whatever records are in view. */
+export const computeKpis = (records = []) => {
+    const rs = records || [];
+    const total = rs.length;
+    const costs = rs.map((r) => r.cost_usd).filter((v) => typeof v === 'number');
+    const walls = rs.map((r) => r.wall_s).filter((v) => typeof v === 'number');
+    const totalCost = costs.reduce((a, b) => a + b, 0);
+    const complete = rs.filter((r) => r.run_status === 'complete').length;
+    const gpu = rs.filter((r) => r.mode === 'gpu').length;
+    return {
+        total,
+        totalCost,
+        avgCost: costs.length ? totalCost / costs.length : null,
+        avgWall: walls.length ? walls.reduce((a, b) => a + b, 0) / walls.length : null,
+        successRate: total ? complete / total : null,
+        gpu,
+        cpu: total - gpu,
+        failures: rs.filter((r) => r.run_status && r.run_status !== 'complete').length,
+        ooms: rs.filter((r) => r.oom_flag).length
+    };
+};
+
+// -- Trends over time -------------------------------------------------------
+/**
+ * Daily buckets over the `date` (recorded_at) field: run count split by mode
+ * plus summed $/run per day. Answers "trends in runs over time" — bars for
+ * volume (cpu/gpu stack), a line for daily spend.
+ */
+export const buildRunsOverTimeSeries = (records = []) => {
+    const byDay = {};
+    (records || []).forEach((r) => {
+        const ts = r.date || r.started_at || r.finished_at;
+        if (!ts) {
+            return;
+        }
+        const day = String(ts).slice(0, 10);
+        if (!byDay[day]) {
+            byDay[day] = { day, runs: 0, cpu: 0, gpu: 0, cost_usd: 0 };
+        }
+        byDay[day].runs += 1;
+        byDay[day][r.mode === 'gpu' ? 'gpu' : 'cpu'] += 1;
+        if (typeof r.cost_usd === 'number') {
+            byDay[day].cost_usd += r.cost_usd;
+        }
+    });
+    return Object.values(byDay)
+        .map((d) => ({ ...d, cost_usd: Math.round(d.cost_usd * 100) / 100 }))
+        .sort((a, b) => (a.day < b.day ? -1 : 1));
+};
+
+// -- Phase breakdown (where runtime goes) -----------------------------------
+// Canonical ANUGA run pipeline order; the solve ("evolve") dominates.
+export const PHASE_ORDER = ['mesh_gen', 'distribute', 'evolve', 'cog_export', 'archive'];
+
+/**
+ * Aggregate per-phase seconds (raw.observed.phase_durations_s) across the
+ * records that carry instrumentation, as a share of total runtime. Returns []
+ * when no run in view has phase data (pre-instrumentation runs — never faked).
+ * Sorted by seconds desc so the dominant phase reads first.
+ */
+export const buildPhaseBreakdown = (records = []) => {
+    const totals = {};
+    let any = false;
+    (records || []).forEach((r) => {
+        const p = r.phase_durations_s;
+        if (!p || typeof p !== 'object') {
+            return;
+        }
+        any = true;
+        Object.keys(p).forEach((k) => {
+            const v = Number(p[k]);
+            if (!Number.isNaN(v)) {
+                totals[k] = (totals[k] || 0) + v;
+            }
+        });
+    });
+    if (!any) {
+        return [];
+    }
+    const grand = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
+    return Object.keys(totals)
+        .map((phase) => ({ phase, seconds: totals[phase], pct: Math.round((totals[phase] / grand) * 1000) / 10 }))
+        .sort((a, b) => b.seconds - a.seconds);
+};

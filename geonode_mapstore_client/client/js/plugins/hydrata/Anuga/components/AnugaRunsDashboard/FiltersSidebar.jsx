@@ -41,92 +41,109 @@ const FiltersSidebar = ({
 
     return (
         <div className="anuga-runs-filters" data-testid="anuga-runs-filters">
-            <h4>Filters</h4>
+            <h4>Filter runs</h4>
 
-            <label htmlFor="anuga-runs-filter-mode">Mode</label>
-            <select
-                id="anuga-runs-filter-mode"
-                data-testid="anuga-runs-filter-mode"
-                value={clientFilters.mode || 'all'}
-                onChange={(e) => setClient('mode', e.target.value)}
-            >
-                <option value="all">All</option>
-                <option value="cpu">CPU</option>
-                <option value="gpu">GPU</option>
-            </select>
+            <div className="ard-field">
+                <label htmlFor="anuga-runs-filter-mode">Mode</label>
+                <select
+                    id="anuga-runs-filter-mode"
+                    data-testid="anuga-runs-filter-mode"
+                    value={clientFilters.mode || 'all'}
+                    onChange={(e) => setClient('mode', e.target.value)}
+                >
+                    <option value="all">All</option>
+                    <option value="cpu">CPU</option>
+                    <option value="gpu">GPU</option>
+                </select>
+            </div>
 
-            <label htmlFor="anuga-runs-filter-status">Run status</label>
-            <select
-                id="anuga-runs-filter-status"
-                data-testid="anuga-runs-filter-status"
-                value={clientFilters.runStatus || 'all'}
-                onChange={(e) => setClient('runStatus', e.target.value)}
-            >
-                <option value="all">All</option>
-                {runStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <div className="ard-field">
+                <label htmlFor="anuga-runs-filter-status">Run status</label>
+                <select
+                    id="anuga-runs-filter-status"
+                    data-testid="anuga-runs-filter-status"
+                    value={clientFilters.runStatus || 'all'}
+                    onChange={(e) => setClient('runStatus', e.target.value)}
+                >
+                    <option value="all">All</option>
+                    {runStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+            </div>
 
-            <label htmlFor="anuga-runs-filter-band">Mesh size</label>
-            <select
-                id="anuga-runs-filter-band"
-                data-testid="anuga-runs-filter-band"
-                value={clientFilters.band || 'all'}
-                onChange={(e) => setClient('band', e.target.value)}
-            >
-                <option value="all">All</option>
-                {TRIANGLE_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-            </select>
+            <div className="ard-field">
+                <label htmlFor="anuga-runs-filter-band">Mesh size</label>
+                <select
+                    id="anuga-runs-filter-band"
+                    data-testid="anuga-runs-filter-band"
+                    value={clientFilters.band || 'all'}
+                    onChange={(e) => setClient('band', e.target.value)}
+                >
+                    <option value="all">All</option>
+                    {TRIANGLE_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+            </div>
 
-            <label htmlFor="anuga-runs-filter-instance-type">Instance type</label>
-            <select
-                id="anuga-runs-filter-instance-type"
-                data-testid="anuga-runs-filter-instance-type"
-                value={serverFilters.instance_type || ''}
-                onChange={(e) => setServer('instance_type', e.target.value)}
-            >
-                <option value="">All</option>
-                {instanceTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <div className="ard-field">
+                <label htmlFor="anuga-runs-filter-instance-type">Instance type</label>
+                <select
+                    id="anuga-runs-filter-instance-type"
+                    data-testid="anuga-runs-filter-instance-type"
+                    value={serverFilters.instance_type || ''}
+                    onChange={(e) => setServer('instance_type', e.target.value)}
+                >
+                    <option value="">All</option>
+                    {instanceTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+            </div>
 
-            <label htmlFor="anuga-runs-filter-region">Region</label>
-            <select
-                id="anuga-runs-filter-region"
-                data-testid="anuga-runs-filter-region"
-                value={serverFilters.region || ''}
-                onChange={(e) => setServer('region', e.target.value)}
-            >
-                <option value="">All</option>
-                {regions.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
+            <div className="ard-field">
+                <label htmlFor="anuga-runs-filter-region">Region</label>
+                <select
+                    id="anuga-runs-filter-region"
+                    data-testid="anuga-runs-filter-region"
+                    value={serverFilters.region || ''}
+                    onChange={(e) => setServer('region', e.target.value)}
+                >
+                    <option value="">All</option>
+                    {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+            </div>
 
-            <label htmlFor="anuga-runs-filter-project">Project ID</label>
-            <input
-                id="anuga-runs-filter-project"
-                data-testid="anuga-runs-filter-project"
-                type="text"
-                value={serverFilters.project_id || ''}
-                onChange={(e) => setServer('project_id', e.target.value)}
-            />
+            <div className="ard-field">
+                <label htmlFor="anuga-runs-filter-project">Project ID</label>
+                <input
+                    id="anuga-runs-filter-project"
+                    data-testid="anuga-runs-filter-project"
+                    type="text"
+                    placeholder="any"
+                    value={serverFilters.project_id || ''}
+                    onChange={(e) => setServer('project_id', e.target.value)}
+                />
+            </div>
 
-            <label htmlFor="anuga-runs-filter-date-from">Date from</label>
-            <input
-                id="anuga-runs-filter-date-from"
-                data-testid="anuga-runs-filter-date-from"
-                type="date"
-                value={serverFilters.date_from ? serverFilters.date_from.slice(0, 10) : ''}
-                onChange={(e) => setServer('date_from', e.target.value ? `${e.target.value}T00:00:00Z` : '')}
-            />
+            <div className="ard-field">
+                <label htmlFor="anuga-runs-filter-date-from">Date from</label>
+                <input
+                    id="anuga-runs-filter-date-from"
+                    data-testid="anuga-runs-filter-date-from"
+                    type="date"
+                    value={serverFilters.date_from ? serverFilters.date_from.slice(0, 10) : ''}
+                    onChange={(e) => setServer('date_from', e.target.value ? `${e.target.value}T00:00:00Z` : '')}
+                />
+            </div>
 
-            <label htmlFor="anuga-runs-filter-date-to">Date to</label>
-            <input
-                id="anuga-runs-filter-date-to"
-                data-testid="anuga-runs-filter-date-to"
-                type="date"
-                value={serverFilters.date_to ? serverFilters.date_to.slice(0, 10) : ''}
-                onChange={(e) => setServer('date_to', e.target.value ? `${e.target.value}T23:59:59Z` : '')}
-            />
+            <div className="ard-field">
+                <label htmlFor="anuga-runs-filter-date-to">Date to</label>
+                <input
+                    id="anuga-runs-filter-date-to"
+                    data-testid="anuga-runs-filter-date-to"
+                    type="date"
+                    value={serverFilters.date_to ? serverFilters.date_to.slice(0, 10) : ''}
+                    onChange={(e) => setServer('date_to', e.target.value ? `${e.target.value}T23:59:59Z` : '')}
+                />
+            </div>
 
-            <label htmlFor="anuga-runs-filter-spot">
+            <label className="ard-check" htmlFor="anuga-runs-filter-spot">
                 <input
                     id="anuga-runs-filter-spot"
                     data-testid="anuga-runs-filter-spot"
@@ -137,7 +154,7 @@ const FiltersSidebar = ({
                 Spot only
             </label>
 
-            <label htmlFor="anuga-runs-filter-oom">
+            <label className="ard-check" htmlFor="anuga-runs-filter-oom">
                 <input
                     id="anuga-runs-filter-oom"
                     data-testid="anuga-runs-filter-oom"
