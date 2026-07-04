@@ -59,6 +59,34 @@ const transformValue = (obj, messages) => {
     }
     return obj;
 };
+
+/**
+ * Sanitize every `type: 'html'` field value in a resolved tabs array before it
+ * reaches the DetailsInfo `dangerouslySetInnerHTML` sink (e.g. the
+ * supplemental_information field). Generic parity with the abstract fix
+ * (GEO-CVE-003, TASK-2068 abstract / TASK-2107 tab html fields). `sanitizeHTML`
+ * returns '' for non-string input, so null/object values are safe.
+ * Must be applied AFTER replaceResourcePaths, once real values are substituted.
+ * @param {Array} tabs resolved tabs (post replaceResourcePaths)
+ * @return {Array} tabs with html field values sanitized
+ */
+export const sanitizeHtmlFields = (tabs) => (tabs || []).map((tab) => {
+    if (!Array.isArray(tab?.items)) {
+        return tab;
+    }
+    return {
+        ...tab,
+        items: tab.items.map((item) => item?.type === 'html'
+            ? {
+                ...item,
+                value: Array.isArray(item.value)
+                    ? item.value.map(sanitizeHTML)
+                    : sanitizeHTML(item.value)
+            }
+            : item)
+    };
+});
+
 const ConnectedDetailsThumbnail = connect(
     createSelector([
         state => state?.gnresource?.showMapThumbnail || false,
@@ -157,7 +185,7 @@ function DetailsPanel({
             {!loading ? <DetailsInfo
                 className="_padding-lr-md"
                 key={resource?.pk || resource?.id}
-                tabs={replaceResourcePaths(transformedTabs, resource, [])}
+                tabs={sanitizeHtmlFields(replaceResourcePaths(transformedTabs, resource, []))}
                 tabComponents={tabComponents}
                 query={query}
                 formatHref={handleFormatHref}
