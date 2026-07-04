@@ -50,12 +50,14 @@
                     </div>
                     <div class="form-group">
                         <label for="signup_password1">{% trans "Password:" %}</label>
-                        <p class="home-page-form-help-text" id="signup-password-hint">{{ form.password1.help_text }}</p>
-                        <div class="input-group">
-                            <input type="password" id="signup_password1" name="password1" placeholder="required" class="form-control home-page-register-text-input" autocomplete="new-password" aria-label="{% trans 'New account password' %}"/>
-                            <span class="input-group-addon">
-                                <i id="signup-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleSignupPasswordVisibility()" style="cursor: pointer;"></i>
-                            </span>
+                        <div class="field-col">
+                            <div class="input-group">
+                                <input type="password" id="signup_password1" name="password1" placeholder="required" class="form-control home-page-register-text-input" autocomplete="new-password" aria-label="{% trans 'New account password' %}"/>
+                                <span class="input-group-addon">
+                                    <i id="signup-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleSignupPasswordVisibility()" style="cursor: pointer;"></i>
+                                </span>
+                            </div>
+                            <div class="password-reqs" id="signup-password-hint">{{ form.password1.help_text }}</div>
                             {% if form.password1.errors %}
                                 <div class="home-page-form-error-messages">
                                     {% for error in form.password1.errors %}
@@ -214,6 +216,26 @@
                 toggleIcon.classList.add("glyphicon-eye-open");
             }
         }
+
+        // Reveal the password requirements only while the field is non-blank AND
+        // fails the visible criteria. Length (>= 12, the MinimumLengthValidator) and
+        // not-entirely-numeric are the client-checkable rules; similarity/common-
+        // password stay server-side and still surface as errors on submit.
+        function updateSignupPasswordHint() {
+            var input = document.getElementById("signup_password1");
+            var hint = document.getElementById("signup-password-hint");
+            if (!input || !hint) return;
+            var value = input.value;
+            var meetsVisibleCriteria = value.length >= 12 && !/^[0-9]+$/.test(value);
+            hint.classList.toggle("is-visible", value.length > 0 && !meetsVisibleCriteria);
+        }
+        (function () {
+            var input = document.getElementById("signup_password1");
+            if (input) {
+                input.addEventListener("input", updateSignupPasswordHint);
+                updateSignupPasswordHint();
+            }
+        })();
 
         let public_maps = "{{public_maps}}";
         let publications = "{{publications}}";
