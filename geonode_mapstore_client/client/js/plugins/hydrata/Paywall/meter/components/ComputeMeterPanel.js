@@ -17,6 +17,45 @@
 import React from 'react';
 const PropTypes = require('prop-types');
 
+/**
+ * Shared "Buy credit pack" button row — used by BOTH the always-visible
+ * balance strip and the insufficient_balance modal. `testIdPrefix` keeps
+ * each surface's data-testid distinct (compute-meter-buy-pack-* vs
+ * meter-buy-pack-cta-*) so tests can disambiguate context without either
+ * surface duplicating the render logic.
+ */
+function PackButtons({ availablePacks, testIdPrefix, onBuyPack }) {
+    if (!availablePacks || availablePacks.length === 0) {
+        return null;
+    }
+    return (
+        <React.Fragment>
+            {availablePacks.map((priceId) => (
+                <button
+                    type="button"
+                    key={priceId}
+                    data-testid={`${testIdPrefix}-${priceId}`}
+                    className="compute-meter-buy-pack-btn"
+                    onClick={() => onBuyPack(priceId)}
+                >
+                    Buy credit pack
+                </button>
+            ))}
+        </React.Fragment>
+    );
+}
+
+PackButtons.propTypes = {
+    availablePacks: PropTypes.array,
+    testIdPrefix: PropTypes.string.isRequired,
+    onBuyPack: PropTypes.func
+};
+
+PackButtons.defaultProps = {
+    availablePacks: [],
+    onBuyPack: () => {}
+};
+
 function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack }) {
     return (
         <div data-testid="compute-meter-balance-strip" className="compute-meter-balance-strip">
@@ -26,23 +65,13 @@ function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack }) {
             </span>
             {availablePacks && availablePacks.length > 0 ? (
                 <span className="compute-meter-packs">
-                    {availablePacks.map((priceId) => (
-                        <button
-                            type="button"
-                            key={priceId}
-                            data-testid={`compute-meter-buy-pack-${priceId}`}
-                            className="compute-meter-buy-pack-btn"
-                            onClick={() => onBuyPack(priceId)}
-                        >
-                            Buy credit pack
-                        </button>
-                    ))}
+                    <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} />
                 </span>
             ) : null}
             {recentEntries && recentEntries.length > 0 ? (
                 <ul data-testid="compute-meter-recent-entries" className="compute-meter-recent-entries">
+                    {/* index-as-key: read-only, server-ordered list, no reorder/insert */}
                     {recentEntries.map((entry, idx) => (
-                        // eslint-disable-next-line react/no-array-index-key -- read-only, server-ordered, no reorder/insert
                         <li key={idx}>
                             {`${entry.entry_type} $${entry.amount}`}
                         </li>
@@ -77,17 +106,7 @@ function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss
                     {detail}
                 </p>
                 <div className="compute-meter-modal-actions">
-                    {(availablePacks || []).map((priceId) => (
-                        <button
-                            type="button"
-                            key={priceId}
-                            data-testid={`meter-buy-pack-cta-${priceId}`}
-                            className="compute-meter-buy-pack-btn"
-                            onClick={() => onBuyPack(priceId)}
-                        >
-                            Buy credit pack
-                        </button>
-                    ))}
+                    <PackButtons availablePacks={availablePacks} testIdPrefix="meter-buy-pack-cta" onBuyPack={onBuyPack} />
                     <button
                         type="button"
                         data-testid="meter-dismiss-modal"

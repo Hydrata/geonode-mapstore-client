@@ -4,6 +4,9 @@ import {addLayer, removeLayer, removeNode} from '../../../../../MapStore2/web/cl
 import * as anugaApi from '../api/anugaApi';
 // TASK-2100 (epic 2092 W4.2) — StartRunView's meter gate 402/429 contract.
 import {setMeterInsufficientBalance, setMeterCapExceeded} from '../../Paywall/meter/actions';
+// Shared axios error-shape readers (epic-2092 W4 simplify pass — see the
+// util's own docstring for the MapStore2 ajax-interceptor gotcha).
+import {readErrStatus as _readErrStatus, readErrData as _readErrData} from '../utils/apiErrorUtils';
 import {
     CANCEL_ANUGA_RUN,
     RETRY_ANUGA_RUN,
@@ -521,13 +524,8 @@ export const getAnugaResourcesEpic = (action$, {getState: _getState = () => {}})
 //   * 409 → typeBlocked with the BE-supplied blocking-scenarios array
 //   * other → typeError
 //
-// Error shape gotcha: MapStore2 libs/ajax.js:158 interceptor rewrites axios
-// rejections so the canonical access is err.status / err.data, not
-// err.response.status / err.response.data. We check both forms defensively
-// because axios-mock-adapter (used by the API regression suite) preserves
-// the err.response.* shape.
-const _readErrStatus = (err) => err?.status ?? err?.response?.status;
-const _readErrData = (err) => err?.data ?? err?.response?.data ?? {};
+// _readErrStatus/_readErrData (the MapStore2 ajax-interceptor gotcha) now
+// live in ../utils/apiErrorUtils — imported at the top of this file.
 
 const makeDeleteEpic = (
     actionType, apiFn, successAction, blockedAction, errorAction

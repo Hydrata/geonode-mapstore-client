@@ -22,6 +22,9 @@ import {
 // carries the upgrade_prompt contract shape (_check_private_entitlement_response,
 // api_v2.py). Route it into the paywall overlay instead of the generic error toast.
 import {setPaywallUpgradePrompt} from '../../Paywall/actions';
+// Shared axios error-shape readers (see crudEpics.js's original comment / the
+// util's own docstring for the MapStore2 ajax-interceptor gotcha).
+import {readErrStatus as _readErrStatus, readErrData as _readErrData} from '../utils/apiErrorUtils';
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
 
@@ -91,12 +94,6 @@ export const deleteMembershipEpic = (action$, store) =>
                     );
                 });
         });
-
-// Error shape gotcha (see crudEpics.js _readErrStatus/_readErrData): MapStore2's
-// libs/ajax.js interceptor rewrites axios rejections to err.status/err.data
-// directly; axios-mock-adapter (used by tests) preserves err.response.*.
-const _readErrStatus = (err) => err?.status ?? err?.response?.status;
-const _readErrData = (err) => err?.data ?? err?.response?.data ?? {};
 
 export const updateProjectVisibilityEpic = (action$, store) =>
     action$.ofType(UPDATE_PROJECT_VISIBILITY_REQUEST)
