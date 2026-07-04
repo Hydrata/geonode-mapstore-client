@@ -214,6 +214,14 @@
         "permsUnavailable": {
           "message": "Permissions could not be loaded. The member list is read-only until permissions are available again."
         },
+        "checkoutCancelled": {
+          "title": "Checkout cancelled",
+          "message": "No changes were made — you can try again any time."
+        },
+        "checkoutFailed": {
+          "title": "Checkout failed",
+          "message": "Could not start checkout. Please try again."
+        },
         "mesh": "Mesh",
         "meshRegions": "Mesh",
         "meshWillAppear": "Mesh will appear here when a Scenario is built.",

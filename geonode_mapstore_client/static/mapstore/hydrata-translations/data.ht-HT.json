@@ -214,6 +214,14 @@
         "permsUnavailable": {
           "message": "Pa ka chaje pèmisyon yo. Lis manm nan an lekti sèlman jiskaske pèmisyon yo disponib ankò."
         },
+        "checkoutCancelled": {
+          "title": "Peman anile",
+          "message": "Pa gen okenn chanjman ki te fèt — ou ka eseye ankò nenpòt lè."
+        },
+        "checkoutFailed": {
+          "title": "Peman echwe",
+          "message": "Pa t kapab kòmanse peman an. Tanpri eseye ankò."
+        },
         "mesh": "May",
         "meshRegions": "Rejyon May",
         "meshWillAppear": "Mesh la ap parèt isit la lè yo konstwi yon senaryo.",

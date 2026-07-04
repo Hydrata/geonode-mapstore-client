@@ -63,8 +63,16 @@ MakePrivateCTA.defaultProps = {
 /**
  * UpgradeModal — shown when upgrade_prompt state is active (after 402 response).
  * checkout_url comes from the contract payload.
+ *
+ * TASK-2099: checkout_url is a POST-only DRF endpoint
+ * (/commerce/checkout/create-session/) — a plain `<a href>` click would 405.
+ * The CTA is a button; `onSubscribeClick` (wired by the container to the
+ * checkout epic) does the real POST and redirects to the returned session
+ * URL. `data-href` is kept (rather than a real `href`) purely so the fixture
+ * Karma tests can still assert the checkout_url reached this component,
+ * without making the element itself navigable.
  */
-function UpgradeModal({ checkoutUrl, onDismiss }) {
+function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick }) {
     return (
         <div data-testid="upgrade-modal" className="paywall-upgrade-modal-overlay">
             <div className="paywall-upgrade-modal">
@@ -76,14 +84,15 @@ function UpgradeModal({ checkoutUrl, onDismiss }) {
                     Start a subscription to unlock private models.
                 </p>
                 <div className="paywall-upgrade-modal-actions">
-                    <a
+                    <button
+                        type="button"
                         data-testid="subscribe-cta"
                         className="paywall-subscribe-btn"
-                        href={checkoutUrl}
                         data-href={checkoutUrl}
+                        onClick={() => onSubscribeClick(checkoutUrl)}
                     >
                         Subscribe &amp; make private
-                    </a>
+                    </button>
                     <button
                         data-testid="dismiss-upgrade"
                         className="paywall-dismiss-btn"
@@ -99,12 +108,14 @@ function UpgradeModal({ checkoutUrl, onDismiss }) {
 
 UpgradeModal.propTypes = {
     checkoutUrl: PropTypes.string,
-    onDismiss: PropTypes.func
+    onDismiss: PropTypes.func,
+    onSubscribeClick: PropTypes.func
 };
 
 UpgradeModal.defaultProps = {
     checkoutUrl: '',
-    onDismiss: () => {}
+    onDismiss: () => {},
+    onSubscribeClick: () => {}
 };
 
 /**
@@ -160,8 +171,12 @@ PrivateBadge.defaultProps = {
  * DunningBanner — shown in past_due state.
  * Non-blocking (advisory only) — does NOT hard-lock the project UI.
  * HARD CONTRACT RULE: never shows "revert to public" affordance.
+ *
+ * TASK-2099: renewUrl is the SAME POST-only create-session endpoint as
+ * UpgradeModal's checkoutUrl (_derive_paywall_state, api_v2.py) — the
+ * `<a href>` 405 trap applies here too. Same button + onRenewClick fix.
  */
-function DunningBanner({ renewUrl, onDismiss }) {
+function DunningBanner({ renewUrl, onDismiss, onRenewClick }) {
     return (
         <div data-testid="dunning-banner" className="paywall-dunning-banner paywall-dunning-banner--warning">
             <div className="paywall-dunning-banner-content">
@@ -169,14 +184,15 @@ function DunningBanner({ renewUrl, onDismiss }) {
                 <span className="paywall-dunning-banner-text">
                     Your subscription has lapsed — this model is still private, but renew to maintain your subscription.
                 </span>
-                <a
+                <button
+                    type="button"
                     data-testid="renew-cta"
                     className="paywall-renew-btn"
-                    href={renewUrl}
                     data-href={renewUrl}
+                    onClick={() => onRenewClick(renewUrl)}
                 >
                     Renew subscription
-                </a>
+                </button>
                 <button
                     data-testid="dismiss-dunning"
                     className="paywall-dunning-dismiss"
@@ -192,12 +208,14 @@ function DunningBanner({ renewUrl, onDismiss }) {
 
 DunningBanner.propTypes = {
     renewUrl: PropTypes.string,
-    onDismiss: PropTypes.func
+    onDismiss: PropTypes.func,
+    onRenewClick: PropTypes.func
 };
 
 DunningBanner.defaultProps = {
     renewUrl: '',
-    onDismiss: () => {}
+    onDismiss: () => {},
+    onRenewClick: () => {}
 };
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -231,7 +249,13 @@ class PaywallPanel extends React.Component {
         onMakePrivate: PropTypes.func,
 
         /** Called when user dismisses the upgrade_prompt modal. */
-        onDismissUpgrade: PropTypes.func
+        onDismissUpgrade: PropTypes.func,
+
+        /** Called with checkoutUrl when user clicks "Subscribe" (upgrade_prompt state). */
+        onSubscribeClick: PropTypes.func,
+
+        /** Called with checkoutUrl when user clicks "Renew subscription" (past_due state). */
+        onRenewClick: PropTypes.func
     };
 
     static defaultProps = {
@@ -240,7 +264,9 @@ class PaywallPanel extends React.Component {
         fixtureMode: false,
         fixtureState: null,
         onMakePrivate: () => {},
-        onDismissUpgrade: () => {}
+        onDismissUpgrade: () => {},
+        onSubscribeClick: () => {},
+        onRenewClick: () => {}
     };
 
     constructor(props) {
@@ -276,7 +302,7 @@ class PaywallPanel extends React.Component {
     }
 
     render() {
-        const { paywallEnabled, onMakePrivate, onDismissUpgrade } = this.props;
+        const { paywallEnabled, onMakePrivate, onDismissUpgrade, onSubscribeClick, onRenewClick } = this.props;
         const { dunningDismissed } = this.state;
 
         // Kill-switch: render nothing when disabled (dark ship default).
@@ -307,6 +333,7 @@ class PaywallPanel extends React.Component {
                 <UpgradeModal
                     checkoutUrl={checkoutUrl}
                     onDismiss={onDismissUpgrade}
+                    onSubscribeClick={onSubscribeClick}
                 />
             );
             break;
@@ -334,6 +361,7 @@ class PaywallPanel extends React.Component {
                     <DunningBanner
                         renewUrl={checkoutUrl}
                         onDismiss={() => this.setState({ dunningDismissed: true })}
+                        onRenewClick={onRenewClick}
                     />
                 );
             }

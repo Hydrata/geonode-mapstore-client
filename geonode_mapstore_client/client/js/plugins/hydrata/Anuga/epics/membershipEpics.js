@@ -18,6 +18,10 @@ import {
     setInvitations,
     fetchInvitations
 } from "../actionsAnuga";
+// TASK-2099 (epic 2092 W4.1) — 402 on a public->private visibility PATCH
+// carries the upgrade_prompt contract shape (_check_private_entitlement_response,
+// api_v2.py). Route it into the paywall overlay instead of the generic error toast.
+import {setPaywallUpgradePrompt} from '../../Paywall/actions';
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
 
@@ -88,6 +92,12 @@ export const deleteMembershipEpic = (action$, store) =>
                 });
         });
 
+// Error shape gotcha (see crudEpics.js _readErrStatus/_readErrData): MapStore2's
+// libs/ajax.js interceptor rewrites axios rejections to err.status/err.data
+// directly; axios-mock-adapter (used by tests) preserves err.response.*.
+const _readErrStatus = (err) => err?.status ?? err?.response?.status;
+const _readErrData = (err) => err?.data ?? err?.response?.data ?? {};
+
 export const updateProjectVisibilityEpic = (action$, store) =>
     action$.ofType(UPDATE_PROJECT_VISIBILITY_REQUEST)
         .switchMap(({visibility}) => {
@@ -99,7 +109,15 @@ export const updateProjectVisibilityEpic = (action$, store) =>
                     show({title: "Visibility updated", message: `Project is now ${visibility}`, level: "success"})
                 ]))
                 .catch(err => {
-                    const detail = err?.response?.data?.detail || "Failed to update visibility";
+                    // TASK-2099 — 402 carries the upgrade_prompt contract shape
+                    // ({state: 'upgrade_prompt', checkout_url, read_only}) from
+                    // _check_private_entitlement_response (api_v2.py). Route it
+                    // to the paywall overlay instead of the generic error toast.
+                    if (_readErrStatus(err) === 402) {
+                        const data = _readErrData(err);
+                        return Rx.Observable.of(setPaywallUpgradePrompt(data?.checkout_url));
+                    }
+                    const detail = _readErrData(err)?.detail || "Failed to update visibility";
                     return Rx.Observable.of(
                         show({title: "Error", message: detail, level: "error"})
                     );

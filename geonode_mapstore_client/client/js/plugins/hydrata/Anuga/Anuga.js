@@ -123,6 +123,12 @@ import {
     revokeInvitationEpic,
     resendInvitationEpic
 } from "./epics/membershipEpics";
+// TASK-2099 (epic 2092 W4.1) — Paywall checkout round-trip epics.
+import {
+    checkoutReturnEpic,
+    pollMyPermsWhilePendingEpic,
+    subscribeCheckoutEpic
+} from "./epics/paywallEpics";
 
 export default createPlugin('Anuga', {
     component: anugaContainer,
@@ -177,6 +183,10 @@ export default createPlugin('Anuga', {
         resendInvitationEpic,
         triggerFetchMyPermsOnInitEpic,
         fetchMyPermsEpic,
+        // TASK-2099 (epic 2092 W4.1) — Paywall checkout round-trip epics.
+        checkoutReturnEpic,
+        pollMyPermsWhilePendingEpic,
+        subscribeCheckoutEpic,
         deleteTerrainEpic,
         deleteBoundaryEpic,
         deleteFrictionEpic,

@@ -90,7 +90,14 @@ const _BE_TO_FE_KEY = {
 };
 
 // Top-level keys in the my_perms payload that are NOT resource_type slots.
-const _NON_RESOURCE_KEYS = new Set(['my_role', 'visibility']);
+// TASK-2099 (epic 2092 W4.1): 'paywall' is an OBJECT ({state, checkout_url,
+// read_only}), not an {idStr: perms[]} map, but it still passes the generic
+// `typeof idsToPerms !== 'object'` guard below (an object IS an object) — so
+// without this skip it silently falls into the merge loop, where
+// Object.entries(paywall) yields keys 'state'/'checkout_url'/'read_only',
+// each fails parseInt(), and next.paywall ends up [] (the payload is
+// dropped). The paywall reducer (Paywall/reducer.js) owns this key instead.
+const _NON_RESOURCE_KEYS = new Set(['my_role', 'visibility', 'paywall']);
 
 // Skip these resource_type keys — they don't map to the resources reducer
 // slice. (members lives in membershipsReducer; runs lives in runsReducer.)

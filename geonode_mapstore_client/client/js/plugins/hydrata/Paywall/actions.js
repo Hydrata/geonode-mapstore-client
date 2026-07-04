@@ -1,0 +1,47 @@
+/**
+ * Paywall FE-only actions (TASK-2099, epic 2092 W4.1).
+ *
+ * The STEADY paywall state (free_public / paid_private / past_due) comes from
+ * the Anuga my_perms fetch (SET_ANUGA_RESOURCE_PERMS, payload.paywall — see
+ * reducer.js). These actions cover the states my_perms never emits:
+ *
+ *   upgrade_prompt — the 402 error-response shape from a visibility PATCH
+ *                    (dispatched by membershipEpics.updateProjectVisibilityEpic).
+ *   pending        — FE-only transient while polling my_perms after a Stripe
+ *                    Checkout return, before the webhook has flipped anything
+ *                    (see paywallContract.js _meta.note_on_pending).
+ */
+
+export const SET_PAYWALL_UPGRADE_PROMPT = 'PAYWALL:SET_UPGRADE_PROMPT';
+export const DISMISS_PAYWALL_UPGRADE = 'PAYWALL:DISMISS_UPGRADE';
+export const SET_PAYWALL_PENDING = 'PAYWALL:SET_PENDING';
+// Requests a Checkout Session (POST /commerce/checkout/create-session/) and
+// redirects the browser to the returned session.url. Used by both the
+// upgrade_prompt "Subscribe" CTA and the past_due "Renew" CTA (2099), and by
+// the compute-meter pack-purchase flow (2100, purchaseType='credit_pack').
+export const SUBSCRIBE_CHECKOUT_REQUEST = 'PAYWALL:SUBSCRIBE_CHECKOUT_REQUEST';
+
+/**
+ * @param {string} checkoutUrl — from the 402 body (upgrade_prompt.checkout_url).
+ */
+export function setPaywallUpgradePrompt(checkoutUrl) {
+    return { type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl };
+}
+
+/** "Keep it public" — dismisses the upgrade_prompt overlay only. */
+export function dismissPaywallUpgrade() {
+    return { type: DISMISS_PAYWALL_UPGRADE };
+}
+
+/** Arms the FE-only pending overlay (checkout=success return, pre-webhook). */
+export function setPaywallPending() {
+    return { type: SET_PAYWALL_PENDING };
+}
+
+/**
+ * @param {string} purchaseType — 'subscription' (default) or 'credit_pack'.
+ * @param {object} extra — e.g. { priceId } for credit_pack purchases (2100).
+ */
+export function subscribeCheckoutRequest(purchaseType = 'subscription', extra = {}) {
+    return { type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType, ...extra };
+}

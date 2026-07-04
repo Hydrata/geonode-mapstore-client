@@ -556,6 +556,28 @@ export const deleteMembership = (projectId, membershipId) =>
 export const updateProjectVisibility = (projectId, visibility) =>
     axios.patch(`/api/v2/anuga/projects/${projectId}/`, { visibility });
 
+// -- Checkout (TASK-2099 / TASK-2100, epic 2092 W2.2/W4) -------------------
+//
+// POST-only DRF endpoint — an <a href> click 405s (the checkout_url trap
+// documented on paywallContract.js / PaywallPanel's UpgradeModal). The
+// checkout epic POSTs here then redirects the browser to the returned
+// session.url. Shared by the subscription flow (2099) and the compute-meter
+// credit-pack flow (2100, purchaseType='credit_pack' + priceId).
+export const createCheckoutSession = (projectId, purchaseType = 'subscription', priceId) => {
+    const body = { purchase_type: purchaseType };
+    if (purchaseType === 'credit_pack') {
+        body.price_id = priceId;
+    } else {
+        body.project_id = projectId;
+    }
+    return axios.post('/commerce/checkout/create-session/', body);
+};
+
+// -- Compute meter (TASK-2100, epic 2092 W4.2) -----------------------------
+
+export const getComputeBalance = () =>
+    axios.get('/commerce/balance/');
+
 // -- Invitations (TASK-860 / TASK-855/856) ---------------------------------
 //
 // All endpoints are project-scoped and require MANAGER or OWNER role.

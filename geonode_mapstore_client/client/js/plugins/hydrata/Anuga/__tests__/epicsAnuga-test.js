@@ -1581,4 +1581,216 @@ describe('ANUGA Epics', () => {
                 });
         });
     });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TASK-2099 (epic 2092 W4.1) — Paywall FE: 402 interception on the
+    // visibility PATCH, checkout-return parsing, and the checkout POST.
+    // ─────────────────────────────────────────────────────────────────────
+    describe('TASK-2099 updateProjectVisibilityEpic — 402 interception', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {updateProjectVisibilityEpic} = require('../epics/membershipEpics');
+        const {UPDATE_PROJECT_VISIBILITY_REQUEST} = require('../actionsAnuga');
+        const {SET_PAYWALL_UPGRADE_PROMPT} = require('../../Paywall/actions');
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('402 -> SET_PAYWALL_UPGRADE_PROMPT with checkout_url (NOT the generic error toast)', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(402, {
+                state: 'upgrade_prompt',
+                checkout_url: 'https://example.com/commerce/checkout/create-session/',
+                read_only: false
+            });
+
+            const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'private'}]);
+            const emitted = [];
+
+            updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(SET_PAYWALL_UPGRADE_PROMPT);
+                    expect(emitted[0].checkoutUrl).toBe('https://example.com/commerce/checkout/create-session/');
+                    done();
+                });
+        });
+
+        it('non-402 error still surfaces the generic SHOW_NOTIFICATION toast', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(500, {detail: 'boom'});
+
+            const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'private'}]);
+            const emitted = [];
+
+            updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+    });
+
+    describe('TASK-2099 paywallEpics', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            checkoutReturnEpic,
+            pollMyPermsWhilePendingEpic,
+            subscribeCheckoutEpic,
+            __resetCheckoutReturnForTests,
+            __setPollIntervalForTests,
+            __setRedirectForTests
+        } = require('../epics/paywallEpics');
+        const {INIT_ANUGA, FETCH_MY_PERMS} = require('../actionsAnuga');
+        const {SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING} = require('../../Paywall/actions');
+
+        let mockAxios;
+        const originalPath = window.location.pathname;
+
+        beforeEach(() => {
+            mockAxios = new MockAdapter(axios);
+            __resetCheckoutReturnForTests();
+        });
+        afterEach(() => {
+            mockAxios.restore();
+            __setPollIntervalForTests(null); // restore real interval
+            __setRedirectForTests(null); // restore real redirect
+            window.history.pushState({}, '', originalPath);
+        });
+
+        describe('checkoutReturnEpic', () => {
+            it('?checkout=success -> emits SET_PAYWALL_PENDING', (done) => {
+                window.history.pushState({}, '', '?checkout=success');
+                const action$ = mockActions([{type: INIT_ANUGA}]);
+                const emitted = [];
+
+                checkoutReturnEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_PAYWALL_PENDING);
+                        done();
+                    });
+            });
+
+            it('?checkout=cancel -> emits a notification, NOT the pending overlay', (done) => {
+                window.history.pushState({}, '', '?checkout=cancel');
+                const action$ = mockActions([{type: INIT_ANUGA}]);
+                const emitted = [];
+
+                checkoutReturnEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toInclude('NOTIFICATION');
+                        done();
+                    });
+            });
+
+            it('no ?checkout param -> emits nothing', (done) => {
+                const action$ = mockActions([{type: INIT_ANUGA}]);
+                const emitted = [];
+
+                checkoutReturnEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    });
+            });
+
+            it('a second INIT_ANUGA in the same session is deduped (no re-arm)', (done) => {
+                window.history.pushState({}, '', '?checkout=success');
+                const action$ = mockActions([{type: INIT_ANUGA}, {type: INIT_ANUGA}]);
+                const emitted = [];
+
+                checkoutReturnEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        done();
+                    });
+            });
+        });
+
+        describe('pollMyPermsWhilePendingEpic', () => {
+            it('polls FETCH_MY_PERMS on the interval while pending, stops once resolved', (done) => {
+                __setPollIntervalForTests(10); // fast interval for the test
+                let pending = true;
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {overlay: pending ? {state: 'pending'} : null, steady: null}
+                        }
+                    })
+                };
+                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
+                const emitted = [];
+
+                const sub = pollMyPermsWhilePendingEpic(action$, store).subscribe(a => emitted.push(a));
+
+                setTimeout(() => {
+                    expect(emitted.length).toBeGreaterThan(0);
+                    expect(emitted[0].type).toBe(FETCH_MY_PERMS);
+                    pending = false; // simulate the webhook flip clearing the overlay
+                    const countAtClear = emitted.length;
+                    setTimeout(() => {
+                        // takeWhile stops emitting once isPaywallPending() goes false —
+                        // the count should not keep growing unbounded.
+                        expect(emitted.length).toBeLessThanOrEqualTo(countAtClear + 1);
+                        sub.unsubscribe();
+                        done();
+                    }, 50);
+                }, 35);
+            });
+
+            it('no project id -> emits nothing', (done) => {
+                const store = {getState: () => ({anuga: {projects: {data: null}, paywall: {}}})};
+                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
+                const emitted = [];
+
+                pollMyPermsWhilePendingEpic(action$, store)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    });
+            });
+        });
+
+        describe('subscribeCheckoutEpic', () => {
+            it('POSTs create-session then redirects to the returned session.url (never a raw <a href> nav)', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    expect(JSON.parse(config.data)).toEqual({purchase_type: 'subscription', project_id: 42});
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_abc'}];
+                });
+                let redirectedTo = null;
+                __setRedirectForTests((url) => { redirectedTo = url; });
+
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}]);
+                const emitted = [];
+
+                subscribeCheckoutEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0); // no action emitted; redirect is the side effect
+                        expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_abc');
+                        done();
+                    });
+            });
+
+            it('API error -> emits SHOW_NOTIFICATION (no crash, no redirect)', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply(400, {error: 'boom'});
+                let redirectedTo = null;
+                __setRedirectForTests((url) => { redirectedTo = url; });
+
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}]);
+                const emitted = [];
+
+                subscribeCheckoutEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toInclude('NOTIFICATION');
+                        expect(redirectedTo).toBe(null);
+                        done();
+                    });
+            });
+        });
+    });
 });
