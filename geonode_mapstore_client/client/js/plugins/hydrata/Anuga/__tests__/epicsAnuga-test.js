@@ -234,6 +234,68 @@ describe('ANUGA Epics', () => {
                     }
                 );
         });
+
+        // TASK-2100 (epic 2092 W4.2) — StartRunView's meter gate 402/429.
+        describe('TASK-2100 meter-gate 402/429 interception', () => {
+            const MockAdapter = require('axios-mock-adapter');
+            const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+            const {SET_METER_INSUFFICIENT_BALANCE, SET_METER_CAP_EXCEEDED} = require('../../Paywall/meter/actions');
+
+            let mockAxios;
+            beforeEach(() => { mockAxios = new MockAdapter(axios); });
+            afterEach(() => { mockAxios.restore(); });
+
+            it('402 insufficient_balance -> SET_METER_INSUFFICIENT_BALANCE with checkout_url + detail', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(402, {
+                    state: 'insufficient_balance',
+                    checkout_url: 'https://x/commerce/checkout/create-session/',
+                    detail: 'This run is priced at $5; your compute balance is $0.'
+                });
+
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'batch'}]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, {getState: () => ({})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_METER_INSUFFICIENT_BALANCE);
+                        expect(emitted[0].checkoutUrl).toBe('https://x/commerce/checkout/create-session/');
+                        expect(emitted[0].detail).toInclude('priced at $5');
+                        done();
+                    });
+            });
+
+            it('429 FREE_CAP_EXCEEDED -> SET_METER_CAP_EXCEEDED (distinct from insufficient_balance)', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(429, {
+                    error_code: 'FREE_CAP_EXCEEDED',
+                    detail: 'Free daily compute-run cap (3) reached for this account.'
+                });
+
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'batch'}]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, {getState: () => ({})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_METER_CAP_EXCEEDED);
+                        expect(emitted[0].detail).toInclude('Free daily compute-run cap');
+                        done();
+                    });
+            });
+
+            it('an unrelated error is still silently swallowed (pre-existing behaviour, unchanged)', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(500, {detail: 'boom'});
+
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'local'}]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, {getState: () => ({})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    });
+            });
+        });
     });
 
     describe('saveNetworkEpic', () => {
@@ -1644,6 +1706,7 @@ describe('ANUGA Epics', () => {
         } = require('../epics/paywallEpics');
         const {INIT_ANUGA, FETCH_MY_PERMS} = require('../actionsAnuga');
         const {SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING} = require('../../Paywall/actions');
+        const {FETCH_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
 
         let mockAxios;
         const originalPath = window.location.pathname;
@@ -1660,15 +1723,16 @@ describe('ANUGA Epics', () => {
         });
 
         describe('checkoutReturnEpic', () => {
-            it('?checkout=success -> emits SET_PAYWALL_PENDING', (done) => {
+            it('?checkout=success -> emits SET_PAYWALL_PENDING + clears any stale meter modal (TASK-2100)', (done) => {
                 window.history.pushState({}, '', '?checkout=success');
                 const action$ = mockActions([{type: INIT_ANUGA}]);
                 const emitted = [];
 
                 checkoutReturnEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(1);
-                        expect(emitted[0].type).toBe(SET_PAYWALL_PENDING);
+                        expect(emitted.length).toBe(2);
+                        expect(emitted.some(a => a.type === SET_PAYWALL_PENDING)).toBe(true);
+                        expect(emitted.some(a => a.type === 'METER:DISMISS_MODAL')).toBe(true);
                         done();
                     });
             });
@@ -1704,14 +1768,16 @@ describe('ANUGA Epics', () => {
 
                 checkoutReturnEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(1);
+                        // 2 actions from the ONE handled INIT_ANUGA (pending + modal
+                        // dismiss), not 4 — the second INIT_ANUGA is a full no-op.
+                        expect(emitted.length).toBe(2);
                         done();
                     });
             });
         });
 
         describe('pollMyPermsWhilePendingEpic', () => {
-            it('polls FETCH_MY_PERMS on the interval while pending, stops once resolved', (done) => {
+            it('polls FETCH_MY_PERMS + FETCH_COMPUTE_BALANCE on the interval while pending, stops once resolved', (done) => {
                 __setPollIntervalForTests(10); // fast interval for the test
                 let pending = true;
                 const store = {
@@ -1729,29 +1795,37 @@ describe('ANUGA Epics', () => {
 
                 setTimeout(() => {
                     expect(emitted.length).toBeGreaterThan(0);
-                    expect(emitted[0].type).toBe(FETCH_MY_PERMS);
+                    // TASK-2100: each tick emits BOTH the balance refresh (shared
+                    // checkout-return machinery) and, when a project is known,
+                    // the my_perms fetch.
+                    expect(emitted.some(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
+                    expect(emitted.some(a => a.type === FETCH_MY_PERMS)).toBe(true);
                     pending = false; // simulate the webhook flip clearing the overlay
                     const countAtClear = emitted.length;
                     setTimeout(() => {
                         // takeWhile stops emitting once isPaywallPending() goes false —
                         // the count should not keep growing unbounded.
-                        expect(emitted.length).toBeLessThanOrEqualTo(countAtClear + 1);
+                        expect(emitted.length).toBeLessThanOrEqualTo(countAtClear + 2);
                         sub.unsubscribe();
                         done();
                     }, 50);
                 }, 35);
             });
 
-            it('no project id -> emits nothing', (done) => {
-                const store = {getState: () => ({anuga: {projects: {data: null}, paywall: {}}})};
+            it('no project id -> still refreshes the balance (account-scoped, not project-scoped), but never emits FETCH_MY_PERMS', (done) => {
+                __setPollIntervalForTests(10);
+                const store = {getState: () => ({anuga: {projects: {data: null}, paywall: {overlay: {state: 'pending'}}}})};
                 const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
                 const emitted = [];
 
-                pollMyPermsWhilePendingEpic(action$, store)
-                    .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(0);
-                        done();
-                    });
+                const sub = pollMyPermsWhilePendingEpic(action$, store).subscribe(a => emitted.push(a));
+
+                setTimeout(() => {
+                    expect(emitted.length).toBeGreaterThan(0);
+                    expect(emitted.every(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
+                    sub.unsubscribe();
+                    done();
+                }, 35);
             });
         });
 

@@ -87,6 +87,46 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
+    // TASK-2100 (epic 2092 W4.2) — the Run action's price-band label.
+    it('shows no price label when latest_run.price_band is absent (meter off / unpriceable — ships dark)', (done) => {
+        ReactDOM.render(
+            <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+            container,
+            () => {
+                expect(container.querySelector('[data-testid="sv-scenario-run-price"]')).toNotExist();
+                done();
+            }
+        );
+    });
+
+    it('shows "$5" when latest_run.price_band is a priced band', (done) => {
+        const scenario = {...baseScenario, latest_run: {price_band: '5'}};
+        ReactDOM.render(
+            <ScenarioHeaderActions scenario={scenario} canEdit canRunScenario />,
+            container,
+            () => {
+                const el = container.querySelector('[data-testid="sv-scenario-run-price"]');
+                expect(el).toExist();
+                expect(el.textContent).toBe('$5');
+                done();
+            }
+        );
+    });
+
+    it('shows "Free" when latest_run.price_band is the $0 band', (done) => {
+        const scenario = {...baseScenario, latest_run: {price_band: '0'}};
+        ReactDOM.render(
+            <ScenarioHeaderActions scenario={scenario} canEdit canRunScenario />,
+            container,
+            () => {
+                const el = container.querySelector('[data-testid="sv-scenario-run-price"]');
+                expect(el).toExist();
+                expect(el.textContent).toBe('Free');
+                done();
+            }
+        );
+    });
+
     it('Build click fires onBuildClick + the anuga-scenario-menu-build label', (done) => {
         let captured = null;
         ReactDOM.render(

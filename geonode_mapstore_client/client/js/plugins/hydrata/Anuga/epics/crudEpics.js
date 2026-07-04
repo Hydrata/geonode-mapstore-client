@@ -2,6 +2,8 @@ import Rx from "rxjs";
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
 import {addLayer, removeLayer, removeNode} from '../../../../../MapStore2/web/client/actions/layers';
 import * as anugaApi from '../api/anugaApi';
+// TASK-2100 (epic 2092 W4.2) — StartRunView's meter gate 402/429 contract.
+import {setMeterInsufficientBalance, setMeterCapExceeded} from '../../Paywall/meter/actions';
 import {
     CANCEL_ANUGA_RUN,
     RETRY_ANUGA_RUN,
@@ -236,6 +238,13 @@ export const unarchiveAnugaScenarioEpic = (action$, store) =>
 
 // Bug #2 fix: restructured so runAnugaScenarioSuccess dispatch is emitted
 // into the observable chain (previously swallowed by .then inside .concatMap)
+//
+// TASK-2100 (epic 2092 W4.2): StartRunView's meter gate (TASK-2097) can
+// refuse dispatch with a 402 (insufficient_balance, contract-shaped like the
+// paywall 402) or a 429 (FREE_CAP_EXCEEDED, distinct message per AC#3) —
+// both now route to the compute-meter modal instead of the pre-existing
+// silent swallow, which is preserved for every OTHER error (unrelated to
+// this task; not touching that behaviour).
 export const runAnugaScenarioEpic = (action$, _store) =>
     action$
         .ofType(RUN_ANUGA_SCENARIO)
@@ -251,7 +260,17 @@ export const runAnugaScenarioEpic = (action$, _store) =>
                         ...(runId ? [startActiveRunPolling(runId)] : [])
                     );
                 })
-                .catch(() => Rx.Observable.empty())
+                .catch((err) => {
+                    const status = _readErrStatus(err);
+                    const data = _readErrData(err);
+                    if (status === 402 && data?.state === 'insufficient_balance') {
+                        return Rx.Observable.of(setMeterInsufficientBalance(data.checkout_url, data.detail));
+                    }
+                    if (status === 429 && data?.error_code === 'FREE_CAP_EXCEEDED') {
+                        return Rx.Observable.of(setMeterCapExceeded(data.detail));
+                    }
+                    return Rx.Observable.empty();
+                })
         );
 
 // Bug #1 fix: removed the spurious runScenario call before cancel.

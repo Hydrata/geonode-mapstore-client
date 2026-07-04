@@ -129,6 +129,11 @@ import {
     pollMyPermsWhilePendingEpic,
     subscribeCheckoutEpic
 } from "./epics/paywallEpics";
+// TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
+import {
+    triggerFetchBalanceOnInitEpic,
+    fetchComputeBalanceEpic
+} from "./epics/computeMeterEpics";
 
 export default createPlugin('Anuga', {
     component: anugaContainer,
@@ -187,6 +192,9 @@ export default createPlugin('Anuga', {
         checkoutReturnEpic,
         pollMyPermsWhilePendingEpic,
         subscribeCheckoutEpic,
+        // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
+        triggerFetchBalanceOnInitEpic,
+        fetchComputeBalanceEpic,
         deleteTerrainEpic,
         deleteBoundaryEpic,
         deleteFrictionEpic,
