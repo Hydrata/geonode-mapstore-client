@@ -221,13 +221,26 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId, dispatc
         const fetchFn = resolveFetch(choice);
         if (typeof fetchFn !== 'function') return;
         if (Array.isArray(choice.options)) return;
-        setLoadingByKind(prev => ({ ...prev, [choice.kind]: true }));
+        // TASK-2127 — stale-while-revalidate: a refetch of a kind that has
+        // ALREADY resolved once (optionsByKind[kind] is an array, even an
+        // empty one) is a BACKGROUND refresh, not the initial load — never
+        // flip loadingByKind for it. TimeSeriesSelect renders
+        // disabled={loading || isEmpty} (FormField.js), so forcing loading
+        // true here disabled the native <select> mid-click/focus and the
+        // browser silently closed the popup the user had just opened — this
+        // task's root cause. The "never loaded yet" case (mount fetch still
+        // in flight) is unaffected: it is seeded/driven by the separate mount
+        // effect above, not this function.
+        const neverLoaded = !Array.isArray(optionsByKind[choice.kind]);
+        if (neverLoaded) {
+            setLoadingByKind(prev => ({ ...prev, [choice.kind]: true }));
+        }
         Promise.resolve()
             .then(() => fetchFn(projectId))
             .then(list => {
                 const arr = Array.isArray(list) ? list : [];
                 setOptionsByKind(prev => ({ ...prev, [choice.kind]: arr }));
-                setLoadingByKind(prev => ({ ...prev, [choice.kind]: false }));
+                setLoadingByKind(prev => (prev[choice.kind] ? { ...prev, [choice.kind]: false } : prev));
                 setErrorByKind(prev => ({ ...prev, [choice.kind]: null }));
             })
             .catch(err => {
@@ -235,8 +248,12 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId, dispatc
                     ...prev,
                     [choice.kind]: err?.message || 'Failed to load'
                 }));
-                setOptionsByKind(prev => ({ ...prev, [choice.kind]: [] }));
-                setLoadingByKind(prev => ({ ...prev, [choice.kind]: false }));
+                // A background-refresh error must not blow away an already-
+                // populated (working) list — only reset to [] when this kind
+                // had never loaded anything yet. The ErrorStrip still
+                // surfaces the failure either way.
+                setOptionsByKind(prev => (Array.isArray(prev[choice.kind]) ? prev : { ...prev, [choice.kind]: [] }));
+                setLoadingByKind(prev => (prev[choice.kind] ? { ...prev, [choice.kind]: false } : prev));
             });
     };
 
