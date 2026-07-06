@@ -214,6 +214,14 @@
         "permsUnavailable": {
           "message": "Les permissions n'ont pas pu etre chargees. La liste des membres est en lecture seule jusqu'a ce que les permissions soient de nouveau disponibles."
         },
+        "checkoutCancelled": {
+          "title": "Paiement annule",
+          "message": "Aucune modification n'a ete effectuee — vous pouvez reessayer a tout moment."
+        },
+        "checkoutFailed": {
+          "title": "Echec du paiement",
+          "message": "Impossible de demarrer le paiement. Veuillez reessayer."
+        },
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "Le mesh apparaîtra ici lorsqu'un scénario sera construit.",

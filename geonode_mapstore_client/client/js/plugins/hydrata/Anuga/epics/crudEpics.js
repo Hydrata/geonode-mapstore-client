@@ -2,6 +2,12 @@ import Rx from "rxjs";
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
 import {addLayer, removeLayer, removeNode} from '../../../../../MapStore2/web/client/actions/layers';
 import * as anugaApi from '../api/anugaApi';
+// TASK-2100 (epic 2092 W4.2) — StartRunView's meter gate 402/429 contract.
+// TASK-2123 (epic 2092 W5-preflip) — adds the estimate_ceiling 402 branch.
+import {setMeterInsufficientBalance, setMeterCapExceeded, setMeterEstimateCeiling} from '../../Paywall/meter/actions';
+// Shared axios error-shape readers (epic-2092 W4 simplify pass — see the
+// util's own docstring for the MapStore2 ajax-interceptor gotcha).
+import {readErrStatus as _readErrStatus, readErrData as _readErrData} from '../utils/apiErrorUtils';
 import {
     CANCEL_ANUGA_RUN,
     RETRY_ANUGA_RUN,
@@ -236,6 +242,13 @@ export const unarchiveAnugaScenarioEpic = (action$, store) =>
 
 // Bug #2 fix: restructured so runAnugaScenarioSuccess dispatch is emitted
 // into the observable chain (previously swallowed by .then inside .concatMap)
+//
+// TASK-2100 (epic 2092 W4.2): StartRunView's meter gate (TASK-2097) can
+// refuse dispatch with a 402 (insufficient_balance, contract-shaped like the
+// paywall 402) or a 429 (FREE_CAP_EXCEEDED, distinct message per AC#3) —
+// both now route to the compute-meter modal instead of the pre-existing
+// silent swallow, which is preserved for every OTHER error (unrelated to
+// this task; not touching that behaviour).
 export const runAnugaScenarioEpic = (action$, _store) =>
     action$
         .ofType(RUN_ANUGA_SCENARIO)
@@ -251,7 +264,24 @@ export const runAnugaScenarioEpic = (action$, _store) =>
                         ...(runId ? [startActiveRunPolling(runId)] : [])
                     );
                 })
-                .catch(() => Rx.Observable.empty())
+                .catch((err) => {
+                    const status = _readErrStatus(err);
+                    const data = _readErrData(err);
+                    if (status === 402 && data?.state === 'insufficient_balance') {
+                        return Rx.Observable.of(setMeterInsufficientBalance(data.checkout_url, data.detail));
+                    }
+                    // TASK-2123 — a known, too-expensive estimate (above the
+                    // launch ceiling). Distinct modal from insufficient_balance
+                    // (both are 402s, but the state discriminates) — no CTA can
+                    // fix this, so no checkout_url is expected in the body.
+                    if (status === 402 && data?.state === 'estimate_ceiling') {
+                        return Rx.Observable.of(setMeterEstimateCeiling(data.detail));
+                    }
+                    if (status === 429 && data?.error_code === 'FREE_CAP_EXCEEDED') {
+                        return Rx.Observable.of(setMeterCapExceeded(data.detail));
+                    }
+                    return Rx.Observable.empty();
+                })
         );
 
 // Bug #1 fix: removed the spurious runScenario call before cancel.
@@ -502,13 +532,8 @@ export const getAnugaResourcesEpic = (action$, {getState: _getState = () => {}})
 //   * 409 → typeBlocked with the BE-supplied blocking-scenarios array
 //   * other → typeError
 //
-// Error shape gotcha: MapStore2 libs/ajax.js:158 interceptor rewrites axios
-// rejections so the canonical access is err.status / err.data, not
-// err.response.status / err.response.data. We check both forms defensively
-// because axios-mock-adapter (used by the API regression suite) preserves
-// the err.response.* shape.
-const _readErrStatus = (err) => err?.status ?? err?.response?.status;
-const _readErrData = (err) => err?.data ?? err?.response?.data ?? {};
+// _readErrStatus/_readErrData (the MapStore2 ajax-interceptor gotcha) now
+// live in ../utils/apiErrorUtils — imported at the top of this file.
 
 const makeDeleteEpic = (
     actionType, apiFn, successAction, blockedAction, errorAction

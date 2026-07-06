@@ -497,6 +497,13 @@ export const plugins = {
         'Anuga',
         () => import(/* webpackChunkName: 'plugins/anuga-plugin' */ '@js/plugins/hydrata/Anuga/Anuga')
     ),
+    // TASK-2099 (epic 2092 W4.1) — Phase-1 privacy paywall FE. Ships DARK
+    // (cfg.paywallEnabled defaults false in both localConfig copies) until
+    // the operator-gated W5.1/W6 flip.
+    PaywallPlugin: toModulePlugin(
+        'Paywall',
+        () => import(/* webpackChunkName: 'plugins/paywall-plugin' */ '@js/plugins/hydrata/Paywall/Paywall')
+    ),
     HydrologyPlugin: toModulePlugin(
         'Hydrology',
         () => import(/* webpackChunkName: 'plugins/hydrology-plugin' */ '@js/plugins/hydrata/Hydrology/Hydrology')

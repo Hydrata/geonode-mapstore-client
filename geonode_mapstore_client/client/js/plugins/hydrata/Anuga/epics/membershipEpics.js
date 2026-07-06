@@ -18,6 +18,13 @@ import {
     setInvitations,
     fetchInvitations
 } from "../actionsAnuga";
+// TASK-2099 (epic 2092 W4.1) — 402 on a public->private visibility PATCH
+// carries the upgrade_prompt contract shape (_check_private_entitlement_response,
+// api_v2.py). Route it into the paywall overlay instead of the generic error toast.
+import {setPaywallUpgradePrompt} from '../../Paywall/actions';
+// Shared axios error-shape readers (see crudEpics.js's original comment / the
+// util's own docstring for the MapStore2 ajax-interceptor gotcha).
+import {readErrStatus as _readErrStatus, readErrData as _readErrData} from '../utils/apiErrorUtils';
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
 
@@ -99,7 +106,15 @@ export const updateProjectVisibilityEpic = (action$, store) =>
                     show({title: "Visibility updated", message: `Project is now ${visibility}`, level: "success"})
                 ]))
                 .catch(err => {
-                    const detail = err?.response?.data?.detail || "Failed to update visibility";
+                    // TASK-2099 — 402 carries the upgrade_prompt contract shape
+                    // ({state: 'upgrade_prompt', checkout_url, read_only}) from
+                    // _check_private_entitlement_response (api_v2.py). Route it
+                    // to the paywall overlay instead of the generic error toast.
+                    if (_readErrStatus(err) === 402) {
+                        const data = _readErrData(err);
+                        return Rx.Observable.of(setPaywallUpgradePrompt(data?.checkout_url));
+                    }
+                    const detail = _readErrData(err)?.detail || "Failed to update visibility";
                     return Rx.Observable.of(
                         show({title: "Error", message: detail, level: "error"})
                     );

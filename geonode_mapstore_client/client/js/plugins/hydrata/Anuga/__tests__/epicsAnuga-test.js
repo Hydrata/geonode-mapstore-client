@@ -234,6 +234,68 @@ describe('ANUGA Epics', () => {
                     }
                 );
         });
+
+        // TASK-2100 (epic 2092 W4.2) — StartRunView's meter gate 402/429.
+        describe('TASK-2100 meter-gate 402/429 interception', () => {
+            const MockAdapter = require('axios-mock-adapter');
+            const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+            const {SET_METER_INSUFFICIENT_BALANCE, SET_METER_CAP_EXCEEDED} = require('../../Paywall/meter/actions');
+
+            let mockAxios;
+            beforeEach(() => { mockAxios = new MockAdapter(axios); });
+            afterEach(() => { mockAxios.restore(); });
+
+            it('402 insufficient_balance -> SET_METER_INSUFFICIENT_BALANCE with checkout_url + detail', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(402, {
+                    state: 'insufficient_balance',
+                    checkout_url: 'https://x/commerce/checkout/create-session/',
+                    detail: 'This run is priced at $5; your compute balance is $0.'
+                });
+
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'batch'}]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, {getState: () => ({})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_METER_INSUFFICIENT_BALANCE);
+                        expect(emitted[0].checkoutUrl).toBe('https://x/commerce/checkout/create-session/');
+                        expect(emitted[0].detail).toInclude('priced at $5');
+                        done();
+                    });
+            });
+
+            it('429 FREE_CAP_EXCEEDED -> SET_METER_CAP_EXCEEDED (distinct from insufficient_balance)', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(429, {
+                    error_code: 'FREE_CAP_EXCEEDED',
+                    detail: 'Free daily compute-run cap (3) reached for this account.'
+                });
+
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'batch'}]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, {getState: () => ({})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_METER_CAP_EXCEEDED);
+                        expect(emitted[0].detail).toInclude('Free daily compute-run cap');
+                        done();
+                    });
+            });
+
+            it('an unrelated error is still silently swallowed (pre-existing behaviour, unchanged)', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(500, {detail: 'boom'});
+
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'local'}]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, {getState: () => ({})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    });
+            });
+        });
     });
 
     describe('saveNetworkEpic', () => {
@@ -1579,6 +1641,230 @@ describe('ANUGA Epics', () => {
                     expect(emitted.length).toBe(0);
                     done();
                 });
+        });
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TASK-2099 (epic 2092 W4.1) — Paywall FE: 402 interception on the
+    // visibility PATCH, checkout-return parsing, and the checkout POST.
+    // ─────────────────────────────────────────────────────────────────────
+    describe('TASK-2099 updateProjectVisibilityEpic — 402 interception', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {updateProjectVisibilityEpic} = require('../epics/membershipEpics');
+        const {UPDATE_PROJECT_VISIBILITY_REQUEST} = require('../actionsAnuga');
+        const {SET_PAYWALL_UPGRADE_PROMPT} = require('../../Paywall/actions');
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('402 -> SET_PAYWALL_UPGRADE_PROMPT with checkout_url (NOT the generic error toast)', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(402, {
+                state: 'upgrade_prompt',
+                checkout_url: 'https://example.com/commerce/checkout/create-session/',
+                read_only: false
+            });
+
+            const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'private'}]);
+            const emitted = [];
+
+            updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(SET_PAYWALL_UPGRADE_PROMPT);
+                    expect(emitted[0].checkoutUrl).toBe('https://example.com/commerce/checkout/create-session/');
+                    done();
+                });
+        });
+
+        it('non-402 error still surfaces the generic SHOW_NOTIFICATION toast', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(500, {detail: 'boom'});
+
+            const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'private'}]);
+            const emitted = [];
+
+            updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+    });
+
+    describe('TASK-2099 paywallEpics', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            checkoutReturnEpic,
+            pollMyPermsWhilePendingEpic,
+            subscribeCheckoutEpic,
+            __resetCheckoutReturnForTests,
+            __setPollIntervalForTests,
+            __setRedirectForTests
+        } = require('../epics/paywallEpics');
+        const {INIT_ANUGA, FETCH_MY_PERMS} = require('../actionsAnuga');
+        const {SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING} = require('../../Paywall/actions');
+        const {FETCH_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
+
+        let mockAxios;
+        const originalPath = window.location.pathname;
+
+        beforeEach(() => {
+            mockAxios = new MockAdapter(axios);
+            __resetCheckoutReturnForTests();
+        });
+        afterEach(() => {
+            mockAxios.restore();
+            __setPollIntervalForTests(null); // restore real interval
+            __setRedirectForTests(null); // restore real redirect
+            window.history.pushState({}, '', originalPath);
+        });
+
+        describe('checkoutReturnEpic', () => {
+            it('?checkout=success -> emits SET_PAYWALL_PENDING + clears any stale meter modal (TASK-2100)', (done) => {
+                window.history.pushState({}, '', '?checkout=success');
+                const action$ = mockActions([{type: INIT_ANUGA}]);
+                const emitted = [];
+
+                checkoutReturnEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(2);
+                        expect(emitted.some(a => a.type === SET_PAYWALL_PENDING)).toBe(true);
+                        expect(emitted.some(a => a.type === 'METER:DISMISS_MODAL')).toBe(true);
+                        done();
+                    });
+            });
+
+            it('?checkout=cancel -> emits a notification, NOT the pending overlay', (done) => {
+                window.history.pushState({}, '', '?checkout=cancel');
+                const action$ = mockActions([{type: INIT_ANUGA}]);
+                const emitted = [];
+
+                checkoutReturnEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toInclude('NOTIFICATION');
+                        done();
+                    });
+            });
+
+            it('no ?checkout param -> emits nothing', (done) => {
+                const action$ = mockActions([{type: INIT_ANUGA}]);
+                const emitted = [];
+
+                checkoutReturnEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    });
+            });
+
+            it('a second INIT_ANUGA in the same session is deduped (no re-arm)', (done) => {
+                window.history.pushState({}, '', '?checkout=success');
+                const action$ = mockActions([{type: INIT_ANUGA}, {type: INIT_ANUGA}]);
+                const emitted = [];
+
+                checkoutReturnEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        // 2 actions from the ONE handled INIT_ANUGA (pending + modal
+                        // dismiss), not 4 — the second INIT_ANUGA is a full no-op.
+                        expect(emitted.length).toBe(2);
+                        done();
+                    });
+            });
+        });
+
+        describe('pollMyPermsWhilePendingEpic', () => {
+            it('polls FETCH_MY_PERMS + FETCH_COMPUTE_BALANCE on the interval while pending, stops once resolved', (done) => {
+                __setPollIntervalForTests(10); // fast interval for the test
+                let pending = true;
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {overlay: pending ? {state: 'pending'} : null, steady: null}
+                        }
+                    })
+                };
+                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
+                const emitted = [];
+
+                const sub = pollMyPermsWhilePendingEpic(action$, store).subscribe(a => emitted.push(a));
+
+                setTimeout(() => {
+                    expect(emitted.length).toBeGreaterThan(0);
+                    // TASK-2100: each tick emits BOTH the balance refresh (shared
+                    // checkout-return machinery) and, when a project is known,
+                    // the my_perms fetch.
+                    expect(emitted.some(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
+                    expect(emitted.some(a => a.type === FETCH_MY_PERMS)).toBe(true);
+                    pending = false; // simulate the webhook flip clearing the overlay
+                    const countAtClear = emitted.length;
+                    setTimeout(() => {
+                        // takeWhile stops emitting once isPaywallPending() goes false —
+                        // the count should not keep growing unbounded.
+                        expect(emitted.length).toBeLessThanOrEqualTo(countAtClear + 2);
+                        sub.unsubscribe();
+                        done();
+                    }, 50);
+                }, 35);
+            });
+
+            it('no project id -> still refreshes the balance (account-scoped, not project-scoped), but never emits FETCH_MY_PERMS', (done) => {
+                __setPollIntervalForTests(10);
+                const store = {getState: () => ({anuga: {projects: {data: null}, paywall: {overlay: {state: 'pending'}}}})};
+                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
+                const emitted = [];
+
+                const sub = pollMyPermsWhilePendingEpic(action$, store).subscribe(a => emitted.push(a));
+
+                setTimeout(() => {
+                    expect(emitted.length).toBeGreaterThan(0);
+                    expect(emitted.every(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
+                    sub.unsubscribe();
+                    done();
+                }, 35);
+            });
+        });
+
+        describe('subscribeCheckoutEpic', () => {
+            it('POSTs create-session then redirects to the returned session.url (never a raw <a href> nav)', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    expect(JSON.parse(config.data)).toEqual({purchase_type: 'subscription', project_id: 42});
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_abc'}];
+                });
+                let redirectedTo = null;
+                __setRedirectForTests((url) => { redirectedTo = url; });
+
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}]);
+                const emitted = [];
+
+                subscribeCheckoutEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0); // no action emitted; redirect is the side effect
+                        expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_abc');
+                        done();
+                    });
+            });
+
+            it('API error -> emits SHOW_NOTIFICATION (no crash, no redirect)', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply(400, {error: 'boom'});
+                let redirectedTo = null;
+                __setRedirectForTests((url) => { redirectedTo = url; });
+
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}]);
+                const emitted = [];
+
+                subscribeCheckoutEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toInclude('NOTIFICATION');
+                        expect(redirectedTo).toBe(null);
+                        done();
+                    });
+            });
         });
     });
 });

@@ -1134,6 +1134,12 @@
                 "name": "Anuga"
             },
             {
+                "name": "Paywall",
+                "cfg": {
+                    "paywallEnabled": false
+                }
+            },
+            {
                 "name": "TaskMonitor"
             },
             {
@@ -1999,6 +2005,12 @@
             },
             {
                 "name": "Anuga"
+            },
+            {
+                "name": "Paywall",
+                "cfg": {
+                    "paywallEnabled": false
+                }
             },
             {
                 "name": "Swamm"

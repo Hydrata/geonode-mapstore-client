@@ -702,6 +702,29 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
+        // TASK-2093 (epic 2092 W1.1) — the "$5237" bug: compute_cost_estimate
+        // used to be raw vCPU-hours mislabeled as a cost, printed as
+        // '~$X.XX vCPU-h' (both units on one number). BE now returns a
+        // genuine dollar figure; the pane must render ONE consistent dollar
+        // amount with no 'vCPU-h' unit suffix.
+        it('TASK-2093: renders one dollar figure for compute_cost_estimate, no vCPU-h suffix', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 123456, compute_cost_estimate: 5237.42}}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const label = container.querySelector('.sv-anuga-scenario-estimate-label');
+                    expect(label).toBeTruthy();
+                    expect(label.textContent).toContain('$5237.42');
+                    expect(label.textContent.includes('vCPU-h')).toBe(false);
+                    done();
+                }
+            );
+        });
+
         it('resolution value matches scenario.resolution', (done) => {
             ReactDOM.render(
                 <ScenarioPane

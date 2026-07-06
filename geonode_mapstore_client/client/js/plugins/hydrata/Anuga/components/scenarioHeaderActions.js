@@ -129,6 +129,16 @@ const ScenarioHeaderActions = (props, context) => {
     const showDownload = isBuilt || isComplete || !!latestCompleteRun;
     const downloadHref = latestCompleteRun?.s3_package_url || scenario?.latest_run?.s3_package_url;
 
+    // TASK-2100 (epic 2092 W4.2) — the coarse, customer-BILLED price band
+    // (RunSerializerV2.price_band; supersedes scenarioPane.js's exact-$
+    // pre-build estimate as the answer to "what will I actually be charged").
+    // null both when the meter is off (ships dark — see get_price_band's
+    // gating) AND when this particular run can't yet be priced
+    // (PricingUnavailable, e.g. no mesh build) — either way, nothing renders.
+    const priceBand = scenario?.latest_run?.price_band;
+    const hasPriceBand = priceBand !== null && priceBand !== undefined;
+    const priceLabel = hasPriceBand ? (Number(priceBand) === 0 ? 'Free' : `$${priceBand}`) : null;
+
     const fireDebounced = (key, handler, eventName) => () => {
         if (handler) handler(scenario);
         trackEvent('button', 'click', eventName);
@@ -184,6 +194,15 @@ const ScenarioHeaderActions = (props, context) => {
                 >
                     <Message msgId="hydrata.anuga.buildAndRun" />
                 </Button> : null
+            }
+            {canRunScenario && priceLabel ?
+                <span
+                    data-testid="sv-scenario-run-price"
+                    className="sv-scenario-run-price"
+                    title="This run's price band — what you'll actually be charged (compute meter)"
+                >
+                    {priceLabel}
+                </span> : null
             }
             {canRunScenario && !isError ?
                 <Button

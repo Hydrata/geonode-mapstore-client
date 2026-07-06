@@ -22,6 +22,7 @@ import ReactTestUtils from 'react-dom/test-utils';
 // Module under test
 import {
     PreviewSection,
+    CostEstimateSection,
     MeshTriangleLayerSection,
     BuiltMeshRoster,
     MeshWorkflow
@@ -277,6 +278,30 @@ describe('W6 MeshTriangleLayerSection — authed tile request (TASK-1423)', () =
 // ---------------------------------------------------------------------------
 // TASK-1424: BuiltMeshRoster — renders table + empty state
 // ---------------------------------------------------------------------------
+
+describe('CostEstimateSection — dollar display, no vCPU-h conflation (TASK-2122)', () => {
+    let div;
+    afterEach(() => { if (div) { unmountDiv(div); div = null; } });
+
+    it('renders the compute_cost_estimate as a dollar amount with NO "vCPU-h" suffix', () => {
+        // compute_cost_estimate is a DOLLAR value from the BE (2093 re-unit).
+        // The dogfood F5 bug printed "~$884.02 vCPU-h" — a $-prefixed raw
+        // vCPU-hours number ~3000x off. This must now be a clean dollar figure.
+        div = renderIntoDiv(<CostEstimateSection scenario={{mesh_triangle_count_estimate: 216802, compute_cost_estimate: 0.83}}/>);
+        expect(div.textContent).toContain('~$0.83');
+        expect(div.textContent).toNotContain('vCPU-h');
+    });
+
+    it('renders the triangle count alongside the dollar estimate', () => {
+        div = renderIntoDiv(<CostEstimateSection scenario={{mesh_triangle_count_estimate: 216802, compute_cost_estimate: 0.83}}/>);
+        expect(div.textContent).toContain('216,802 triangles');
+    });
+
+    it('renders nothing when both estimate fields are absent', () => {
+        div = renderIntoDiv(<CostEstimateSection scenario={{}}/>);
+        expect(div.querySelector('.sv-anuga-mesh-workflow-estimate')).toNotExist();
+    });
+});
 
 describe('W6 BuiltMeshRoster — built mesh table (TASK-1424)', () => {
     let div;

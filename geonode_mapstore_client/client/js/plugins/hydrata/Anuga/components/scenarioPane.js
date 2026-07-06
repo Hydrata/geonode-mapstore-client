@@ -476,7 +476,12 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                     <Message msgId="hydrata.anuga.runConfigHelp" />
                 </span>
             </div>
-            {/* W3.2 (TASK-1267) — pre-dispatch triangle count + cost estimate */}
+            {/* W3.2 (TASK-1267); re-based TASK-2093 (epic 2092 W1.1) — pre-dispatch
+                triangle count + DOLLAR cost estimate. compute_cost_estimate used to
+                be raw vCPU-hours mislabeled as a cost and printed with a '$' AND a
+                'vCPU-h' suffix on the same number (the "$5237" bug) — the BE now
+                returns a genuine dollar figure (canonical model x the configured
+                $/vCPU-hour rate), so this renders ONE consistent dollar amount. */}
             {((scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined) || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined)) && (
                 <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
                     <span className="sv-anuga-scenario-estimate-label">
@@ -485,7 +490,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                             ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
                             : ''}
                         {scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined
-                            ? ` — ~$${scenario.compute_cost_estimate.toFixed(2)} vCPU-h`
+                            ? ` — ~$${Number(scenario.compute_cost_estimate).toFixed(2)}`
                             : ''}
                     </span>
                 </div>
