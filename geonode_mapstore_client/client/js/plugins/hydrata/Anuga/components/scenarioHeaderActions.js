@@ -19,6 +19,16 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * the old toolbar so the analytics-parity suite (and the Umami dashboards it
  * guards) keep working after the move.
  *
+ * TASK-2115 (C, epic 2111 W2, dogfood finding C) — View Results now renders
+ * as the FIRST (leftmost, most prominent) button in THIS same strip instead
+ * of a separate `.sv-anuga-view-results-bar` sibling row, so the panel has
+ * ONE consistent action row instead of two. Gate + href logic is unchanged
+ * (the container still derives `hasCompleteResults` from
+ * `latest_complete_run`, TASK-2078's D1 "RESULT consumer" contract) — only
+ * WHERE the button renders moved. `hasCompleteResults`/`onViewResultsClick`
+ * are both optional so every existing caller/test that doesn't pass them
+ * keeps rendering exactly as before (no button, no behaviour change).
+ *
  * Three new behaviours land here:
  *   - "Build and Run" — a combined button that calls the existing build then
  *     run handlers in sequence (the container owns the chaining).
@@ -47,6 +57,8 @@ const ScenarioHeaderActions = (props, context) => {
         scenario,
         canEdit,
         canRunScenario,
+        hasCompleteResults,
+        onViewResultsClick,
         onBuildClick,
         onRunClick,
         onBuildAndRunClick,
@@ -153,6 +165,21 @@ const ScenarioHeaderActions = (props, context) => {
 
     return (
         <div id="scenario-run-actions" className="sv-scenario-header-run-actions">
+            {/* TASK-2115 (C) — View Results leads the row when results exist
+                (dogfood finding C: was a separate .sv-anuga-view-results-bar
+                sibling row; same classname + gate + handler, new position). */}
+            {hasCompleteResults ?
+                <Button
+                    bsStyle={'success'}
+                    bsSize={'xsmall'}
+                    className={btn('sv-anuga-btn-view-results')}
+                    onClick={() => { if (onViewResultsClick) onViewResultsClick(scenario); }}
+                >
+                    <span className="glyphicon glyphicon-eye-open" aria-hidden="true" />
+                    {' '}
+                    <Message msgId="hydrata.anuga.viewResults" />
+                </Button> : null
+            }
             {canEdit ?
                 <Button
                     bsStyle={'success'}
@@ -301,6 +328,10 @@ ScenarioHeaderActions.propTypes = {
     scenario: PropTypes.object,
     canEdit: PropTypes.bool,
     canRunScenario: PropTypes.bool,
+    // TASK-2115 (C) — View Results, folded into this strip from the former
+    // standalone .sv-anuga-view-results-bar row.
+    hasCompleteResults: PropTypes.bool,
+    onViewResultsClick: PropTypes.func,
     onBuildClick: PropTypes.func,
     onRunClick: PropTypes.func,
     onBuildAndRunClick: PropTypes.func,
@@ -313,7 +344,8 @@ ScenarioHeaderActions.propTypes = {
 
 ScenarioHeaderActions.defaultProps = {
     canEdit: false,
-    canRunScenario: false
+    canRunScenario: false,
+    hasCompleteResults: false
 };
 
 // Pull intl messages off React legacy context so getMessageById can resolve

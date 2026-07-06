@@ -428,6 +428,25 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(container.querySelector('.sv-anuga-btn-view-results')).toExist();
         });
 
+        // TASK-2115 (C) — one consistent action row: View Results now lives
+        // INSIDE #scenario-run-actions (ScenarioHeaderActions), leading the
+        // Build/Run/Download/Archive/Delete row, not a separate sibling bar.
+        it('TASK-2115: View Results renders inside #scenario-run-actions, not a separate bar', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_run: {id: 2, status: 'computing'},
+                latest_complete_run: {id: 1, status: 'complete'}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            const strip = container.querySelector('#scenario-run-actions');
+            expect(strip).toExist();
+            expect(strip.querySelector('.sv-anuga-btn-view-results')).toExist();
+            expect(container.querySelector('.sv-anuga-view-results-bar')).toNotExist();
+        });
+
         it('hides View Results when there is no complete run yet (only an in-flight run)', () => {
             const s1 = makeScenario(21, 'Baseline', {
                 latest_run: {id: 2, status: 'computing'},

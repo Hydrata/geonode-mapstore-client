@@ -1980,14 +1980,11 @@ div that holds the feature-grid */
     margin-top: 80px;
 }
 
-/* ISSUE 32 (TASK-1429): View Results bar shown on run completion, above the
-   scenario rail+pane shell. Compact row with success-green button. */
-.sv-anuga-view-results-bar {
-    padding: 6px 10px;
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
+/* ISSUE 32 (TASK-1429); TASK-2115 (C) — View Results button. Originally its
+   own `.sv-anuga-view-results-bar` sibling row above the rail+pane shell;
+   now renders leading the .sv-scenario-header-run-actions strip instead
+   (one consistent action row, dogfood finding C) — only the font-size
+   override survives here, the layout rule is gone with the bar. */
 .sv-anuga-btn-view-results {
     font-size: 12px;
 }

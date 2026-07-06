@@ -560,14 +560,24 @@ class AnugaScenarioMenuClass extends React.Component {
   // mirrors the gate ScenarioPane uses for the pane fields. Handlers reuse the
   // existing build/run/retry/confirm chains so behaviour (and Umami analytics
   // labels) is unchanged — only the buttons' location moved out of the Run pane.
+  //
+  // TASK-2115 (C) — View Results now folds INTO this same strip (dogfood
+  // finding C: one consistent action row instead of a separate
+  // .sv-anuga-view-results-bar sibling). Gate is unchanged: TASK-2078's D1
+  // "RESULT consumer" contract — presence of latest_complete_run, NOT
+  // latest_run's status, so a newer in-flight/errored run never hides an
+  // older complete run's View Results affordance.
   renderRunActions() {
       const {selectedScenario, myRole, currentUserId} = this.props;
       const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
+      const hasCompleteResults = !!selectedScenario?.latest_complete_run;
       return (
           <ScenarioHeaderActions
               scenario={selectedScenario}
               canEdit={canEdit}
               canRunScenario={this.props.canRunScenario}
+              hasCompleteResults={hasCompleteResults}
+              onViewResultsClick={this.handleViewResults}
               onBuildClick={this.handleBuildClick}
               onRunClick={this.handleRunClick}
               onBuildAndRunClick={this.handleBuildAndRunClick}
@@ -742,22 +752,11 @@ class AnugaScenarioMenuClass extends React.Component {
           >
               <div className={'sv-menu-rows-container'}>
                   {this.renderHeader()}
+                  {/* ISSUE 32 (TASK-1429); folded into the strip TASK-2115 (C) —
+                      View Results now renders INSIDE renderRunActions()
+                      (ScenarioHeaderActions), leading the row, instead of this
+                      separate sibling bar — one consistent action row. */}
                   {this.renderRunActions()}
-                  {/* ISSUE 32 (TASK-1429): View results button shown on run completion */}
-                  {hasCompleteResults ? (
-                      <div className="sv-anuga-view-results-bar">
-                          <Button
-                              bsStyle={'success'}
-                              bsSize={'xsmall'}
-                              className="sv-anuga-btn sv-anuga-btn-view-results"
-                              onClick={() => this.handleViewResults(selectedScenario)}
-                          >
-                              <span className="glyphicon glyphicon-eye-open" aria-hidden="true" />
-                              {' '}
-                              <Message msgId="hydrata.anuga.viewResults" />
-                          </Button>
-                      </div>
-                  ) : null}
                   {/* TASK-2078: freshness banner — a newer run is building/failed
                       while the results shown are from the last complete run. */}
                   {showFreshnessBanner ? (

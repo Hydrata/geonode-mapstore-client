@@ -73,6 +73,60 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
+    // TASK-2115 (C) — View Results folded into this strip (dogfood finding C:
+    // was a separate .sv-anuga-view-results-bar sibling row).
+    describe('View Results (TASK-2115 C)', () => {
+        it('renders View Results as the FIRST button in the strip when hasCompleteResults is true', (done) => {
+            let captured = null;
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={baseScenario}
+                    canEdit canRunScenario
+                    hasCompleteResults
+                    onViewResultsClick={(s) => { captured = s; }}
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    expect(strip).toExist();
+                    const vrBtn = strip.querySelector('.sv-anuga-btn-view-results');
+                    expect(vrBtn).toExist();
+                    // Leads the row — first child button.
+                    expect(strip.firstElementChild).toBe(vrBtn);
+                    vrBtn.click();
+                    expect(captured?.id).toBe(21);
+                    done();
+                }
+            );
+        });
+
+        it('does NOT render View Results when hasCompleteResults is false', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={baseScenario}
+                    canEdit canRunScenario
+                    hasCompleteResults={false}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-btn-view-results')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('does NOT render View Results when hasCompleteResults is omitted (default false, backward-compat)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-btn-view-results')).toNotExist();
+                    done();
+                }
+            );
+        });
+    });
+
     it('renders Build, Build-and-Run and Run in the always-visible strip (built status)', (done) => {
         ReactDOM.render(
             <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
