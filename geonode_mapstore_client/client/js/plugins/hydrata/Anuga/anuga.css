@@ -1433,6 +1433,14 @@ div that holds the feature-grid */
     overflow-y: auto;
 }
 
+/* TASK-2114 (A+B) — merged single-scroll body: Required/Optional/Run no
+   longer gate separate panes, so the same .sv-anuga-scenario-pane-detail-head
+   heading now repeats 3x inline. Add a little breathing room above the 2nd
+   and 3rd heading so the sections read as distinct chunks while scrolling. */
+.sv-anuga-scenario-pane-detail-body--merged .sv-anuga-scenario-pane-detail-head:not(:first-child) {
+    margin-top: 14px;
+}
+
 /* Wave 3A — pane sections inside Pane 3 use the existing .sv-anuga-scenario-pane-section
    layout (label left, field right). The new `--unit` variant lets a numeric
    input show a trailing unit badge ("m²" / "h") to the right of the input. */

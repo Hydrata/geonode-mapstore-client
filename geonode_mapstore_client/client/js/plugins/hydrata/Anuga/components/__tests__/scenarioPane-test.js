@@ -8,23 +8,31 @@ const {enData} = require('../../../../../__tests__/fixtures/translations');
 
 /**
  * TASK-C-scenarios-miller Wave 3A — per-category pane assertions.
- * Restructured around the 4 panes (inputs / advanced / runConfig /
- * statusActions) plus the new vertical category rail (Pane 2). The legacy
- * `runLog` category has been folded into Status-and-actions: an inline
- * `ScenarioRunLog` (<pre> auto-scrolled to bottom) renders after the
- * action toolbar instead of a standalone Run log pane.
+ *
+ * TASK-2114 (epic 2111 W2, dogfood findings A+B) — Required/Optional/Run no
+ * longer gate three separate panes behind a tab click: ALL THREE sections
+ * (Inputs, Advanced, Run) now render TOGETHER in one scrollable Pane-3 body,
+ * regardless of `selectedCategoryId` (that prop still drives only which
+ * rail item shows `.is-active` in Pane 2 — see the 'Category rail' block).
+ * Per-selector "selected layer" resource-summary cards are gone entirely
+ * (dogfood finding B) — a dedicated block asserts none render anywhere.
  *
  * Tests cover:
- *   - Category rail: 4 items render across 3 sections (no subhead labels),
- *     click flips selection
- *   - Inputs pane: 4 dropdowns + name input + ALWAYS-rendered resource-summary
- *     cards (empty assignments render an .is-empty placeholder card)
- *   - Advanced pane: 4 dropdowns + optional resource-summary cards
- *   - Run config pane: resolution + duration + compute-backend select
- *   - Status and actions pane: status card + (error strip) + action toolbar
- *     + inline ScenarioRunLog with auto-scroll
+ *   - Category rail: 3 items render across 2 sections (no subhead labels),
+ *     click flips selection (rail is unchanged by the merge)
+ *   - Merged single-panel body: all 3 sections' fields present simultaneously,
+ *     no resource-summary cards anywhere
+ *   - Inputs section: 4 dropdowns + name input
+ *   - Advanced section: 3 dropdowns (network removed)
+ *   - Run section: resolution + duration + compute-backend select + status
+ *     card + (error strip) + inline ScenarioRunLog with auto-scroll (no
+ *     in-pane action toolbar — that lives in the heading, UAT #8)
  *   - Empty pane: renders "Select or create a scenario" placeholder
  *   - Field update dispatch contract via onUpdateScenario
+ *
+ * Read-only-wrapper counts (Wave 3B B4) are scoped to each section's own
+ * `.sv-anuga-scenario-pane-rows-*` wrapper rather than counted document-wide,
+ * since all three sections' fields now coexist in the DOM at once.
  */
 
 const baseScenario = {
@@ -184,6 +192,91 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     });
 
     // ------------------------------------------------------------------
+    // TASK-2114 (A+B) — merged single-panel body
+    // ------------------------------------------------------------------
+    describe('Merged single-panel body (TASK-2114)', () => {
+        it('renders Inputs, Advanced and Run fields simultaneously regardless of selectedCategoryId', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    // Deliberately 'advanced' — under the OLD tab-gated pane this
+                    // would have hidden #terrain and #resolution. The merge means
+                    // every field renders no matter which rail item is "selected".
+                    selectedCategoryId={'advanced'}
+                    canEdit
+                    terrain={terrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                    frictions={frictionOpts}
+                    structures={structureOpts}
+                    meshRegions={meshRegionOpts}
+                    isSuperuser
+                />,
+                container,
+                () => {
+                    // Inputs
+                    expect(container.querySelector('#name')).toExist();
+                    expect(container.querySelector('#terrain')).toExist();
+                    expect(container.querySelector('#boundary')).toExist();
+                    expect(container.querySelector('#inflow')).toExist();
+                    expect(container.querySelector('#rainfall')).toExist();
+                    // Advanced
+                    expect(container.querySelector('#friction')).toExist();
+                    expect(container.querySelector('#structure')).toExist();
+                    expect(container.querySelector('#mesh_region')).toExist();
+                    // Run
+                    expect(container.querySelector('#resolution')).toExist();
+                    expect(container.querySelector('#duration-hours')).toExist();
+                    expect(container.querySelector('#duration-minutes')).toExist();
+                    expect(container.querySelector('#compute_backend')).toExist();
+                    done();
+                }
+            );
+        });
+
+        it('renders the 3 section headings (Required/Optional/Run) in document order', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
+                container,
+                () => {
+                    const heads = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-title');
+                    expect(heads.length).toBe(3);
+                    expect(heads[0].textContent).toInclude('hydrata.anuga.requiredInputs');
+                    expect(heads[1].textContent).toInclude('hydrata.anuga.optionalInputs');
+                    expect(heads[2].textContent).toInclude('hydrata.anuga.run');
+                    done();
+                }
+            );
+        });
+
+        // Dogfood finding B — the per-selector "selected layer" confirmation
+        // card is removed; the native <select>'s own displayed value is the
+        // only indication of what's chosen.
+        it('does NOT render any .sv-anuga-scenario-resource-summary card anywhere in the pane', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'inputs'}
+                    canEdit
+                    terrain={terrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                    frictions={frictionOpts}
+                    structures={structureOpts}
+                    meshRegions={meshRegionOpts}
+                />,
+                container,
+                () => {
+                    expect(container.querySelectorAll('.sv-anuga-scenario-resource-summary').length).toBe(0);
+                    done();
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
     // Inputs pane (Pane 3)
     // ------------------------------------------------------------------
     describe('Inputs pane', () => {
@@ -210,34 +303,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('renders a resource-summary card under EVERY input dropdown (empty placeholders included)', (done) => {
-            ReactDOM.render(
-                <ScenarioPane
-                    scenario={baseScenario}
-                    selectedCategoryId={'inputs'}
-                    canEdit
-                    terrain={terrainOpts}
-                    boundaries={boundaryOpts}
-                    inflows={inflowOpts}
-                    rainfalls={rainfallOpts}
-                />,
-                container,
-                () => {
-                    // ScenarioPane now always renders a ScenarioResourceSummary card
-                    // (even when unassigned) so the layout is stable while the user
-                    // picks values. baseScenario assigns terrain/boundary/inflow but
-                    // not rainfall → 4 cards total, last one .is-empty with a "—"
-                    // placeholder body.
-                    const cards = container.querySelectorAll('.sv-anuga-scenario-resource-summary');
-                    expect(cards.length).toBe(4);
-                    expect(cards[3].className).toInclude('is-empty');
-                    const placeholder = cards[3].querySelector('.sv-anuga-scenario-resource-summary-placeholder');
-                    expect(placeholder).toExist();
-                    expect(placeholder.textContent).toBe('—');
-                    done();
-                }
-            );
-        });
+        // TASK-2114 (dogfood finding B) — the per-selector resource-summary card
+        // is removed; coverage that NO such card renders anywhere lives in the
+        // 'Merged single-panel body' block above (it's no longer an Inputs-only
+        // concern once Advanced's friction/structure/mesh_region also drop theirs).
 
         // TASK-2083 (epic 2077) — inflow-row empty-state helper. Explains that
         // an Inflow (the layer) can hold multiple inflow locations (features
@@ -256,7 +325,13 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     />,
                     container,
                     () => {
-                        const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                        // TASK-2114 — scoped to the Inputs rows wrapper: the Run
+                        // section's runConfigHelp text (always present now that
+                        // sections no longer gate on selectedCategoryId) shares
+                        // the same generic .sv-anuga-scenario-pane-help class.
+                        const help = container.querySelector(
+                            '.sv-anuga-scenario-pane-rows-inputs .sv-anuga-scenario-pane-help'
+                        );
                         expect(help).toExist();
                         expect(help.textContent).toInclude('hydrata.anuga.inflowMultiLocationHelp');
                         done();
@@ -277,7 +352,12 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     />,
                     container,
                     () => {
-                        const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                        // TASK-2114 — scoped to Inputs; the Run section's own
+                        // (unrelated) help text still renders elsewhere in the
+                        // merged panel.
+                        const help = container.querySelector(
+                            '.sv-anuga-scenario-pane-rows-inputs .sv-anuga-scenario-pane-help'
+                        );
                         expect(help).toNotExist();
                         done();
                     }
@@ -442,8 +522,12 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     />,
                     container,
                     () => {
+                        // TASK-2114 — scoped to the Inputs section's own rows
+                        // wrapper: Advanced + Run now coexist in the DOM (their
+                        // fields are ALSO .is-readonly when canEdit=false), so a
+                        // document-wide count would no longer isolate Inputs alone.
                         const readonlyWrappers = container.querySelectorAll(
-                            '.sv-anuga-scenario-pane-field.is-readonly'
+                            '.sv-anuga-scenario-pane-rows-inputs .sv-anuga-scenario-pane-field.is-readonly'
                         );
                         // name + terrain + boundary + inflow + rainfall = 5 wrappers.
                         expect(readonlyWrappers.length).toBe(5);
@@ -535,6 +619,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             it('tags Run config wrappers with .is-readonly when canEdit=false (superuser sees 3, non-su sees 2)', (done) => {
                 // TASK-1415: compute_backend only rendered for superusers.
                 // Non-superuser: resolution + duration = 2 wrappers.
+                // TASK-2114 — scoped to the Run-config rows wrapper so Inputs'
+                // and Advanced's now-coexisting .is-readonly wrappers don't
+                // inflate the count.
                 ReactDOM.render(
                     <ScenarioPane
                         scenario={baseScenario}
@@ -544,7 +631,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     container,
                     () => {
                         const readonlyWrappers = container.querySelectorAll(
-                            '.sv-anuga-scenario-pane-field.is-readonly'
+                            '.sv-anuga-scenario-pane-rows-run-config .sv-anuga-scenario-pane-field.is-readonly'
                         );
                         // resolution + duration = 2 wrappers (compute_backend hidden for non-superuser).
                         expect(readonlyWrappers.length).toBe(2);
@@ -639,7 +726,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('does NOT render resolution or duration (these moved to Run config)', (done) => {
+        // TASK-2114 — resolution/duration now DO render on the page (the merge
+        // stacks every section), but they still structurally belong to Run,
+        // not Advanced: scope the query to Advanced's own rows wrapper.
+        it('does NOT render resolution or duration inside the Advanced section (they live in Run config)', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
@@ -648,9 +738,13 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('#resolution')).toNotExist();
-                    expect(container.querySelector('#duration-hours')).toNotExist();
-                    expect(container.querySelector('#duration-minutes')).toNotExist();
+                    const advanced = container.querySelector('.sv-anuga-scenario-pane-rows-advanced');
+                    expect(advanced).toExist();
+                    expect(advanced.querySelector('#resolution')).toNotExist();
+                    expect(advanced.querySelector('#duration-hours')).toNotExist();
+                    expect(advanced.querySelector('#duration-minutes')).toNotExist();
+                    // ...but the merged panel as a whole does render them (Run section).
+                    expect(container.querySelector('#resolution')).toExist();
                     done();
                 }
             );
