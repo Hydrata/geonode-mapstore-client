@@ -7,6 +7,7 @@ import {
     setComputeBalance,
     setMeterInsufficientBalance,
     setMeterCapExceeded,
+    setMeterEstimateCeiling,
     dismissMeterModal
 } from '../actions';
 
@@ -49,6 +50,19 @@ describe('TASK-2100 compute-meter reducer', () => {
         expect(state.modal.type).toBe('cap_exceeded');
         expect(state.modal.type).toNotBe('insufficient_balance');
         expect(state.modal.checkoutUrl).toBe(null);
+    });
+
+    it('SET_METER_ESTIMATE_CEILING arms a DISTINCT modal type from insufficient_balance AND cap_exceeded', () => {
+        const state = meterReducer(undefined, setMeterEstimateCeiling('estimate too high'));
+        expect(state.modal.type).toBe('estimate_ceiling');
+        // NOTE: this repo's `expect` (mjackson/expect@1.20.1) has no `.not`
+        // chain — use its own `toNotBe` negation (verified via a scoped
+        // karma run; `.not.toBe()` throws "Cannot read properties of
+        // undefined" at runtime on this library version).
+        expect(state.modal.type).toNotBe('insufficient_balance');
+        expect(state.modal.type).toNotBe('cap_exceeded');
+        expect(state.modal.checkoutUrl).toBe(null);
+        expect(state.modal.detail).toBe('estimate too high');
     });
 
     it('DISMISS_METER_MODAL clears any modal', () => {

@@ -120,3 +120,38 @@ describe('ComputeMeterPanel — cap_exceeded modal (AC#3, distinct message)', ()
         expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]')).toBe(null);
     });
 });
+
+describe('ComputeMeterPanel — estimate_ceiling modal (TASK-2123, distinct message)', () => {
+    it('shows the estimate-ceiling modal with its OWN message, distinct from insufficient_balance AND cap_exceeded', () => {
+        const c = render({
+            enabled: true,
+            modal: {type: 'estimate_ceiling', detail: 'This run is estimated at $388, above the $20 dispatch ceiling.'}
+        });
+        expect(c.querySelector('[data-testid="meter-estimate-ceiling-modal"]')).toBeTruthy();
+        expect(c.querySelector('[data-testid="meter-estimate-ceiling-detail"]').textContent)
+            .toBe('This run is estimated at $388, above the $20 dispatch ceiling.');
+        expect(c.querySelector('[data-testid="meter-insufficient-balance-modal"]')).toBe(null);
+        expect(c.querySelector('[data-testid="meter-cap-exceeded-modal"]')).toBe(null);
+    });
+
+    it('offers a contact-us link, NOT a pack-purchase CTA (no CTA fixes an over-ceiling run)', () => {
+        const c = render({
+            enabled: true,
+            availablePacks: ['price_a'],
+            modal: {type: 'estimate_ceiling', detail: 'too big'}
+        });
+        expect(c.querySelector('[data-testid="meter-estimate-ceiling-contact-link"]')).toBeTruthy();
+        expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]')).toBe(null);
+    });
+
+    it('onDismissModal fires on OK', () => {
+        let dismissed = false;
+        const c = render({
+            enabled: true,
+            modal: {type: 'estimate_ceiling', detail: 'too big'},
+            onDismissModal: () => { dismissed = true; }
+        });
+        c.querySelector('[data-testid="meter-dismiss-modal"]').click();
+        expect(dismissed).toBe(true);
+    });
+});

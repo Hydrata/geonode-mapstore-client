@@ -12,6 +12,7 @@ import {
     SET_COMPUTE_BALANCE,
     SET_METER_INSUFFICIENT_BALANCE,
     SET_METER_CAP_EXCEEDED,
+    SET_METER_ESTIMATE_CEILING,
     DISMISS_METER_MODAL
 } from './actions';
 
@@ -20,7 +21,7 @@ const initialState = {
     balance: null,
     availablePacks: [],
     recentEntries: [],
-    // {type: 'insufficient_balance'|'cap_exceeded', checkoutUrl, detail} | null
+    // {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling', checkoutUrl, detail} | null
     modal: null
 };
 
@@ -45,6 +46,11 @@ export default (state = initialState, action) => {
         return {
             ...state,
             modal: { type: 'cap_exceeded', checkoutUrl: null, detail: action.detail }
+        };
+    case SET_METER_ESTIMATE_CEILING:
+        return {
+            ...state,
+            modal: { type: 'estimate_ceiling', checkoutUrl: null, detail: action.detail }
         };
     case DISMISS_METER_MODAL:
         return { ...state, modal: null };

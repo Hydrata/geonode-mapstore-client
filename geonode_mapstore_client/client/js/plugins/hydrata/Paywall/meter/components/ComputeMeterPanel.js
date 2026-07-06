@@ -13,6 +13,9 @@
  *   - Modal overlay (AC#2/AC#3), shown ON TOP of the strip when `modal` is
  *     set: insufficient_balance -> pack purchase CTAs; cap_exceeded -> its
  *     OWN distinct message (never conflated with insufficient_balance).
+ *     TASK-2123 adds a THIRD, equally distinct state: estimate_ceiling -> a
+ *     contact-us path (no CTA fixes an over-ceiling run — never conflated
+ *     with either of the other two).
  */
 import React from 'react';
 const PropTypes = require('prop-types');
@@ -160,6 +163,47 @@ CapExceededModal.propTypes = {
     onDismiss: PropTypes.func
 };
 
+/**
+ * Estimate-ceiling 402 -> its OWN distinct message (TASK-2123) — a run
+ * priced above the launch dispatch ceiling. NEVER conflated with
+ * insufficient_balance (no pack purchase fixes this) or cap_exceeded (a
+ * different, free-band limit) — a contact-us path instead of a buy CTA.
+ */
+function EstimateCeilingModal({ detail, onDismiss }) {
+    return (
+        <div data-testid="meter-estimate-ceiling-modal" className="compute-meter-modal-overlay">
+            <div className="compute-meter-modal">
+                <h2 className="compute-meter-modal-title">This run is too large to dispatch automatically</h2>
+                <p data-testid="meter-estimate-ceiling-detail" className="compute-meter-modal-body">
+                    {detail}
+                </p>
+                <div className="compute-meter-modal-actions">
+                    <a
+                        data-testid="meter-estimate-ceiling-contact-link"
+                        className="compute-meter-contact-link"
+                        href="mailto:david.kennewell@hydrata.com?subject=Compute%20estimate%20ceiling"
+                    >
+                        Contact us
+                    </a>
+                    <button
+                        type="button"
+                        data-testid="meter-dismiss-modal"
+                        className="compute-meter-dismiss-btn"
+                        onClick={onDismiss}
+                    >
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+EstimateCeilingModal.propTypes = {
+    detail: PropTypes.string,
+    onDismiss: PropTypes.func
+};
+
 class ComputeMeterPanel extends React.Component {
     static propTypes = {
         /** Kill-switch — from the balance endpoint's `enabled` field. Default false (dark). */
@@ -167,7 +211,7 @@ class ComputeMeterPanel extends React.Component {
         balance: PropTypes.string,
         availablePacks: PropTypes.array,
         recentEntries: PropTypes.array,
-        /** {type: 'insufficient_balance'|'cap_exceeded', checkoutUrl, detail} | null */
+        /** {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling', checkoutUrl, detail} | null */
         modal: PropTypes.shape({
             type: PropTypes.string,
             checkoutUrl: PropTypes.string,
@@ -215,10 +259,13 @@ class ComputeMeterPanel extends React.Component {
                 {modal && modal.type === 'cap_exceeded' ? (
                     <CapExceededModal detail={modal.detail} onDismiss={onDismissModal} />
                 ) : null}
+                {modal && modal.type === 'estimate_ceiling' ? (
+                    <EstimateCeilingModal detail={modal.detail} onDismiss={onDismissModal} />
+                ) : null}
             </div>
         );
     }
 }
 
 export default ComputeMeterPanel;
-export { BalanceStrip, InsufficientBalanceModal, CapExceededModal };
+export { BalanceStrip, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal };

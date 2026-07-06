@@ -13,6 +13,7 @@ export const FETCH_COMPUTE_BALANCE = 'METER:FETCH_BALANCE';
 export const SET_COMPUTE_BALANCE = 'METER:SET_BALANCE';
 export const SET_METER_INSUFFICIENT_BALANCE = 'METER:SET_INSUFFICIENT_BALANCE';
 export const SET_METER_CAP_EXCEEDED = 'METER:SET_CAP_EXCEEDED';
+export const SET_METER_ESTIMATE_CEILING = 'METER:SET_ESTIMATE_CEILING';
 export const DISMISS_METER_MODAL = 'METER:DISMISS_MODAL';
 
 export function fetchComputeBalance() {
@@ -35,6 +36,16 @@ export function setMeterInsufficientBalance(checkoutUrl, detail) {
 /** @param {string} detail — the FREE_CAP_EXCEEDED 429 body's message. */
 export function setMeterCapExceeded(detail) {
     return { type: SET_METER_CAP_EXCEEDED, detail };
+}
+
+/**
+ * TASK-2123 — a run priced above the launch estimate ceiling. Distinct from
+ * BOTH insufficient_balance (a pack purchase fixes that) and cap_exceeded (a
+ * free-band daily limit) — no CTA can fix this; the FE shows a contact-us path.
+ * @param {string} detail — the 402 body's message (StartRunView, api_v2.py).
+ */
+export function setMeterEstimateCeiling(detail) {
+    return { type: SET_METER_ESTIMATE_CEILING, detail };
 }
 
 export function dismissMeterModal() {
