@@ -23,7 +23,11 @@ import {
 } from '@tanstack/react-table';
 import moment from 'moment';
 import Message from '@mapstore/framework/components/I18N/Message';
+import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {HyetographChart, estimateTimestepMin} from './hydrologyDetailTimeSeries';
+// TASK-2120 — visible parse-failure feedback for the Paste Data field
+// (previously a silent no-op on garbage input; see ManualPasteGrid below).
+import {ErrorStrip} from '../../SimpleView/components/primitives';
 
 // ---------------------------------------------------------------------------
 // Manual-edit table cell (unchanged from W4)
@@ -99,7 +103,16 @@ const buildColumns = (isHydrograph) => [
 // Manual paste-grid (unchanged from W4 — now the Create panel's "Input" tab)
 // ---------------------------------------------------------------------------
 
-const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchReplaceRowData}) => {
+const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchReplaceRowData}, context) => {
+    // Pull intl messages off React legacy context so the format-hint /
+    // placeholder / parse-error copy below can resolve translated text
+    // at render time — mirrors the `tr()` idiom in hydrologyDetailIdfTable.js
+    // / Anuga/scenarioHeaderActions.js / VectorDraw's TimeSeriesSelect.
+    const tr = (msgId, fallback) => {
+        const messages = (context && context.messages) || {};
+        const resolved = getMessageById(messages, msgId);
+        return resolved === msgId ? fallback : resolved;
+    };
     // TASK-2026 (W5.4): derive isHydrograph from the item's series_type so the
     // value-column header shows 'Flow (m3/s)' only for hydrographs.
     const isHydrograph = activeHydrologyItem?.series_type === 'hydrograph';
@@ -130,15 +143,34 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
     // component to re-evaluate its props, at which point activeHydrologyItem.
     // rowData is read fresh.
     const [, setRenderTick] = useState(0);
+    // TASK-2120 — visible feedback when the pasted text doesn't parse. `null`
+    // hides the ErrorStrip (self-hiding on no message); set to a string on a
+    // parse failure, cleared on the next successful paste.
+    const [pasteError, setPasteError] = useState(null);
 
+    // TASK-2120 — each row now carries a `valid` flag instead of trusting the
+    // parse blindly. Before this fix, an unparseable timestamp produced an
+    // INVALID moment whose `.toISOString()` returns `null` (moment >=2.29,
+    // pinned here at 2.29.4) — `.slice(0, -1)` on that null then THREW inside
+    // the native `paste` event listener (an uncaught exception, not caught by
+    // any React error boundary), which is why garbage input silently "did
+    // nothing" from the user's perspective. Strict-mode parsing
+    // (`moment(str, fmt, true)`) additionally rejects a string that merely
+    // LOOKS parseable but doesn't match the format (moment's default lenient
+    // mode is too forgiving to catch real mistakes, e.g. a swapped day/month).
     const parsePastedData = (pastedData) => {
         return pastedData.split('\n')
             .filter(row => row.trim() !== '')
             .map((row) => {
                 const [timestampStr, valueStr] = row.split('\t');
-                const isoTimestampStr = moment(timestampStr, 'YYYY-MM-DD HH:mm').toISOString().slice(0, -1);
+                const parsedMoment = moment(timestampStr, 'YYYY-MM-DD HH:mm', true);
                 const value = parseFloat(valueStr);
-                return { timestamp: isoTimestampStr, value: value };
+                const valid = parsedMoment.isValid() && Number.isFinite(value);
+                return {
+                    timestamp: valid ? parsedMoment.toISOString().slice(0, -1) : null,
+                    value,
+                    valid
+                };
             });
     };
 
@@ -147,7 +179,16 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
             let paste = event.clipboardData || window.clipboardData;
             if (paste) {
                 let pastedData = paste.getData('text');
-                let newRowData = parsePastedData(pastedData);
+                let parsedRows = parsePastedData(pastedData);
+                if (parsedRows.length === 0 || parsedRows.some(r => !r.valid)) {
+                    setPasteError(tr(
+                        'hydrata.hydrology.pasteDataParseError',
+                        'Could not read the pasted data — expected two tab-separated columns (Timestamp, Value), one row per line. No changes were made.'
+                    ));
+                    return;
+                }
+                setPasteError(null);
+                const newRowData = parsedRows.map(({timestamp, value}) => ({timestamp, value}));
                 dispatchReplaceRowData(activeHydrologyItem.id, newRowData);
                 setRenderTick(t => t + 1);
             }
@@ -191,8 +232,20 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                     style={{textAlign: 'left'}}
                     value={''}
                     readOnly
+                    // TASK-2120 — the field itself has no visible format hint
+                    // (previously). Real placeholder attribute mirrors the
+                    // resolveMsg-with-English-fallback idiom already used for
+                    // the IDF Source/Description placeholders (TASK-2119).
+                    placeholder={tr('hydrata.hydrology.pasteDataPlaceholder', 'Click here, then paste (Ctrl/Cmd+V)…')}
                 />
             </div>
+            {/* TASK-2120 — persistent (not hover-only) format hint, always
+                visible below the paste target, so the accepted format is
+                discoverable without a failed attempt first. */}
+            <div className="sv-hydrology-paste-format-hint" style={{fontSize: '11px', color: 'rgba(255,255,255,0.7)', margin: '2px 0 0 105px'}}>
+                <Message msgId="hydrata.hydrology.pasteDataFormatHint" />
+            </div>
+            <ErrorStrip message={pasteError} style={{margin: '6px 0 0 105px'}} />
             <div style={{display: 'flex', flexDirection: 'column', boxSizing: 'border-box'}}>
                 <div style={{
                     padding: '10px',
@@ -259,6 +312,13 @@ ManualPasteGrid.propTypes = {
     activeHydrologyItem: PropTypes.object,
     dispatchUpdateRowData: PropTypes.func.isRequired,
     dispatchReplaceRowData: PropTypes.func.isRequired
+};
+
+// TASK-2120 — legacy context declaration required for the `tr()` helper's
+// `context.messages` read above (mirrors TimeSeriesSelect.contextTypes in
+// VectorDraw/components/FormField.js).
+ManualPasteGrid.contextTypes = {
+    messages: PropTypes.object
 };
 
 export default ManualPasteGrid;

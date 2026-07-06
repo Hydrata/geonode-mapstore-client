@@ -293,3 +293,159 @@ describe('TASK-2081 (epic-2077) — live update after committed edit', () => {
         document.body.removeChild(container);
     });
 });
+
+// ---------------------------------------------------------------------------
+// TASK-2120 — Paste Data format hint + visible parse-failure feedback.
+// Previously the "Paste Data:" field silently no-oped on unparseable input
+// (worse: an invalid timestamp actually THREW inside the native paste
+// listener via moment's null .toISOString() on an invalid date — an
+// uncaught exception, not merely a silent no-op).
+// ---------------------------------------------------------------------------
+describe('TASK-2120 — ManualPasteGrid paste format hint + parse-failure feedback', () => {
+    const baseItem = {
+        id: 'temp-2120',
+        name: 'Test',
+        columnDefs: [],
+        rowData: []
+    };
+
+    // Fires a real 'paste' DOM event on the given node — handlePaste is a
+    // native addEventListener (not a React synthetic prop), so it must be
+    // dispatched, not Simulate'd.
+    const firePaste = (node, text) => {
+        const event = new Event('paste', { bubbles: true, cancelable: true });
+        event.clipboardData = { getData: () => text };
+        act(() => { node.dispatchEvent(event); });
+    };
+
+    it('renders a persistent (not hover-only) format hint below the paste field', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        ReactDOM.render(
+            React.createElement(ManualPasteGrid, {
+                activeHydrologyItem: baseItem,
+                dispatchUpdateRowData: () => {},
+                dispatchReplaceRowData: () => {}
+            }),
+            container
+        );
+        const hint = container.querySelector('.sv-hydrology-paste-format-hint');
+        expect(hint).toExist();
+        // No IntlProvider in this bare render → Message falls back to the
+        // raw msgId, the established pattern elsewhere in this suite.
+        expect(hint.textContent).toBe('hydrata.hydrology.pasteDataFormatHint');
+        // The paste target itself also carries a real placeholder (resolveMsg
+        // English-fallback idiom, since it's a plain attribute not a <Message>).
+        const pasteInput = container.querySelector('input#name');
+        expect(pasteInput.getAttribute('placeholder')).toBe('Click here, then paste (Ctrl/Cmd+V)…');
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('a well-formed paste (tab-separated timestamp+value) replaces rowData and shows NO error', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        let replaced = null;
+        act(() => {
+            ReactDOM.render(
+                React.createElement(ManualPasteGrid, {
+                    activeHydrologyItem: baseItem,
+                    dispatchUpdateRowData: () => {},
+                    dispatchReplaceRowData: (id, rowData) => { replaced = {id, rowData}; }
+                }),
+                container
+            );
+        });
+        const pasteInput = container.querySelector('input#name');
+        firePaste(pasteInput, '2025-01-01 00:00\t1.5\n2025-01-01 00:06\t2.5');
+        expect(replaced).toExist();
+        expect(replaced.id).toBe('temp-2120');
+        expect(replaced.rowData.length).toBe(2);
+        expect(replaced.rowData[0].value).toBe(1.5);
+        expect(replaced.rowData[1].value).toBe(2.5);
+        expect(container.querySelector('.sv-error-strip')).toNotExist();
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('pasting garbage (unparseable timestamp) shows a visible error and does NOT dispatch/crash', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        let replaced = null;
+        let thrown = null;
+        act(() => {
+            ReactDOM.render(
+                React.createElement(ManualPasteGrid, {
+                    activeHydrologyItem: baseItem,
+                    dispatchUpdateRowData: () => {},
+                    dispatchReplaceRowData: (id, rowData) => { replaced = {id, rowData}; }
+                }),
+                container
+            );
+        });
+        const pasteInput = container.querySelector('input#name');
+        try {
+            firePaste(pasteInput, 'not a date\tnot a number\nsome other prose');
+        } catch (e) {
+            thrown = e;
+        }
+        expect(thrown).toBe(null); // no uncaught exception (the old .toISOString()-on-null crash)
+        expect(replaced).toBe(null); // no broken data reached the reducer
+        const errorStrip = container.querySelector('.sv-error-strip');
+        expect(errorStrip).toExist();
+        // tr()'s getMessageById-with-fallback idiom (no IntlProvider here)
+        // returns the English fallback text, not the raw msgId — mirrors the
+        // sourcePlaceholder/descriptionPlaceholder assertions in TASK-2119.
+        expect(errorStrip.textContent).toBe(
+            'Could not read the pasted data — expected two tab-separated columns (Timestamp, Value), one row per line. No changes were made.'
+        );
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('pasting a numeric value with a garbled timestamp is still rejected (partial-garbage guard)', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        let replaced = null;
+        act(() => {
+            ReactDOM.render(
+                React.createElement(ManualPasteGrid, {
+                    activeHydrologyItem: baseItem,
+                    dispatchUpdateRowData: () => {},
+                    dispatchReplaceRowData: (id, rowData) => { replaced = {id, rowData}; }
+                }),
+                container
+            );
+        });
+        const pasteInput = container.querySelector('input#name');
+        // First row well-formed, second row's timestamp is garbage — the
+        // WHOLE paste must be rejected (never a partially-applied replace).
+        firePaste(pasteInput, '2025-01-01 00:00\t1.5\nnot-a-date\t2.5');
+        expect(replaced).toBe(null);
+        expect(container.querySelector('.sv-error-strip')).toExist();
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('a successful paste after a prior parse failure clears the error strip', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        act(() => {
+            ReactDOM.render(
+                React.createElement(ManualPasteGrid, {
+                    activeHydrologyItem: baseItem,
+                    dispatchUpdateRowData: () => {},
+                    dispatchReplaceRowData: () => {}
+                }),
+                container
+            );
+        });
+        const pasteInput = container.querySelector('input#name');
+        firePaste(pasteInput, 'garbage');
+        expect(container.querySelector('.sv-error-strip')).toExist();
+        firePaste(pasteInput, '2025-01-01 00:00\t1.5');
+        expect(container.querySelector('.sv-error-strip')).toNotExist();
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+});
