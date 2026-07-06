@@ -194,7 +194,7 @@ export function CostEstimateSection({scenario}) {
                     ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
                     : ''}
                 {hasCost
-                    ? ` — ~$${scenario.compute_cost_estimate.toFixed(2)} vCPU-h`
+                    ? ` — ~$${Number(scenario.compute_cost_estimate).toFixed(2)}`
                     : ''}
             </span>
         </div>
