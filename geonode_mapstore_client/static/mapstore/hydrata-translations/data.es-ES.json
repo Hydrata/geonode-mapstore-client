@@ -416,6 +416,7 @@
         "idfCurveOpenDisabled": "Introduzca al menos una intensidad distinta de cero para ver la curva IDF",
         "idfCurveModalTitle": "Curva IDF",
         "idfCurveClose": "Cerrar",
+        "idfMatrixInstructionHint": "Seleccione una fila de duración y una columna ARI — o haga clic en una celda — para habilitar la entrada de datos.",
         "idfDerive": "Derivar IDF",
         "idfDeriveLat": "Latitud",
         "idfDeriveLon": "Longitud",

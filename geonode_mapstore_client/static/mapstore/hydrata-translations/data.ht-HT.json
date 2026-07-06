@@ -416,6 +416,7 @@
         "idfCurveOpenDisabled": "Antre omwen yon entansite ki pa zewo pou wè koub IDF la",
         "idfCurveModalTitle": "Koub IDF",
         "idfCurveClose": "Fèmen",
+        "idfMatrixInstructionHint": "Chwazi yon liy dire ak yon kolòn ARI — oswa klike sou yon selil — pou aktive antre done.",
         "idfDerive": "Derive IDF",
         "idfDeriveLat": "Latitid",
         "idfDeriveLon": "Lonjitid",

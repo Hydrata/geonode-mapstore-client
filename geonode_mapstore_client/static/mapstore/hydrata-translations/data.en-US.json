@@ -416,6 +416,7 @@
         "idfCurveOpenDisabled": "Enter at least one non-zero intensity to view the IDF curve",
         "idfCurveModalTitle": "IDF Curve",
         "idfCurveClose": "Close",
+        "idfMatrixInstructionHint": "Select a duration row and an ARI column — or click a cell — to enable entry.",
         "idfDerive": "IDF Derive",
         "idfDeriveLat": "Latitude",
         "idfDeriveLon": "Longitude",

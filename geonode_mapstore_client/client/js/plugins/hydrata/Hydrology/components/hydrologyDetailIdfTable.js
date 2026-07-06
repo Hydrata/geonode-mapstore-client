@@ -535,6 +535,19 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
         }
     };
 
+    // TASK-2118 (F2) — clicking an EMPTY (non-editable) cell selects BOTH its
+    // duration row and its ARI column, satisfying the 1525 strict AND-gate in
+    // one click instead of requiring two separate header clicks. This is
+    // purely ADDITIVE to the two Sets (never removes a selection) — the 1525
+    // deselect-zeroing behaviour lives exclusively in toggleRow/toggleCol's
+    // DESELECT branch and is untouched here; a click on an already-enabled
+    // cell never reaches this handler (its <td> renders IdfInputCell instead,
+    // see the empty-cell early-return below).
+    const selectCellAxes = (rowIndex, columnId) => {
+        setSelectedRows(prev => (prev.has(rowIndex) ? prev : new Set(prev).add(rowIndex)));
+        setSelectedCols(prev => (prev.has(columnId) ? prev : new Set(prev).add(columnId)));
+    };
+
     // Toggle an ARI column's selection. Deselecting zeros the cells at this
     // column's intersection with the currently-selected rows.
     const toggleCol = (columnId) => {
@@ -614,6 +627,16 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                     </label>
                 </div>
 
+                {/* TASK-2118 (F2) — persistent instruction line (i18n'd, not
+                    hover-only): an all-zero table previously opened fully
+                    inert with only hover tooltips as guidance, which read as
+                    broken to a newcomer. Always visible above the grid
+                    (both unit modes) — harmless in Depth view, which is
+                    read-only anyway. */}
+                <div className="sv-idf-matrix-instruction-hint">
+                    <Message msgId="hydrata.hydrology.idfMatrixInstructionHint" />
+                </div>
+
                 <div className="sv-idf-matrix-wrapper sv-idf-matrix-wrapper--input">
                     <table className="sv-idf-matrix-table">
                         <thead>
@@ -659,7 +682,11 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                                                     <td
                                                         key={col.key}
                                                         className="sv-idf-matrix-cell sv-idf-matrix-cell--empty"
-                                                        title={`${formatDuration(row.duration, false)} / ${col.label}: select both this duration row and ARI column to enter an intensity (mm/hr)`}
+                                                        onClick={depthMode ? undefined : () => selectCellAxes(rowIndex, col.key)}
+                                                        style={depthMode ? {cursor: 'default'} : undefined}
+                                                        title={depthMode
+                                                            ? `${formatDuration(row.duration, false)} / ${col.label} (read-only in Depth view — switch to Intensity to edit)`
+                                                            : `${formatDuration(row.duration, false)} / ${col.label}: click to select both this duration row and ARI column and enable an intensity (mm/hr) entry`}
                                                     />
                                                 );
                                             }
