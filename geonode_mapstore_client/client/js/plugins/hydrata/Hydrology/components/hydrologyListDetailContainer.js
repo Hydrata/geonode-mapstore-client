@@ -391,6 +391,18 @@ class HydrologyListDetailContainerClass extends React.Component {
         // Opens on Derive (the common path). Polished pill segmented control.
         const isIdfPage = this.props.activeHydrologyPage === 'sv-idf-table'
             || this.props.activeHydrologyPage === 'idf-derive';
+        // TASK-2119 (F3-FE) — resolve real HTML placeholder copy for the
+        // Source/Description fields (mirrors renderItemsColumn's resolveMsg
+        // idiom for the filter box, the only pre-existing placeholder in
+        // this file). getMessageById returns the key unchanged when the
+        // translation is missing, so fall back to English in that case.
+        const messages = (this.context && this.context.messages) || {};
+        const resolveMsg = (key, fallback) => {
+            const m = getMessageById(messages, key);
+            return (m && m !== key) ? m : fallback;
+        };
+        const sourcePlaceholder = resolveMsg('hydrata.hydrology.sourcePlaceholder', 'Enter source');
+        const descriptionPlaceholder = resolveMsg('hydrata.hydrology.descriptionPlaceholder', 'Enter description');
         // TASK-1509 — block Save when the active custom temporal-pattern curve
         // is invalid (the BE clean() would reject it with a 400 otherwise).
         const customCurveError = this.props.customCurveError;
@@ -551,6 +563,14 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                     type={"text"}
                                                     className={'sv-hydrology-text-input'}
                                                     style={{textAlign: "left"}}
+                                                    // TASK-2119 (F3-FE): real placeholder (empty field shows
+                                                    // guidance, not a persisted literal — classesHydrology.js
+                                                    // now defaults source to ''). maxLength=64 mirrors the BE
+                                                    // source_key CharField(max_length=64) (serializers_v2.py) —
+                                                    // an FE guard so a longer paste never silently truncates
+                                                    // server-side without the user noticing.
+                                                    placeholder={sourcePlaceholder}
+                                                    maxLength={64}
                                                     value={this.props.activeHydrologyItem.source}
                                                     onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
                                                 />
@@ -568,6 +588,12 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 className={'sv-hydrology-text-input sv-hydrology-textarea'}
                                                 rows={1}
                                                 style={{textAlign: "left", resize: "vertical", width: "685px"}}
+                                                // TASK-2119 (F3-FE): real placeholder — classesHydrology.js
+                                                // now defaults description to '' (was the persisted literal
+                                                // "Enter description"). No length cap here: the BE
+                                                // description column is a TextField (no max_length), unlike
+                                                // source_key.
+                                                placeholder={descriptionPlaceholder}
                                                 value={this.props.activeHydrologyItem.description}
                                                 onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
                                             />
