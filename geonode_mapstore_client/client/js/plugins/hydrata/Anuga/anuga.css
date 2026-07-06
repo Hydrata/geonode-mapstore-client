@@ -1710,7 +1710,11 @@ div that holds the feature-grid */
    mismatched first-timestamp anchors). Amber, matching the .is-warn
    category-tag token — advisory, not blocking, so it stays visually
    distinct from the red error strip above. */
-.sv-anuga-scenario-anchor-mismatch-warning {
+/* TASK-2116 (F4) — the drawn-but-unattached MeshRegion hint reuses the same
+   amber "heads up, non-blocking" visual language as the inflow anchor-
+   mismatch warning above it (extend, don't invent a parallel style). */
+.sv-anuga-scenario-anchor-mismatch-warning,
+.sv-anuga-scenario-mesh-region-unattached-hint {
     margin: 6px 10px 8px;
     background: rgba(240, 173, 78, 0.14);
     border: 1px solid rgba(240, 173, 78, 0.30);

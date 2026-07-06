@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import {Simulate} from 'react-dom/test-utils';
 import Localized from '@mapstore/framework/components/I18N/Localized';
-import {ScenarioPane, formatBuildLog} from '../scenarioPane';
+import {ScenarioPane, formatBuildLog, meshRegionIsUnattached} from '../scenarioPane';
 const {enData} = require('../../../../../__tests__/fixtures/translations');
 
 /**
@@ -749,6 +749,60 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 }
             );
         });
+
+        // TASK-2116 (F4) — drawn-but-unattached MeshRegion hint. 3 states per AC4.
+        describe('MeshRegion unattached hint (TASK-2116)', () => {
+            it('renders the hint naming the region when ≥1 drawn region exists and mesh_region is null', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, mesh_region: null}}
+                        selectedCategoryId={'advanced'}
+                        canEdit
+                        meshRegions={meshRegionOpts}
+                    />,
+                    container,
+                    () => {
+                        const hint = container.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint');
+                        expect(hint).toExist();
+                        expect(hint.getAttribute('role')).toBe('status');
+                        expect(hint.textContent).toInclude('hydrata.anuga.meshRegionUnattachedHint');
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint when no mesh regions are drawn in the project', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, mesh_region: null}}
+                        selectedCategoryId={'advanced'}
+                        canEdit
+                        meshRegions={[]}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint once a drawn mesh region is attached to the scenario', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, mesh_region: 9}}
+                        selectedCategoryId={'advanced'}
+                        canEdit
+                        meshRegions={meshRegionOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
     });
 
     // ------------------------------------------------------------------
@@ -1275,6 +1329,33 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 }
             );
         });
+    });
+});
+
+// ------------------------------------------------------------------
+// TASK-2116 (F4) — meshRegionIsUnattached pure-predicate unit tests
+// ------------------------------------------------------------------
+describe('meshRegionIsUnattached (TASK-2116)', () => {
+    const regions = [{id: 9, title: 'Corridor 10m'}];
+
+    it('is false when no mesh regions are drawn (empty array)', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, [])).toBe(false);
+    });
+
+    it('is false when meshRegions is undefined/absent', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, undefined)).toBe(false);
+    });
+
+    it('is true when regions are drawn and mesh_region is null', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, regions)).toBe(true);
+    });
+
+    it('is true when regions are drawn and mesh_region is absent entirely', () => {
+        expect(meshRegionIsUnattached({}, regions)).toBe(true);
+    });
+
+    it('is false once mesh_region is attached', () => {
+        expect(meshRegionIsUnattached({mesh_region: 9}, regions)).toBe(false);
     });
 });
 

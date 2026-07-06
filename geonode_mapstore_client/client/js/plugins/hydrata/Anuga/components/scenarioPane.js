@@ -180,6 +180,54 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
 }
 
 // ------------------------------------------------------------------------
+// TASK-2116 (F4) — drawn-but-unattached MeshRegion hint
+// ------------------------------------------------------------------------
+
+/**
+ * TASK-2116 (F4, epic 2111 W2) — `mesh_region` is a legitimately optional FK
+ * (BE scenario.py:982); every BE consumer silently no-ops when it's unset
+ * (scenario.py:1388, tasks.py:2378, run_utils.py:265-272 → uniform mesh at
+ * `scenario.resolution`). The dogfood engineer drew a fine refinement
+ * region, never attached it to the scenario, and the run silently ignored
+ * it. `meshRegions` here is the SAME project resource list already threaded
+ * into this pane for the Advanced dropdown (state.anuga.resources.meshRegions
+ * — a MeshRegion only exists in this list once its draw has produced a
+ * saved resource, mirroring how terrain/boundary/inflow are "drawn" i.e.
+ * resource-backed). No new Redux wiring needed: "has the project got a
+ * drawn mesh region" and "is one attached to THIS scenario" are both
+ * already-available facts. Exported so anugaScenarioMenu.js's build-time
+ * confirm dialog can reuse the exact same predicate (DRY) rather than
+ * re-derive it.
+ *
+ * NO auto-attach (operator-rejected: TASK-2100's price_band prices off the
+ * build-frozen triangle count, so silently attaching a fine region would
+ * silently multiply the run's price band post-flip). This is hint + confirm
+ * only — the build-time confirm dialog lives in anugaScenarioMenu.js.
+ */
+export function meshRegionIsUnattached(scenario, meshRegions) {
+    const hasDrawnRegion = Array.isArray(meshRegions) && meshRegions.length > 0;
+    if (!hasDrawnRegion) return false;
+    const isAttached = scenario?.mesh_region != null && scenario?.mesh_region !== ''; // eslint-disable-line no-eq-null, eqeqeq
+    return !isAttached;
+}
+
+function renderMeshRegionUnattachedHint(scenario, meshRegions) {
+    if (!meshRegionIsUnattached(scenario, meshRegions)) return null;
+    const names = (meshRegions || []).map(r => r?.title).filter(Boolean).join(', ');
+    return (
+        <div
+            className="sv-anuga-scenario-pane-section sv-anuga-scenario-mesh-region-unattached-hint"
+            role="status"
+            aria-live="polite"
+        >
+            <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+            {' '}
+            <Message msgId="hydrata.anuga.meshRegionUnattachedHint" msgParams={{names}} />
+        </div>
+    );
+}
+
+// ------------------------------------------------------------------------
 // Pane renderers — one per category
 // ------------------------------------------------------------------------
 
@@ -289,6 +337,7 @@ function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, str
             {renderSelectField('friction', 'hydrata.anuga.friction', scenario?.friction, frictions, !canEdit, handleField)}
             {renderSelectField('structure', 'hydrata.anuga.structures', scenario?.structure, structures, !canEdit, handleField)}
             {renderSelectField('mesh_region', 'hydrata.anuga.meshRegions', scenario?.mesh_region, meshRegions, !canEdit, handleField)}
+            {renderMeshRegionUnattachedHint(scenario, meshRegions)}
         </div>
     );
 }

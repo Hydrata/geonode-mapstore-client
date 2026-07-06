@@ -723,6 +723,125 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
 });
 
 /*
+ * TASK-2116 (F4) — build-time confirm for a drawn-but-unattached MeshRegion.
+ * Same unconnected AnugaScenarioMenuClass + spy-prop pattern as the UAT #8
+ * block above (no Redux store needed — meshRegionNeedsWarning reads
+ * this.props.meshRegions directly).
+ */
+describe('anugaScenarioMenu — MeshRegion unattached build confirm (TASK-2116)', () => {
+    let container;
+
+    // Passes validateScenario (mesh_region is legitimately optional) so the
+    // click reaches the mesh-region-warning gate rather than the
+    // missing-field validation dialog.
+    function validScenario(id, extras = {}) {
+        return {
+            id, name: `Valid ${id}`, status: 'created',
+            terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+            friction: null, structure: null, mesh_region: null, network: null,
+            resolution: 1000, duration: 1800, created_by: 9999, unsaved: false,
+            ...extras
+        };
+    }
+
+    function makeHarness(meshRegions) {
+        const buildCalls = [];
+        const runCalls = [];
+        const base = {
+            archiveFilter: 'none',
+            terrain: [], boundaries: [], inflows: [], rainfalls: [],
+            frictions: [], structures: [], meshRegions: meshRegions || [], networks: [],
+            computeInstances: [],
+            canCreateScenario: true,
+            canRunScenario: true,
+            myRole: 'editor',
+            currentUserId: 9999,
+            selectedScenarios: [],
+            readyToCompare: false,
+            flatLayers: [],
+            selectAnugaScenario: () => {},
+            setOpenMenuGroupId: () => {},
+            saveAnugaScenario: () => {},
+            buildScenarioExplicit: (sid) => buildCalls.push(sid),
+            runAnugaScenario: (s, b) => runCalls.push({scenario: s, backend: b})
+        };
+        const render = (scenario) => {
+            ReactDOM.render(
+                <AnugaScenarioMenuClass {...base} scenarios={[scenario]} selectedScenario={scenario} />,
+                container
+            );
+        };
+        return {buildCalls, runCalls, render};
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('Build click opens the warning dialog instead of dispatching, when a drawn region is unattached', () => {
+        const {buildCalls, render} = makeHarness([{id: 9, title: 'Corridor 10m'}]);
+        render(validScenario(61));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        const dialog = container.querySelector('.sv-anuga-mesh-region-warning-dialog.is-open');
+        expect(dialog).toExist();
+        expect(dialog.textContent).toInclude('hydrata.anuga.meshRegionUnattachedConfirm');
+    });
+
+    it('Build click dispatches immediately when no mesh regions are drawn (AC3)', () => {
+        const {buildCalls, render} = makeHarness([]);
+        render(validScenario(62));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(1);
+        expect(container.querySelector('.sv-anuga-mesh-region-warning-dialog.is-open')).toNotExist();
+    });
+
+    it('Build click dispatches immediately when a mesh region is already attached (AC3)', () => {
+        const {buildCalls, render} = makeHarness([{id: 9, title: 'Corridor 10m'}]);
+        render(validScenario(63, {mesh_region: 9}));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(1);
+        expect(container.querySelector('.sv-anuga-mesh-region-warning-dialog.is-open')).toNotExist();
+    });
+
+    it('"Build anyway" dispatches the deferred build and closes the dialog (NO auto-attach)', () => {
+        const {buildCalls, render} = makeHarness([{id: 9, title: 'Corridor 10m'}]);
+        render(validScenario(64));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        container.querySelector('.sv-anuga-mesh-region-build-anyway').click();
+        expect(buildCalls.length).toBe(1);
+        expect(buildCalls[0]).toBe(64);
+        expect(container.querySelector('.sv-anuga-mesh-region-warning-dialog.is-open')).toNotExist();
+    });
+
+    it('"Attach first" closes the dialog WITHOUT building and focuses #mesh_region', () => {
+        const {buildCalls, render} = makeHarness([{id: 9, title: 'Corridor 10m'}]);
+        render(validScenario(65));
+        container.querySelector('.sv-scenario-action-build').click();
+        container.querySelector('.sv-anuga-mesh-region-attach-first').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-mesh-region-warning-dialog.is-open')).toNotExist();
+        expect(document.activeElement.id).toBe('mesh_region');
+    });
+
+    it('Build-and-Run click ALSO opens the warning dialog when unattached (AC2)', () => {
+        const {buildCalls, runCalls, render} = makeHarness([{id: 9, title: 'Corridor 10m'}]);
+        render(validScenario(66));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(buildCalls.length).toBe(0);
+        expect(runCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-mesh-region-warning-dialog.is-open')).toExist();
+    });
+});
+
+/*
  * Regression guard — source-text scan for window.confirm / window.alert.
  *
  * Stops the bug class from recurring (memory pin

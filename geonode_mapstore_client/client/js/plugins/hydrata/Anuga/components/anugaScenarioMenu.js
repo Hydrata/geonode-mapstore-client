@@ -41,7 +41,7 @@ import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 import {changeLayerProperties} from '../../../../../MapStore2/web/client/actions/layers';
 import {validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES} from './scenarioHelpers';
 import {ScenarioRail} from './scenarioRail';
-import {ScenarioPane} from './scenarioPane';
+import {ScenarioPane, meshRegionIsUnattached} from './scenarioPane';
 import {ScenarioHeaderActions} from './scenarioHeaderActions';
 import {SectionHeader} from "../../SimpleView/components/primitives";
 
@@ -57,6 +57,12 @@ import {SectionHeader} from "../../SimpleView/components/primitives";
  *     stays deterministic per memory pin feedback-mapstore-react-version-mismatch).
  *   - confirmingScenario — captured at the same moment as confirmingAction.
  *   - buildValidationError — field-name returned by validateScenario, or null.
+ *   - meshRegionWarning — TASK-2116 (F4): {pendingAction: 'build'|'buildAndRun',
+ *     scenario} when Build/Build-and-Run was clicked on a scenario with a
+ *     drawn-but-unattached MeshRegion, or null. Gates a SEPARATE small confirm
+ *     (Build anyway / Attach first) from the 5-action CONFIRM_DIALOG_REGISTRY
+ *     below — kept separate so it can never collide with those pinned
+ *     duplicate/archive/delete/cancel-run analytics-parity flows.
  *
  * Redux state read: scenarios, archiveFilter, resources (8 dropdown arrays),
  * canCreateScenario, canRunScenario, myRole, currentUserId, selectedScenario.
@@ -177,6 +183,8 @@ class AnugaScenarioMenuClass extends React.Component {
           confirmingAction: null,
           confirmingScenario: null,
           buildValidationError: null,
+          // TASK-2116 (F4) — {pendingAction, scenario} | null.
+          meshRegionWarning: null,
           // UAT #8 fix — the combined "Build and Run" deferred-run state machine,
           // or null when no run is pending. Shape: {scenarioId, phase} where
           // phase is 'awaiting-inflight' (armed; waiting for the dispatched build
@@ -405,6 +413,12 @@ class AnugaScenarioMenuClass extends React.Component {
       return dispatched;
   };
 
+  // TASK-2116 (F4) — true when the project has a drawn MeshRegion resource
+  // but this scenario hasn't attached one. Delegates to scenarioPane.js's
+  // meshRegionIsUnattached (same predicate that drives the in-pane hint) so
+  // the hint and the build-time confirm can never drift apart.
+  meshRegionNeedsWarning = (scenario) => meshRegionIsUnattached(scenario, this.props.meshRegions);
+
   handleBuildClick = (scenario) => {
       const missingField = validateScenario(scenario);
       if (missingField) {
@@ -413,6 +427,10 @@ class AnugaScenarioMenuClass extends React.Component {
           return;
       }
       this.setState({buildValidationError: null});
+      if (this.meshRegionNeedsWarning(scenario)) {
+          this.setState({meshRegionWarning: {pendingAction: 'build', scenario}});
+          return;
+      }
       this.dispatchBuild(scenario);
   };
 
@@ -447,6 +465,17 @@ class AnugaScenarioMenuClass extends React.Component {
   // changed — arming on a save that does not rebuild would leave the flag
   // dangling for a later unrelated build to surprise-fire. The id guard keys the
   // build→built transition; a scenario with no id can't be tracked anyway.
+  //
+  // Extracted from handleBuildAndRunClick so TASK-2116's "Build anyway" path
+  // (after the mesh-region warning is dismissed) can dispatch through the
+  // exact same arm-then-build sequence.
+  armAndDispatchBuildAndRun = (scenario) => {
+      const dispatched = this.dispatchBuild(scenario);
+      if (dispatched === 'build' && scenario && scenario.id != null) { // eslint-disable-line no-eq-null, eqeqeq
+          this.setState({runAfterBuild: {scenarioId: scenario.id, phase: 'awaiting-inflight'}});
+      }
+  };
+
   handleBuildAndRunClick = (scenario) => {
       const missingField = validateScenario(scenario);
       if (missingField) {
@@ -455,10 +484,38 @@ class AnugaScenarioMenuClass extends React.Component {
           return;
       }
       this.setState({buildValidationError: null});
-      const dispatched = this.dispatchBuild(scenario);
-      if (dispatched === 'build' && scenario && scenario.id != null) { // eslint-disable-line no-eq-null, eqeqeq
-          this.setState({runAfterBuild: {scenarioId: scenario.id, phase: 'awaiting-inflight'}});
+      if (this.meshRegionNeedsWarning(scenario)) {
+          this.setState({meshRegionWarning: {pendingAction: 'buildAndRun', scenario}});
+          return;
       }
+      this.armAndDispatchBuildAndRun(scenario);
+  };
+
+  // TASK-2116 (F4) — "Build anyway": proceed with the SAME dispatch the
+  // click would have taken had there been no unattached MeshRegion. NO
+  // auto-attach (operator-rejected — see scenarioPane.js's
+  // meshRegionIsUnattached JSDoc).
+  handleMeshRegionWarningBuildAnyway = () => {
+      const pending = this.state.meshRegionWarning;
+      if (!pending) return;
+      this.setState({meshRegionWarning: null});
+      trackEvent('button', 'click', 'anuga-scenario-menu-mesh-region-warning-build-anyway');
+      if (pending.pendingAction === 'buildAndRun') {
+          this.armAndDispatchBuildAndRun(pending.scenario);
+      } else {
+          this.dispatchBuild(pending.scenario);
+      }
+  };
+
+  // TASK-2116 (F4) — "Attach first": dismiss without building, focus the
+  // mesh-region selector (always present now that TASK-2114 merged Advanced
+  // into the single scrollable panel) so the user can pick a region right
+  // away instead of hunting for the field.
+  handleMeshRegionWarningAttachFirst = () => {
+      this.setState({meshRegionWarning: null});
+      trackEvent('button', 'click', 'anuga-scenario-menu-mesh-region-warning-attach-first');
+      const el = typeof document !== 'undefined' ? document.getElementById('mesh_region') : null;
+      if (el && typeof el.focus === 'function') el.focus();
   };
 
   openConfirm = (action, scenario) => {
@@ -721,6 +778,53 @@ class AnugaScenarioMenuClass extends React.Component {
       );
   }
 
+  // TASK-2116 (F4) — build-time confirm for a drawn-but-unattached
+  // MeshRegion. Deliberately a SEPARATE small dialog from
+  // CONFIRM_DIALOG_REGISTRY's 5 scenario-action confirms (duplicate/
+  // archive/unarchive/delete/cancel-run) rather than a 6th registry entry —
+  // those confirms are 1:1 pinned by anugaScenarioAnalyticsParity-test, and
+  // "Attach first" isn't a generic Cancel (it also moves focus), so keeping
+  // it out of that shared state machine avoids any risk to the pinned flows.
+  // Reuses .sv-anuga-scenario-confirm-dialog for the shared look (position/
+  // background/is-open toggle) — extend, don't invent a parallel style.
+  renderMeshRegionWarningDialog() {
+      const {meshRegionWarning} = this.state;
+      const isOpen = !!meshRegionWarning;
+      const scenario = meshRegionWarning?.scenario;
+      const resolution = scenario?.resolution != null ? scenario.resolution : ''; // eslint-disable-line no-eq-null, eqeqeq
+      const names = (this.props.meshRegions || []).map(r => r?.title).filter(Boolean).join(', ');
+      return (
+          <span
+              className={"sv-anuga-scenario-confirm-dialog sv-anuga-mesh-region-warning-dialog"
+              + (isOpen ? " is-open" : "")}
+              role="alertdialog"
+              aria-label={this.tr('hydrata.anuga.meshRegionWarningAriaLabel', 'Mesh region not attached')}
+              aria-hidden={isOpen ? undefined : true}
+          >
+              <span className="sv-anuga-scenario-confirm-text">
+                  <Message
+                      msgId="hydrata.anuga.meshRegionUnattachedConfirm"
+                      msgParams={{names, resolution}}
+                  />
+              </span>
+              <button
+                  type="button"
+                  className="sv-save-confirm-btn confirm sv-anuga-mesh-region-build-anyway"
+                  onClick={this.handleMeshRegionWarningBuildAnyway}
+              >
+                  <Message msgId="hydrata.anuga.buildAnyway" />
+              </button>
+              <button
+                  type="button"
+                  className="sv-save-confirm-btn cancel sv-anuga-mesh-region-attach-first"
+                  onClick={this.handleMeshRegionWarningAttachFirst}
+              >
+                  <Message msgId="hydrata.anuga.attachFirst" />
+              </button>
+          </span>
+      );
+  }
+
   render() {
       const {selectedScenario} = this.props;
       // TASK-2078: View Results gate is a RESULT consumer per D1 — presence
@@ -776,6 +880,7 @@ class AnugaScenarioMenuClass extends React.Component {
                   </div>
                   {this.renderConfirmDialog()}
                   {this.renderBuildValidationDialog()}
+                  {this.renderMeshRegionWarningDialog()}
               </div>
           </div>
       );
