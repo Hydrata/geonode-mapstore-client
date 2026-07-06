@@ -368,6 +368,35 @@ describe('TASK-2120 — ManualPasteGrid paste format hint + parse-failure feedba
         document.body.removeChild(container);
     });
 
+    // Regression guard (Phase 1.7 self-review catch): the parse-failure fix
+    // must stay LENIENT, not strict — a real spreadsheet paste can plausibly
+    // contain a single-digit hour or trailing seconds, both of which the
+    // ORIGINAL (pre-2120) parsing silently accepted. Strict-mode moment
+    // parsing (briefly used during implementation) would have REJECTED both
+    // as "parse errors", narrowing acceptance versus prior behaviour.
+    it('still accepts a single-digit hour and trailing seconds (no acceptance-breadth regression)', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        let replaced = null;
+        act(() => {
+            ReactDOM.render(
+                React.createElement(ManualPasteGrid, {
+                    activeHydrologyItem: baseItem,
+                    dispatchUpdateRowData: () => {},
+                    dispatchReplaceRowData: (id, rowData) => { replaced = {id, rowData}; }
+                }),
+                container
+            );
+        });
+        const pasteInput = container.querySelector('input#name');
+        firePaste(pasteInput, '2025-01-01 0:00\t1.5\n2025-01-01 00:06:00\t2.5');
+        expect(replaced).toExist();
+        expect(replaced.rowData.length).toBe(2);
+        expect(container.querySelector('.sv-error-strip')).toNotExist();
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
     it('pasting garbage (unparseable timestamp) shows a visible error and does NOT dispatch/crash', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

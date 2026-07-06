@@ -154,16 +154,20 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
     // pinned here at 2.29.4) — `.slice(0, -1)` on that null then THREW inside
     // the native `paste` event listener (an uncaught exception, not caught by
     // any React error boundary), which is why garbage input silently "did
-    // nothing" from the user's perspective. Strict-mode parsing
-    // (`moment(str, fmt, true)`) additionally rejects a string that merely
-    // LOOKS parseable but doesn't match the format (moment's default lenient
-    // mode is too forgiving to catch real mistakes, e.g. a swapped day/month).
+    // nothing" from the user's perspective. LENIENT parsing (no strict 3rd
+    // arg) is kept deliberately — Phase 1.7 self-review caught that strict
+    // mode rejects a single-digit hour ("2025-01-01 0:00") or trailing
+    // seconds ("...00:00:00"), both of which a real spreadsheet paste can
+    // plausibly contain and which the ORIGINAL (pre-2120) lenient parsing
+    // silently accepted; `.isValid()` alone already catches genuine garbage
+    // (verified: `moment('not a date', fmt).isValid()` is false) without
+    // narrowing the accepted format versus prior behaviour.
     const parsePastedData = (pastedData) => {
         return pastedData.split('\n')
             .filter(row => row.trim() !== '')
             .map((row) => {
                 const [timestampStr, valueStr] = row.split('\t');
-                const parsedMoment = moment(timestampStr, 'YYYY-MM-DD HH:mm', true);
+                const parsedMoment = moment(timestampStr, 'YYYY-MM-DD HH:mm');
                 const value = parseFloat(valueStr);
                 const valid = parsedMoment.isValid() && Number.isFinite(value);
                 return {
