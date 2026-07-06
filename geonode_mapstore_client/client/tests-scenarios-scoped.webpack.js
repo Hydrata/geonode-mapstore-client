@@ -3,7 +3,11 @@
 // reducer default-resolution regression test.
 //
 // TASK-2045 (F3, epic 2037 W1b) added scenarioCategoryRail-test.js — the
-// rail-wiring coverage for boundary feature-presence gating.
+// rail-wiring coverage for boundary feature-presence gating. scenarioCategoryRail.js
+// (and its test) was DELETED by the UAT re-aim (2026-07-06, epic 2111 W2
+// dogfood follow-up, finding 1) — the rail it covered is removed entirely;
+// the same boundaryHasFeatures coverage now lives in scenarioPane-test.js's
+// 'Section-heading completeness badges' block instead.
 //
 // TASK-2039 (F4, epic 2037 W2) added terrainUploadCrsPanel-test.js (i18n +
 // detected-CRS + a11y proof) and anugaI18n-test.js (terrainCrs* key coverage).
@@ -12,8 +16,6 @@
 // retryAnugaRunEpic no longer arms a poll on the superseded old run id.
 var helpers = require.context('./js/plugins/hydrata/Anuga/components/__tests__', false, /scenarioHelpers-test\.jsx?$/);
 helpers.keys().forEach(helpers);
-var rail = require.context('./js/plugins/hydrata/Anuga/components/__tests__', false, /scenarioCategoryRail-test\.jsx?$/);
-rail.keys().forEach(rail);
 var terrainCrs = require.context('./js/plugins/hydrata/Anuga/components/__tests__', false, /terrainUploadCrsPanel-test\.jsx?$/);
 terrainCrs.keys().forEach(terrainCrs);
 var i18n = require.context('./js/plugins/hydrata/Anuga/__tests__', false, /anugaI18n-test\.jsx?$/);

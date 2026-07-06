@@ -75,116 +75,144 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     });
 
     // ------------------------------------------------------------------
-    // Category rail (Pane 2)
+    // Category rail (Pane 2) — REMOVED (UAT re-aim 2026-07-06, finding 1,
+    // epic 2111 W2 dogfood follow-up). The vertical glance-nav rail is
+    // obsolete now that the pane is one scroll; the form pane (Pane 3)
+    // expands to occupy the freed width. The completeness counts the rail
+    // used to show move into each section's own heading badge instead —
+    // see 'Section-heading completeness badges' below, which reuses
+    // validateCategoryProgress verbatim (finding 2) rather than the rail's
+    // now-deleted derivation copy.
     // ------------------------------------------------------------------
-    describe('Category rail', () => {
-        // TASK-1416: merged 'run' category → rail now has 3 items (inputs/advanced/run).
-        it('renders the vertical category rail with 3 items (TASK-1416: runConfig+statusActions merged)', (done) => {
+    describe('Category rail removed (UAT re-aim, finding 1)', () => {
+        it('does NOT render the vertical category rail or any category-item', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const rail = container.querySelector('.sv-anuga-scenario-category-rail');
-                    expect(rail).toExist();
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    expect(items.length).toBe(3);
+                    expect(container.querySelector('.sv-anuga-scenario-category-rail')).toNotExist();
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-item').length).toBe(0);
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-section').length).toBe(0);
                     done();
                 }
             );
         });
 
-        // TASK-1416: now 2 sections (inputs + run), not 3. No subhead labels.
-        it('renders 2 section group wrappers and zero subhead labels (TASK-1416)', (done) => {
+        it('still renders the merged detail body directly (Pane 3 alone occupies the freed width)', (done) => {
             ReactDOM.render(
-                <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} />,
+                <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
-                    const sections = container.querySelectorAll('.sv-anuga-scenario-category-section');
-                    expect(sections.length).toBe(2);
-                    const labels = container.querySelectorAll('.sv-anuga-scenario-category-section-label');
-                    expect(labels.length).toBe(0);
+                    expect(container.querySelector('.sv-anuga-scenario-pane-detail')).toExist();
+                    expect(container.querySelector('#name')).toExist();
                     done();
                 }
             );
         });
+    });
 
-        it('flips is-active on the selected category', (done) => {
+    // ------------------------------------------------------------------
+    // Section-heading completeness badges (UAT re-aim, finding 2) — the
+    // rail's per-category "N/M" / "built" / "100%" tags now render
+    // right-aligned inside each merged-pane section heading, reusing
+    // validateCategoryProgress (scenarioHelpers.js) with the EXACT same
+    // arguments the rail used to pass (including the TASK-2045
+    // boundaryHasFeatures gate) — never re-derived.
+    // ------------------------------------------------------------------
+    describe('Section-heading completeness badges (finding 2)', () => {
+        it('renders the 3 section headings in document order with right-aligned badges', (done) => {
+            // baseScenario: terrain(3)+boundary(4)+inflow(5) all set → Required
+            // 3/3 (is-ok). No friction/structure/mesh_region → Optional 0/3
+            // (advanced never errs, so is-ok too). status 'built' → Run 'built'.
             ReactDOM.render(
-                <ScenarioPane scenario={baseScenario} selectedCategoryId={'run'} />,
+                <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    const active = Array.from(items).filter(t => t.className.includes('is-active'));
-                    expect(active.length).toBe(1);
+                    const heads = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-title');
+                    expect(heads.length).toBe(3);
+                    expect(heads[0].textContent).toInclude('hydrata.anuga.requiredInputs');
+                    expect(heads[1].textContent).toInclude('hydrata.anuga.optionalInputs');
+                    expect(heads[2].textContent).toInclude('hydrata.anuga.run');
+
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges.length).toBe(3);
+                    expect(badges[0].textContent).toBe('3/3');
+                    expect(badges[0].className).toInclude('is-ok');
+                    expect(badges[1].textContent).toBe('0/3');
+                    expect(badges[2].textContent).toBe('built');
                     done();
                 }
             );
         });
 
-        it('clicking a category invokes onSelectCategory', (done) => {
-            let captured = null;
+        it('Run badge shows 100% for a complete scenario (operator UAT example)', (done) => {
             ReactDOM.render(
-                <ScenarioPane
-                    scenario={baseScenario}
-                    selectedCategoryId={'inputs'}
-                    onSelectCategory={(id) => { captured = id; }}
-                />,
+                <ScenarioPane scenario={{...baseScenario, status: 'complete'}} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    // TASK-1416: 3 items: inputs (0), advanced (1), run (2).
-                    items[2].click();
-                    expect(captured).toBe('run');
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[2].textContent).toBe('100%');
+                    expect(badges[2].className).toInclude('is-ok');
                     done();
                 }
             );
         });
 
-        it('Inputs item shows 3/3 tag when terrain + boundary + (inflow OR rainfall) all assigned', (done) => {
-            // Inputs slot count is 3 (terrain + boundary + water-source), with
-            // inflow/rainfall sharing the same slot per validateCategoryProgress.
-            // baseScenario already assigns terrain (3), boundary (4), inflow (5).
-            const s = {...baseScenario, rainfall: 8};
+        it('Required badge reads 0/3 with is-err severity for an empty scenario', (done) => {
             ReactDOM.render(
-                <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
+                <ScenarioPane scenario={{id: 1, name: 'empty'}} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    const inputsTag = items[0].querySelector('.sv-anuga-scenario-category-item-tag');
-                    expect(inputsTag.textContent).toBe('3/3');
-                    expect(inputsTag.className).toInclude('is-ok');
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[0].textContent).toBe('0/3');
+                    expect(badges[0].className).toInclude('is-err');
                     done();
                 }
             );
         });
 
-        it('Inputs item shows 0/3 tag with is-err severity when no inputs assigned', (done) => {
-            const s = {id: 1, name: 'empty'};
-            ReactDOM.render(
-                <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
-                container,
-                () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    const inputsTag = items[0].querySelector('.sv-anuga-scenario-category-item-tag');
-                    expect(inputsTag.textContent).toBe('0/3');
-                    expect(inputsTag.className).toInclude('is-err');
-                    done();
-                }
-            );
-        });
-
-        // TASK-1416: 'run' is now index 2 (statusActions was index 3 before merge).
-        it('Run item shows err tag when scenario.status === error (TASK-1416)', (done) => {
+        it('Run badge reads err severity when scenario.status === error', (done) => {
             const s = {...baseScenario, status: 'error', latest_run: {status: 'error'}};
             ReactDOM.render(
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    // run is index 2 (was statusActions at index 3).
-                    const runTag = items[2].querySelector('.sv-anuga-scenario-category-item-tag');
-                    expect(runTag.textContent).toBe('err');
-                    expect(runTag.className).toInclude('is-err');
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[2].textContent).toBe('err');
+                    expect(badges[2].className).toInclude('is-err');
+                    done();
+                }
+            );
+        });
+
+        // TASK-2045 (moved from the now-deleted scenarioCategoryRail-test.js) —
+        // a boundary must be SELECTED *and* have at least one feature; the
+        // badge must reuse the same boundaryHasFeatures gate the rail did.
+        it('Required badge reads 2/3 (not ready) when the selected boundary has has_features=false (TASK-2045)', (done) => {
+            const s = {...baseScenario, boundary: 42};
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={s}
+                    selectedCategoryId={'inputs'}
+                    boundaries={[{id: 42, title: 'Empty scaffold boundary', has_features: false}]}
+                />,
+                container,
+                () => {
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[0].textContent).toBe('2/3');
+                    done();
+                }
+            );
+        });
+
+        it('Required badge reads 3/3 (backward-safe default) when the boundaries list has not loaded yet', (done) => {
+            const s = {...baseScenario, boundary: 42};
+            ReactDOM.render(
+                <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
+                container,
+                () => {
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[0].textContent).toBe('3/3');
                     done();
                 }
             );
@@ -235,20 +263,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('renders the 3 section headings (Required/Optional/Run) in document order', (done) => {
-            ReactDOM.render(
-                <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
-                container,
-                () => {
-                    const heads = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-title');
-                    expect(heads.length).toBe(3);
-                    expect(heads[0].textContent).toInclude('hydrata.anuga.requiredInputs');
-                    expect(heads[1].textContent).toInclude('hydrata.anuga.optionalInputs');
-                    expect(heads[2].textContent).toInclude('hydrata.anuga.run');
-                    done();
-                }
-            );
-        });
+        // The 3-heading document-order assertion (+ its badges) now lives in
+        // 'Section-heading completeness badges (finding 2)' above, next to
+        // the rest of the badge coverage it was split off to avoid.
 
         // Dogfood finding B — the per-selector "selected layer" confirmation
         // card is removed; the native <select>'s own displayed value is the
@@ -1248,14 +1265,15 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // TASK-1416: merged 'run' category → 3 items now.
-        it('still renders the category rail when scenario is null (so user can browse)', (done) => {
+        // UAT re-aim finding 1 — the rail is gone entirely now, including
+        // when no scenario is selected (there is nothing left to browse a
+        // category of).
+        it('does NOT render a category rail when scenario is null (rail removed)', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={null} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    expect(items.length).toBe(3);
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-item').length).toBe(0);
                     done();
                 }
             );

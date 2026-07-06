@@ -174,8 +174,8 @@ export const validateScenario = (scenario) => {
  *                       queued/processing/building → "..." + warn
  *
  * Defensive contract: null/undefined scenarios return a no-op tag
- * ({satisfied: 0, total: N, tag: '—', severity: 'warn'}) so the rail
- * still renders before a scenario is selected.
+ * ({satisfied: 0, total: N, tag: '—', severity: 'warn'}) so the caller
+ * still renders a neutral tag before a scenario is selected.
  *
  * @param {object} [opts] — TASK-2045 (F3, epic 2037 W1b). Only the
  *   'inputs' category reads this. `opts.boundaryHasFeatures` is a BE-only
@@ -188,9 +188,11 @@ export const validateScenario = (scenario) => {
  *   `opts.boundaryHasFeatures` is anything other than the literal `false`
  *   (including undefined — e.g. the boundaries list hasn't loaded yet, or a
  *   legacy caller that predates this fix), selection-only truthiness is
- *   preserved. The caller (scenarioCategoryRail) is the one place that
- *   MUST resolve the real boolean and pass it explicitly, so a genuinely
- *   empty boundary reads NOT-ready once resources.boundaries has loaded.
+ *   preserved. The caller — originally scenarioCategoryRail, now
+ *   scenarioPane.js's section-heading badges after the UAT re-aim
+ *   (2026-07-06, finding 1) removed the rail — is the one place that MUST
+ *   resolve the real boolean and pass it explicitly, so a genuinely empty
+ *   boundary reads NOT-ready once resources.boundaries has loaded.
  */
 export const validateCategoryProgress = (category, scenario, opts) => {
     // Defensive: missing scenario means tag rendering should be neutral.

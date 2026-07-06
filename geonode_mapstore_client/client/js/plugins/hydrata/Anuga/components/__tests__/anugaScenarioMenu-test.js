@@ -18,7 +18,7 @@
  *   - Wave 3C C3: Close X removed per operator decision D3 — top-tab
  *     switch on anugaContainer.js handles panel close + polling stop. The
  *     panel header MUST NOT render a .sv-legend-close element.
- *   - Category rail regression: 4 items, no `.sv-anuga-scenario-category-section-label`.
+ *   - Category rail removed (UAT re-aim, finding 1): no `.sv-anuga-scenario-category-item` / rail / section-label anywhere.
  *
  * Memory pin guardrails:
  *   - feedback-mapstore-react-version-mismatch: use simple
@@ -365,29 +365,20 @@ describe('anugaScenarioMenu — header strip wiring', () => {
     });
 
     // ----------------------------------------------------------------
-    // Category rail composition (regression guards)
+    // Category rail REMOVED (UAT re-aim, 2026-07-06, epic 2111 W2 dogfood
+    // follow-up, finding 1) — regression guard
     // ----------------------------------------------------------------
-    describe('Category rail composition', () => {
-        it('renders 4 category items (no runLog)', () => {
+    describe('Category rail removed (finding 1)', () => {
+        it('renders no .sv-anuga-scenario-category-item / rail / section-label anywhere', () => {
             const s1 = makeScenario(21, 'Baseline');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            expect(items.length).toBe(3); // TASK-1416: merged run (was 4)
-        });
-
-        it('does NOT render .sv-anuga-scenario-category-section-label anywhere', () => {
-            const s1 = makeScenario(21, 'Baseline');
-            const store = makeStore({scenariosArr: [s1]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const labels = container.querySelectorAll('.sv-anuga-scenario-category-section-label');
-            expect(labels.length).toBe(0);
+            expect(container.querySelector('.sv-anuga-scenario-category-rail')).toNotExist();
+            expect(container.querySelectorAll('.sv-anuga-scenario-category-item').length).toBe(0);
+            expect(container.querySelectorAll('.sv-anuga-scenario-category-section-label').length).toBe(0);
         });
     });
 

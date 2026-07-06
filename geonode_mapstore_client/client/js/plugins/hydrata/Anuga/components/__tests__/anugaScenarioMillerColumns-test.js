@@ -7,15 +7,17 @@ import {AnugaScenarioMenu, AnugaScenarioMenuClass} from '../anugaScenarioMenu';
 /**
  * TASK-C-scenarios-miller — wave-level integration test for the new
  * Miller-columns scenarios container. Re-cut after the Option A header
- * refactor + 4-category rail (no runLog).
+ * refactor; re-cut again for the UAT re-aim (2026-07-06, epic 2111 W2
+ * dogfood follow-up, finding 1) that REMOVES the vertical category rail.
  *
  *   A. Rail+pane composition (mount, count rail items = scenarios.length,
- *      first is `.is-active` after auto-select).
+ *      first is `.is-active` after auto-select; shell is now 2 columns).
  *   B. Pane swap on rail click (clicking a rail item flips `.is-active`
  *      and dispatches SELECT_ANUGA_SCENARIO).
- *   C. Category subtab switching (4 items, Inputs / Advanced / Run config
- *      / Status & actions; clicking flips the in-pane content; the
- *      Status & actions pane now bundles the inline ScenarioRunLog block).
+ *   C. Merged panel sections (Inputs / Advanced / Run all coexist in one
+ *      scroll, TASK-2114; category rail removed entirely, finding 1 — no
+ *      click is needed or possible to reveal a section; the Run section
+ *      bundles the inline ScenarioRunLog block).
  *   D. Field-update dispatches (typing in the name field or changing a
  *      dropdown dispatches UPDATE_ANUGA_SCENARIO).
  *   E. Empty-scenarios fallback (rail empty + pane "no scenario"
@@ -143,7 +145,10 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
             );
         });
 
-        it('renders the 3-column shell: scenario rail / category rail / detail', (done) => {
+        // UAT re-aim (2026-07-06, finding 1) — Pane 2 (the vertical category
+        // rail) is REMOVED; the shell is now 2 columns (scenario rail / merged
+        // detail pane), and the detail pane expands into the freed width.
+        it('renders the 2-column shell: scenario rail / detail (category rail removed)', (done) => {
             const s1 = makeScenario(21, 'Baseline');
             const store = createMockStore({
                 anuga: {
@@ -156,9 +161,10 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 () => {
                     // Pane 1 — scenario list rail (existing sv-category-rail).
                     expect(container.querySelector('.sv-category-rail')).toExist();
-                    // Pane 2 — vertical category rail.
-                    expect(container.querySelector('.sv-anuga-scenario-category-rail')).toExist();
-                    // Pane 3 — detail body.
+                    // Pane 2 (vertical category rail) no longer exists.
+                    expect(container.querySelector('.sv-anuga-scenario-category-rail')).toNotExist();
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-item').length).toBe(0);
+                    // Pane 3 — detail body, now alone in the shell.
                     expect(container.querySelector('.sv-anuga-scenario-pane-detail')).toExist();
                     done();
                 }
@@ -251,10 +257,16 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
     });
 
     // ------------------------------------------------------------------
-    // C. Category rail switching (4 categories — no runLog)
+    // C. Merged panel sections (category rail REMOVED, UAT re-aim finding 1)
     // ------------------------------------------------------------------
-    describe('C. Category rail switching', () => {
-        it('renders 4 category items in the vertical rail (Inputs/Advanced/Run config/Status and actions)', (done) => {
+    // The vertical category rail (and its is-active click-to-switch
+    // mechanism) is gone — TASK-2114 already made every section
+    // (Inputs/Advanced/Run) coexist in one scroll, so there is nothing left
+    // to click to "reveal" a section; these tests assert the sections + the
+    // always-visible header action strip render directly, with no rail
+    // interaction step.
+    describe('C. Merged panel sections (category rail removed)', () => {
+        it('renders no category rail and no section-label anywhere', (done) => {
             const s1 = makeScenario(21, 'Baseline');
             const store = createMockStore({
                 anuga: {
@@ -265,18 +277,15 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    // TASK-1416: merged 'run' category → 3 items (inputs/advanced/run).
-                    expect(items.length).toBe(3);
-                    // Default: Inputs is active.
-                    expect(items[0].className).toInclude('is-active');
-                    expect(items[1].className).toNotInclude('is-active');
+                    expect(container.querySelector('.sv-anuga-scenario-category-rail')).toNotExist();
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-item').length).toBe(0);
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-section-label').length).toBe(0);
                     done();
                 }
             );
         });
 
-        it('does not render any .sv-anuga-scenario-category-section-label inside the rail', (done) => {
+        it('renders the Advanced fields (friction dropdown) with no rail click needed', (done) => {
             const s1 = makeScenario(21, 'Baseline');
             const store = createMockStore({
                 anuga: {
@@ -287,39 +296,13 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const labels = container.querySelectorAll('.sv-anuga-scenario-category-section-label');
-                    expect(labels.length).toBe(0);
+                    expect(container.querySelector('#friction')).toExist();
                     done();
                 }
             );
         });
 
-        it('clicking Advanced (items[1]) flips is-active and renders the friction dropdown', (done) => {
-            const s1 = makeScenario(21, 'Baseline');
-            const store = createMockStore({
-                anuga: {
-                    scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
-                }
-            });
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container,
-                () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    items[1].click(); // advanced
-                    setTimeout(() => {
-                        const itemsAfter = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                        expect(itemsAfter[0].className).toNotInclude('is-active');
-                        expect(itemsAfter[1].className).toInclude('is-active');
-                        expect(container.querySelector('#friction')).toExist();
-                        done();
-                    });
-                }
-            );
-        });
-
-        // TASK-1416: items[2] is now merged 'run' pane (was runConfig at [2]).
-        it('clicking Run (items[2]) renders resolution + duration + status card + header action strip', (done) => {
+        it('renders resolution + duration + status card + header action strip with no rail click needed', (done) => {
             const s1 = makeScenario(21, 'Baseline', {status: 'built'});
             const store = createMockStore({
                 anuga: {
@@ -330,38 +313,34 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    items[2].click(); // run (merged)
-                    setTimeout(() => {
-                        expect(container.querySelector('#resolution')).toExist();
-                        // UAT #9: duration is now two dropdowns (Hours + Minutes), not a
-                        // single #duration input. Stored value is still scenario.duration
-                        // in seconds (bound via secondsToHM / hmToSeconds).
-                        expect(container.querySelector('#duration-hours')).toExist();
-                        expect(container.querySelector('#duration-minutes')).toExist();
-                        // TASK-1415: compute_backend hidden unless isSuperuser (default=false in store)
-                        expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
-                        expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
-                        // UAT #8: the run-action controls moved OUT of the Run pane into the
-                        // always-visible header strip (ScenarioHeaderActions → #scenario-run-actions).
-                        // The legacy in-pane .sv-scenario-action-toolbar container no longer exists.
-                        expect(container.querySelector('.sv-anuga-scenario-pane-rows-run .sv-scenario-action-toolbar')).toNotExist();
-                        const strip = container.querySelector('#scenario-run-actions');
-                        expect(strip).toExist();
-                        expect(strip.className).toInclude('sv-scenario-header-run-actions');
-                        // Editor on a 'built' scenario: Build / Build-and-Run / Run all render,
-                        // and Download renders because the scenario is built.
-                        expect(strip.querySelector('.sv-scenario-action-build')).toExist();
-                        expect(strip.querySelector('.sv-scenario-action-build-run')).toExist();
-                        expect(strip.querySelector('.sv-scenario-action-run')).toExist();
-                        expect(strip.querySelector('.sv-scenario-action-download')).toExist();
-                        done();
-                    });
+                    expect(container.querySelector('#resolution')).toExist();
+                    // UAT #9: duration is two dropdowns (Hours + Minutes), not a
+                    // single #duration input. Stored value is still scenario.duration
+                    // in seconds (bound via secondsToHM / hmToSeconds).
+                    expect(container.querySelector('#duration-hours')).toExist();
+                    expect(container.querySelector('#duration-minutes')).toExist();
+                    // TASK-1415: compute_backend hidden unless isSuperuser (default=false in store)
+                    expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
+                    expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
+                    // UAT #8: the run-action controls live OUTSIDE the Run pane in the
+                    // always-visible header strip (ScenarioHeaderActions → #scenario-run-actions).
+                    // The legacy in-pane .sv-scenario-action-toolbar container no longer exists.
+                    expect(container.querySelector('.sv-anuga-scenario-pane-rows-run .sv-scenario-action-toolbar')).toNotExist();
+                    const strip = container.querySelector('#scenario-run-actions');
+                    expect(strip).toExist();
+                    expect(strip.className).toInclude('sv-scenario-header-run-actions');
+                    // Editor on a 'built' scenario: Build / Build-and-Run / Run all render,
+                    // and Download renders because the scenario is built.
+                    expect(strip.querySelector('.sv-scenario-action-build')).toExist();
+                    expect(strip.querySelector('.sv-scenario-action-build-run')).toExist();
+                    expect(strip.querySelector('.sv-scenario-action-run')).toExist();
+                    expect(strip.querySelector('.sv-scenario-action-download')).toExist();
+                    done();
                 }
             );
         });
 
-        it('Run pane (items[2]) status card coexists with the clickable header action strip', (done) => {
+        it('status card coexists with a clickable header action strip', (done) => {
             const s1 = makeScenario(21, 'Baseline', {status: 'built'});
             const store = createMockStore({
                 anuga: {
@@ -372,32 +351,28 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    items[2].click(); // run (merged)
+                    expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
+                    expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
+                    // UAT #8: the action controls live in the header strip, not the Run
+                    // pane. Assert they render there AND that one is genuinely clickable.
+                    const strip = container.querySelector('#scenario-run-actions');
+                    expect(strip).toExist();
+                    const actionButtons = strip.querySelectorAll('.sv-scenario-action-toolbar-btn');
+                    expect(actionButtons.length).toBeGreaterThanOrEqualTo(1);
+                    // Delete is present and clickable; it opens the inline confirm dialog
+                    // (NOT window.confirm, which the beforeEach guard would throw on).
+                    const deleteBtn = strip.querySelector('.sv-scenario-action-delete');
+                    expect(deleteBtn).toExist();
+                    deleteBtn.click();
                     setTimeout(() => {
-                        expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
-                        expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
-                        // UAT #8: the action controls now live in the header strip, not the Run
-                        // pane. Assert they render there AND that one is genuinely clickable.
-                        const strip = container.querySelector('#scenario-run-actions');
-                        expect(strip).toExist();
-                        const actionButtons = strip.querySelectorAll('.sv-scenario-action-toolbar-btn');
-                        expect(actionButtons.length).toBeGreaterThanOrEqualTo(1);
-                        // Delete is present and clickable; it opens the inline confirm dialog
-                        // (NOT window.confirm, which the beforeEach guard would throw on).
-                        const deleteBtn = strip.querySelector('.sv-scenario-action-delete');
-                        expect(deleteBtn).toExist();
-                        deleteBtn.click();
-                        setTimeout(() => {
-                            expect(container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open')).toExist();
-                            done();
-                        });
+                        expect(container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open')).toExist();
+                        done();
                     });
                 }
             );
         });
 
-        it('Status and actions also renders the inline .sv-anuga-scenario-pane-log block', (done) => {
+        it('renders the inline .sv-anuga-scenario-pane-log block with no rail click needed', (done) => {
             // No run yet → log is empty string, lineCount is undefined (so no
             // " (N)" suffix appears next to the title).
             const s1 = makeScenario(21, 'Baseline', {status: 'created'});
@@ -410,33 +385,28 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    // TASK-1416: Click the 3rd (Run) category — was 4th (Status and actions).
-                    items[2].click();
-                    setTimeout(() => {
-                        const log = container.querySelector('.sv-anuga-scenario-pane-log');
-                        expect(log).toExist();
-                        const title = container.querySelector('.sv-anuga-scenario-pane-log-title');
-                        expect(title).toExist();
-                        // No intl provider in this test, so <Message msgId="hydrata.anuga.log" />
-                        // renders the literal msgId string. Asserting the msgId substring
-                        // is the closest deterministic check for "the log header was
-                        // rendered using the right translation key".
-                        expect(title.textContent).toInclude('hydrata.anuga.log');
-                        // Without latest_run there is no " (N)" parenthetical suffix.
-                        expect(title.textContent).toNotInclude('(');
-                        const pre = container.querySelector('.sv-anuga-scenario-pane-log-viewer');
-                        expect(pre).toExist();
-                        // No log text — CSS handles the placeholder via :empty::before.
-                        // textContent must be empty (no string interpolated).
-                        expect(pre.textContent.length).toBe(0);
-                        done();
-                    });
+                    const log = container.querySelector('.sv-anuga-scenario-pane-log');
+                    expect(log).toExist();
+                    const title = container.querySelector('.sv-anuga-scenario-pane-log-title');
+                    expect(title).toExist();
+                    // No intl provider in this test, so <Message msgId="hydrata.anuga.log" />
+                    // renders the literal msgId string. Asserting the msgId substring
+                    // is the closest deterministic check for "the log header was
+                    // rendered using the right translation key".
+                    expect(title.textContent).toInclude('hydrata.anuga.log');
+                    // Without latest_run there is no " (N)" parenthetical suffix.
+                    expect(title.textContent).toNotInclude('(');
+                    const pre = container.querySelector('.sv-anuga-scenario-pane-log-viewer');
+                    expect(pre).toExist();
+                    // No log text — CSS handles the placeholder via :empty::before.
+                    // textContent must be empty (no string interpolated).
+                    expect(pre.textContent.length).toBe(0);
+                    done();
                 }
             );
         });
 
-        it('Status and actions log shows " (N)" line-count when latest_run.log_line_count is finite', (done) => {
+        it('log shows " (N)" line-count when latest_run.log_line_count is finite', (done) => {
             const s1 = makeScenario(21, 'Baseline', {
                 status: 'built',
                 latest_run: {id: 999, log: 'first line\nsecond line', log_line_count: 42}
@@ -450,17 +420,13 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    items[2].click(); // run (TASK-1416: was statusActions at items[3])
-                    setTimeout(() => {
-                        const title = container.querySelector('.sv-anuga-scenario-pane-log-title');
-                        expect(title).toExist();
-                        expect(title.textContent).toInclude('(42)');
-                        const pre = container.querySelector('.sv-anuga-scenario-pane-log-viewer');
-                        expect(pre.textContent).toInclude('first line');
-                        expect(pre.textContent).toInclude('second line');
-                        done();
-                    });
+                    const title = container.querySelector('.sv-anuga-scenario-pane-log-title');
+                    expect(title).toExist();
+                    expect(title.textContent).toInclude('(42)');
+                    const pre = container.querySelector('.sv-anuga-scenario-pane-log-viewer');
+                    expect(pre.textContent).toInclude('first line');
+                    expect(pre.textContent).toInclude('second line');
+                    done();
                 }
             );
         });

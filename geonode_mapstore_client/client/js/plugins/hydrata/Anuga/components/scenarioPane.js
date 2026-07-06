@@ -1,9 +1,10 @@
 import React, {useEffect} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
-import {secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP} from './scenarioHelpers';
+import {
+    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress
+} from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
-import {ScenarioCategoryRail} from './scenarioCategoryRail';
 import {ScenarioStatusCard} from './scenarioStatusCard';
 import {ScenarioErrorStrip} from './scenarioErrorStrip';
 // TASK-1764 (epic-1758 W1) — chassis FormRow frames the scenario-detail
@@ -17,21 +18,25 @@ import {FormRow} from '../../SimpleView/components/primitives';
 
 /**
  * Merged-panel renderer for the Miller-columns scenarios panel (TASK-2114,
- * epic 2111 W2, dogfood findings A+B). The vertical category rail
- * (`ScenarioCategoryRail`, Pane 2) is kept UNCHANGED as a completeness-at-a-
- * glance nav — same classnames, same `anuga-scenario-menu-category-{id}`
- * Umami events, same is-active highlighting (analytics-parity constraint) —
- * but it no longer GATES which content is visible. Pane 3 now stacks all
- * three sections (Required inputs / Optional inputs / Run) in ONE scrollable
- * body, each behind its own in-pane heading, so nothing is hidden behind a
- * tab click. This is the direct fix for dogfood finding F4's root cause: the
- * old Advanced tab HID mesh_region until clicked, so a drawn-but-unattached
- * mesh region silently no-op'd at build time without ever being seen.
+ * epic 2111 W2, dogfood findings A+B). Pane 3 stacks all three sections
+ * (Required inputs / Optional inputs / Run) in ONE scrollable body, each
+ * behind its own in-pane heading, so nothing is hidden behind a tab click.
+ * This is the direct fix for dogfood finding F4's root cause: the old
+ * Advanced tab HID mesh_region until clicked, so a drawn-but-unattached mesh
+ * region silently no-op'd at build time without ever being seen.
  *
- * `resolvedCategory` (derived from `selectedCategoryId`) still drives which
- * rail item shows `.is-active` — clicking a rail item is now a "this is
- * where you're focused" wayfinding signal over the single scroll, not a
- * pane switch.
+ * UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, findings 1+2) —
+ * the vertical category rail (`ScenarioCategoryRail`, Pane 2) that used to
+ * sit between the scenario list and this pane is REMOVED entirely: it was a
+ * completeness-at-a-glance nav that no longer gated anything once the
+ * sections merged into one scroll, so the operator judged it obsolete. This
+ * pane (Pane 3) now expands to occupy the freed width. The per-category
+ * completeness counts the rail used to show ("3/3", "0/3", "100%", ...)
+ * move INTO each section's own heading instead, right-aligned in the same
+ * heading band — see `renderSectionHeading` below — reusing
+ * `validateCategoryProgress` (scenarioHelpers.js) with the EXACT SAME
+ * arguments the rail used to pass (including the TASK-2045
+ * boundaryHasFeatures gate for 'inputs'), never re-derived.
  *
  * Per-selector "selected layer" confirmation cards (`ScenarioResourceSummary`,
  * TASK-C Wave 3A) are REMOVED from the Inputs/Advanced sections (dogfood
@@ -50,8 +55,13 @@ import {FormRow} from '../../SimpleView/components/primitives';
  */
 
 // TASK-1416 (ISSUE 20.7): 'runConfig' + 'statusActions' merged into single 'run'
-// category. Both old IDs kept in the array for graceful fallback (existing Redux
-// state may carry either; they redirect to 'run' via resolvedCategory below).
+// category. Both old IDs kept in the array for backward-compatible propType
+// validation of the `selectedCategoryId` prop, which the container
+// (anugaScenarioMenu.js) still threads through for now — UAT re-aim (finding
+// 1) removed the only consumer that acted on it (the category rail), but the
+// prop itself is left alone (harmless, no behaviour) to keep this change
+// scoped to the 3 UAT findings rather than also refactoring the container's
+// still-otherwise-used state machine.
 const VALID_CATEGORIES = ['inputs', 'advanced', 'run', 'runConfig', 'statusActions'];
 
 /**
@@ -579,12 +589,27 @@ function renderRunPane(props) {
 // category head used to own (border-bottom rule, font sizing) so no parallel
 // heading style is introduced — see anuga.css's `--merged` rule for the
 // small top-margin added between repeated headings.
-function renderSectionHeading(msgId) {
+//
+// UAT re-aim (finding 2) — `progress` is the SAME `validateCategoryProgress`
+// result object the now-removed category rail rendered as its tag pill
+// (`{tag, severity, ...}`); this just relocates that pill into the heading
+// band, right-aligned via the title's own `flex: 1` (anuga.css) pushing it
+// to the far edge. Reuses the rail's severity-class naming convention
+// (is-ok/is-warn/is-err) under a NEW classname (not the rail's, which is
+// gone) so the pill visually extends the existing token system rather than
+// inventing a parallel one.
+function renderSectionHeading(msgId, progress) {
+    const severity = progress && progress.severity;
+    const badgeClass = 'sv-anuga-scenario-pane-detail-head-badge'
+        + (severity === 'ok' ? ' is-ok' : '')
+        + (severity === 'warn' ? ' is-warn' : '')
+        + (severity === 'err' ? ' is-err' : '');
     return (
         <div className="sv-anuga-scenario-pane-detail-head">
             <h3 className="sv-anuga-scenario-pane-detail-head-title">
                 <Message msgId={msgId} />
             </h3>
+            {progress ? <span className={badgeClass}>{progress.tag}</span> : null}
         </div>
     );
 }
@@ -628,14 +653,18 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
 }
 
 const ScenarioPane = (props) => {
-    const {scenario, selectedCategoryId, onSelectCategory, canEdit} = props;
-    // TASK-1416: redirect legacy 'runConfig'/'statusActions' ids → 'run'
-    const _rawCategory = VALID_CATEGORIES.includes(selectedCategoryId)
-        ? selectedCategoryId
-        : 'inputs';
-    const resolvedCategory = (_rawCategory === 'runConfig' || _rawCategory === 'statusActions')
-        ? 'run'
-        : _rawCategory;
+    const {scenario, canEdit} = props;
+
+    // UAT re-aim (finding 2) — completeness badges for the 3 section
+    // headings, reusing validateCategoryProgress verbatim (same function,
+    // same arguments) rather than re-deriving. boundaryHasFeatures
+    // resolution (TASK-2045) moves here from the now-deleted
+    // ScenarioCategoryRail — same one-line lookup against `boundaries`.
+    const selectedBoundary = (props.boundaries || []).find(b => b && b.id === scenario?.boundary);
+    const boundaryHasFeatures = selectedBoundary?.has_features;
+    const inputsProgress = validateCategoryProgress('inputs', scenario, {boundaryHasFeatures});
+    const advancedProgress = validateCategoryProgress('advanced', scenario);
+    const runProgress = validateCategoryProgress('run', scenario);
 
     // TASK-1410: auto-populate required dropdowns for new scenarios.
     useAutoPopulateDefaults(
@@ -658,12 +687,6 @@ const ScenarioPane = (props) => {
                 }
             </div>
             <div className="sv-anuga-scenario-pane-shell">
-                <ScenarioCategoryRail
-                    scenario={scenario}
-                    boundaries={props.boundaries}
-                    selectedCategoryId={resolvedCategory}
-                    onSelectCategory={onSelectCategory}
-                />
                 <div className="sv-anuga-scenario-pane-detail">
                     {!scenario ?
                         <div className="sv-anuga-scenario-empty-pane">
@@ -685,16 +708,15 @@ const ScenarioPane = (props) => {
                             }
                             {/* TASK-2114 (A+B) — Required/Optional/Run stack in ONE
                                 scrollable body; no category gates which section
-                                renders. `resolvedCategory` still drives the rail's
-                                .is-active highlight above (unchanged component/props)
-                                so the completeness-at-a-glance nav + Umami
-                                category-click parity survive untouched. */}
+                                renders. UAT re-aim (finding 2) — each heading now
+                                carries its own completeness badge (right-aligned),
+                                replacing the removed rail's at-a-glance nav. */}
                             <div className="sv-anuga-scenario-pane-detail-body sv-anuga-scenario-pane-detail-body--merged">
-                                {renderSectionHeading('hydrata.anuga.requiredInputs')}
+                                {renderSectionHeading('hydrata.anuga.requiredInputs', inputsProgress)}
                                 {renderInputsPane(props)}
-                                {renderSectionHeading('hydrata.anuga.optionalInputs')}
+                                {renderSectionHeading('hydrata.anuga.optionalInputs', advancedProgress)}
                                 {renderAdvancedPane(props)}
-                                {renderSectionHeading('hydrata.anuga.run')}
+                                {renderSectionHeading('hydrata.anuga.run', runProgress)}
                                 {renderRunPane(props)}
                             </div>
                         </React.Fragment>

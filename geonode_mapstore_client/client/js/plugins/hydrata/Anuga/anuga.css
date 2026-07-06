@@ -1254,151 +1254,29 @@ div that holds the feature-grid */
     100% { box-shadow: 0 0 0 0 rgba(92, 184, 92, 0); }
 }
 
-/* ── Wave 3A: 3-column Pane 1 / Pane 2 / Pane 3 shell ──────────────── */
+/* ── Wave 3A / UAT re-aim: 2-column Pane 1 / Pane 3 shell ──────────── */
 
 /* The .sv-anuga-scenario-pane-shell sits inside the existing .sv-menu-rows-pane
-   and is the parent of the vertical category rail (Pane 2) plus the
-   detail body (Pane 3). The legacy .sv-anuga-pane-rows wrapper is removed
-   from the scenarios surface because the category rail + detail are
-   structurally side-by-side (not stacked).
+   and is the parent of the detail body (Pane 3). The legacy .sv-anuga-pane-rows
+   wrapper is removed from the scenarios surface.
 
    Pane 1 (scenarioRail.js) stays where it was; the .sv-rail-pane-shell
-   parent is unchanged. This adds the SECOND nested split so the
-   3-column layout reads:
+   parent is unchanged. UAT re-aim (2026-07-06, epic 2111 W2 dogfood
+   follow-up, finding 1) REMOVED the vertical category rail that used to be
+   the middle column (Pane 2) — it was a completeness-at-a-glance nav that
+   no longer gated anything once TASK-2114 merged every section into one
+   scroll. Pane 3 is now the sole flex:1 child of this shell, so it expands
+   to occupy the freed width automatically:
 
-     [sv-category-rail]  [sv-anuga-scenario-category-rail]  [sv-anuga-scenario-pane-detail]
-     ↑ Pane 1            ↑ Pane 2                        ↑ Pane 3
-     (scenario list)     (category rail)                 (field detail)
+     [sv-category-rail]  [sv-anuga-scenario-pane-detail]
+     ↑ Pane 1            ↑ Pane 3 (now alone; was Pane 3 of 3)
+     (scenario list)     (field detail, expanded)
 */
 .sv-anuga-scenario-pane-shell {
     display: flex;
     flex: 1;
     min-height: 0;
     flex-direction: row;
-}
-
-/* Pane 2 — vertical category rail */
-.sv-anuga-scenario-category-rail {
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    width: 220px;
-    padding: 4px 0;
-    background-color: rgba(0, 0, 0, 0.16);
-    border-right: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #5178af transparent;
-}
-
-.sv-anuga-scenario-category-section {
-    display: flex;
-    flex-direction: column;
-}
-
-.sv-anuga-scenario-category-section + .sv-anuga-scenario-category-section {
-    margin-top: 2px;
-}
-
-.sv-anuga-scenario-category-section-label {
-    font-size: 9.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: rgba(255, 255, 255, 0.50);
-    padding: 10px 12px 4px;
-    font-weight: 600;
-}
-
-.sv-anuga-scenario-category-item {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 6px 10px 6px 9px;
-    background: transparent;
-    border: none;
-    border-left: 3px solid transparent;
-    cursor: pointer;
-    color: var(--sv-text, rgba(255, 255, 255, 0.85));
-    text-align: left;
-    user-select: none;
-    outline: none;
-}
-
-.sv-anuga-scenario-category-item:hover:not(.is-active) {
-    background-color: rgba(255, 255, 255, 0.04);
-}
-
-.sv-anuga-scenario-category-item:focus-visible {
-    background-color: rgba(255, 255, 255, 0.06);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-}
-
-.sv-anuga-scenario-category-item.is-active {
-    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
-    border-left-color: var(--sv-accent-lime, #cae33b);
-}
-
-.sv-anuga-scenario-category-item-glyph {
-    width: 16px;
-    height: 16px;
-    font-size: 14px;
-    line-height: 16px;
-    flex-shrink: 0;
-    color: rgba(255, 255, 255, 0.85);
-    background: transparent;
-}
-
-.sv-anuga-scenario-category-item-label {
-    flex: 1;
-    font-size: 12px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sv-anuga-scenario-category-item-tag {
-    font-size: 10px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    padding: 1px 6px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.10);
-    color: rgba(255, 255, 255, 0.65);
-    min-width: 26px;
-    text-align: center;
-}
-
-.sv-anuga-scenario-category-item-tag.is-ok {
-    background: rgba(202, 227, 59, 0.22);
-    color: #cae33b;
-}
-
-.sv-anuga-scenario-category-item-tag.is-warn {
-    background: rgba(240, 173, 78, 0.22);
-    color: #f0ad4e;
-}
-
-.sv-anuga-scenario-category-item-tag.is-err {
-    background: rgba(217, 83, 79, 0.22);
-    color: #f0a09e;
-}
-
-.sv-anuga-scenario-category-item.is-alert .sv-anuga-scenario-category-item-tag.is-err {
-    background: rgba(217, 83, 79, 0.32);
-}
-
-/* Wave 3C C4 — unsaved-diff dot prefix on the category tag pill. Mirrors
- * the .sv-scenario-rail-item.is-unsaved amber border on Pane 1 rows so users
- * see the same "this scenario has uncommitted changes" signal on Pane 2
- * tags. Coarse signal (scenario-level, not per-category) per scenarioHelpers
- * comment block. */
-.sv-anuga-scenario-category-item-unsaved-dot {
-    color: #f0ad4e;
-    font-weight: 700;
-    margin-right: 3px;
-    line-height: 1;
 }
 
 /* Pane 3 — detail body */
@@ -1425,6 +1303,42 @@ div that holds the feature-grid */
     font-weight: 600;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
     flex: 1;
+}
+
+/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 2) — the
+   completeness pill the now-removed category rail used to render per
+   category (`.sv-anuga-scenario-category-item-tag`, is-ok/-warn/-err) moves
+   into this heading band instead, right-aligned via the title's flex:1
+   pushing it to the far edge (same flex row, no extra positioning rule
+   needed). Same pill visual language (colors, pill shape), relocated —
+   not a parallel style system. */
+.sv-anuga-scenario-pane-detail-head-badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.65);
+    min-width: 26px;
+    text-align: center;
+}
+
+.sv-anuga-scenario-pane-detail-head-badge.is-ok {
+    background: rgba(202, 227, 59, 0.22);
+    color: #cae33b;
+}
+
+.sv-anuga-scenario-pane-detail-head-badge.is-warn {
+    background: rgba(240, 173, 78, 0.22);
+    color: #f0ad4e;
+}
+
+.sv-anuga-scenario-pane-detail-head-badge.is-err {
+    background: rgba(217, 83, 79, 0.22);
+    color: #f0a09e;
 }
 
 .sv-anuga-scenario-pane-detail-body {

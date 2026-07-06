@@ -49,7 +49,6 @@ import {SectionHeader} from "../../SimpleView/components/primitives";
  * Miller-columns container for the ANUGA scenarios panel.
  *
  * Local component state:
- *   - selectedCategoryId — 'inputs' / 'advanced' / 'runConfig' / 'statusActions'.
  *   - compareMode — header chip toggle; rail items expose compare checkboxes.
  *   - confirmingAction — single 'duplicate' | 'archive' | 'unarchive' |
  *     'delete' | 'cancel-run' string gating the container-level inline
@@ -176,9 +175,6 @@ class AnugaScenarioMenuClass extends React.Component {
   constructor(props) {
       super(props);
       this.state = {
-      // 'inputs' / 'advanced' / 'runConfig' / 'statusActions'.
-      // Default starts on 'inputs' to match the operator-approved Option A.
-          selectedCategoryId: 'inputs',
           compareMode: false,
           confirmingAction: null,
           confirmingScenario: null,
@@ -302,10 +298,6 @@ class AnugaScenarioMenuClass extends React.Component {
       if (this.props.toggleScenarioSelected) {
           this.props.toggleScenarioSelected(scenario);
       }
-  };
-
-  handleSelectCategory = (categoryId) => {
-      this.setState({selectedCategoryId: categoryId});
   };
 
   // ISSUE 32 (TASK-1429): Close Scenarios, open Results, activate only this
@@ -582,8 +574,6 @@ class AnugaScenarioMenuClass extends React.Component {
       return (
           <ScenarioPane
               scenario={selectedScenario}
-              selectedCategoryId={this.state.selectedCategoryId}
-              onSelectCategory={this.handleSelectCategory}
               canEdit={canEdit}
               canRunScenario={this.props.canRunScenario}
               currentUserId={currentUserId}

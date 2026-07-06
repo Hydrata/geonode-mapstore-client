@@ -19,10 +19,12 @@
  * NOT covered (out of scope for this file — already covered elsewhere
  * or removed in the Miller / Option A refactor):
  *   - anuga-scenario-menu-{manage,advanced}-tab-toggle (header tabs
- *     removed — categories now live inside the pane as
+ *     removed — categories briefly lived inside the pane as
  *     anuga-scenario-menu-category-{inputs,advanced,runConfig,
- *     statusActions} after Wave 3A vertical-rail refactor; runLog was
- *     dropped from the rail in the Option A redesign).
+ *     statusActions} after the Wave 3A vertical-rail refactor, but the
+ *     UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 1)
+ *     REMOVED the rail entirely — none of these labels can fire from this
+ *     surface any more; see 'Category rail removed (finding 1)' below).
  *   - anuga-scenario-menu-build-validate-missing-{field} — fires only
  *     when Build is clicked on an invalid scenario; covered by the
  *     scenarioHeaderActions / Build code-path tests.
@@ -34,7 +36,8 @@
  *     in Option A; see 'removed analytics labels regression guard'
  *     block for the negative assertions guarding against regression.
  *   - anuga-scenario-menu-category-runLog — runLog category removed
- *     from the rail in Option A; regression guard below.
+ *     from the rail in Option A; the whole rail (and thus every
+ *     category-{id} label) is gone now — regression guard below.
  */
 import expect from 'expect';
 import React from 'react';
@@ -181,61 +184,31 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
         });
     });
 
-    describe('Pane category events (Wave 3A — vertical rail)', () => {
-        it('fires anuga-scenario-menu-category-inputs on Inputs category click', () => {
+    // UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 1) —
+    // the vertical category rail (Pane 2) is REMOVED entirely: it's obsolete
+    // now that the merged pane is one scroll (TASK-2114). None of the
+    // `anuga-scenario-menu-category-{id}` labels this describe block used to
+    // exercise via rail clicks can fire from this surface any more — same
+    // "removed feature" pattern as the block further down guarding the
+    // archive-filter chips / duplicate toolbar button. The completeness
+    // counts the rail used to carry move to each section's own heading
+    // badge instead (finding 2 — see scenarioPane-test.js, not this file:
+    // the badges are plain text, not Umami events).
+    describe('Category rail removed (finding 1) — regression guard', () => {
+        it('does not render any .sv-anuga-scenario-category-item / rail, and never fires a category-click label', () => {
             const s1 = makeScenario(21, 'A');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[0].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-category-inputs');
+            expect(container.querySelector('.sv-anuga-scenario-category-rail')).toNotExist();
+            expect(container.querySelectorAll('.sv-anuga-scenario-category-item').length).toBe(0);
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-category-inputs');
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-category-advanced');
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-category-run');
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-category-runLog');
         });
-
-        it('fires anuga-scenario-menu-category-advanced on Advanced category click', () => {
-            const s1 = makeScenario(21, 'A');
-            const store = makeStore({scenariosArr: [s1]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[1].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-category-advanced');
-        });
-
-        // TASK-1416: items[2] is now the merged 'run' category (was runConfig).
-        it('fires anuga-scenario-menu-category-run on Run category click (TASK-1416)', () => {
-            const s1 = makeScenario(21, 'A');
-            const store = makeStore({scenariosArr: [s1]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-category-run');
-        });
-
-        // TASK-1416: statusActions no longer exists as a separate rail item.
-        // Both runConfig and statusActions redirect to 'run'.
-        it('no separate statusActions rail item — only 3 categories total (TASK-1416)', () => {
-            const s1 = makeScenario(21, 'A');
-            const store = makeStore({scenariosArr: [s1]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            expect(items.length).toBe(3);
-        });
-
-        // Scenarios Option A redesign — runLog category was removed from
-        // the rail. The 'anuga-scenario-menu-category-runLog' label can no
-        // longer fire from this surface; the regression-guard block below
-        // asserts the category id is absent from the rail.
     });
 
     describe('Action toolbar events', () => {
@@ -246,8 +219,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const runBtn = container.querySelector('.sv-scenario-action-run');
                 expect(runBtn).toExist();
@@ -267,8 +238,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const retryBtn = container.querySelector('.sv-scenario-action-retry');
                 expect(retryBtn).toExist();
@@ -288,8 +257,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const dlBtn = container.querySelector('.sv-scenario-action-download');
                 expect(dlBtn).toExist();
@@ -315,8 +282,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const rerunBtn = container.querySelector('.sv-scenario-action-rerun');
                 expect(rerunBtn).toExist();
@@ -369,8 +334,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const archBtn = container.querySelector('.sv-scenario-action-archive');
                 expect(archBtn).toExist();
@@ -387,8 +350,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const unarchBtn = container.querySelector('.sv-scenario-action-unarchive');
                 expect(unarchBtn).toExist();
@@ -405,8 +366,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const delBtn = container.querySelector('.sv-scenario-action-delete');
                 expect(delBtn).toExist();
@@ -427,8 +386,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const cancelBtn = container.querySelector('.sv-scenario-action-cancel-run');
                 expect(cancelBtn).toExist();
@@ -445,8 +402,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 const buildBtn = container.querySelector('.sv-scenario-action-build');
                 expect(buildBtn).toExist();
@@ -485,8 +440,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 container.querySelector('.sv-scenario-action-archive').click();
                 setTimeout(() => {
@@ -504,8 +457,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 container.querySelector('.sv-scenario-action-delete').click();
                 setTimeout(() => {
@@ -526,8 +477,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 container.querySelector('.sv-scenario-action-cancel-run').click();
                 setTimeout(() => {
@@ -592,25 +541,19 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
         });
 
-        // TASK-1416: 3 items (inputs/advanced/run); runLog + runConfig + statusActions removed.
-        it('does not render a rail item with category id "runLog" (TASK-1416: 3 items now)', () => {
+        // UAT re-aim finding 1 superseded TASK-1416's "3 items" rail count —
+        // the rail (all categories, including the never-reinstated runLog)
+        // is gone entirely now. Coverage lives in the 'Category rail removed'
+        // regression guard above; this test keeps the "run log" text-content
+        // negative-assertion (it was never specific to the rail's item count).
+        it('never renders "run log" as visible text anywhere in the surface', () => {
             const s1 = makeScenario(21, 'A');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            // Rail items now have 3 entries (inputs, advanced, run); runLog and
-            // the separate runConfig/statusActions are merged into 'run'.
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            expect(items.length).toBe(3);
-            // Walk all rail labels — none should textually claim runLog.
-            const labels = Array.from(container.querySelectorAll('.sv-anuga-scenario-category-item-label'))
-                .map(n => (n.textContent || '').toLowerCase());
-            labels.forEach(text => {
-                expect(text.indexOf('run log')).toBe(-1);
-            });
-            // The category-runLog label cannot fire from this surface.
+            expect((container.textContent || '').toLowerCase().indexOf('run log')).toBe(-1);
             expect(labelsFired()).toNotInclude('anuga-scenario-menu-category-runLog');
         });
 
@@ -624,8 +567,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-            items[2].click(); // run (TASK-1416)
             setTimeout(() => {
                 expect(container.querySelector('.sv-scenario-action-duplicate')).toNotExist();
                 expect(labelsFired()).toNotInclude('anuga-scenario-menu-duplicate-scenario');
