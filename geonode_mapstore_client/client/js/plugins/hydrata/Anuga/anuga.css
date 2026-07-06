@@ -1749,6 +1749,18 @@ div that holds the feature-grid */
     margin: 0;
 }
 
+/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3) — every
+   button in this row becomes EQUAL WIDTH, so a short label ("Run") no
+   longer looks visually lighter than a long one ("Build and Run"). All 7
+   button variants (View Results / Build / Build-and-Run / Run / Retry /
+   Rerun / Download / Archive / Unarchive / Delete / Cancel-run) already
+   shared this hook class before this change — extended, not invented. */
+.sv-scenario-header-run-actions .sv-scenario-action-toolbar-btn {
+    flex: 1 1 0;
+    min-width: 92px;
+    text-align: center;
+}
+
 /* Build-and-Run combined action — sits between Build and Run; the primary
    bsStyle differentiates it from the green single-step Build/Run buttons. */
 .sv-scenario-action-build-run.disabled,

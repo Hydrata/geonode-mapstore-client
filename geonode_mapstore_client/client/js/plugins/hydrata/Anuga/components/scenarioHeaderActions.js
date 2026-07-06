@@ -43,6 +43,20 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * Confirm-requiring actions (archive / unarchive / delete / cancel-run) dispatch
  * through the container's inline-dialog props — NO window.confirm here (memory
  * pin feedback-window-confirm-blocks-automation).
+ *
+ * UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3) —
+ * STANDARDISED this row: every button is now EQUAL WIDTH (anuga.css,
+ * `.sv-scenario-action-toolbar-btn` — the shared hook class every button
+ * here already carried) and ICON-FREE (all glyphicons removed: View
+ * Results' eye-open, the build-conflict info-sign, Download's
+ * download-glyph, Archive/Unarchive's folder-close/open, Delete/Cancel-run's
+ * trash/ban-circle). Archive/Unarchive and Delete/Cancel-run were
+ * previously icon-ONLY buttons; they now render visible text via the SAME
+ * Message msgIds the confirm dialog already used for these actions
+ * (btnArchive/btnRestore/btnDelete/btnCancelRun) — no new translation
+ * strings were needed. Classnames + Umami labels are all BYTE-IDENTICAL
+ * (analytics-parity constraint) — only icon presence, text presentation,
+ * and width changed.
  */
 
 // Minimum time (ms) a debounced action button stays disabled after a click.
@@ -175,8 +189,6 @@ const ScenarioHeaderActions = (props, context) => {
                     className={btn('sv-anuga-btn-view-results')}
                     onClick={() => { if (onViewResultsClick) onViewResultsClick(scenario); }}
                 >
-                    <span className="glyphicon glyphicon-eye-open" aria-hidden="true" />
-                    {' '}
                     <Message msgId="hydrata.anuga.viewResults" />
                 </Button> : null
             }
@@ -205,8 +217,6 @@ const ScenarioHeaderActions = (props, context) => {
                     role="status"
                     aria-live="polite"
                 >
-                    <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
-                    {' '}
                     {tr('hydrata.anuga.buildAlreadyInProgress',
                         'A build is already in progress for this scenario.')}
                 </span> : null
@@ -263,11 +273,14 @@ const ScenarioHeaderActions = (props, context) => {
                     className={btn('sv-scenario-action-download')}
                     onClick={() => trackEvent('button', 'click', 'anuga-scenario-menu-download')}
                 >
-                    <span className="glyphicon glyphicon-download" aria-hidden="true" />
-                    {' '}
                     <Message msgId="hydrata.anuga.download" />
                 </Button> : null
             }
+            {/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3)
+                — Archive/Unarchive was an icon-only glyph button; it now renders
+                its existing Message text (btnArchive/btnRestore — the SAME
+                msgIds the confirm dialog already uses for these actions, not new
+                strings) so the row reads as text, matching every other button. */}
             {showArchive ?
                 <Button
                     bsStyle={isArchived ? 'success' : 'warning'}
@@ -292,12 +305,12 @@ const ScenarioHeaderActions = (props, context) => {
                         }
                     }}
                 >
-                    <span
-                        className={isArchived ? "glyphicon glyphicon-open" : "glyphicon glyphicon-folder-close"}
-                        aria-hidden="true"
-                    />
+                    <Message msgId={isArchived ? 'hydrata.anuga.btnRestore' : 'hydrata.anuga.btnArchive'} />
                 </Button> : null
             }
+            {/* UAT re-aim finding 3 — Delete/Cancel-run was icon-only too; same
+                treatment, reusing btnDelete/btnCancelRun (already used by the
+                confirm dialog for these same actions). */}
             {showDeleteOrCancel ?
                 <Button
                     bsStyle={'danger'}
@@ -314,10 +327,7 @@ const ScenarioHeaderActions = (props, context) => {
                         }
                     }}
                 >
-                    <span
-                        className={canCancelRun ? "glyphicon glyphicon-ban-circle" : "glyphicon glyphicon-trash"}
-                        aria-hidden="true"
-                    />
+                    <Message msgId={canCancelRun ? 'hydrata.anuga.btnCancelRun' : 'hydrata.anuga.btnDelete'} />
                 </Button> : null
             }
         </div>
