@@ -624,10 +624,13 @@ class AnugaScenarioMenuClass extends React.Component {
   // "RESULT consumer" contract — presence of latest_complete_run, NOT
   // latest_run's status, so a newer in-flight/errored run never hides an
   // older complete run's View Results affordance.
-  renderRunActions() {
+  // `hasCompleteResults` is passed in from render() (single derivation of
+  // `!!selectedScenario?.latest_complete_run`, shared with the freshness
+  // banner below) — simplify-pass cleanup (TASK-2111 W2 sweep), no behaviour
+  // change.
+  renderRunActions(hasCompleteResults) {
       const {selectedScenario, myRole, currentUserId} = this.props;
       const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
-      const hasCompleteResults = !!selectedScenario?.latest_complete_run;
       return (
           <ScenarioHeaderActions
               scenario={selectedScenario}
@@ -860,7 +863,7 @@ class AnugaScenarioMenuClass extends React.Component {
                       View Results now renders INSIDE renderRunActions()
                       (ScenarioHeaderActions), leading the row, instead of this
                       separate sibling bar — one consistent action row. */}
-                  {this.renderRunActions()}
+                  {this.renderRunActions(hasCompleteResults)}
                   {/* TASK-2078: freshness banner — a newer run is building/failed
                       while the results shown are from the last complete run. */}
                   {showFreshnessBanner ? (
