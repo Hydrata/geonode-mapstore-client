@@ -134,6 +134,18 @@ class HydrologyListDetailContainerClass extends React.Component {
         };
     }
 
+    // TASK-1557 (W2) — resolve an i18n key via the legacy context, falling
+    // back to English copy when the translation is missing (getMessageById
+    // returns the key unchanged in that case). Shared by renderItemsColumn
+    // (filter box + delete title) and render() (TASK-2119 Source/Description
+    // placeholders) — simplify-pass dedup of what were two byte-identical
+    // local closures.
+    resolveMsg = (key, fallback) => {
+        const messages = (this.context && this.context.messages) || {};
+        const m = getMessageById(messages, key);
+        return (m && m !== key) ? m : fallback;
+    }
+
     // TASK-1558 (W2) — enter Create mode for the time-series page. Called after
     // a new time-series instance is created so "New Item" opens the Create panel
     // rather than dropping the user straight into the (now slim) detail.
@@ -184,19 +196,13 @@ class HydrologyListDetailContainerClass extends React.Component {
         // Derive page the listed items are IDF tables, so deletes route to
         // 'sv-idf-table' (mirrors selectItem's page switch).
         const deletePage = onDerive ? 'sv-idf-table' : this.props.activeHydrologyPage;
+        // Still needed locally (not just via this.resolveMsg) for the raw
+        // getMessageById(...) calls further down (TASK-1561 stale-badge /
+        // Regenerate button title+aria-label).
         const messages = (this.context && this.context.messages) || {};
-        const resolvedDelete = getMessageById(messages, 'hydrata.hydrology.delete');
-        const deleteTitle = (resolvedDelete && resolvedDelete !== 'hydrata.hydrology.delete')
-            ? resolvedDelete : 'Delete';
-        // TASK-1557 (W2) — resolve the filter labels here (the component has the
-        // i18n context); getMessageById returns the key unchanged when missing,
-        // so fall back to English copy in that case.
-        const resolveMsg = (key, fallback) => {
-            const m = getMessageById(messages, key);
-            return (m && m !== key) ? m : fallback;
-        };
-        const filterTitle = resolveMsg('hydrata.hydrology.filterToggle', 'Search items');
-        const filterPlaceholder = resolveMsg('hydrata.hydrology.filterPlaceholder', 'Search by name…');
+        const deleteTitle = this.resolveMsg('hydrata.hydrology.delete', 'Delete');
+        const filterTitle = this.resolveMsg('hydrata.hydrology.filterToggle', 'Search items');
+        const filterPlaceholder = this.resolveMsg('hydrata.hydrology.filterPlaceholder', 'Search by name…');
         // TASK-1557 (W2) — the delete affordance (per-row trash + the inline
         // confirm) is hidden for non-managers; the BE 403s them anyway.
         const canManageHydrology = this.props.canManageHydrology;
@@ -204,12 +210,11 @@ class HydrologyListDetailContainerClass extends React.Component {
             const page = onDerive ? 'sv-idf-table' : this.props.activeHydrologyPage;
             if (onDerive) this.props.setActiveHydrologyPage('sv-idf-table');
             // TASK-1538 — resolve the locale base label here (the reducer has no
-            // i18n context). getMessageById returns the msgId unchanged when the
-            // key is missing, so leave it undefined in that case to let the
-            // reducer fall back to its English label map.
+            // i18n context). this.resolveMsg returns undefined (the fallback)
+            // when the key is missing, letting the reducer fall back to its
+            // own English label map.
             const msgId = hydrologyAutoNameMsgId[page];
-            const resolved = msgId ? getMessageById(messages, msgId) : undefined;
-            const autoNameLabel = (resolved && resolved !== msgId) ? resolved : undefined;
+            const autoNameLabel = msgId ? this.resolveMsg(msgId, undefined) : undefined;
             this.props.createHydrologyForm(page, autoNameLabel);
             // TASK-1558 — on the time-series page, "New Item" opens the two-tab
             // Create panel (Input|Derive) rather than the slim detail.
@@ -391,18 +396,11 @@ class HydrologyListDetailContainerClass extends React.Component {
         // Opens on Derive (the common path). Polished pill segmented control.
         const isIdfPage = this.props.activeHydrologyPage === 'sv-idf-table'
             || this.props.activeHydrologyPage === 'idf-derive';
-        // TASK-2119 (F3-FE) — resolve real HTML placeholder copy for the
-        // Source/Description fields (mirrors renderItemsColumn's resolveMsg
-        // idiom for the filter box, the only pre-existing placeholder in
-        // this file). getMessageById returns the key unchanged when the
-        // translation is missing, so fall back to English in that case.
-        const messages = (this.context && this.context.messages) || {};
-        const resolveMsg = (key, fallback) => {
-            const m = getMessageById(messages, key);
-            return (m && m !== key) ? m : fallback;
-        };
-        const sourcePlaceholder = resolveMsg('hydrata.hydrology.sourcePlaceholder', 'Enter source');
-        const descriptionPlaceholder = resolveMsg('hydrata.hydrology.descriptionPlaceholder', 'Enter description');
+        // TASK-2119 (F3-FE) — real HTML placeholder copy for the Source/
+        // Description fields, via the shared this.resolveMsg (simplify-pass
+        // dedup — see its definition above).
+        const sourcePlaceholder = this.resolveMsg('hydrata.hydrology.sourcePlaceholder', 'Enter source');
+        const descriptionPlaceholder = this.resolveMsg('hydrata.hydrology.descriptionPlaceholder', 'Enter description');
         // TASK-1509 — block Save when the active custom temporal-pattern curve
         // is invalid (the BE clean() would reject it with a 400 otherwise).
         const customCurveError = this.props.customCurveError;
