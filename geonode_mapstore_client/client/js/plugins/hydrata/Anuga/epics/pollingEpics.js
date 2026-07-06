@@ -9,6 +9,11 @@ import {
 import {zoomToExtent, CHANGE_MAP_VIEW} from "../../../../../MapStore2/web/client/actions/map";
 import {getNode} from '../../../../../MapStore2/web/client/utils/LayersUtils';
 import {saveDirectContent} from "@js/actions/gnsave";
+// TASK-2117 (F1) — surface init-chain bootstrap failures instead of
+// swallowing them; matches the established `show(...)` notification idiom
+// already used by crudEpics.js / paywallEpics.js / permsEpics.js /
+// membershipEpics.js / terrainBboxEpic.js.
+import {show} from "../../../../../MapStore2/web/client/actions/notifications";
 import * as anugaApi from '../api/anugaApi';
 import {
     addAnugaBoundary,
@@ -237,10 +242,42 @@ export const initAnugaEpic = (action$, store) =>
                                     );
                                 });
                         })
-                        // Clear the guard on any failure in the from-map /
-                        // getProjectV2 chain so a transient error doesn't leave
-                        // the gate latched and block every future re-init.
-                        .catch(() => Rx.Observable.of(setAnugaInitInFlight(false)))
+                        // TASK-2117 (F1, dogfood 2026-07-04) — surface this
+                        // chain's failure instead of a total silent swallow.
+                        // The :173 auth filter (ABOVE the switchMap this catch
+                        // lives inside) already drops anonymous visitors
+                        // before any network call fires — this catch is
+                        // therefore ONLY ever reached for a logged-in user,
+                        // so no anon-spam risk. The realistic failure here is
+                        // a stale/expired session (the cookie lapses sometime
+                        // after the page loaded, well after the auth filter
+                        // already passed): the from-map POST then 401/403s,
+                        // which the BE reports distinctly from a generic
+                        // failure — surfaced as a "log out and back in"
+                        // notification. Anything else (500, network error)
+                        // gets a generic "model builder failed to load"
+                        // toast. The guard is STILL cleared on every path (no
+                        // stuck spinner) — this only ADDS a notification
+                        // alongside the pre-existing setAnugaInitInFlight(false).
+                        // Sibling swallows exist elsewhere (crudEpics.js
+                        // ~491-496 and ~9 other catch-to-empty sites) — this
+                        // fixes the init chain only; noted for a future sweep.
+                        .catch((err) => {
+                            // libs/ajax.js's response interceptor rejects with
+                            // `{...error.response, originalError: error}` (a
+                            // SPREAD, not a nested `.response`) — so the status
+                            // lands at `err.status`, matching the established
+                            // idiom in permsEpics.js / demRescaleEpic.js. Fall
+                            // back to `err.originalError.status` in case a
+                            // caller ever surfaces the raw pre-interceptor
+                            // error instead.
+                            const httpStatus = err?.status ?? err?.originalError?.status;
+                            const isAuthError = httpStatus === 401 || httpStatus === 403;
+                            const notification = isAuthError
+                                ? show({message: 'hydrata.anuga.initSessionExpiredError'}, 'error')
+                                : show({message: 'hydrata.anuga.initGenericError'}, 'error');
+                            return Rx.Observable.of(notification, setAnugaInitInFlight(false));
+                        })
                 );
         });
 

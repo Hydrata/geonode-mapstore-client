@@ -210,6 +210,8 @@
         "meshRegionWarningAriaLabel": "Région de maillage non rattachée",
         "inputs": "Entrées",
         "introduction": "Introduction",
+        "initSessionExpiredError": "Votre session a expiré — veuillez vous déconnecter puis vous reconnecter.",
+        "initGenericError": "Le générateur de modèle n'a pas pu se charger. Veuillez réessayer ou actualiser la page.",
         "links": "Liens",
         "loading": "Chargement...",
         "log": "Journal",

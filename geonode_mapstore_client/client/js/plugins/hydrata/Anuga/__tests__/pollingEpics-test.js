@@ -33,6 +33,7 @@ import {
     UPDATE_RUN_STATUS
 } from '../actions/pollingActions';
 import { TM_SET_PROCESSES } from '../../TaskMonitor/actionsTaskMonitor';
+import { SHOW_NOTIFICATION } from '../../../../../MapStore2/web/client/actions/notifications';
 
 /**
  * Helper: create a mock action$ observable from an array of actions.
@@ -2461,6 +2462,191 @@ describe('Polling Epics', () => {
                         done();
                     } catch (e) { sub.unsubscribe(); done(e); }
                 }, 30);
+            }, 30);
+        });
+    });
+
+    describe('TASK-2117 (F1) — initAnugaEpic surfaces bootstrap failures', () => {
+        let mock;
+        beforeEach(() => {
+            mock = mockAxios();
+            __setVisibilityForTests(new Rx.BehaviorSubject(true));
+        });
+        afterEach(() => __setVisibilityForTests(null));
+
+        const makeGuardStore = (mapId, { authed = true } = {}) => {
+            const state = {
+                gnresource: { id: mapId },
+                security: authed ? { user: { name: 'tester' } } : {},
+                anuga: {
+                    projects: { data: null, initInFlight: false },
+                    scenarios: { archiveFilter: 'none' }
+                }
+            };
+            const applyGuardReducer = (action) => {
+                if (action.type === SET_ANUGA_INIT_IN_FLIGHT) {
+                    state.anuga.projects.initInFlight = action.mapId || false;
+                } else if (action.type === SET_ANUGA_PROJECT_DATA) {
+                    state.anuga.projects.initInFlight = false;
+                    state.anuga.projects.data = action.data;
+                }
+            };
+            return { getState: () => state, applyGuardReducer, state };
+        };
+
+        const countFromMapPosts = () =>
+            mock.history.post.filter(r => /\/api\/v2\/anuga\/projects\/from-map\//.test(r.url)).length;
+
+        // AC1 — 401/403 with security.user set → session-expired notification.
+        it('dispatches a session-expired notification on a 401 from the from-map POST', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(401, { detail: 'Invalid token.' });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    const notifications = emitted.filter(a => a.type === SHOW_NOTIFICATION);
+                    expect(notifications.length).toBe(1);
+                    expect(notifications[0].message).toBe('hydrata.anuga.initSessionExpiredError');
+                    expect(notifications[0].level).toBe('error');
+                    // AC4 — guard still cleared, no stuck spinner.
+                    expect(guard.state.anuga.projects.initInFlight).toBe(false);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 30);
+        });
+
+        it('dispatches a session-expired notification on a 403 from the from-map POST', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(403, { detail: 'Forbidden.' });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    const notifications = emitted.filter(a => a.type === SHOW_NOTIFICATION);
+                    expect(notifications.length).toBe(1);
+                    expect(notifications[0].message).toBe('hydrata.anuga.initSessionExpiredError');
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 30);
+        });
+
+        // AC2 — any other error (500 / network) → generic error toast.
+        it('dispatches a generic error toast on a 500 from the from-map POST', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(500, { detail: 'boom' });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    const notifications = emitted.filter(a => a.type === SHOW_NOTIFICATION);
+                    expect(notifications.length).toBe(1);
+                    expect(notifications[0].message).toBe('hydrata.anuga.initGenericError');
+                    expect(notifications[0].level).toBe('error');
+                    expect(guard.state.anuga.projects.initInFlight).toBe(false);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 30);
+        });
+
+        it('dispatches a generic error toast on a network error (no response) from the from-map POST', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').networkError();
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    const notifications = emitted.filter(a => a.type === SHOW_NOTIFICATION);
+                    expect(notifications.length).toBe(1);
+                    expect(notifications[0].message).toBe('hydrata.anuga.initGenericError');
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 30);
+        });
+
+        // AC3 — anonymous public-map load must stay silently filtered: the
+        // pre-existing :173 auth gate (untouched) drops INIT_ANUGA before any
+        // network call fires, so no notification (and no POST) may appear.
+        it('regression guard: fires ZERO notifications for an anonymous (logged-out) visitor even on failure', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(401, { detail: 'Invalid token.' });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486, { authed: false });
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    expect(countFromMapPosts()).toBe(0);
+                    expect(emitted.filter(a => a.type === SHOW_NOTIFICATION).length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 0);
+        });
+
+        // AC4 — setAnugaInitInFlight(false) still dispatched in every failure path.
+        it('still clears the in-flight guard alongside the new notification (no stuck spinner)', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(401, {});
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    expect(emitted.some(a => a.type === SET_ANUGA_INIT_IN_FLIGHT && a.mapId === false)).toBe(true);
+                    expect(guard.state.anuga.projects.initInFlight).toBe(false);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
             }, 30);
         });
     });

@@ -210,6 +210,8 @@
         "meshRegionWarningAriaLabel": "Región de malla no vinculada",
         "inputs": "Entradas",
         "introduction": "Introducción",
+        "initSessionExpiredError": "Su sesión ha caducado — cierre sesión y vuelva a iniciarla.",
+        "initGenericError": "El generador de modelos no se pudo cargar. Inténtelo de nuevo o actualice la página.",
         "links": "Enlaces",
         "loading": "Cargando...",
         "log": "Registro",

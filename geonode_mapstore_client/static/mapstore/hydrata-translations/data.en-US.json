@@ -210,6 +210,8 @@
         "meshRegionWarningAriaLabel": "Mesh region not attached",
         "inputs": "Inputs",
         "introduction": "Introduction",
+        "initSessionExpiredError": "Your session has expired — please log out and log back in.",
+        "initGenericError": "The model builder failed to load. Please try again or refresh the page.",
         "links": "Links",
         "loading": "Loading...",
         "log": "Log",

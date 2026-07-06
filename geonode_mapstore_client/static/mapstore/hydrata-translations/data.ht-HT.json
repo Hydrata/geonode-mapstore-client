@@ -210,6 +210,8 @@
         "meshRegionWarningAriaLabel": "Rejyon mayaj pa atache",
         "inputs": "Antre",
         "introduction": "Entwodiksyon",
+        "initSessionExpiredError": "Sesyon ou ekspire — tanpri dekonekte epi rekonekte ankò.",
+        "initGenericError": "Kreyatè modèl la echwe pou l chaje. Tanpri eseye ankò oswa rafrechi paj la.",
         "links": "Lyen",
         "loading": "Chajman...",
         "log": "Jounal",
