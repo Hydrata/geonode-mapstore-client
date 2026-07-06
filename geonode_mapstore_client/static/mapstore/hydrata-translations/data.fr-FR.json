@@ -2,6 +2,7 @@
   "locale": "fr-FR",
   "messages": {
     "hydrata": {
+      "comingSoon": "Bientôt disponible",
       "simpleView": {
         "accept": "Accepter",
         "baseMaps": "Fonds de carte",

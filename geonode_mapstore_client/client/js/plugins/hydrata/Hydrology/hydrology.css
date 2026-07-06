@@ -1601,3 +1601,37 @@
     background: #d9f5de;
     font-weight: 700;
 }
+
+/* TASK-2126 (epic 2092 bundled launch) — "Coming soon" launch gates.
+   Entry points for launch-unready features (IDF Derive, Networks tab,
+   Depth/elevation profile) render disabled with an inline badge. These classes
+   are bundled into the global app CSS, so they also style the Anuga profile
+   button's badge/disabled state. */
+.sv-coming-soon-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 0.7em;
+    font-weight: 600;
+    line-height: 1.5;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+/* Disabled entry points: greyed + not-allowed cursor. The rail item is a
+   <div role="tab"> (no native :disabled), so it keys off .is-disabled; the IDF
+   segment and the glass profile button are native <button disabled>. */
+.sv-hydrology-category-item.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.sv-hydrology-idf-segment:disabled,
+.sv-glass-button:disabled,
+.sv-glass-button[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}

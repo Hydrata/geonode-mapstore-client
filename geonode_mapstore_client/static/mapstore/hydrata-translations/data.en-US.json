@@ -2,6 +2,7 @@
   "locale": "en-US",
   "messages": {
     "hydrata": {
+      "comingSoon": "Coming soon",
       "simpleView": {
         "accept": "Accept",
         "baseMaps": "BaseMaps",

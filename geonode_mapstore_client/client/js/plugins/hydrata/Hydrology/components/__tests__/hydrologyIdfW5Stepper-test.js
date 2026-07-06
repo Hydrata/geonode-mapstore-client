@@ -179,7 +179,9 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
         expect(calledWith).toBe('sv-idf-table');
     });
 
-    it('clicking Derive segment calls setActiveHydrologyPage("idf-derive")', () => {
+    // TASK-2126 — "Derive" gated ("Coming soon") for the bundled launch: the
+    // segment is disabled and clicking it no longer switches to idf-derive.
+    it('Derive segment is disabled and clicking it does not call setActiveHydrologyPage', () => {
         let calledWith = null;
         ReactTestUtils.act(() => {
             ReactDOM.render(
@@ -193,8 +195,9 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
             );
         });
         const deriveBtn = container.querySelector('#idf-mode-derive');
+        expect(deriveBtn.disabled).toBe(true);
         ReactTestUtils.act(() => { deriveBtn.click(); });
-        expect(calledWith).toBe('idf-derive');
+        expect(calledWith).toBe(null);
     });
 
     it('segmented control not rendered for non-IDF pages', () => {

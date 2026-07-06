@@ -17,6 +17,8 @@ import {
 } from '../actionsAnuga';
 import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
+import {LAUNCH_GATES} from '../../shared/launchGates';
+import ComingSoonBadge from '../../shared/ComingSoonBadge';
 import {AnugaInputMenu} from './anugaInputMenu';
 // BUG (UAT, TASK-1648 regression): the GLO-30 bbox panel must be mounted at the
 // CONTAINER level, NOT inside AnugaInputMenu. 'Define import area' dispatches
@@ -260,19 +262,24 @@ export class AnugaContainer extends React.Component {
     // Gated on canViewAnugaMap + hasEPSGset (same as the result layers it
     // profiles) and only mounted when the Results tab is the open group.
     renderResultsProfileButton() {
+        // TASK-2126 — "Depth / elevation profile" gated ("Coming soon") for the
+        // bundled launch: the button is disabled and cannot open the panel.
+        const gated = !LAUNCH_GATES.resultsProfile;
         return (
             <div className="sv-results-profile-action" data-testid="anuga-results-profile-action">
                 <button
                     key="anuga-results-profile-button"
                     data-testid="anuga-profile-button"
                     className={`btn sv-glass-button ${this.props.showProfilePanel ? 'active' : ''}`}
-                    onClick={() => {
+                    disabled={gated}
+                    onClick={gated ? undefined : () => {
                         this.props.setProfilePanelVisible(!this.props.showProfilePanel);
                         this.closeHydrologyIfOpen();
                         trackEvent('button', 'click', 'anuga-results-profile-toggle');
                     }}
                 >
                     <Message msgId="hydrata.anuga.profilePanelTitle" />
+                    {gated ? <ComingSoonBadge /> : null}
                 </button>
             </div>
         );

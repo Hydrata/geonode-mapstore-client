@@ -6,6 +6,8 @@ import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
 import HydrologyDetailIdfDerive from './hydrologyDetailIdfDerive';
 import HydrologyDetailTemporalPattern, { validateCustomCurve } from './hydrologyDetailTemporalPattern';
 import HydrologyDetailTimeSeries, {HydrologyTimeSeriesCreatePanel} from './hydrologyDetailTimeSeries';
+import {LAUNCH_GATES} from '../../shared/launchGates';
+import ComingSoonBadge from '../../shared/ComingSoonBadge';
 import {
     setActiveHydrologyItem,
     setActiveHydrologyPage,
@@ -440,9 +442,14 @@ class HydrologyListDetailContainerClass extends React.Component {
                         'sv-hydrology-idf-segment'
                         + (this.props.activeHydrologyPage === 'idf-derive' ? ' is-active' : '')
                     }
-                    onClick={() => this.props.setActiveHydrologyPage('idf-derive')}
+                    // TASK-2126 — "Derive" gated behind LAUNCH_GATES.idfDerive
+                    // ("Coming soon"): disabled so it cannot switch the page to
+                    // idf-derive. Manual (sv-idf-table) stays fully live.
+                    disabled={!LAUNCH_GATES.idfDerive}
+                    onClick={LAUNCH_GATES.idfDerive ? () => this.props.setActiveHydrologyPage('idf-derive') : undefined}
                 >
                     <Message msgId="hydrata.hydrology.idfModeDerive" />
+                    {LAUNCH_GATES.idfDerive ? null : <ComingSoonBadge />}
                 </button>
             </div>
         ) : null;

@@ -131,7 +131,10 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
         expect(calledWith).toBe('sv-idf-table');
     });
 
-    it('clicking "IDF Derive" button calls setActiveHydrologyPage("idf-derive")', () => {
+    // TASK-2126 — "Derive" is gated ("Coming soon") for the bundled launch: the
+    // segment is disabled with a badge and clicking it no longer switches to
+    // idf-derive. (Re-enable by flipping LAUNCH_GATES.idfDerive.)
+    it('the "IDF Derive" button is disabled and does not call setActiveHydrologyPage', () => {
         // Start on sv-idf-table (no Provider needed since activeHydrologyItem=null)
         let calledWith = null;
         ReactTestUtils.act(() => {
@@ -148,10 +151,12 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
         const buttons = container.querySelectorAll('.sv-hydrology-idf-subtoggle button');
         // Second button = IDF Derive
         expect(buttons.length).toBe(2);
+        expect(buttons[1].disabled).toBe(true);
+        expect(buttons[1].querySelector('.sv-coming-soon-badge')).toExist();
         ReactTestUtils.act(() => {
             buttons[1].click();
         });
-        expect(calledWith).toBe('idf-derive');
+        expect(calledWith).toBe(null);
     });
 
     // TASK-1497 (UAT note-5) — the "Items" column is now shown on the Derive

@@ -2,6 +2,8 @@ import React from "react";
 import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
+import {LAUNCH_GATES} from '../../shared/launchGates';
+import ComingSoonBadge from '../../shared/ComingSoonBadge';
 
 /**
  * TASK-1448 (W1) — vertical category rail for the Hydrology panel.
@@ -135,10 +137,17 @@ export const pageToCategory = (page) => {
     return page || 'idf';
 };
 
+// TASK-2126 — "Networks" is gated ("Coming soon") for the bundled launch until
+// the feature is ready; its rail item renders disabled with a badge and cannot
+// be selected. Flip LAUNCH_GATES.networksTab to re-enable.
+const isCategoryDisabled = (categoryId) =>
+    categoryId === 'networks' && !LAUNCH_GATES.networksTab;
+
 const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
     const selectedCategoryId = pageToCategory(activeHydrologyPage);
 
     const handleSelect = (categoryId) => {
+        if (isCategoryDisabled(categoryId)) return; // TASK-2126 — gated tab
         if (onSelectCategory) {
             onSelectCategory(CATEGORY_TO_PAGE[categoryId] || categoryId);
         }
@@ -153,9 +162,11 @@ const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
         >
             {CATEGORIES.map(cat => {
                 const isActive = cat.id === selectedCategoryId;
+                const disabled = isCategoryDisabled(cat.id);
                 const className = [
                     'sv-hydrology-category-item',
-                    isActive ? 'is-active' : ''
+                    isActive ? 'is-active' : '',
+                    disabled ? 'is-disabled' : ''
                 ].filter(Boolean).join(' ');
                 return (
                     <div
@@ -163,7 +174,8 @@ const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
                         className={className}
                         role="tab"
                         aria-selected={isActive}
-                        tabIndex={0}
+                        aria-disabled={disabled}
+                        tabIndex={disabled ? -1 : 0}
                         onClick={() => handleSelect(cat.id)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
@@ -201,6 +213,7 @@ const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
                                 )}
                         <span className="sv-hydrology-category-item-label">
                             <Message msgId={cat.msgId} />
+                            {disabled ? <ComingSoonBadge /> : null}
                         </span>
                     </div>
                 );

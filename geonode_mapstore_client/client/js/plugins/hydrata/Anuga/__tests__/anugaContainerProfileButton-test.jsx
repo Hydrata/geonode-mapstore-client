@@ -107,7 +107,10 @@ describe('AnugaContainer — profile entry moved to Results tab (W4 UAT)', () =>
         expect(resultsPanel.querySelector('[data-testid="anuga-profile-button"]')).toBe(null);
     });
 
-    it('the Results-tab button toggles the profile panel (same action as the old tab)', () => {
+    // TASK-2126 — "Depth / elevation profile" gated ("Coming soon") for the
+    // bundled launch: the Results-tab button is disabled with a badge and no
+    // longer toggles the profile panel. (Re-enable via LAUNCH_GATES.resultsProfile.)
+    it('the Results-tab button is disabled and does not toggle the profile panel', () => {
         let toggled = null;
         renderContainer(baseProps({
             openMenuGroupId: 'Results',
@@ -115,7 +118,9 @@ describe('AnugaContainer — profile entry moved to Results tab (W4 UAT)', () =>
             setProfilePanelVisible: (v) => { toggled = v; }
         }), host);
         const btn = resultsPanel.querySelector('[data-testid="anuga-profile-button"]');
+        expect(btn.disabled).toBe(true);
+        expect(btn.querySelector('.sv-coming-soon-badge')).toExist();
         btn.click();
-        expect(toggled).toBe(true);
+        expect(toggled).toBe(null);
     });
 });

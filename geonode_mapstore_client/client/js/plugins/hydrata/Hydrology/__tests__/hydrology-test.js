@@ -847,6 +847,32 @@ describe('Hydrology Plugin', () => {
             ReactDOM.unmountComponentAtNode(container);
             document.body.removeChild(container);
         });
+
+        // TASK-2126 — Networks tab gated ("Coming soon") for the bundled launch:
+        // the rail item is disabled with a badge and cannot be selected.
+        it('the Networks rail item is disabled with a badge and cannot be selected', () => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            let selected = null;
+            ReactDOM.render(
+                React.createElement(HydrologyCategoryRail, {
+                    activeHydrologyPage: 'sv-idf-table',
+                    onSelectCategory: (p) => { selected = p; }
+                }),
+                container
+            );
+            const items = container.querySelectorAll('.sv-hydrology-category-item');
+            const networksItem = Array.from(items).find(el =>
+                el.querySelector('.sv-coming-soon-badge')
+            );
+            expect(networksItem).toExist();
+            expect(networksItem.className).toInclude('is-disabled');
+            expect(networksItem.getAttribute('aria-disabled')).toBe('true');
+            TestUtils.act(() => { networksItem.click(); });
+            expect(selected).toBe(null);
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
     });
 
     // TASK-2025 (W5.3) — page-aware labels: Hydrograph vs Design Storm.

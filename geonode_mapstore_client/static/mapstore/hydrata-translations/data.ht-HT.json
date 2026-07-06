@@ -2,6 +2,7 @@
   "locale": "ht-HT",
   "messages": {
     "hydrata": {
+      "comingSoon": "Ap vini talè",
       "simpleView": {
         "accept": "Aksepte",
         "baseMaps": "Kat debaz",
