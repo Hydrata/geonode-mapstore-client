@@ -47,7 +47,7 @@ describe('ComputeMeterPanel — balance strip (AC#4, minimal, no polish)', () =>
         const c = render({
             enabled: true,
             balance: '15.00',
-            availablePacks: ['price_a'],
+            availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}],
             recentEntries: [{entry_type: 'debit', amount: '5.00'}]
         });
         expect(c.querySelector('[data-testid="compute-meter-panel"]')).toExist();
@@ -62,16 +62,47 @@ describe('ComputeMeterPanel — balance strip (AC#4, minimal, no polish)', () =>
     });
 });
 
+describe('ComputeMeterPanel — pack CTA dollar labels (TASK-2124)', () => {
+    it('renders "Buy $<amount> pack" when the API resolves an amount', () => {
+        const c = render({
+            enabled: true,
+            availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}]
+        });
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('Buy $10 pack');
+    });
+
+    it('falls back to the generic label when amount is null (unconfigured/failed lookup)', () => {
+        const c = render({
+            enabled: true,
+            availablePacks: [{price_id: 'price_a', amount: null, currency: null}]
+        });
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('Buy credit pack');
+    });
+
+    it('renders each pack with its OWN amount label, never a shared/hardcoded one', () => {
+        const c = render({
+            enabled: true,
+            availablePacks: [
+                {price_id: 'price_a', amount: '10', currency: 'usd'},
+                {price_id: 'price_b', amount: '25', currency: 'usd'}
+            ]
+        });
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('Buy $10 pack');
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_b"]').textContent).toBe('Buy $25 pack');
+    });
+});
+
 describe('ComputeMeterPanel — insufficient_balance modal (AC#2)', () => {
     it('shows the modal with detail + pack CTAs when modal.type is insufficient_balance', () => {
         const c = render({
             enabled: true,
-            availablePacks: ['price_a'],
+            availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}],
             modal: {type: 'insufficient_balance', checkoutUrl: 'https://x/', detail: 'This run is priced at $5.'}
         });
         expect(c.querySelector('[data-testid="meter-insufficient-balance-modal"]')).toExist();
         expect(c.querySelector('[data-testid="meter-insufficient-balance-detail"]').textContent).toBe('This run is priced at $5.');
         expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]')).toExist();
+        expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]').textContent).toBe('Buy $10 pack');
         expect(c.querySelector('[data-testid="meter-cap-exceeded-modal"]')).toBe(null);
     });
 
@@ -79,7 +110,10 @@ describe('ComputeMeterPanel — insufficient_balance modal (AC#2)', () => {
         let calledWith = null;
         const c = render({
             enabled: true,
-            availablePacks: ['price_a', 'price_b'],
+            availablePacks: [
+                {price_id: 'price_a', amount: '10', currency: 'usd'},
+                {price_id: 'price_b', amount: '25', currency: 'usd'}
+            ],
             modal: {type: 'insufficient_balance', detail: 'x'},
             onBuyPack: (priceId) => { calledWith = priceId; }
         });
@@ -114,7 +148,7 @@ describe('ComputeMeterPanel — cap_exceeded modal (AC#3, distinct message)', ()
     it('does NOT offer a pack-purchase CTA (a free-cap breach isn\'t fixed by buying a pack)', () => {
         const c = render({
             enabled: true,
-            availablePacks: ['price_a'],
+            availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}],
             modal: {type: 'cap_exceeded', detail: 'capped'}
         });
         expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]')).toBe(null);
@@ -137,7 +171,7 @@ describe('ComputeMeterPanel — estimate_ceiling modal (TASK-2123, distinct mess
     it('offers a contact-us link, NOT a pack-purchase CTA (no CTA fixes an over-ceiling run)', () => {
         const c = render({
             enabled: true,
-            availablePacks: ['price_a'],
+            availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}],
             modal: {type: 'estimate_ceiling', detail: 'too big'}
         });
         expect(c.querySelector('[data-testid="meter-estimate-ceiling-contact-link"]')).toBeTruthy();

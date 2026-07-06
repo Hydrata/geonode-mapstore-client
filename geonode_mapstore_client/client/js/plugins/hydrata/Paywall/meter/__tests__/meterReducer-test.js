@@ -28,15 +28,24 @@ describe('TASK-2100 compute-meter reducer', () => {
     });
 
     it('SET_COMPUTE_BALANCE (flag-on, real data) populates balance/packs/entries', () => {
+        // TASK-2124 — available_packs entries are {price_id, amount, currency}
+        // objects; the reducer is a transparent passthrough (no shape
+        // knowledge of its own), so this also pins that passthrough contract.
         const state = meterReducer(undefined, setComputeBalance({
             enabled: true,
             balance: '15.00',
-            available_packs: ['price_a', 'price_b'],
+            available_packs: [
+                {price_id: 'price_a', amount: '10', currency: 'usd'},
+                {price_id: 'price_b', amount: null, currency: null}
+            ],
             recent_entries: [{entry_type: 'debit', amount: '5.00', run_id: 1, created_at: '2026-01-01T00:00:00Z'}]
         }));
         expect(state.enabled).toBe(true);
         expect(state.balance).toBe('15.00');
-        expect(state.availablePacks).toEqual(['price_a', 'price_b']);
+        expect(state.availablePacks).toEqual([
+            {price_id: 'price_a', amount: '10', currency: 'usd'},
+            {price_id: 'price_b', amount: null, currency: null}
+        ]);
         expect(state.recentEntries.length).toBe(1);
     });
 

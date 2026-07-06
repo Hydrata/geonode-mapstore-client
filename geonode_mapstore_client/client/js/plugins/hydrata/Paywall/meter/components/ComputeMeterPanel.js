@@ -26,6 +26,13 @@ const PropTypes = require('prop-types');
  * each surface's data-testid distinct (compute-meter-buy-pack-* vs
  * meter-buy-pack-cta-*) so tests can disambiguate context without either
  * surface duplicating the render logic.
+ *
+ * TASK-2124 — `availablePacks` entries are `{price_id, amount, currency}`
+ * (commerce.balance_views.AccountBalanceView / checkout_views.get_credit_pack_options).
+ * `amount` is a server-resolved dollar figure (a cached Stripe Price lookup)
+ * or `null` when unresolvable (unconfigured Stripe keys on localhost/dark
+ * sites, or a failed lookup) — NEVER a hardcoded price->dollar map here.
+ * A null amount renders the pre-2124 generic label so checkout still works.
  */
 function PackButtons({ availablePacks, testIdPrefix, onBuyPack }) {
     if (!availablePacks || availablePacks.length === 0) {
@@ -33,7 +40,7 @@ function PackButtons({ availablePacks, testIdPrefix, onBuyPack }) {
     }
     return (
         <React.Fragment>
-            {availablePacks.map((priceId) => (
+            {availablePacks.map(({ price_id: priceId, amount }) => (
                 <button
                     type="button"
                     key={priceId}
@@ -41,7 +48,7 @@ function PackButtons({ availablePacks, testIdPrefix, onBuyPack }) {
                     className="compute-meter-buy-pack-btn"
                     onClick={() => onBuyPack(priceId)}
                 >
-                    Buy credit pack
+                    {amount ? `Buy $${amount} pack` : 'Buy credit pack'}
                 </button>
             ))}
         </React.Fragment>
