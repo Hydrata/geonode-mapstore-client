@@ -76,6 +76,14 @@ const getArchiveFilter = (state) => state?.anuga?.scenarios?.archiveFilter || 'n
 // set has one source of truth.
 import {TERMINAL_RUN_STATES} from "../anugaConstants";
 
+// TASK-2140 (d) — dedup set for the project-init OUTCOME event. initAnugaEpic's
+// switchMap chain re-runs on every legitimate refresh re-init (terrain-add,
+// orphan-refresh, title update, network save, figure create), not just the
+// first bootstrap — see initAnugaEpic's own "init in flight" comment. In-memory,
+// session-scoped (matches the TaskMonitor terminal-status-seen pattern).
+let _seenProjectInitIds = new Set();
+export const __resetProjectInitSeenForTests = () => { _seenProjectInitIds = new Set(); };
+
 // TASK-603: Page Visibility gate. When the catalogue tab is hidden the
 // browser will keep timer-based polling subscriptions alive but the user
 // gains no value from the work. Real-user incident (gabriela.garcia@wkcgroup.com,
@@ -219,18 +227,33 @@ export const initAnugaEpic = (action$, store) =>
                             return Rx.Observable.from(anugaApi.getProjectV2(projectId))
                                 .switchMap(response2 => {
                                     // TASK-2140 (d) — project-bootstrap OUTCOME
-                                    // event. NOTE (novel_question, see W2
-                                    // wave-agent summary): the from-map endpoint
-                                    // is a get-or-create — its response carries
-                                    // no `created` flag, so the FE cannot
-                                    // distinguish "brand-new project" from "user
-                                    // re-opened an existing one". This fires on
-                                    // EVERY successful init, not just true
-                                    // creation; labelled -init- (not -create-)
-                                    // to avoid overclaiming semantics we can't
-                                    // back. A precise create-only signal would
-                                    // need a BE response field (out of gmc scope).
-                                    trackEvent('process', 'complete', 'anuga-project-init-complete');
+                                    // event. Phase 1.7 review fix: this
+                                    // switchMap chain re-runs on every
+                                    // LEGITIMATE refresh re-init too (terrain-
+                                    // add, orphan-refresh, dataset title
+                                    // update, network save, figure create —
+                                    // see the "init in flight" comment above),
+                                    // not just the first bootstrap — an
+                                    // undeduped trackEvent here would fire
+                                    // dozens of times per session. Dedupe to
+                                    // once per projectId per session (module
+                                    // Set, same pattern as TaskMonitor's
+                                    // terminal-status-seen).
+                                    // NOTE (novel_question, see W2 wave-agent
+                                    // summary): the from-map endpoint is a
+                                    // get-or-create with no `created` flag in
+                                    // its response, so the FE still can't
+                                    // distinguish "brand-new project" from
+                                    // "user's first touch this session on an
+                                    // existing one" — labelled -init- (not
+                                    // -create-) to avoid overclaiming
+                                    // semantics we can't back. A precise
+                                    // create-only signal needs a BE response
+                                    // field (out of gmc scope).
+                                    if (!_seenProjectInitIds.has(projectId)) {
+                                        _seenProjectInitIds.add(projectId);
+                                        trackEvent('process', 'complete', 'anuga-project-init-complete');
+                                    }
                                     // Respect the persisted archiveFilter so a
                                     // panel reopen after switching to 'Archived'
                                     // restores the same view.

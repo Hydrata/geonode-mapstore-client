@@ -292,11 +292,18 @@ export const terrainExportEpic = (action$) =>
  * no dedup needed, each toggle fires once. Side-effect only; emits no Redux
  * actions (v1 contract, matches vectorDrawAnugaCompleteEpic's shape).
  */
-export const trackTaskMonitorPanelToggleEpic = (action$) =>
+export const trackTaskMonitorPanelToggleEpic = (action$, store) =>
     action$
         .ofType(TM_TOGGLE_PANEL)
         .mergeMap((action) => {
-            trackEvent('button', action.open ? 'open' : 'close', 'taskmonitor-panel-toggle');
+            // Every live call site passes an explicit boolean, but the reducer
+            // also supports a bare toggle (action.open===undefined flips the
+            // CURRENT state) — mirror that fallback here via post-reduce store
+            // state rather than assuming a shape no caller currently uses.
+            const isOpen = action.open !== undefined
+                ? action.open
+                : !!store?.getState?.()?.taskMonitor?.ui?.panelOpen;
+            trackEvent('button', isOpen ? 'open' : 'close', 'taskmonitor-panel-toggle');
             return Rx.Observable.empty();
         });
 
