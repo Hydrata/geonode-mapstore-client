@@ -273,7 +273,10 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         this._addNavGuard();
         this.props.setTerrainUploadCrsError(null);
         if (this.props.onOpenTaskMonitor) this.props.onOpenTaskMonitor(true);
-        trackEvent('process', 'start', 'anuga-terrain-direct-upload', crsOverride ? 'with-crs-override' : 'detected-crs');
+        // TASK-2139 (c.i): trackEvent is (category, action, label) only — a
+        // 4th arg is silently dropped. Fold the override-vs-detected
+        // distinction into the label itself instead of losing it.
+        trackEvent('process', 'start', `anuga-terrain-direct-upload-${crsOverride ? 'with-crs-override' : 'detected-crs'}`);
 
         let rowId = `terrain-upload-${Date.now()}`;
         const emit = (id, fields) => {

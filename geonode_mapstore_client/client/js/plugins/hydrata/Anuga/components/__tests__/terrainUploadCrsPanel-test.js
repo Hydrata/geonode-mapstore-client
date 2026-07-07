@@ -71,6 +71,9 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
     let realXHR;
     let lastXhr;
 
+    let origUmami;
+    let umamiCalls;
+
     beforeEach(() => {
         container = document.createElement('div');
         document.body.appendChild(container);
@@ -86,6 +89,12 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
             };
             return lastXhr;
         };
+        // TASK-2139 (c.i) — spy so the folded override-vs-detected label can
+        // be asserted (trackEvent is (category, action, label) only; a 4th
+        // arg is silently dropped, so the distinction must live IN the label).
+        umamiCalls = [];
+        origUmami = window.umami;
+        window.umami = { track: (label, payload) => umamiCalls.push({ label, ...payload }) };
     });
 
     afterEach(() => {
@@ -93,6 +102,7 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
         document.body.removeChild(container);
         mockAxios.restore();
         global.XMLHttpRequest = realXHR;
+        window.umami = origUmami;
     });
 
     function mount(detectResult, uiOverrides = {}, resourceOverrides = {}) {
@@ -198,6 +208,9 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
         return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
             const confirm = container.querySelector('[data-testid="terrain-crs-confirm"]');
             TestUtils.Simulate.click(confirm);
+            // TASK-2139 (c.i): 3-arg trackEvent, override-vs-detected folded
+            // into the label (was a 4th arg, silently dropped).
+            expect(umamiCalls.map(c => c.label)).toInclude('anuga-terrain-direct-upload-detected-crs');
             // Drive the stubbed S3 PUT once presign resolves.
             const tick = () => {
                 if (lastXhr && lastXhr.onload) { lastXhr.status = 200; lastXhr.onload(); } else { setTimeout(tick, 5); }
@@ -242,6 +255,8 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
             TestUtils.Simulate.change(select, { target: { value: 'EPSG:32756' } });
             const confirm = container.querySelector('[data-testid="terrain-crs-confirm"]');
             TestUtils.Simulate.click(confirm);
+            // TASK-2139 (c.i): override case gets the sibling label.
+            expect(umamiCalls.map(c => c.label)).toInclude('anuga-terrain-direct-upload-with-crs-override');
             const tick = () => {
                 if (lastXhr && lastXhr.onload) { lastXhr.status = 200; lastXhr.onload(); } else { setTimeout(tick, 5); }
             };

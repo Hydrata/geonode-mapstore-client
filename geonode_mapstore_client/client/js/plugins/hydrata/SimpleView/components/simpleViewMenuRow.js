@@ -656,7 +656,10 @@ class MenuRowClass extends React.Component {
                                             () => {
                                                 this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle);
                                                 this.props.updateLayerTitle(this.props.layer.id, this.state.newTitle);
-                                                trackEvent('button', `click`, `tracking simpleview-menu-row-update-title-${this.props.layer.name} -> ${this.state.newTitle}`);
+                                                // TASK-2139 (c.ii/iii): dropped the stray 'tracking ' prefix and the
+                                                // unbounded free-text title interpolation (layer name + arbitrary new
+                                                // title) — layer.id keeps the label low-cardinality.
+                                                trackEvent('button', `click`, `simpleview-menu-row-update-title-${this.props.layer.id}`);
                                             }
                                         }
                                     />
@@ -688,13 +691,18 @@ class MenuRowClass extends React.Component {
     // value matches the final handle position. Per-instance so each row
     // owns its own debounced fn (a shared module-level debounce would
     // squash drag events across rows).
-    trackOpacityDebounced = debounce((title, values) => {
-        trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${title} -> ${values}`);
+    // TASK-2139 (c.ii/iii): dropped the stray 'tracking ' prefix and bucketed
+    // the continuous 0-100 opacity value to the nearest 10% — an unbucketed
+    // float (nouislider fires ~30/sec) would accrete unbounded Umami event
+    // types. layer.id (not title) keeps the layer dimension bounded too.
+    trackOpacityDebounced = debounce((layerId, values) => {
+        const pct = Math.round((parseFloat(values && values[0]) || 0) / 10) * 10;
+        trackEvent('button', `click`, `simpleview-menu-row-set-opacity-${layerId}-${pct}`);
     }, 250);
 
     onOpacityChange = (values) => {
         this.props.setOpacity(this.props.layer?.id, values);
-        this.trackOpacityDebounced(this.props.layer?.title, values);
+        this.trackOpacityDebounced(this.props.layer?.id, values);
     };
 
     componentWillUnmount() {

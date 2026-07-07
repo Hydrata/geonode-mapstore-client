@@ -89,7 +89,10 @@ const Cards = ({
                                 downloading={downloading?.find((download) => download.pk === resource.pk) ? true : false}
                                 getDetailHref={getDetailHref}
                                 onClick={() => {
-                                    trackEvent('button', `click`, `ResourceCard-${resource?.title}`);
+                                    // TASK-2139 (c.iii): resource.pk (integer) keeps the label
+                                    // low-cardinality — free-text resource.title accreted unbounded
+                                    // Umami event types.
+                                    trackEvent('button', `click`, `ResourceCard-${resource?.pk}`);
                                 }}
                             />
                         </li>

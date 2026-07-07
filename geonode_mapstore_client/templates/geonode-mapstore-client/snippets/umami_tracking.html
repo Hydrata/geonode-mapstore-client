@@ -10,7 +10,12 @@
 <script>
 (function() {
     var seen = {};
-    function trackError(msg, source, line) {
+    // TASK-2139: stable 'js-error' label (was a truncated 50-char message —
+    // unbounded cardinality, no route). Real detail (message/stack-head/route)
+    // now rides in the umami.track DATA object instead of the label, so the
+    // Umami dashboard groups every FE error under one event type and the
+    // per-occurrence detail stays queryable via event data.
+    function trackError(msg, source, line, stack) {
         if (typeof umami === 'undefined') return;
         // TASK-1806(b): Skip the OpenReplay canvas-capture SecurityError (~16/wk).
         // OpenReplay tries toBlob() on the OpenLayers/WebGL map canvas which is
@@ -23,20 +28,35 @@
         var key = msg + (source || '') + (line || '');
         if (seen[key]) return;
         seen[key] = true;
-        var name = String(msg).substring(0, 50);
-        umami.track(name, {
+        var route = window.location.pathname + (window.location.hash || '');
+        umami.track('js-error', {
             category: 'js-error',
+            message: msgStr.substring(0, 200),
+            stack: stack ? String(stack).substring(0, 200) : '',
             source: source ? source.split('/').pop().split('?')[0] : '',
-            line: line || ''
+            line: line || '',
+            route: route
         });
     }
     window.addEventListener('error', function(e) {
-        trackError(e.message || e.error || 'Unknown error', e.filename, e.lineno);
+        trackError(e.message || e.error || 'Unknown error', e.filename, e.lineno, e.error && e.error.stack);
     });
     window.addEventListener('unhandledrejection', function(e) {
-        var msg = e.reason instanceof Error ? e.reason.message : String(e.reason);
-        if (msg === '[object Object]') msg = 'Unhandled rejection (object)';
-        trackError(msg);
+        var reason = e.reason;
+        var msg = reason instanceof Error ? reason.message : String(reason);
+        var stack = reason instanceof Error ? reason.stack : '';
+        // Object-shaped rejections used to collapse to the zero-information
+        // 'Unhandled rejection (object)' string. The stable label + the real
+        // reason (message/stack when available, else a best-effort JSON dump
+        // capped at 200 chars) now carries actual signal in the data object.
+        if (msg === '[object Object]') {
+            try {
+                msg = 'Unhandled rejection (object): ' + JSON.stringify(reason).substring(0, 160);
+            } catch (e2) {
+                msg = 'Unhandled rejection (object)';
+            }
+        }
+        trackError(msg, '', '', stack);
     });
 })();
 </script>
@@ -44,7 +64,11 @@
 <script>
 (function waitForUmami() {
     if (typeof umami !== 'undefined') {
-        umami.identify({ username: '{{ request.user.username }}' });
+        // TASK-2139: STRING-first form so Umami populates distinctId (the
+        // object-only form `umami.identify({username})` stores the payload as
+        // unqueryable session data and distinctId never populates — the
+        // forensics bug). user_id rides in the data object alongside.
+        umami.identify('{{ request.user.username }}', { user_id: {{ request.user.id }} });
     } else {
         setTimeout(waitForUmami, 500);
     }
