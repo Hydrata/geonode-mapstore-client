@@ -622,6 +622,31 @@ describe('TASK-2141 (a) analytics — SPA virtual pageviews', () => {
                 }
             );
     });
+
+    it('test_panel_switch_pageview_url_uses_clean_hash_route_form_no_double_hash', (done) => {
+        // F3 (W2 red-team): the panel branch must emit the SAME clean logical
+        // route as the LOCATION_CHANGE branch ('/viewer/42', not '/#/viewer/42')
+        // so Umami groups both under one path instead of three URL roots.
+        const origHash = window.location.hash;
+        window.location.hash = '#/viewer/42';
+        const restore = () => { window.location.hash = origHash; };
+        const action$ = mockActions([
+            { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'Results' }
+        ]);
+        trackVirtualPageviewEpic(action$)
+            .subscribe(
+                () => {},
+                err => { restore(); done(err); },
+                () => {
+                    const urls = spy.urls();
+                    // clean form present; no leading '/#/' double-hash on any url
+                    expect(urls.some((u) => u.indexOf('/viewer/42?panel=Results') !== -1)).toBe(true);
+                    expect(urls.every((u) => u.indexOf('/#/') === -1)).toBe(true);
+                    restore();
+                    done();
+                }
+            );
+    });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

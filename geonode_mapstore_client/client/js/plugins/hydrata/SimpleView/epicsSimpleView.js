@@ -147,40 +147,52 @@ export const svDownloadLayerEpic = (action$, store) =>
 // TASK-2141 (a) — SPA virtual pageviews. MapStore is a hash-routed SPA:
 // LOCATION_CHANGE (connected-react-router) fires on every hash-route change
 // (e.g. dashboard -> map viewer, or between maps); SET_OPEN_MENU_GROUP_ID is
-// the SAME action type SimpleView/Anuga/Swamm/Hydrology all dispatch when the
-// user switches major panel groups (Inputs/Scenarios/Results/Networks) inside
-// a single map — a pure-Redux transition that never touches window.location.
+// the SAME action type SimpleView/Anuga/Swamm/Hydrology dispatch on a panel
+// switch — a pure-Redux transition that never touches window.location.
 // Without the second trigger, a multi-hour session parked on one map/route
-// stays ONE Umami pageview for its whole lifetime (the 07-06 forensics
-// finding). Each occurrence fires a virtual pageview exactly once (a plain
-// action-stream map, no polling/dedup needed).
+// stays ONE Umami pageview for its whole lifetime (the 07-06 forensics finding).
+//
+// PANEL DISCRIMINATION (W2 red-team): only the Results group dispatches a real
+// openMenuGroupId; the Anuga Inputs/Scenarios toolbars dispatch
+// setOpenMenuGroupId(null) (their open-state lives in separate booleans
+// setAnugaInputMenu / setAnugaScenarioMenu), so those emit panel=none and are
+// NOT individually distinguished here. Per-panel Inputs/Scenarios discrimination
+// would require also listening to those two actions — deferred (operator call).
+//
+// URL FORM: both branches emit the clean logical hash-route WITHOUT the leading
+// '#' (LOCATION_CHANGE uses the action's already-parsed pathname; the panel
+// branch strips '#' off window.location.hash) so Umami groups every event for
+// one map under one path, with the panel as a ?panel= query suffix.
+//
+// NOTE (W2 red-team, pending the UAT metric-semantics call): connected-react-
+// router also dispatches an initial LOCATION_CHANGE (isFirstRendering=true) on
+// mount, so a hard page-load currently emits this virtual route pageview IN
+// ADDITION to Umami's own automatic initial pageview. Guarding isFirstRendering
+// would drop the double-count but re-blind the entry hash-route (the original
+// problem); left as-is pending the operator's decision at the gate.
 export const trackVirtualPageviewEpic = (action$) =>
     action$
         .ofType(LOCATION_CHANGE, SET_OPEN_MENU_GROUP_ID)
         .mergeMap((action) => {
             if (action.type === LOCATION_CHANGE) {
-                // Phase 1.7 review fix: MapStore's history is createHashHistory
-                // (stores/History.js) — action.payload.location.pathname IS
-                // ALREADY the full logical hash-route (no leading '#'). Also
-                // appending window.location.hash (the raw '#/viewer/123' string)
-                // duplicated the same route info onto itself
-                // ('/viewer/123#/viewer/123'). Use the action's own pathname
-                // alone; fall back to window.location only if the action shape
-                // is ever missing it.
+                // MapStore's history is createHashHistory (stores/History.js) —
+                // action.payload.location.pathname IS ALREADY the full logical
+                // hash-route (no leading '#'). Use the action's own pathname;
+                // fall back to window.location only if the shape is missing it.
                 const pathname = action.payload?.location?.pathname
                     || (typeof window !== 'undefined' && window.location.pathname)
                     || '/';
                 trackPageview(pathname);
                 return Rx.Observable.empty();
             }
-            // SET_OPEN_MENU_GROUP_ID carries no location info — reconstruct
-            // the current hash-route from window.location (the browser's
-            // physical pathname stays '/' for a hash-routed SPA; the route
-            // itself lives in window.location.hash) and append the panel as a
-            // query-suffix (not a second '#') so it stays parseable by Umami's
-            // path/query dimensions instead of colliding with the route hash.
-            const basePath = (typeof window !== 'undefined' && window.location.pathname) || '/';
-            const hash = (typeof window !== 'undefined' && window.location.hash) || '';
-            trackPageview(`${basePath}${hash}?panel=${action.openMenuGroupId || 'none'}`);
+            // SET_OPEN_MENU_GROUP_ID carries no location info — reconstruct the
+            // current logical hash-route by stripping the leading '#' (and any
+            // pre-existing query) off window.location.hash so it MATCHES the
+            // LOCATION_CHANGE form ('/viewer/123', NOT '/#/viewer/123'), then
+            // append the panel as a ?panel= query suffix.
+            const rawHash = (typeof window !== 'undefined' && window.location.hash) || '';
+            const hashRoute = rawHash.replace(/^#/, '').split('?')[0]
+                || (typeof window !== 'undefined' && window.location.pathname) || '/';
+            trackPageview(`${hashRoute}?panel=${action.openMenuGroupId || 'none'}`);
             return Rx.Observable.empty();
         });
