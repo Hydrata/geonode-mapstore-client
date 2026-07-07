@@ -1047,10 +1047,16 @@
     font-size: 11px;
 }
 
-/* ── TASK-1497 (UAT note-1) — manual Input IDF table float-entry cells ──────
-   The Input table reuses the .sv-idf-matrix-* grid. Unlike the Derive matrix's
-   inert non-derivable cells, an "empty" (disabled) Input cell is CLICKABLE to
-   enable, and an enabled cell holds a compact white float input (no spinner). */
+/* ── TASK-1497 (UAT note-1) / TASK-2118 (F2) — manual Input IDF table
+   float-entry cells ─────────────────────────────────────────────────────
+   The Input table reuses the .sv-idf-matrix-* grid. Unlike the Derive
+   matrix's inert non-derivable cells, an "empty" (disabled) Input cell is
+   CLICKABLE: clicking it selects BOTH its duration row and its ARI column
+   (TASK-2118), which — per the TASK-1525 strict AND-gate — is exactly what
+   makes the cell itself become editable on the next render. An enabled cell
+   holds a compact white float input (no spinner). (TASK-1525 briefly made
+   this cursor a stale affordance with no click handler behind it — TASK-2118
+   restores a real, if indirect, one-click path to "enable this cell".) */
 .sv-idf-matrix-cell.sv-idf-matrix-cell--empty {
     cursor: pointer;
     background: repeating-linear-gradient(
@@ -1160,6 +1166,15 @@
     cursor: pointer;
     margin: 0;
     font-weight: normal;
+}
+
+/* TASK-2118 (F2) — persistent instruction line above the Input grid.
+   Text-only, non-interactive: mirrors .sv-idf-matrix-unit-label's muted
+   size/colour so it reads as guidance, not a heading. */
+.sv-idf-matrix-instruction-hint {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 8px 0;
 }
 
 /* TASK-1526 — the IDF curve is an on-demand pop-up. A disabled trigger button

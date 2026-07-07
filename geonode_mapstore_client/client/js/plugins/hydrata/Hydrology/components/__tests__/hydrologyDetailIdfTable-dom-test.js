@@ -95,9 +95,12 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         expect(inputs[0].value).toBe('12.5');
     });
 
-    // TASK-1525 — strict two-axis AND-gating. Clicking a disabled cell does
-    // nothing (the single-cell-click affordance was dropped).
-    it('clicking a disabled cell does NOT enable it (single-cell affordance dropped)', () => {
+    // TASK-1525 kept its strict two-axis AND-gate; TASK-2118 (F2) restores a
+    // one-click path that SATISFIES it: clicking a disabled cell selects
+    // BOTH its duration row and its ARI column (a shortcut, not a bypass —
+    // the cell becomes editable only because both axes are now selected,
+    // exactly per the 1525 isEnabled(r,c) rule below).
+    it('clicking a disabled cell selects both its row and column, making it (only it) editable (TASK-2118)', () => {
         const item = new IdfTable();
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
@@ -105,7 +108,62 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
         const firstEmpty = container.querySelector('.sv-idf-matrix-cell--empty');
         fireEvent.click(firstEmpty);
-        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
+        // The row header (first row) and column header (first ARI column)
+        // for the clicked cell are both now marked selected...
+        const rowHeader = container.querySelector('tbody td.sv-idf-matrix-row-header');
+        const colHeader = container.querySelector('thead th.sv-idf-matrix-col-header');
+        expect(rowHeader.className).toInclude('sv-idf-matrix-header--selected');
+        expect(colHeader.className).toInclude('sv-idf-matrix-header--selected');
+        // ...and exactly the ONE clicked cell (their intersection) is now
+        // editable — the AND-gate still excludes every other cell (no row/col
+        // click elsewhere happened), so this is not a bulk-enable regression.
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(1);
+    });
+
+    // Clicking an ALREADY-enabled cell is a no-op for selection state (the
+    // click lands on the IdfInputCell instead — this handler is only wired
+    // on the disabled/`--empty` branch).
+    it('clicking an already-enabled cell does not change the selection (handler only wired on empty cells)', () => {
+        const item = new IdfTable();
+        item.rowData[0]['1yrARI'] = 12.5;
+        const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
+            state: { hydrology: { activeHydrologyItem: item } }
+        });
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(1);
+        const input = container.querySelector('.sv-idf-matrix-input');
+        fireEvent.click(input);
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(1);
+    });
+
+    // depthMode gating (AC4): the empty-cell click handler must be inert in
+    // Depth view, matching the header toggles' existing gating.
+    it('clicking a disabled cell in Depth view does NOT select anything (depthMode gate)', () => {
+        const item = new IdfTable();
+        const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
+            state: { hydrology: { activeHydrologyItem: item } }
+        });
+        fireEvent.click(container.querySelector('#idf-input-unit-depth'));
+        const firstEmpty = container.querySelector('.sv-idf-matrix-cell--empty, .sv-idf-matrix-cell--readonly');
+        fireEvent.click(firstEmpty);
+        const rowHeader = container.querySelector('tbody td.sv-idf-matrix-row-header');
+        const colHeader = container.querySelector('thead th.sv-idf-matrix-col-header');
+        expect(rowHeader.className).toNotInclude('sv-idf-matrix-header--selected');
+        expect(colHeader.className).toNotInclude('sv-idf-matrix-header--selected');
+    });
+
+    // AC3 — the instruction line is a persistent i18n'd element above the
+    // grid, not a hover-only tooltip.
+    it('renders a persistent instruction line above the grid (i18n key, not hover-only)', () => {
+        const item = new IdfTable();
+        const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
+            state: { hydrology: { activeHydrologyItem: item } }
+        });
+        const hint = container.querySelector('.sv-idf-matrix-instruction-hint');
+        expect(hint).toExist();
+        // No IntlProvider in this bare mountWithProviders setup (per the
+        // established pattern elsewhere in this suite) -> Message falls back
+        // to rendering the raw msgId.
+        expect(hint.textContent).toBe('hydrata.hydrology.idfMatrixInstructionHint');
     });
 
     // TASK-1525 acceptance: col-header only selected → no cell in that column editable.

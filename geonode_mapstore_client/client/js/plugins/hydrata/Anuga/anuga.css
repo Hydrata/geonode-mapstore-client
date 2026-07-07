@@ -97,7 +97,7 @@
     text-overflow: ellipsis ellipsis;
     overflow: hidden;
     border: white;
-    text-align: center;
+    text-align: left;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.22));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
@@ -1008,6 +1008,13 @@ div that holds the feature-grid */
 .sv-anuga-panel.sv-anuga-scenario-miller {
     width: 920px;
     max-width: 96vw;
+    /* Operator polish (2026-07-07): every row of the Scenarios panel reads
+       left-justified — overrides the .simple-view-panel base
+       text-align:center for the whole miller (rail + detail pane). The
+       double-class selector out-specifies the base rule regardless of
+       stylesheet order. Pills/badges keep their own internal centering via
+       their per-class rules; native button labels stay centered (UA style). */
+    text-align: left;
 }
 
 /* Keep the scenarios rail vertical at narrow viewports — each rail item
@@ -1254,151 +1261,29 @@ div that holds the feature-grid */
     100% { box-shadow: 0 0 0 0 rgba(92, 184, 92, 0); }
 }
 
-/* ── Wave 3A: 3-column Pane 1 / Pane 2 / Pane 3 shell ──────────────── */
+/* ── Wave 3A / UAT re-aim: 2-column Pane 1 / Pane 3 shell ──────────── */
 
 /* The .sv-anuga-scenario-pane-shell sits inside the existing .sv-menu-rows-pane
-   and is the parent of the vertical category rail (Pane 2) plus the
-   detail body (Pane 3). The legacy .sv-anuga-pane-rows wrapper is removed
-   from the scenarios surface because the category rail + detail are
-   structurally side-by-side (not stacked).
+   and is the parent of the detail body (Pane 3). The legacy .sv-anuga-pane-rows
+   wrapper is removed from the scenarios surface.
 
    Pane 1 (scenarioRail.js) stays where it was; the .sv-rail-pane-shell
-   parent is unchanged. This adds the SECOND nested split so the
-   3-column layout reads:
+   parent is unchanged. UAT re-aim (2026-07-06, epic 2111 W2 dogfood
+   follow-up, finding 1) REMOVED the vertical category rail that used to be
+   the middle column (Pane 2) — it was a completeness-at-a-glance nav that
+   no longer gated anything once TASK-2114 merged every section into one
+   scroll. Pane 3 is now the sole flex:1 child of this shell, so it expands
+   to occupy the freed width automatically:
 
-     [sv-category-rail]  [sv-anuga-scenario-category-rail]  [sv-anuga-scenario-pane-detail]
-     ↑ Pane 1            ↑ Pane 2                        ↑ Pane 3
-     (scenario list)     (category rail)                 (field detail)
+     [sv-category-rail]  [sv-anuga-scenario-pane-detail]
+     ↑ Pane 1            ↑ Pane 3 (now alone; was Pane 3 of 3)
+     (scenario list)     (field detail, expanded)
 */
 .sv-anuga-scenario-pane-shell {
     display: flex;
     flex: 1;
     min-height: 0;
     flex-direction: row;
-}
-
-/* Pane 2 — vertical category rail */
-.sv-anuga-scenario-category-rail {
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    width: 220px;
-    padding: 4px 0;
-    background-color: rgba(0, 0, 0, 0.16);
-    border-right: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #5178af transparent;
-}
-
-.sv-anuga-scenario-category-section {
-    display: flex;
-    flex-direction: column;
-}
-
-.sv-anuga-scenario-category-section + .sv-anuga-scenario-category-section {
-    margin-top: 2px;
-}
-
-.sv-anuga-scenario-category-section-label {
-    font-size: 9.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: rgba(255, 255, 255, 0.50);
-    padding: 10px 12px 4px;
-    font-weight: 600;
-}
-
-.sv-anuga-scenario-category-item {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 6px 10px 6px 9px;
-    background: transparent;
-    border: none;
-    border-left: 3px solid transparent;
-    cursor: pointer;
-    color: var(--sv-text, rgba(255, 255, 255, 0.85));
-    text-align: left;
-    user-select: none;
-    outline: none;
-}
-
-.sv-anuga-scenario-category-item:hover:not(.is-active) {
-    background-color: rgba(255, 255, 255, 0.04);
-}
-
-.sv-anuga-scenario-category-item:focus-visible {
-    background-color: rgba(255, 255, 255, 0.06);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-}
-
-.sv-anuga-scenario-category-item.is-active {
-    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
-    border-left-color: var(--sv-accent-lime, #cae33b);
-}
-
-.sv-anuga-scenario-category-item-glyph {
-    width: 16px;
-    height: 16px;
-    font-size: 14px;
-    line-height: 16px;
-    flex-shrink: 0;
-    color: rgba(255, 255, 255, 0.85);
-    background: transparent;
-}
-
-.sv-anuga-scenario-category-item-label {
-    flex: 1;
-    font-size: 12px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sv-anuga-scenario-category-item-tag {
-    font-size: 10px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    padding: 1px 6px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.10);
-    color: rgba(255, 255, 255, 0.65);
-    min-width: 26px;
-    text-align: center;
-}
-
-.sv-anuga-scenario-category-item-tag.is-ok {
-    background: rgba(202, 227, 59, 0.22);
-    color: #cae33b;
-}
-
-.sv-anuga-scenario-category-item-tag.is-warn {
-    background: rgba(240, 173, 78, 0.22);
-    color: #f0ad4e;
-}
-
-.sv-anuga-scenario-category-item-tag.is-err {
-    background: rgba(217, 83, 79, 0.22);
-    color: #f0a09e;
-}
-
-.sv-anuga-scenario-category-item.is-alert .sv-anuga-scenario-category-item-tag.is-err {
-    background: rgba(217, 83, 79, 0.32);
-}
-
-/* Wave 3C C4 — unsaved-diff dot prefix on the category tag pill. Mirrors
- * the .sv-scenario-rail-item.is-unsaved amber border on Pane 1 rows so users
- * see the same "this scenario has uncommitted changes" signal on Pane 2
- * tags. Coarse signal (scenario-level, not per-category) per scenarioHelpers
- * comment block. */
-.sv-anuga-scenario-category-item-unsaved-dot {
-    color: #f0ad4e;
-    font-weight: 700;
-    margin-right: 3px;
-    line-height: 1;
 }
 
 /* Pane 3 — detail body */
@@ -1427,10 +1312,54 @@ div that holds the feature-grid */
     flex: 1;
 }
 
+/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 2) — the
+   completeness pill the now-removed category rail used to render per
+   category (`.sv-anuga-scenario-category-item-tag`, is-ok/-warn/-err) moves
+   into this heading band instead, right-aligned via the title's flex:1
+   pushing it to the far edge (same flex row, no extra positioning rule
+   needed). Same pill visual language (colors, pill shape), relocated —
+   not a parallel style system. */
+.sv-anuga-scenario-pane-detail-head-badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.65);
+    min-width: 26px;
+    text-align: center;
+}
+
+.sv-anuga-scenario-pane-detail-head-badge.is-ok {
+    background: rgba(202, 227, 59, 0.22);
+    color: #cae33b;
+}
+
+.sv-anuga-scenario-pane-detail-head-badge.is-warn {
+    background: rgba(240, 173, 78, 0.22);
+    color: #f0ad4e;
+}
+
+.sv-anuga-scenario-pane-detail-head-badge.is-err {
+    background: rgba(217, 83, 79, 0.22);
+    color: #f0a09e;
+}
+
 .sv-anuga-scenario-pane-detail-body {
     flex: 1;
     padding: 8px 8px 16px;
     overflow-y: auto;
+}
+
+/* TASK-2114 (A+B) — merged single-scroll body: Required/Optional/Run no
+   longer gate separate panes, so the same .sv-anuga-scenario-pane-detail-head
+   heading now repeats 3x inline. Add a little breathing room above the 2nd
+   and 3rd heading so the sections read as distinct chunks while scrolling. */
+.sv-anuga-scenario-pane-detail-body--merged .sv-anuga-scenario-pane-detail-head:not(:first-child) {
+    margin-top: 14px;
 }
 
 /* Wave 3A — pane sections inside Pane 3 use the existing .sv-anuga-scenario-pane-section
@@ -1702,7 +1631,11 @@ div that holds the feature-grid */
    mismatched first-timestamp anchors). Amber, matching the .is-warn
    category-tag token — advisory, not blocking, so it stays visually
    distinct from the red error strip above. */
-.sv-anuga-scenario-anchor-mismatch-warning {
+/* TASK-2116 (F4) — the drawn-but-unattached MeshRegion hint reuses the same
+   amber "heads up, non-blocking" visual language as the inflow anchor-
+   mismatch warning above it (extend, don't invent a parallel style). */
+.sv-anuga-scenario-anchor-mismatch-warning,
+.sv-anuga-scenario-mesh-region-unattached-hint {
     margin: 6px 10px 8px;
     background: rgba(240, 173, 78, 0.14);
     border: 1px solid rgba(240, 173, 78, 0.30);
@@ -1805,14 +1738,15 @@ div that holds the feature-grid */
     font-style: italic;
 }
 
-/* UAT #8 — always-visible run-action strip on the right of the Scenarios
-   heading. Renders directly beneath the header row (a sibling of the
-   New/Compare/Duplicate cluster) and is right-aligned so the two clusters read
-   as separate groups. */
+/* UAT #8 — always-visible run-action strip beneath the Scenarios heading.
+   Left-packed (operator polish 2026-07-07): with fixed-width buttons the row
+   no longer fills its width, so it reads with the panel's left-justified flow;
+   the row split (border-bottom) keeps it distinct from the
+   New/Compare/Duplicate cluster. */
 .sv-scenario-header-run-actions {
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
@@ -1821,6 +1755,20 @@ div that holds the feature-grid */
 
 .sv-scenario-header-run-actions .sv-anuga-btn {
     margin: 0;
+}
+
+/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3), then
+   operator polish (2026-07-07): every button in this row shares one FIXED
+   target width (so a sparse row — e.g. read-only View Results + Download —
+   never stretches its buttons across the panel), while still shrinking
+   equally when a crowded owner row would otherwise overflow. All the
+   button variants (View Results / Build / Build-and-Run / Run / Retry /
+   Rerun / Download / Archive / Unarchive / Delete / Cancel-run) already
+   shared this hook class before this change — extended, not invented. */
+.sv-scenario-header-run-actions .sv-scenario-action-toolbar-btn {
+    flex: 0 1 150px;
+    min-width: 92px;
+    text-align: center;
 }
 
 /* Build-and-Run combined action — sits between Build and Run; the primary
@@ -1972,14 +1920,11 @@ div that holds the feature-grid */
     margin-top: 80px;
 }
 
-/* ISSUE 32 (TASK-1429): View Results bar shown on run completion, above the
-   scenario rail+pane shell. Compact row with success-green button. */
-.sv-anuga-view-results-bar {
-    padding: 6px 10px;
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
+/* ISSUE 32 (TASK-1429); TASK-2115 (C) — View Results button. Originally its
+   own `.sv-anuga-view-results-bar` sibling row above the rail+pane shell;
+   now renders leading the .sv-scenario-header-run-actions strip instead
+   (one consistent action row, dogfood finding C) — only the font-size
+   override survives here, the layout rule is gone with the bar. */
 .sv-anuga-btn-view-results {
     font-size: 12px;
 }

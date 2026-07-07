@@ -4,8 +4,16 @@ export class IdfTable {
     constructor() {
         this.id = `temp-${uuidv4()}`;
         this.name = "New IDF Table";
-        this.description = "Enter description";
-        this.source = "Enter source";
+        // TASK-2119 (F3-FE): these used to be literal strings ("Enter
+        // description" / "Enter source") that masqueraded as placeholders —
+        // a user who never touched either field got that literal text
+        // PERSISTED as the actual source/description of an official IDF
+        // table. Real HTML placeholder attributes on the inputs
+        // (hydrologyListDetailContainer.js) now carry that guidance text
+        // instead; these default to empty so an untouched field round-trips
+        // as empty, not garbage.
+        this.description = "";
+        this.source = "";
         this.columnDefs = [
             {
                 id: 'Duration (min)',

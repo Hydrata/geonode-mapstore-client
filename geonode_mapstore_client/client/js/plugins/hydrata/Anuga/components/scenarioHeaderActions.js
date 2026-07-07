@@ -19,6 +19,16 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * the old toolbar so the analytics-parity suite (and the Umami dashboards it
  * guards) keep working after the move.
  *
+ * TASK-2115 (C, epic 2111 W2, dogfood finding C) — View Results now renders
+ * as the FIRST (leftmost, most prominent) button in THIS same strip instead
+ * of a separate `.sv-anuga-view-results-bar` sibling row, so the panel has
+ * ONE consistent action row instead of two. Gate + href logic is unchanged
+ * (the container still derives `hasCompleteResults` from
+ * `latest_complete_run`, TASK-2078's D1 "RESULT consumer" contract) — only
+ * WHERE the button renders moved. `hasCompleteResults`/`onViewResultsClick`
+ * are both optional so every existing caller/test that doesn't pass them
+ * keeps rendering exactly as before (no button, no behaviour change).
+ *
  * Three new behaviours land here:
  *   - "Build and Run" — a combined button that calls the existing build then
  *     run handlers in sequence (the container owns the chaining).
@@ -33,6 +43,20 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * Confirm-requiring actions (archive / unarchive / delete / cancel-run) dispatch
  * through the container's inline-dialog props — NO window.confirm here (memory
  * pin feedback-window-confirm-blocks-automation).
+ *
+ * UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3) —
+ * STANDARDISED this row: every button is now EQUAL WIDTH (anuga.css,
+ * `.sv-scenario-action-toolbar-btn` — the shared hook class every button
+ * here already carried) and ICON-FREE (all glyphicons removed: View
+ * Results' eye-open, the build-conflict info-sign, Download's
+ * download-glyph, Archive/Unarchive's folder-close/open, Delete/Cancel-run's
+ * trash/ban-circle). Archive/Unarchive and Delete/Cancel-run were
+ * previously icon-ONLY buttons; they now render visible text via the SAME
+ * Message msgIds the confirm dialog already used for these actions
+ * (btnArchive/btnRestore/btnDelete/btnCancelRun) — no new translation
+ * strings were needed. Classnames + Umami labels are all BYTE-IDENTICAL
+ * (analytics-parity constraint) — only icon presence, text presentation,
+ * and width changed.
  */
 
 // Minimum time (ms) a debounced action button stays disabled after a click.
@@ -47,6 +71,8 @@ const ScenarioHeaderActions = (props, context) => {
         scenario,
         canEdit,
         canRunScenario,
+        hasCompleteResults,
+        onViewResultsClick,
         onBuildClick,
         onRunClick,
         onBuildAndRunClick,
@@ -153,6 +179,19 @@ const ScenarioHeaderActions = (props, context) => {
 
     return (
         <div id="scenario-run-actions" className="sv-scenario-header-run-actions">
+            {/* TASK-2115 (C) — View Results leads the row when results exist
+                (dogfood finding C: was a separate .sv-anuga-view-results-bar
+                sibling row; same classname + gate + handler, new position). */}
+            {hasCompleteResults ?
+                <Button
+                    bsStyle={'success'}
+                    bsSize={'xsmall'}
+                    className={btn('sv-anuga-btn-view-results')}
+                    onClick={() => { if (onViewResultsClick) onViewResultsClick(scenario); }}
+                >
+                    <Message msgId="hydrata.anuga.viewResults" />
+                </Button> : null
+            }
             {canEdit ?
                 <Button
                     bsStyle={'success'}
@@ -178,8 +217,6 @@ const ScenarioHeaderActions = (props, context) => {
                     role="status"
                     aria-live="polite"
                 >
-                    <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
-                    {' '}
                     {tr('hydrata.anuga.buildAlreadyInProgress',
                         'A build is already in progress for this scenario.')}
                 </span> : null
@@ -236,11 +273,14 @@ const ScenarioHeaderActions = (props, context) => {
                     className={btn('sv-scenario-action-download')}
                     onClick={() => trackEvent('button', 'click', 'anuga-scenario-menu-download')}
                 >
-                    <span className="glyphicon glyphicon-download" aria-hidden="true" />
-                    {' '}
                     <Message msgId="hydrata.anuga.download" />
                 </Button> : null
             }
+            {/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3)
+                — Archive/Unarchive was an icon-only glyph button; it now renders
+                its existing Message text (btnArchive/btnRestore — the SAME
+                msgIds the confirm dialog already uses for these actions, not new
+                strings) so the row reads as text, matching every other button. */}
             {showArchive ?
                 <Button
                     bsStyle={isArchived ? 'success' : 'warning'}
@@ -265,12 +305,12 @@ const ScenarioHeaderActions = (props, context) => {
                         }
                     }}
                 >
-                    <span
-                        className={isArchived ? "glyphicon glyphicon-open" : "glyphicon glyphicon-folder-close"}
-                        aria-hidden="true"
-                    />
+                    <Message msgId={isArchived ? 'hydrata.anuga.btnRestore' : 'hydrata.anuga.btnArchive'} />
                 </Button> : null
             }
+            {/* UAT re-aim finding 3 — Delete/Cancel-run was icon-only too; same
+                treatment, reusing btnDelete/btnCancelRun (already used by the
+                confirm dialog for these same actions). */}
             {showDeleteOrCancel ?
                 <Button
                     bsStyle={'danger'}
@@ -287,10 +327,7 @@ const ScenarioHeaderActions = (props, context) => {
                         }
                     }}
                 >
-                    <span
-                        className={canCancelRun ? "glyphicon glyphicon-ban-circle" : "glyphicon glyphicon-trash"}
-                        aria-hidden="true"
-                    />
+                    <Message msgId={canCancelRun ? 'hydrata.anuga.btnCancelRun' : 'hydrata.anuga.btnDelete'} />
                 </Button> : null
             }
         </div>
@@ -301,6 +338,10 @@ ScenarioHeaderActions.propTypes = {
     scenario: PropTypes.object,
     canEdit: PropTypes.bool,
     canRunScenario: PropTypes.bool,
+    // TASK-2115 (C) — View Results, folded into this strip from the former
+    // standalone .sv-anuga-view-results-bar row.
+    hasCompleteResults: PropTypes.bool,
+    onViewResultsClick: PropTypes.func,
     onBuildClick: PropTypes.func,
     onRunClick: PropTypes.func,
     onBuildAndRunClick: PropTypes.func,
@@ -313,7 +354,8 @@ ScenarioHeaderActions.propTypes = {
 
 ScenarioHeaderActions.defaultProps = {
     canEdit: false,
-    canRunScenario: false
+    canRunScenario: false,
+    hasCompleteResults: false
 };
 
 // Pull intl messages off React legacy context so getMessageById can resolve

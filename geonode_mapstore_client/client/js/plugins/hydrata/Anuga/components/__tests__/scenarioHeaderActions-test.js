@@ -73,6 +73,60 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
+    // TASK-2115 (C) — View Results folded into this strip (dogfood finding C:
+    // was a separate .sv-anuga-view-results-bar sibling row).
+    describe('View Results (TASK-2115 C)', () => {
+        it('renders View Results as the FIRST button in the strip when hasCompleteResults is true', (done) => {
+            let captured = null;
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={baseScenario}
+                    canEdit canRunScenario
+                    hasCompleteResults
+                    onViewResultsClick={(s) => { captured = s; }}
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    expect(strip).toExist();
+                    const vrBtn = strip.querySelector('.sv-anuga-btn-view-results');
+                    expect(vrBtn).toExist();
+                    // Leads the row — first child button.
+                    expect(strip.firstElementChild).toBe(vrBtn);
+                    vrBtn.click();
+                    expect(captured?.id).toBe(21);
+                    done();
+                }
+            );
+        });
+
+        it('does NOT render View Results when hasCompleteResults is false', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={baseScenario}
+                    canEdit canRunScenario
+                    hasCompleteResults={false}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-btn-view-results')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('does NOT render View Results when hasCompleteResults is omitted (default false, backward-compat)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-btn-view-results')).toNotExist();
+                    done();
+                }
+            );
+        });
+    });
+
     it('renders Build, Build-and-Run and Run in the always-visible strip (built status)', (done) => {
         ReactDOM.render(
             <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
@@ -394,5 +448,165 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 done();
             }
         );
+    });
+
+    // UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3) —
+    // every button in this row becomes EQUAL WIDTH and ICON-FREE. Archive/
+    // Unarchive and Delete/Cancel-run were icon-only glyphicon buttons; they
+    // now render their existing Message text (btnArchive / btnRestore /
+    // btnDelete / btnCancelRun — the SAME msgIds the confirm dialog already
+    // used, not new strings) instead of a bare glyph.
+    describe('Icon-free, fixed-width action row (UAT re-aim finding 3; operator polish 2026-07-07)', () => {
+        it('renders no .glyphicon anywhere inside the strip', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{
+                        ...baseScenario,
+                        buildConflict: {runId: 501, status: 'building', detail: 'x'}
+                    }}
+                    canEdit canRunScenario
+                    hasCompleteResults
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    expect(strip).toExist();
+                    expect(strip.querySelectorAll('.glyphicon').length).toBe(0);
+                    done();
+                }
+            );
+        });
+
+        it('View Results button has no icon (text-only)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario hasCompleteResults />,
+                container,
+                () => {
+                    const vrBtn = container.querySelector('.sv-anuga-btn-view-results');
+                    expect(vrBtn).toExist();
+                    expect(vrBtn.querySelector('.glyphicon')).toNotExist();
+                    expect(vrBtn.textContent).toInclude('hydrata.anuga.viewResults');
+                    done();
+                }
+            );
+        });
+
+        it('Download button has no icon (text-only)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'built', latest_run: {id: 9, s3_package_url: 'https://x/y.zip'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const dl = container.querySelector('.sv-scenario-action-download');
+                    expect(dl).toExist();
+                    expect(dl.querySelector('.glyphicon')).toNotExist();
+                    expect(dl.textContent).toInclude('hydrata.anuga.download');
+                    done();
+                }
+            );
+        });
+
+        it('the benign build-conflict info message has no icon either', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{
+                        ...baseScenario,
+                        buildConflict: {runId: 501, status: 'building', detail: 'A build is already in progress for this scenario.'}
+                    }}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const info = container.querySelector('.sv-scenario-build-conflict-info');
+                    expect(info).toExist();
+                    expect(info.querySelector('.glyphicon')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('Archive button is a TEXT button (hydrata.anuga.btnArchive), no longer icon-only', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    const archBtn = container.querySelector('.sv-scenario-action-archive');
+                    expect(archBtn).toExist();
+                    expect(archBtn.querySelector('.glyphicon')).toNotExist();
+                    expect(archBtn.textContent).toInclude('hydrata.anuga.btnArchive');
+                    done();
+                }
+            );
+        });
+
+        it('Unarchive button is a TEXT button reusing hydrata.anuga.btnRestore (same id the confirm dialog uses)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, archived_at: '2026-01-01T00:00:00Z'}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const unarchBtn = container.querySelector('.sv-scenario-action-unarchive');
+                    expect(unarchBtn).toExist();
+                    expect(unarchBtn.querySelector('.glyphicon')).toNotExist();
+                    expect(unarchBtn.textContent).toInclude('hydrata.anuga.btnRestore');
+                    done();
+                }
+            );
+        });
+
+        it('Delete button is a TEXT button (hydrata.anuga.btnDelete), no longer icon-only', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    const delBtn = container.querySelector('.sv-scenario-action-delete');
+                    expect(delBtn).toExist();
+                    expect(delBtn.querySelector('.glyphicon')).toNotExist();
+                    expect(delBtn.textContent).toInclude('hydrata.anuga.btnDelete');
+                    done();
+                }
+            );
+        });
+
+        it('Cancel-run button is a TEXT button (hydrata.anuga.btnCancelRun), no longer icon-only', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'computing', latest_run: {id: 9, status: 'computing'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const cancelBtn = container.querySelector('.sv-scenario-action-cancel-run');
+                    expect(cancelBtn).toExist();
+                    expect(cancelBtn.querySelector('.glyphicon')).toNotExist();
+                    expect(cancelBtn.textContent).toInclude('hydrata.anuga.btnCancelRun');
+                    done();
+                }
+            );
+        });
+
+        it('every rendered action-row button shares the fixed-width hook class .sv-scenario-action-toolbar-btn', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'built'}}
+                    canEdit canRunScenario
+                    hasCompleteResults
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    const buttons = strip.querySelectorAll('.sv-anuga-btn');
+                    expect(buttons.length).toBeGreaterThan(0);
+                    Array.from(buttons).forEach((btn) => {
+                        expect(btn.className).toInclude('sv-scenario-action-toolbar-btn');
+                    });
+                    done();
+                }
+            );
+        });
     });
 });

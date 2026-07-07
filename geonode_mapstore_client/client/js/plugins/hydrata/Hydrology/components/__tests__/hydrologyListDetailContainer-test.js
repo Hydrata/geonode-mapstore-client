@@ -25,7 +25,8 @@ import { createStore } from 'redux';
 import { HydrologyListDetailContainerClass, HydrologyListDetailContainer } from '../hydrologyListDetailContainer';
 // UAT 2026-07-02 — real TimeSeries class for the create-mode footer tests (the
 // draft must carry the temp-… id + rowData/columnDefs the create panel reads).
-import { TimeSeries } from '../../classesHydrology';
+// TASK-2119 — real IdfTable class for the Source/Description placeholder tests.
+import { TimeSeries, IdfTable } from '../../classesHydrology';
 
 // Minimal passthrough Redux store so connected child components (HydrologyDetailIdfDerive)
 // can find a store in context without needing any real state.
@@ -641,5 +642,164 @@ describe('UAT 2026-07-02 — footer Save/Delete visibility', () => {
         const footer = container.querySelector('#hydrology-list-detail-footer');
         expect(footer).toExist();
         expect(footer.querySelectorAll('button').length).toBe(1);
+    });
+});
+
+describe('TASK-2119 (F3-FE) — IDF Source/Description real placeholders', () => {
+    let container;
+    const noop = () => {};
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        if (container.parentNode) { container.parentNode.removeChild(container); }
+    });
+
+    // Mirrors the "UAT 2026-07-02" describe block's makeStore — the
+    // sv-idf-table page renders the CONNECTED HydrologyDetailIdfTable child,
+    // which reads state.hydrology.activeHydrologyItem directly.
+    function makeStore(item) {
+        const state = {
+            hydrology: {
+                activeHydrologyPage: 'sv-idf-table',
+                activeHydrologyItem: item,
+                idfTables: [item],
+                idfDerive: { lat: null, lon: null }
+            },
+            anuga: { projects: { data: { id: 1, my_role: 'manager' } } }
+        };
+        return createStore((s = state) => s, state);
+    }
+
+    // AC1 — a new IDF table's Source/Description fields render empty with
+    // visible placeholder text (not a persisted literal default).
+    it('a new IDF table renders empty Source/Description fields with placeholder text', () => {
+        const item = new IdfTable();
+        expect(item.source).toBe('');
+        expect(item.description).toBe('');
+
+        const store = makeStore(item);
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <Provider store={store}>
+                    <HydrologyListDetailContainerClass
+                        activeHydrologyPage="sv-idf-table"
+                        activeHydrologyItems={[item]}
+                        activeHydrologyItem={item}
+                        setActiveHydrologyItem={noop}
+                        setActiveHydrologyPage={noop}
+                        updateActiveHydrologyItem={noop}
+                        saveHydrologyItem={noop}
+                        createHydrologyForm={noop}
+                        deleteHydrologyItem={noop}
+                        canManageHydrology
+                    />
+                </Provider>,
+                container
+            );
+        });
+
+        const sourceInput = container.querySelector('input#source');
+        const descriptionTextarea = container.querySelector('textarea#description');
+        expect(sourceInput).toExist();
+        expect(descriptionTextarea).toExist();
+        expect(sourceInput.value).toBe('');
+        expect(descriptionTextarea.value).toBe('');
+        // No IntlProvider in this render → resolveMsg's getMessageById(...)
+        // returns the msgId unchanged (missing), so it falls through to the
+        // English fallback text supplied at the call site — the SAME text a
+        // real (translated) render would show, mirroring the pre-existing
+        // filterPlaceholder resolveMsg idiom in this file (never a raw msgId
+        // leaking to the placeholder, unlike a bare <Message> component).
+        expect(sourceInput.getAttribute('placeholder')).toBe('Enter source');
+        expect(descriptionTextarea.getAttribute('placeholder')).toBe('Enter description');
+    });
+
+    // AC2 — the source input carries a maxLength FE guard mirroring the BE
+    // source_key CharField(max_length=64) (serializers_v2.py).
+    it('the source input enforces a 64-char maxLength FE guard', () => {
+        const item = new IdfTable();
+        const store = makeStore(item);
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <Provider store={store}>
+                    <HydrologyListDetailContainerClass
+                        activeHydrologyPage="sv-idf-table"
+                        activeHydrologyItems={[item]}
+                        activeHydrologyItem={item}
+                        setActiveHydrologyItem={noop}
+                        setActiveHydrologyPage={noop}
+                        updateActiveHydrologyItem={noop}
+                        saveHydrologyItem={noop}
+                        createHydrologyForm={noop}
+                        deleteHydrologyItem={noop}
+                        canManageHydrology
+                    />
+                </Provider>,
+                container
+            );
+        });
+        const sourceInput = container.querySelector('input#source');
+        expect(sourceInput.getAttribute('maxlength')).toBe('64');
+    });
+
+    // AC4 — no literal "Enter source"/"Enter description" values reach the
+    // save payload: typing into either field dispatches ONLY the typed text,
+    // never the old literal defaults.
+    it('typing into Source/Description dispatches ONLY the typed text via updateActiveHydrologyItem (no literal defaults)', () => {
+        const item = new IdfTable();
+        const calls = [];
+        const store = makeStore(item);
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <Provider store={store}>
+                    <HydrologyListDetailContainerClass
+                        activeHydrologyPage="sv-idf-table"
+                        activeHydrologyItems={[item]}
+                        activeHydrologyItem={item}
+                        setActiveHydrologyItem={noop}
+                        setActiveHydrologyPage={noop}
+                        updateActiveHydrologyItem={(page, it, kv) => calls.push({page, it, kv})}
+                        saveHydrologyItem={noop}
+                        createHydrologyForm={noop}
+                        deleteHydrologyItem={noop}
+                        canManageHydrology
+                    />
+                </Provider>,
+                container
+            );
+        });
+        const sourceInput = container.querySelector('input#source');
+        const descriptionTextarea = container.querySelector('textarea#description');
+        // NOTE: the `target` override in Simulate's eventData REPLACES the
+        // whole target object (it does not merge onto the real node), so
+        // `id` must be supplied explicitly here — handleTextChange keys its
+        // dispatch off `e.target.id`.
+        ReactTestUtils.act(() => {
+            ReactTestUtils.Simulate.change(sourceInput, { target: { id: 'source', value: 'BOM Rainfall IFD 2016' } });
+        });
+        ReactTestUtils.act(() => {
+            ReactTestUtils.Simulate.change(descriptionTextarea, { target: { id: 'description', value: 'Zone IDFC-2, 100yr' } });
+        });
+        expect(calls.length).toBe(2);
+        expect(calls[0].kv).toEqual({ source: 'BOM Rainfall IFD 2016' });
+        expect(calls[1].kv).toEqual({ description: 'Zone IDFC-2, 100yr' });
+        calls.forEach(c => {
+            expect(Object.values(c.kv)).toNotInclude('Enter source');
+            expect(Object.values(c.kv)).toNotInclude('Enter description');
+        });
+    });
+
+    // Regression guard: a fresh IdfTable never carries the old literal
+    // defaults, confirming classesHydrology.js's constructor change.
+    it('a fresh IdfTable never carries the literal "Enter source"/"Enter description" defaults', () => {
+        const item = new IdfTable();
+        expect(item.source).toNotBe('Enter source');
+        expect(item.description).toNotBe('Enter description');
+        expect(item.source).toBe('');
+        expect(item.description).toBe('');
     });
 });

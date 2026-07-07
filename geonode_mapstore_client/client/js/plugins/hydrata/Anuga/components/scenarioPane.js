@@ -1,10 +1,10 @@
 import React, {useEffect} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
-import {secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP} from './scenarioHelpers';
+import {
+    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress
+} from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
-import {ScenarioCategoryRail} from './scenarioCategoryRail';
-import {ScenarioResourceSummary, summariseResource} from './scenarioResourceSummary';
 import {ScenarioStatusCard} from './scenarioStatusCard';
 import {ScenarioErrorStrip} from './scenarioErrorStrip';
 // TASK-1764 (epic-1758 W1) — chassis FormRow frames the scenario-detail
@@ -17,16 +17,35 @@ import {ScenarioErrorStrip} from './scenarioErrorStrip';
 import {FormRow} from '../../SimpleView/components/primitives';
 
 /**
- * Per-category pane renderer for the Miller-columns scenarios panel. The
- * vertical category rail (`ScenarioCategoryRail`, Pane 2) drives a per-
- * category detail body (Pane 3).
+ * Merged-panel renderer for the Miller-columns scenarios panel (TASK-2114,
+ * epic 2111 W2, dogfood findings A+B). Pane 3 stacks all three sections
+ * (Required inputs / Optional inputs / Run) in ONE scrollable body, each
+ * behind its own in-pane heading, so nothing is hidden behind a tab click.
+ * This is the direct fix for dogfood finding F4's root cause: the old
+ * Advanced tab HID mesh_region until clicked, so a drawn-but-unattached mesh
+ * region silently no-op'd at build time without ever being seen.
  *
- * 4 categories: 'inputs' / 'advanced' / 'runConfig' / 'statusActions'.
- * runConfig absorbs the resolution/duration/compute-backend choice that
- * used to live in Advanced + the legacy AnugaRunMenu modal. statusActions
- * consolidates the legacy Run + Actions subtabs and adds the new
- * ScenarioStatusCard + ScenarioErrorStrip. The inline ScenarioRunLog is
- * embedded at the bottom of the statusActions pane.
+ * UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, findings 1+2) —
+ * the vertical category rail (`ScenarioCategoryRail`, Pane 2) that used to
+ * sit between the scenario list and this pane is REMOVED entirely: it was a
+ * completeness-at-a-glance nav that no longer gated anything once the
+ * sections merged into one scroll, so the operator judged it obsolete. This
+ * pane (Pane 3) now expands to occupy the freed width. The per-category
+ * completeness counts the rail used to show ("3/3", "0/3", "100%", ...)
+ * move INTO each section's own heading instead, right-aligned in the same
+ * heading band — see `renderSectionHeading` below — reusing
+ * `validateCategoryProgress` (scenarioHelpers.js) with the EXACT SAME
+ * arguments the rail used to pass (including the TASK-2045
+ * boundaryHasFeatures gate for 'inputs'), never re-derived.
+ *
+ * Per-selector "selected layer" confirmation cards (`ScenarioResourceSummary`,
+ * TASK-C Wave 3A) are REMOVED from the Inputs/Advanced sections (dogfood
+ * finding B) — the native <select>'s own displayed value already shows the
+ * chosen item's title, so the extra card beneath each dropdown was largely
+ * redundant confirmation. The component + its own unit tests still exist
+ * (scenarioResourceSummary.js) in case a future surface wants the same card
+ * shell (e.g. a run-history list) — nothing here deletes that primitive,
+ * only stops calling it per-selector.
  *
  * Field-edit callbacks (name, dropdowns, resolution, duration, compute
  * backend) dispatch through the container's `onUpdateScenario` prop.
@@ -36,8 +55,13 @@ import {FormRow} from '../../SimpleView/components/primitives';
  */
 
 // TASK-1416 (ISSUE 20.7): 'runConfig' + 'statusActions' merged into single 'run'
-// category. Both old IDs kept in the array for graceful fallback (existing Redux
-// state may carry either; they redirect to 'run' via resolvedCategory below).
+// category. Both old IDs kept in the array for backward-compatible propType
+// validation of the `selectedCategoryId` prop, which the container
+// (anugaScenarioMenu.js) still threads through for now — UAT re-aim (finding
+// 1) removed the only consumer that acted on it (the category rail), but the
+// prop itself is left alone (harmless, no behaviour) to keep this change
+// scoped to the 3 UAT findings rather than also refactoring the container's
+// still-otherwise-used state machine.
 const VALID_CATEGORIES = ['inputs', 'advanced', 'run', 'runConfig', 'statusActions'];
 
 /**
@@ -165,27 +189,51 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
     );
 }
 
-function renderResourceSummary(scenario, kind, resourceList) {
-    const assignedId = scenario?.[kind];
-    const summary = summariseResource(resourceList, assignedId, kind);
-    if (summary) {
-        return (
-            <ScenarioResourceSummary
-                kind={kind}
-                body={summary.body}
-                meta={summary.meta}
-            />
-        );
-    }
-    // Always render the summary card so layout is stable as the user picks
-    // values from each dropdown. Empty-state body is a single em-dash.
+// ------------------------------------------------------------------------
+// TASK-2116 (F4) — drawn-but-unattached MeshRegion hint
+// ------------------------------------------------------------------------
+
+/**
+ * TASK-2116 (F4, epic 2111 W2) — `mesh_region` is a legitimately optional FK
+ * (BE scenario.py:982); every BE consumer silently no-ops when it's unset
+ * (scenario.py:1388, tasks.py:2378, run_utils.py:265-272 → uniform mesh at
+ * `scenario.resolution`). The dogfood engineer drew a fine refinement
+ * region, never attached it to the scenario, and the run silently ignored
+ * it. `meshRegions` here is the SAME project resource list already threaded
+ * into this pane for the Advanced dropdown (state.anuga.resources.meshRegions
+ * — a MeshRegion only exists in this list once its draw has produced a
+ * saved resource, mirroring how terrain/boundary/inflow are "drawn" i.e.
+ * resource-backed). No new Redux wiring needed: "has the project got a
+ * drawn mesh region" and "is one attached to THIS scenario" are both
+ * already-available facts. Exported so anugaScenarioMenu.js's build-time
+ * confirm dialog can reuse the exact same predicate (DRY) rather than
+ * re-derive it.
+ *
+ * NO auto-attach (operator-rejected: TASK-2100's price_band prices off the
+ * build-frozen triangle count, so silently attaching a fine region would
+ * silently multiply the run's price band post-flip). This is hint + confirm
+ * only — the build-time confirm dialog lives in anugaScenarioMenu.js.
+ */
+export function meshRegionIsUnattached(scenario, meshRegions) {
+    const hasDrawnRegion = Array.isArray(meshRegions) && meshRegions.length > 0;
+    if (!hasDrawnRegion) return false;
+    const isAttached = scenario?.mesh_region != null && scenario?.mesh_region !== ''; // eslint-disable-line no-eq-null, eqeqeq
+    return !isAttached;
+}
+
+function renderMeshRegionUnattachedHint(scenario, meshRegions) {
+    if (!meshRegionIsUnattached(scenario, meshRegions)) return null;
+    const names = (meshRegions || []).map(r => r?.title).filter(Boolean).join(', ');
     return (
-        <ScenarioResourceSummary
-            kind={kind}
-            body={<span className="sv-anuga-scenario-resource-summary-placeholder">—</span>}
-            meta={null}
-            extraClassName="is-empty"
-        />
+        <div
+            className="sv-anuga-scenario-pane-section sv-anuga-scenario-mesh-region-unattached-hint"
+            role="status"
+            aria-live="polite"
+        >
+            <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+            {' '}
+            <Message msgId="hydrata.anuga.meshRegionUnattachedHint" msgParams={{names}} />
+        </div>
     );
 }
 
@@ -265,11 +313,8 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div>
             </FormRow>
             {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, handleField)}
-            {renderResourceSummary(scenario, 'terrain', terrain)}
             {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
-            {renderResourceSummary(scenario, 'boundary', boundaries)}
             {renderSelectField('inflow', 'hydrata.anuga.inflow', scenario?.inflow, inflows, !canEdit, handleField)}
-            {renderResourceSummary(scenario, 'inflow', inflows)}
             {renderInflowAnchorMismatchWarning(scenario)}
             {/* TASK-2083 (epic 2077) — empty-state helper explaining an Inflow
                 (the layer) can hold more than one inflow location (a feature
@@ -284,7 +329,6 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div> : null
             }
             {renderSelectField('rainfall', 'hydrata.anuga.rainfall', scenario?.rainfall, rainfalls, !canEdit, handleField)}
-            {renderResourceSummary(scenario, 'rainfall', rainfalls)}
         </div>
     );
 }
@@ -301,11 +345,9 @@ function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, str
     return (
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-advanced">
             {renderSelectField('friction', 'hydrata.anuga.friction', scenario?.friction, frictions, !canEdit, handleField)}
-            {renderResourceSummary(scenario, 'friction', frictions)}
             {renderSelectField('structure', 'hydrata.anuga.structures', scenario?.structure, structures, !canEdit, handleField)}
-            {renderResourceSummary(scenario, 'structure', structures)}
             {renderSelectField('mesh_region', 'hydrata.anuga.meshRegions', scenario?.mesh_region, meshRegions, !canEdit, handleField)}
-            {renderResourceSummary(scenario, 'mesh_region', meshRegions)}
+            {renderMeshRegionUnattachedHint(scenario, meshRegions)}
         </div>
     );
 }
@@ -538,24 +580,36 @@ function renderRunPane(props) {
 }
 
 // ------------------------------------------------------------------------
-// Pane head (above Pane 3)
+// Section headings (inside the merged Pane 3 body)
 // ------------------------------------------------------------------------
 
-function renderDetailHead(selectedCategoryId) {
-    const labelMap = {
-        inputs: 'hydrata.anuga.requiredInputs',
-        advanced: 'hydrata.anuga.optionalInputs',
-        run: 'hydrata.anuga.run',
-        // Legacy keys kept for redirect-safety (shouldn't normally render as heads)
-        runConfig: 'hydrata.anuga.run',
-        statusActions: 'hydrata.anuga.run'
-    };
-    const msgId = labelMap[selectedCategoryId] || labelMap.inputs;
+// TASK-2114 (A+B) — Required/Optional/Run no longer gate separate panes; each
+// gets an in-body heading instead, reusing the same
+// .sv-anuga-scenario-pane-detail-head(-title) chrome the single selected-
+// category head used to own (border-bottom rule, font sizing) so no parallel
+// heading style is introduced — see anuga.css's `--merged` rule for the
+// small top-margin added between repeated headings.
+//
+// UAT re-aim (finding 2) — `progress` is the SAME `validateCategoryProgress`
+// result object the now-removed category rail rendered as its tag pill
+// (`{tag, severity, ...}`); this just relocates that pill into the heading
+// band, right-aligned via the title's own `flex: 1` (anuga.css) pushing it
+// to the far edge. Reuses the rail's severity-class naming convention
+// (is-ok/is-warn/is-err) under a NEW classname (not the rail's, which is
+// gone) so the pill visually extends the existing token system rather than
+// inventing a parallel one.
+function renderSectionHeading(msgId, progress) {
+    const severity = progress && progress.severity;
+    const badgeClass = 'sv-anuga-scenario-pane-detail-head-badge'
+        + (severity === 'ok' ? ' is-ok' : '')
+        + (severity === 'warn' ? ' is-warn' : '')
+        + (severity === 'err' ? ' is-err' : '');
     return (
         <div className="sv-anuga-scenario-pane-detail-head">
             <h3 className="sv-anuga-scenario-pane-detail-head-title">
                 <Message msgId={msgId} />
             </h3>
+            {progress ? <span className={badgeClass}>{progress.tag}</span> : null}
         </div>
     );
 }
@@ -599,14 +653,18 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
 }
 
 const ScenarioPane = (props) => {
-    const {scenario, selectedCategoryId, onSelectCategory, canEdit} = props;
-    // TASK-1416: redirect legacy 'runConfig'/'statusActions' ids → 'run'
-    const _rawCategory = VALID_CATEGORIES.includes(selectedCategoryId)
-        ? selectedCategoryId
-        : 'inputs';
-    const resolvedCategory = (_rawCategory === 'runConfig' || _rawCategory === 'statusActions')
-        ? 'run'
-        : _rawCategory;
+    const {scenario, canEdit} = props;
+
+    // UAT re-aim (finding 2) — completeness badges for the 3 section
+    // headings, reusing validateCategoryProgress verbatim (same function,
+    // same arguments) rather than re-deriving. boundaryHasFeatures
+    // resolution (TASK-2045) moves here from the now-deleted
+    // ScenarioCategoryRail — same one-line lookup against `boundaries`.
+    const selectedBoundary = (props.boundaries || []).find(b => b && b.id === scenario?.boundary);
+    const boundaryHasFeatures = selectedBoundary?.has_features;
+    const inputsProgress = validateCategoryProgress('inputs', scenario, {boundaryHasFeatures});
+    const advancedProgress = validateCategoryProgress('advanced', scenario);
+    const runProgress = validateCategoryProgress('run', scenario);
 
     // TASK-1410: auto-populate required dropdowns for new scenarios.
     useAutoPopulateDefaults(
@@ -629,12 +687,6 @@ const ScenarioPane = (props) => {
                 }
             </div>
             <div className="sv-anuga-scenario-pane-shell">
-                <ScenarioCategoryRail
-                    scenario={scenario}
-                    boundaries={props.boundaries}
-                    selectedCategoryId={resolvedCategory}
-                    onSelectCategory={onSelectCategory}
-                />
                 <div className="sv-anuga-scenario-pane-detail">
                     {!scenario ?
                         <div className="sv-anuga-scenario-empty-pane">
@@ -645,7 +697,6 @@ const ScenarioPane = (props) => {
                             <Message msgId="hydrata.anuga.emptyPaneSelectScenario" />
                         </div> :
                         <React.Fragment>
-                            {renderDetailHead(resolvedCategory)}
                             {!canEdit ?
                                 <div className="sv-anuga-scenario-pane-readonly-hint" role="note">
                                     <span
@@ -655,10 +706,18 @@ const ScenarioPane = (props) => {
                                     <Message msgId="hydrata.anuga.readOnlyPaneHint" />
                                 </div> : null
                             }
-                            <div className="sv-anuga-scenario-pane-detail-body">
-                                {resolvedCategory === 'inputs' && renderInputsPane(props)}
-                                {resolvedCategory === 'advanced' && renderAdvancedPane(props)}
-                                {resolvedCategory === 'run' && renderRunPane(props)}
+                            {/* TASK-2114 (A+B) — Required/Optional/Run stack in ONE
+                                scrollable body; no category gates which section
+                                renders. UAT re-aim (finding 2) — each heading now
+                                carries its own completeness badge (right-aligned),
+                                replacing the removed rail's at-a-glance nav. */}
+                            <div className="sv-anuga-scenario-pane-detail-body sv-anuga-scenario-pane-detail-body--merged">
+                                {renderSectionHeading('hydrata.anuga.requiredInputs', inputsProgress)}
+                                {renderInputsPane(props)}
+                                {renderSectionHeading('hydrata.anuga.optionalInputs', advancedProgress)}
+                                {renderAdvancedPane(props)}
+                                {renderSectionHeading('hydrata.anuga.run', runProgress)}
+                                {renderRunPane(props)}
                             </div>
                         </React.Fragment>
                     }

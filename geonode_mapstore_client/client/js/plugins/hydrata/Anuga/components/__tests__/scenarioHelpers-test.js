@@ -222,9 +222,10 @@ describe('TASK-C Wave 3A validateCategoryProgress', () => {
         // *and* feature-presence. An auto-scaffolded boundary with zero
         // PostGIS features must NOT read "ready" (previously it did, then
         // hard-failed the BE build). The presence signal is BE-only
-        // (BoundarySerializerV2.has_features) so the caller
-        // (scenarioCategoryRail) resolves it and passes it as
-        // opts.boundaryHasFeatures.
+        // (BoundarySerializerV2.has_features) so the caller (originally
+        // scenarioCategoryRail, now scenarioPane.js's section-heading
+        // badges — UAT re-aim 2026-07-06, finding 1) resolves it and
+        // passes it as opts.boundaryHasFeatures.
         describe('boundary feature-presence gating (opts.boundaryHasFeatures)', () => {
             it('returns 2/3 + warn when boundary is selected but has NO features (opts.boundaryHasFeatures=false)', () => {
                 const s = {terrain: 1, boundary: 2, inflow: 3};

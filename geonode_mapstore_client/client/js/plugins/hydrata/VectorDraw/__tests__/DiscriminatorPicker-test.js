@@ -520,4 +520,132 @@ describe('TASK-825 DiscriminatorPicker', () => {
             }, 20);
         });
     });
+
+    describe('TASK-2127 stale-while-revalidate (onFocus refetch must not disable a populated select)', () => {
+        // Local double: wires onFocus -> onRefetchOptions, mirroring
+        // FormField.js's real TimeSeriesSelect.handleFocus, so Simulate.focus
+        // exercises the same refetchKind() path the production bug lived in.
+        const TimeSeriesRenderWithFocus = ({ value, onChange, options, loading, onRefetchOptions }) => (
+            <select
+                className="test-timeseries-focus"
+                value={value?.timeseries_id ?? ''}
+                disabled={loading}
+                onFocus={() => { if (typeof onRefetchOptions === 'function') onRefetchOptions(); }}
+                onChange={(e) => onChange({
+                    kind: 'timeseries',
+                    timeseries_id: e.target.value === '' ? null : parseInt(e.target.value, 10)
+                })}
+            >
+                <option value="">Pick</option>
+                {(options || []).map(o => (
+                    <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+            </select>
+        );
+
+        it("keeps a populated kind's select enabled during background refetch", (done) => {
+            let callCount = 0;
+            const fetchSpy = () => {
+                callCount += 1;
+                if (callCount === 1) {
+                    return Promise.resolve([{ id: 1, name: 'Row-1' }]);
+                }
+                // The background refetch (2nd+ call) never resolves within
+                // the test window — simulates an in-flight request so the
+                // assertions below observe the "mid-refetch" state.
+                return new Promise(() => {});
+            };
+            const field = {
+                ...FIELD_BASE,
+                choices: [{ kind: 'ts', label: 'TS', render: TimeSeriesRenderWithFocus, fetch: fetchSpy }]
+            };
+            ReactDOM.render(
+                <DiscriminatorPicker
+                    field={field}
+                    value={{ kind: 'timeseries', timeseries_id: null }}
+                    onChange={onChange}
+                    projectId={9}
+                />,
+                container
+            );
+            setTimeout(() => {
+                let select;
+                try {
+                    select = container.querySelector('.test-timeseries-focus');
+                    expect(callCount).toBe(1);
+                    expect(select.disabled).toBe(false);
+                    Simulate.focus(select);
+                } catch (err) {
+                    done(err);
+                    return;
+                }
+                setTimeout(() => {
+                    try {
+                        expect(callCount).toBe(2);
+                        // The background refetch is still in flight (never
+                        // resolves) — the select must NOT have been disabled
+                        // by it (TASK-2127 fix: no loading flip for an
+                        // already-populated kind).
+                        const stillThere = container.querySelector('.test-timeseries-focus');
+                        expect(stillThere.disabled).toBe(false);
+                        done();
+                    } catch (err) {
+                        done(err);
+                    }
+                }, 20);
+            }, 20);
+        });
+
+        it('preserves rendered options while refetch is in flight', (done) => {
+            let callCount = 0;
+            const fetchSpy = () => {
+                callCount += 1;
+                if (callCount === 1) {
+                    return Promise.resolve([{ id: 1, name: 'Row-1' }, { id: 2, name: 'Row-2' }]);
+                }
+                return new Promise(() => {});
+            };
+            const field = {
+                ...FIELD_BASE,
+                choices: [{ kind: 'ts', label: 'TS', render: TimeSeriesRenderWithFocus, fetch: fetchSpy }]
+            };
+            ReactDOM.render(
+                <DiscriminatorPicker
+                    field={field}
+                    value={{ kind: 'timeseries', timeseries_id: null }}
+                    onChange={onChange}
+                    projectId={9}
+                />,
+                container
+            );
+            setTimeout(() => {
+                let select;
+                try {
+                    select = container.querySelector('.test-timeseries-focus');
+                    expect(select.querySelectorAll('option').length).toBe(3); // placeholder + 2
+                    Simulate.focus(select);
+                } catch (err) {
+                    done(err);
+                    return;
+                }
+                setTimeout(() => {
+                    try {
+                        expect(callCount).toBe(2);
+                        const stillThere = container.querySelector('.test-timeseries-focus');
+                        // Previously-fetched options must still be rendered —
+                        // an in-flight background refetch must never clear
+                        // them (the old code's setOptionsByKind was only
+                        // called on resolve, but the DISABLE was the visible
+                        // symptom users hit; this pins the options side too).
+                        expect(stillThere.querySelectorAll('option').length).toBe(3);
+                        expect(stillThere.querySelectorAll('option')[1].textContent).toBe('Row-1');
+                        expect(stillThere.querySelectorAll('option')[2].textContent).toBe('Row-2');
+                        done();
+                    } catch (err) {
+                        done(err);
+                    }
+                }, 20);
+            }, 20);
+        });
+    });
 });

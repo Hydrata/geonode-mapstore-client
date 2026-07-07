@@ -3,28 +3,36 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import {Simulate} from 'react-dom/test-utils';
 import Localized from '@mapstore/framework/components/I18N/Localized';
-import {ScenarioPane, formatBuildLog} from '../scenarioPane';
+import {ScenarioPane, formatBuildLog, meshRegionIsUnattached} from '../scenarioPane';
 const {enData} = require('../../../../../__tests__/fixtures/translations');
 
 /**
  * TASK-C-scenarios-miller Wave 3A — per-category pane assertions.
- * Restructured around the 4 panes (inputs / advanced / runConfig /
- * statusActions) plus the new vertical category rail (Pane 2). The legacy
- * `runLog` category has been folded into Status-and-actions: an inline
- * `ScenarioRunLog` (<pre> auto-scrolled to bottom) renders after the
- * action toolbar instead of a standalone Run log pane.
+ *
+ * TASK-2114 (epic 2111 W2, dogfood findings A+B) — Required/Optional/Run no
+ * longer gate three separate panes behind a tab click: ALL THREE sections
+ * (Inputs, Advanced, Run) now render TOGETHER in one scrollable Pane-3 body,
+ * regardless of `selectedCategoryId` (that prop still drives only which
+ * rail item shows `.is-active` in Pane 2 — see the 'Category rail' block).
+ * Per-selector "selected layer" resource-summary cards are gone entirely
+ * (dogfood finding B) — a dedicated block asserts none render anywhere.
  *
  * Tests cover:
- *   - Category rail: 4 items render across 3 sections (no subhead labels),
- *     click flips selection
- *   - Inputs pane: 4 dropdowns + name input + ALWAYS-rendered resource-summary
- *     cards (empty assignments render an .is-empty placeholder card)
- *   - Advanced pane: 4 dropdowns + optional resource-summary cards
- *   - Run config pane: resolution + duration + compute-backend select
- *   - Status and actions pane: status card + (error strip) + action toolbar
- *     + inline ScenarioRunLog with auto-scroll
+ *   - Category rail: 3 items render across 2 sections (no subhead labels),
+ *     click flips selection (rail is unchanged by the merge)
+ *   - Merged single-panel body: all 3 sections' fields present simultaneously,
+ *     no resource-summary cards anywhere
+ *   - Inputs section: 4 dropdowns + name input
+ *   - Advanced section: 3 dropdowns (network removed)
+ *   - Run section: resolution + duration + compute-backend select + status
+ *     card + (error strip) + inline ScenarioRunLog with auto-scroll (no
+ *     in-pane action toolbar — that lives in the heading, UAT #8)
  *   - Empty pane: renders "Select or create a scenario" placeholder
  *   - Field update dispatch contract via onUpdateScenario
+ *
+ * Read-only-wrapper counts (Wave 3B B4) are scoped to each section's own
+ * `.sv-anuga-scenario-pane-rows-*` wrapper rather than counted document-wide,
+ * since all three sections' fields now coexist in the DOM at once.
  */
 
 const baseScenario = {
@@ -67,116 +75,218 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     });
 
     // ------------------------------------------------------------------
-    // Category rail (Pane 2)
+    // Category rail (Pane 2) — REMOVED (UAT re-aim 2026-07-06, finding 1,
+    // epic 2111 W2 dogfood follow-up). The vertical glance-nav rail is
+    // obsolete now that the pane is one scroll; the form pane (Pane 3)
+    // expands to occupy the freed width. The completeness counts the rail
+    // used to show move into each section's own heading badge instead —
+    // see 'Section-heading completeness badges' below, which reuses
+    // validateCategoryProgress verbatim (finding 2) rather than the rail's
+    // now-deleted derivation copy.
     // ------------------------------------------------------------------
-    describe('Category rail', () => {
-        // TASK-1416: merged 'run' category → rail now has 3 items (inputs/advanced/run).
-        it('renders the vertical category rail with 3 items (TASK-1416: runConfig+statusActions merged)', (done) => {
+    describe('Category rail removed (UAT re-aim, finding 1)', () => {
+        it('does NOT render the vertical category rail or any category-item', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const rail = container.querySelector('.sv-anuga-scenario-category-rail');
-                    expect(rail).toExist();
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    expect(items.length).toBe(3);
+                    expect(container.querySelector('.sv-anuga-scenario-category-rail')).toNotExist();
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-item').length).toBe(0);
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-section').length).toBe(0);
                     done();
                 }
             );
         });
 
-        // TASK-1416: now 2 sections (inputs + run), not 3. No subhead labels.
-        it('renders 2 section group wrappers and zero subhead labels (TASK-1416)', (done) => {
+        it('still renders the merged detail body directly (Pane 3 alone occupies the freed width)', (done) => {
             ReactDOM.render(
-                <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} />,
+                <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
-                    const sections = container.querySelectorAll('.sv-anuga-scenario-category-section');
-                    expect(sections.length).toBe(2);
-                    const labels = container.querySelectorAll('.sv-anuga-scenario-category-section-label');
-                    expect(labels.length).toBe(0);
+                    expect(container.querySelector('.sv-anuga-scenario-pane-detail')).toExist();
+                    expect(container.querySelector('#name')).toExist();
                     done();
                 }
             );
         });
+    });
 
-        it('flips is-active on the selected category', (done) => {
+    // ------------------------------------------------------------------
+    // Section-heading completeness badges (UAT re-aim, finding 2) — the
+    // rail's per-category "N/M" / "built" / "100%" tags now render
+    // right-aligned inside each merged-pane section heading, reusing
+    // validateCategoryProgress (scenarioHelpers.js) with the EXACT same
+    // arguments the rail used to pass (including the TASK-2045
+    // boundaryHasFeatures gate) — never re-derived.
+    // ------------------------------------------------------------------
+    describe('Section-heading completeness badges (finding 2)', () => {
+        it('renders the 3 section headings in document order with right-aligned badges', (done) => {
+            // baseScenario: terrain(3)+boundary(4)+inflow(5) all set → Required
+            // 3/3 (is-ok). No friction/structure/mesh_region → Optional 0/3
+            // (advanced never errs, so is-ok too). status 'built' → Run 'built'.
             ReactDOM.render(
-                <ScenarioPane scenario={baseScenario} selectedCategoryId={'run'} />,
+                <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    const active = Array.from(items).filter(t => t.className.includes('is-active'));
-                    expect(active.length).toBe(1);
+                    const heads = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-title');
+                    expect(heads.length).toBe(3);
+                    expect(heads[0].textContent).toInclude('hydrata.anuga.requiredInputs');
+                    expect(heads[1].textContent).toInclude('hydrata.anuga.optionalInputs');
+                    expect(heads[2].textContent).toInclude('hydrata.anuga.run');
+
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges.length).toBe(3);
+                    expect(badges[0].textContent).toBe('3/3');
+                    expect(badges[0].className).toInclude('is-ok');
+                    expect(badges[1].textContent).toBe('0/3');
+                    expect(badges[2].textContent).toBe('built');
                     done();
                 }
             );
         });
 
-        it('clicking a category invokes onSelectCategory', (done) => {
-            let captured = null;
+        it('Run badge shows 100% for a complete scenario (operator UAT example)', (done) => {
             ReactDOM.render(
-                <ScenarioPane
-                    scenario={baseScenario}
-                    selectedCategoryId={'inputs'}
-                    onSelectCategory={(id) => { captured = id; }}
-                />,
+                <ScenarioPane scenario={{...baseScenario, status: 'complete'}} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    // TASK-1416: 3 items: inputs (0), advanced (1), run (2).
-                    items[2].click();
-                    expect(captured).toBe('run');
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[2].textContent).toBe('100%');
+                    expect(badges[2].className).toInclude('is-ok');
                     done();
                 }
             );
         });
 
-        it('Inputs item shows 3/3 tag when terrain + boundary + (inflow OR rainfall) all assigned', (done) => {
-            // Inputs slot count is 3 (terrain + boundary + water-source), with
-            // inflow/rainfall sharing the same slot per validateCategoryProgress.
-            // baseScenario already assigns terrain (3), boundary (4), inflow (5).
-            const s = {...baseScenario, rainfall: 8};
+        it('Required badge reads 0/3 with is-err severity for an empty scenario', (done) => {
             ReactDOM.render(
-                <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
+                <ScenarioPane scenario={{id: 1, name: 'empty'}} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    const inputsTag = items[0].querySelector('.sv-anuga-scenario-category-item-tag');
-                    expect(inputsTag.textContent).toBe('3/3');
-                    expect(inputsTag.className).toInclude('is-ok');
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[0].textContent).toBe('0/3');
+                    expect(badges[0].className).toInclude('is-err');
                     done();
                 }
             );
         });
 
-        it('Inputs item shows 0/3 tag with is-err severity when no inputs assigned', (done) => {
-            const s = {id: 1, name: 'empty'};
-            ReactDOM.render(
-                <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
-                container,
-                () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    const inputsTag = items[0].querySelector('.sv-anuga-scenario-category-item-tag');
-                    expect(inputsTag.textContent).toBe('0/3');
-                    expect(inputsTag.className).toInclude('is-err');
-                    done();
-                }
-            );
-        });
-
-        // TASK-1416: 'run' is now index 2 (statusActions was index 3 before merge).
-        it('Run item shows err tag when scenario.status === error (TASK-1416)', (done) => {
+        it('Run badge reads err severity when scenario.status === error', (done) => {
             const s = {...baseScenario, status: 'error', latest_run: {status: 'error'}};
             ReactDOM.render(
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    // run is index 2 (was statusActions at index 3).
-                    const runTag = items[2].querySelector('.sv-anuga-scenario-category-item-tag');
-                    expect(runTag.textContent).toBe('err');
-                    expect(runTag.className).toInclude('is-err');
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[2].textContent).toBe('err');
+                    expect(badges[2].className).toInclude('is-err');
+                    done();
+                }
+            );
+        });
+
+        // TASK-2045 (moved from the now-deleted scenarioCategoryRail-test.js) —
+        // a boundary must be SELECTED *and* have at least one feature; the
+        // badge must reuse the same boundaryHasFeatures gate the rail did.
+        it('Required badge reads 2/3 (not ready) when the selected boundary has has_features=false (TASK-2045)', (done) => {
+            const s = {...baseScenario, boundary: 42};
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={s}
+                    selectedCategoryId={'inputs'}
+                    boundaries={[{id: 42, title: 'Empty scaffold boundary', has_features: false}]}
+                />,
+                container,
+                () => {
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[0].textContent).toBe('2/3');
+                    done();
+                }
+            );
+        });
+
+        it('Required badge reads 3/3 (backward-safe default) when the boundaries list has not loaded yet', (done) => {
+            const s = {...baseScenario, boundary: 42};
+            ReactDOM.render(
+                <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
+                container,
+                () => {
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[0].textContent).toBe('3/3');
+                    done();
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // TASK-2114 (A+B) — merged single-panel body
+    // ------------------------------------------------------------------
+    describe('Merged single-panel body (TASK-2114)', () => {
+        it('renders Inputs, Advanced and Run fields simultaneously regardless of selectedCategoryId', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    // Deliberately 'advanced' — under the OLD tab-gated pane this
+                    // would have hidden #terrain and #resolution. The merge means
+                    // every field renders no matter which rail item is "selected".
+                    selectedCategoryId={'advanced'}
+                    canEdit
+                    terrain={terrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                    frictions={frictionOpts}
+                    structures={structureOpts}
+                    meshRegions={meshRegionOpts}
+                    isSuperuser
+                />,
+                container,
+                () => {
+                    // Inputs
+                    expect(container.querySelector('#name')).toExist();
+                    expect(container.querySelector('#terrain')).toExist();
+                    expect(container.querySelector('#boundary')).toExist();
+                    expect(container.querySelector('#inflow')).toExist();
+                    expect(container.querySelector('#rainfall')).toExist();
+                    // Advanced
+                    expect(container.querySelector('#friction')).toExist();
+                    expect(container.querySelector('#structure')).toExist();
+                    expect(container.querySelector('#mesh_region')).toExist();
+                    // Run
+                    expect(container.querySelector('#resolution')).toExist();
+                    expect(container.querySelector('#duration-hours')).toExist();
+                    expect(container.querySelector('#duration-minutes')).toExist();
+                    expect(container.querySelector('#compute_backend')).toExist();
+                    done();
+                }
+            );
+        });
+
+        // The 3-heading document-order assertion (+ its badges) now lives in
+        // 'Section-heading completeness badges (finding 2)' above, next to
+        // the rest of the badge coverage it was split off to avoid.
+
+        // Dogfood finding B — the per-selector "selected layer" confirmation
+        // card is removed; the native <select>'s own displayed value is the
+        // only indication of what's chosen.
+        it('does NOT render any .sv-anuga-scenario-resource-summary card anywhere in the pane', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'inputs'}
+                    canEdit
+                    terrain={terrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                    frictions={frictionOpts}
+                    structures={structureOpts}
+                    meshRegions={meshRegionOpts}
+                />,
+                container,
+                () => {
+                    expect(container.querySelectorAll('.sv-anuga-scenario-resource-summary').length).toBe(0);
                     done();
                 }
             );
@@ -210,34 +320,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('renders a resource-summary card under EVERY input dropdown (empty placeholders included)', (done) => {
-            ReactDOM.render(
-                <ScenarioPane
-                    scenario={baseScenario}
-                    selectedCategoryId={'inputs'}
-                    canEdit
-                    terrain={terrainOpts}
-                    boundaries={boundaryOpts}
-                    inflows={inflowOpts}
-                    rainfalls={rainfallOpts}
-                />,
-                container,
-                () => {
-                    // ScenarioPane now always renders a ScenarioResourceSummary card
-                    // (even when unassigned) so the layout is stable while the user
-                    // picks values. baseScenario assigns terrain/boundary/inflow but
-                    // not rainfall → 4 cards total, last one .is-empty with a "—"
-                    // placeholder body.
-                    const cards = container.querySelectorAll('.sv-anuga-scenario-resource-summary');
-                    expect(cards.length).toBe(4);
-                    expect(cards[3].className).toInclude('is-empty');
-                    const placeholder = cards[3].querySelector('.sv-anuga-scenario-resource-summary-placeholder');
-                    expect(placeholder).toExist();
-                    expect(placeholder.textContent).toBe('—');
-                    done();
-                }
-            );
-        });
+        // TASK-2114 (dogfood finding B) — the per-selector resource-summary card
+        // is removed; coverage that NO such card renders anywhere lives in the
+        // 'Merged single-panel body' block above (it's no longer an Inputs-only
+        // concern once Advanced's friction/structure/mesh_region also drop theirs).
 
         // TASK-2083 (epic 2077) — inflow-row empty-state helper. Explains that
         // an Inflow (the layer) can hold multiple inflow locations (features
@@ -256,7 +342,13 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     />,
                     container,
                     () => {
-                        const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                        // TASK-2114 — scoped to the Inputs rows wrapper: the Run
+                        // section's runConfigHelp text (always present now that
+                        // sections no longer gate on selectedCategoryId) shares
+                        // the same generic .sv-anuga-scenario-pane-help class.
+                        const help = container.querySelector(
+                            '.sv-anuga-scenario-pane-rows-inputs .sv-anuga-scenario-pane-help'
+                        );
                         expect(help).toExist();
                         expect(help.textContent).toInclude('hydrata.anuga.inflowMultiLocationHelp');
                         done();
@@ -277,7 +369,12 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     />,
                     container,
                     () => {
-                        const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                        // TASK-2114 — scoped to Inputs; the Run section's own
+                        // (unrelated) help text still renders elsewhere in the
+                        // merged panel.
+                        const help = container.querySelector(
+                            '.sv-anuga-scenario-pane-rows-inputs .sv-anuga-scenario-pane-help'
+                        );
                         expect(help).toNotExist();
                         done();
                     }
@@ -442,8 +539,12 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     />,
                     container,
                     () => {
+                        // TASK-2114 — scoped to the Inputs section's own rows
+                        // wrapper: Advanced + Run now coexist in the DOM (their
+                        // fields are ALSO .is-readonly when canEdit=false), so a
+                        // document-wide count would no longer isolate Inputs alone.
                         const readonlyWrappers = container.querySelectorAll(
-                            '.sv-anuga-scenario-pane-field.is-readonly'
+                            '.sv-anuga-scenario-pane-rows-inputs .sv-anuga-scenario-pane-field.is-readonly'
                         );
                         // name + terrain + boundary + inflow + rainfall = 5 wrappers.
                         expect(readonlyWrappers.length).toBe(5);
@@ -535,6 +636,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             it('tags Run config wrappers with .is-readonly when canEdit=false (superuser sees 3, non-su sees 2)', (done) => {
                 // TASK-1415: compute_backend only rendered for superusers.
                 // Non-superuser: resolution + duration = 2 wrappers.
+                // TASK-2114 — scoped to the Run-config rows wrapper so Inputs'
+                // and Advanced's now-coexisting .is-readonly wrappers don't
+                // inflate the count.
                 ReactDOM.render(
                     <ScenarioPane
                         scenario={baseScenario}
@@ -544,7 +648,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     container,
                     () => {
                         const readonlyWrappers = container.querySelectorAll(
-                            '.sv-anuga-scenario-pane-field.is-readonly'
+                            '.sv-anuga-scenario-pane-rows-run-config .sv-anuga-scenario-pane-field.is-readonly'
                         );
                         // resolution + duration = 2 wrappers (compute_backend hidden for non-superuser).
                         expect(readonlyWrappers.length).toBe(2);
@@ -639,7 +743,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('does NOT render resolution or duration (these moved to Run config)', (done) => {
+        // TASK-2114 — resolution/duration now DO render on the page (the merge
+        // stacks every section), but they still structurally belong to Run,
+        // not Advanced: scope the query to Advanced's own rows wrapper.
+        it('does NOT render resolution or duration inside the Advanced section (they live in Run config)', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
@@ -648,12 +755,70 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('#resolution')).toNotExist();
-                    expect(container.querySelector('#duration-hours')).toNotExist();
-                    expect(container.querySelector('#duration-minutes')).toNotExist();
+                    const advanced = container.querySelector('.sv-anuga-scenario-pane-rows-advanced');
+                    expect(advanced).toExist();
+                    expect(advanced.querySelector('#resolution')).toNotExist();
+                    expect(advanced.querySelector('#duration-hours')).toNotExist();
+                    expect(advanced.querySelector('#duration-minutes')).toNotExist();
+                    // ...but the merged panel as a whole does render them (Run section).
+                    expect(container.querySelector('#resolution')).toExist();
                     done();
                 }
             );
+        });
+
+        // TASK-2116 (F4) — drawn-but-unattached MeshRegion hint. 3 states per AC4.
+        describe('MeshRegion unattached hint (TASK-2116)', () => {
+            it('renders the hint naming the region when ≥1 drawn region exists and mesh_region is null', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, mesh_region: null}}
+                        selectedCategoryId={'advanced'}
+                        canEdit
+                        meshRegions={meshRegionOpts}
+                    />,
+                    container,
+                    () => {
+                        const hint = container.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint');
+                        expect(hint).toExist();
+                        expect(hint.getAttribute('role')).toBe('status');
+                        expect(hint.textContent).toInclude('hydrata.anuga.meshRegionUnattachedHint');
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint when no mesh regions are drawn in the project', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, mesh_region: null}}
+                        selectedCategoryId={'advanced'}
+                        canEdit
+                        meshRegions={[]}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint once a drawn mesh region is attached to the scenario', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, mesh_region: 9}}
+                        selectedCategoryId={'advanced'}
+                        canEdit
+                        meshRegions={meshRegionOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
         });
     });
 
@@ -1100,14 +1265,15 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // TASK-1416: merged 'run' category → 3 items now.
-        it('still renders the category rail when scenario is null (so user can browse)', (done) => {
+        // UAT re-aim finding 1 — the rail is gone entirely now, including
+        // when no scenario is selected (there is nothing left to browse a
+        // category of).
+        it('does NOT render a category rail when scenario is null (rail removed)', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={null} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
-                    expect(items.length).toBe(3);
+                    expect(container.querySelectorAll('.sv-anuga-scenario-category-item').length).toBe(0);
                     done();
                 }
             );
@@ -1181,6 +1347,33 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 }
             );
         });
+    });
+});
+
+// ------------------------------------------------------------------
+// TASK-2116 (F4) — meshRegionIsUnattached pure-predicate unit tests
+// ------------------------------------------------------------------
+describe('meshRegionIsUnattached (TASK-2116)', () => {
+    const regions = [{id: 9, title: 'Corridor 10m'}];
+
+    it('is false when no mesh regions are drawn (empty array)', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, [])).toBe(false);
+    });
+
+    it('is false when meshRegions is undefined/absent', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, undefined)).toBe(false);
+    });
+
+    it('is true when regions are drawn and mesh_region is null', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, regions)).toBe(true);
+    });
+
+    it('is true when regions are drawn and mesh_region is absent entirely', () => {
+        expect(meshRegionIsUnattached({}, regions)).toBe(true);
+    });
+
+    it('is false once mesh_region is attached', () => {
+        expect(meshRegionIsUnattached({mesh_region: 9}, regions)).toBe(false);
     });
 });
 
