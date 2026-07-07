@@ -8,7 +8,9 @@ import {
     pollProcessListEpic,
     loadProcessDetailEpic,
     cancelProcessEpic,
-    terrainExportEpic
+    terrainExportEpic,
+    trackTaskMonitorPanelToggleEpic,
+    trackTerminalStatusSeenEpic
 } from './epicsTaskMonitor';
 
 // Combined reducer
@@ -28,6 +30,8 @@ export default createPlugin('TaskMonitor', {
         pollProcessListEpic,
         loadProcessDetailEpic,
         cancelProcessEpic,
-        terrainExportEpic
+        terrainExportEpic,
+        trackTaskMonitorPanelToggleEpic,
+        trackTerminalStatusSeenEpic
     }
 });

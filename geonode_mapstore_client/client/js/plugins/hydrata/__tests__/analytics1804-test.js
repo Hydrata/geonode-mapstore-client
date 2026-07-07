@@ -36,14 +36,30 @@ function mockActions(actions) {
 
 /**
  * Collect all window.umami.track calls during a test.
+ *
+ * Supports BOTH umami.track call shapes used in this codebase:
+ *   - trackEvent(category, action, label) -> umami.track(label, {category, action})
+ *   - trackPageview(url)                  -> umami.track((props) => ({...props, url}))
+ *     (TASK-2141 — Umami's documented SPA pageview pattern: a callback that
+ *     overrides only `url` on the auto-collected payload.)
  */
 function makeUmamiSpy() {
     const calls = [];
     const origUmami = window.umami;
-    window.umami = { track: (label, payload) => calls.push({ label, ...payload }) };
+    window.umami = {
+        track: (labelOrFn, payload) => {
+            if (typeof labelOrFn === 'function') {
+                const props = labelOrFn({});
+                calls.push({ ...props });
+            } else {
+                calls.push({ label: labelOrFn, ...payload });
+            }
+        }
+    };
     return {
         calls,
-        labels: () => calls.map(c => c.label),
+        labels: () => calls.map(c => c.label).filter((l) => l !== undefined),
+        urls: () => calls.map(c => c.url).filter((u) => u !== undefined),
         restore: () => { window.umami = origUmami; }
     };
 }
@@ -422,5 +438,136 @@ describe('TASK-1804 analytics — IDF derive', () => {
             },
             err => done(err)
         );
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK-2140 — outcome events (Intent-vs-Outcome taxonomy, epic TASK-2129 W2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// (a) ANUGA run terminal-state observed — anuga-run-terminal-{complete,error,cancelled}
+describe('TASK-2140 (a) analytics — ANUGA run terminal-state observed', () => {
+    const { pollActiveRunStatusEpic } = require('../Anuga/epics/pollingEpics');
+    const { START_ACTIVE_RUN_POLLING } = require('../Anuga/actions/pollingActions');
+
+    let mock;
+    let spy;
+
+    beforeEach(() => {
+        mock = mockAxios();
+        spy = makeUmamiSpy();
+    });
+
+    afterEach(() => {
+        spy.restore();
+    });
+
+    it('test_run_terminal_fires_anuga_run_terminal_complete', (done) => {
+        mock.onGet('/api/v2/anuga/runs/501/status/').reply(200, { status: 'complete' });
+        const action$ = mockActions([{ type: START_ACTIVE_RUN_POLLING, runId: 501 }]);
+        const sub = pollActiveRunStatusEpic(action$, { getState: () => ({ anuga: { scenarios: { byId: {} } } }) })
+            .subscribe(
+                () => {
+                    if (spy.labels().indexOf('anuga-run-terminal-complete') !== -1) {
+                        sub.unsubscribe();
+                        done();
+                    }
+                },
+                err => done(err)
+            );
+    });
+
+    it('test_run_terminal_fires_anuga_run_terminal_error', (done) => {
+        mock.onGet('/api/v2/anuga/runs/502/status/').reply(200, { status: 'error' });
+        const action$ = mockActions([{ type: START_ACTIVE_RUN_POLLING, runId: 502 }]);
+        const sub = pollActiveRunStatusEpic(action$, { getState: () => ({ anuga: { scenarios: { byId: {} } } }) })
+            .subscribe(
+                () => {
+                    if (spy.labels().indexOf('anuga-run-terminal-error') !== -1) {
+                        sub.unsubscribe();
+                        done();
+                    }
+                },
+                err => done(err)
+            );
+    });
+
+    it('test_run_non_terminal_status_does_not_fire_a_terminal_label', (done) => {
+        mock.onGet('/api/v2/anuga/runs/503/status/').reply(200, { status: 'running' });
+        const action$ = mockActions([{ type: START_ACTIVE_RUN_POLLING, runId: 503 }]);
+        // No terminal status arrives — this epic's timer/take(cap) stream
+        // never completes on its own here, so assert on a short timer rather
+        // than in the subscribe callback (a throw inside next() would not
+        // reliably surface as a mocha failure).
+        const sub = pollActiveRunStatusEpic(action$, { getState: () => ({ anuga: { scenarios: { byId: {} } } }) })
+            .subscribe(() => {}, err => done(err));
+        setTimeout(() => {
+            sub.unsubscribe();
+            try {
+                expect(spy.labels().some((l) => l.indexOf('anuga-run-terminal-') === 0)).toBe(false);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, 300);
+    });
+});
+
+// (b) TaskMonitor panel open/close + terminal-status-seen
+describe('TASK-2140 (b) analytics — TaskMonitor panel toggle + terminal-status-seen', () => {
+    const {
+        trackTaskMonitorPanelToggleEpic,
+        trackTerminalStatusSeenEpic,
+        __resetTerminalSeenForTests
+    } = require('../TaskMonitor/epicsTaskMonitor');
+    const { TM_TOGGLE_PANEL, TM_SET_PROCESSES } = require('../TaskMonitor/actionsTaskMonitor');
+
+    let spy;
+
+    beforeEach(() => {
+        spy = makeUmamiSpy();
+        __resetTerminalSeenForTests();
+    });
+
+    afterEach(() => {
+        spy.restore();
+    });
+
+    it('test_panel_toggle_fires_open_then_close', (done) => {
+        const action$ = mockActions([
+            { type: TM_TOGGLE_PANEL, open: true },
+            { type: TM_TOGGLE_PANEL, open: false }
+        ]);
+        trackTaskMonitorPanelToggleEpic(action$)
+            .subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    expect(spy.labels()).toEqual(['taskmonitor-panel-toggle', 'taskmonitor-panel-toggle']);
+                    expect(spy.calls[0].action).toBe('open');
+                    expect(spy.calls[1].action).toBe('close');
+                    done();
+                }
+            );
+    });
+
+    it('test_terminal_status_seen_fires_once_per_process_id_despite_repeat_polls', (done) => {
+        const action$ = mockActions([
+            { type: TM_SET_PROCESSES, processes: [{ id: 'p1', status: 'complete' }, { id: 'p2', status: 'running' }] },
+            // Same p1 re-arrives on the next poll tick (still 'complete') —
+            // must NOT re-fire; p2 transitions to 'error' — must fire once.
+            { type: TM_SET_PROCESSES, processes: [{ id: 'p1', status: 'complete' }, { id: 'p2', status: 'error' }] }
+        ]);
+        trackTerminalStatusSeenEpic(action$)
+            .subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    const labels = spy.labels();
+                    expect(labels.filter((l) => l === 'taskmonitor-process-terminal-complete').length).toBe(1);
+                    expect(labels.filter((l) => l === 'taskmonitor-process-terminal-error').length).toBe(1);
+                    done();
+                }
+            );
     });
 });

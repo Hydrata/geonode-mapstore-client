@@ -128,10 +128,11 @@ describe('ANUGA Epics', () => {
                 );
         });
 
-        // v1 contract lock — both epics emit nothing for now. VectorDraw's
+        // v2 (TASK-2140c) — still emits NO Redux actions (VectorDraw's
         // vectorDrawSaveEpic already dispatches refreshLayerVersion on save
-        // success, so no extra work is required from these handlers.
-        it('vectorDrawAnugaCompleteEpic emits nothing (v1 contract)', (done) => {
+        // success). The epic now ALSO fires a trackEvent side effect — see
+        // the dedicated Umami-spy test below for that assertion.
+        it('vectorDrawAnugaCompleteEpic emits nothing (Redux contract unchanged)', (done) => {
             const action$ = mockActions([
                 { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'bdy_' }, fid: 'feature.1' },
                 { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'fri_' }, fid: 'feature.2' }
@@ -144,6 +145,36 @@ describe('ANUGA Epics', () => {
                     err => done(err),
                     () => {
                         expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+
+        // TASK-2140 (c) — geometry save-success OUTCOME event. Verifies the
+        // trackEvent side effect fires once per completion with a
+        // low-cardinality, prefix-derived label.
+        it('vectorDrawAnugaCompleteEpic fires anuga-vector-draw-save-<prefix> per completion', (done) => {
+            const origUmami = window.umami;
+            const calls = [];
+            window.umami = { track: (label, payload) => calls.push({ label, ...payload }) };
+
+            const action$ = mockActions([
+                { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'inf_' }, fid: 'feature.1' },
+                { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'rai_' }, fid: 'feature.2' },
+                { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'mes_' }, fid: 'feature.3' }
+            ]);
+
+            vectorDrawAnugaCompleteEpic(action$)
+                .subscribe(
+                    () => {},
+                    err => { window.umami = origUmami; done(err); },
+                    () => {
+                        window.umami = origUmami;
+                        const labels = calls.map(c => c.label);
+                        expect(labels).toInclude('anuga-vector-draw-save-inf');
+                        expect(labels).toInclude('anuga-vector-draw-save-rai');
+                        expect(labels).toInclude('anuga-vector-draw-save-mes');
+                        expect(calls.length).toBe(3);
                         done();
                     }
                 );
