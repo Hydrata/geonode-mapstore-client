@@ -30,6 +30,7 @@ import axios from "../../../../MapStore2/web/client/libs/ajax";
 import { terrainExport } from '../TaskMonitor/actionsTaskMonitor';
 import { getProjectId } from '../Anuga/selectorsAnuga';
 import { trackPageview } from '@js/utils/analytics';
+import { SET_ANUGA_INPUT_MENU, SET_ANUGA_SCENARIO_MENU } from '../Anuga/actionsAnuga';
 
 
 export const beginEditLayerEpic = (action$) =>
@@ -146,53 +147,66 @@ export const svDownloadLayerEpic = (action$, store) =>
 
 // TASK-2141 (a) — SPA virtual pageviews. MapStore is a hash-routed SPA:
 // LOCATION_CHANGE (connected-react-router) fires on every hash-route change
-// (e.g. dashboard -> map viewer, or between maps); SET_OPEN_MENU_GROUP_ID is
-// the SAME action type SimpleView/Anuga/Swamm/Hydrology dispatch on a panel
-// switch — a pure-Redux transition that never touches window.location.
-// Without the second trigger, a multi-hour session parked on one map/route
-// stays ONE Umami pageview for its whole lifetime (the 07-06 forensics finding).
+// (dashboard -> map viewer, or between maps). A pure-Redux PANEL switch never
+// touches window.location, so without extra triggers a multi-hour session
+// parked on one map stays ONE Umami pageview for its lifetime (07-06 forensics).
 //
-// PANEL DISCRIMINATION (W2 red-team): only the Results group dispatches a real
-// openMenuGroupId; the Anuga Inputs/Scenarios toolbars dispatch
-// setOpenMenuGroupId(null) (their open-state lives in separate booleans
-// setAnugaInputMenu / setAnugaScenarioMenu), so those emit panel=none and are
-// NOT individually distinguished here. Per-panel Inputs/Scenarios discrimination
-// would require also listening to those two actions — deferred (operator call).
+// PANEL DISCRIMINATION (W2 red-team fix, operator-approved): the Results group
+// is the only one that dispatches a real openMenuGroupId; the Anuga
+// Inputs/Scenarios toolbar buttons dispatch setOpenMenuGroupId(null) PLUS a
+// separate boolean action (setAnugaInputMenu / setAnugaScenarioMenu carrying
+// {visible}). So we fire panel=Inputs/Scenarios off those two boolean actions
+// (on OPEN only), panel=<id> off a truthy SET_OPEN_MENU_GROUP_ID (Results), and
+// SUPPRESS the null-group case entirely — it is only ever the side-effect of the
+// Inputs/Scenarios toggles above or a close-all, so firing panel=none there
+// would double-count. The Hydrology/Networks toggle carries its own
+// trackEvent('button','click','hydrology-main-menu-toggle') and is intentionally
+// not a panel pageview.
 //
-// URL FORM: both branches emit the clean logical hash-route WITHOUT the leading
-// '#' (LOCATION_CHANGE uses the action's already-parsed pathname; the panel
-// branch strips '#' off window.location.hash) so Umami groups every event for
-// one map under one path, with the panel as a ?panel= query suffix.
+// URL FORM: every branch emits the clean logical hash-route WITHOUT the leading
+// '#' (LOCATION_CHANGE uses the action's already-parsed pathname; panel branches
+// strip '#' off window.location.hash) so Umami groups one map under one path,
+// with the panel as a ?panel= query suffix.
 //
-// NOTE (W2 red-team, pending the UAT metric-semantics call): connected-react-
-// router also dispatches an initial LOCATION_CHANGE (isFirstRendering=true) on
-// mount, so a hard page-load currently emits this virtual route pageview IN
-// ADDITION to Umami's own automatic initial pageview. Guarding isFirstRendering
-// would drop the double-count but re-blind the entry hash-route (the original
-// problem); left as-is pending the operator's decision at the gate.
+// NOTE (W2 red-team, ACCEPTED as-is by the operator): connected-react-router
+// also dispatches an initial LOCATION_CHANGE (isFirstRendering=true) on mount,
+// so a hard page-load emits this virtual route pageview in addition to Umami's
+// own automatic initial pageview. Kept as-is: firing the real entry hash-route
+// is the valuable signal; the extra constant '/' pageview is a filterable
+// artifact (guarding isFirstRendering would re-blind the entry route).
 export const trackVirtualPageviewEpic = (action$) =>
     action$
-        .ofType(LOCATION_CHANGE, SET_OPEN_MENU_GROUP_ID)
+        .ofType(LOCATION_CHANGE, SET_OPEN_MENU_GROUP_ID, SET_ANUGA_INPUT_MENU, SET_ANUGA_SCENARIO_MENU)
         .mergeMap((action) => {
             if (action.type === LOCATION_CHANGE) {
-                // MapStore's history is createHashHistory (stores/History.js) —
-                // action.payload.location.pathname IS ALREADY the full logical
-                // hash-route (no leading '#'). Use the action's own pathname;
-                // fall back to window.location only if the shape is missing it.
+                // createHashHistory: action.payload.location.pathname IS ALREADY
+                // the full logical hash-route (no leading '#').
                 const pathname = action.payload?.location?.pathname
                     || (typeof window !== 'undefined' && window.location.pathname)
                     || '/';
                 trackPageview(pathname);
                 return Rx.Observable.empty();
             }
-            // SET_OPEN_MENU_GROUP_ID carries no location info — reconstruct the
-            // current logical hash-route by stripping the leading '#' (and any
-            // pre-existing query) off window.location.hash so it MATCHES the
-            // LOCATION_CHANGE form ('/viewer/123', NOT '/#/viewer/123'), then
-            // append the panel as a ?panel= query suffix.
+            // Resolve the panel name; fire only on a real OPEN. A null/closed
+            // panel resolves to null and is suppressed (no pageview).
+            let panel = null;
+            if (action.type === SET_ANUGA_INPUT_MENU) {
+                panel = action.visible ? 'Inputs' : null;
+            } else if (action.type === SET_ANUGA_SCENARIO_MENU) {
+                panel = action.visible ? 'Scenarios' : null;
+            } else {
+                // SET_OPEN_MENU_GROUP_ID: a truthy id (e.g. 'Results') is a real
+                // open; null is a toggle side-effect / close-all -> suppress.
+                panel = action.openMenuGroupId || null;
+            }
+            if (!panel) {
+                return Rx.Observable.empty();
+            }
+            // Same clean hash-route form as the LOCATION_CHANGE branch, with the
+            // panel as a ?panel= suffix (strip leading '#' and any prior query).
             const rawHash = (typeof window !== 'undefined' && window.location.hash) || '';
             const hashRoute = rawHash.replace(/^#/, '').split('?')[0]
                 || (typeof window !== 'undefined' && window.location.pathname) || '/';
-            trackPageview(`${hashRoute}?panel=${action.openMenuGroupId || 'none'}`);
+            trackPageview(`${hashRoute}?panel=${panel}`);
             return Rx.Observable.empty();
         });

@@ -579,6 +579,7 @@ describe('TASK-2141 (a) analytics — SPA virtual pageviews', () => {
     const { trackVirtualPageviewEpic } = require('../SimpleView/epicsSimpleView');
     const { LOCATION_CHANGE } = require('connected-react-router');
     const { SET_OPEN_MENU_GROUP_ID } = require('../SimpleView/actionsSimpleView');
+    const { SET_ANUGA_INPUT_MENU, SET_ANUGA_SCENARIO_MENU } = require('../Anuga/actionsAnuga');
 
     let spy;
 
@@ -643,6 +644,75 @@ describe('TASK-2141 (a) analytics — SPA virtual pageviews', () => {
                     expect(urls.some((u) => u.indexOf('/viewer/42?panel=Results') !== -1)).toBe(true);
                     expect(urls.every((u) => u.indexOf('/#/') === -1)).toBe(true);
                     restore();
+                    done();
+                }
+            );
+    });
+
+    // F2 (W2 red-team, operator-approved): real per-panel discrimination for the
+    // Anuga Inputs/Scenarios toolbars (which dispatch a separate {visible} boolean
+    // action, not a group id), and suppression of the null-group double-fire.
+    it('test_anuga_input_menu_open_fires_panel_inputs', (done) => {
+        const action$ = mockActions([
+            { type: SET_ANUGA_INPUT_MENU, visible: true }
+        ]);
+        trackVirtualPageviewEpic(action$)
+            .subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    expect(spy.urls().some((u) => u.indexOf('panel=Inputs') !== -1)).toBe(true);
+                    done();
+                }
+            );
+    });
+
+    it('test_anuga_scenario_menu_open_fires_panel_scenarios', (done) => {
+        const action$ = mockActions([
+            { type: SET_ANUGA_SCENARIO_MENU, visible: true }
+        ]);
+        trackVirtualPageviewEpic(action$)
+            .subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    expect(spy.urls().some((u) => u.indexOf('panel=Scenarios') !== -1)).toBe(true);
+                    done();
+                }
+            );
+    });
+
+    it('test_anuga_menu_close_fires_no_pageview', (done) => {
+        const action$ = mockActions([
+            { type: SET_ANUGA_INPUT_MENU, visible: false }
+        ]);
+        trackVirtualPageviewEpic(action$)
+            .subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    expect(spy.urls().length).toBe(0);
+                    done();
+                }
+            );
+    });
+
+    it('test_null_open_menu_group_is_suppressed_no_double_fire', (done) => {
+        // Opening Inputs dispatches SET_ANUGA_INPUT_MENU(true) THEN
+        // setOpenMenuGroupId(null); only the first must fire (no panel=none dup).
+        const action$ = mockActions([
+            { type: SET_ANUGA_INPUT_MENU, visible: true },
+            { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: null }
+        ]);
+        trackVirtualPageviewEpic(action$)
+            .subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    const urls = spy.urls();
+                    expect(urls.length).toBe(1);
+                    expect(urls[0].indexOf('panel=Inputs') !== -1).toBe(true);
+                    expect(urls.some((u) => u.indexOf('panel=none') !== -1)).toBe(false);
                     done();
                 }
             );
