@@ -158,16 +158,29 @@ export const trackVirtualPageviewEpic = (action$) =>
     action$
         .ofType(LOCATION_CHANGE, SET_OPEN_MENU_GROUP_ID)
         .mergeMap((action) => {
-            const basePath = (action.type === LOCATION_CHANGE && action.payload?.location?.pathname)
-                || (typeof window !== 'undefined' && window.location.pathname)
-                || '/';
+            if (action.type === LOCATION_CHANGE) {
+                // Phase 1.7 review fix: MapStore's history is createHashHistory
+                // (stores/History.js) — action.payload.location.pathname IS
+                // ALREADY the full logical hash-route (no leading '#'). Also
+                // appending window.location.hash (the raw '#/viewer/123' string)
+                // duplicated the same route info onto itself
+                // ('/viewer/123#/viewer/123'). Use the action's own pathname
+                // alone; fall back to window.location only if the action shape
+                // is ever missing it.
+                const pathname = action.payload?.location?.pathname
+                    || (typeof window !== 'undefined' && window.location.pathname)
+                    || '/';
+                trackPageview(pathname);
+                return Rx.Observable.empty();
+            }
+            // SET_OPEN_MENU_GROUP_ID carries no location info — reconstruct
+            // the current hash-route from window.location (the browser's
+            // physical pathname stays '/' for a hash-routed SPA; the route
+            // itself lives in window.location.hash) and append the panel as a
+            // query-suffix (not a second '#') so it stays parseable by Umami's
+            // path/query dimensions instead of colliding with the route hash.
+            const basePath = (typeof window !== 'undefined' && window.location.pathname) || '/';
             const hash = (typeof window !== 'undefined' && window.location.hash) || '';
-            // Query-suffix (not a second '#') so the virtual pageview stays
-            // parseable by Umami's path/query dimensions instead of colliding
-            // with the real route hash.
-            const url = action.type === SET_OPEN_MENU_GROUP_ID
-                ? `${basePath}${hash}?panel=${action.openMenuGroupId || 'none'}`
-                : `${basePath}${hash}`;
-            trackPageview(url);
+            trackPageview(`${basePath}${hash}?panel=${action.openMenuGroupId || 'none'}`);
             return Rx.Observable.empty();
         });
