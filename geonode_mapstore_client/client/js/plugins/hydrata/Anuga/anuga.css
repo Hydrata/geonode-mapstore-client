@@ -97,7 +97,7 @@
     text-overflow: ellipsis ellipsis;
     overflow: hidden;
     border: white;
-    text-align: center;
+    text-align: left;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.22));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
@@ -1008,6 +1008,13 @@ div that holds the feature-grid */
 .sv-anuga-panel.sv-anuga-scenario-miller {
     width: 920px;
     max-width: 96vw;
+    /* Operator polish (2026-07-07): every row of the Scenarios panel reads
+       left-justified — overrides the .simple-view-panel base
+       text-align:center for the whole miller (rail + detail pane). The
+       double-class selector out-specifies the base rule regardless of
+       stylesheet order. Pills/badges keep their own internal centering via
+       their per-class rules; native button labels stay centered (UA style). */
+    text-align: left;
 }
 
 /* Keep the scenarios rail vertical at narrow viewports — each rail item
@@ -1731,14 +1738,15 @@ div that holds the feature-grid */
     font-style: italic;
 }
 
-/* UAT #8 — always-visible run-action strip on the right of the Scenarios
-   heading. Renders directly beneath the header row (a sibling of the
-   New/Compare/Duplicate cluster) and is right-aligned so the two clusters read
-   as separate groups. */
+/* UAT #8 — always-visible run-action strip beneath the Scenarios heading.
+   Left-packed (operator polish 2026-07-07): with fixed-width buttons the row
+   no longer fills its width, so it reads with the panel's left-justified flow;
+   the row split (border-bottom) keeps it distinct from the
+   New/Compare/Duplicate cluster. */
 .sv-scenario-header-run-actions {
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
@@ -1749,14 +1757,16 @@ div that holds the feature-grid */
     margin: 0;
 }
 
-/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3) — every
-   button in this row becomes EQUAL WIDTH, so a short label ("Run") no
-   longer looks visually lighter than a long one ("Build and Run"). All 7
+/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3), then
+   operator polish (2026-07-07): every button in this row shares one FIXED
+   target width (so a sparse row — e.g. read-only View Results + Download —
+   never stretches its buttons across the panel), while still shrinking
+   equally when a crowded owner row would otherwise overflow. All the
    button variants (View Results / Build / Build-and-Run / Run / Retry /
    Rerun / Download / Archive / Unarchive / Delete / Cancel-run) already
    shared this hook class before this change — extended, not invented. */
 .sv-scenario-header-run-actions .sv-scenario-action-toolbar-btn {
-    flex: 1 1 0;
+    flex: 0 1 150px;
     min-width: 92px;
     text-align: center;
 }

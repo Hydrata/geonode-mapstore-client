@@ -456,7 +456,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
     // now render their existing Message text (btnArchive / btnRestore /
     // btnDelete / btnCancelRun — the SAME msgIds the confirm dialog already
     // used, not new strings) instead of a bare glyph.
-    describe('Icon-free, equal-width action row (UAT re-aim, finding 3)', () => {
+    describe('Icon-free, fixed-width action row (UAT re-aim finding 3; operator polish 2026-07-07)', () => {
         it('renders no .glyphicon anywhere inside the strip', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
@@ -589,7 +589,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('every rendered action-row button shares the equal-width hook class .sv-scenario-action-toolbar-btn', (done) => {
+        it('every rendered action-row button shares the fixed-width hook class .sv-scenario-action-toolbar-btn', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={{...baseScenario, status: 'built'}}
