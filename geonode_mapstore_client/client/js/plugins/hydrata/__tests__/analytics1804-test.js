@@ -571,3 +571,95 @@ describe('TASK-2140 (b) analytics — TaskMonitor panel toggle + terminal-status
             );
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK-2141 (a) — SPA virtual pageviews
+// ═══════════════════════════════════════════════════════════════════════════
+describe('TASK-2141 (a) analytics — SPA virtual pageviews', () => {
+    const { trackVirtualPageviewEpic } = require('../SimpleView/epicsSimpleView');
+    const { LOCATION_CHANGE } = require('connected-react-router');
+    const { SET_OPEN_MENU_GROUP_ID } = require('../SimpleView/actionsSimpleView');
+
+    let spy;
+
+    beforeEach(() => {
+        spy = makeUmamiSpy();
+    });
+
+    afterEach(() => {
+        spy.restore();
+    });
+
+    it('test_location_change_fires_a_virtual_pageview', (done) => {
+        const action$ = mockActions([
+            { type: LOCATION_CHANGE, payload: { location: { pathname: '/viewer/new' } } }
+        ]);
+        trackVirtualPageviewEpic(action$)
+            .subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    expect(spy.urls().some((u) => u.indexOf('/viewer/new') === 0)).toBe(true);
+                    done();
+                }
+            );
+    });
+
+    it('test_panel_switch_fires_a_distinct_virtual_pageview_per_group', (done) => {
+        const action$ = mockActions([
+            { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'Scenarios' },
+            { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'Results' }
+        ]);
+        trackVirtualPageviewEpic(action$)
+            .subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    const urls = spy.urls();
+                    expect(urls.some((u) => u.indexOf('panel=Scenarios') !== -1)).toBe(true);
+                    expect(urls.some((u) => u.indexOf('panel=Results') !== -1)).toBe(true);
+                    done();
+                }
+            );
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// analytics.js — direct unit coverage (trackEvent 3-arg contract, trackPageview)
+// ═══════════════════════════════════════════════════════════════════════════
+describe('analytics.js — trackEvent / trackPageview', () => {
+    const { trackEvent, trackPageview } = require('../../../utils/analytics');
+
+    let spy;
+
+    beforeEach(() => {
+        spy = makeUmamiSpy();
+    });
+
+    afterEach(() => {
+        spy.restore();
+    });
+
+    it('trackEvent silently drops a 4th argument (documented 3-arg contract)', () => {
+        trackEvent('button', 'click', 'my-label', 'extra-data-that-is-dropped');
+        expect(spy.calls.length).toBe(1);
+        expect(spy.calls[0].label).toBe('my-label');
+        expect(spy.calls[0].category).toBe('button');
+        expect(spy.calls[0].action).toBe('click');
+    });
+
+    it('trackPageview overrides only url on the auto-collected payload', () => {
+        trackPageview('/some/virtual/route');
+        expect(spy.calls.length).toBe(1);
+        expect(spy.calls[0].url).toBe('/some/virtual/route');
+    });
+
+    it('trackEvent/trackPageview are no-ops when window.umami is undefined', () => {
+        spy.restore();
+        const saved = window.umami;
+        delete window.umami;
+        expect(() => trackEvent('button', 'click', 'x')).toNotThrow();
+        expect(() => trackPageview('/x')).toNotThrow();
+        window.umami = saved;
+    });
+});

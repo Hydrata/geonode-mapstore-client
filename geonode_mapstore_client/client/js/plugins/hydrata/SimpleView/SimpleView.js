@@ -6,7 +6,8 @@ import {
     updateDatasetTitleEpic,
     svDownloadLayerEpic,
     submitAttributeFormEpic,
-    submitSimpleViewAttributeFormSuccessEpic
+    submitSimpleViewAttributeFormSuccessEpic,
+    trackVirtualPageviewEpic
 } from "./epicsSimpleView";
 
 export default createPlugin('SimpleView', {
@@ -19,6 +20,7 @@ export default createPlugin('SimpleView', {
         updateDatasetTitleEpic,
         svDownloadLayerEpic,
         submitAttributeFormEpic,
-        submitSimpleViewAttributeFormSuccessEpic
+        submitSimpleViewAttributeFormSuccessEpic,
+        trackVirtualPageviewEpic
     }
 });

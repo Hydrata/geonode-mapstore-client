@@ -1,10 +1,12 @@
 import Rx from "rxjs";
+import { LOCATION_CHANGE } from 'connected-react-router';
 
 import {
     UPDATE_DATASET_TITLE,
     SV_DOWNLOAD_LAYER,
     SUBMIT_SV_ATTRIBUTE_FORM,
     SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS,
+    SET_OPEN_MENU_GROUP_ID,
     updateDatasetTitleSuccess,
     submitSimpleViewAttributeFormSuccess,
     setVisibleSimpleViewAttributeForm,
@@ -27,6 +29,7 @@ import axios from "../../../../MapStore2/web/client/libs/ajax";
 // TASK-1651 (W1.5): terrain export routes through Tasks Panel, not WFS dialog.
 import { terrainExport } from '../TaskMonitor/actionsTaskMonitor';
 import { getProjectId } from '../Anuga/selectorsAnuga';
+import { trackPageview } from '@js/utils/analytics';
 
 
 export const beginEditLayerEpic = (action$) =>
@@ -139,4 +142,32 @@ export const svDownloadLayerEpic = (action$, store) =>
                 Rx.Observable.of(selectNode(layer?.id, 'layer')),
                 Rx.Observable.of(download(layer))
             );
+        });
+
+// TASK-2141 (a) — SPA virtual pageviews. MapStore is a hash-routed SPA:
+// LOCATION_CHANGE (connected-react-router) fires on every hash-route change
+// (e.g. dashboard -> map viewer, or between maps); SET_OPEN_MENU_GROUP_ID is
+// the SAME action type SimpleView/Anuga/Swamm/Hydrology all dispatch when the
+// user switches major panel groups (Inputs/Scenarios/Results/Networks) inside
+// a single map — a pure-Redux transition that never touches window.location.
+// Without the second trigger, a multi-hour session parked on one map/route
+// stays ONE Umami pageview for its whole lifetime (the 07-06 forensics
+// finding). Each occurrence fires a virtual pageview exactly once (a plain
+// action-stream map, no polling/dedup needed).
+export const trackVirtualPageviewEpic = (action$) =>
+    action$
+        .ofType(LOCATION_CHANGE, SET_OPEN_MENU_GROUP_ID)
+        .mergeMap((action) => {
+            const basePath = (action.type === LOCATION_CHANGE && action.payload?.location?.pathname)
+                || (typeof window !== 'undefined' && window.location.pathname)
+                || '/';
+            const hash = (typeof window !== 'undefined' && window.location.hash) || '';
+            // Query-suffix (not a second '#') so the virtual pageview stays
+            // parseable by Umami's path/query dimensions instead of colliding
+            // with the real route hash.
+            const url = action.type === SET_OPEN_MENU_GROUP_ID
+                ? `${basePath}${hash}?panel=${action.openMenuGroupId || 'none'}`
+                : `${basePath}${hash}`;
+            trackPageview(url);
+            return Rx.Observable.empty();
         });

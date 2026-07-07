@@ -64,11 +64,30 @@
 <script>
 (function waitForUmami() {
     if (typeof umami !== 'undefined') {
+        // TASK-2141 (b) — synthetic-traffic hygiene. Simple, deliberately NOT
+        // over-engineered bot detection (the nginx ai_type layer already
+        // handles that server-side): a data-tag on the SAME identify() call
+        // so a Umami dashboard filter can exclude automation in one shot.
+        // Mirrors the OpenReplay-side query convention
+        // (`user_browser <> 'HeadlessChrome'`) so both surfaces agree on what
+        // "synthetic" means — see epic TASK-2129 W1/W2 notes.
+        //   - 800x600 is the claude-in-chrome extension's fixed window size.
+        //   - HeadlessChrome / navigator.webdriver catches e2e / Karma-style
+        //     automated browsers (the same signal the OpenReplay convention
+        //     keys on, so both surfaces agree on what "synthetic" means).
+        // Anonymous automation (unauthenticated smoke hits) isn't tagged by
+        // this mechanism since identify() only fires inside this authenticated
+        // block — see W2 wave-agent novel_questions for that residual gap.
+        var isSyntheticViewport = window.innerWidth === 800 && window.innerHeight === 600;
+        var isHeadless = /HeadlessChrome/.test(navigator.userAgent) || navigator.webdriver === true;
         // TASK-2139: STRING-first form so Umami populates distinctId (the
         // object-only form `umami.identify({username})` stores the payload as
         // unqueryable session data and distinctId never populates — the
         // forensics bug). user_id rides in the data object alongside.
-        umami.identify('{{ request.user.username }}', { user_id: {{ request.user.id }} });
+        umami.identify('{{ request.user.username }}', {
+            user_id: {{ request.user.id }},
+            synthetic: isSyntheticViewport || isHeadless
+        });
     } else {
         setTimeout(waitForUmami, 500);
     }
