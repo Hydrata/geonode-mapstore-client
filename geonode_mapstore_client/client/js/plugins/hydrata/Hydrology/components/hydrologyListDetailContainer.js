@@ -680,7 +680,9 @@ class HydrologyListDetailContainerClass extends React.Component {
     }
 
     trackEvent = (page) => {
-        trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
+        // TASK-2139 (c.ii): dropped the stray literal 'tracking ' prefix —
+        // it was baked into the label text with no purpose.
+        trackEvent('button', `click`, `hydrology-page-${page}-button`);
     }
 
 

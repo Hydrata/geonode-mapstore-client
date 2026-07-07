@@ -7,11 +7,13 @@
  */
 import Rx from 'rxjs';
 import * as taskMonitorApi from './api/taskMonitorApi';
+import {trackEvent} from '@js/utils/analytics';
 import {
     TM_START_POLLING,
     TM_STOP_POLLING,
     TM_TOGGLE_PANEL,
     TM_SET_FILTER,
+    TM_SET_PROCESSES,
     TM_CANCEL_PROCESS,
     TM_TERRAIN_EXPORT,
     setProcesses,
@@ -282,3 +284,61 @@ export const terrainExportEpic = (action$) =>
                     })
             );
         });
+
+/**
+ * TASK-2140 (b) — OUTCOME event: Tasks Panel open/close. Every TM_TOGGLE_PANEL
+ * dispatch is a real occurrence (a user click on the button/close-X OR an
+ * upload/build/export flow auto-opening the panel so progress is visible) —
+ * no dedup needed, each toggle fires once. Side-effect only; emits no Redux
+ * actions (v1 contract, matches vectorDrawAnugaCompleteEpic's shape).
+ */
+export const trackTaskMonitorPanelToggleEpic = (action$, store) =>
+    action$
+        .ofType(TM_TOGGLE_PANEL)
+        .mergeMap((action) => {
+            // Every live call site passes an explicit boolean, but the reducer
+            // also supports a bare toggle (action.open===undefined flips the
+            // CURRENT state) — mirror that fallback here via post-reduce store
+            // state rather than assuming a shape no caller currently uses.
+            const isOpen = action.open !== undefined
+                ? action.open
+                : !!store?.getState?.()?.taskMonitor?.ui?.panelOpen;
+            trackEvent('button', isOpen ? 'open' : 'close', 'taskmonitor-panel-toggle');
+            return Rx.Observable.empty();
+        });
+
+// TASK-2140 (b) — terminal-status-seen dedup. Both pollers (closed-panel 10s /
+// open-panel 3s) re-fetch and re-dispatch TM_SET_PROCESSES with the SAME
+// process ids on every tick while a completed/errored/cancelled process is
+// still within the fetched window — an undeduped tracker would fire once per
+// poll tick, not once per occurrence. In-memory Set, session-scoped (matches
+// the established permsEpics.js __resetPermsCacheForTests pattern for test
+// isolation — no localStorage persistence needed; this is a session metric,
+// not a replay-safety concern like taskCompleteLayerEpic's handled-ids registry).
+const TASKMONITOR_TERMINAL_STATES = ['complete', 'error', 'cancelled'];
+let _seenTerminalProcessIds = new Set();
+
+export const trackTerminalStatusSeenEpic = (action$) =>
+    action$
+        .ofType(TM_SET_PROCESSES)
+        .mergeMap((action) => {
+            (action.processes || []).forEach((p) => {
+                if (p && p.id !== undefined && p.id !== null &&
+                    TASKMONITOR_TERMINAL_STATES.includes(p.status) &&
+                    !_seenTerminalProcessIds.has(p.id)) {
+                    _seenTerminalProcessIds.add(p.id);
+                    // Status is the bounded 3-value set above — folding it
+                    // into the label stays low-cardinality (process_type is
+                    // NOT included: the backend vocabulary isn't closed/known
+                    // FE-side, so it stays out of the label to avoid an
+                    // uncontrolled cardinality surface).
+                    trackEvent('process', p.status, `taskmonitor-process-terminal-${p.status}`);
+                }
+            });
+            return Rx.Observable.empty();
+        });
+
+// Test seam: clear the in-memory dedup set between test cases so one test's
+// process ids don't suppress another's assertions (module-level state is
+// shared across the whole karma bundle).
+export const __resetTerminalSeenForTests = () => { _seenTerminalProcessIds = new Set(); };

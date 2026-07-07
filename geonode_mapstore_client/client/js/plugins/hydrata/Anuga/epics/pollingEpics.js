@@ -9,6 +9,7 @@ import {
 import {zoomToExtent, CHANGE_MAP_VIEW} from "../../../../../MapStore2/web/client/actions/map";
 import {getNode} from '../../../../../MapStore2/web/client/utils/LayersUtils';
 import {saveDirectContent} from "@js/actions/gnsave";
+import {trackEvent} from "@js/utils/analytics";
 // TASK-2117 (F1) — surface init-chain bootstrap failures instead of
 // swallowing them; matches the established `show(...)` notification idiom
 // already used by crudEpics.js / paywallEpics.js / permsEpics.js /
@@ -74,6 +75,14 @@ const getArchiveFilter = (state) => state?.anuga?.scenarios?.archiveFilter || 'n
 // pollActiveRunStatusEpic + selectorsAnuga.getActiveRuns so the terminal-state
 // set has one source of truth.
 import {TERMINAL_RUN_STATES} from "../anugaConstants";
+
+// TASK-2140 (d) — dedup set for the project-init OUTCOME event. initAnugaEpic's
+// switchMap chain re-runs on every legitimate refresh re-init (terrain-add,
+// orphan-refresh, title update, network save, figure create), not just the
+// first bootstrap — see initAnugaEpic's own "init in flight" comment. In-memory,
+// session-scoped (matches the TaskMonitor terminal-status-seen pattern).
+let _seenProjectInitIds = new Set();
+export const __resetProjectInitSeenForTests = () => { _seenProjectInitIds = new Set(); };
 
 // TASK-603: Page Visibility gate. When the catalogue tab is hidden the
 // browser will keep timer-based polling subscriptions alive but the user
@@ -217,6 +226,34 @@ export const initAnugaEpic = (action$, store) =>
                             // Use v2 for project detail
                             return Rx.Observable.from(anugaApi.getProjectV2(projectId))
                                 .switchMap(response2 => {
+                                    // TASK-2140 (d) — project-bootstrap OUTCOME
+                                    // event. Phase 1.7 review fix: this
+                                    // switchMap chain re-runs on every
+                                    // LEGITIMATE refresh re-init too (terrain-
+                                    // add, orphan-refresh, dataset title
+                                    // update, network save, figure create —
+                                    // see the "init in flight" comment above),
+                                    // not just the first bootstrap — an
+                                    // undeduped trackEvent here would fire
+                                    // dozens of times per session. Dedupe to
+                                    // once per projectId per session (module
+                                    // Set, same pattern as TaskMonitor's
+                                    // terminal-status-seen).
+                                    // NOTE (novel_question, see W2 wave-agent
+                                    // summary): the from-map endpoint is a
+                                    // get-or-create with no `created` flag in
+                                    // its response, so the FE still can't
+                                    // distinguish "brand-new project" from
+                                    // "user's first touch this session on an
+                                    // existing one" — labelled -init- (not
+                                    // -create-) to avoid overclaiming
+                                    // semantics we can't back. A precise
+                                    // create-only signal needs a BE response
+                                    // field (out of gmc scope).
+                                    if (!_seenProjectInitIds.has(projectId)) {
+                                        _seenProjectInitIds.add(projectId);
+                                        trackEvent('process', 'complete', 'anuga-project-init-complete');
+                                    }
                                     // Respect the persisted archiveFilter so a
                                     // panel reopen after switching to 'Archived'
                                     // restores the same view.
@@ -468,6 +505,14 @@ export const pollActiveRunStatusEpic = (action$, store) =>
                     const data = response.data;
                     const actions = [updateRunStatus(runId, data)];
                     if (TERMINAL_RUN_STATES.includes(data?.status)) {
+                        // TASK-2140 (a) — OUTCOME event: the run reached a
+                        // terminal state (complete|error|cancelled). Fires
+                        // exactly once per run because takeUntil(STOP_ACTIVE_
+                        // RUN_POLLING) tears the timer down right after this
+                        // dispatch — no further ticks land for this runId.
+                        // Status is a bounded 3-value set (TERMINAL_RUN_STATES)
+                        // so folding it into the label stays low-cardinality.
+                        trackEvent('process', data.status, `anuga-run-terminal-${data.status}`);
                         actions.push(stopActiveRunPolling(runId));
                     } else if (tickNumber >= cap) {
                         // Cap reached without a terminal status — pause the
