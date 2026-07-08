@@ -30,7 +30,7 @@
 import Tracker from '@openreplay/tracker';
 import trackerRedux from '@openreplay/tracker-redux';
 // Pure, tracker-independent redaction helpers (unit-tested in openReplayPrivacy-test).
-import { scrubUrlCredentials, sanitizeReduxAction, extractUsername } from './openReplayPrivacy';
+import { scrubUrlCredentials, sanitizeReduxAction, resolveOpenReplayUserId } from './openReplayPrivacy';
 
 const CONSENT_KEY = 'or_consent_v1';
 // Separate from CONSENT_KEY: tracks that a non-EU visitor has already seen the
@@ -42,6 +42,21 @@ const DISCLOSURE_SEEN_KEY = 'or_disclosure_seen_v1';
 // middleware factory and the consent/start path.
 let _tracker = null;
 let _started = false;
+// TASK-2129 W3 (F1): true once setUserID has stamped an authenticated user on
+// the session, so the per-action login listener (AppUtils onStoreInit) is a
+// cheap no-op afterwards and we never re-stamp.
+let _userStamped = false;
+
+// Stamp the OpenReplay userID for `user` exactly once, on a started tracker.
+// Shared by boot-start (below) and the mid-session login path
+// (setOpenReplayUser). No-op when inert, not started, already stamped, or the
+// user is anonymous / PII-looking (resolveOpenReplayUserId returns ''). Never
+// throws into the app.
+function applyUserId(tracker, user) {
+    const id = resolveOpenReplayUserId(user, _userStamped);
+    if (!id) { return; }
+    try { tracker.setUserID(id); _userStamped = true; } catch (e) { /* ignore */ }
+}
 
 function getConfig() {
     const cfg = (typeof window !== 'undefined'
@@ -202,11 +217,13 @@ function actuallyStart(user) {
     if (!tracker || _started) { return; }
     _started = true; // gate the redux actionFilter ON
     const { cohort } = getConfig();
-    const username = extractUsername(user);
     try {
         const startResult = tracker.start();
         const after = () => {
-            try { if (username) { tracker.setUserID(username); } } catch (e) { /* ignore */ }
+            // Stamp the user if one is already known at boot (a page loaded while
+            // authenticated); when the session starts anonymous this no-ops and
+            // setOpenReplayUser stamps it on the later login (F1).
+            applyUserId(tracker, user);
             try { tracker.setMetadata('cohort', cohort); } catch (e) { /* ignore */ }
         };
         if (startResult && typeof startResult.then === 'function') {
@@ -286,4 +303,18 @@ export function startOpenReplayWithConsent(user) {
         // every page load — re-showing it is what made the banner feel naggy.
         if (!hasSeenDisclosure()) { showDisclosure(false); }
     }
+}
+
+// TASK-2129 W3 (F1): stamp the OpenReplay userID mid-session, the first time an
+// authenticated `user` appears in the store. The replay session usually STARTS
+// anonymous (a visitor lands on the public homepage / login page), so the
+// boot-time setUserID in actuallyStart() sees no user; without this a later
+// login left sessions.user_id NULL and the run->replay linkage (TASK-2142)
+// could not find the session by username. Called from the onStoreInit action
+// listener on every action — cheap: a single boolean check once stamped, and a
+// no-op until the tracker is started and a non-anonymous user exists. Idempotent
+// (applyUserId's _userStamped guard). No-op when inert. Never throws.
+export function setOpenReplayUser(user) {
+    if (_userStamped || !_tracker || !_started) { return; }
+    applyUserId(_tracker, user);
 }

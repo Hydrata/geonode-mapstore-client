@@ -9,7 +9,7 @@
  */
 
 import expect from 'expect';
-import { scrubUrlCredentials, sanitizeReduxAction, extractUsername } from '../openReplayPrivacy';
+import { scrubUrlCredentials, sanitizeReduxAction, extractUsername, resolveOpenReplayUserId } from '../openReplayPrivacy';
 
 describe('openReplayPrivacy', () => {
     describe('scrubUrlCredentials', () => {
@@ -89,6 +89,26 @@ describe('openReplayPrivacy', () => {
         it('returns "" for null / empty user', () => {
             expect(extractUsername(null)).toBe('');
             expect(extractUsername({})).toBe('');
+        });
+    });
+
+    // TASK-2129 W3 (F1): the setUserID decision — stamp once, on a non-anon,
+    // non-PII user. Guards the anon-then-login case (session starts anonymous on
+    // the homepage/login page, then a later login must stamp the userID so the
+    // run->replay linkage can find the session by username).
+    describe('resolveOpenReplayUserId', () => {
+        it('returns the username on the first authenticated user', () => {
+            expect(resolveOpenReplayUserId({ username: 'jdoe' }, false)).toBe('jdoe');
+        });
+        it('returns "" once already stamped (idempotent — set userID once)', () => {
+            expect(resolveOpenReplayUserId({ username: 'jdoe' }, true)).toBe('');
+        });
+        it('returns "" while the user is still anonymous', () => {
+            expect(resolveOpenReplayUserId(null, false)).toBe('');
+            expect(resolveOpenReplayUserId({}, false)).toBe('');
+        });
+        it('never ships a PII email as the userID', () => {
+            expect(resolveOpenReplayUserId({ username: 'jdoe@example.com' }, false)).toBe('');
         });
     });
 });

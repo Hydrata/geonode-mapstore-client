@@ -127,3 +127,16 @@ export function extractUsername(user) {
         || '';
     return /.+@.+\..+/.test(candidate) ? '' : candidate;
 }
+
+// The OpenReplay userID to stamp for `user`, or '' to skip — the pure decision
+// behind setUserID (TASK-2129 W3 F1). Skips when already stamped (idempotent —
+// setUserID once per session) OR when extractUsername yields '' (anonymous, or
+// a PII-looking email we must not ship). Why this exists: the replay session
+// usually STARTS anonymous — a visitor lands on the public homepage (which is
+// also the login page), so the boot-time setUserID sees no user and no-ops;
+// a later login never re-stamped it, leaving sessions.user_id NULL and the
+// run->replay linkage (TASK-2142) unable to find the session by username.
+export function resolveOpenReplayUserId(user, alreadyStamped) {
+    if (alreadyStamped) { return ''; }
+    return extractUsername(user);
+}
