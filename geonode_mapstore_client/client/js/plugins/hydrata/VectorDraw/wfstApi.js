@@ -148,9 +148,19 @@ export const wfstUpdate = async(wfsUrl, typeName, featureId, geometry, propertie
         );
     }
 
-    await axios.post(wfsUrl, xml, {
+    const response = await axios.post(wfsUrl, xml, {
         headers: { 'Content-Type': 'application/xml' }
     });
+
+    // TASK-2158 (W3.1) — GeoServer returns HTTP-200 with an ows:ExceptionReport
+    // when a transaction is REJECTED (e.g. a rai_data_xor CHECK violation on a
+    // cleared XOR column). Without this guard wfstUpdate RESOLVED on that 200 →
+    // the save epic fired SAVE_SUCCESS on a no-op write. Mirror the wfstInsert /
+    // wfstDelete choke point so every silent WFS-T update failure surfaces loud.
+    const responseText = typeof response.data === 'string'
+        ? response.data
+        : new XMLSerializer().serializeToString(response.data);
+    await throwIfOGCException({ data: responseText }, 'WFS-T update failed');
 
     return featureId;
 };
