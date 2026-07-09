@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import {Simulate} from 'react-dom/test-utils';
 import Localized from '@mapstore/framework/components/I18N/Localized';
-import {ScenarioPane, formatBuildLog, meshRegionIsUnattached} from '../scenarioPane';
+import {ScenarioPane, formatBuildLog, meshRegionIsUnattached, rainfallIsUnattached} from '../scenarioPane';
 const {enData} = require('../../../../../__tests__/fixtures/translations');
 
 /**
@@ -376,6 +376,72 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                             '.sv-anuga-scenario-pane-rows-inputs .sv-anuga-scenario-pane-help'
                         );
                         expect(help).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
+        // TASK-2160 (epic 2147 W4) — drawn-but-unattached Rainfall hint, the
+        // direct MeshRegion analog (renders near the Rainfall select in the
+        // Inputs section). 3 states: unattached→hint, none-drawn→no hint,
+        // attached→no hint.
+        describe('Rainfall unattached hint (TASK-2160)', () => {
+            it('renders the hint naming the rainfall when ≥1 drawn rainfall exists and rainfall is null', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        const hint = container.querySelector('.sv-anuga-scenario-rainfall-unattached-hint');
+                        expect(hint).toExist();
+                        expect(hint.getAttribute('role')).toBe('status');
+                        expect(hint.textContent).toInclude('hydrata.anuga.rainfallUnattachedHint');
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint when no rainfalls are drawn in the project', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={[]}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-rainfall-unattached-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint once a drawn rainfall is attached to the scenario', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: 6}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-rainfall-unattached-hint')).toNotExist();
                         done();
                     }
                 );
@@ -1374,6 +1440,34 @@ describe('meshRegionIsUnattached (TASK-2116)', () => {
 
     it('is false once mesh_region is attached', () => {
         expect(meshRegionIsUnattached({mesh_region: 9}, regions)).toBe(false);
+    });
+});
+
+// ------------------------------------------------------------------
+// TASK-2160 (epic 2147 W4) — rainfallIsUnattached pure-predicate unit tests
+// (direct MeshRegion analog)
+// ------------------------------------------------------------------
+describe('rainfallIsUnattached (TASK-2160)', () => {
+    const rainfalls = [{id: 6, title: 'Design Storm 1%'}];
+
+    it('is false when no rainfalls are drawn (empty array)', () => {
+        expect(rainfallIsUnattached({rainfall: null}, [])).toBe(false);
+    });
+
+    it('is false when rainfalls is undefined/absent', () => {
+        expect(rainfallIsUnattached({rainfall: null}, undefined)).toBe(false);
+    });
+
+    it('is true when rainfalls are drawn and rainfall is null', () => {
+        expect(rainfallIsUnattached({rainfall: null}, rainfalls)).toBe(true);
+    });
+
+    it('is true when rainfalls are drawn and rainfall is absent entirely', () => {
+        expect(rainfallIsUnattached({}, rainfalls)).toBe(true);
+    });
+
+    it('is false once rainfall is attached', () => {
+        expect(rainfallIsUnattached({rainfall: 6}, rainfalls)).toBe(false);
     });
 });
 

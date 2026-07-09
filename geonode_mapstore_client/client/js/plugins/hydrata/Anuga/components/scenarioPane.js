@@ -238,6 +238,58 @@ function renderMeshRegionUnattachedHint(scenario, meshRegions) {
 }
 
 // ------------------------------------------------------------------------
+// TASK-2160 (epic 2147 W4) — drawn-but-unattached Rainfall hint
+// ------------------------------------------------------------------------
+
+/**
+ * TASK-2160 (epic 2147 W4, "trust-signal" wave) — direct MeshRegion analog
+ * (meshRegionIsUnattached above) for Rainfall. A Rainfall is drawn (a saved
+ * resource exists in state.anuga.resources.rainfalls) but not attached to
+ * THIS scenario (scenario.rainfall is unset) → the run silently proceeds
+ * WITHOUT that rainfall, exactly the "is my rainfall actually going to run?"
+ * trust gap this wave closes. Mirrors mesh_region: `rainfalls` is the SAME
+ * project resource list already threaded into renderInputsPane for the
+ * Rainfall dropdown, so no new Redux wiring is needed — "has the project got
+ * a drawn rainfall" and "is one attached to THIS scenario" are both
+ * already-available facts.
+ *
+ * SCOPE (red-team, Phase 0.5): this predicate detects "no rainfall attached"
+ * ONLY. It deliberately does NOT try to detect "a rainfall IS attached but
+ * its features carry no timeseries/constant data" — RainfallSerializerV2
+ * (gn_anuga/serializers_v2.py) is a bare BaseGnLayerWrapperSerializer and
+ * exposes NO `has_features`/data-presence signal the way BoundarySerializerV2
+ * does, so that sub-case is not knowable from data already in the pane. Warn
+ * on what we can prove; don't fabricate a detection path. See the wave report's
+ * decision_request for the "features lack data" follow-up.
+ *
+ * NO auto-attach (operator-rejected, same rationale as mesh_region): warn +
+ * confirm only. The build-time confirm dialog lives in anugaScenarioMenu.js.
+ * Exported so that dialog can reuse the exact same predicate (DRY).
+ */
+export function rainfallIsUnattached(scenario, rainfalls) {
+    const hasDrawnRainfall = Array.isArray(rainfalls) && rainfalls.length > 0;
+    if (!hasDrawnRainfall) return false;
+    const isAttached = scenario?.rainfall != null && scenario?.rainfall !== ''; // eslint-disable-line no-eq-null, eqeqeq
+    return !isAttached;
+}
+
+function renderRainfallUnattachedHint(scenario, rainfalls) {
+    if (!rainfallIsUnattached(scenario, rainfalls)) return null;
+    const names = (rainfalls || []).map(r => r?.title).filter(Boolean).join(', ');
+    return (
+        <div
+            className="sv-anuga-scenario-pane-section sv-anuga-scenario-rainfall-unattached-hint"
+            role="status"
+            aria-live="polite"
+        >
+            <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+            {' '}
+            <Message msgId="hydrata.anuga.rainfallUnattachedHint" msgParams={{names}} />
+        </div>
+    );
+}
+
+// ------------------------------------------------------------------------
 // Pane renderers — one per category
 // ------------------------------------------------------------------------
 
@@ -329,6 +381,7 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div> : null
             }
             {renderSelectField('rainfall', 'hydrata.anuga.rainfall', scenario?.rainfall, rainfalls, !canEdit, handleField)}
+            {renderRainfallUnattachedHint(scenario, rainfalls)}
         </div>
     );
 }
