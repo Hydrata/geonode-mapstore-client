@@ -486,7 +486,7 @@ function computeTargetLabel(target, defaultComputeTarget) {
     return target === defaultComputeTarget ? `${base} (site default)` : base;
 }
 
-function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget}) {
+function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -514,13 +514,17 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
         if (!Number.isFinite(next)) return;
         handleField({resolution: next});
     };
-    // TASK-2194 — the chosen target rides the scenario object in Redux ONLY
-    // (Scenario has NO compute_target column; a save round-trip drops it).
-    // Dispatch paths read scenario.compute_target: set -> POSTed verbatim,
-    // unset -> the field is omitted and the server default applies.
+    // TASK-2194 (review fix) — the chosen target is SESSION state on the ui
+    // slice (state.anuga.ui.sessionComputeTargets, keyed per scenario), NOT a
+    // field on the scenario object: handleField/UPDATE_ANUGA_SCENARIO would
+    // flip scenario.unsaved (detouring the next Build-and-Run into save-only)
+    // and any save/refresh wholesale-replace would wipe the choice. Dispatch
+    // paths read the ui slot: set -> POSTed verbatim (including an explicit
+    // pick of the site default), unset -> the field is omitted and the server
+    // default applies.
     const handleTargetChange = (e) => {
         const next = e.target.value || null;
-        handleField({compute_target: next});
+        if (onSetSessionComputeTarget) onSetSessionComputeTarget(scenario, next);
     };
     // Hidden for non-staff, while the config is still loading (null), and for
     // a site with an EMPTY allowlist (retired sites) — all three cases fall
@@ -625,7 +629,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                         <select
                             id="compute_target"
                             className="sv-scenario-select"
-                            value={scenario?.compute_target || defaultComputeTarget || ''}
+                            value={sessionComputeTarget || defaultComputeTarget || ''}
                             disabled={!canEdit}
                             onChange={handleTargetChange}
                         >
@@ -683,12 +687,13 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
 function renderRunPane(props) {
     const {
         scenario, canEdit, isStaff, onUpdateScenario,
-        availableComputeTargets, defaultComputeTarget
+        availableComputeTargets, defaultComputeTarget,
+        sessionComputeTarget, onSetSessionComputeTarget
     } = props;
     return (
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
             {/* Section (a): config fields */}
-            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget})}
+            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
             {/* Section (b): status feedback (ETA, progress, error) */}
             <ScenarioErrorStrip scenario={scenario} />
             <ScenarioStatusCard scenario={scenario} />
@@ -864,6 +869,12 @@ ScenarioPane.propTypes = {
     isStaff: PropTypes.bool,
     availableComputeTargets: PropTypes.array,
     defaultComputeTarget: PropTypes.string,
+    // TASK-2194 (review fix) — the CURRENT scenario's session choice from
+    // state.anuga.ui.sessionComputeTargets (undefined = none: the select
+    // shows the marked site default) + the setter that records a pick on
+    // that ui slot (never onUpdateScenario — see renderRunConfigPane).
+    sessionComputeTarget: PropTypes.string,
+    onSetSessionComputeTarget: PropTypes.func,
     currentUserId: PropTypes.number,
     terrain: PropTypes.array,
     boundaries: PropTypes.array,

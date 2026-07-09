@@ -27,7 +27,9 @@ import {
     SET_TERRAIN_UPLOAD_CRS_PANEL,
     SET_TERRAIN_UPLOAD_CRS_ERROR,
     // TASK-2194 (epic 2190 W2) — staff compute-target selector site config.
-    SET_ANUGA_COMPUTE_CONFIG
+    SET_ANUGA_COMPUTE_CONFIG,
+    // TASK-2194 (review fix) — per-scenario session compute-target choice.
+    SET_SESSION_COMPUTE_TARGET
 } from "../actionsAnuga";
 
 import {
@@ -88,7 +90,14 @@ const initialState = {
     // with a NON-EMPTY hydrated allowlist, so both "loading" and "empty
     // allowlist (retired site)" hide it.
     availableComputeTargets: null,
-    defaultComputeTarget: null
+    defaultComputeTarget: null,
+    // TASK-2194 (review fix) — { [scenarioId]: '<target>' }: the staff user's
+    // THIS-SESSION compute-target choice per scenario. Lives here (NOT on the
+    // scenario object) so choosing a target never flips scenario.unsaved and
+    // the choice survives SAVE_ANUGA_SCENARIO_SUCCESS / SET_ANUGA_SCENARIO_DATA
+    // wholesale-replaces of the scenarios slice. An explicit pick of the site
+    // default is stored (and POSTed) like any other pick.
+    sessionComputeTargets: {}
 };
 
 export default (state = initialState, action) => {
@@ -193,6 +202,22 @@ export default (state = initialState, action) => {
                 ? cfg.default_compute_target
                 : null
         };
+    }
+    // TASK-2194 (review fix) — record/clear one scenario's session choice.
+    // target=null clears the entry (defensive: today's selector only emits
+    // real allowlist values, so the clear path is programmatic-only).
+    case SET_SESSION_COMPUTE_TARGET: {
+        const key = action.scenarioId;
+        if (key === null || key === undefined || key === '') return state;
+        const current = state.sessionComputeTargets || {};
+        if (!action.target) {
+            if (!(key in current)) return state;
+            const next = { ...current };
+            delete next[key];
+            return { ...state, sessionComputeTargets: next };
+        }
+        if (current[key] === action.target) return state;
+        return { ...state, sessionComputeTargets: { ...current, [key]: action.target } };
     }
     case SET_DEM_RAMP_DEGRADED: {
         // Per-layer flag; only rewrite the map when the value actually changes so

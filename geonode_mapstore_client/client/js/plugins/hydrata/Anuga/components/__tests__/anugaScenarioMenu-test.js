@@ -31,9 +31,26 @@
 import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { Simulate } from 'react-dom/test-utils';
 import { Provider } from 'react-redux';
+import { createStore, combineReducers } from 'redux';
 
 import { AnugaScenarioMenu, AnugaScenarioMenuClass } from '../anugaScenarioMenu';
+// TASK-2194 (review fix) — real reducer tree + action creators for the
+// session compute-target integration block (drives the REAL store paths the
+// original fixture-seeded specs bypassed).
+import anuga from '../../reducersAnuga';
+import {
+    setAnugaScenarioData,
+    setAnugaPollingData,
+    setAnugaComputeConfig,
+    selectAnugaScenario,
+    SAVE_ANUGA_SCENARIO,
+    SAVE_ANUGA_SCENARIO_SUCCESS,
+    RUN_ANUGA_SCENARIO,
+    UPDATE_ANUGA_SCENARIO,
+    BUILD_SCENARIO
+} from '../../actionsAnuga';
 
 function makeStore({archiveFilter = 'none', scenariosArr = []} = {}) {
     const byId = {};
@@ -556,7 +573,8 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
     // same component instance is reused (preserving the pending-run state) while
     // only scenarios/selectedScenario change. renderMany supports the
     // cross-scenario case where the awaited scenario A is one of several.
-    function makeHarness() {
+    // `extraProps` lets a spec pin e.g. sessionComputeTargets (TASK-2194).
+    function makeHarness(extraProps = {}) {
         const buildCalls = [];
         const runCalls = [];
         const saveCalls = [];
@@ -576,7 +594,8 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
             setOpenMenuGroupId: () => {},
             saveAnugaScenario: (s) => saveCalls.push(s),
             buildScenarioExplicit: (sid) => buildCalls.push(sid),
-            runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t})
+            runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t}),
+            ...extraProps
         };
         const renderMany = (scenarios, selected) => {
             ReactDOM.render(
@@ -713,12 +732,17 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
     });
 
     /*
-     * TASK-2194 (epic 2190 W2) — every run dispatch path passes the
-     * Redux-TRANSIENT session choice scenario.compute_target (Scenario has NO
-     * such column), or null when none was chosen so the POST omits the field
-     * and the server resolves the site default. This pins the RE-RUN
-     * regression: the old code sent scenario?.compute_backend || 'local',
-     * silently forcing 'local' whenever nothing was chosen.
+     * TASK-2194 (epic 2190 W2, review fix) — every run dispatch path passes
+     * the staff user's THIS-SESSION choice read from the per-scenario ui
+     * slot (props.sessionComputeTargets, i.e.
+     * state.anuga.ui.sessionComputeTargets — NOT a field on the scenario
+     * object, which a save/refresh wholesale-replace would wipe), or null
+     * when none was chosen so the POST omits the field and the server
+     * resolves the site default. This pins the RE-RUN regression: the old
+     * code sent scenario?.compute_backend || 'local', silently forcing
+     * 'local' whenever nothing was chosen. The full UI-reachable path
+     * (pane select -> unsaved untouched -> build-and-run -> dispatch) is
+     * covered by the real-store integration block below.
      */
     it('(h) TASK-2194: Run click with NO session target passes null (field omitted downstream)', () => {
         const {runCalls, render} = makeHarness();
@@ -730,23 +754,184 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
         expect(runCalls[0].target).toBe(null);
     });
 
-    it('(i) TASK-2194: Run click passes the staff-chosen session compute_target verbatim', () => {
-        const {runCalls, render} = makeHarness();
-        render(validScenario(82, 'built', {compute_target: 'batch-gpu-a10g'}));
+    it('(i) TASK-2194: Run click passes the session choice from the ui slot verbatim', () => {
+        const {runCalls, render} = makeHarness({sessionComputeTargets: {82: 'batch-gpu-a10g'}});
+        render(validScenario(82, 'built'));
         container.querySelector('.sv-scenario-action-run').click();
         expect(runCalls.length).toBe(1);
         expect(runCalls[0].target).toBe('batch-gpu-a10g');
     });
 
-    it('(j) TASK-2194: the deferred build-and-run dispatch carries the session target too', () => {
-        const {runCalls, render} = makeHarness();
-        render(validScenario(83, 'created', {compute_target: 'batch-x32'}));
+    it('(j) TASK-2194: the deferred build-and-run dispatch carries the session choice too', () => {
+        const {runCalls, render} = makeHarness({sessionComputeTargets: {83: 'batch-x32'}});
+        render(validScenario(83, 'created'));
         container.querySelector('.sv-scenario-action-build-run').click();
         expect(runCalls.length).toBe(0);
-        render(validScenario(83, 'building', {compute_target: 'batch-x32'}));
-        render(validScenario(83, 'built', {compute_target: 'batch-x32'}));
+        render(validScenario(83, 'building'));
+        render(validScenario(83, 'built'));
         expect(runCalls.length).toBe(1);
         expect(runCalls[0].target).toBe('batch-x32');
+    });
+
+    it('(k) TASK-2194: a choice for ANOTHER scenario never leaks into this run dispatch', () => {
+        const {runCalls, render} = makeHarness({sessionComputeTargets: {999: 'batch-gpu-a10g'}});
+        render(validScenario(84, 'built'));
+        container.querySelector('.sv-scenario-action-run').click();
+        expect(runCalls.length).toBe(1);
+        expect(runCalls[0].target).toBe(null);
+    });
+});
+
+/*
+ * TASK-2194 (epic 2190 W2, review fix) — REAL-PATH integration coverage for
+ * the staff compute-target session choice, driving the actual reducers
+ * (scenariosReducer + uiReducer) through the connected AnugaScenarioMenu.
+ *
+ * The wave's original specs seeded {compute_target, unsaved:false} directly
+ * into fixtures — a state the UI could never reach, because the selector
+ * wrote the choice via UPDATE_ANUGA_SCENARIO which unconditionally flipped
+ * unsaved:true (detouring 'Build and Run' into dispatchBuild's save-only
+ * branch, so the deferred run never armed) and the save/refresh
+ * wholesale-replaces then wiped the choice. These specs pin the fix (the
+ * choice rides state.anuga.ui.sessionComputeTargets) by walking the exact
+ * store transitions production takes.
+ */
+describe('anugaScenarioMenu — session compute-target rides the ui slot (TASK-2194 review fix)', () => {
+    let container;
+
+    // Exactly what the server returns for a scenario: valid for
+    // validateScenario, and NEVER carrying compute_target (Scenario has no
+    // such column).
+    function serverScenario(id, status) {
+        return {
+            id, name: `Server ${id}`, status, computed_status: status,
+            terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+            friction: null, structure: null, mesh_region: null, network: null,
+            resolution: 1000, duration: 1800, created_by: 7, unsaved: false
+        };
+    }
+
+    // Real store: the full anuga reducer tree (scenarios + ui are what these
+    // specs exercise) + static security/layers slices. Dispatches are
+    // recorded so specs can assert exactly which actions each click emitted.
+    function makeRealStore() {
+        const dispatched = [];
+        const rootReducer = combineReducers({
+            anuga,
+            security: (state = {user: {pk: 7, is_staff: true}}) => state,
+            layers: (state = {flat: []}) => state
+        });
+        const store = createStore(rootReducer, {
+            anuga: {projects: {data: {id: 1, my_role: 'editor'}}}
+        });
+        const rawDispatch = store.dispatch;
+        store.dispatch = (action) => {
+            dispatched.push(action);
+            return rawDispatch(action);
+        };
+        store.actionsOfType = (type) => dispatched.filter((a) => a && a.type === type);
+        return store;
+    }
+
+    function mountWithScenario(store, scenario) {
+        store.dispatch(setAnugaComputeConfig({
+            available_compute_targets: ['batch-x4', 'batch-x32'],
+            default_compute_target: 'batch-x32'
+        }));
+        store.dispatch(setAnugaScenarioData([scenario]));
+        store.dispatch(selectAnugaScenario(scenario));
+        ReactDOM.render(
+            <Provider store={store}><AnugaScenarioMenu /></Provider>,
+            container
+        );
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('(i) picking a target leaves the scenario saved (unsaved stays false) and Build and Run POSTs the chosen target', () => {
+        const store = makeRealStore();
+        mountWithScenario(store, serverScenario(91, 'built'));
+        const sel = container.querySelector('#compute_target');
+        expect(sel).toExist();
+        Simulate.change(sel, {target: {value: 'batch-x4'}});
+        // The choice landed on the ui slot…
+        expect(store.getState().anuga.ui.sessionComputeTargets).toEqual({91: 'batch-x4'});
+        // …NOT on the scenario object, and unsaved was NOT flipped.
+        const s = store.getState().anuga.scenarios.byId[91];
+        expect(s.compute_target).toBe(undefined);
+        expect(!!s.unsaved).toBe(false);
+        expect(store.actionsOfType(UPDATE_ANUGA_SCENARIO).length).toBe(0);
+        // Build and Run dispatches a REAL build — not the save-only detour
+        // that used to eat the click (and never armed the deferred run).
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(store.actionsOfType(BUILD_SCENARIO).length).toBe(1);
+        expect(store.actionsOfType(SAVE_ANUGA_SCENARIO).length).toBe(0);
+        expect(store.actionsOfType(RUN_ANUGA_SCENARIO).length).toBe(0);
+        // The deferred run fires on the polled building→built transition,
+        // carrying the session choice.
+        store.dispatch(setAnugaPollingData([{id: 91, status: 'building', computed_status: 'building'}]));
+        store.dispatch(setAnugaPollingData([{id: 91, status: 'built', computed_status: 'built'}]));
+        const runs = store.actionsOfType(RUN_ANUGA_SCENARIO);
+        expect(runs.length).toBe(1);
+        expect(runs[0].computeTarget).toBe('batch-x4');
+    });
+
+    it('(ii) the choice SURVIVES a save round-trip whose payload lacks compute_target, and Run POSTs it', () => {
+        const store = makeRealStore();
+        mountWithScenario(store, serverScenario(92, 'built'));
+        Simulate.change(container.querySelector('#compute_target'), {target: {value: 'batch-x4'}});
+        // Save success wholesale-replaces the scenario with the server
+        // payload (which never contains compute_target).
+        store.dispatch({type: SAVE_ANUGA_SCENARIO_SUCCESS, scenario: serverScenario(92, 'built')});
+        // The select still shows the session choice (it rides the ui slot)…
+        expect(container.querySelector('#compute_target').value).toBe('batch-x4');
+        // …and Run POSTs it.
+        container.querySelector('.sv-scenario-action-run').click();
+        const runs = store.actionsOfType(RUN_ANUGA_SCENARIO);
+        expect(runs.length).toBe(1);
+        expect(runs[0].computeTarget).toBe('batch-x4');
+    });
+
+    it('(iii) the choice survives a SET_ANUGA_SCENARIO_DATA full refresh', () => {
+        const store = makeRealStore();
+        mountWithScenario(store, serverScenario(93, 'built'));
+        Simulate.change(container.querySelector('#compute_target'), {target: {value: 'batch-x4'}});
+        // Re-init / archive-filter refresh: full replace of the scenarios slice.
+        store.dispatch(setAnugaScenarioData([serverScenario(93, 'built')]));
+        expect(container.querySelector('#compute_target').value).toBe('batch-x4');
+        container.querySelector('.sv-scenario-action-run').click();
+        const runs = store.actionsOfType(RUN_ANUGA_SCENARIO);
+        expect(runs.length).toBe(1);
+        expect(runs[0].computeTarget).toBe('batch-x4');
+    });
+
+    it('(iv) with no session choice the select shows the site default and the run dispatch carries null', () => {
+        const store = makeRealStore();
+        mountWithScenario(store, serverScenario(94, 'built'));
+        expect(container.querySelector('#compute_target').value).toBe('batch-x32');
+        container.querySelector('.sv-scenario-action-run').click();
+        const runs = store.actionsOfType(RUN_ANUGA_SCENARIO);
+        expect(runs.length).toBe(1);
+        expect(runs[0].computeTarget).toBe(null);
+    });
+
+    it('(v) explicitly choosing the SITE DEFAULT stores it and the run POSTs it verbatim (server validates membership)', () => {
+        const store = makeRealStore();
+        mountWithScenario(store, serverScenario(95, 'built'));
+        Simulate.change(container.querySelector('#compute_target'), {target: {value: 'batch-x32'}});
+        expect(store.getState().anuga.ui.sessionComputeTargets).toEqual({95: 'batch-x32'});
+        container.querySelector('.sv-scenario-action-run').click();
+        const runs = store.actionsOfType(RUN_ANUGA_SCENARIO);
+        expect(runs.length).toBe(1);
+        expect(runs[0].computeTarget).toBe('batch-x32');
     });
 });
 

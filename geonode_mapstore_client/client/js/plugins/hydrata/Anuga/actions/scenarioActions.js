@@ -75,8 +75,9 @@ function saveAnugaScenarioError(error) {
     };
 }
 
-// TASK-2194 (epic 2190 W2) — `computeTarget` is the flat compute target a
-// staff user chose this session (Redux-transient on the scenario; Scenario
+// TASK-2194 (epic 2190 W2, review fix) — `computeTarget` is the flat compute
+// target a staff user chose this session, read from the per-scenario ui slot
+// (state.anuga.ui.sessionComputeTargets — NOT the scenario object; Scenario
 // has NO compute_target column). null = no choice -> startRun OMITS the
 // field and the server resolves the site default. The FE never sends the
 // legacy compute_backend field any more (ignored server-side since W1).

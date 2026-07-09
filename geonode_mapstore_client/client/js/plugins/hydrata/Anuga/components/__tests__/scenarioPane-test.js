@@ -1248,11 +1248,15 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // TASK-2194: compute_target visible only for staff with a non-empty
-        // allowlist; choosing a target stores it Redux-transiently on the
-        // scenario via the standard onUpdateScenario field contract.
-        it('compute_target select dispatches onUpdateScenario (staff)', (done) => {
-            let captured = null;
+        // TASK-2194 (review fix): choosing a target dispatches the SESSION
+        // slot setter (onSetSessionComputeTarget) and must NEVER go through
+        // onUpdateScenario — UPDATE_ANUGA_SCENARIO unconditionally flips
+        // scenario.unsaved, which detoured the next Build-and-Run into
+        // dispatchBuild's save-only branch (no build, no run) and the save
+        // round-trip then wiped the choice.
+        it('compute_target select dispatches onSetSessionComputeTarget and NOT onUpdateScenario (staff)', (done) => {
+            const sessionCalls = [];
+            const updateCalls = [];
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
@@ -1261,13 +1265,41 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     isStaff
                     availableComputeTargets={['local', 'batch-x32', 'batch-gpu-a10g']}
                     defaultComputeTarget={'batch-x32'}
-                    onUpdateScenario={(s, kv) => { captured = kv; }}
+                    onSetSessionComputeTarget={(s, target) => sessionCalls.push({scenario: s, target})}
+                    onUpdateScenario={(s, kv) => updateCalls.push(kv)}
                 />,
                 container,
                 () => {
                     const sel = container.querySelector('#compute_target');
                     Simulate.change(sel, {target: {value: 'batch-gpu-a10g'}});
-                    expect(captured.compute_target).toBe('batch-gpu-a10g');
+                    expect(sessionCalls.length).toBe(1);
+                    expect(sessionCalls[0].target).toBe('batch-gpu-a10g');
+                    expect(sessionCalls[0].scenario.id).toBe(baseScenario.id);
+                    // the scenario-object update contract is NOT used
+                    expect(updateCalls.length).toBe(0);
+                    done();
+                }
+            );
+        });
+
+        // TASK-2194 (review fix): the select's VALUE rides the ui slot
+        // (sessionComputeTarget prop), not scenario.compute_target — so a
+        // save/refresh replacing the scenario object cannot snap the select
+        // back to the site default.
+        it('select shows the session choice when set, independent of the scenario object', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                    isStaff
+                    availableComputeTargets={['local', 'batch-x32', 'batch-gpu-a10g']}
+                    defaultComputeTarget={'batch-x32'}
+                    sessionComputeTarget={'local'}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('#compute_target').value).toBe('local');
                     done();
                 }
             );
