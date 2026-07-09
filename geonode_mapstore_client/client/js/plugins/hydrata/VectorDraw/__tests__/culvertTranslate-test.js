@@ -51,6 +51,52 @@ describe('culvertTranslate', () => {
             expect(result.diameter_m).toEqual(0.9);
             expect(result.barrels).toEqual(2);
         });
+
+        // TASK-2159 — clear the shape-dependent dimension attrs that do NOT
+        // apply to the selected shape with explicit null (not stale carry-over).
+        // A pipe uses diameter_m; box/arch use width_m + height_m. Burning
+        // priority (Culvert model) reads min(height_m, diameter_m), so a stale
+        // diameter on a box or a stale width/height on a pipe would corrupt the
+        // burn depth. The invert/barrels/description attrs apply to every shape
+        // and are left untouched.
+        it('shape=pipe NULLs the box/arch dims (width_m, height_m), keeps diameter_m', () => {
+            const result = translateOut({ shape: 'pipe', diameter_m: 0.9, width_m: 1.2, height_m: 1.1 });
+            expect(result.diameter_m).toEqual(0.9);
+            expect(result.width_m).toBe(null);
+            expect(result.height_m).toBe(null);
+        });
+
+        it('shape=box NULLs the pipe dim (diameter_m), keeps width_m + height_m', () => {
+            const result = translateOut({ shape: 'box', width_m: 1.5, height_m: 1.2, diameter_m: 0.9 });
+            expect(result.width_m).toEqual(1.5);
+            expect(result.height_m).toEqual(1.2);
+            expect(result.diameter_m).toBe(null);
+        });
+
+        it('shape=arch NULLs the pipe dim (diameter_m), keeps width_m + height_m', () => {
+            const result = translateOut({ shape: 'arch', width_m: 2.0, height_m: 1.5, diameter_m: 0.7 });
+            expect(result.width_m).toEqual(2.0);
+            expect(result.height_m).toEqual(1.5);
+            expect(result.diameter_m).toBe(null);
+        });
+
+        it('shape-independent attrs (inverts, barrels, description) survive a shape switch', () => {
+            const result = translateOut({
+                shape: 'pipe', diameter_m: 0.9, width_m: 1.2, height_m: 1.1,
+                upstream_invert_m: 10.5, downstream_invert_m: 9.8, barrels: 2, description: 'Main'
+            });
+            expect(result.upstream_invert_m).toEqual(10.5);
+            expect(result.downstream_invert_m).toEqual(9.8);
+            expect(result.barrels).toEqual(2);
+            expect(result.description).toEqual('Main');
+        });
+
+        it('no shape selected: does NOT force-null any dimension (indeterminate)', () => {
+            const result = translateOut({ width_m: 1.5, height_m: 1.2, diameter_m: 0.9 });
+            expect(result.width_m).toEqual(1.5);
+            expect(result.height_m).toEqual(1.2);
+            expect(result.diameter_m).toEqual(0.9);
+        });
     });
 
     describe('synthesizeIn', () => {

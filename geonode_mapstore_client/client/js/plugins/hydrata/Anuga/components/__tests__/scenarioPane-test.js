@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import {Simulate} from 'react-dom/test-utils';
 import Localized from '@mapstore/framework/components/I18N/Localized';
-import {ScenarioPane, formatBuildLog, meshRegionIsUnattached} from '../scenarioPane';
+import {ScenarioPane, formatBuildLog, meshRegionIsUnattached, rainfallIsUnattached, rainfallAttachedButEmpty} from '../scenarioPane';
 const {enData} = require('../../../../../__tests__/fixtures/translations');
 
 /**
@@ -376,6 +376,165 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                             '.sv-anuga-scenario-pane-rows-inputs .sv-anuga-scenario-pane-help'
                         );
                         expect(help).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
+        // TASK-2160 (epic 2147 W4) — drawn-but-unattached Rainfall hint, the
+        // direct MeshRegion analog (renders near the Rainfall select in the
+        // Inputs section). 3 states: unattached→hint, none-drawn→no hint,
+        // attached→no hint.
+        describe('Rainfall unattached hint (TASK-2160)', () => {
+            it('renders the hint naming the rainfall when ≥1 drawn rainfall exists and rainfall is null', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        const hint = container.querySelector('.sv-anuga-scenario-rainfall-unattached-hint');
+                        expect(hint).toExist();
+                        expect(hint.getAttribute('role')).toBe('status');
+                        expect(hint.textContent).toInclude('hydrata.anuga.rainfallUnattachedHint');
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint when no rainfalls are drawn in the project', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={[]}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-rainfall-unattached-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint once a drawn rainfall is attached to the scenario', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: 6}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-rainfall-unattached-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
+        // TASK-2189 (epic 2147 W6) — attached-but-empty Rainfall hint, the
+        // complement of TASK-2160's unattached hint: a rainfall IS attached
+        // but RainfallSerializerV2.has_feature_data reports no feature on the
+        // resource carries data_constant/data_timeseries_id.
+        describe('Rainfall attached-but-empty hint (TASK-2189)', () => {
+            const emptyRainfallOpts = [{id: 6, title: 'Default Rainfall', has_feature_data: false}];
+            const dataRainfallOpts = [{id: 6, title: 'Default Rainfall', has_feature_data: true}];
+
+            it('renders the distinct hint when the attached rainfall has no feature data', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: 6}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={emptyRainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        const hint = container.querySelector('.sv-anuga-scenario-rainfall-attached-empty-hint');
+                        expect(hint).toExist();
+                        expect(hint.getAttribute('role')).toBe('status');
+                        expect(hint.textContent).toInclude('hydrata.anuga.rainfallAttachedEmptyHint');
+                        // Distinct from the unattached hint — both must never
+                        // render at once (mutually exclusive: this fires only
+                        // when a rainfall IS attached).
+                        expect(container.querySelector('.sv-anuga-scenario-rainfall-unattached-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint when the attached rainfall has feature data', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: 6}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={dataRainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-rainfall-attached-empty-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint when no rainfall is attached (even if the drawn one is empty)', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={emptyRainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-rainfall-attached-empty-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the hint when has_feature_data is undefined (never fabricate from missing data)', (done) => {
+                const staleRainfallOpts = [{id: 6, title: 'Default Rainfall'}];
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, rainfall: 6}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={terrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={staleRainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-rainfall-attached-empty-hint')).toNotExist();
                         done();
                     }
                 );
@@ -1374,6 +1533,72 @@ describe('meshRegionIsUnattached (TASK-2116)', () => {
 
     it('is false once mesh_region is attached', () => {
         expect(meshRegionIsUnattached({mesh_region: 9}, regions)).toBe(false);
+    });
+});
+
+// ------------------------------------------------------------------
+// TASK-2160 (epic 2147 W4) — rainfallIsUnattached pure-predicate unit tests
+// (direct MeshRegion analog)
+// ------------------------------------------------------------------
+describe('rainfallIsUnattached (TASK-2160)', () => {
+    const rainfalls = [{id: 6, title: 'Design Storm 1%'}];
+
+    it('is false when no rainfalls are drawn (empty array)', () => {
+        expect(rainfallIsUnattached({rainfall: null}, [])).toBe(false);
+    });
+
+    it('is false when rainfalls is undefined/absent', () => {
+        expect(rainfallIsUnattached({rainfall: null}, undefined)).toBe(false);
+    });
+
+    it('is true when rainfalls are drawn and rainfall is null', () => {
+        expect(rainfallIsUnattached({rainfall: null}, rainfalls)).toBe(true);
+    });
+
+    it('is true when rainfalls are drawn and rainfall is absent entirely', () => {
+        expect(rainfallIsUnattached({}, rainfalls)).toBe(true);
+    });
+
+    it('is false once rainfall is attached', () => {
+        expect(rainfallIsUnattached({rainfall: 6}, rainfalls)).toBe(false);
+    });
+});
+
+// ------------------------------------------------------------------
+// TASK-2189 (epic 2147 W6) — rainfallAttachedButEmpty pure-predicate unit
+// tests (complement of rainfallIsUnattached above)
+// ------------------------------------------------------------------
+describe('rainfallAttachedButEmpty (TASK-2189)', () => {
+    const emptyRainfalls = [{id: 6, title: 'Design Storm 1%', has_feature_data: false}];
+    const dataRainfalls = [{id: 6, title: 'Design Storm 1%', has_feature_data: true}];
+
+    it('is false when no rainfall is attached', () => {
+        expect(rainfallAttachedButEmpty({rainfall: null}, emptyRainfalls)).toBe(false);
+    });
+
+    it('is false when rainfall is absent entirely', () => {
+        expect(rainfallAttachedButEmpty({}, emptyRainfalls)).toBe(false);
+    });
+
+    it('is true when the attached rainfall has has_feature_data === false', () => {
+        expect(rainfallAttachedButEmpty({rainfall: 6}, emptyRainfalls)).toBe(true);
+    });
+
+    it('is false when the attached rainfall has has_feature_data === true', () => {
+        expect(rainfallAttachedButEmpty({rainfall: 6}, dataRainfalls)).toBe(false);
+    });
+
+    it('is false when has_feature_data is undefined (stale/pre-2189 API response — never fabricate)', () => {
+        const staleRainfalls = [{id: 6, title: 'Design Storm 1%'}];
+        expect(rainfallAttachedButEmpty({rainfall: 6}, staleRainfalls)).toBe(false);
+    });
+
+    it('is false when the attached id does not match any resource in the list', () => {
+        expect(rainfallAttachedButEmpty({rainfall: 999}, emptyRainfalls)).toBe(false);
+    });
+
+    it('is false when rainfalls is undefined/absent', () => {
+        expect(rainfallAttachedButEmpty({rainfall: 6}, undefined)).toBe(false);
     });
 });
 

@@ -42,12 +42,14 @@ import { DISCRIMINATOR_KIND } from './discriminatorRegistry';
  *     `inf_*` Inflow rows for example carry a legitimate `data` text column
  *     that the FE owns and the BE reads — see Inflow.make_file's TimeSeries
  *     name vs constant heuristic).
- *   * boundary !== 'Time' → strip data, data_constant, data_timeseries_id
- *     (BE will see only the_geom + boundary + location + description)
- *   * boundary === 'Time' + kind='constant' → emit data_constant only,
- *     OMIT data + data_timeseries_id
- *   * boundary === 'Time' + kind='timeseries' → emit data_timeseries_id only,
- *     OMIT data + data_constant
+ *   (TASK-2159: the non-selected XOR column(s) ride the wire as explicit null,
+ *   NOT omitted, so a switch actually clears the stale column on WFS-T UPDATE.)
+ *   * boundary !== 'Time' → strip data; NULL data_constant + data_timeseries_id
+ *     (BE requires BOTH null off-Time — the_geom + boundary + location + description)
+ *   * boundary === 'Time' + kind='constant' → emit data_constant, strip data,
+ *     NULL data_timeseries_id
+ *   * boundary === 'Time' + kind='timeseries' → emit data_timeseries_id, strip data,
+ *     NULL data_constant
  *
  * Pure function — no Redux, no axios. Called from wfstInsert/wfstUpdate
  * before WFS-T transaction build. Re-exported for unit tests.
@@ -76,8 +78,13 @@ export const translateOut = (input) => {
         // against stale formValues from a user toggling boundary type
         // mid-edit (e.g. picked Time, set a constant, then switched back
         // to Reflective without saving in between).
-        delete props.data_constant;
-        delete props.data_timeseries_id;
+        //
+        // TASK-2159: NULL both XOR columns (not omit). The BE CHECK requires
+        // BOTH null off-Time; omitting them left a stale data_constant on the
+        // row so a Time→Reflective UPDATE tripped the CHECK (silent no-clear
+        // before TASK-2158 made it loud). Explicit null clears them on the wire.
+        props.data_constant = null;
+        props.data_timeseries_id = null;
         return props;
     }
     // boundary === 'Time'. Translate the structured value into one of the
@@ -95,7 +102,9 @@ export const translateOut = (input) => {
             } else {
                 delete props.data_timeseries_id;
             }
-            delete props.data_constant;
+            // TASK-2159: NULL the non-selected XOR column (not omit) so a switch
+            // FROM constant clears the stale data_constant on the WFS-T UPDATE.
+            props.data_constant = null;
             return props;
         }
         // Default branch: constant
@@ -105,7 +114,9 @@ export const translateOut = (input) => {
         } else {
             delete props.data_constant;
         }
-        delete props.data_timeseries_id;
+        // TASK-2159: NULL the non-selected XOR column (not omit) so a switch FROM
+        // a timeseries clears the stale data_timeseries_id.
+        props.data_timeseries_id = null;
         return props;
     }
     // Time boundary but no structured value at all — strip the per-column

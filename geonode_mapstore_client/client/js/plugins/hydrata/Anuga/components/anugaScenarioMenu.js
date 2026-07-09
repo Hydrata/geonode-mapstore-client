@@ -41,7 +41,7 @@ import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 import {changeLayerProperties} from '../../../../../MapStore2/web/client/actions/layers';
 import {validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES} from './scenarioHelpers';
 import {ScenarioRail} from './scenarioRail';
-import {ScenarioPane, meshRegionIsUnattached} from './scenarioPane';
+import {ScenarioPane, meshRegionIsUnattached, rainfallIsUnattached} from './scenarioPane';
 import {ScenarioHeaderActions} from './scenarioHeaderActions';
 import {SectionHeader} from "../../SimpleView/components/primitives";
 
@@ -181,6 +181,12 @@ class AnugaScenarioMenuClass extends React.Component {
           buildValidationError: null,
           // TASK-2116 (F4) — {pendingAction, scenario} | null.
           meshRegionWarning: null,
+          // TASK-2160 (epic 2147 W4) — {pendingAction, scenario} | null; the
+          // rainfall analog of meshRegionWarning. Checked BEFORE meshRegion at
+          // build time (see handleBuildClick), so a scenario with BOTH a drawn-
+          // unattached rainfall and a drawn-unattached mesh region surfaces the
+          // rainfall warning first, then the mesh warning on "Build anyway".
+          rainfallWarning: null,
           // UAT #8 fix — the combined "Build and Run" deferred-run state machine,
           // or null when no run is pending. Shape: {scenarioId, phase} where
           // phase is 'awaiting-inflight' (armed; waiting for the dispatched build
@@ -411,6 +417,30 @@ class AnugaScenarioMenuClass extends React.Component {
   // the hint and the build-time confirm can never drift apart.
   meshRegionNeedsWarning = (scenario) => meshRegionIsUnattached(scenario, this.props.meshRegions);
 
+  // TASK-2160 (epic 2147 W4) — rainfall analog of meshRegionNeedsWarning.
+  // Delegates to scenarioPane.js's rainfallIsUnattached (same predicate that
+  // drives the in-pane hint) so the hint and the build-time confirm can never
+  // drift apart, exactly as meshRegionNeedsWarning does for mesh regions.
+  rainfallNeedsWarning = (scenario) => rainfallIsUnattached(scenario, this.props.rainfalls);
+
+  // TASK-2160 (epic 2147 W4) — the build tail AFTER the rainfall gate has been
+  // cleared (either it didn't apply, or the user chose "Build anyway"). The
+  // mesh-region gate (TASK-2116) is the LAST gate before dispatch, so it lives
+  // here; a scenario tripping BOTH warnings shows rainfall first, then this
+  // surfaces the mesh warning. Shared by the click handlers and the rainfall
+  // "Build anyway" handler so the composition can't drift.
+  proceedPastRainfall = (pendingAction, scenario) => {
+      if (this.meshRegionNeedsWarning(scenario)) {
+          this.setState({meshRegionWarning: {pendingAction, scenario}});
+          return;
+      }
+      if (pendingAction === 'buildAndRun') {
+          this.armAndDispatchBuildAndRun(scenario);
+      } else {
+          this.dispatchBuild(scenario);
+      }
+  };
+
   handleBuildClick = (scenario) => {
       const missingField = validateScenario(scenario);
       if (missingField) {
@@ -419,11 +449,11 @@ class AnugaScenarioMenuClass extends React.Component {
           return;
       }
       this.setState({buildValidationError: null});
-      if (this.meshRegionNeedsWarning(scenario)) {
-          this.setState({meshRegionWarning: {pendingAction: 'build', scenario}});
+      if (this.rainfallNeedsWarning(scenario)) {
+          this.setState({rainfallWarning: {pendingAction: 'build', scenario}});
           return;
       }
-      this.dispatchBuild(scenario);
+      this.proceedPastRainfall('build', scenario);
   };
 
   handleRunClick = (scenario) => {
@@ -476,11 +506,11 @@ class AnugaScenarioMenuClass extends React.Component {
           return;
       }
       this.setState({buildValidationError: null});
-      if (this.meshRegionNeedsWarning(scenario)) {
-          this.setState({meshRegionWarning: {pendingAction: 'buildAndRun', scenario}});
+      if (this.rainfallNeedsWarning(scenario)) {
+          this.setState({rainfallWarning: {pendingAction: 'buildAndRun', scenario}});
           return;
       }
-      this.armAndDispatchBuildAndRun(scenario);
+      this.proceedPastRainfall('buildAndRun', scenario);
   };
 
   // TASK-2116 (F4) — "Build anyway": proceed with the SAME dispatch the
@@ -507,6 +537,28 @@ class AnugaScenarioMenuClass extends React.Component {
       this.setState({meshRegionWarning: null});
       trackEvent('button', 'click', 'anuga-scenario-menu-mesh-region-warning-attach-first');
       const el = typeof document !== 'undefined' ? document.getElementById('mesh_region') : null;
+      if (el && typeof el.focus === 'function') el.focus();
+  };
+
+  // TASK-2160 (epic 2147 W4) — "Build anyway" for the rainfall warning:
+  // proceed with the SAME dispatch the click would have taken, but STILL run
+  // the mesh-region gate on the way (via proceedPastRainfall) so acknowledging
+  // one warning never suppresses the other. NO auto-attach (operator-rejected,
+  // same rationale as mesh_region — see scenarioPane.js rainfallIsUnattached).
+  handleRainfallWarningBuildAnyway = () => {
+      const pending = this.state.rainfallWarning;
+      if (!pending) return;
+      this.setState({rainfallWarning: null});
+      trackEvent('button', 'click', 'anuga-scenario-menu-rainfall-warning-build-anyway');
+      this.proceedPastRainfall(pending.pendingAction, pending.scenario);
+  };
+
+  // TASK-2160 (epic 2147 W4) — "Attach first": dismiss without building and
+  // focus the rainfall selector so the user can pick a rainfall immediately.
+  handleRainfallWarningAttachFirst = () => {
+      this.setState({rainfallWarning: null});
+      trackEvent('button', 'click', 'anuga-scenario-menu-rainfall-warning-attach-first');
+      const el = typeof document !== 'undefined' ? document.getElementById('rainfall') : null;
       if (el && typeof el.focus === 'function') el.focus();
   };
 
@@ -818,6 +870,48 @@ class AnugaScenarioMenuClass extends React.Component {
       );
   }
 
+  // TASK-2160 (epic 2147 W4) — build-time confirm for a drawn-but-unattached
+  // Rainfall. Direct mirror of renderMeshRegionWarningDialog: always rendered,
+  // `.is-open` toggled via CSS (Karma-deterministic), reusing
+  // .sv-anuga-scenario-confirm-dialog for the shared chrome. Distinct wrapper
+  // class .sv-anuga-rainfall-warning-dialog + button classes so its own specs
+  // and the mesh-region specs target disjoint nodes.
+  renderRainfallWarningDialog() {
+      const {rainfallWarning} = this.state;
+      const isOpen = !!rainfallWarning;
+      const names = (this.props.rainfalls || []).map(r => r?.title).filter(Boolean).join(', ');
+      return (
+          <span
+              className={"sv-anuga-scenario-confirm-dialog sv-anuga-rainfall-warning-dialog"
+              + (isOpen ? " is-open" : "")}
+              role="alertdialog"
+              aria-label={this.tr('hydrata.anuga.rainfallWarningAriaLabel', 'Rainfall not attached')}
+              aria-hidden={isOpen ? undefined : true}
+          >
+              <span className="sv-anuga-scenario-confirm-text">
+                  <Message
+                      msgId="hydrata.anuga.rainfallUnattachedConfirm"
+                      msgParams={{names}}
+                  />
+              </span>
+              <button
+                  type="button"
+                  className="sv-save-confirm-btn confirm sv-anuga-rainfall-build-anyway"
+                  onClick={this.handleRainfallWarningBuildAnyway}
+              >
+                  <Message msgId="hydrata.anuga.buildAnyway" />
+              </button>
+              <button
+                  type="button"
+                  className="sv-save-confirm-btn cancel sv-anuga-rainfall-attach-first"
+                  onClick={this.handleRainfallWarningAttachFirst}
+              >
+                  <Message msgId="hydrata.anuga.attachFirst" />
+              </button>
+          </span>
+      );
+  }
+
   render() {
       const {selectedScenario} = this.props;
       // TASK-2078: View Results gate is a RESULT consumer per D1 — presence
@@ -874,6 +968,7 @@ class AnugaScenarioMenuClass extends React.Component {
                   {this.renderConfirmDialog()}
                   {this.renderBuildValidationDialog()}
                   {this.renderMeshRegionWarningDialog()}
+                  {this.renderRainfallWarningDialog()}
               </div>
           </div>
       );

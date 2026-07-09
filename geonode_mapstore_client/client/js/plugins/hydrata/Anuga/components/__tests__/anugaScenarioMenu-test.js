@@ -833,6 +833,150 @@ describe('anugaScenarioMenu — MeshRegion unattached build confirm (TASK-2116)'
 });
 
 /*
+ * TASK-2160 (epic 2147 W4) — build-time confirm for a drawn-but-unattached
+ * Rainfall. Direct mirror of the MeshRegion block above, with one extra case:
+ * a scenario tripping BOTH warnings surfaces rainfall first, then the mesh
+ * warning on "Build anyway" (proceedPastRainfall composition).
+ */
+describe('anugaScenarioMenu — Rainfall unattached build confirm (TASK-2160)', () => {
+    let container;
+
+    // Passes validateScenario (inflow set, so inflowOrRainfall is satisfied)
+    // so the click reaches the rainfall-warning gate rather than the
+    // missing-field validation dialog.
+    function validScenario(id, extras = {}) {
+        return {
+            id, name: `Valid ${id}`, status: 'created',
+            terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+            friction: null, structure: null, mesh_region: null, network: null,
+            resolution: 1000, duration: 1800, created_by: 9999, unsaved: false,
+            ...extras
+        };
+    }
+
+    function makeHarness({rainfalls, meshRegions} = {}) {
+        const buildCalls = [];
+        const runCalls = [];
+        const base = {
+            archiveFilter: 'none',
+            terrain: [], boundaries: [], inflows: [],
+            rainfalls: rainfalls || [], meshRegions: meshRegions || [],
+            frictions: [], structures: [], networks: [],
+            computeInstances: [],
+            canCreateScenario: true,
+            canRunScenario: true,
+            myRole: 'editor',
+            currentUserId: 9999,
+            selectedScenarios: [],
+            readyToCompare: false,
+            flatLayers: [],
+            selectAnugaScenario: () => {},
+            setOpenMenuGroupId: () => {},
+            saveAnugaScenario: () => {},
+            buildScenarioExplicit: (sid) => buildCalls.push(sid),
+            runAnugaScenario: (s, b) => runCalls.push({scenario: s, backend: b})
+        };
+        const render = (scenario) => {
+            ReactDOM.render(
+                <AnugaScenarioMenuClass {...base} scenarios={[scenario]} selectedScenario={scenario} />,
+                container
+            );
+        };
+        return {buildCalls, runCalls, render};
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('Build click opens the rainfall warning dialog instead of dispatching, when a drawn rainfall is unattached', () => {
+        const {buildCalls, render} = makeHarness({rainfalls: [{id: 6, title: 'Design Storm 1%'}]});
+        render(validScenario(71));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        const dialog = container.querySelector('.sv-anuga-rainfall-warning-dialog.is-open');
+        expect(dialog).toExist();
+        expect(dialog.textContent).toInclude('hydrata.anuga.rainfallUnattachedConfirm');
+    });
+
+    it('Build click dispatches immediately when no rainfalls are drawn', () => {
+        const {buildCalls, render} = makeHarness({rainfalls: []});
+        render(validScenario(72));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(1);
+        expect(container.querySelector('.sv-anuga-rainfall-warning-dialog.is-open')).toNotExist();
+    });
+
+    it('Build click dispatches immediately when a rainfall is already attached', () => {
+        const {buildCalls, render} = makeHarness({rainfalls: [{id: 6, title: 'Design Storm 1%'}]});
+        render(validScenario(73, {rainfall: 6}));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(1);
+        expect(container.querySelector('.sv-anuga-rainfall-warning-dialog.is-open')).toNotExist();
+    });
+
+    it('"Build anyway" dispatches the deferred build and closes the dialog (NO auto-attach)', () => {
+        const {buildCalls, render} = makeHarness({rainfalls: [{id: 6, title: 'Design Storm 1%'}]});
+        render(validScenario(74));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        container.querySelector('.sv-anuga-rainfall-build-anyway').click();
+        expect(buildCalls.length).toBe(1);
+        expect(buildCalls[0]).toBe(74);
+        expect(container.querySelector('.sv-anuga-rainfall-warning-dialog.is-open')).toNotExist();
+    });
+
+    it('"Attach first" closes the dialog WITHOUT building and focuses #rainfall', () => {
+        const {buildCalls, render} = makeHarness({rainfalls: [{id: 6, title: 'Design Storm 1%'}]});
+        render(validScenario(75));
+        // #rainfall lives in the pane; render includes ScenarioPane so the
+        // selector exists in the DOM to receive focus.
+        container.querySelector('.sv-scenario-action-build').click();
+        container.querySelector('.sv-anuga-rainfall-attach-first').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-rainfall-warning-dialog.is-open')).toNotExist();
+        expect(document.activeElement.id).toBe('rainfall');
+    });
+
+    it('Build-and-Run click ALSO opens the rainfall warning dialog when unattached', () => {
+        const {buildCalls, runCalls, render} = makeHarness({rainfalls: [{id: 6, title: 'Design Storm 1%'}]});
+        render(validScenario(76));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(buildCalls.length).toBe(0);
+        expect(runCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-rainfall-warning-dialog.is-open')).toExist();
+    });
+
+    it('composition: "Build anyway" on rainfall then surfaces the mesh-region warning when BOTH are unattached', () => {
+        const {buildCalls, render} = makeHarness({
+            rainfalls: [{id: 6, title: 'Design Storm 1%'}],
+            meshRegions: [{id: 9, title: 'Corridor 10m'}]
+        });
+        render(validScenario(77));
+        container.querySelector('.sv-scenario-action-build').click();
+        // Rainfall warning first, mesh not yet shown, nothing dispatched.
+        expect(container.querySelector('.sv-anuga-rainfall-warning-dialog.is-open')).toExist();
+        expect(container.querySelector('.sv-anuga-mesh-region-warning-dialog.is-open')).toNotExist();
+        expect(buildCalls.length).toBe(0);
+        // Acknowledge rainfall → mesh-region warning surfaces, still no dispatch.
+        container.querySelector('.sv-anuga-rainfall-build-anyway').click();
+        expect(container.querySelector('.sv-anuga-rainfall-warning-dialog.is-open')).toNotExist();
+        expect(container.querySelector('.sv-anuga-mesh-region-warning-dialog.is-open')).toExist();
+        expect(buildCalls.length).toBe(0);
+        // Acknowledge mesh → the build finally dispatches.
+        container.querySelector('.sv-anuga-mesh-region-build-anyway').click();
+        expect(buildCalls.length).toBe(1);
+        expect(buildCalls[0]).toBe(77);
+    });
+});
+
+/*
  * Regression guard — source-text scan for window.confirm / window.alert.
  *
  * Stops the bug class from recurring (memory pin

@@ -14,6 +14,11 @@
 //
 // TASK-2042 (F2-residual, epic 2037 W2) added crudEpics-test.js —
 // retryAnugaRunEpic no longer arms a poll on the superseded old run id.
+//
+// TASK-2189 (epic 2147 W6) added scenarioPane-test.js — the full
+// ScenarioPane spec suite (rainfall/mesh-region hints, category panes,
+// etc.), needed so the wave's rainfallAttachedButEmpty predicate + hint
+// coverage can run scoped instead of via the full untargeted suite.
 var helpers = require.context('./js/plugins/hydrata/Anuga/components/__tests__', false, /scenarioHelpers-test\.jsx?$/);
 helpers.keys().forEach(helpers);
 var terrainCrs = require.context('./js/plugins/hydrata/Anuga/components/__tests__', false, /terrainUploadCrsPanel-test\.jsx?$/);
@@ -24,4 +29,6 @@ var crudEpics = require.context('./js/plugins/hydrata/Anuga/epics/__tests__', fa
 crudEpics.keys().forEach(crudEpics);
 var reducer = require.context('./js/plugins/hydrata/Anuga/reducers/__tests__', false, /scenariosReducer-test\.jsx?$/);
 reducer.keys().forEach(reducer);
-module.exports = reducer;
+var scenarioPane = require.context('./js/plugins/hydrata/Anuga/components/__tests__', false, /scenarioPane-test\.jsx?$/);
+scenarioPane.keys().forEach(scenarioPane);
+module.exports = scenarioPane;

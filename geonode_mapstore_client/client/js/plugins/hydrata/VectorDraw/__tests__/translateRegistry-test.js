@@ -208,7 +208,9 @@ describe('VectorDraw translateRegistry (TASK-813 W1.2)', () => {
                 description: 'X',
                 data_constant: 5
             });
-            expect(out.data_constant).toBe(undefined);
+            // TASK-2159: non-Time boundary clears the XOR column with explicit
+            // null (not omit) so the stale data_constant is NULLed on UPDATE.
+            expect(out.data_constant).toBe(null);
             expect(out.boundary).toBe('Reflective');
             expect(out.description).toBe('X');
         });

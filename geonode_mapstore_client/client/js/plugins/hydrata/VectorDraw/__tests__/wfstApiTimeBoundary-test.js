@@ -3,10 +3,12 @@
  * wfstApi.js. These are pure data transforms; no axios / no Redux / no
  * jsdom required.
  *
- * Wire contract being pinned here:
- *   * boundary !== 'Time'         → strip data, data_constant, data_timeseries_id
- *   * boundary === 'Time' (const) → emit data_constant only
- *   * boundary === 'Time' (ts)    → emit data_timeseries_id only
+ * Wire contract being pinned here (TASK-2159: the non-selected XOR column is
+ * emitted as explicit null — NOT omitted — so a clear/switch actually NULLs the
+ * stale column on WFS-T UPDATE instead of silently leaving it populated):
+ *   * boundary !== 'Time'         → strip data; NULL data_constant + data_timeseries_id
+ *   * boundary === 'Time' (const) → emit data_constant; NULL data_timeseries_id
+ *   * boundary === 'Time' (ts)    → emit data_timeseries_id; NULL data_constant
  *   * legacy `data` text column   → NEVER emitted by new FE writes
  *
  * The reverse (synthesizeTimeBoundaryFormValue) is exercised separately so
@@ -36,8 +38,11 @@ describe('TASK-795 translateTimeBoundaryProperties', () => {
             };
             const out = translateTimeBoundaryProperties(input);
             expect(out.data).toBe(undefined);
-            expect(out.data_constant).toBe(undefined);
-            expect(out.data_timeseries_id).toBe(undefined);
+            // TASK-2159: non-Time boundary CLEARS both XOR columns with explicit
+            // null (not omit) so a switch away from Time actually NULLs a stale
+            // data_constant / data_timeseries_id (BE requires both null off-Time).
+            expect(out.data_constant).toBe(null);
+            expect(out.data_timeseries_id).toBe(null);
             // Other fields preserved.
             expect(out.description).toBe('My Boundary');
             expect(out.boundary).toBe('Reflective');
@@ -50,8 +55,8 @@ describe('TASK-795 translateTimeBoundaryProperties', () => {
                 data: { kind: 'constant', constant: 5 }
             });
             expect(out.data).toBe(undefined);
-            expect(out.data_constant).toBe(undefined);
-            expect(out.data_timeseries_id).toBe(undefined);
+            expect(out.data_constant).toBe(null);
+            expect(out.data_timeseries_id).toBe(null);
         });
 
         it('Transmissive boundary: same strip behaviour', () => {
@@ -60,8 +65,8 @@ describe('TASK-795 translateTimeBoundaryProperties', () => {
                 data: 'legacy-string-value'
             });
             expect(out.data).toBe(undefined);
-            expect(out.data_constant).toBe(undefined);
-            expect(out.data_timeseries_id).toBe(undefined);
+            expect(out.data_constant).toBe(null);
+            expect(out.data_timeseries_id).toBe(null);
         });
     });
 
@@ -76,7 +81,8 @@ describe('TASK-795 translateTimeBoundaryProperties', () => {
             const out = translateTimeBoundaryProperties(input);
             expect(out.data).toBe(undefined);
             expect(out.data_constant).toBe(5.5);
-            expect(out.data_timeseries_id).toBe(undefined);
+            // Non-selected XOR column cleared with explicit null (TASK-2159).
+            expect(out.data_timeseries_id).toBe(null);
             expect(out.boundary).toBe('Time');
             expect(out.location).toBe('External');
             expect(out.description).toBe('Tide');
@@ -99,7 +105,8 @@ describe('TASK-795 translateTimeBoundaryProperties', () => {
                     data: { kind: 'constant', constant: v }
                 });
                 expect(out.data_constant).toBe(undefined);
-                expect(out.data_timeseries_id).toBe(undefined);
+                // Non-selected column still cleared with explicit null (TASK-2159).
+                expect(out.data_timeseries_id).toBe(null);
             });
         });
     });
@@ -115,7 +122,8 @@ describe('TASK-795 translateTimeBoundaryProperties', () => {
             const out = translateTimeBoundaryProperties(input);
             expect(out.data).toBe(undefined);
             expect(out.data_timeseries_id).toBe(42);
-            expect(out.data_constant).toBe(undefined);
+            // Non-selected XOR column cleared with explicit null (TASK-2159).
+            expect(out.data_constant).toBe(null);
         });
 
         it('coerces string id to int', () => {
@@ -134,7 +142,8 @@ describe('TASK-795 translateTimeBoundaryProperties', () => {
                     boundary: 'Time',
                     data: { kind: 'timeseries', timeseries_id: v }
                 });
-                expect(out.data_constant).toBe(undefined);
+                // Non-selected column still cleared with explicit null (TASK-2159).
+                expect(out.data_constant).toBe(null);
                 expect(out.data_timeseries_id).toBe(undefined);
             });
         });
@@ -329,10 +338,12 @@ describe('TASK-795 round-trip: translate(synthesize(row)) == row (Time/constant)
             description: 'My Boundary',
             boundary: 'Time',
             location: 'External',
-            data_constant: 5.5
+            data_constant: 5.5,
+            // TASK-2159: the non-selected XOR column rides the wire as explicit null.
+            data_timeseries_id: null
         });
         expect(wireProps.data).toBe(undefined);
-        expect(wireProps.data_timeseries_id).toBe(undefined);
+        expect(wireProps.data_timeseries_id).toBe(null);
     });
 
     it('row with data_timeseries_id survives the full read→write cycle', () => {
@@ -349,7 +360,9 @@ describe('TASK-795 round-trip: translate(synthesize(row)) == row (Time/constant)
             description: 'TS Boundary',
             boundary: 'Time',
             location: 'Internal',
-            data_timeseries_id: 42
+            data_timeseries_id: 42,
+            // TASK-2159: the non-selected XOR column rides the wire as explicit null.
+            data_constant: null
         });
     });
 });

@@ -170,8 +170,10 @@ describe('TASK-805 showWhen integration: wire-property strip half (translate)', 
         expect(wire.boundary).toBe('Reflective');
         expect(wire.description).toBe('X');
         expect('data' in wire).toBe(false);
-        expect('data_constant' in wire).toBe(false);
-        expect('data_timeseries_id' in wire).toBe(false);
+        // TASK-2159: the XOR columns ride the wire as EXPLICIT null (not omitted)
+        // so an off-Time UPDATE actually NULLs a stale data_constant on the row.
+        expect(wire.data_constant).toBe(null);
+        expect(wire.data_timeseries_id).toBe(null);
     });
 
     it('boundary=Time + data.kind=constant → wire has data_constant only', () => {
@@ -183,7 +185,8 @@ describe('TASK-805 showWhen integration: wire-property strip half (translate)', 
         expect(wire.boundary).toBe('Time');
         expect(wire.data_constant).toBe(5);
         expect('data' in wire).toBe(false);
-        expect('data_timeseries_id' in wire).toBe(false);
+        // TASK-2159: non-selected XOR column cleared with explicit null (not omit).
+        expect(wire.data_timeseries_id).toBe(null);
     });
 
     it('boundary=Time + data.kind=timeseries → wire has data_timeseries_id only', () => {
@@ -195,7 +198,8 @@ describe('TASK-805 showWhen integration: wire-property strip half (translate)', 
         expect(wire.boundary).toBe('Time');
         expect(wire.data_timeseries_id).toBe(42);
         expect('data' in wire).toBe(false);
-        expect('data_constant' in wire).toBe(false);
+        // TASK-2159: non-selected XOR column cleared with explicit null (not omit).
+        expect(wire.data_constant).toBe(null);
     });
 
     it('non-Boundary layer (no boundary key) → translate is pass-through (Inflow.data preserved)', () => {

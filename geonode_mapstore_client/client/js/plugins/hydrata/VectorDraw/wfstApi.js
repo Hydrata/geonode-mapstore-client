@@ -4,6 +4,7 @@ import requestBuilder from '../../../../MapStore2/web/client/utils/ogc/WFST/Requ
 import { fidFilter } from '../../../../MapStore2/web/client/utils/ogc/Filter/filter';
 import axios from '../../../../MapStore2/web/client/libs/ajax';
 import { interceptOGCError } from '../../../../MapStore2/web/client/utils/ObservableUtils';
+import { getPropertyDescriptor } from '../../../../MapStore2/web/client/utils/ogc/WFS/base';
 // Side-effect import: ensures the 'bdy' translator is registered before any
 // wfstInsert/wfstUpdate call. boundaryTranslate.js's registerTranslate('bdy', ...)
 // fires at module-load time. No `sideEffects: false` in client/package.json
@@ -70,10 +71,25 @@ export const wfstInsert = async(wfsUrl, typeName, geometry, properties) => {
     // today; W2 will add inflowTranslate.
     const wireProperties = getTranslate(deriveTranslateKey(typeName)).translateOut(properties);
 
+    // TASK-2159 (W3.2) — translateOut emits an EXPLICIT null for a cleared XOR /
+    // off-shape column so a WFS-T UPDATE actually NULLs the stale column on the
+    // row (the update path serialises null as `<wfs:Value></wfs:Value>`, which
+    // GeoServer stores as NULL). But INSERT is structurally different: a fresh
+    // row has nothing to clear, and GeoServer 2.27's WFS-T insert GML-binding
+    // THROWS on an empty numeric/int element (`<geonode:data_timeseries_id/>` →
+    // "Parsing failed … StringIndexOutOfBoundsException"; empty float →
+    // "String is not assignable from Float"), atomically rejecting the whole
+    // insert. So drop the null-valued keys here — an omitted column simply
+    // defaults to NULL, restoring pre-2159 create behaviour. (verified live:
+    // W3 closeout; adversarial review wf_22688b79 confirmed P0.)
+    const insertProperties = Object.fromEntries(
+        Object.entries(wireProperties || {}).filter(([, v]) => v !== null)
+    );
+
     const featureObj = {
         type: 'Feature',
         geometry: geometry,
-        properties: wireProperties
+        properties: insertProperties
     };
 
     // Wrap the synchronous WFS-T body build so a malformed describe (e.g.,
@@ -135,9 +151,16 @@ export const wfstUpdate = async(wfsUrl, typeName, featureId, geometry, propertie
     // a meaningful error rather than the raw "(reading 'type')" frame.
     let xml;
     try {
-        const changes = Object.keys(wireProperties || {}).map(k =>
-            builder.propertyChange(k, wireProperties[k])
-        );
+        // TASK-2159 (W3.2) — only emit a propertyChange for a column the describe
+        // actually declares. translateOut now ALWAYS includes the cleared XOR
+        // keys (as null); without this filter, getValue(null, key, describe) on a
+        // describe MISSING the column hits isGeometryType(getPropertyDescriptor()
+        // === undefined) → throws, turning a previously-working save into a hard
+        // failure on a schema-drifted / stale-DescribeFeatureType-cache table.
+        // Mirrors the INSERT path's toFeature descriptor filter (RequestBuilder.js).
+        const changes = Object.keys(wireProperties || {})
+            .filter(k => getPropertyDescriptor(k, describe))
+            .map(k => builder.propertyChange(k, wireProperties[k]));
         if (geometry) {
             changes.push(builder.propertyChange(builder.getPropertyName('geometry'), geometry));
         }
@@ -148,9 +171,19 @@ export const wfstUpdate = async(wfsUrl, typeName, featureId, geometry, propertie
         );
     }
 
-    await axios.post(wfsUrl, xml, {
+    const response = await axios.post(wfsUrl, xml, {
         headers: { 'Content-Type': 'application/xml' }
     });
+
+    // TASK-2158 (W3.1) — GeoServer returns HTTP-200 with an ows:ExceptionReport
+    // when a transaction is REJECTED (e.g. a rai_data_xor CHECK violation on a
+    // cleared XOR column). Without this guard wfstUpdate RESOLVED on that 200 →
+    // the save epic fired SAVE_SUCCESS on a no-op write. Mirror the wfstInsert /
+    // wfstDelete choke point so every silent WFS-T update failure surfaces loud.
+    const responseText = typeof response.data === 'string'
+        ? response.data
+        : new XMLSerializer().serializeToString(response.data);
+    await throwIfOGCException({ data: responseText }, 'WFS-T update failed');
 
     return featureId;
 };

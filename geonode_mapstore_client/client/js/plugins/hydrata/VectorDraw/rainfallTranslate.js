@@ -26,9 +26,11 @@ import { DISCRIMINATOR_KIND } from './discriminatorRegistry';
  *   { kind: 'constant',   constant: <Number> }
  *   { kind: 'timeseries', timeseries_id: <Number> }
  *
- * Wire contract:
- *   * kind='constant'   → emit data_constant only, OMIT data + data_timeseries_id
- *   * kind='timeseries' → emit data_timeseries_id only, OMIT data + data_constant
+ * Wire contract (TASK-2159: the non-selected XOR column is emitted as explicit
+ * null, NOT omitted, so a kind-switch actually clears the stale column on the
+ * WFS-T UPDATE):
+ *   * kind='constant'   → emit data_constant, NULL data_timeseries_id, strip data
+ *   * kind='timeseries' → emit data_timeseries_id, NULL data_constant, strip data
  *   * missing/empty shape → strip all three (BE rai_data_xor CHECK fires)
  *
  * Pure function — no Redux, no axios.
@@ -50,7 +52,11 @@ export const translateOut = (input) => {
             } else {
                 delete props.data_timeseries_id;
             }
-            delete props.data_constant;
+            // TASK-2159: NULL the non-selected XOR column (not omit) so a switch
+            // FROM constant clears data_constant on the WFS-T UPDATE. Omitting it
+            // left the stale constant + new id both populated → rai_data_xor CHECK
+            // violation (silent no-clear before TASK-2158 made it loud).
+            props.data_constant = null;
             return props;
         }
         // Default branch: constant
@@ -60,7 +66,9 @@ export const translateOut = (input) => {
         } else {
             delete props.data_constant;
         }
-        delete props.data_timeseries_id;
+        // TASK-2159: NULL the non-selected XOR column (not omit) so a switch FROM
+        // a hyetograph clears the stale data_timeseries_id.
+        props.data_timeseries_id = null;
         return props;
     }
     // No structured value at all — strip the per-column keys so the BE
