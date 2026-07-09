@@ -211,6 +211,7 @@
         "rainfallUnattachedHint": "« {names} » est dessiné mais non rattaché à ce scénario — il sera ignoré lors de la construction, et l'exécution se poursuivra sans lui.",
         "rainfallUnattachedConfirm": "« {names} » est dessiné mais non rattaché — l'exécution se poursuivra sans aucune pluie. Construire quand même, ou le rattacher d'abord ?",
         "rainfallWarningAriaLabel": "Pluie non rattachée",
+        "rainfallAttachedEmptyHint": "« {name} » est rattaché mais ses entités ne portent aucune donnée de pluie — il ne contribuera aucune pluie lors de la construction, et l'exécution se poursuivra comme si aucune pluie n'était rattachée.",
         "inputs": "Entrées",
         "introduction": "Introduction",
         "initSessionExpiredError": "Votre session a expiré — veuillez vous déconnecter puis vous reconnecter.",

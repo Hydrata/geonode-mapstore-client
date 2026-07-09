@@ -255,12 +255,12 @@ function renderMeshRegionUnattachedHint(scenario, meshRegions) {
  *
  * SCOPE (red-team, Phase 0.5): this predicate detects "no rainfall attached"
  * ONLY. It deliberately does NOT try to detect "a rainfall IS attached but
- * its features carry no timeseries/constant data" — RainfallSerializerV2
- * (gn_anuga/serializers_v2.py) is a bare BaseGnLayerWrapperSerializer and
- * exposes NO `has_features`/data-presence signal the way BoundarySerializerV2
- * does, so that sub-case is not knowable from data already in the pane. Warn
- * on what we can prove; don't fabricate a detection path. See the wave report's
- * decision_request for the "features lack data" follow-up.
+ * its features carry no timeseries/constant data" — at the time this landed,
+ * RainfallSerializerV2 exposed no data-presence signal to detect that
+ * sub-case from data already in the pane. Warn on what we can prove; don't
+ * fabricate a detection path. TASK-2189 (epic 2147 W6) closed that gap —
+ * see `rainfallAttachedButEmpty` below, the direct complement of this
+ * predicate.
  *
  * NO auto-attach (operator-rejected, same rationale as mesh_region): warn +
  * confirm only. The build-time confirm dialog lives in anugaScenarioMenu.js.
@@ -285,6 +285,67 @@ function renderRainfallUnattachedHint(scenario, rainfalls) {
             <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
             {' '}
             <Message msgId="hydrata.anuga.rainfallUnattachedHint" msgParams={{names}} />
+        </div>
+    );
+}
+
+// ------------------------------------------------------------------------
+// TASK-2189 (epic 2147 W6) — attached-but-empty Rainfall hint
+// ------------------------------------------------------------------------
+
+/**
+ * TASK-2189 — the complement rainfallIsUnattached's JSDoc explicitly scoped
+ * itself out of: a Rainfall IS attached to this scenario (scenario.rainfall
+ * is set), but the attached resource's underlying PostGIS features carry NO
+ * data (neither `data_constant` nor `data_timeseries_id` set on any row) —
+ * the run will silently proceed as if no rainfall were attached at all.
+ *
+ * Driven by RainfallSerializerV2.has_feature_data (gn_anuga/serializers_v2.py),
+ * a cheap EXISTS-query DATA-presence signal — distinct from Boundary's
+ * `has_features`, which only proves a feature ROW exists (not that it
+ * carries data). `rainfalls` is the same project resource list already
+ * threaded into renderInputsPane for the Rainfall dropdown (no new Redux
+ * wiring needed).
+ *
+ * Strict `=== false` (not falsy) on `has_feature_data`: `undefined` (a
+ * cached/pre-2189 API response that hasn't been re-fetched, or an
+ * in-flight-not-yet-loaded resource) must NOT be treated as "no data" — the
+ * hint's whole premise is that it is driven by REAL serializer data, never
+ * fabricated from an absent field.
+ *
+ * AC scope: an in-pane hint only (mirrors rainfallIsUnattached's shape) — no
+ * build-time confirm dialog. Unlike the fully-unattached case (which the
+ * user can trivially fix by picking a different value in the SAME select
+ * they're already looking at), the "attached but empty" case is a data
+ * problem inside the resource itself; a confirm-dialog gate would need its
+ * own attach-a-different-one workflow to be actionable, which is out of this
+ * task's declared scope. See TASK-2189 acceptance criteria.
+ */
+function findAttachedRainfall(scenario, rainfalls) {
+    const attachedId = scenario?.rainfall;
+    if (attachedId == null || attachedId === '') return null; // eslint-disable-line no-eq-null, eqeqeq
+    return (rainfalls || []).find(r => r && r.id === attachedId) || null;
+}
+
+export function rainfallAttachedButEmpty(scenario, rainfalls) {
+    const attached = findAttachedRainfall(scenario, rainfalls);
+    if (!attached) return false; // unattached, or resource list not loaded / stale id — don't fabricate
+    return attached.has_feature_data === false;
+}
+
+function renderRainfallAttachedEmptyHint(scenario, rainfalls) {
+    if (!rainfallAttachedButEmpty(scenario, rainfalls)) return null;
+    const attached = findAttachedRainfall(scenario, rainfalls);
+    const name = attached?.title || '';
+    return (
+        <div
+            className="sv-anuga-scenario-pane-section sv-anuga-scenario-rainfall-attached-empty-hint"
+            role="status"
+            aria-live="polite"
+        >
+            <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+            {' '}
+            <Message msgId="hydrata.anuga.rainfallAttachedEmptyHint" msgParams={{name}} />
         </div>
     );
 }
@@ -382,6 +443,7 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
             }
             {renderSelectField('rainfall', 'hydrata.anuga.rainfall', scenario?.rainfall, rainfalls, !canEdit, handleField)}
             {renderRainfallUnattachedHint(scenario, rainfalls)}
+            {renderRainfallAttachedEmptyHint(scenario, rainfalls)}
         </div>
     );
 }

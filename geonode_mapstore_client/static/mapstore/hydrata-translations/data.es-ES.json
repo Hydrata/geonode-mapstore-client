@@ -211,6 +211,7 @@
         "rainfallUnattachedHint": "«{names}» está dibujado pero no está vinculado a este escenario — se ignorará al compilar, y la ejecución continuará sin él.",
         "rainfallUnattachedConfirm": "«{names}» está dibujado pero no está vinculado — la ejecución continuará sin ninguna lluvia. ¿Compilar de todos modos, o vincularlo primero?",
         "rainfallWarningAriaLabel": "Lluvia no vinculada",
+        "rainfallAttachedEmptyHint": "«{name}» está vinculado pero sus entidades no tienen datos de lluvia — no contribuirá lluvia al compilar, y la ejecución continuará como si no hubiera lluvia vinculada.",
         "inputs": "Entradas",
         "introduction": "Introducción",
         "initSessionExpiredError": "Su sesión ha caducado — cierre sesión y vuelva a iniciarla.",
