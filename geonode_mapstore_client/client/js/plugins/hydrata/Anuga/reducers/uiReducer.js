@@ -25,7 +25,9 @@ import {
     SET_PROFILE_MODE,
     // TASK-1880 (epic 1884 W2) — in-app terrain-upload CRS picker.
     SET_TERRAIN_UPLOAD_CRS_PANEL,
-    SET_TERRAIN_UPLOAD_CRS_ERROR
+    SET_TERRAIN_UPLOAD_CRS_ERROR,
+    // TASK-2194 (epic 2190 W2) — staff compute-target selector site config.
+    SET_ANUGA_COMPUTE_CONFIG
 } from "../actionsAnuga";
 
 import {
@@ -80,7 +82,13 @@ const initialState = {
     terrainUploadCrsPanelVisible: false,
     terrainUploadCrsFile: null,
     terrainUploadCrsTitle: '',
-    terrainUploadCrsError: null
+    terrainUploadCrsError: null,
+    // TASK-2194 (epic 2190 W2) — site compute-target config (staff selector).
+    // null = not hydrated yet; the selector renders only for a staff user
+    // with a NON-EMPTY hydrated allowlist, so both "loading" and "empty
+    // allowlist (retired site)" hide it.
+    availableComputeTargets: null,
+    defaultComputeTarget: null
 };
 
 export default (state = initialState, action) => {
@@ -171,6 +179,21 @@ export default (state = initialState, action) => {
         return action.visible
             ? { ...state, terrainBboxConfirmVisible: true, terrainBboxAreaKm2: action.areaKm2 }
             : { ...state, terrainBboxConfirmVisible: false };
+    // TASK-2194 (epic 2190 W2) — hydrate the compute-target site config.
+    // Shape-tolerant: a malformed payload yields an EMPTY allowlist (selector
+    // hidden, dispatch omits compute_target, server default applies).
+    case SET_ANUGA_COMPUTE_CONFIG: {
+        const cfg = action.config || {};
+        return {
+            ...state,
+            availableComputeTargets: Array.isArray(cfg.available_compute_targets)
+                ? cfg.available_compute_targets
+                : [],
+            defaultComputeTarget: typeof cfg.default_compute_target === 'string'
+                ? cfg.default_compute_target
+                : null
+        };
+    }
     case SET_DEM_RAMP_DEGRADED: {
         // Per-layer flag; only rewrite the map when the value actually changes so
         // a steady stream of successful pans doesn't churn the reducer object.

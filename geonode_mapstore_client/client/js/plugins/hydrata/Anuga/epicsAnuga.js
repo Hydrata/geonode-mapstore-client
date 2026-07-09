@@ -63,6 +63,8 @@ export {
     archiveAnugaScenarioEpic,
     unarchiveAnugaScenarioEpic,
     runAnugaScenarioEpic,
+    // TASK-2194 (epic 2190 W2) — compute-target site-config hydration.
+    loadAnugaComputeConfigEpic,
     cancelAnugaRunEpic,
     retryAnugaRunEpic,
     saveAnugaScenarioEpic,

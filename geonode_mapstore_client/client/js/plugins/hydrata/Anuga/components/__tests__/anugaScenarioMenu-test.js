@@ -576,7 +576,7 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
             setOpenMenuGroupId: () => {},
             saveAnugaScenario: (s) => saveCalls.push(s),
             buildScenarioExplicit: (sid) => buildCalls.push(sid),
-            runAnugaScenario: (s, b) => runCalls.push({scenario: s, backend: b})
+            runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t})
         };
         const renderMany = (scenarios, selected) => {
             ReactDOM.render(
@@ -711,6 +711,43 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
         expect(runCalls.length).toBe(1);
         expect(runCalls[0].scenario.id).toBe(51);
     });
+
+    /*
+     * TASK-2194 (epic 2190 W2) — every run dispatch path passes the
+     * Redux-TRANSIENT session choice scenario.compute_target (Scenario has NO
+     * such column), or null when none was chosen so the POST omits the field
+     * and the server resolves the site default. This pins the RE-RUN
+     * regression: the old code sent scenario?.compute_backend || 'local',
+     * silently forcing 'local' whenever nothing was chosen.
+     */
+    it('(h) TASK-2194: Run click with NO session target passes null (field omitted downstream)', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(81, 'built'));
+        const btn = container.querySelector('.sv-scenario-action-run');
+        expect(btn).toExist();
+        btn.click();
+        expect(runCalls.length).toBe(1);
+        expect(runCalls[0].target).toBe(null);
+    });
+
+    it('(i) TASK-2194: Run click passes the staff-chosen session compute_target verbatim', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(82, 'built', {compute_target: 'batch-gpu-a10g'}));
+        container.querySelector('.sv-scenario-action-run').click();
+        expect(runCalls.length).toBe(1);
+        expect(runCalls[0].target).toBe('batch-gpu-a10g');
+    });
+
+    it('(j) TASK-2194: the deferred build-and-run dispatch carries the session target too', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(83, 'created', {compute_target: 'batch-x32'}));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(runCalls.length).toBe(0);
+        render(validScenario(83, 'building', {compute_target: 'batch-x32'}));
+        render(validScenario(83, 'built', {compute_target: 'batch-x32'}));
+        expect(runCalls.length).toBe(1);
+        expect(runCalls[0].target).toBe('batch-x32');
+    });
 });
 
 /*
@@ -754,7 +791,7 @@ describe('anugaScenarioMenu — MeshRegion unattached build confirm (TASK-2116)'
             setOpenMenuGroupId: () => {},
             saveAnugaScenario: () => {},
             buildScenarioExplicit: (sid) => buildCalls.push(sid),
-            runAnugaScenario: (s, b) => runCalls.push({scenario: s, backend: b})
+            runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t})
         };
         const render = (scenario) => {
             ReactDOM.render(
@@ -874,7 +911,7 @@ describe('anugaScenarioMenu — Rainfall unattached build confirm (TASK-2160)', 
             setOpenMenuGroupId: () => {},
             saveAnugaScenario: () => {},
             buildScenarioExplicit: (sid) => buildCalls.push(sid),
-            runAnugaScenario: (s, b) => runCalls.push({scenario: s, backend: b})
+            runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t})
         };
         const render = (scenario) => {
             ReactDOM.render(

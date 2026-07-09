@@ -653,12 +653,39 @@ describe('anugaApi', () => {
             }).catch(done);
         });
 
-        it('getAnugaConfig falls back to {default_compute_backend: "local"} on network error', (done) => {
+        it('getAnugaConfig falls back to a legacy-local + EMPTY-allowlist shape on network error (TASK-2194)', (done) => {
             // Reset the catch-all handler so the failing handler wins.
+            // The empty available_compute_targets hides the staff selector, so
+            // an unreachable endpoint degrades to "dispatch omits compute_target".
             mockAxios.reset();
             mockAxios.onGet('/api/v2/anuga/config/').networkError();
             anugaApi.getAnugaConfig().then((data) => {
-                expect(data).toEqual({ default_compute_backend: 'local' });
+                expect(data).toEqual({
+                    default_compute_backend: 'local',
+                    available_compute_targets: [],
+                    default_compute_target: null
+                });
+                done();
+            }).catch(done);
+        });
+
+        // TASK-2194 (epic 2190 W2) — dispatch POSTs {compute_target} when a
+        // target was chosen and an EMPTY body when not; the legacy
+        // compute_backend field is never sent on either path.
+        it('startRun POSTs {compute_target} verbatim when a target is passed (TASK-2194)', (done) => {
+            anugaApi.startRun(99, 'batch-gpu-a10g').then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/scenarios/99/run/');
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body).toEqual({ compute_target: 'batch-gpu-a10g' });
+                done();
+            }).catch(done);
+        });
+
+        it('startRun OMITS compute_target (and never sends compute_backend) when no target chosen (TASK-2194)', (done) => {
+            anugaApi.startRun(99).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/scenarios/99/run/');
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body).toEqual({});
                 done();
             }).catch(done);
         });

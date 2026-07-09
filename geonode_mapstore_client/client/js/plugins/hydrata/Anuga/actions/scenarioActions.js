@@ -75,13 +75,13 @@ function saveAnugaScenarioError(error) {
     };
 }
 
-// TASK-964 — `computeBackend = 'local'` is a defensive fallback for callers that
-// forget to pass one. anugaRunMenu always passes the value from its component
-// state, which is hydrated from /api/v2/anuga/config/ on mount. Site default
-// for hydrata.com is 'batch', enforced at the API layer
-// (apps/gn_anuga/api_v2.py StartRunView.post + settings.ANUGA_DEFAULT_COMPUTE_BACKEND).
-function runAnugaScenario(scenario, computeBackend = 'local') {
-    return { type: RUN_ANUGA_SCENARIO, scenario, computeBackend };
+// TASK-2194 (epic 2190 W2) — `computeTarget` is the flat compute target a
+// staff user chose this session (Redux-transient on the scenario; Scenario
+// has NO compute_target column). null = no choice -> startRun OMITS the
+// field and the server resolves the site default. The FE never sends the
+// legacy compute_backend field any more (ignored server-side since W1).
+function runAnugaScenario(scenario, computeTarget = null) {
+    return { type: RUN_ANUGA_SCENARIO, scenario, computeTarget };
 }
 
 function cancelAnugaRun(runId) {

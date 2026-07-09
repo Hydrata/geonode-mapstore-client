@@ -53,6 +53,13 @@ const SET_PROFILE_MODE = 'ANUGA:SET_PROFILE_MODE';
 // `crs_override` (TASK-1885 BE contract), OMITTED when the DEM already has a CRS.
 const SET_TERRAIN_UPLOAD_CRS_PANEL = 'ANUGA:SET_TERRAIN_UPLOAD_CRS_PANEL';
 const SET_TERRAIN_UPLOAD_CRS_ERROR = 'ANUGA:SET_TERRAIN_UPLOAD_CRS_ERROR';
+// TASK-2194 (epic 2190 W2) — site compute-target config hydrated once from
+// GET /api/v2/anuga/config/ (loadAnugaComputeConfigEpic on INIT_ANUGA).
+// Carries the site allowlist (available_compute_targets) + marked default
+// (default_compute_target) that drive the staff-only selector in
+// scenarioPane's Run section. Lives on the `ui` slice (mirrors the
+// terrainBbox cluster's "transient app state on ui" precedent).
+const SET_ANUGA_COMPUTE_CONFIG = 'ANUGA:SET_ANUGA_COMPUTE_CONFIG';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -186,6 +193,13 @@ function setTerrainUploadCrsError(error) {
     return { type: SET_TERRAIN_UPLOAD_CRS_ERROR, error };
 }
 
+// TASK-2194 — `config` is the raw GET /api/v2/anuga/config/ payload; the
+// reducer extracts available_compute_targets / default_compute_target
+// (shape-tolerant, empty allowlist on a bad shape -> selector hidden).
+function setAnugaComputeConfig(config) {
+    return { type: SET_ANUGA_COMPUTE_CONFIG, config };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -216,6 +230,8 @@ module.exports = {
     CLEAR_PROFILE, clearProfile,
     // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode.
     SET_PROFILE_MODE, setProfileMode,
+    // TASK-2194 (epic 2190 W2) — staff compute-target selector site config.
+    SET_ANUGA_COMPUTE_CONFIG, setAnugaComputeConfig,
     // TASK-1880 (epic 1884 W2) — in-app terrain-upload CRS picker.
     SET_TERRAIN_UPLOAD_CRS_PANEL, setTerrainUploadCrsPanel,
     SET_TERRAIN_UPLOAD_CRS_ERROR, setTerrainUploadCrsError

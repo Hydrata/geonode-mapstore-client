@@ -9,6 +9,8 @@ import {
     retryAnugaRunEpic,
     pollActiveRunStatusEpic,
     runAnugaScenarioEpic,
+    // TASK-2194 (epic 2190 W2) — compute-target site-config hydration.
+    loadAnugaComputeConfigEpic,
     runNetworkEpic,
     saveAnugaScenarioEpic,
     saveNetworkEpic,
@@ -148,6 +150,8 @@ export default createPlugin('Anuga', {
         retryAnugaRunEpic,
         pollActiveRunStatusEpic,
         runAnugaScenarioEpic,
+        // TASK-2194 (epic 2190 W2) — compute-target site-config hydration.
+        loadAnugaComputeConfigEpic,
         runNetworkEpic,
         saveAnugaScenarioEpic,
         saveNetworkEpic,
