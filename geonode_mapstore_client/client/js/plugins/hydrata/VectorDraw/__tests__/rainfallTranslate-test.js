@@ -33,8 +33,9 @@ describe('TASK-1404 rainfallTranslate.translateOut', () => {
             expect(out.data).toBe(undefined);
             // Must write the numeric constant
             expect(out.data_constant).toBe(100);
-            // Must NOT set timeseries id
-            expect(out.data_timeseries_id).toBe(undefined);
+            // TASK-2159: NULL the non-selected XOR column (not omit) so a
+            // switch FROM hyetograph/timeseries clears the stale id.
+            expect(out.data_timeseries_id).toBe(null);
             // Other fields preserved
             expect(out.description).toBe('test');
         });
@@ -43,18 +44,21 @@ describe('TASK-1404 rainfallTranslate.translateOut', () => {
             const out = translateOut({ data: { kind: 'constant', constant: '50.5' } });
             expect(out.data_constant).toBe(50.5);
             expect(out.data).toBe(undefined);
-            expect(out.data_timeseries_id).toBe(undefined);
+            expect(out.data_timeseries_id).toBe(null);
         });
 
         it('omits data_constant when constant is empty string', () => {
             const out = translateOut({ data: { kind: 'constant', constant: '' } });
             expect(out.data_constant).toBe(undefined);
             expect(out.data).toBe(undefined);
+            // Non-selected column still cleared with explicit null (TASK-2159).
+            expect(out.data_timeseries_id).toBe(null);
         });
 
         it('omits data_constant when constant is null', () => {
             const out = translateOut({ data: { kind: 'constant', constant: null } });
             expect(out.data_constant).toBe(undefined);
+            expect(out.data_timeseries_id).toBe(null);
         });
     });
 
@@ -63,7 +67,9 @@ describe('TASK-1404 rainfallTranslate.translateOut', () => {
             const out = translateOut({ data: { kind: 'timeseries', timeseries_id: 42 } });
             expect(out.data).toBe(undefined);
             expect(out.data_timeseries_id).toBe(42);
-            expect(out.data_constant).toBe(undefined);
+            // TASK-2159: NULL the non-selected XOR column (not omit) so a
+            // switch FROM constant clears the stale data_constant.
+            expect(out.data_constant).toBe(null);
         });
 
         it('coerces string timeseries_id to int', () => {
@@ -75,6 +81,8 @@ describe('TASK-1404 rainfallTranslate.translateOut', () => {
             const out = translateOut({ data: { kind: 'timeseries', timeseries_id: '' } });
             expect(out.data_timeseries_id).toBe(undefined);
             expect(out.data).toBe(undefined);
+            // Non-selected column still cleared with explicit null (TASK-2159).
+            expect(out.data_constant).toBe(null);
         });
     });
 
@@ -161,7 +169,7 @@ describe('TASK-1404 rainfallTranslate registry integration', () => {
         // Our translator must strip `data` and emit `data_constant`
         expect(out.data).toBe(undefined);
         expect(out.data_constant).toBe(100);
-        expect(out.data_timeseries_id).toBe(undefined);
+        expect(out.data_timeseries_id).toBe(null);
     });
 
     it('registered translateOut under "rai" emits data_timeseries_id for timeseries mode', () => {
@@ -170,7 +178,7 @@ describe('TASK-1404 rainfallTranslate registry integration', () => {
         const out = translator.translateOut(testInput);
         expect(out.data).toBe(undefined);
         expect(out.data_timeseries_id).toBe(3);
-        expect(out.data_constant).toBe(undefined);
+        expect(out.data_constant).toBe(null);
     });
 
     it('deriveTranslateKey extracts "rai" from rai_615_rainfall_01', () => {
@@ -195,7 +203,8 @@ describe('TASK-1984 rainfallTranslate hyetograph kind (timeseries-family)', () =
             const out = translateOut({ data: { kind: 'hyetograph', timeseries_id: 42 } });
             expect(out.data).toBe(undefined);
             expect(out.data_timeseries_id).toBe(42);
-            expect(out.data_constant).toBe(undefined);
+            // TASK-2159: NULL the non-selected XOR column (not omit).
+            expect(out.data_constant).toBe(null);
         });
 
         it('kind="hyetograph" coerces string timeseries_id to int', () => {
@@ -208,7 +217,8 @@ describe('TASK-1984 rainfallTranslate hyetograph kind (timeseries-family)', () =
             const out = translateOut({ data: { kind: 'hyetograph', timeseries_id: null } });
             expect(out.data).toBe(undefined);
             expect(out.data_timeseries_id).toBe(undefined);
-            expect(out.data_constant).toBe(undefined);
+            // Non-selected column still cleared with explicit null (TASK-2159).
+            expect(out.data_constant).toBe(null);
         });
 
         it('kind="hyetograph" other fields preserved', () => {

@@ -37,7 +37,9 @@ describe('TASK-850 inflowTranslate.translateOut', () => {
             const out = translateOut(input);
             expect(out.data).toBe(undefined);
             expect(out.data_constant).toBe(0.5);
-            expect(out.data_timeseries_id).toBe(undefined);
+            // TASK-2159: the non-selected XOR column is emitted as explicit null
+            // (not omitted) so a switch FROM timeseries clears the stale id.
+            expect(out.data_timeseries_id).toBe(null);
             // Other fields preserved.
             expect(out.description).toBe('Rainfall north');
             expect(out.type).toBe('Rainfall');
@@ -60,7 +62,8 @@ describe('TASK-850 inflowTranslate.translateOut', () => {
                 });
                 expect(out.data).toBe(undefined);
                 expect(out.data_constant).toBe(undefined);
-                expect(out.data_timeseries_id).toBe(undefined);
+                // Non-selected column cleared with explicit null (TASK-2159).
+                expect(out.data_timeseries_id).toBe(null);
             });
         });
     });
@@ -75,7 +78,9 @@ describe('TASK-850 inflowTranslate.translateOut', () => {
             const out = translateOut(input);
             expect(out.data).toBe(undefined);
             expect(out.data_timeseries_id).toBe(42);
-            expect(out.data_constant).toBe(undefined);
+            // Non-selected column cleared with explicit null (TASK-2159): a
+            // switch FROM constant must NULL the stale data_constant.
+            expect(out.data_constant).toBe(null);
         });
 
         it('coerces string timeseries_id to int', () => {
@@ -94,7 +99,8 @@ describe('TASK-850 inflowTranslate.translateOut', () => {
                 });
                 expect(out.data).toBe(undefined);
                 expect(out.data_timeseries_id).toBe(undefined);
-                expect(out.data_constant).toBe(undefined);
+                // Non-selected column cleared with explicit null (TASK-2159).
+                expect(out.data_constant).toBe(null);
             });
         });
     });
@@ -147,7 +153,7 @@ describe('TASK-850 inflowTranslate.translateOut', () => {
                 data_timeseries_id: 999
             });
             expect(out.data_constant).toBe(1.5);
-            expect(out.data_timeseries_id).toBe(undefined);
+            expect(out.data_timeseries_id).toBe(null);
         });
 
         it('kind=timeseries + stale data_constant: emits timeseries_id, strips constant', () => {
@@ -157,7 +163,7 @@ describe('TASK-850 inflowTranslate.translateOut', () => {
                 data_timeseries_id: 999
             });
             expect(out.data_timeseries_id).toBe(7);
-            expect(out.data_constant).toBe(undefined);
+            expect(out.data_constant).toBe(null);
         });
     });
 });

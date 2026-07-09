@@ -37,6 +37,10 @@ const NUMERIC_FIELDS = [
  * doesn't send the string "". barrels is coerced to int (fallback 1).
  * shape is passed as-is (string or null). description passed as-is.
  *
+ * TASK-2159: the dimension attrs that do not apply to the selected shape are
+ * emitted as explicit null (pipe → width_m/height_m; box/arch → diameter_m) so
+ * a shape switch clears the stale off-shape dimension on the WFS-T UPDATE.
+ *
  * Pure function — no Redux, no axios.
  */
 export const translateOut = (input) => {
@@ -61,6 +65,20 @@ export const translateOut = (input) => {
     } else if (typeof b === 'string') {
         const n = parseInt(b, 10);
         props.barrels = Number.isFinite(n) && n > 0 ? n : 1;
+    }
+
+    // TASK-2159: clear the shape-dependent dimension attrs that do NOT apply to
+    // the selected shape with explicit null, so a shape switch does not carry a
+    // stale dimension onto the row. A pipe uses diameter_m; box/arch use
+    // width_m + height_m. Hydro-enforcement reads min(height_m, diameter_m)
+    // (see Culvert model), so a stale off-shape dimension would corrupt the burn
+    // depth. The invert/barrels/description attrs apply to every shape and are
+    // left untouched. No shape selected → indeterminate, force-null nothing.
+    if (props.shape === 'pipe') {
+        props.width_m = null;
+        props.height_m = null;
+    } else if (props.shape === 'box' || props.shape === 'arch') {
+        props.diameter_m = null;
     }
 
     return props;
