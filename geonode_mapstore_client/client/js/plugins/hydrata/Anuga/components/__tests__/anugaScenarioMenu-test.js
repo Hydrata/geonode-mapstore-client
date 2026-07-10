@@ -525,17 +525,27 @@ describe('anugaScenarioMenu — header strip wiring', () => {
 });
 
 /*
- * UAT #8 correctness fix — "Build and Run" ALWAYS builds then runs (you clicked
- * Build), awaiting the build before running.
+ * UAT #8 correctness fix — "Build and Run" ALWAYS BUILDS then, byte-identical
+ * to before, RUNS awaiting the build.
+ *
+ * TASK-2211 (W3.2, epic 2204, od-4) — DOCUMENTED REVERSAL: the run half of
+ * "ALWAYS...runs" is no longer unconditional. All the fixtures in THIS
+ * describe block carry no `latest_run` (or one with no mesh_provenance), so
+ * getMeshDivergence always resolves exceedsThreshold=false for them — they
+ * exercise exactly the byte-identical below-threshold/missing-data path and
+ * remain valid, UNCHANGED tests of that path. The new interrupt-on-divergence
+ * behaviour (pause / confirm / cancel) is covered by its OWN describe block
+ * below ("anugaScenarioMenu — divergence interrupt on Build-and-Run").
  *
  * The container owns the chaining via ONE path: handleBuildAndRunClick validates,
  * dispatches the build and arms a two-phase state machine; componentDidUpdate
  * (maybeRunAfterBuild) advances it as the LIVE scenario status (flowing into
  * this.props.scenarios via the poller) is observed entering an in-flight build
- * state (IN_FLIGHT_STATUSES) and THEN reaching 'built', firing the run exactly
- * once. A bare 'built' never preceded by an observed in-flight episode (a save
- * that did not rebuild, or the stale pre-rebuild 'built' of an already-built
- * scenario) must NOT fire. A build that reaches a failure status (error/cancelled)
+ * state (IN_FLIGHT_STATUSES) and THEN reaching 'built', resolving exactly
+ * once (fire the run, or — TASK-2211 — pause for a divergence confirm). A bare
+ * 'built' never preceded by an observed in-flight episode (a save that did
+ * not rebuild, or the stale pre-rebuild 'built' of an already-built scenario)
+ * must NOT fire. A build that reaches a failure status (error/cancelled)
  * drops the pending run.
  *
  * These render the unconnected AnugaScenarioMenuClass directly with explicit
@@ -779,6 +789,200 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
         container.querySelector('.sv-scenario-action-run').click();
         expect(runCalls.length).toBe(1);
         expect(runCalls[0].target).toBe(null);
+    });
+});
+
+/*
+ * TASK-2211 (W3.2, epic 2204, od-4) — divergence interrupt on Build-and-Run.
+ *
+ * Explicit-reversal tests for the "Build and Run ALWAYS runs" claim the
+ * describe block above pins for the below-threshold/missing-data path only.
+ * These pin the ABOVE-threshold pause/confirm/cancel behaviour AC#1
+ * introduces, AC#2's byte-identical-below-threshold guarantee WITH real
+ * comparison data present (not just absent, as above), and AC#4's
+ * settings-tunable threshold.
+ */
+describe('anugaScenarioMenu — divergence interrupt on Build-and-Run (TASK-2211, od-4)', () => {
+    let container;
+
+    function validScenario(id, status, extras = {}) {
+        return {
+            id,
+            name: `Valid ${id}`,
+            status,
+            terrain: 10,
+            boundary: 20,
+            inflow: 30,
+            rainfall: null,
+            friction: null,
+            structure: null,
+            mesh_region: null,
+            network: null,
+            resolution: 1000,
+            duration: 1800,
+            created_by: 9999,
+            unsaved: false,
+            ...extras
+        };
+    }
+
+    function builtWithComparison(id, {actual, estimate, provenance} = {}) {
+        const mesh_provenance = provenance !== undefined
+            ? provenance
+            : (estimate !== undefined ? {pre_build_triangle_estimate: estimate} : {});
+        return validScenario(id, 'built', {
+            latest_run: {
+                id: id * 10,
+                status: 'complete',
+                mesh_triangle_count: actual !== undefined ? actual : 0,
+                mesh_provenance
+            }
+        });
+    }
+
+    function makeHarness(extraProps = {}) {
+        const buildCalls = [];
+        const runCalls = [];
+        const base = {
+            archiveFilter: 'none',
+            terrain: [], boundaries: [], inflows: [], rainfalls: [],
+            frictions: [], structures: [], meshRegions: [], networks: [],
+            computeInstances: [],
+            canCreateScenario: true,
+            canRunScenario: true,
+            myRole: 'editor',
+            currentUserId: 9999,
+            selectedScenarios: [],
+            readyToCompare: false,
+            flatLayers: [],
+            selectAnugaScenario: () => {},
+            setOpenMenuGroupId: () => {},
+            saveAnugaScenario: () => {},
+            buildScenarioExplicit: (sid) => buildCalls.push(sid),
+            runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t}),
+            ...extraProps
+        };
+        const render = (scenario) => {
+            ReactDOM.render(
+                <AnugaScenarioMenuClass {...base} scenarios={[scenario]} selectedScenario={scenario} />,
+                container
+            );
+        };
+        return {buildCalls, runCalls, render};
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('AC#1: pauses (does not fire) when the actual mesh diverges beyond the default (2x) threshold', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(201, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(201, 'building'));
+        // actual 300,000 vs estimate 100,000 -> 3x, above the 2x default.
+        render(builtWithComparison(201, {actual: 300000, estimate: 100000}));
+        expect(runCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toExist();
+    });
+
+    it('AC#1: one confirm click fires the deferred run', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(202, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(202, 'building'));
+        render(builtWithComparison(202, {actual: 300000, estimate: 100000}));
+        expect(runCalls.length).toBe(0);
+        container.querySelector('.sv-anuga-divergence-confirm-run').click();
+        expect(runCalls.length).toBe(1);
+        expect(runCalls[0].scenario.id).toBe(202);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toNotExist();
+    });
+
+    it('AC#1: Cancel dispatches no run — the scenario stays "built"', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(203, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(203, 'building'));
+        const built = builtWithComparison(203, {actual: 300000, estimate: 100000});
+        render(built);
+        container.querySelector('.sv-anuga-divergence-confirm-cancel').click();
+        expect(runCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toNotExist();
+        // A later, unrelated re-render of the SAME (still-built) scenario must
+        // not resurrect the dropped run — Cancel is a terminal decision.
+        render(built);
+        expect(runCalls.length).toBe(0);
+    });
+
+    it('AC#2: at/below threshold, auto-fires byte-identically EVEN WITH real comparison data present', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(204, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(204, 'building'));
+        // actual 150,000 vs estimate 100,000 -> 1.5x, below the 2x default.
+        render(builtWithComparison(204, {actual: 150000, estimate: 100000}));
+        expect(runCalls.length).toBe(1);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toNotExist();
+    });
+
+    it('AC#2: exactly AT the threshold auto-fires (strictly-greater-than gate)', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(205, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(205, 'building'));
+        render(builtWithComparison(205, {actual: 200000, estimate: 100000})); // exactly 2x
+        expect(runCalls.length).toBe(1);
+    });
+
+    // Edge case (epic environment note, VERIFIED live): a FAILED build
+    // carries an EMPTY mesh_provenance {} — can't evaluate divergence, must
+    // take the below-threshold (auto-fire) path, never pause on missing data.
+    it('edge case: empty mesh_provenance (failed-build shape) never pauses', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(206, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(206, 'building'));
+        render(builtWithComparison(206, {actual: 0, provenance: {}}));
+        expect(runCalls.length).toBe(1);
+    });
+
+    // Edge case (AC context) — a completed build with NO stamped estimate
+    // (legacy scenario built pre-W2) carries mesh_provenance: null. Can't
+    // evaluate divergence -> below-threshold path, never pauses.
+    it('edge case: null mesh_provenance (legacy pre-W2 scenario) never pauses', () => {
+        const {runCalls, render} = makeHarness();
+        render(validScenario(207, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(207, 'building'));
+        render(builtWithComparison(207, {actual: 500000, provenance: null}));
+        expect(runCalls.length).toBe(1);
+    });
+
+    it('AC#4: honours a settings-tunable meshDivergenceThreshold prop (3x lets a 2.5x build through)', () => {
+        const {runCalls, render} = makeHarness({meshDivergenceThreshold: 3});
+        render(validScenario(208, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(208, 'building'));
+        // 2.5x — above the 2x default, but below this scenario's 3x override.
+        render(builtWithComparison(208, {actual: 250000, estimate: 100000}));
+        expect(runCalls.length).toBe(1);
+    });
+
+    it('AC#4: the SAME custom threshold still pauses a build that exceeds IT', () => {
+        const {runCalls, render} = makeHarness({meshDivergenceThreshold: 3});
+        render(validScenario(209, 'created'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render(validScenario(209, 'building'));
+        render(builtWithComparison(209, {actual: 350000, estimate: 100000})); // 3.5x
+        expect(runCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toExist();
     });
 });
 

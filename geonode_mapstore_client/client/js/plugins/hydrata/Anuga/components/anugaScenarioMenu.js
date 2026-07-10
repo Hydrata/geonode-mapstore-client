@@ -45,7 +45,10 @@ import {
 } from "../selectorsAnuga";
 import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 import {changeLayerProperties} from '../../../../../MapStore2/web/client/actions/layers';
-import {validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES} from './scenarioHelpers';
+import {
+    validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES,
+    getMeshDivergence, getMeshComparison
+} from './scenarioHelpers';
 import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane, meshRegionIsUnattached, rainfallIsUnattached} from './scenarioPane';
 import {ScenarioHeaderActions} from './scenarioHeaderActions';
@@ -70,6 +73,15 @@ import {SectionHeader} from "../../SimpleView/components/primitives";
  *     (Build anyway / Attach first) from the 5-action CONFIRM_DIALOG_REGISTRY
  *     below — kept separate so it can never collide with those pinned
  *     duplicate/archive/delete/cancel-run analytics-parity flows.
+ *   - divergenceConfirm — TASK-2211 (W3.2, epic 2204, od-4): {scenario} when
+ *     maybeRunAfterBuild observed a "Build and Run" build reach 'built' with
+ *     an actual mesh triangle count that diverged beyond
+ *     props.meshDivergenceThreshold x the stamped pre-build estimate, or
+ *     null. A THIRD separate small confirm (same family as meshRegionWarning
+ *     / rainfallWarning above) — the deferred run does NOT auto-fire in this
+ *     case; one explicit click (or Cancel, which leaves the scenario
+ *     'built' with no run dispatched) resolves it. See maybeRunAfterBuild's
+ *     doc comment for the full reversal rationale.
  *
  * Redux state read: scenarios, archiveFilter, resources (8 dropdown arrays),
  * canCreateScenario, canRunScenario, myRole, currentUserId, selectedScenario.
@@ -153,6 +165,12 @@ class AnugaScenarioMenuClass extends React.Component {
       // Read by every run dispatch path; written via setSessionComputeTarget
       // (NEVER updateAnugaScenario, which would flip scenario.unsaved).
       sessionComputeTargets: PropTypes.object,
+      // TASK-2211 (W3.2, epic 2204, AC#4) — GET /api/v2/anuga/config/'s
+      // mesh_divergence_threshold (state.anuga.ui.meshDivergenceThreshold),
+      // hydrated by the SAME loadAnugaComputeConfigEpic as the two fields
+      // above. null (not loaded / malformed) falls back to
+      // scenarioHelpers.DEFAULT_MESH_DIVERGENCE_THRESHOLD in maybeRunAfterBuild.
+      meshDivergenceThreshold: PropTypes.number,
       canCreateScenario: PropTypes.bool,
       canRunScenario: PropTypes.bool,
       myRole: PropTypes.string,
@@ -214,7 +232,13 @@ class AnugaScenarioMenuClass extends React.Component {
           // gate means a bare 'built' never preceded by an observed in-flight
           // episode (e.g. a save that did not rebuild, or the stale pre-rebuild
           // 'built' of an already-built scenario) can never trigger a run.
-          runAfterBuild: null
+          runAfterBuild: null,
+          // TASK-2211 (W3.2, epic 2204, od-4) — {scenario} | null. Set by
+          // maybeRunAfterBuild INSTEAD OF firing the run when the build's
+          // actual mesh diverged beyond threshold; cleared by
+          // handleDivergenceConfirm (fires the run) or handleDivergenceCancel
+          // (leaves the scenario 'built', no run dispatched).
+          divergenceConfirm: null
       };
   }
 
@@ -267,13 +291,31 @@ class AnugaScenarioMenuClass extends React.Component {
   //     a save that never rebuilt) — is ignored here, so a run can only follow a
   //     real build episode.
   //   awaiting-built → the build was observed in flight; the run fires on the
-  //     transition into 'built', then the flag is cleared so repeated post-build
+  //     transition into 'built' — UNLESS the build DIVERGED (TASK-2211, W3.2,
+  //     od-4: see below) — then the flag is cleared so repeated post-build
   //     prop updates can never double-run.
   //
   // Every settle path clears the flag so it can never leak into a future
   // episode: built-after-inflight fires + clears; a terminal failure
   // (error/cancelled) clears without running; and the awaited scenario vanishing
   // from props clears too.
+  //
+  // TASK-2211 (W3.2, epic 2204, od-4) — DELIBERATE REVERSAL of the UAT #8
+  // "Build and Run ALWAYS builds then runs" semantics (operator-approved
+  // 2026-07-10 grill, in direct response to the 07-09 dogfood: an honest
+  // estimate can still turn out badly wrong once the mesh actually builds,
+  // and Build-and-Run used to fire the run against it with no chance to
+  // reconsider — the exact "convenient path" the dogfood cascade replayed).
+  // On the built transition we now ask getMeshDivergence(fresh.latest_run,
+  // threshold) — the SAME arithmetic TASK-2210's post-build comparison
+  // renders — whether the ACTUAL triangle count exceeds threshold x the
+  // stamped pre-build estimate. Above threshold: PAUSE (arm
+  // divergenceConfirm instead of firing); the scenario stays 'built' until
+  // one explicit confirm click (or Cancel, which leaves it there for good).
+  // At/below threshold, or when there's no comparison data to evaluate
+  // (missing mesh_provenance — a legacy pre-W2 scenario, or a failed
+  // build's empty {} — getMeshDivergence.exceedsThreshold is ALWAYS false):
+  // byte-identical auto-fire, unchanged from before this task (AC#2).
   maybeRunAfterBuild = (prevProps) => {
       const pending = this.state.runAfterBuild;
       if (!pending) return;
@@ -302,11 +344,17 @@ class AnugaScenarioMenuClass extends React.Component {
           // Otherwise keep waiting; we never fire on a 'built' seen in this phase.
           return;
       }
-      // phase === 'awaiting-built': the build was observed in flight; fire on the
-      // transition into 'built'. Clear BEFORE dispatching so a re-entrant prop
-      // update can't double-run.
+      // phase === 'awaiting-built': the build was observed in flight; resolve on
+      // the transition into 'built'. Clear runAfterBuild BEFORE dispatching (or
+      // pausing) so a re-entrant prop update can't double-run or double-pause.
       if (status === 'built') {
           this.setState({runAfterBuild: null});
+          const {exceedsThreshold} = getMeshDivergence(fresh.latest_run, this.props.meshDivergenceThreshold);
+          if (exceedsThreshold) {
+              this.setState({divergenceConfirm: {scenario: fresh}});
+              trackEvent('button', 'click', 'anuga-scenario-menu-build-and-run-divergence-pause');
+              return;
+          }
           this.handleRunClick(fresh);
       }
   };
@@ -519,11 +567,20 @@ class AnugaScenarioMenuClass extends React.Component {
 
   // UAT #8 — combined "Build and Run": semantics are ALWAYS build then run
   // (you clicked Build), so there is ONE path — validate, dispatch the build,
-  // arm the deferred run, and let maybeRunAfterBuild fire it on the build's
+  // arm the deferred run, and let maybeRunAfterBuild resolve it on the build's
   // 'built' transition (see the state machine above). This holds even for an
   // already-'built' scenario: the explicit rebuild flips building→built, which
   // the awaiting-inflight→awaiting-built gate chains correctly, so we never fire
   // inline against the stale pre-rebuild artifact.
+  //
+  // TASK-2211 (W3.2, epic 2204, od-4) — "resolve", not "fire": the build ALWAYS
+  // still happens (that part of UAT #8 is unchanged), but the deferred RUN no
+  // longer ALWAYS auto-fires — maybeRunAfterBuild now PAUSES it behind one
+  // confirm click when the build's actual mesh diverged beyond threshold. This
+  // is a documented, operator-approved reversal of the plain "ALWAYS run"
+  // half of the old UAT #8 semantics — see maybeRunAfterBuild's own doc
+  // comment for the full rationale and the below-threshold byte-identical
+  // guarantee (AC#2).
   //
   // We arm ONLY when dispatchBuild reports a real 'build'. An unsaved scenario
   // goes to save instead, and a save only rebuilds if a build-affecting field
@@ -603,6 +660,28 @@ class AnugaScenarioMenuClass extends React.Component {
       trackEvent('button', 'click', 'anuga-scenario-menu-rainfall-warning-attach-first');
       const el = typeof document !== 'undefined' ? document.getElementById('rainfall') : null;
       if (el && typeof el.focus === 'function') el.focus();
+  };
+
+  // TASK-2211 (W3.2, epic 2204, od-4, AC#1) — "Confirm run": the user has
+  // seen the diverged actual-vs-estimate comparison and wants the deferred
+  // run to proceed anyway. Fires the SAME handleRunClick the byte-identical
+  // below-threshold path uses (dispatch is otherwise unaffected by this
+  // wave) — the only difference is the timing of the click.
+  handleDivergenceConfirm = () => {
+      const pending = this.state.divergenceConfirm;
+      if (!pending) return;
+      this.setState({divergenceConfirm: null});
+      trackEvent('button', 'click', 'anuga-scenario-menu-divergence-confirm-run');
+      this.handleRunClick(pending.scenario);
+  };
+
+  // TASK-2211 (W3.2, epic 2204, od-4, AC#1) — "Cancel": no run is dispatched.
+  // The scenario stays 'built' (the build itself already completed and is
+  // NOT undone) — there is nothing else to do here; the user can inspect
+  // the mesh, edit the scenario, or click plain Run later.
+  handleDivergenceCancel = () => {
+      this.setState({divergenceConfirm: null});
+      trackEvent('button', 'click', 'anuga-scenario-menu-divergence-confirm-cancel');
   };
 
   openConfirm = (action, scenario) => {
@@ -960,6 +1039,58 @@ class AnugaScenarioMenuClass extends React.Component {
       );
   }
 
+  // TASK-2211 (W3.2, epic 2204, od-4) — the divergence-interrupt confirm:
+  // build-and-run PAUSED because the actual mesh diverged beyond threshold.
+  // A THIRD small confirm in the SAME family as renderMeshRegionWarningDialog
+  // / renderRainfallWarningDialog above (always rendered, `.is-open` toggled
+  // via CSS for Karma determinism) — kept separate from the 5-action
+  // CONFIRM_DIALOG_REGISTRY for the same reason those two are. Reuses
+  // getMeshComparison (the SAME arithmetic TASK-2210's post-build panel
+  // renders) for the actual/estimate/cost numbers in the confirm copy.
+  renderDivergenceConfirmDialog() {
+      const {divergenceConfirm} = this.state;
+      const isOpen = !!divergenceConfirm;
+      const comparison = getMeshComparison(divergenceConfirm?.scenario?.latest_run) || {};
+      return (
+          <span
+              className={"sv-anuga-scenario-confirm-dialog sv-anuga-divergence-confirm-dialog"
+              + (isOpen ? " is-open" : "")}
+              role="alertdialog"
+              aria-label={this.tr('hydrata.anuga.divergenceConfirmAriaLabel', 'Mesh diverged from estimate')}
+              aria-hidden={isOpen ? undefined : true}
+          >
+              <span className="sv-anuga-scenario-confirm-text">
+                  <Message
+                      msgId="hydrata.anuga.divergenceConfirmText"
+                      msgParams={{
+                          actual: comparison.actual != null // eslint-disable-line no-eq-null, eqeqeq
+                              ? Number(comparison.actual).toLocaleString() : '',
+                          estimate: comparison.estimate != null // eslint-disable-line no-eq-null, eqeqeq
+                              ? Number(comparison.estimate).toLocaleString() : ''
+                      }}
+                  />
+                  {comparison.actualCost !== null && comparison.actualCost !== undefined
+                      ? ` (~$${Number(comparison.actualCost).toFixed(2)})`
+                      : ''}
+              </span>
+              <button
+                  type="button"
+                  className="sv-save-confirm-btn confirm sv-anuga-divergence-confirm-run"
+                  onClick={this.handleDivergenceConfirm}
+              >
+                  <Message msgId="hydrata.anuga.divergenceConfirmRun" />
+              </button>
+              <button
+                  type="button"
+                  className="sv-save-confirm-btn cancel sv-anuga-divergence-confirm-cancel"
+                  onClick={this.handleDivergenceCancel}
+              >
+                  <Message msgId="hydrata.anuga.cancel" />
+              </button>
+          </span>
+      );
+  }
+
   render() {
       const {selectedScenario} = this.props;
       // TASK-2078: View Results gate is a RESULT consumer per D1 — presence
@@ -1017,6 +1148,7 @@ class AnugaScenarioMenuClass extends React.Component {
                   {this.renderBuildValidationDialog()}
                   {this.renderMeshRegionWarningDialog()}
                   {this.renderRainfallWarningDialog()}
+                  {this.renderDivergenceConfirmDialog()}
               </div>
           </div>
       );
@@ -1054,6 +1186,10 @@ const mapStateToProps = (state) => {
         // TASK-2194 (review fix) — per-scenario session choices (ui slot, so
         // scenario saves/refreshes can never wipe them).
         sessionComputeTargets: state?.anuga?.ui?.sessionComputeTargets,
+        // TASK-2211 (W3.2, epic 2204, AC#4) — same config-hydration slot;
+        // null when not yet loaded, in which case maybeRunAfterBuild's
+        // getMeshDivergence call falls back to the FE default (2x).
+        meshDivergenceThreshold: state?.anuga?.ui?.meshDivergenceThreshold,
         canCreateScenario: canCreateScenario(state),
         canRunScenario: canRunScenario(state),
         myRole: getProjectMyRole(state),

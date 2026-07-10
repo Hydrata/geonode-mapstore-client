@@ -109,4 +109,28 @@ describe('TASK-2194 uiReducer SET_ANUGA_COMPUTE_CONFIG', () => {
         expect(stateNull.availableComputeTargets).toEqual([]);
         expect(stateNull.defaultComputeTarget).toBe(null);
     });
+
+    // TASK-2211 (W3.2, epic 2204, AC#4) — meshDivergenceThreshold hydration.
+    it('initial state: meshDivergenceThreshold not loaded (null)', () => {
+        const state = uiReducer(undefined, {type: '@@INIT'});
+        expect(state.meshDivergenceThreshold).toBe(null);
+    });
+
+    it('hydrates meshDivergenceThreshold from the action payload', () => {
+        const state = uiReducer(undefined, setAnugaComputeConfig({
+            available_compute_targets: ['local'],
+            default_compute_target: 'local',
+            mesh_divergence_threshold: 3.5
+        }));
+        expect(state.meshDivergenceThreshold).toBe(3.5);
+    });
+
+    it('is shape-tolerant: a non-numeric mesh_divergence_threshold yields null (falls back to the FE default)', () => {
+        const state = uiReducer(undefined, setAnugaComputeConfig({
+            mesh_divergence_threshold: 'not-a-number'
+        }));
+        expect(state.meshDivergenceThreshold).toBe(null);
+        const stateMissing = uiReducer(undefined, setAnugaComputeConfig({}));
+        expect(stateMissing.meshDivergenceThreshold).toBe(null);
+    });
 });
