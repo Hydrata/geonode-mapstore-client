@@ -128,7 +128,15 @@ export const capChars = (text, maxChars = TAIL_MAX_CHARS) => {
     const str = text ? String(text) : '';
     if (str.length <= maxChars) return str;
     const marker = '... truncated ...\n';
-    return marker + str.slice(-(maxChars - marker.length));
+    // Self-review: if maxChars is smaller than the marker itself (only
+    // reachable via an explicit small override — the two real callers
+    // always use TAIL_MAX_CHARS = 20000), `maxChars - marker.length` goes
+    // NEGATIVE and `str.slice(-negative)` becomes `str.slice(positive)` —
+    // slicing from the HEAD instead of the tail, and the result can end up
+    // LONGER than maxChars. Clamp so the tail-anchored contract always
+    // holds, even in that degenerate case.
+    const budget = Math.max(maxChars - marker.length, 0);
+    return marker + (budget > 0 ? str.slice(-budget) : '');
 };
 
 // W1.2 (TASK-2207, epic 2204) — last N lines of a log-like string, for the

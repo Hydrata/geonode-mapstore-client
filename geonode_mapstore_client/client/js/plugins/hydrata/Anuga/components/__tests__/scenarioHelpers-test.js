@@ -614,6 +614,22 @@ describe('P3-A (TASK-2217/2204 gate-fix) capChars', () => {
         expect(result.length).toBeLessThanOrEqualTo(20);
         expect(result.indexOf('... truncated ...')).toBe(0);
     });
+
+    // Self-review catch: maxChars SMALLER than the marker string itself
+    // (18 chars) must not invert the tail-anchored contract (a naive
+    // `str.slice(-(maxChars - marker.length))` goes negative-index-negative
+    // -> slices from the HEAD, potentially returning something LONGER than
+    // maxChars).
+    it('clamps safely when maxChars is smaller than the marker itself', () => {
+        const blob = 'abcdefghijklmnopqrstuvwxyz'.repeat(10); // 260 chars
+        const result = capChars(blob, 5);
+        // The buggy pre-fix version would slice(-negative) -> slice(positive)
+        // and return the marker PLUS most of the 260-char blob (~265 chars,
+        // wildly over maxChars=5). The fix clamps the budget to 0, so the
+        // result is exactly the marker itself — nowhere near the blob length.
+        expect(result).toBe('... truncated ...\n');
+        expect(result.length).toBeLessThan(blob.length);
+    });
 });
 
 describe('TASK-2207 buildCloudWatchDeepLink', () => {
