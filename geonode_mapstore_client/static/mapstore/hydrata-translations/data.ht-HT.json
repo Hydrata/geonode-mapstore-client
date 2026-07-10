@@ -210,6 +210,7 @@
         "rainfallUnattachedConfirm": "\"{names}\" trase men li pa atache — egzekisyon an pral kontinye san okenn lapli. Bati kanmenm, oswa atache li anvan?",
         "rainfallWarningAriaLabel": "Lapli pa atache",
         "divergenceConfirmAriaLabel": "Rezo a diferan de estimasyon an",
+        "divergenceConfirmScenarioName": "Senaryo \"{name}\":",
         "divergenceConfirmText": "Rezo ki bati a gen {actual} triyang — pi plis pase {estimate} ki te estime anvan konstriksyon an.",
         "divergenceConfirmRun": "Kouri kanmenm",
         "rainfallAttachedEmptyHint": "\"{name}\" atache men karakteristik li yo pa gen okenn done lapli — li p ap kontribye okenn lapli lè w ap bati, epi egzekisyon an pral kontinye tankou si pa gen okenn lapli ki atache.",

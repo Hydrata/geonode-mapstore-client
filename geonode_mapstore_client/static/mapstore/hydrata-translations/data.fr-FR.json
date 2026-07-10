@@ -210,6 +210,7 @@
         "rainfallUnattachedConfirm": "« {names} » est dessiné mais non rattaché — l'exécution se poursuivra sans aucune pluie. Construire quand même, ou le rattacher d'abord ?",
         "rainfallWarningAriaLabel": "Pluie non rattachée",
         "divergenceConfirmAriaLabel": "Le maillage diverge de l'estimation",
+        "divergenceConfirmScenarioName": "Scénario « {name} » :",
         "divergenceConfirmText": "Le maillage construit compte {actual} triangles — bien plus que les {estimate} estimés avant la construction.",
         "divergenceConfirmRun": "Exécuter quand même",
         "rainfallAttachedEmptyHint": "« {name} » est rattaché mais ses entités ne portent aucune donnée de pluie — il ne contribuera aucune pluie lors de la construction, et l'exécution se poursuivra comme si aucune pluie n'était rattachée.",

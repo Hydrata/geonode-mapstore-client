@@ -210,6 +210,7 @@
         "rainfallUnattachedConfirm": "«{names}» está dibujado pero no está vinculado — la ejecución continuará sin ninguna lluvia. ¿Compilar de todos modos, o vincularlo primero?",
         "rainfallWarningAriaLabel": "Lluvia no vinculada",
         "divergenceConfirmAriaLabel": "La malla difiere de la estimación",
+        "divergenceConfirmScenarioName": "Escenario «{name}»:",
         "divergenceConfirmText": "La malla construida tiene {actual} triángulos — muchos más que los {estimate} estimados antes de construir.",
         "divergenceConfirmRun": "Ejecutar de todos modos",
         "rainfallAttachedEmptyHint": "«{name}» está vinculado pero sus entidades no tienen datos de lluvia — no contribuirá lluvia al compilar, y la ejecución continuará como si no hubiera lluvia vinculada.",

@@ -360,6 +360,18 @@ class AnugaScenarioMenuClass extends React.Component {
   };
 
   handleSelect = (scenario) => {
+      // P0-A (TASK-2217/2204 gate-fix) — a divergence-confirm dialog refers
+      // to a SPECIFIC scenario's build; switching to a DIFFERENT scenario
+      // must invalidate it (the still-open dialog previously stayed
+      // interactive against the OLD scenario with zero visual cue it no
+      // longer refers to what's on screen — see the dialog's scenario-name
+      // label below, added for the same reason).
+      if (this.state.divergenceConfirm
+          && this.state.divergenceConfirm.scenario
+          && scenario
+          && this.state.divergenceConfirm.scenario.id !== scenario.id) {
+          this.setState({divergenceConfirm: null});
+      }
       if (this.props.selectAnugaScenario) {
           this.props.selectAnugaScenario(scenario);
       }
@@ -482,6 +494,17 @@ class AnugaScenarioMenuClass extends React.Component {
   // Build button (scenarioHeaderActions.js) — never the 'Build failed' toast,
   // which stays reserved for a REAL failure (comparisonActions.buildScenarioError).
   dispatchBuild = (scenario) => {
+      // P0-A (TASK-2217/2204 gate-fix) — dispatchBuild is the single
+      // choke-point for EVERY Build/Build-and-Run dispatch (plain build via
+      // proceedPastRainfall, and Build-and-Run via armAndDispatchBuildAndRun
+      // below). ANY new dispatch invalidates a still-open divergenceConfirm
+      // dialog — it was computed against a PREVIOUS build's mesh comparison,
+      // and confirming it after a new build was kicked off would run
+      // whatever build happens to be current at click time, not the one the
+      // dialog's numbers describe.
+      if (this.state.divergenceConfirm) {
+          this.setState({divergenceConfirm: null});
+      }
       let dispatched;
       if (scenario.unsaved || !this.props.buildScenarioExplicit) {
           if (this.props.saveAnugaScenario) {
@@ -667,12 +690,29 @@ class AnugaScenarioMenuClass extends React.Component {
   // run to proceed anyway. Fires the SAME handleRunClick the byte-identical
   // below-threshold path uses (dispatch is otherwise unaffected by this
   // wave) — the only difference is the timing of the click.
+  //
+  // P0-A (TASK-2217/2204 gate-fix) — belt-and-braces re-validation: even
+  // with the invalidation above (scenario switch / new build both clear
+  // divergenceConfirm), re-check against the CURRENT live props at the
+  // moment of the click, in case of any race between a prop update and this
+  // handler firing. If the scenario this dialog was computed against no
+  // longer exists, or its latest_run has moved on from the run the
+  // comparison numbers describe, no-op (and still clear) rather than
+  // dispatching a run keyed only by scenario id against whatever build
+  // happens to be current.
   handleDivergenceConfirm = () => {
       const pending = this.state.divergenceConfirm;
       if (!pending) return;
       this.setState({divergenceConfirm: null});
+      const fresh = this.findFreshScenario(pending.scenario && pending.scenario.id, this.props);
+      const pendingRunId = pending.scenario && pending.scenario.latest_run && pending.scenario.latest_run.id;
+      const freshRunId = fresh && fresh.latest_run && fresh.latest_run.id;
+      if (!fresh || pendingRunId == null || freshRunId !== pendingRunId) { // eslint-disable-line no-eq-null, eqeqeq
+          trackEvent('button', 'click', 'anuga-scenario-menu-divergence-confirm-run-stale-noop');
+          return;
+      }
       trackEvent('button', 'click', 'anuga-scenario-menu-divergence-confirm-run');
-      this.handleRunClick(pending.scenario);
+      this.handleRunClick(fresh);
   };
 
   // TASK-2211 (W3.2, epic 2204, od-4, AC#1) — "Cancel": no run is dispatched.
@@ -1060,6 +1100,16 @@ class AnugaScenarioMenuClass extends React.Component {
               aria-hidden={isOpen ? undefined : true}
           >
               <span className="sv-anuga-scenario-confirm-text">
+                  {/* P0-A (TASK-2217/2204 gate-fix) — name the scenario this
+                    * dialog refers to, so a user who switched scenarios (or
+                    * has multiple in flight) has a visual cue this confirm
+                    * is NOT necessarily about what's currently selected. */}
+                  <strong className="sv-anuga-divergence-confirm-scenario-name">
+                      <Message
+                          msgId="hydrata.anuga.divergenceConfirmScenarioName"
+                          msgParams={{name: (divergenceConfirm && divergenceConfirm.scenario && divergenceConfirm.scenario.name) || ''}}
+                      />
+                  </strong>{' '}
                   <Message
                       msgId="hydrata.anuga.divergenceConfirmText"
                       msgParams={{

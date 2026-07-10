@@ -987,6 +987,202 @@ describe('anugaScenarioMenu — divergence interrupt on Build-and-Run (TASK-2211
 });
 
 /*
+ * P0-A (TASK-2217/2204 gate-fix) — the divergence-confirm dialog must be
+ * invalidated by (a) switching to a DIFFERENT scenario, (b) ANY new
+ * Build/Build-and-Run dispatch, and (c) name the scenario it refers to so
+ * a stale-but-still-open dialog is never mistaken for referring to what's
+ * currently on screen. Confirming a dialog whose scenario/run no longer
+ * matches current state must no-op (not fire a run).
+ */
+describe('anugaScenarioMenu — divergence dialog invalidation (P0-A, TASK-2217/2204 gate-fix)', () => {
+    let container;
+
+    function validScenario(id, status, extras = {}) {
+        return {
+            id,
+            name: `Valid ${id}`,
+            status,
+            terrain: 10,
+            boundary: 20,
+            inflow: 30,
+            rainfall: null,
+            friction: null,
+            structure: null,
+            mesh_region: null,
+            network: null,
+            resolution: 1000,
+            duration: 1800,
+            created_by: 9999,
+            unsaved: false,
+            ...extras
+        };
+    }
+
+    function builtWithComparison(id, {actual, estimate, provenance} = {}) {
+        const meshProvenance = provenance !== undefined
+            ? provenance
+            : (estimate !== undefined ? {pre_build_triangle_estimate: estimate} : {});
+        return validScenario(id, 'built', {
+            latest_run: {
+                id: id * 10,
+                status: 'complete',
+                mesh_triangle_count: actual !== undefined ? actual : 0,
+                mesh_provenance: meshProvenance
+            }
+        });
+    }
+
+    function makeHarness(extraProps = {}) {
+        const buildCalls = [];
+        const runCalls = [];
+        const base = {
+            archiveFilter: 'none',
+            terrain: [], boundaries: [], inflows: [], rainfalls: [],
+            frictions: [], structures: [], meshRegions: [], networks: [],
+            computeInstances: [],
+            canCreateScenario: true,
+            canRunScenario: true,
+            myRole: 'editor',
+            currentUserId: 9999,
+            selectedScenarios: [],
+            readyToCompare: false,
+            flatLayers: [],
+            selectAnugaScenario: () => {},
+            setOpenMenuGroupId: () => {},
+            saveAnugaScenario: () => {},
+            buildScenarioExplicit: (sid) => buildCalls.push(sid),
+            runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t}),
+            ...extraProps
+        };
+        // render(list, selected) — unlike the TASK-2211 describe's single-
+        // scenario helper, P0-A needs BOTH scenarios present in the rail
+        // simultaneously so a real rail-item click can select the OTHER one.
+        // Returns (and tracks) the mounted CLASS INSTANCE — a class
+        // component's ReactDOM.render return value — so a test can invoke a
+        // handler directly (e.g. handleBuildAndRunClick) to sidestep the
+        // header strip's UNRELATED 2s post-click debounce
+        // (scenarioHeaderActions.ACTION_DEBOUNCE_MS), which unavoidably
+        // disables a real second DOM click immediately after the first.
+        let instance = null;
+        const render = (scenarios, selected) => {
+            instance = ReactDOM.render(
+                <AnugaScenarioMenuClass {...base} scenarios={scenarios} selectedScenario={selected} />,
+                container
+            );
+            return instance;
+        };
+        const selectRailItem = (id) => {
+            const items = Array.prototype.slice.call(container.querySelectorAll('.sv-scenario-rail-item'));
+            const target = items.find((el) => {
+                const idEl = el.querySelector('.sv-scenario-rail-item-id');
+                return idEl && idEl.textContent === `#${id}`;
+            });
+            if (target) target.click();
+        };
+        return {buildCalls, runCalls, render, selectRailItem, getInstance: () => instance};
+    }
+
+    // Drives scenario A through Build-and-Run to the paused/diverged state,
+    // with scenario B also present in the rail (unselected).
+    function pauseOnDivergence(harness, idA, idB) {
+        const {render} = harness;
+        const created = validScenario(idA, 'created');
+        const other = validScenario(idB, 'created');
+        render([created, other], created);
+        container.querySelector('.sv-scenario-action-build-run').click();
+        render([validScenario(idA, 'building'), other], validScenario(idA, 'building'));
+        const built = builtWithComparison(idA, {actual: 300000, estimate: 100000}); // 3x, above 2x default
+        render([built, other], built);
+        return {built, other};
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('shows the scenario name in the dialog text', () => {
+        const harness = makeHarness();
+        pauseOnDivergence(harness, 301, 302);
+        const nameEl = container.querySelector('.sv-anuga-divergence-confirm-scenario-name');
+        expect(nameEl).toExist();
+        // Bare (non-Provider) render has no locale context, so <Message>
+        // renders the raw msgId — same convention the file's existing
+        // rainfall-dialog test asserts on (line ~1505). Proves the CORRECT
+        // translation key was requested; msgParams interpolation itself is
+        // a MapStore-framework concern, not re-tested at this level.
+        expect(nameEl.textContent).toInclude('hydrata.anuga.divergenceConfirmScenarioName');
+    });
+
+    it('scenario-switch clears the dialog (does not stay open/interactive against the OLD scenario)', () => {
+        const harness = makeHarness();
+        const {selectRailItem} = harness;
+        pauseOnDivergence(harness, 303, 304);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toExist();
+        selectRailItem(304);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toNotExist();
+    });
+
+    it('a new Build/Build-and-Run dispatch clears a still-open dialog for the SAME scenario', () => {
+        const harness = makeHarness();
+        const {render, getInstance} = harness;
+        const {built, other} = pauseOnDivergence(harness, 305, 306);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toExist();
+        // Re-render still selected on the built (paused) scenario, then
+        // dispatch Build-and-Run again — a real second dispatch for the
+        // SAME scenario. Invoked via the instance method (not a second DOM
+        // click) because scenarioHeaderActions' UNRELATED 2s post-click
+        // debounce (ACTION_DEBOUNCE_MS) leaves the real button disabled
+        // immediately after the first click — a concern orthogonal to
+        // divergenceConfirm invalidation, which is what this test targets.
+        render([built, other], built);
+        getInstance().handleBuildAndRunClick(built);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toNotExist();
+    });
+
+    it('confirm-after-invalidation (scenario switch) does not fire a run', () => {
+        const harness = makeHarness();
+        const {runCalls, selectRailItem} = harness;
+        pauseOnDivergence(harness, 307, 308);
+        selectRailItem(308);
+        expect(container.querySelector('.sv-anuga-divergence-confirm-dialog.is-open')).toNotExist();
+        // The confirm BUTTON element itself stays permanently in the DOM
+        // (module convention: "always rendered, .is-open toggled via CSS
+        // for Karma determinism") — clicking it while closed must still be
+        // a safe no-op, since state.divergenceConfirm is now null.
+        const confirmBtn = container.querySelector('.sv-anuga-divergence-confirm-run');
+        expect(confirmBtn).toExist();
+        confirmBtn.click();
+        expect(runCalls.length).toBe(0);
+    });
+
+    it('handleDivergenceConfirm no-ops when the pending run no longer matches the fresh scenario (belt-and-braces)', () => {
+        const harness = makeHarness();
+        const {render, runCalls} = harness;
+        const {built, other} = pauseOnDivergence(harness, 309, 310);
+        // Simulate a race: the underlying scenario's latest_run has already
+        // moved on (a NEW run id) by the time the confirm click lands, but
+        // the dialog itself is still showing (e.g. invalidation missed this
+        // exact race window). The instance's internal state still holds the
+        // OLD pending scenario/run.
+        const movedOn = {...built, latest_run: {...built.latest_run, id: built.latest_run.id + 1}};
+        render([movedOn, other], movedOn);
+        // The dialog re-renders against the SAME (stale) state.divergenceConfirm
+        // (React state is untouched by this prop-only re-render), so the
+        // confirm button is still present and clickable.
+        const confirmBtn = container.querySelector('.sv-anuga-divergence-confirm-run');
+        expect(confirmBtn).toExist();
+        confirmBtn.click();
+        expect(runCalls.length).toBe(0);
+    });
+});
+
+/*
  * TASK-2194 (epic 2190 W2, review fix) — REAL-PATH integration coverage for
  * the staff compute-target session choice, driving the actual reducers
  * (scenariosReducer + uiReducer) through the connected AnugaScenarioMenu.
