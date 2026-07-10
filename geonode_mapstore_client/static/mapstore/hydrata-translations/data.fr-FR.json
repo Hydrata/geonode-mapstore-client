@@ -398,6 +398,7 @@
         "errorClassOom": "Mémoire insuffisante",
         "errorClassEntrypointFailure": "Échec du point d'entrée Batch",
         "errorClassInProcess": "Erreur de simulation",
+        "errorClassBuildBlocked": "Bloqué avant le calcul — voir le message",
         "errorClassUnknown": "Échec inconnu",
         "showLogTail": "Afficher le journal d'exécution",
         "hideLogTail": "Masquer le journal d'exécution",

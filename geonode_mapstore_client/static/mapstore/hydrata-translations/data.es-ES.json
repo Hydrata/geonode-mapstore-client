@@ -398,6 +398,7 @@
         "errorClassOom": "Memoria agotada",
         "errorClassEntrypointFailure": "Fallo del punto de entrada de Batch",
         "errorClassInProcess": "Error de simulación",
+        "errorClassBuildBlocked": "Bloqueado antes del cálculo — ver mensaje",
         "errorClassUnknown": "Fallo desconocido",
         "showLogTail": "Mostrar registro de ejecución",
         "hideLogTail": "Ocultar registro de ejecución",

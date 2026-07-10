@@ -398,6 +398,7 @@
         "errorClassOom": "Out of memory",
         "errorClassEntrypointFailure": "Batch entrypoint failure",
         "errorClassInProcess": "Simulation error",
+        "errorClassBuildBlocked": "Blocked before compute — see message",
         "errorClassUnknown": "Unknown failure",
         "showLogTail": "Show run log",
         "hideLogTail": "Hide run log",

@@ -2,7 +2,7 @@ import React from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {ErrorStrip, LogViewer} from '../../SimpleView/components/primitives';
-import {findScenarioStatus, ERROR_CLASS_MESSAGE_IDS, tailLines, buildCloudWatchDeepLink} from './scenarioHelpers';
+import {findScenarioStatus, ERROR_CLASS_MESSAGE_IDS, tailLines, capChars, buildCloudWatchDeepLink} from './scenarioHelpers';
 
 /**
  * TASK-C-scenarios-miller Wave 3A — error-state strip for the
@@ -117,8 +117,14 @@ class ScenarioErrorStrip extends React.Component {
         const causeMsgId = ERROR_CLASS_MESSAGE_IDS[latestRun.error_class];
         // In-process failures already have their traceback in `log` (zero
         // AWS calls to show it); everything else falls back to the
-        // best-effort CloudWatch backstop, if one was captured.
-        const tail = tailLines(latestRun.log, LOG_TAIL_MAX_LINES) || latestRun.cloudwatch_log_tail || '';
+        // best-effort CloudWatch backstop, if one was captured. P3-A
+        // (TASK-2217/2204 gate-fix): the CloudWatch fallback bypassed
+        // tailLines entirely (no line-count cap is appropriate for it —
+        // the BE already bounds it to ~100 events) but still needs the
+        // SAME total char cap tailLines applies, independent of the BE's
+        // own cap (P2-C) — defense in depth against any future path that
+        // stores an uncapped blob.
+        const tail = tailLines(latestRun.log, LOG_TAIL_MAX_LINES) || capChars(latestRun.cloudwatch_log_tail) || '';
         const deepLink = isStaff
             ? buildCloudWatchDeepLink(latestRun.log_group_name, latestRun.log_stream_name)
             : null;

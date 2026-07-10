@@ -99,11 +99,36 @@ export const findScenarioStatus = (scenario) => {
 // translation key for its human label. Null/unrecognised classes (pre-2206
 // rows, or a class not in this map) resolve to undefined so the caller can
 // skip rendering the cause line entirely rather than showing a broken key.
+//
+// P2-B (TASK-2217/2204 gate-fix) — 'build-blocked' (BE Run.BUILD_BLOCKED):
+// a synchronous pre-flight/build-guard failure (e.g. the TASK-2213 Inflow/
+// Raised-structure guard) that happened BEFORE the run was ever dispatched
+// to compute. An honest label, NOT "Unknown failure" — the guard's own
+// error_message (rendered right below the Cause line) already explains
+// exactly what happened; this just names WHEN in the pipeline it stopped.
 export const ERROR_CLASS_MESSAGE_IDS = {
     'oom': 'hydrata.anuga.errorClassOom',
     'entrypoint-failure': 'hydrata.anuga.errorClassEntrypointFailure',
     'in-process': 'hydrata.anuga.errorClassInProcess',
+    'build-blocked': 'hydrata.anuga.errorClassBuildBlocked',
     'unknown': 'hydrata.anuga.errorClassUnknown'
+};
+
+// P3-A (TASK-2217/2204 gate-fix) — total character cap, independent of any
+// line-count cap: tailLines' maxLines guard does nothing for a single
+// arbitrarily long line with NO newlines (a raw traceback with escaped
+// newlines, or garbled binary output from a crashed container) — such a
+// blob renders into the DOM in full when the user expands the collapsible
+// tail. Truncates from the HEAD (oldest content dropped, the most recent —
+// closest to the failure — survives) with a leading marker, mirroring the
+// BE's own capture_cloudwatch_tail cap (P2-C, gn_anuga/services.py).
+export const TAIL_MAX_CHARS = 20000;
+
+export const capChars = (text, maxChars = TAIL_MAX_CHARS) => {
+    const str = text ? String(text) : '';
+    if (str.length <= maxChars) return str;
+    const marker = '... truncated ...\n';
+    return marker + str.slice(-(maxChars - marker.length));
 };
 
 // W1.2 (TASK-2207, epic 2204) — last N lines of a log-like string, for the
@@ -113,8 +138,10 @@ export const ERROR_CLASS_MESSAGE_IDS = {
 export const tailLines = (text, maxLines) => {
     if (!text) return '';
     const lines = String(text).split('\n');
-    if (lines.length <= maxLines) return text;
-    return lines.slice(lines.length - maxLines).join('\n');
+    const byLines = lines.length <= maxLines ? String(text) : lines.slice(lines.length - maxLines).join('\n');
+    // P3-A — the line-count cap alone does not bound a single huge
+    // no-newline line; always ALSO apply the char cap.
+    return capChars(byLines);
 };
 
 // W1.2 (TASK-2207, epic 2204) — best-effort AWS Console CloudWatch Logs

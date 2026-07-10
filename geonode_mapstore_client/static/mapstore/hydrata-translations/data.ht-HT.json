@@ -398,6 +398,7 @@
         "errorClassOom": "Manke memwa",
         "errorClassEntrypointFailure": "Echèk pwen antre Batch",
         "errorClassInProcess": "Erè simulasyon",
+        "errorClassBuildBlocked": "Bloke anvan kalkil — gade mesaj la",
         "errorClassUnknown": "Echèk enkoni",
         "showLogTail": "Montre jounal ekzekisyon",
         "hideLogTail": "Kache jounal ekzekisyon",

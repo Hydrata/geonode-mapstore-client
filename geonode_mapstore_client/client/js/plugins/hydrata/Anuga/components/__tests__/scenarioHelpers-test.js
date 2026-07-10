@@ -22,7 +22,7 @@ import expect from 'expect';
 import {
     validateScenario, validateCategoryProgress, toHHMM, getSecondsFromHHMM,
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP,
-    ERROR_CLASS_MESSAGE_IDS, tailLines, buildCloudWatchDeepLink,
+    ERROR_CLASS_MESSAGE_IDS, tailLines, capChars, TAIL_MAX_CHARS, buildCloudWatchDeepLink,
     getMeshComparison, getMeshDivergence, getMeshCostDriverHint,
     DEFAULT_MESH_DIVERGENCE_THRESHOLD
 } from '../scenarioHelpers';
@@ -535,10 +535,12 @@ describe('secondsToHM / hmToSeconds (UAT #9 duration dropdowns)', () => {
  * link.
  */
 describe('TASK-2207 ERROR_CLASS_MESSAGE_IDS', () => {
-    it('maps all four W1.1 error classes to a translation key', () => {
+    it('maps all five error classes to a translation key', () => {
         expect(ERROR_CLASS_MESSAGE_IDS.oom).toBe('hydrata.anuga.errorClassOom');
         expect(ERROR_CLASS_MESSAGE_IDS['entrypoint-failure']).toBe('hydrata.anuga.errorClassEntrypointFailure');
         expect(ERROR_CLASS_MESSAGE_IDS['in-process']).toBe('hydrata.anuga.errorClassInProcess');
+        // P2-B (TASK-2217/2204 gate-fix) — 'build-blocked' (BE Run.BUILD_BLOCKED).
+        expect(ERROR_CLASS_MESSAGE_IDS['build-blocked']).toBe('hydrata.anuga.errorClassBuildBlocked');
         expect(ERROR_CLASS_MESSAGE_IDS.unknown).toBe('hydrata.anuga.errorClassUnknown');
     });
 
@@ -565,6 +567,52 @@ describe('TASK-2207 tailLines', () => {
         expect(tailLines(null, 40)).toBe('');
         expect(tailLines(undefined, 40)).toBe('');
         expect(tailLines('', 40)).toBe('');
+    });
+
+    // P3-A (TASK-2217/2204 gate-fix) — the line-count cap alone does
+    // nothing for a single arbitrarily long line with NO newlines (a raw
+    // traceback with escaped newlines, or garbled binary output from a
+    // crashed container) — must ALSO be capped by total character length.
+    it('caps a single huge no-newline line at TAIL_MAX_CHARS, truncated from the head', () => {
+        const hugeLine = 'x'.repeat(TAIL_MAX_CHARS * 2); // well within the 40-line budget (it's ONE line)
+        const result = tailLines(hugeLine, 40);
+        expect(result.length).toBeLessThanOrEqualTo(TAIL_MAX_CHARS);
+        expect(result.indexOf('... truncated ...')).toBe(0);
+        // The END of the huge line (most recent-equivalent content) survives.
+        expect(result.slice(-5)).toBe('xxxxx');
+    });
+
+    it('does not truncate a huge line that is still within TAIL_MAX_CHARS', () => {
+        const line = 'y'.repeat(TAIL_MAX_CHARS - 1);
+        expect(tailLines(line, 40)).toBe(line);
+    });
+});
+
+describe('P3-A (TASK-2217/2204 gate-fix) capChars', () => {
+    it('returns text unchanged when within the char budget', () => {
+        expect(capChars('short text')).toBe('short text');
+    });
+
+    it('returns empty string for null/undefined/empty input', () => {
+        expect(capChars(null)).toBe('');
+        expect(capChars(undefined)).toBe('');
+        expect(capChars('')).toBe('');
+    });
+
+    it('truncates from the head with a marker when over the char budget', () => {
+        const blob = '0123456789'.repeat(3000); // 30,000 chars, over the 20,000 default
+        const result = capChars(blob);
+        expect(result.length).toBeLessThanOrEqualTo(TAIL_MAX_CHARS);
+        expect(result.indexOf('... truncated ...')).toBe(0);
+        // The END of the blob (most recent content) survives unchanged.
+        expect(result.slice(-10)).toBe(blob.slice(-10));
+    });
+
+    it('honours an explicit maxChars override', () => {
+        const blob = 'a'.repeat(100);
+        const result = capChars(blob, 20);
+        expect(result.length).toBeLessThanOrEqualTo(20);
+        expect(result.indexOf('... truncated ...')).toBe(0);
     });
 });
 
