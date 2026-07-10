@@ -518,8 +518,15 @@ span.sv-menu-row-glyph {
    affordance as a show/hide toggle (tooltips are invisible until hover).
    Scoped to .sv-menu-row-glyph-labeled so it overrides the fixed 24x24
    !important sizing above; the other icon-only siblings (globe / upload)
-   keep their untouched square chip. */
+   keep their untouched square chip.
+   flex-basis MUST also be unlocked: the base rule's `flex: 0 0
+   var(--sv-icon-size)` (no !important) fixes the flex item's MAIN-AXIS size
+   via flex-basis inside the parent's inline-flex row — per the flexbox spec,
+   `width` is ignored for sizing whenever flex-basis is not `auto`, so
+   `width: auto !important` alone is a no-op here and the label would stay
+   squeezed into the 24px chip without this override (code-review catch). */
 .sv-menu-row-glyph.sv-menu-row-glyph-labeled {
+    flex: 0 0 auto;
     width: auto !important;
     padding: 0 8px 0 6px !important;
     gap: 4px;
