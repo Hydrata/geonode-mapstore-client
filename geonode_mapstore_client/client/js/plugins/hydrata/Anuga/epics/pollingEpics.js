@@ -165,7 +165,13 @@ const resourceEndpoints = [
     {endpoint: 'publication', action: setPublicationData}
 ];
 
-const fetchResourceEndpoint = (endpoint, projectId) => Rx.Observable
+// TASK-2214 (W4.3) — exported (was module-private) so epicsHydrology.js's
+// attachDesignStormEpic can re-fetch state.anuga.resources.rainfalls after a
+// design-storm attach, using the SAME resource-list fetch every other
+// endpoint refresh already goes through (DRY — see the resourceEndpoints
+// table above and the non-terrain layer_create refresh branch below for the
+// two other existing callers of this exact helper).
+export const fetchResourceEndpoint = (endpoint, projectId) => Rx.Observable
     .from(anugaApi.getResourceList(projectId, endpoint))
     // Every resourceEndpoints route is a V2 LIST endpoint (success → array), and
     // every consumer iterates the result with array methods (.map/.forEach/.some
