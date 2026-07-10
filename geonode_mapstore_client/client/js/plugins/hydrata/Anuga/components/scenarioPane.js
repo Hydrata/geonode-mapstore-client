@@ -731,7 +731,11 @@ function renderRunPane(props) {
             {/* Section (a): config fields */}
             {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
             {/* Section (b): status feedback (ETA, progress, error) */}
-            <ScenarioErrorStrip scenario={scenario} />
+            {/* W1.2 (TASK-2207, epic 2204) — isStaff gates the CloudWatch
+                deep link only; the classified cause + log tail render for
+                everyone (same isStaff prop this pane already threads to
+                renderRunConfigPane's compute-target selector). */}
+            <ScenarioErrorStrip scenario={scenario} isStaff={isStaff} />
             <ScenarioStatusCard scenario={scenario} />
             {/* Section (c): UAT #8 — the Build / Run / Build-and-Run / Retry /
                 Download / Archive / Delete action strip moved UP into the

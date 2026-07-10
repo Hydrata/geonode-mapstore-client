@@ -21,7 +21,8 @@
 import expect from 'expect';
 import {
     validateScenario, validateCategoryProgress, toHHMM, getSecondsFromHHMM,
-    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP
+    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP,
+    ERROR_CLASS_MESSAGE_IDS, tailLines, buildCloudWatchDeepLink
 } from '../scenarioHelpers';
 
 function makeValidScenario(overrides) {
@@ -522,5 +523,71 @@ describe('secondsToHM / hmToSeconds (UAT #9 duration dropdowns)', () => {
     it('exposes the mockup bounds (0-72 hours, 5-minute step)', () => {
         expect(DURATION_MAX_HOURS).toBe(72);
         expect(DURATION_MINUTE_STEP).toBe(5);
+    });
+});
+
+/*
+ * W1.2 (TASK-2207, epic 2204) — ERROR_CLASS_MESSAGE_IDS / tailLines /
+ * buildCloudWatchDeepLink, the pure helpers ScenarioErrorStrip uses to
+ * surface the W1.1 (TASK-2206) classified-cause + log-tail + staff deep
+ * link.
+ */
+describe('TASK-2207 ERROR_CLASS_MESSAGE_IDS', () => {
+    it('maps all four W1.1 error classes to a translation key', () => {
+        expect(ERROR_CLASS_MESSAGE_IDS.oom).toBe('hydrata.anuga.errorClassOom');
+        expect(ERROR_CLASS_MESSAGE_IDS['entrypoint-failure']).toBe('hydrata.anuga.errorClassEntrypointFailure');
+        expect(ERROR_CLASS_MESSAGE_IDS['in-process']).toBe('hydrata.anuga.errorClassInProcess');
+        expect(ERROR_CLASS_MESSAGE_IDS.unknown).toBe('hydrata.anuga.errorClassUnknown');
+    });
+
+    it('has no entry for an unrecognised/null class (caller skips rendering)', () => {
+        expect(ERROR_CLASS_MESSAGE_IDS[null]).toBe(undefined);
+        expect(ERROR_CLASS_MESSAGE_IDS.somethingelse).toBe(undefined);
+    });
+});
+
+describe('TASK-2207 tailLines', () => {
+    it('returns the full text unchanged when within the line budget', () => {
+        const text = 'line1\nline2\nline3';
+        expect(tailLines(text, 40)).toBe(text);
+    });
+
+    it('returns only the last N lines when the text exceeds the budget', () => {
+        const lines = Array.from({length: 50}, (_, i) => `line${i}`);
+        const text = lines.join('\n');
+        const result = tailLines(text, 5);
+        expect(result).toBe(lines.slice(45).join('\n'));
+    });
+
+    it('returns empty string for null/undefined/empty input', () => {
+        expect(tailLines(null, 40)).toBe('');
+        expect(tailLines(undefined, 40)).toBe('');
+        expect(tailLines('', 40)).toBe('');
+    });
+});
+
+describe('TASK-2207 buildCloudWatchDeepLink', () => {
+    it('returns null when logGroupName or logStreamName is missing', () => {
+        expect(buildCloudWatchDeepLink(null, 'stream')).toBe(null);
+        expect(buildCloudWatchDeepLink('/aws/batch/anuga-simulation', null)).toBe(null);
+        expect(buildCloudWatchDeepLink(undefined, undefined)).toBe(null);
+    });
+
+    it('builds a us-west-2 console URL with AWS console slash-escaping ($252F)', () => {
+        const url = buildCloudWatchDeepLink(
+            '/aws/batch/anuga-simulation',
+            'anuga-x32/default/43173b7437794fa68a9a791d94a77938'
+        );
+        expect(url).toBe(
+            'https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2'
+            + '#logsV2:log-groups/log-group/$252Faws$252Fbatch$252Fanuga-simulation'
+            + '/log-events/anuga-x32$252Fdefault$252F43173b7437794fa68a9a791d94a77938'
+        );
+    });
+
+    it('honours a custom region argument', () => {
+        const url = buildCloudWatchDeepLink('/g', 's', 'us-east-1');
+        expect(url.indexOf('us-east-1.console.aws.amazon.com')).toBe(8);
+        expect(url.indexOf('region=us-east-1')).toBeGreaterThan(0);
     });
 });

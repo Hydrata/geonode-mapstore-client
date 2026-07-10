@@ -95,6 +95,49 @@ export const findScenarioStatus = (scenario) => {
     return scenario?.computed_status || scenario?.status || 'created';
 };
 
+// W1.2 (TASK-2207, epic 2204) — maps Run.error_class (BE, TASK-2206) to the
+// translation key for its human label. Null/unrecognised classes (pre-2206
+// rows, or a class not in this map) resolve to undefined so the caller can
+// skip rendering the cause line entirely rather than showing a broken key.
+export const ERROR_CLASS_MESSAGE_IDS = {
+    'oom': 'hydrata.anuga.errorClassOom',
+    'entrypoint-failure': 'hydrata.anuga.errorClassEntrypointFailure',
+    'in-process': 'hydrata.anuga.errorClassInProcess',
+    'unknown': 'hydrata.anuga.errorClassUnknown'
+};
+
+// W1.2 (TASK-2207, epic 2204) — last N lines of a log-like string, for the
+// error strip's bounded/collapsible tail (NOT a substitute for the full
+// ScenarioRunLog viewer, which stays as-is). Returns '' for null/empty
+// input so callers can treat the result as a plain falsy-check.
+export const tailLines = (text, maxLines) => {
+    if (!text) return '';
+    const lines = String(text).split('\n');
+    if (lines.length <= maxLines) return text;
+    return lines.slice(lines.length - maxLines).join('\n');
+};
+
+// W1.2 (TASK-2207, epic 2204) — best-effort AWS Console CloudWatch Logs
+// deep link for a (log_group_name, log_stream_name) pair. Returns null when
+// either is missing (nothing to link to yet — e.g. a local-backend run, or
+// a Batch run whose describe_jobs capture hasn't landed).
+//
+// AWS's console logsV2 route uses its OWN escaping for path segments in the
+// URL fragment (NOT standard encodeURIComponent): '/' -> '$252F' and
+// '$' -> '$2524'. This is a documented AWS-console-specific quirk, not a
+// general-purpose URI encoder — do not reuse `cloudWatchConsoleSegment` for
+// anything else.
+const cloudWatchConsoleSegment = (value) => String(value)
+    .replace(/\$/g, '$2524')
+    .replace(/\//g, '$252F');
+
+export const buildCloudWatchDeepLink = (logGroupName, logStreamName, region = 'us-west-2') => {
+    if (!logGroupName || !logStreamName) return null;
+    const group = cloudWatchConsoleSegment(logGroupName);
+    const stream = cloudWatchConsoleSegment(logStreamName);
+    return `https://${region}.console.aws.amazon.com/cloudwatch/home?region=${region}#logsV2:log-groups/log-group/${group}/log-events/${stream}`;
+};
+
 /**
  * Validate that a scenario has all required fields populated.
  *
