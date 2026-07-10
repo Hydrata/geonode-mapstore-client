@@ -39,8 +39,11 @@ import {
     UNARCHIVE_ANUGA_SCENARIO,
     unarchiveAnugaScenarioSuccess,
     initAnuga,
+    INIT_ANUGA,
     RUN_ANUGA_SCENARIO,
     runAnugaScenarioSuccess,
+    // TASK-2194 (epic 2190 W2) — staff compute-target selector site config.
+    setAnugaComputeConfig,
     RUN_NETWORK,
     runNetworkSuccess,
     setNetworkMenu,
@@ -254,7 +257,10 @@ export const runAnugaScenarioEpic = (action$, _store) =>
         .ofType(RUN_ANUGA_SCENARIO)
         .concatMap((action) =>
             Rx.Observable.from(
-                anugaApi.startRun(action.scenario.id, action.computeBackend)
+                // TASK-2194 — flat compute target (null -> field omitted,
+                // server resolves the site default); compute_backend is no
+                // longer sent on any dispatch path.
+                anugaApi.startRun(action.scenario.id, action.computeTarget)
             )
                 .concatMap((response) => {
                     const runId = response?.data?.id;
@@ -282,6 +288,22 @@ export const runAnugaScenarioEpic = (action$, _store) =>
                     }
                     return Rx.Observable.empty();
                 })
+        );
+
+// TASK-2194 (epic 2190 W2) — hydrate the compute-target site config once per
+// session on the first INIT_ANUGA (panel open), mirroring Hydrology's
+// loadAnugaConfigEpic / computeMeterEpics' balance fetch. getAnugaConfig()
+// already catches network errors (returns an empty-allowlist fallback), so
+// this epic always settles: an unreachable endpoint just leaves the staff
+// selector hidden (empty allowlist) and dispatch omits compute_target.
+export const loadAnugaComputeConfigEpic = (action$) =>
+    action$
+        .ofType(INIT_ANUGA)
+        .take(1)
+        .mergeMap(() =>
+            Rx.Observable.from(anugaApi.getAnugaConfig())
+                .map((cfg) => setAnugaComputeConfig(cfg))
+                .catch(() => Rx.Observable.empty())
         );
 
 // Bug #1 fix: removed the spurious runScenario call before cancel.

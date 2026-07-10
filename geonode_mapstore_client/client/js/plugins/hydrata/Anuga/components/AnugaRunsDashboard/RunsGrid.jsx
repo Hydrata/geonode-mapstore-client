@@ -13,6 +13,12 @@ import React, { useMemo, useState } from 'react';
 const COLUMNS = [
     { key: 'run_id', label: 'Run' },
     { key: 'mode', label: 'Mode' },
+    // TASK-2195 (epic 2190 W2) — the flat compute target the run was
+    // dispatched to ('local' | 'batch-x4' | 'batch-x32' | 'batch-gpu-a10g');
+    // null for historical rows (pre-2190) renders as '—', never fabricated.
+    // These target-labelled rows are the calibration corpus for later
+    // target-aware estimates.
+    { key: 'compute_target', label: 'Target' },
     { key: 'instance_type', label: 'Instance' },
     { key: 'region', label: 'Region' },
     { key: 'triangle_count', label: 'Triangles' },

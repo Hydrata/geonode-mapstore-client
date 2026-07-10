@@ -511,13 +511,18 @@ export const getScenariosByArchive = (projectId, mode = 'none') =>
 
 // -- v2 Run lifecycle -----------------------------------------------------
 
-// TASK-964 — `computeBackend = 'local'` is a defensive fallback. Real callers
-// pass an explicit value sourced from anugaRunMenu state (which hydrates from
-// /api/v2/anuga/config/ on mount). The BE also has its own settings-driven
-// default that fires if the request body omits compute_backend entirely; see
-// apps/gn_anuga/api_v2.py StartRunView.post + settings.ANUGA_DEFAULT_COMPUTE_BACKEND.
-export const startRun = (scenarioId, computeBackend = 'local') =>
-    axios.post(`/api/v2/anuga/scenarios/${scenarioId}/run/`, { compute_backend: computeBackend });
+// TASK-2194 (epic 2190 W2) — dispatch POSTs the flat `compute_target`
+// ('local' | 'batch-x4' | 'batch-x32' | 'batch-gpu-a10g'); the legacy
+// `compute_backend` field is IGNORED server-side since W1 and is no longer
+// sent on ANY dispatch path. With no chosen target (non-staff, or staff who
+// left the site default) the field is OMITTED entirely so the server
+// resolves the site default — the FE gate is advisory only,
+// StartRunView.post is the real gate (out-of-allowlist -> 409).
+export const startRun = (scenarioId, computeTarget = null) =>
+    axios.post(
+        `/api/v2/anuga/scenarios/${scenarioId}/run/`,
+        computeTarget ? { compute_target: computeTarget } : {}
+    );
 
 export const cancelRun = (runId) =>
     axios.post(`/api/v2/anuga/runs/${runId}/cancel/`);
@@ -626,16 +631,28 @@ export const patchTerrainStylingMode = (projectId, terrainId, stylingMode) =>
         { styling_mode: stylingMode }
     );
 
-// -- Site config (TASK-964) -----------------------------------------------
+// -- Site config (TASK-964; compute targets TASK-2194, epic 2190 W2) --------
 
-// GET /api/v2/anuga/config/ — returns {default_compute_backend: 'local'|'ec2'|'batch'}
-// Per-site default sourced from Ansible (anuga_default_compute_backend in inventory).
-// On network error we fall back to 'local' so the FE keeps working even if the
-// endpoint is unreachable. Per-call override in startRun() still wins downstream.
+// GET /api/v2/anuga/config/ — returns:
+//   {
+//     default_compute_backend: 'local'|'ec2'|'batch',   // legacy (TASK-964)
+//     celery_anuga_enabled: bool,
+//     available_compute_targets: ['local'|'batch-x4'|...],  // site allowlist
+//     default_compute_target: '<target>' | null
+//   }
+// Per-site values are sourced from Ansible inventory. On network error we
+// fall back to the legacy 'local' backend default with an EMPTY target
+// allowlist — an empty allowlist hides the staff compute-target selector,
+// so dispatch omits compute_target and the server default applies (the
+// server is the real gate either way).
 export function getAnugaConfig() {
     return axios.get('/api/v2/anuga/config/')
         .then(r => r.data)
-        .catch(() => ({ default_compute_backend: 'local' }));
+        .catch(() => ({
+            default_compute_backend: 'local',
+            available_compute_targets: [],
+            default_compute_target: null
+        }));
 }
 
 // -- Staff run-actuals ledger (TASK-1964, epic 1952 W5.1) ------------------

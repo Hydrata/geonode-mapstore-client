@@ -283,7 +283,7 @@ describe('ANUGA Epics', () => {
                     detail: 'This run is priced at $5; your compute balance is $0.'
                 });
 
-                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'batch'}]);
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeTarget: 'batch-x32'}]);
                 const emitted = [];
 
                 runAnugaScenarioEpic(action$, {getState: () => ({})})
@@ -302,7 +302,7 @@ describe('ANUGA Epics', () => {
                     detail: 'Free daily compute-run cap (3) reached for this account.'
                 });
 
-                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'batch'}]);
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeTarget: 'batch-x32'}]);
                 const emitted = [];
 
                 runAnugaScenarioEpic(action$, {getState: () => ({})})
@@ -317,7 +317,7 @@ describe('ANUGA Epics', () => {
             it('an unrelated error is still silently swallowed (pre-existing behaviour, unchanged)', (done) => {
                 mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(500, {detail: 'boom'});
 
-                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeBackend: 'local'}]);
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeTarget: 'local'}]);
                 const emitted = [];
 
                 runAnugaScenarioEpic(action$, {getState: () => ({})})

@@ -53,6 +53,22 @@ const SET_PROFILE_MODE = 'ANUGA:SET_PROFILE_MODE';
 // `crs_override` (TASK-1885 BE contract), OMITTED when the DEM already has a CRS.
 const SET_TERRAIN_UPLOAD_CRS_PANEL = 'ANUGA:SET_TERRAIN_UPLOAD_CRS_PANEL';
 const SET_TERRAIN_UPLOAD_CRS_ERROR = 'ANUGA:SET_TERRAIN_UPLOAD_CRS_ERROR';
+// TASK-2194 (epic 2190 W2) — site compute-target config hydrated once from
+// GET /api/v2/anuga/config/ (loadAnugaComputeConfigEpic on INIT_ANUGA).
+// Carries the site allowlist (available_compute_targets) + marked default
+// (default_compute_target) that drive the staff-only selector in
+// scenarioPane's Run section. Lives on the `ui` slice (mirrors the
+// terrainBbox cluster's "transient app state on ui" precedent).
+const SET_ANUGA_COMPUTE_CONFIG = 'ANUGA:SET_ANUGA_COMPUTE_CONFIG';
+// TASK-2194 (epic 2190 W2 review fix) — the staff compute-target CHOICE is
+// SESSION state, keyed per scenario on state.anuga.ui.sessionComputeTargets
+// ({ [scenarioId]: '<target>' }). It deliberately does NOT ride the scenario
+// object: routing it through UPDATE_ANUGA_SCENARIO flipped unsaved:true
+// (sending the next Build-and-Run down the save-only detour that never arms
+// the deferred run) and any save/refresh wholesale-replace wiped it. An
+// explicit pick of the SITE DEFAULT is stored (and POSTed) too — the server
+// validates allowlist membership either way.
+const SET_SESSION_COMPUTE_TARGET = 'ANUGA:SET_SESSION_COMPUTE_TARGET';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -186,6 +202,20 @@ function setTerrainUploadCrsError(error) {
     return { type: SET_TERRAIN_UPLOAD_CRS_ERROR, error };
 }
 
+// TASK-2194 — `config` is the raw GET /api/v2/anuga/config/ payload; the
+// reducer extracts available_compute_targets / default_compute_target
+// (shape-tolerant, empty allowlist on a bad shape -> selector hidden).
+function setAnugaComputeConfig(config) {
+    return { type: SET_ANUGA_COMPUTE_CONFIG, config };
+}
+
+// TASK-2194 (review fix) — record (or clear, target=null) the staff user's
+// this-session compute-target choice for one scenario. `scenarioId` is the
+// scenario's id (or _tempId for a not-yet-saved scenario).
+function setSessionComputeTarget(scenarioId, target) {
+    return { type: SET_SESSION_COMPUTE_TARGET, scenarioId, target };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -216,6 +246,10 @@ module.exports = {
     CLEAR_PROFILE, clearProfile,
     // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode.
     SET_PROFILE_MODE, setProfileMode,
+    // TASK-2194 (epic 2190 W2) — staff compute-target selector site config.
+    SET_ANUGA_COMPUTE_CONFIG, setAnugaComputeConfig,
+    // TASK-2194 (review fix) — per-scenario session compute-target choice.
+    SET_SESSION_COMPUTE_TARGET, setSessionComputeTarget,
     // TASK-1880 (epic 1884 W2) — in-app terrain-upload CRS picker.
     SET_TERRAIN_UPLOAD_CRS_PANEL, setTerrainUploadCrsPanel,
     SET_TERRAIN_UPLOAD_CRS_ERROR, setTerrainUploadCrsError

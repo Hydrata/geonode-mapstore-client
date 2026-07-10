@@ -467,16 +467,26 @@ function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, str
     );
 }
 
-// TASK-1415 (ISSUE 20.6): compute selector is superuser-only (advisory FE gate;
-// real enforcement is server-side in StartRunView.post). Shows Local/Cloud only
-// (not raw enum values like 'ec2'). Mapping: local→"Local", batch→"Cloud".
-const COMPUTE_LABEL_MAP = {local: 'Local', batch: 'Cloud'};
-const SUPERUSER_COMPUTE_OPTIONS = [
-    {value: 'local', label: 'Local'},
-    {value: 'batch', label: 'Cloud'}
-];
+// TASK-2194 (epic 2190 W2) — staff-only compute-target selector (replaces the
+// TASK-1415 superuser-only local/batch selector). Advisory FE gate only: real
+// enforcement is server-side in StartRunView.post (non-staff choices are
+// overridden; out-of-allowlist -> 409). Options are the site allowlist from
+// GET /api/v2/anuga/config/ rendered VERBATIM with plain descriptive labels —
+// deliberately NO cost/duration estimates (GPU coefficients are uncalibrated;
+// no fabricated numbers). An unknown target falls back to its raw name.
+const COMPUTE_TARGET_LABELS = {
+    'local': 'Local box',
+    'batch-x4': 'AWS Batch — 4 vCPU',
+    'batch-x32': 'AWS Batch — 32 vCPU',
+    'batch-gpu-a10g': 'AWS Batch — GPU A10G'
+};
 
-function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstances, isSuperuser}) {
+function computeTargetLabel(target, defaultComputeTarget) {
+    const base = COMPUTE_TARGET_LABELS[target] || target;
+    return target === defaultComputeTarget ? `${base} (site default)` : base;
+}
+
+function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -504,10 +514,24 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
         if (!Number.isFinite(next)) return;
         handleField({resolution: next});
     };
-    const handleBackendChange = (e) => {
+    // TASK-2194 (review fix) — the chosen target is SESSION state on the ui
+    // slice (state.anuga.ui.sessionComputeTargets, keyed per scenario), NOT a
+    // field on the scenario object: handleField/UPDATE_ANUGA_SCENARIO would
+    // flip scenario.unsaved (detouring the next Build-and-Run into save-only)
+    // and any save/refresh wholesale-replace would wipe the choice. Dispatch
+    // paths read the ui slot: set -> POSTed verbatim (including an explicit
+    // pick of the site default), unset -> the field is omitted and the server
+    // default applies.
+    const handleTargetChange = (e) => {
         const next = e.target.value || null;
-        handleField({compute_backend: next});
+        if (onSetSessionComputeTarget) onSetSessionComputeTarget(scenario, next);
     };
+    // Hidden for non-staff, while the config is still loading (null), and for
+    // a site with an EMPTY allowlist (retired sites) — all three cases fall
+    // through to "dispatch omits compute_target".
+    const showComputeTargetSelector = !!isStaff
+        && Array.isArray(availableComputeTargets)
+        && availableComputeTargets.length > 0;
     // Wave 3B (B4) — same is-readonly wrapper toggle as renderInputsPane.
     const unitFieldClass = 'sv-anuga-scenario-pane-field sv-anuga-scenario-pane-field--unit'
         + (!canEdit ? ' is-readonly' : '');
@@ -585,45 +609,35 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                     </div>
                 </div>
             </FormRow>
-            {/* TASK-1415: compute selector is superuser-only (FE advisory gate;
-                  server-side enforcement is in StartRunView.post). Non-superusers
-                  never see this field — the backend ignores their compute_backend
-                  and always uses ANUGA_DEFAULT_COMPUTE_BACKEND. */}
-            {isSuperuser ? (
+            {/* TASK-2194 (epic 2190 W2): compute-target selector is staff-only
+                  (FE advisory gate; server-side enforcement is in
+                  StartRunView.post — non-staff are silently overridden there).
+                  Non-staff DOM never contains this field; an empty/unloaded
+                  allowlist hides it for staff too. With nothing chosen the
+                  select shows the marked site default and dispatch OMITS the
+                  field (server resolves its own default). */}
+            {showComputeTargetSelector ? (
                 <FormRow
                     extraClassName="sv-anuga-scenario-pane-section"
                     label={
-                        <label className="sv-anuga-scenario-pane-label" htmlFor="compute_backend">
-                            <Message msgId="hydrata.anuga.computeBackend" />
+                        <label className="sv-anuga-scenario-pane-label" htmlFor="compute_target">
+                            <Message msgId="hydrata.anuga.computeTarget" />
                         </label>
                     }
                 >
                     <div className={selectFieldClass}>
                         <select
-                            id="compute_backend"
+                            id="compute_target"
                             className="sv-scenario-select"
-                            value={scenario?.compute_backend || ''}
+                            value={sessionComputeTarget || defaultComputeTarget || ''}
                             disabled={!canEdit}
-                            onChange={handleBackendChange}
+                            onChange={handleTargetChange}
                         >
-                            <option value="">-</option>
-                            {(Array.isArray(computeInstances) && computeInstances.length > 0)
-                                ? computeInstances.filter(opt => {
-                                    // Only show options that map to Local or Cloud.
-                                    const val = opt.value || opt.id || opt;
-                                    return COMPUTE_LABEL_MAP[val] !== undefined;
-                                }).map((opt, idx) => {
-                                    const val = opt.value || opt.id || opt;
-                                    return (
-                                        <option key={idx} value={val}>
-                                            {COMPUTE_LABEL_MAP[val] || opt.label || val}
-                                        </option>
-                                    );
-                                })
-                                : SUPERUSER_COMPUTE_OPTIONS.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))
-                            }
+                            {availableComputeTargets.map(target => (
+                                <option key={target} value={target}>
+                                    {computeTargetLabel(target, defaultComputeTarget)}
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </FormRow>
@@ -672,12 +686,14 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
  */
 function renderRunPane(props) {
     const {
-        scenario, canEdit, isSuperuser, onUpdateScenario, computeInstances
+        scenario, canEdit, isStaff, onUpdateScenario,
+        availableComputeTargets, defaultComputeTarget,
+        sessionComputeTarget, onSetSessionComputeTarget
     } = props;
     return (
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
             {/* Section (a): config fields */}
-            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstances, isSuperuser})}
+            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
             {/* Section (b): status feedback (ETA, progress, error) */}
             <ScenarioErrorStrip scenario={scenario} />
             <ScenarioStatusCard scenario={scenario} />
@@ -848,7 +864,17 @@ ScenarioPane.propTypes = {
     onSelectCategory: PropTypes.func,
     canEdit: PropTypes.bool,
     canRunScenario: PropTypes.bool,
-    isSuperuser: PropTypes.bool,
+    // TASK-2194 (epic 2190 W2) — staff gate + site compute-target config for
+    // the Run section's advisory selector (server is the real gate).
+    isStaff: PropTypes.bool,
+    availableComputeTargets: PropTypes.array,
+    defaultComputeTarget: PropTypes.string,
+    // TASK-2194 (review fix) — the CURRENT scenario's session choice from
+    // state.anuga.ui.sessionComputeTargets (undefined = none: the select
+    // shows the marked site default) + the setter that records a pick on
+    // that ui slot (never onUpdateScenario — see renderRunConfigPane).
+    sessionComputeTarget: PropTypes.string,
+    onSetSessionComputeTarget: PropTypes.func,
     currentUserId: PropTypes.number,
     terrain: PropTypes.array,
     boundaries: PropTypes.array,
@@ -858,7 +884,6 @@ ScenarioPane.propTypes = {
     structures: PropTypes.array,
     meshRegions: PropTypes.array,
     networks: PropTypes.array,
-    computeInstances: PropTypes.array,
     onUpdateScenario: PropTypes.func
 };
 
@@ -866,7 +891,7 @@ ScenarioPane.defaultProps = {
     selectedCategoryId: 'inputs',
     canEdit: false,
     canRunScenario: false,
-    isSuperuser: false
+    isStaff: false
 };
 
 export {ScenarioPane, VALID_CATEGORIES};

@@ -319,7 +319,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     // in seconds (bound via secondsToHM / hmToSeconds).
                     expect(container.querySelector('#duration-hours')).toExist();
                     expect(container.querySelector('#duration-minutes')).toExist();
-                    // TASK-1415: compute_backend hidden unless isSuperuser (default=false in store)
+                    // TASK-2194: compute_target hidden unless isStaff AND the site allowlist is hydrated non-empty (neither in this store)
                     expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
                     expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
                     // UAT #8: the run-action controls live OUTSIDE the Run pane in the

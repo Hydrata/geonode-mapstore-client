@@ -24,7 +24,7 @@ const {enData} = require('../../../../../__tests__/fixtures/translations');
  *     no resource-summary cards anywhere
  *   - Inputs section: 4 dropdowns + name input
  *   - Advanced section: 3 dropdowns (network removed)
- *   - Run section: resolution + duration + compute-backend select + status
+ *   - Run section: resolution + duration + staff compute-target select + status
  *     card + (error strip) + inline ScenarioRunLog with auto-scroll (no
  *     in-pane action toolbar — that lives in the heading, UAT #8)
  *   - Empty pane: renders "Select or create a scenario" placeholder
@@ -239,7 +239,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     frictions={frictionOpts}
                     structures={structureOpts}
                     meshRegions={meshRegionOpts}
-                    isSuperuser
+                    isStaff
+                    availableComputeTargets={['local', 'batch-x32']}
+                    defaultComputeTarget={'batch-x32'}
                 />,
                 container,
                 () => {
@@ -253,11 +255,11 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     expect(container.querySelector('#friction')).toExist();
                     expect(container.querySelector('#structure')).toExist();
                     expect(container.querySelector('#mesh_region')).toExist();
-                    // Run
+                    // Run (TASK-2194: staff compute-target selector)
                     expect(container.querySelector('#resolution')).toExist();
                     expect(container.querySelector('#duration-hours')).toExist();
                     expect(container.querySelector('#duration-minutes')).toExist();
-                    expect(container.querySelector('#compute_backend')).toExist();
+                    expect(container.querySelector('#compute_target')).toExist();
                     done();
                 }
             );
@@ -792,9 +794,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 );
             });
 
-            it('tags Run config wrappers with .is-readonly when canEdit=false (superuser sees 3, non-su sees 2)', (done) => {
-                // TASK-1415: compute_backend only rendered for superusers.
-                // Non-superuser: resolution + duration = 2 wrappers.
+            it('tags Run config wrappers with .is-readonly when canEdit=false (staff sees 3, non-staff sees 2)', (done) => {
+                // TASK-2194: compute_target only rendered for staff (with a
+                // non-empty allowlist). Non-staff: resolution + duration = 2
+                // wrappers.
                 // TASK-2114 — scoped to the Run-config rows wrapper so Inputs'
                 // and Advanced's now-coexisting .is-readonly wrappers don't
                 // inflate the count.
@@ -802,14 +805,14 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     <ScenarioPane
                         scenario={baseScenario}
                         selectedCategoryId={'runConfig'}
-                        isSuperuser={false}
+                        isStaff={false}
                     />,
                     container,
                     () => {
                         const readonlyWrappers = container.querySelectorAll(
                             '.sv-anuga-scenario-pane-rows-run-config .sv-anuga-scenario-pane-field.is-readonly'
                         );
-                        // resolution + duration = 2 wrappers (compute_backend hidden for non-superuser).
+                        // resolution + duration = 2 wrappers (compute_target hidden for non-staff).
                         expect(readonlyWrappers.length).toBe(2);
                         done();
                     }
@@ -985,42 +988,109 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     // Run config pane (Pane 3) — NEW
     // ------------------------------------------------------------------
     describe('Run config pane', () => {
-        it('renders resolution + duration; compute_backend hidden for non-superusers (TASK-1415)', (done) => {
+        // TASK-2194 (epic 2190 W2) — staff-gated compute-target selector.
+        // Non-staff DOM must contain NO selector at all (epic invariant),
+        // even when the site allowlist is populated.
+        it('non-staff DOM contains no compute-target selector (TASK-2194)', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
                     selectedCategoryId={'runConfig'}
                     canEdit
-                    isSuperuser={false}
+                    isStaff={false}
+                    availableComputeTargets={['local', 'batch-x32', 'batch-gpu-a10g']}
+                    defaultComputeTarget={'batch-x32'}
                 />,
                 container,
                 () => {
                     expect(container.querySelector('#resolution')).toExist();
                     expect(container.querySelector('#duration-hours')).toExist();
                     expect(container.querySelector('#duration-minutes')).toExist();
+                    expect(container.querySelector('#compute_target')).toNotExist();
+                    // the retired superuser local/batch selector must be gone too
                     expect(container.querySelector('#compute_backend')).toNotExist();
                     done();
                 }
             );
         });
 
-        it('renders compute_backend for superusers (TASK-1415)', (done) => {
+        it('renders the allowlist verbatim for staff, default marked "(site default)" (TASK-2194)', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
                     selectedCategoryId={'runConfig'}
                     canEdit
-                    isSuperuser
+                    isStaff
+                    availableComputeTargets={['local', 'batch-x32', 'batch-gpu-a10g']}
+                    defaultComputeTarget={'batch-x32'}
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('#compute_backend')).toExist();
-                    // Only Local and Cloud options (no ec2)
-                    const opts = Array.from(container.querySelectorAll('#compute_backend option'));
-                    const vals = opts.map(o => o.value);
-                    expect(vals).toNotInclude('ec2');
-                    expect(vals).toInclude('local');
-                    expect(vals).toInclude('batch');
+                    const sel = container.querySelector('#compute_target');
+                    expect(sel).toExist();
+                    const opts = Array.from(container.querySelectorAll('#compute_target option'));
+                    // option VALUES are the allowlist targets verbatim, in order
+                    expect(opts.map(o => o.value)).toEqual(['local', 'batch-x32', 'batch-gpu-a10g']);
+                    // plain descriptive labels; the site default is marked; NO
+                    // cost/duration estimates anywhere in the labels
+                    expect(opts.map(o => o.textContent)).toEqual([
+                        'Local box',
+                        'AWS Batch — 32 vCPU (site default)',
+                        'AWS Batch — GPU A10G'
+                    ]);
+                    // nothing chosen -> the select shows the site default
+                    expect(sel.value).toBe('batch-x32');
+                    done();
+                }
+            );
+        });
+
+        it('hides the selector entirely for staff when the allowlist is EMPTY or unloaded (TASK-2194)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                    isStaff
+                    availableComputeTargets={[]}
+                    defaultComputeTarget={null}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('#compute_target')).toNotExist();
+                    // unloaded config (null allowlist) hides it too
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={baseScenario}
+                            selectedCategoryId={'runConfig'}
+                            canEdit
+                            isStaff
+                            availableComputeTargets={null}
+                        />,
+                        container,
+                        () => {
+                            expect(container.querySelector('#compute_target')).toNotExist();
+                            done();
+                        }
+                    );
+                }
+            );
+        });
+
+        it('an unknown target renders its raw name (never fabricated labels) (TASK-2194)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                    isStaff
+                    availableComputeTargets={['batch-x64-future']}
+                    defaultComputeTarget={'batch-x64-future'}
+                />,
+                container,
+                () => {
+                    const opts = Array.from(container.querySelectorAll('#compute_target option'));
+                    expect(opts.map(o => o.textContent)).toEqual(['batch-x64-future (site default)']);
                     done();
                 }
             );
@@ -1178,22 +1248,58 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // TASK-1415: compute_backend visible only for superusers; pass isSuperuser
-        it('compute_backend select dispatches onUpdateScenario (superuser)', (done) => {
-            let captured = null;
+        // TASK-2194 (review fix): choosing a target dispatches the SESSION
+        // slot setter (onSetSessionComputeTarget) and must NEVER go through
+        // onUpdateScenario — UPDATE_ANUGA_SCENARIO unconditionally flips
+        // scenario.unsaved, which detoured the next Build-and-Run into
+        // dispatchBuild's save-only branch (no build, no run) and the save
+        // round-trip then wiped the choice.
+        it('compute_target select dispatches onSetSessionComputeTarget and NOT onUpdateScenario (staff)', (done) => {
+            const sessionCalls = [];
+            const updateCalls = [];
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
                     selectedCategoryId={'runConfig'}
                     canEdit
-                    isSuperuser
-                    onUpdateScenario={(s, kv) => { captured = kv; }}
+                    isStaff
+                    availableComputeTargets={['local', 'batch-x32', 'batch-gpu-a10g']}
+                    defaultComputeTarget={'batch-x32'}
+                    onSetSessionComputeTarget={(s, target) => sessionCalls.push({scenario: s, target})}
+                    onUpdateScenario={(s, kv) => updateCalls.push(kv)}
                 />,
                 container,
                 () => {
-                    const sel = container.querySelector('#compute_backend');
-                    Simulate.change(sel, {target: {value: 'batch'}});
-                    expect(captured.compute_backend).toBe('batch');
+                    const sel = container.querySelector('#compute_target');
+                    Simulate.change(sel, {target: {value: 'batch-gpu-a10g'}});
+                    expect(sessionCalls.length).toBe(1);
+                    expect(sessionCalls[0].target).toBe('batch-gpu-a10g');
+                    expect(sessionCalls[0].scenario.id).toBe(baseScenario.id);
+                    // the scenario-object update contract is NOT used
+                    expect(updateCalls.length).toBe(0);
+                    done();
+                }
+            );
+        });
+
+        // TASK-2194 (review fix): the select's VALUE rides the ui slot
+        // (sessionComputeTarget prop), not scenario.compute_target — so a
+        // save/refresh replacing the scenario object cannot snap the select
+        // back to the site default.
+        it('select shows the session choice when set, independent of the scenario object', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                    isStaff
+                    availableComputeTargets={['local', 'batch-x32', 'batch-gpu-a10g']}
+                    defaultComputeTarget={'batch-x32'}
+                    sessionComputeTarget={'local'}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('#compute_target').value).toBe('local');
                     done();
                 }
             );

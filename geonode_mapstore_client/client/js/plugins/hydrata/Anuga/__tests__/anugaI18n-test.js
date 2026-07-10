@@ -48,14 +48,15 @@ describe('Anuga i18n', () => {
     });
 
     it('run lifecycle keys exist', () => {
+        // TASK-2194 (epic 2190 W2): computeBackend/computeLocal/computeEc2/
+        // computeBatch retired with the superuser local/batch selector; the
+        // staff selector's row label is computeTarget (its OPTION labels are
+        // spec-verbatim English strings, not msgIds).
         const runKeys = [
             'hydrata.anuga.retry',
             'hydrata.anuga.cancel',
             'hydrata.anuga.save',
-            'hydrata.anuga.computeBackend',
-            'hydrata.anuga.computeLocal',
-            'hydrata.anuga.computeEc2',
-            'hydrata.anuga.computeBatch'
+            'hydrata.anuga.computeTarget'
         ];
         runKeys.forEach(key => {
             expect(enMessages[key]).toExist(`Missing run lifecycle key: ${key}`);

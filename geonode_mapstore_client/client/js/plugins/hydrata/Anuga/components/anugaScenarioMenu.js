@@ -26,7 +26,8 @@ import {
     addAnugaScenario,
     stopAnugaScenarioPolling,
     setAnugaScenarioArchiveFilter,
-    compareScenarios
+    compareScenarios,
+    setSessionComputeTarget
 } from "../actionsAnuga";
 import {
     canCreateScenario,
@@ -43,6 +44,8 @@ import {validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_ST
 import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane, meshRegionIsUnattached, rainfallIsUnattached} from './scenarioPane';
 import {ScenarioHeaderActions} from './scenarioHeaderActions';
+// TASK-2194 (epic 2190 W2) — the FE staff-gate precedent (is_staff OR is_superuser).
+import {isStaffUser} from './AnugaRunsDashboard/runsDashboardUtils';
 import {SectionHeader} from "../../SimpleView/components/primitives";
 
 /**
@@ -135,8 +138,16 @@ class AnugaScenarioMenuClass extends React.Component {
       structures: PropTypes.array,
       meshRegions: PropTypes.array,
       networks: PropTypes.array,
-      computeInstances: PropTypes.array,
-      isSuperuser: PropTypes.bool,
+      // TASK-2194 (epic 2190 W2) — staff gate + compute-target site config
+      // forwarded into ScenarioPane's Run section (advisory selector).
+      isStaff: PropTypes.bool,
+      availableComputeTargets: PropTypes.array,
+      defaultComputeTarget: PropTypes.string,
+      // TASK-2194 (review fix) — { [scenarioId]: '<target>' }: the staff
+      // user's this-session choices from state.anuga.ui.sessionComputeTargets.
+      // Read by every run dispatch path; written via setSessionComputeTarget
+      // (NEVER updateAnugaScenario, which would flip scenario.unsaved).
+      sessionComputeTargets: PropTypes.object,
       canCreateScenario: PropTypes.bool,
       canRunScenario: PropTypes.bool,
       myRole: PropTypes.string,
@@ -162,6 +173,7 @@ class AnugaScenarioMenuClass extends React.Component {
       setAnugaScenarioArchiveFilter: PropTypes.func,
       compareScenarios: PropTypes.func,
       runAnugaScenario: PropTypes.func,
+      setSessionComputeTarget: PropTypes.func,
       openTaskMonitorForRun: PropTypes.func,
       // ISSUE 32 (TASK-1429): View results button on completion.
       flatLayers: PropTypes.array,
@@ -375,6 +387,28 @@ class AnugaScenarioMenuClass extends React.Component {
       }
   };
 
+  // TASK-2194 (review fix) — record the staff compute-target pick on the
+  // per-scenario ui slot (state.anuga.ui.sessionComputeTargets). This MUST
+  // NOT go through handleUpdateScenario/UPDATE_ANUGA_SCENARIO: that reducer
+  // unconditionally flips scenario.unsaved, which sends the next
+  // Build-and-Run down dispatchBuild's save-only branch (the deferred run is
+  // never armed) and the follow-up save wholesale-replace wipes the choice.
+  handleSetSessionComputeTarget = (scenario, target) => {
+      const key = scenario?.id || scenario?._tempId;
+      if (key === null || key === undefined) return; // eslint-disable-line no-eq-null, eqeqeq
+      if (this.props.setSessionComputeTarget) {
+          this.props.setSessionComputeTarget(key, target);
+      }
+  };
+
+  // The current session choice for a scenario, or null (-> startRun omits
+  // the field and the server resolves the site default).
+  sessionComputeTargetFor = (scenario) => {
+      const key = scenario?.id || scenario?._tempId;
+      if (key === null || key === undefined) return null; // eslint-disable-line no-eq-null, eqeqeq
+      return (this.props.sessionComputeTargets || {})[key] || null;
+  };
+
   // Dispatch the build/save for an already-validated scenario. Returns 'build'
   // when an explicit server rebuild was dispatched (buildScenarioExplicit), or
   // 'save' when the scenario was unsaved and sent to save instead. Shared by
@@ -457,14 +491,18 @@ class AnugaScenarioMenuClass extends React.Component {
   };
 
   handleRunClick = (scenario) => {
-      // Run dispatches directly to runAnugaScenario; the compute-backend
-      // chooser now lives inline on the runConfig category of ScenarioPane
-      // (scenario.compute_backend is set there), so the legacy AnugaRunMenu
-      // popup is gone. Fall back to 'local' for the rare case where the
-      // scenario was saved before the compute_backend column existed.
+      // TASK-2194 (epic 2190 W2, review fix): the compute-TARGET chooser
+      // lives inline on the Run section of ScenarioPane, and the choice is
+      // SESSION state on state.anuga.ui.sessionComputeTargets keyed by
+      // scenario id — NOT on the scenario object (Scenario has NO such
+      // column, and riding the scenario object meant the choice flipped
+      // unsaved and was wiped by any save/refresh replace). Set -> pass it
+      // through (this method is ALSO the re-run + deferred build-and-run
+      // path); unset -> pass null so startRun OMITS the field and the server
+      // resolves the site default (StartRunView is the real gate).
       if (this.props.selectAnugaScenario) this.props.selectAnugaScenario(scenario);
       if (this.props.runAnugaScenario) {
-          this.props.runAnugaScenario(scenario, scenario?.compute_backend || 'local');
+          this.props.runAnugaScenario(scenario, this.sessionComputeTargetFor(scenario));
       }
   };
 
@@ -608,7 +646,9 @@ class AnugaScenarioMenuClass extends React.Component {
           selectedScenario,
           myRole,
           currentUserId,
-          isSuperuser,
+          isStaff,
+          availableComputeTargets,
+          defaultComputeTarget,
           terrain,
           boundaries,
           inflows,
@@ -616,8 +656,7 @@ class AnugaScenarioMenuClass extends React.Component {
           frictions,
           structures,
           meshRegions,
-          networks,
-          computeInstances
+          networks
       } = this.props;
       const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
       // Wave 3C — Duplicate moved to the scenario panel header (next to New
@@ -629,7 +668,11 @@ class AnugaScenarioMenuClass extends React.Component {
               canEdit={canEdit}
               canRunScenario={this.props.canRunScenario}
               currentUserId={currentUserId}
-              isSuperuser={isSuperuser}
+              isStaff={isStaff}
+              availableComputeTargets={availableComputeTargets}
+              defaultComputeTarget={defaultComputeTarget}
+              sessionComputeTarget={this.sessionComputeTargetFor(selectedScenario)}
+              onSetSessionComputeTarget={this.handleSetSessionComputeTarget}
               terrain={terrain}
               boundaries={boundaries}
               inflows={inflows}
@@ -638,7 +681,6 @@ class AnugaScenarioMenuClass extends React.Component {
               structures={structures}
               meshRegions={meshRegions}
               networks={networks}
-              computeInstances={computeInstances}
               onUpdateScenario={this.handleUpdateScenario}
           />
       );
@@ -997,8 +1039,15 @@ const mapStateToProps = (state) => {
         structures: state?.anuga?.resources?.structures,
         meshRegions: state?.anuga?.resources?.meshRegions,
         networks: state?.anuga?.resources?.networks,
-        computeInstances: state?.anuga?.resources?.computeInstances,
-        isSuperuser: !!(state?.security?.user?.is_superuser),
+        // TASK-2194 (epic 2190 W2) — staff gate (FE precedent:
+        // runsDashboardUtils.isStaffUser) + compute-target site config
+        // hydrated by loadAnugaComputeConfigEpic onto state.anuga.ui.
+        isStaff: isStaffUser(state?.security?.user),
+        availableComputeTargets: state?.anuga?.ui?.availableComputeTargets,
+        defaultComputeTarget: state?.anuga?.ui?.defaultComputeTarget,
+        // TASK-2194 (review fix) — per-scenario session choices (ui slot, so
+        // scenario saves/refreshes can never wipe them).
+        sessionComputeTargets: state?.anuga?.ui?.sessionComputeTargets,
         canCreateScenario: canCreateScenario(state),
         canRunScenario: canRunScenario(state),
         myRole: getProjectMyRole(state),
@@ -1028,7 +1077,8 @@ const mapDispatchToProps = (dispatch) => ({
     addAnugaScenario: () => dispatch(addAnugaScenario()),
     setAnugaScenarioArchiveFilter: (mode) => dispatch(setAnugaScenarioArchiveFilter(mode)),
     compareScenarios: (scenarios) => dispatch(compareScenarios(scenarios)),
-    runAnugaScenario: (scenario, computeBackend) => dispatch(runAnugaScenario(scenario, computeBackend)),
+    runAnugaScenario: (scenario, computeTarget) => dispatch(runAnugaScenario(scenario, computeTarget)),
+    setSessionComputeTarget: (scenarioId, target) => dispatch(setSessionComputeTarget(scenarioId, target)),
     openTaskMonitorForRun: () => dispatch(toggleTaskMonitorPanel(true)),
     // ISSUE 32 (TASK-1429): turn on only this scenario's 3 result layers,
     // turn off all other layers in the Results group.

@@ -38,24 +38,30 @@ import {
 
 const LEDGER_URL = '/api/v2/anuga/admin/runs/';
 
+// TASK-2195 — compute_target mirrors the AdminRunResourceRecordSerializer
+// surface: a flat target for post-2190 rows, null for HISTORICAL rows (r3/r4)
+// which must render as '—' in the grid, never a fabricated value.
 const FIXTURE_RECORDS = [
     {
         id: 'r1', run_id: 'run-1', tool: 'anuga',
         instance_type: 'g6e.2xlarge', region: 'us-east-1',
         mode: 'gpu', triangle_count: 8160000, wall_s: 19965,
-        cost_usd: 12.43, run_status: 'complete', date: '2026-07-02T10:00:00Z'
+        cost_usd: 12.43, run_status: 'complete', date: '2026-07-02T10:00:00Z',
+        compute_target: 'batch-gpu-a10g'
     },
     {
         id: 'r2', run_id: 'run-2', tool: 'anuga',
         instance_type: 'r7a.8xlarge', region: 'us-east-1',
         mode: 'cpu', triangle_count: 8160000, wall_s: 31150,
-        cost_usd: 20.9, run_status: 'complete', date: '2026-07-01T09:00:00Z'
+        cost_usd: 20.9, run_status: 'complete', date: '2026-07-01T09:00:00Z',
+        compute_target: 'batch-x32'
     },
     {
         id: 'r3', run_id: 'run-3', tool: 'anuga',
         instance_type: 'g5.xlarge', region: 'us-west-2',
         mode: 'gpu', triangle_count: 256688, wall_s: 9996,
-        cost_usd: 2.79, run_status: 'failed', date: '2026-06-30T08:00:00Z'
+        cost_usd: 2.79, run_status: 'failed', date: '2026-06-30T08:00:00Z',
+        compute_target: null
     },
     {
         id: 'r4', run_id: 'run-4', tool: 'anuga',
@@ -187,6 +193,35 @@ describe('AnugaRunsDashboard (component)', () => {
             const rows = host.querySelectorAll('[data-testid="anuga-runs-grid-row"]');
             expect(rows.length).toBe(FIXTURE_RECORDS.length);
             expect(mockAxios.history.get.length).toBe(1);
+            done();
+        }, 10);
+    });
+
+    // TASK-2195 (epic 2190 W2) — compute_target column: values verbatim for
+    // target-labelled rows (the calibration corpus), '—' for historical
+    // null/absent rows (never fabricated).
+    it('renders a Target column with compute_target verbatim and em-dash for historical nulls (TASK-2195)', (done) => {
+        mockAxios.onGet(LEDGER_URL).reply(200, { count: FIXTURE_RECORDS.length, results: FIXTURE_RECORDS });
+
+        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+
+        setTimeout(() => {
+            const header = host.querySelector('[data-testid="anuga-runs-grid-header-compute_target"]');
+            expect(header).toExist();
+            expect(header.textContent).toInclude('Target');
+            // Column index of compute_target in the rendered table.
+            const headers = Array.from(host.querySelectorAll('[data-testid^="anuga-runs-grid-header-"]'));
+            const colIdx = headers.indexOf(header);
+            const cellsByRunId = {};
+            Array.from(host.querySelectorAll('[data-testid="anuga-runs-grid-row"]')).forEach((row) => {
+                const cells = row.querySelectorAll('td');
+                cellsByRunId[cells[0].textContent] = cells[colIdx].textContent;
+            });
+            expect(cellsByRunId['run-1']).toBe('batch-gpu-a10g');
+            expect(cellsByRunId['run-2']).toBe('batch-x32');
+            // null AND absent both render the em-dash placeholder.
+            expect(cellsByRunId['run-3']).toBe('—');
+            expect(cellsByRunId['run-4']).toBe('—');
             done();
         }, 10);
     });
