@@ -9,7 +9,7 @@ import ReactDOM from 'react-dom';
 import { act } from 'react-dom/test-utils';
 import { fireEvent } from '@testing-library/react';
 import moment from 'moment';
-import { ManualPasteGrid, TableCell } from '../ManualPasteGrid';
+import { ManualPasteGrid, TableCell, buildColumns } from '../ManualPasteGrid';
 
 // TASK-2212 (W4.1) — deterministically simulate a NON-UTC browser without
 // depending on the box's actual system timezone (this box happens to be
@@ -613,11 +613,32 @@ describe('TASK-2212 (W4.1) — paste + display are UTC, tz-independent', () => {
     // fixed at ManualPasteGrid.js:51, exported precisely "for render
     // isolation tests"): a stored naive-UTC value must format back to the
     // SAME wall-clock digits under a mocked non-UTC browser.
-    it('AC2: TableCell datetime formatting is UTC (moment.utc), not local', () => {
+    //
+    // P2-A (TASK-2217/2204 gate-fix): pulls the REAL columnDef from
+    // buildColumns instead of hand-rolling `meta: {type: 'datetime'}` — a
+    // shape buildColumns never produces (the timestamp column's ONLY
+    // meta.type is 'datetime-local'). The hand-rolled shape exercised the
+    // TableCell guard's dead branch two ways at once: the guard's own
+    // `=== 'datetime'` check never matches reality, AND `type="datetime"`
+    // is a REMOVED/deprecated HTML input type that browsers silently
+    // fall back to `type="text"` for — so the old test never even rendered
+    // a native datetime-local input, let alone proved the guard reachable.
+    //
+    // Uses a Z-SUFFIXED source value deliberately: a bare 'YYYY-MM-DDTHH:mm
+    // :ss' value would normalise IDENTICALLY whether the branch runs or is
+    // skipped (raw passthrough is already a valid local-datetime string),
+    // which is exactly how the pre-fix "integration-level" test below kept
+    // passing for the wrong reason. A Z suffix is NOT a valid
+    // type="datetime-local" value per the HTML living standard — a native
+    // input silently BLANKS (.value === '') when assigned one. Only the
+    // fixed branch (moment.utc(...).format(...), which strips the Z)
+    // produces a value the input actually accepts — so this genuinely
+    // discriminates "branch ran" from "branch skipped, raw passthrough".
+    it('AC2: TableCell datetime formatting is UTC (moment.utc), not local — real buildColumns columnDef', () => {
         withMockedNonUtcTimezone(300, () => { // UTC-5
-            const column = {
-                columnDef: { meta: { type: 'datetime' } }
-            };
+            const realColumns = buildColumns(false);
+            const column = { columnDef: realColumns[0] }; // buildColumns' first entry is the timestamp column
+            expect(column.columnDef.meta.type).toBe('datetime-local');
             const table = { options: { meta: { updateData: () => {} } } };
             const row = { index: 0 };
             const container = document.createElement('div');
@@ -625,7 +646,7 @@ describe('TASK-2212 (W4.1) — paste + display are UTC, tz-independent', () => {
             act(() => {
                 ReactDOM.render(
                     React.createElement(TableCell, {
-                        getValue: () => '2000-01-01T00:00:00.000',
+                        getValue: () => '2000-01-01T00:00:00.000Z',
                         row,
                         column,
                         table
@@ -634,11 +655,14 @@ describe('TASK-2212 (W4.1) — paste + display are UTC, tz-independent', () => {
                 );
             });
             const input = container.querySelector('input');
-            // Pre-fix (moment(value) local), a UTC-5 browser renders this as
-            // '1999-12-31 19:00:00' (naive-UTC value misread as local, then
-            // reformatted local — a DOUBLE local misinterpretation). Fixed
-            // code must render the wall clock unshifted.
-            expect(input.value).toBe('2000-01-01 00:00:00');
+            expect(input.type).toBe('datetime-local');
+            // Dead-branch raw passthrough would assign the Z-suffixed
+            // string directly — INVALID for datetime-local, so a real
+            // browser blanks the input (.value === ''). The fixed branch
+            // strips the Z via moment.utc(...).format(...), producing a
+            // value the native input actually accepts.
+            expect(input.value).toBe('2000-01-01T00:00');
+            expect(input.value).toNotBe('');
             ReactDOM.unmountComponentAtNode(container);
             document.body.removeChild(container);
         });
