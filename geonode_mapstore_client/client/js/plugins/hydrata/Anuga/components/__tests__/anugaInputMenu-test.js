@@ -1248,6 +1248,15 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
         expect(opened).toBe(true, 'clicking opens the Merge terrains panel');
         expect(loaded).toBe(true, 'clicking loads the recipe data');
     });
+
+    it('#3 (TASK-2205): the Merge terrains button carries a visible text label, not just a tooltip', () => {
+        const tree = renderTerrainPaneTree([]);
+        expect(findTestIdInTree(tree, 'anuga-terrain-merge-panel-label'))
+            .toBe(true, 'a visible text-label element must render inside the merge button — ' +
+                'the dogfood user misread the icon-only, tooltip-only affordance as a show/hide toggle');
+        expect(findClassInTree(tree, 'sv-menu-row-glyph-labeled'))
+            .toBe(true, 'the merge button chip must carry the labeled-variant class');
+    });
 });
 
 // ---------------------------------------------------------------------------

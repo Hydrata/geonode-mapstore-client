@@ -388,7 +388,42 @@ function renderInflowAnchorMismatchWarning(scenario) {
     );
 }
 
-function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls}) {
+/**
+ * TASK-2205 (W0.2 epic 2204) — when the scenario's assigned terrain is a
+ * ready terrain flagged with coverage gaps (TerrainSerializerV2
+ * has_coverage_gaps, from the TASK-2201 import-time nodata check), surface
+ * an in-pane suggestion pointing at the EXISTING Combined-surface merge
+ * (anugaInputMenu.js's "Combined surface" panel) rather than leaving the
+ * user to discover the gap ~2 hours later at build (dogfood run 1283).
+ * `has_coverage_gaps === true` only — `false` (clean) and `null`/`undefined`
+ * (unstamped legacy terrain, pre-backfill) both stay silent; a legacy
+ * terrain must not falsely claim to have gaps it was never checked for.
+ */
+function renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel) {
+    const selectedTerrain = (terrain || []).find(t => t && t.id === scenario?.terrain);
+    if (selectedTerrain?.has_coverage_gaps !== true) return null;
+    return (
+        <div
+            className="sv-anuga-scenario-pane-section sv-anuga-scenario-terrain-gap-suggestion"
+            role="alert"
+        >
+            <Message msgId="hydrata.anuga.terrainCoverageGapSuggestion" />
+            {' '}
+            <a
+                href="#"
+                data-testid="anuga-terrain-gap-suggestion-merge-link"
+                onClick={(e) => {
+                    e.preventDefault();
+                    if (onOpenMergeTerrainsPanel) onOpenMergeTerrainsPanel();
+                }}
+            >
+                <Message msgId="hydrata.anuga.terrainCoverageGapSuggestionLink" />
+            </a>
+        </div>
+    );
+}
+
+function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls, onOpenMergeTerrainsPanel}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -426,6 +461,7 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div>
             </FormRow>
             {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, handleField)}
+            {renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel)}
             {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
             {renderSelectField('inflow', 'hydrata.anuga.inflow', scenario?.inflow, inflows, !canEdit, handleField)}
             {renderInflowAnchorMismatchWarning(scenario)}
@@ -763,7 +799,16 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
     // TASK-1587 W1.9 UAT (2026-06-19): auto-default to the first RUNNABLE terrain
     // ('ready') — never a layer-less failed/creating terrain that the V2 list now
     // surfaces (it can't be selected in the picker either).
-    const firstReadyTerrain = (terrain || []).find(t => t?.status === 'ready');
+    // TASK-2205 (W0.2 epic 2204): among ready terrains, prefer a full-coverage
+    // one (has_coverage_gaps === false, TerrainSerializerV2) over an
+    // earlier-listed gappy fine survey — auto-defaulting to a known-gappy
+    // terrain silently seeds a new scenario for the run-1283 class of
+    // build-time failure. Falls back to the first ready terrain (even gappy,
+    // or unstamped/null) so an all-gappy or pre-epic project still gets a
+    // usable default.
+    const readyTerrains = (terrain || []).filter(t => t?.status === 'ready');
+    const fullCoverageTerrain = readyTerrains.find(t => t?.has_coverage_gaps === false);
+    const firstReadyTerrain = fullCoverageTerrain || readyTerrains[0];
     const firstTerrainId = firstReadyTerrain ? firstReadyTerrain.id : null;
     const firstBoundaryId = boundaries && boundaries[0] ? boundaries[0].id : null;
     const firstInflowId = inflows && inflows[0] ? inflows[0].id : null;
@@ -876,6 +921,11 @@ ScenarioPane.propTypes = {
     sessionComputeTarget: PropTypes.string,
     onSetSessionComputeTarget: PropTypes.func,
     currentUserId: PropTypes.number,
+    // TASK-2205 (W0.2 epic 2204) — opens the stand-alone "Combined surface"
+    // merge panel from the gap-suggestion link (see
+    // renderTerrainCoverageGapSuggestion). Same action anugaInputMenu.js's
+    // header button dispatches (setTerrainWorkbenchVisible(true)).
+    onOpenMergeTerrainsPanel: PropTypes.func,
     terrain: PropTypes.array,
     boundaries: PropTypes.array,
     inflows: PropTypes.array,

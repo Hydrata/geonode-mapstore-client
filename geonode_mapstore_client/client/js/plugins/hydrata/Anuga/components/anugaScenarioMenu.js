@@ -9,6 +9,11 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
+// TASK-2205 (W0.2 epic 2204) — opens the stand-alone "Combined surface" merge
+// panel from the terrain coverage-gap suggestion (see scenarioPane.js
+// renderTerrainCoverageGapSuggestion). Same action anugaInputMenu.js's header
+// button dispatches (TASK-1800).
+import {setTerrainWorkbenchVisible} from "../../TerrainWorkbench/actionsTerrainWorkbench";
 import {
     selectAnugaScenario,
     toggleScenarioSelected,
@@ -682,6 +687,7 @@ class AnugaScenarioMenuClass extends React.Component {
               meshRegions={meshRegions}
               networks={networks}
               onUpdateScenario={this.handleUpdateScenario}
+              onOpenMergeTerrainsPanel={this.props.onOpenMergeTerrainsPanel}
           />
       );
   }
@@ -1080,6 +1086,8 @@ const mapDispatchToProps = (dispatch) => ({
     runAnugaScenario: (scenario, computeTarget) => dispatch(runAnugaScenario(scenario, computeTarget)),
     setSessionComputeTarget: (scenarioId, target) => dispatch(setSessionComputeTarget(scenarioId, target)),
     openTaskMonitorForRun: () => dispatch(toggleTaskMonitorPanel(true)),
+    // TASK-2205 (W0.2 epic 2204) — the gap-suggestion link's click handler.
+    onOpenMergeTerrainsPanel: () => dispatch(setTerrainWorkbenchVisible(true)),
     // ISSUE 32 (TASK-1429): turn on only this scenario's 3 result layers,
     // turn off all other layers in the Results group.
     // TASK-2078: layer-name visibility toggle is a RESULT consumer per D1 —

@@ -650,6 +650,102 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             });
         });
 
+        // TASK-2205 (W0.2 epic 2204) — a fine survey with declared coverage
+        // gaps (has_coverage_gaps: true, TerrainSerializerV2) suggests the
+        // existing Combined-surface merge instead of leaving the user to
+        // discover the gap ~2 hours later at build (dogfood run 1283).
+        describe('Terrain coverage gap suggestion (TASK-2205)', () => {
+            const gappyTerrainOpts = [
+                {id: 3, title: 'Gappy Survey', status: 'ready', has_coverage_gaps: true},
+                {id: 4, title: 'Other Terrain', status: 'ready', has_coverage_gaps: false}
+            ];
+
+            it('renders the suggestion + merge link when the selected terrain has coverage gaps', (done) => {
+                let opened = false;
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={gappyTerrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                        onOpenMergeTerrainsPanel={() => { opened = true; }}
+                    />,
+                    container,
+                    () => {
+                        const suggestion = container.querySelector('.sv-anuga-scenario-terrain-gap-suggestion');
+                        expect(suggestion).toExist();
+                        expect(suggestion.getAttribute('role')).toBe('alert');
+                        const link = container.querySelector('[data-testid="anuga-terrain-gap-suggestion-merge-link"]');
+                        expect(link).toExist();
+                        Simulate.click(link);
+                        expect(opened).toBe(true, 'clicking the suggestion link opens the Combined-surface merge panel');
+                        done();
+                    }
+                );
+            });
+
+            it('omits the suggestion when the selected terrain has no coverage gaps', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, terrain: 4}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={gappyTerrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-terrain-gap-suggestion')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the suggestion when no terrain is selected yet', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, terrain: null}}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={gappyTerrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-terrain-gap-suggestion')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('omits the suggestion when has_coverage_gaps is null (legacy/unstamped terrain)', (done) => {
+                const legacyTerrainOpts = [{id: 3, title: 'Legacy Survey', status: 'ready', has_coverage_gaps: null}];
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        selectedCategoryId={'inputs'}
+                        canEdit
+                        terrain={legacyTerrainOpts}
+                        boundaries={boundaryOpts}
+                        inflows={inflowOpts}
+                        rainfalls={rainfallOpts}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-terrain-gap-suggestion')).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
         it('name field is readOnly when canEdit false', (done) => {
             ReactDOM.render(
                 <ScenarioPane
@@ -1577,6 +1673,78 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                         expect(captured.terrain).toBe(3);
                         expect(captured.boundary).toBe(4);
                         expect(captured.inflow).toBe(5);
+                        done();
+                    }, 20);
+                }
+            );
+        });
+
+        // TASK-2205 (W0.2 epic 2204) — prefer a full-coverage ready terrain over
+        // a gappy fine survey when auto-defaulting a new scenario, so the
+        // scenario is never silently seeded with a terrain that will fail the
+        // build-time boundary check (dogfood run 1283 class).
+        it('AC#2 (TASK-2205): prefers a full-coverage ready terrain over an earlier-listed gappy one', (done) => {
+            const newScenario = {
+                id: null, _tempId: 'new_2', name: '', status: 'new', computed_status: 'created',
+                terrain: null, boundary: null, inflow: null, rainfall: null,
+                resolution: 1000, duration: null, unsaved: false
+            };
+            // Gappy terrain listed FIRST (id 3) — a naive "first ready" pick
+            // would choose it; the full-coverage terrain (id 4) must win.
+            const mixedCoverageTerrainOpts = [
+                {id: 3, title: 'Gappy Survey', status: 'ready', has_coverage_gaps: true},
+                {id: 4, title: 'Full Coverage Base', status: 'ready', has_coverage_gaps: false}
+            ];
+            let captured = null;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={newScenario}
+                    selectedCategoryId={'inputs'}
+                    canEdit
+                    terrain={mixedCoverageTerrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                    onUpdateScenario={(s, kv) => { captured = kv; }}
+                />,
+                container,
+                () => {
+                    setTimeout(() => {
+                        expect(captured).toExist();
+                        expect(captured.terrain).toBe(4, 'must default to the full-coverage terrain, not the earlier-listed gappy one');
+                        done();
+                    }, 20);
+                }
+            );
+        });
+
+        it('AC#2 (TASK-2205): falls back to the first ready terrain when ALL ready terrains are gappy', (done) => {
+            const newScenario = {
+                id: null, _tempId: 'new_3', name: '', status: 'new', computed_status: 'created',
+                terrain: null, boundary: null, inflow: null, rainfall: null,
+                resolution: 1000, duration: null, unsaved: false
+            };
+            const allGappyTerrainOpts = [
+                {id: 3, title: 'Gappy Survey A', status: 'ready', has_coverage_gaps: true},
+                {id: 4, title: 'Gappy Survey B', status: 'ready', has_coverage_gaps: true}
+            ];
+            let captured = null;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={newScenario}
+                    selectedCategoryId={'inputs'}
+                    canEdit
+                    terrain={allGappyTerrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                    onUpdateScenario={(s, kv) => { captured = kv; }}
+                />,
+                container,
+                () => {
+                    setTimeout(() => {
+                        expect(captured).toExist();
+                        expect(captured.terrain).toBe(3, 'an all-gappy project still gets a usable default (first ready)');
                         done();
                     }, 20);
                 }
