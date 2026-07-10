@@ -216,6 +216,25 @@ export const PickerView = ({
         e.stopPropagation();
         setPendingDeleteFeature(feature);
     };
+    // TASK-2215 (W5.1, epic 2204) — explicit "edit properties" affordance.
+    // The row itself has ALWAYS been clickable and already dispatches this
+    // SAME onSelectFeature(feature.id) -> SELECT_EXISTING_FEATURE ->
+    // vectorDrawSelectExistingEpic -> describe/loadFeature/seedFormValues ->
+    // the identical inline attribute-edit form the map-click->disambiguation
+    // path opens (anugaClickTargets.js's EDIT branch feeds the SAME epic
+    // chain — see its module docstring: "exactly what the existing
+    // pick->edit path passes"). The gap was DISCOVERABILITY, not a missing
+    // mechanism (dogfood 07-09: "There is NO 'edit properties' button on
+    // the feature row") — a plain, unlabelled row-click doesn't read as an
+    // edit affordance the way the codebase's other pencil icons
+    // (LayerActionToolbar, ClickDisambiguationPanel row labels) do. This
+    // pencil dispatches the IDENTICAL action, just with an explicit,
+    // recognisable icon next to the trash icon. stopPropagation only to
+    // avoid a redundant double-dispatch from the row's own onClick.
+    const onEditPropertiesClick = (feature) => (e) => {
+        e.stopPropagation();
+        onSelectFeature(feature.id);
+    };
     const onConfirmDelete = () => {
         if (pendingDeleteFeature) {
             onDeleteFeature(pendingDeleteFeature.id);
@@ -339,6 +358,12 @@ export const PickerView = ({
                                         whiteSpace: 'nowrap',
                                         flex: 1
                                     }}>{featureLabel(feature)}</span>
+                                    <span
+                                        className="glyphicon glyphicon-pencil sv-vector-draw-edit-properties"
+                                        style={trashStyle}
+                                        title="Edit properties"
+                                        onClick={onEditPropertiesClick(feature)}
+                                    />
                                     <span
                                         className="glyphicon glyphicon-trash sv-vector-draw-trash"
                                         style={{
