@@ -827,7 +827,7 @@ describe('anugaScenarioMenu — divergence interrupt on Build-and-Run (TASK-2211
     }
 
     function builtWithComparison(id, {actual, estimate, provenance} = {}) {
-        const mesh_provenance = provenance !== undefined
+        const meshProvenance = provenance !== undefined
             ? provenance
             : (estimate !== undefined ? {pre_build_triangle_estimate: estimate} : {});
         return validScenario(id, 'built', {
@@ -835,7 +835,7 @@ describe('anugaScenarioMenu — divergence interrupt on Build-and-Run (TASK-2211
                 id: id * 10,
                 status: 'complete',
                 mesh_triangle_count: actual !== undefined ? actual : 0,
-                mesh_provenance
+                mesh_provenance: meshProvenance
             }
         });
     }
