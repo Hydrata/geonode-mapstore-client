@@ -22,7 +22,9 @@ import expect from 'expect';
 import {
     validateScenario, validateCategoryProgress, toHHMM, getSecondsFromHHMM,
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP,
-    ERROR_CLASS_MESSAGE_IDS, tailLines, buildCloudWatchDeepLink
+    ERROR_CLASS_MESSAGE_IDS, tailLines, buildCloudWatchDeepLink,
+    getMeshComparison, getMeshDivergence, getMeshCostDriverHint,
+    DEFAULT_MESH_DIVERGENCE_THRESHOLD
 } from '../scenarioHelpers';
 
 function makeValidScenario(overrides) {
@@ -589,5 +591,181 @@ describe('TASK-2207 buildCloudWatchDeepLink', () => {
         const url = buildCloudWatchDeepLink('/g', 's', 'us-east-1');
         expect(url.indexOf('us-east-1.console.aws.amazon.com')).toBe(8);
         expect(url.indexOf('region=us-east-1')).toBeGreaterThan(0);
+    });
+});
+
+/*
+ * TASK-2210 (W3.1, epic 2204) — getMeshComparison / getMeshDivergence.
+ *
+ * Pure functions over a Run object (as RunSerializerV2 shapes it,
+ * TASK-2210 BE: mesh_provenance + mesh_triangle_count + mesh_actual_cost_estimate)
+ * so the post-build comparison UI (scenarioPane.js) and the divergence
+ * interrupt (anugaScenarioMenu.js, TASK-2211) share ONE arithmetic source —
+ * they can never disagree about what "diverged" means.
+ *
+ * mesh_provenance REALITY (epic 2204 environment note, verified live): a
+ * FAILED build carries an EMPTY {}; pre-epic/legacy runs carry NULL. Both
+ * MUST degrade to "no comparison available", never fabricate one.
+ */
+describe('TASK-2210 getMeshComparison', () => {
+    it('returns null when the run is missing', () => {
+        expect(getMeshComparison(null)).toBe(null);
+        expect(getMeshComparison(undefined)).toBe(null);
+    });
+
+    it('returns null when mesh_provenance is null (legacy pre-2094 row)', () => {
+        expect(getMeshComparison({mesh_provenance: null, mesh_triangle_count: 100})).toBe(null);
+    });
+
+    it('returns null when mesh_provenance is an empty object (failed build)', () => {
+        expect(getMeshComparison({mesh_provenance: {}, mesh_triangle_count: 0})).toBe(null);
+    });
+
+    it('returns null when pre_build_triangle_estimate is absent', () => {
+        expect(getMeshComparison({
+            mesh_provenance: {duration_seconds: 3600},
+            mesh_triangle_count: 100
+        })).toBe(null);
+    });
+
+    it('returns null when the actual triangle count is falsy', () => {
+        expect(getMeshComparison({
+            mesh_provenance: {pre_build_triangle_estimate: 1000},
+            mesh_triangle_count: 0
+        })).toBe(null);
+    });
+
+    it('returns {estimate, actual, ratio, actualCost} when both are present', () => {
+        const run = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 250000,
+            mesh_actual_cost_estimate: 12.5
+        };
+        expect(getMeshComparison(run)).toEqual({
+            estimate: 100000, actual: 250000, ratio: 2.5, actualCost: 12.5
+        });
+    });
+
+    it('actualCost is null (never fabricated) when the BE field is absent', () => {
+        const run = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 250000
+        };
+        expect(getMeshComparison(run).actualCost).toBe(null);
+    });
+
+    it('ratio is null (never divide-by-zero) when the estimate is 0', () => {
+        const run = {
+            mesh_provenance: {pre_build_triangle_estimate: 0},
+            mesh_triangle_count: 250000
+        };
+        expect(getMeshComparison(run).ratio).toBe(null);
+    });
+});
+
+describe('TASK-2211 getMeshDivergence', () => {
+    it('DEFAULT_MESH_DIVERGENCE_THRESHOLD is 2 (od-4: default 2x)', () => {
+        expect(DEFAULT_MESH_DIVERGENCE_THRESHOLD).toBe(2);
+    });
+
+    it('exceedsThreshold is false when there is no comparison data (edge case: never pause on missing data)', () => {
+        expect(getMeshDivergence(null).exceedsThreshold).toBe(false);
+        expect(getMeshDivergence({mesh_provenance: {}, mesh_triangle_count: 0}).exceedsThreshold).toBe(false);
+        expect(getMeshDivergence({
+            mesh_provenance: null, mesh_triangle_count: 500
+        }).exceedsThreshold).toBe(false);
+    });
+
+    it('exceedsThreshold is false at/below the threshold', () => {
+        const atThreshold = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 200000 // exactly 2x
+        };
+        expect(getMeshDivergence(atThreshold, 2).exceedsThreshold).toBe(false);
+        const below = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 150000 // 1.5x
+        };
+        expect(getMeshDivergence(below, 2).exceedsThreshold).toBe(false);
+    });
+
+    it('exceedsThreshold is true strictly above the threshold', () => {
+        const above = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 200001 // just over 2x
+        };
+        expect(getMeshDivergence(above, 2).exceedsThreshold).toBe(true);
+    });
+
+    it('honours a non-default threshold (AC#4: settings-tunable)', () => {
+        const run = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 250000 // 2.5x
+        };
+        expect(getMeshDivergence(run, 3).exceedsThreshold).toBe(false);
+        expect(getMeshDivergence(run, 2).exceedsThreshold).toBe(true);
+    });
+
+    it('falls back to DEFAULT_MESH_DIVERGENCE_THRESHOLD when no threshold is passed', () => {
+        const above = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 200001
+        };
+        expect(getMeshDivergence(above).exceedsThreshold).toBe(true);
+    });
+
+    it('carries the comparison alongside the verdict, for the confirm dialog to render', () => {
+        const run = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 250000,
+            mesh_actual_cost_estimate: 40
+        };
+        const result = getMeshDivergence(run, 2);
+        expect(result.comparison).toEqual({estimate: 100000, actual: 250000, ratio: 2.5, actualCost: 40});
+    });
+});
+
+/*
+ * TASK-2210 (W3.1, AC#2) — getMeshCostDriverHint: the pre-build cost-driver
+ * hint over the W2.1 per-term decomposition
+ * (Scenario.mesh_triangle_count_estimate_breakdown). Identifies which term
+ * dominates the estimate so the FE can warn "your mesh region drives ~85%
+ * of mesh cost" — the dogfood finding that the ONE visible lever
+ * (Resolution) barely moves a mesh a MeshRegion actually dominates.
+ */
+describe('TASK-2210 getMeshCostDriverHint', () => {
+    it('returns null when the breakdown is missing (resolution unset)', () => {
+        expect(getMeshCostDriverHint(null)).toBe(null);
+        expect(getMeshCostDriverHint(undefined)).toBe(null);
+    });
+
+    it('returns null when the total is zero/negative', () => {
+        expect(getMeshCostDriverHint({base: 0, regions: 0, breaklines: 0, hole_perimeter: 0, total: 0})).toBe(null);
+    });
+
+    it('returns null when the base term dominates (the expected/unsurprising case)', () => {
+        const breakdown = {base: 900, regions: 100, hole_perimeter: 0, breaklines: 0, total: 1000};
+        expect(getMeshCostDriverHint(breakdown)).toBe(null);
+    });
+
+    it('returns {driver: "regions", share} when mesh regions dominate (the dogfood scenario)', () => {
+        const breakdown = {base: 150, regions: 850, hole_perimeter: 0, breaklines: 0, total: 1000};
+        expect(getMeshCostDriverHint(breakdown)).toEqual({driver: 'regions', share: 85});
+    });
+
+    it('returns {driver: "breaklines", share} when breaklines dominate', () => {
+        const breakdown = {base: 200, regions: 0, hole_perimeter: 0, breaklines: 800, total: 1000};
+        expect(getMeshCostDriverHint(breakdown)).toEqual({driver: 'breaklines', share: 80});
+    });
+
+    it('returns {driver: "hole_perimeter", share} when structure-hole conformance dominates', () => {
+        const breakdown = {base: 300, regions: 0, hole_perimeter: 700, breaklines: 0, holes: -50, total: 1000};
+        expect(getMeshCostDriverHint(breakdown)).toEqual({driver: 'hole_perimeter', share: 70});
+    });
+
+    it('never picks "holes" as the driver — it is a negative term, not a cost source', () => {
+        // holes is large and negative but must never be reported as "driving" cost.
+        const breakdown = {base: 600, regions: 0, hole_perimeter: 0, breaklines: 0, holes: -5000, total: 600};
+        expect(getMeshCostDriverHint(breakdown)).toBe(null);
     });
 });

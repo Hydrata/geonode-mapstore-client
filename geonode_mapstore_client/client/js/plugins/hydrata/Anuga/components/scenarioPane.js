@@ -2,7 +2,8 @@ import React, {useEffect} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {
-    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress
+    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
+    getMeshComparison, getMeshCostDriverHint
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -423,6 +424,75 @@ function renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrai
     );
 }
 
+// TASK-2210 (W3.1, epic 2204, AC#2) — which W2.1 estimate term the hint
+// should name, keyed off getMeshCostDriverHint's driver key. 'holes' is
+// deliberately absent (see scenarioHelpers.js — it is never reported as a
+// driver: a negative term, not a cost source).
+const MESH_COST_DRIVER_HINT_MESSAGE_IDS = {
+    regions: 'hydrata.anuga.meshCostDriverHintRegions',
+    breaklines: 'hydrata.anuga.meshCostDriverHintBreaklines',
+    hole_perimeter: 'hydrata.anuga.meshCostDriverHintHolePerimeter'
+};
+
+/**
+ * TASK-2210 (W3.1, AC#2) — the pre-build cost-driver hint: "your mesh
+ * regions drive ~85% of your mesh cost" when a source OTHER than the base
+ * mesh dominates the W2.1 estimate decomposition (the dogfood finding:
+ * Resolution — the one visible lever — barely moved a mesh a MeshRegion
+ * actually dominated). Reuses the amber advisory family (anuga.css: extend,
+ * don't invent a parallel style) shared with the anchor-mismatch warning /
+ * mesh-region-unattached hint / terrain-gap suggestion above. Silent
+ * (returns null) when the breakdown is missing or 'base' dominates — see
+ * getMeshCostDriverHint's own contract.
+ */
+function renderMeshCostDriverHint(scenario) {
+    const hint = getMeshCostDriverHint(scenario?.mesh_triangle_count_estimate_breakdown);
+    const msgId = hint && MESH_COST_DRIVER_HINT_MESSAGE_IDS[hint.driver];
+    if (!hint || !msgId) return null;
+    return (
+        <div
+            className="sv-anuga-scenario-pane-section sv-anuga-scenario-mesh-cost-driver-hint"
+            role="note"
+        >
+            <Message msgId={msgId} msgParams={{share: hint.share}} />
+        </div>
+    );
+}
+
+/**
+ * TASK-2210 (W3.1, AC#3) — post-build transparency: actual triangle count
+ * vs. the stamped pre-build estimate + a re-priced actual-$ cost, once a
+ * build has completed. Reads scenario.latest_run (RunSerializerV2's
+ * mesh_provenance / mesh_triangle_count / mesh_actual_cost_estimate, W3.1
+ * BE) via the SAME getMeshComparison the divergence-interrupt gate
+ * (anugaScenarioMenu.js, TASK-2211) uses — one arithmetic source.
+ *
+ * Degrades gracefully (renders nothing) when there is nothing honest to
+ * show: mesh_provenance REALITY (epic 2204 environment note, verified
+ * live) — a FAILED build carries an EMPTY {}; a pre-epic/legacy run
+ * carries NULL. Never fabricates a comparison from either.
+ */
+function renderMeshBuildComparison(scenario) {
+    const comparison = getMeshComparison(scenario?.latest_run);
+    if (!comparison) return null;
+    return (
+        <div className="sv-anuga-scenario-pane-section anuga-scenario-mesh-comparison-section">
+            <span className="sv-anuga-scenario-mesh-comparison-label">
+                <Message
+                    msgId="hydrata.anuga.meshComparisonLabel"
+                    msgParams={{
+                        actual: Number(comparison.actual).toLocaleString(),
+                        estimate: Number(comparison.estimate).toLocaleString()
+                    }}
+                />
+                {comparison.actualCost !== null
+                    ? ` — ~$${Number(comparison.actualCost).toFixed(2)}`
+                    : ''}
+            </span>
+        </div>
+    );
+}
+
 function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls, onOpenMergeTerrainsPanel}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
@@ -578,6 +648,14 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
             <FormRow
                 extraClassName="sv-anuga-scenario-pane-section"
                 label={
+                    // TASK-2210 (W3.1, epic 2204, od-2) — honest relabel: this field
+                    // was "Resolution", implying it sets THE mesh size. It only sets
+                    // an upper bound on the BASE mesh — MeshRegions (each with their
+                    // OWN resolution, simpleViewMenuRow.js's 'mes_' field), Reflective
+                    // structures and breaklines mesh finer wherever they're drawn, and
+                    // in a refinement-heavy scenario THEY dominate triangle count, not
+                    // this field (the dogfood finding: halving this moved a 768k-tri
+                    // mesh ~5%). Glossary: "Mesh resolution" entry.
                     <label className="sv-anuga-scenario-pane-label" htmlFor="resolution">
                         <Message msgId="hydrata.anuga.resolutionM2" />
                     </label>
@@ -702,6 +780,8 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                     </span>
                 </div>
             )}
+            {renderMeshCostDriverHint(scenario)}
+            {renderMeshBuildComparison(scenario)}
         </div>
     );
 }

@@ -523,6 +523,18 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             const f = ANUGA_FEATURE_CONFIG.mes_.formConfig.fields.find(x => x.name === 'resolution');
             expect(f.default).toBe(10);
         });
+        // TASK-2210 (W3.1, epic 2204) — honest relabel: the MeshRegion's OWN
+        // resolution is the per-feature REFINEMENT lever (the epic's finding:
+        // this lever already existed but was invisible). The label must say
+        // it refines finer than the scenario's base mesh size, matching the
+        // glossary's "base mesh size — refinement regions/structures mesh
+        // finer" framing (od-2) — see scenarioPane.js's Base mesh size
+        // relabel for the other surface.
+        it('mes_ resolution label is honestly relabeled as a refinement (not a standalone size)', () => {
+            const f = ANUGA_FEATURE_CONFIG.mes_.formConfig.fields.find(x => x.name === 'resolution');
+            expect(f.label.toLowerCase()).toContain('refine');
+            expect(f.label.toLowerCase()).toContain('base');
+        });
         it('str_ method default is "Reflective"', () => {
             const f = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method');
             expect(f.default).toBe('Reflective');

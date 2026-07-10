@@ -1636,9 +1636,13 @@ div that holds the feature-grid */
    mismatch warning above it (extend, don't invent a parallel style). */
 /* TASK-2205 (W0.2 epic 2204) — the terrain coverage-gap suggestion is the
    same advisory class (pre-build, non-blocking), so it joins the list. */
+/* TASK-2210 (W3.1 epic 2204) — the pre-build mesh cost-driver hint is the
+   SAME advisory family (pre-build, non-blocking) — extend, don't invent a
+   parallel style. */
 .sv-anuga-scenario-anchor-mismatch-warning,
 .sv-anuga-scenario-mesh-region-unattached-hint,
-.sv-anuga-scenario-terrain-gap-suggestion {
+.sv-anuga-scenario-terrain-gap-suggestion,
+.sv-anuga-scenario-mesh-cost-driver-hint {
     margin: 6px 10px 8px;
     background: rgba(240, 173, 78, 0.14);
     border: 1px solid rgba(240, 173, 78, 0.30);
@@ -2110,6 +2114,15 @@ div that holds the feature-grid */
 }
 
 .sv-anuga-scenario-estimate-label {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* TASK-2210 (W3.1, epic 2204, AC#3) — post-build actual-vs-estimate
+   comparison. SAME visual treatment as the pre-build estimate label above
+   it (extend, don't invent a parallel style) — this is its post-build
+   sibling, not a distinct advisory. */
+.sv-anuga-scenario-mesh-comparison-label {
     font-size: 11.5px;
     color: rgba(255, 255, 255, 0.75);
 }

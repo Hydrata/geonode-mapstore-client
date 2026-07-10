@@ -366,3 +366,106 @@ export const validateCategoryProgress = (category, scenario, opts) => {
     // new category in the rail data doesn't crash the helper).
     return {satisfied: 0, total: 0, tag: '—', severity: 'warn', unsaved};
 };
+
+// ---------------------------------------------------------------------------
+// TASK-2210/2211 (W3.1/W3.2, epic 2204) — mesh cost transparency + the
+// divergence-interrupt gate. Pure functions over a Run object shaped by
+// RunSerializerV2 (BE: mesh_provenance / mesh_triangle_count /
+// mesh_actual_cost_estimate) so scenarioPane.js's post-build comparison
+// (2210 AC#3) and anugaScenarioMenu.js's Build-and-Run pause (2211 AC#1)
+// share ONE arithmetic source — they can never disagree about what
+// "diverged" means.
+// ---------------------------------------------------------------------------
+
+// od-4 (2026-07-10 grill): default 2x. Overridden by the BE's
+// ANUGA_MESH_DIVERGENCE_THRESHOLD (AC#4, settings/env-tunable), surfaced to
+// the FE via GET /api/v2/anuga/config/ -> state.anuga.ui.meshDivergenceThreshold.
+export const DEFAULT_MESH_DIVERGENCE_THRESHOLD = 2;
+
+/**
+ * The actual-vs-estimate mesh comparison for a completed build, or `null`
+ * when there is nothing honest to show.
+ *
+ * mesh_provenance REALITY (epic 2204 environment note, verified live): a
+ * FAILED build carries an EMPTY `{}`; a pre-epic/legacy run carries `null`.
+ * Both — and a run with no actual triangles yet — degrade to `null` here
+ * rather than a fabricated comparison (never show "0 vs 0" or "NaN%").
+ *
+ * @param {object} run - a Run as RunSerializerV2 shapes it (or any object
+ *   carrying `mesh_provenance` + `mesh_triangle_count` + optionally
+ *   `mesh_actual_cost_estimate`).
+ * @returns {{estimate: number, actual: number, ratio: number|null, actualCost: number|null}|null}
+ */
+export const getMeshComparison = (run) => {
+    const mp = run && typeof run.mesh_provenance === 'object' && run.mesh_provenance !== null
+        ? run.mesh_provenance : null;
+    if (!mp) return null;
+    const estimate = mp.pre_build_triangle_estimate;
+    const actual = run.mesh_triangle_count;
+    if (estimate === null || estimate === undefined || !actual) return null;
+    const actualCost = run.mesh_actual_cost_estimate !== null && run.mesh_actual_cost_estimate !== undefined
+        ? run.mesh_actual_cost_estimate : null;
+    return {
+        estimate,
+        actual,
+        ratio: estimate > 0 ? actual / estimate : null,
+        actualCost
+    };
+};
+
+/**
+ * The divergence verdict a completed build's comparison should gate a
+ * deferred "Build and Run" on (TASK-2211 AC#1). Missing/incomplete
+ * comparison data ALWAYS resolves to `exceedsThreshold: false` — the
+ * documented edge case (a legacy scenario built pre-W2, or a failed build)
+ * must take the below-threshold (auto-fire) path, never pause on missing
+ * data.
+ *
+ * @param {object} run
+ * @param {number} [thresholdMultiplier] - defaults to DEFAULT_MESH_DIVERGENCE_THRESHOLD.
+ * @returns {{exceedsThreshold: boolean, comparison: object|null, threshold: number}}
+ */
+export const getMeshDivergence = (run, thresholdMultiplier) => {
+    const threshold = (typeof thresholdMultiplier === 'number' && thresholdMultiplier > 0)
+        ? thresholdMultiplier : DEFAULT_MESH_DIVERGENCE_THRESHOLD;
+    const comparison = getMeshComparison(run);
+    const exceedsThreshold = !!comparison && comparison.ratio !== null && comparison.ratio > threshold;
+    return {exceedsThreshold, comparison, threshold};
+};
+
+// Human-readable driver keys getMeshCostDriverHint may report, in the SAME
+// order _mesh_estimate_terms (gn_anuga/models/scenario.py) computes them.
+// 'holes' is deliberately excluded — it is a NEGATIVE term (Reflective
+// structures remove mesh), never a cost driver; its positive conformance
+// cost is 'hole_perimeter'.
+const MESH_COST_DRIVER_KEYS = ['base', 'regions', 'hole_perimeter', 'breaklines'];
+
+/**
+ * TASK-2210 AC#2 — which W2.1 estimate term dominates the pre-build
+ * estimate, e.g. "your mesh region drives ~85% of mesh cost" (the dogfood
+ * finding that Resolution — the one visible lever — barely moved a mesh a
+ * MeshRegion actually dominated). Returns `null` when the breakdown is
+ * missing (resolution unset), the total is non-positive, or 'base' (the
+ * expected/unsurprising driver) dominates — the hint exists to surface a
+ * SURPRISING driver, not to restate the obvious.
+ *
+ * @param {object} breakdown - Scenario.mesh_triangle_count_estimate_breakdown
+ *   shape (W2.1): {base, regions, holes, hole_perimeter, breaklines, total, ...}.
+ * @returns {{driver: string, share: number}|null} share is a rounded 0-100 percentage.
+ */
+export const getMeshCostDriverHint = (breakdown) => {
+    if (!breakdown || typeof breakdown !== 'object') return null;
+    const total = breakdown.total;
+    if (!(total > 0)) return null;
+    let bestKey = null;
+    let bestValue = -Infinity;
+    MESH_COST_DRIVER_KEYS.forEach((key) => {
+        const value = breakdown[key];
+        if (typeof value === 'number' && value > bestValue) {
+            bestValue = value;
+            bestKey = key;
+        }
+    });
+    if (!bestKey || bestKey === 'base' || bestValue <= 0) return null;
+    return {driver: bestKey, share: Math.round((bestValue / total) * 100)};
+};

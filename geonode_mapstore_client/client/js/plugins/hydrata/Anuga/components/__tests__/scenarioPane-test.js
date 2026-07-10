@@ -1231,6 +1231,161 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
+        // TASK-2210 (W3.1, epic 2204, od-2) — honest relabel (AC#1): the
+        // field must stop implying a global uniform size. Mounted through
+        // the real Localized wrapper (real en-US translations) so this
+        // proves the RENDERED copy, not just that a msgId was passed.
+        it('TASK-2210: Resolution field is honestly relabeled "Base mesh size"', (done) => {
+            ReactDOM.render(
+                <Localized locale="en-US" messages={enData.messages}>
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />
+                </Localized>,
+                container,
+                () => {
+                    const label = container.querySelector('label[for="resolution"]');
+                    expect(label).toExist();
+                    expect(label.textContent).toInclude('Base mesh size');
+                    // The run-config help caption explains WHY: refinement inputs
+                    // mesh finer than this — the label alone must not have to
+                    // carry the whole honesty story.
+                    const help = container.querySelector('.sv-anuga-scenario-pane-help');
+                    expect(help.textContent.toLowerCase()).toInclude('mesh finer');
+                    done();
+                }
+            );
+        });
+
+        // TASK-2210 (W3.1, AC#2) — pre-build cost-driver hint.
+        describe('TASK-2210 mesh cost-driver hint', () => {
+            it('renders the amber hint when mesh regions dominate the estimate', (done) => {
+                ReactDOM.render(
+                    <Localized locale="en-US" messages={enData.messages}>
+                        <ScenarioPane
+                            scenario={{
+                                ...baseScenario,
+                                mesh_triangle_count_estimate_breakdown: {
+                                    base: 150, regions: 850, hole_perimeter: 0, breaklines: 0, total: 1000
+                                }
+                            }}
+                            selectedCategoryId={'runConfig'}
+                            canEdit
+                        />
+                    </Localized>,
+                    container,
+                    () => {
+                        const hint = container.querySelector('.sv-anuga-scenario-mesh-cost-driver-hint');
+                        expect(hint).toExist();
+                        expect(hint.textContent).toInclude('85%');
+                        expect(hint.textContent.toLowerCase()).toInclude('mesh regions');
+                        done();
+                    }
+                );
+            });
+
+            it('does not render when the base term dominates (the expected/unsurprising case)', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{
+                            ...baseScenario,
+                            mesh_triangle_count_estimate_breakdown: {
+                                base: 900, regions: 100, hole_perimeter: 0, breaklines: 0, total: 1000
+                            }
+                        }}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-mesh-cost-driver-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('does not render when there is no breakdown (resolution unset / legacy row)', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, mesh_triangle_count_estimate_breakdown: null}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-mesh-cost-driver-hint')).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
+        // TASK-2210 (W3.1, AC#3) — post-build actual-vs-estimate comparison.
+        describe('TASK-2210 post-build mesh comparison', () => {
+            it('renders actual vs estimate + re-priced cost once a run has built', (done) => {
+                ReactDOM.render(
+                    <Localized locale="en-US" messages={enData.messages}>
+                        <ScenarioPane
+                            scenario={{
+                                ...baseScenario,
+                                latest_run: {
+                                    mesh_triangle_count: 250000,
+                                    mesh_provenance: {pre_build_triangle_estimate: 100000},
+                                    mesh_actual_cost_estimate: 45.2
+                                }
+                            }}
+                            selectedCategoryId={'runConfig'}
+                            canEdit
+                        />
+                    </Localized>,
+                    container,
+                    () => {
+                        const comparison = container.querySelector('.anuga-scenario-mesh-comparison-section');
+                        expect(comparison).toExist();
+                        expect(comparison.textContent).toInclude('250,000');
+                        expect(comparison.textContent).toInclude('100,000');
+                        expect(comparison.textContent).toInclude('$45.20');
+                        done();
+                    }
+                );
+            });
+
+            it('degrades gracefully (renders nothing) when mesh_provenance is an empty object (failed build)', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{
+                            ...baseScenario,
+                            latest_run: {mesh_triangle_count: 0, mesh_provenance: {}}
+                        }}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('degrades gracefully (renders nothing) when there is no latest_run at all', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
         it('changing resolution dispatches onUpdateScenario with parsed float', (done) => {
             let captured = null;
             ReactDOM.render(
