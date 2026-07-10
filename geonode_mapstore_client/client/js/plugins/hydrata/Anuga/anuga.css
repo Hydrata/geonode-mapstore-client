@@ -1634,8 +1634,11 @@ div that holds the feature-grid */
 /* TASK-2116 (F4) — the drawn-but-unattached MeshRegion hint reuses the same
    amber "heads up, non-blocking" visual language as the inflow anchor-
    mismatch warning above it (extend, don't invent a parallel style). */
+/* TASK-2205 (W0.2 epic 2204) — the terrain coverage-gap suggestion is the
+   same advisory class (pre-build, non-blocking), so it joins the list. */
 .sv-anuga-scenario-anchor-mismatch-warning,
-.sv-anuga-scenario-mesh-region-unattached-hint {
+.sv-anuga-scenario-mesh-region-unattached-hint,
+.sv-anuga-scenario-terrain-gap-suggestion {
     margin: 6px 10px 8px;
     background: rgba(240, 173, 78, 0.14);
     border: 1px solid rgba(240, 173, 78, 0.30);
@@ -1645,6 +1648,14 @@ div that holds the feature-grid */
     font-size: 11.5px;
     color: #f7d6a3;
     line-height: 1.45;
+}
+
+/* TASK-2205 (W0.2 epic 2204) — the gap-suggestion's merge link: the default
+   anchor blue (#005DC7) is ~1.5:1 against the dark panel (runtime contrast
+   catch, invisible in practice); the action must read as clickable. */
+.sv-anuga-scenario-terrain-gap-suggestion a {
+    color: #fff;
+    text-decoration: underline;
 }
 
 /* Empty-pane glyph (no scenario selected) */

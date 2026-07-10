@@ -404,7 +404,7 @@ function renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrai
     if (selectedTerrain?.has_coverage_gaps !== true) return null;
     return (
         <div
-            className="sv-anuga-scenario-pane-section sv-anuga-scenario-terrain-gap-suggestion"
+            className="sv-anuga-scenario-terrain-gap-suggestion"
             role="alert"
         >
             <Message msgId="hydrata.anuga.terrainCoverageGapSuggestion" />
