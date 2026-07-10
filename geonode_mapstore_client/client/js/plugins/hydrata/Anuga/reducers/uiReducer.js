@@ -212,8 +212,10 @@ export default (state = initialState, action) => {
             // fields above: a non-finite-number payload yields null, which
             // anugaScenarioMenu.js's divergence gate treats as "use the FE
             // default" (never a crash, never a blocked Build-and-Run).
-            meshDivergenceThreshold: typeof cfg.mesh_divergence_threshold === 'number'
-                && Number.isFinite(cfg.mesh_divergence_threshold)
+            // Number.isFinite (not the global isFinite) never coerces — it
+            // already returns false for a string/array/object/NaN, so no
+            // separate typeof guard is needed.
+            meshDivergenceThreshold: Number.isFinite(cfg.mesh_divergence_threshold)
                 ? cfg.mesh_divergence_threshold
                 : null
         };
