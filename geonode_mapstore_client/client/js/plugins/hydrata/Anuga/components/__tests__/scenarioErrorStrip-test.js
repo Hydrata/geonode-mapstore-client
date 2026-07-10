@@ -218,6 +218,82 @@ describe('W1.2 ScenarioErrorStrip — collapsible run.log tail', () => {
         });
     });
 
+    it('TASK-2221 (W5, epic 2204): resets the log tail to collapsed when a different scenario is shown', (done) => {
+        const scenarioA = {
+            id: 1,
+            status: 'error',
+            latest_run: {
+                id: 101,
+                error_message: 'Scenario A boom',
+                error_class: 'in-process',
+                log: RUN_1283_TRACEBACK
+            }
+        };
+        const scenarioB = {
+            id: 2,
+            status: 'error',
+            latest_run: {
+                id: 202,
+                error_message: 'Scenario B boom',
+                error_class: 'in-process',
+                log: 'Traceback for scenario B\nAssertionError: something else'
+            }
+        };
+        ReactDOM.render(<ScenarioErrorStrip scenario={scenarioA} />, container, () => {
+            const toggle = container.querySelector('.sv-anuga-scenario-error-log-tail-toggle');
+            TestUtils.Simulate.click(toggle);
+            setTimeout(() => {
+                expect(container.querySelector('.sv-log-viewer')).toExist();
+                // Re-render at the SAME tree position with scenario B's props —
+                // no unmount, so component-local state (logTailOpen) survives
+                // unless the component resets it itself.
+                ReactDOM.render(<ScenarioErrorStrip scenario={scenarioB} />, container, () => {
+                    setTimeout(() => {
+                        expect(container.querySelector('.sv-log-viewer')).toNotExist();
+                        expect(container.querySelector('.sv-anuga-scenario-error-log-tail-toggle')).toExist();
+                        done();
+                    });
+                });
+            });
+        });
+    });
+
+    it('TASK-2221 (W5, epic 2204): resets the log tail to collapsed for a NEW run of the SAME scenario', (done) => {
+        const run1 = {
+            id: 1,
+            status: 'error',
+            latest_run: {
+                id: 301,
+                error_message: 'First run boom',
+                error_class: 'in-process',
+                log: RUN_1283_TRACEBACK
+            }
+        };
+        const run2 = {
+            id: 1,
+            status: 'error',
+            latest_run: {
+                id: 302,
+                error_message: 'Retry run boom',
+                error_class: 'in-process',
+                log: 'Traceback for the retry\nAssertionError: retried and failed again'
+            }
+        };
+        ReactDOM.render(<ScenarioErrorStrip scenario={run1} />, container, () => {
+            const toggle = container.querySelector('.sv-anuga-scenario-error-log-tail-toggle');
+            TestUtils.Simulate.click(toggle);
+            setTimeout(() => {
+                expect(container.querySelector('.sv-log-viewer')).toExist();
+                ReactDOM.render(<ScenarioErrorStrip scenario={run2} />, container, () => {
+                    setTimeout(() => {
+                        expect(container.querySelector('.sv-log-viewer')).toNotExist();
+                        done();
+                    });
+                });
+            });
+        });
+    });
+
     it('falls back to cloudwatch_log_tail when run.log has nothing (entrypoint-death backstop)', (done) => {
         const s = {
             id: 1,

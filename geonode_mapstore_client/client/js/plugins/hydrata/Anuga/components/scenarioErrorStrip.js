@@ -80,6 +80,28 @@ class ScenarioErrorStrip extends React.Component {
         this.toggleLogTail = this.toggleLogTail.bind(this);
     }
 
+    // TASK-2221 (W5, epic 2204) — React.memo + this component staying
+    // mounted at the same tree position (scenarioPane.js's renderRunPane)
+    // means switching scenarios (or switching to a NEW run of the SAME
+    // scenario) does NOT unmount/remount us, so `logTailOpen` would
+    // otherwise keep whatever a PREVIOUS scenario/run left it at. Reset to
+    // collapsed whenever the identifying (scenario id, latest_run id) pair
+    // changes. Content is always correct either way (re-read from props
+    // every render) — this only fixes the default-open/closed UX state.
+    static runIdentity(scenario) {
+        if (!scenario) return null;
+        const latestRun = scenario.latest_run || {};
+        return `${scenario.id}:${latestRun.id}`;
+    }
+
+    componentDidUpdate(prevProps) {
+        const prevIdentity = ScenarioErrorStrip.runIdentity(prevProps.scenario);
+        const nextIdentity = ScenarioErrorStrip.runIdentity(this.props.scenario);
+        if (prevIdentity !== nextIdentity && this.state.logTailOpen) {
+            this.setState({logTailOpen: false});
+        }
+    }
+
     toggleLogTail() {
         this.setState((prev) => ({logTailOpen: !prev.logTailOpen}));
     }
