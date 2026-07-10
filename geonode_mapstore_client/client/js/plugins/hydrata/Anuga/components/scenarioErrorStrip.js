@@ -45,6 +45,25 @@ import {findScenarioStatus, ERROR_CLASS_MESSAGE_IDS, tailLines, buildCloudWatchD
 
 const LOG_TAIL_MAX_LINES = 40;
 
+// W1.2 (TASK-2207) / simplify-pass — inline token-backed styles for the new
+// interactive bits, mirroring ErrorStrip.js's own convention (self-styled
+// via --sv-* tokens, no new stylesheet dependency, cascade-proof). Without
+// these the toggle button/link would render with bare browser-default
+// chrome inside the dark-glass panel — legible but visually foreign.
+const causeStyle = {fontSize: '11px', marginTop: '2px', color: 'var(--sv-text-danger, #ffb3b3)'};
+const toggleStyle = {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    marginTop: '4px',
+    fontSize: '11px',
+    textDecoration: 'underline',
+    cursor: 'pointer',
+    color: 'var(--sv-text-danger, #ffb3b3)'
+};
+const cwLinkStyle = {display: 'block', marginTop: '4px', fontSize: '11px'};
+const cwLinkAnchorStyle = {color: 'var(--sv-text-danger, #ffb3b3)', textDecoration: 'underline'};
+
 class ScenarioErrorStrip extends React.Component {
     static propTypes = {
         scenario: PropTypes.object,
@@ -90,7 +109,7 @@ class ScenarioErrorStrip extends React.Component {
                 payload={errorMessage || <Message msgId="hydrata.anuga.statusError" />}
             >
                 {causeMsgId ? (
-                    <div className="sv-anuga-scenario-error-cause">
+                    <div className="sv-anuga-scenario-error-cause" style={causeStyle}>
                         <Message msgId="hydrata.anuga.errorCausePrefix" />
                         {' '}
                         <Message msgId={causeMsgId} />
@@ -101,6 +120,7 @@ class ScenarioErrorStrip extends React.Component {
                         <button
                             type="button"
                             className="sv-anuga-scenario-error-log-tail-toggle"
+                            style={toggleStyle}
                             onClick={this.toggleLogTail}
                         >
                             <Message msgId={logTailOpen ? 'hydrata.anuga.hideLogTail' : 'hydrata.anuga.showLogTail'} />
@@ -109,12 +129,13 @@ class ScenarioErrorStrip extends React.Component {
                     </div>
                 ) : null}
                 {deepLink ? (
-                    <div className="sv-anuga-scenario-error-cw-link">
+                    <div className="sv-anuga-scenario-error-cw-link" style={cwLinkStyle}>
                         <a
                             href={deepLink}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="sv-anuga-scenario-error-cw-link-anchor"
+                            style={cwLinkAnchorStyle}
                         >
                             <Message msgId="hydrata.anuga.cloudwatchDeepLink" />
                         </a>
