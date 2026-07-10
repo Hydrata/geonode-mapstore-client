@@ -31,6 +31,7 @@
         "processingStarted": "Tretman kòmanse",
         "status": "Estati",
         "title": "Tit",
+        "uploadEtaLabel": "Tan ki rete estime: {eta}",
         "save": "Anrejistre",
         "saveConfirm": "Anrejistre chanjman kat la?",
         "search": "Rechèch",

@@ -31,6 +31,7 @@
         "processingStarted": "Procesamiento iniciado",
         "status": "Estado",
         "title": "Título",
+        "uploadEtaLabel": "Tiempo restante estimado: {eta}",
         "save": "Guardar",
         "saveConfirm": "¿Guardar cambios del mapa?",
         "search": "Buscar",

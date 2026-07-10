@@ -33,6 +33,7 @@
         "processingStarted": "Processing started",
         "status": "Status",
         "title": "Title",
+        "uploadEtaLabel": "ETA {eta}",
         "save": "Save",
         "saveConfirm": "Save map changes?",
         "search": "Search",
