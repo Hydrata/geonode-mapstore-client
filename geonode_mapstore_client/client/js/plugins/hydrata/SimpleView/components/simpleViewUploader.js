@@ -20,6 +20,35 @@ import axios from "../../../../../MapStore2/web/client/libs/ajax";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 
+// TASK-2216 (W5.2, epic 2204) — pure ETA helpers, exported so karma can
+// unit-test the math/formatting independent of React rendering or timers.
+
+// A simple AVERAGE-rate ETA (loaded/elapsed since the upload started), not
+// an instantaneous per-tick rate — one slow/bursty progress tick would
+// otherwise spike the estimate. null for anything not-yet-meaningful (0%,
+// 100%/complete, NaN, no start timestamp yet) so callers can render nothing
+// rather than a bogus "Infinity" / "NaN:NaN".
+export const computeUploadEtaSeconds = (percent, elapsedMs) => {
+    if (!isFinite(percent) || percent <= 0 || percent >= 100 || !isFinite(elapsedMs) || elapsedMs <= 0) {
+        return null;
+    }
+    const elapsedSeconds = elapsedMs / 1000;
+    const totalEstimatedSeconds = (elapsedSeconds / percent) * 100;
+    return totalEstimatedSeconds - elapsedSeconds;
+};
+
+// Renders "Ns" under a minute, "Nm Ns" otherwise. null/negative/non-finite
+// input (e.g. a rate computed from a near-zero elapsed time) -> null.
+export const formatEtaDuration = (totalSeconds) => {
+    if (!isFinite(totalSeconds) || totalSeconds < 0) {
+        return null;
+    }
+    const seconds = Math.round(totalSeconds);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return minutes > 0 ? `${minutes}m ${remainingSeconds}s` : `${remainingSeconds}s`;
+};
+
 export class simpleViewUploaderPanel extends React.Component {
     static propTypes = {
         setVisibleUploaderPanel: PropTypes.func,
@@ -49,7 +78,12 @@ export class simpleViewUploaderPanel extends React.Component {
         super(props);
         this.state = {
             uploaderFiles: [],
-            newTitle: null
+            newTitle: null,
+            // TASK-2216 (W5.2, epic 2204) — upload start timestamp, used to
+            // derive a simple average-rate ETA from the ALREADY-computed
+            // uploadStatus percentage (onUploadProgress below). Reset on
+            // every uploadFile() call so a re-upload gets its own ETA.
+            uploadStartedAt: null
         };
     }
 
@@ -115,6 +149,7 @@ export class simpleViewUploaderPanel extends React.Component {
                                                         <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
                                                         {parseInt(this.props.uploadStatus, 10) === 100 ? <span><Message msgId="hydrata.simpleView.importing" /> <Countdown/></span> : this.props.uploadStatus}
                                                         {isNaN(parseInt(this.props.uploadStatus, 10)) || parseInt(this.props.uploadStatus, 10) === 100 ? '' : '%'}
+                                                        {this.renderUploadEta()}
                                                     </span> :
                                                 null
                                         }
@@ -201,6 +236,25 @@ export class simpleViewUploaderPanel extends React.Component {
         return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
     };
 
+    // TASK-2216 (W5.2, epic 2204) — surface the ALREADY-computed upload %
+    // (uploadManager.onUploadProgress below -> updateUploadStatus) plus a
+    // simple average-rate ETA, wherever the terrain-upload UI previously
+    // gave no feedback beyond a bare number. Renders nothing for the 0%/
+    // 100%/NaN cases so completion/error states are byte-identical to
+    // before (AC#2).
+    renderUploadEta = () => {
+        const pct = parseInt(this.props.uploadStatus, 10);
+        const elapsedMs = this.state.uploadStartedAt ? Date.now() - this.state.uploadStartedAt : NaN;
+        const etaSeconds = computeUploadEtaSeconds(pct, elapsedMs);
+        const etaText = etaSeconds === null ? null : formatEtaDuration(etaSeconds);
+        return etaText ? (
+            <span className="sv-uploader-eta">
+                {' — '}
+                <Message msgId="hydrata.simpleView.uploadEtaLabel" msgParams={{eta: etaText}} />
+            </span>
+        ) : null;
+    };
+
     uploadFile = (files) => {
         // TASK-599: Guard against `/undefined/` URL corruption.
         // Real users hit `PUT /undefined/api/<id>/erosion/importer-create/` 404s when
@@ -237,7 +291,10 @@ export class simpleViewUploaderPanel extends React.Component {
         this.setState(prevState => ({
             itemList: prevState.uploaderFiles.map(
                 fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "uploading" }) : fileToCheck)
-            )
+            ),
+            // TASK-2216 (W5.2, epic 2204) — mark the ETA clock's zero point;
+            // a re-upload (Begin clicked again) gets its own fresh ETA.
+            uploadStartedAt: Date.now()
         }));
         // TASK-1287: use window.location.origin so tunnelled envs (e.g. :9091)
         // and prod both PUT to the right host; localhost:8081 hardcode removed.

@@ -30,7 +30,9 @@ const {
     IDF_DERIVE_TIMEOUT_MESSAGE,
     // TASK-1789 — year-range constants
     ERA5_MAX_YEAR,
-    IDF_YEAR_RANGE
+    IDF_YEAR_RANGE,
+    // TASK-2214 (W4.3) — attach-design-storm rainfall refresh
+    attachDesignStormEpic
 } = require('../epicsHydrology');
 
 const reducer = require('../reducersHydrology').default;
@@ -54,8 +56,12 @@ const {
     SET_IDF_DERIVE_LON,
     SET_IDF_DERIVE_MAP_PICK_ACTIVE,
     SET_CELERY_ANUGA_ENABLED,
-    INIT_HYDROLOGY
+    INIT_HYDROLOGY,
+    ATTACH_DESIGN_STORM_REQUEST
 } = require('../actionsHydrology');
+
+// TASK-2214 (W4.3)
+const { SET_ANUGA_RAINFALL_DATA } = require('../../Anuga/actions/dataActions');
 
 const mockActions = (actions) => {
     const subject = new Rx.Subject();
@@ -1079,5 +1085,137 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
             subs.forEach(s => s && s.unsubscribe && s.unsubscribe());
             done();
         }, 200);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-2214 (W4.3) — false-positive "no rainfall data" hint.
+//
+// Mechanism (confirmed by reading the source, not just suspected): the
+// scenarioPane.js hint reads state.anuga.resources.rainfalls (fetched once
+// at project load / on layer_create — pollingEpics.js's resourceEndpoints
+// table) and checks `attached.has_feature_data === false`. A design-storm
+// ATTACH mutates has_feature_data server-side (RainfallSerializerV2) by
+// writing data_timeseries_id onto the rainfall's FEATURE row, but
+// attachDesignStormEpic's success branch only re-fetched the TIME-SERIES
+// rail (fetchHydrologyTimeSeriesData) — never state.anuga.resources.rainfalls
+// itself, which is the ONLY place has_feature_data lives on the FE. So a
+// freshly-created (correctly has_feature_data=false) rainfall stays stale in
+// Redux after a successful attach, and the hint keeps firing on a
+// well-formed attachment.
+// ---------------------------------------------------------------------------
+describe('TASK-2214 (W4.3) — attachDesignStormEpic refreshes rainfalls (fixes stale has_feature_data hint)', () => {
+    let mockAxios;
+    const projectId = 42;
+    const store = {
+        getState: () => ({
+            anuga: { projects: { data: { id: projectId } } }
+        })
+    };
+
+    beforeEach(() => {
+        mockAxios = setupMockAxios();
+    });
+
+    const requestAction = () => ({
+        type: ATTACH_DESIGN_STORM_REQUEST,
+        rainfallPk: 7,
+        featureId: 3,
+        spec: {
+            idfTableId: 1,
+            patternKey: 'scs_type_ii',
+            durationMin: 1440,
+            timestepMin: 5,
+            aep: 1
+        }
+    });
+
+    it('AC2 (fixed direction): a successful attach re-fetches rainfalls and dispatches SET_ANUGA_RAINFALL_DATA with the NOW-true has_feature_data', (done) => {
+        mockAxios.onPost().reply(201, { id: 55, name: 'SCS Type II 100yr' });
+        mockAxios.onGet(`/api/v2/anuga/projects/${projectId}/rainfalls/`)
+            .reply(200, [{ id: 7, title: 'Rainfall A', has_feature_data: true }]);
+
+        const action$ = mockActions([requestAction()]);
+        const collected = [];
+        const sub = attachDesignStormEpic(action$, store).subscribe(
+            action => collected.push(action),
+            err => done(err),
+            () => {
+                const rainfallsGet = mockAxios.history.get.find(
+                    r => r.url === `/api/v2/anuga/projects/${projectId}/rainfalls/`
+                );
+                expect(rainfallsGet).toExist();
+                const setRainfallActions = collected.filter(a => a.type === SET_ANUGA_RAINFALL_DATA);
+                expect(setRainfallActions.length).toBe(1);
+                expect(setRainfallActions[0].data).toEqual([
+                    { id: 7, title: 'Rainfall A', has_feature_data: true }
+                ]);
+                if (sub) sub.unsubscribe();
+                done();
+            }
+        );
+    });
+
+    it('the existing time-series-rail refresh is preserved alongside the new rainfall refresh (no regression)', (done) => {
+        mockAxios.onPost().reply(201, { id: 55, name: 'SCS Type II 100yr' });
+        mockAxios.onGet(`/api/v2/anuga/projects/${projectId}/rainfalls/`).reply(200, []);
+
+        const action$ = mockActions([requestAction()]);
+        const collected = [];
+        const sub = attachDesignStormEpic(action$, store).subscribe(
+            action => collected.push(action),
+            err => done(err),
+            () => {
+                const types = collected.map(a => a.type);
+                expect(types.includes(FETCH_HYDROLOGY_TIME_SERIES_DATA)).toBe(true);
+                if (sub) sub.unsubscribe();
+                done();
+            }
+        );
+    });
+
+    it('AC2 (signal preserved / no false negative): a genuinely-empty rainfall (has_feature_data still false after refresh) is NOT masked — the refetched data carries the true value through unchanged', (done) => {
+        mockAxios.onPost().reply(201, { id: 55, name: 'SCS Type II 100yr' });
+        // Attach succeeded (a TimeSeries was created + returned), but the BE
+        // truth for THIS rainfall is still has_feature_data=false (e.g. the
+        // attach targeted a different feature row) — the fix must not
+        // fabricate true; it just stops serving a STALE value.
+        mockAxios.onGet(`/api/v2/anuga/projects/${projectId}/rainfalls/`)
+            .reply(200, [{ id: 7, title: 'Rainfall A', has_feature_data: false }]);
+
+        const action$ = mockActions([requestAction()]);
+        const collected = [];
+        const sub = attachDesignStormEpic(action$, store).subscribe(
+            action => collected.push(action),
+            err => done(err),
+            () => {
+                const setRainfallActions = collected.filter(a => a.type === SET_ANUGA_RAINFALL_DATA);
+                expect(setRainfallActions.length).toBe(1);
+                expect(setRainfallActions[0].data[0].has_feature_data).toBe(false);
+                if (sub) sub.unsubscribe();
+                done();
+            }
+        );
+    });
+
+    it('AC3: server-side has_feature_data logic is untouched — this epic only re-fetches, never computes/overrides the flag', (done) => {
+        mockAxios.onPost().reply(201, { id: 55, name: 'SCS Type II 100yr' });
+        const serverPayload = [{ id: 7, title: 'Rainfall A', has_feature_data: true }];
+        mockAxios.onGet(`/api/v2/anuga/projects/${projectId}/rainfalls/`).reply(200, serverPayload);
+
+        const action$ = mockActions([requestAction()]);
+        const collected = [];
+        const sub = attachDesignStormEpic(action$, store).subscribe(
+            action => collected.push(action),
+            err => done(err),
+            () => {
+                const setRainfallActions = collected.filter(a => a.type === SET_ANUGA_RAINFALL_DATA);
+                // The dispatched payload is exactly the server response — no
+                // client-side derivation/mutation of has_feature_data.
+                expect(setRainfallActions[0].data).toEqual(serverPayload);
+                if (sub) sub.unsubscribe();
+                done();
+            }
+        );
     });
 });

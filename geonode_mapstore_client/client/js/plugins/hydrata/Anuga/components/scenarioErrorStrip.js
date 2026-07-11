@@ -1,8 +1,8 @@
 import React from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
-import {ErrorStrip} from '../../SimpleView/components/primitives';
-import {findScenarioStatus} from './scenarioHelpers';
+import {ErrorStrip, LogViewer} from '../../SimpleView/components/primitives';
+import {findScenarioStatus, ERROR_CLASS_MESSAGE_IDS, tailLines, capChars, buildCloudWatchDeepLink} from './scenarioHelpers';
 
 /**
  * TASK-C-scenarios-miller Wave 3A — error-state strip for the
@@ -25,32 +25,159 @@ import {findScenarioStatus} from './scenarioHelpers';
  * user's attention (the primitive renders the fallback as a `<code>`
  * payload too — a one-element-name change from the legacy `<span>`,
  * structure otherwise identical).
+ *
+ * W1.2 (TASK-2207, epic 2204) — three additions built on top of the W1.1
+ * (TASK-2206, BE) capture + classification:
+ *   - classified cause line (`latest_run.error_class` -> a translated
+ *     label via ERROR_CLASS_MESSAGE_IDS; renders nothing extra for
+ *     null/unrecognised classes, e.g. pre-2206 rows)
+ *   - a collapsible, bounded tail of `latest_run.log` (falls back to
+ *     `latest_run.cloudwatch_log_tail` when there's no in-process log to
+ *     show — the CloudWatch backstop for entrypoint deaths where nothing
+ *     useful was POSTed); collapsed by default so the strip stays compact
+ *   - a staff-only AWS Console CloudWatch deep link (gated by the SAME
+ *     is_staff/is_superuser precedent as the compute-target selector —
+ *     TASK-2194, epic 2190 W2 — see AnugaRunsDashboard/runsDashboardUtils
+ *     .isStaffUser); renders nothing for non-staff even when the BE has
+ *     already captured log_group_name/log_stream_name (those are not
+ *     secret, but the AWS console link itself is a staff affordance)
  */
 
-const ScenarioErrorStrip = ({scenario}) => {
-    if (!scenario) return null;
-    const status = findScenarioStatus(scenario);
-    if (status !== 'error') return null;
+const LOG_TAIL_MAX_LINES = 40;
 
-    const latestRun = scenario.latest_run || {};
-    const errorMessage = latestRun.error_message || null;
-
-    return (
-        <ErrorStrip
-            extraClassName="sv-anuga-scenario-error-strip"
-            head={<Message msgId="hydrata.anuga.runFailedHead" />}
-            payload={errorMessage || <Message msgId="hydrata.anuga.statusError" />}
-        />
-    );
+// W1.2 (TASK-2207) / simplify-pass — inline token-backed styles for the new
+// interactive bits, mirroring ErrorStrip.js's own convention (self-styled
+// via --sv-* tokens, no new stylesheet dependency, cascade-proof). Without
+// these the toggle button/link would render with bare browser-default
+// chrome inside the dark-glass panel — legible but visually foreign.
+const causeStyle = {fontSize: '11px', marginTop: '2px', color: 'var(--sv-text-danger, #ffb3b3)'};
+const toggleStyle = {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    marginTop: '4px',
+    fontSize: '11px',
+    textDecoration: 'underline',
+    cursor: 'pointer',
+    color: 'var(--sv-text-danger, #ffb3b3)'
 };
+const cwLinkStyle = {display: 'block', marginTop: '4px', fontSize: '11px'};
+const cwLinkAnchorStyle = {color: 'var(--sv-text-danger, #ffb3b3)', textDecoration: 'underline'};
 
-ScenarioErrorStrip.propTypes = {
-    scenario: PropTypes.object
-};
+class ScenarioErrorStrip extends React.Component {
+    static propTypes = {
+        scenario: PropTypes.object,
+        isStaff: PropTypes.bool
+    };
 
-// Wave 3D Tier B7 — error strip is pure on its scenario prop and only
-// renders when the scenario lifecycle resolves to 'error'. Default shallow
-// comparator is sufficient.
+    static defaultProps = {
+        isStaff: false
+    };
+
+    constructor(props) {
+        super(props);
+        this.state = {logTailOpen: false};
+        this.toggleLogTail = this.toggleLogTail.bind(this);
+    }
+
+    // TASK-2221 (W5, epic 2204) — React.memo + this component staying
+    // mounted at the same tree position (scenarioPane.js's renderRunPane)
+    // means switching scenarios (or switching to a NEW run of the SAME
+    // scenario) does NOT unmount/remount us, so `logTailOpen` would
+    // otherwise keep whatever a PREVIOUS scenario/run left it at. Reset to
+    // collapsed whenever the identifying (scenario id, latest_run id) pair
+    // changes. Content is always correct either way (re-read from props
+    // every render) — this only fixes the default-open/closed UX state.
+    static runIdentity(scenario) {
+        if (!scenario) return null;
+        const latestRun = scenario.latest_run || {};
+        return `${scenario.id}:${latestRun.id}`;
+    }
+
+    componentDidUpdate(prevProps) {
+        const prevIdentity = ScenarioErrorStrip.runIdentity(prevProps.scenario);
+        const nextIdentity = ScenarioErrorStrip.runIdentity(this.props.scenario);
+        if (prevIdentity !== nextIdentity && this.state.logTailOpen) {
+            this.setState({logTailOpen: false});
+        }
+    }
+
+    toggleLogTail() {
+        this.setState((prev) => ({logTailOpen: !prev.logTailOpen}));
+    }
+
+    render() {
+        const {scenario, isStaff} = this.props;
+        if (!scenario) return null;
+        const status = findScenarioStatus(scenario);
+        if (status !== 'error') return null;
+
+        const latestRun = scenario.latest_run || {};
+        const errorMessage = latestRun.error_message || null;
+        const causeMsgId = ERROR_CLASS_MESSAGE_IDS[latestRun.error_class];
+        // In-process failures already have their traceback in `log` (zero
+        // AWS calls to show it); everything else falls back to the
+        // best-effort CloudWatch backstop, if one was captured. P3-A
+        // (TASK-2217/2204 gate-fix): the CloudWatch fallback bypassed
+        // tailLines entirely (no line-count cap is appropriate for it —
+        // the BE already bounds it to ~100 events) but still needs the
+        // SAME total char cap tailLines applies, independent of the BE's
+        // own cap (P2-C) — defense in depth against any future path that
+        // stores an uncapped blob.
+        const tail = tailLines(latestRun.log, LOG_TAIL_MAX_LINES) || capChars(latestRun.cloudwatch_log_tail) || '';
+        const deepLink = isStaff
+            ? buildCloudWatchDeepLink(latestRun.log_group_name, latestRun.log_stream_name)
+            : null;
+        const {logTailOpen} = this.state;
+
+        return (
+            <ErrorStrip
+                extraClassName="sv-anuga-scenario-error-strip"
+                head={<Message msgId="hydrata.anuga.runFailedHead" />}
+                payload={errorMessage || <Message msgId="hydrata.anuga.statusError" />}
+            >
+                {causeMsgId ? (
+                    <div className="sv-anuga-scenario-error-cause" style={causeStyle}>
+                        <Message msgId="hydrata.anuga.errorCausePrefix" />
+                        {' '}
+                        <Message msgId={causeMsgId} />
+                    </div>
+                ) : null}
+                {tail ? (
+                    <div className="sv-anuga-scenario-error-log-tail">
+                        <button
+                            type="button"
+                            className="sv-anuga-scenario-error-log-tail-toggle"
+                            style={toggleStyle}
+                            onClick={this.toggleLogTail}
+                        >
+                            <Message msgId={logTailOpen ? 'hydrata.anuga.hideLogTail' : 'hydrata.anuga.showLogTail'} />
+                        </button>
+                        {logTailOpen ? <LogViewer log={tail} /> : null}
+                    </div>
+                ) : null}
+                {deepLink ? (
+                    <div className="sv-anuga-scenario-error-cw-link" style={cwLinkStyle}>
+                        <a
+                            href={deepLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="sv-anuga-scenario-error-cw-link-anchor"
+                            style={cwLinkAnchorStyle}
+                        >
+                            <Message msgId="hydrata.anuga.cloudwatchDeepLink" />
+                        </a>
+                    </div>
+                ) : null}
+            </ErrorStrip>
+        );
+    }
+}
+
+// Wave 3D Tier B7 — error strip is pure on its scenario/isStaff props and
+// only renders when the scenario lifecycle resolves to 'error'. Default
+// shallow comparator is sufficient (React.memo(Component-class) still
+// wraps class components in a memoised functional shell).
 const MemoScenarioErrorStrip = React.memo(ScenarioErrorStrip);
 
 export {MemoScenarioErrorStrip as ScenarioErrorStrip};

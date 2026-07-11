@@ -1522,10 +1522,15 @@ class AnugaInputMenuClass extends React.Component {
                     globe (GLO-30) + upload icons. Custom layered-mountain + cog SVG
                     (no glyphicon class); sv-glyph-active colours it limegreen via
                     currentColor and sv-menu-row-glyph centres the svg. NOT gated by
-                    canEdit, matching the globe/upload icons. */}
+                    canEdit, matching the globe/upload icons.
+                    TASK-2205 (W0.2 epic 2204): the icon used to be tooltip-only —
+                    the dogfood user misread it as a show/hide visibility toggle
+                    (tooltips are invisible until hover). sv-menu-row-glyph-labeled
+                    widens the fixed 24x24 chip to fit a visible text label; the
+                    other icon-only siblings (globe/upload) are unaffected. */}
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.combinedSurfaceTooltip" /></Tooltip>}>
                     <span
-                        className={"btn sv-menu-row-glyph sv-glyph-active"}
+                        className={"btn sv-menu-row-glyph sv-menu-row-glyph-labeled sv-glyph-active"}
                         data-testid="anuga-terrain-merge-panel-button"
                         onClick={() => {
                             this.props.onOpenMergeTerrainsPanel();
@@ -1534,6 +1539,9 @@ class AnugaInputMenuClass extends React.Component {
                         }}
                     >
                         <MergeTerrainsIcon/>
+                        <span className="sv-menu-row-glyph-label" data-testid="anuga-terrain-merge-panel-label">
+                            <Message msgId="hydrata.anuga.combinedSurfaceLabel" />
+                        </span>
                     </span>
                 </OverlayTrigger>
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>

@@ -512,6 +512,31 @@ span.sv-menu-row-glyph {
     pointer-events: none;
 }
 
+/* TASK-2205 (W0.2 epic 2204): the "Combined surface" merge affordance
+   (anugaInputMenu.js) is the ONLY glyph-row icon that also carries a visible
+   text label — the dogfood user misread the icon-only, tooltip-only
+   affordance as a show/hide toggle (tooltips are invisible until hover).
+   Scoped to .sv-menu-row-glyph-labeled so it overrides the fixed 24x24
+   !important sizing above; the other icon-only siblings (globe / upload)
+   keep their untouched square chip.
+   flex-basis MUST also be unlocked: the base rule's `flex: 0 0
+   var(--sv-icon-size)` (no !important) fixes the flex item's MAIN-AXIS size
+   via flex-basis inside the parent's inline-flex row — per the flexbox spec,
+   `width` is ignored for sizing whenever flex-basis is not `auto`, so
+   `width: auto !important` alone is a no-op here and the label would stay
+   squeezed into the 24px chip without this override (code-review catch). */
+.sv-menu-row-glyph.sv-menu-row-glyph-labeled {
+    flex: 0 0 auto;
+    width: auto !important;
+    padding: 0 8px 0 6px !important;
+    gap: 4px;
+}
+.sv-menu-row-glyph-label {
+    font-size: 12px;
+    line-height: var(--sv-icon-size);
+    white-space: nowrap;
+}
+
 /* V2P-714 — inline cascade-delete error rendered under the row when the BE
    returns 409 ACTIVE_REFERENCES (blocked by active scenarios) or any other
    delete failure. */

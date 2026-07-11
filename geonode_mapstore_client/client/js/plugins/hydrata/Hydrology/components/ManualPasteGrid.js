@@ -47,8 +47,22 @@ const TableCell = ({getValue, row, column, table}) => {
     let inputType = column.columnDef.meta?.type || 'text';
     let displayValue = value;
 
-    if (inputType === 'datetime') {
-        displayValue = moment(value).format('YYYY-MM-DD HH:mm:ss');
+    // P2-A (TASK-2217/2204 gate-fix) — buildColumns (below) has ALWAYS set
+    // the timestamp column's meta.type to 'datetime-local', never the bare
+    // 'datetime' this guard used to check for exclusively — TASK-2212's
+    // fix here was dead code on both the pre-fix (moment, local) AND
+    // post-fix (moment.utc) versions, so the grid always fell through to
+    // displaying the raw stored value. Check both so the branch can never
+    // silently go unreachable again if a future caller passes the bare
+    // 'datetime' type.
+    if (inputType === 'datetime' || inputType === 'datetime-local') {
+        // TASK-2212 (W4.1): moment.utc, NOT moment (browser-local) — a
+        // stored naive-UTC value must round-trip to the display unshifted
+        // (same storage convention as the parse fix above). 'T' separator
+        // (not a space) — the HTML living standard requires it for a valid
+        // type="datetime-local" input value; a space-separated string
+        // blanks the widget instead of populating it.
+        displayValue = moment.utc(value).format('YYYY-MM-DDTHH:mm:ss');
     }
 
     return (
@@ -167,7 +181,12 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
             .filter(row => row.trim() !== '')
             .map((row) => {
                 const [timestampStr, valueStr] = row.split('\t');
-                const parsedMoment = moment(timestampStr, 'YYYY-MM-DD HH:mm');
+                // TASK-2212 (W4.1): moment.utc, NOT moment (browser-local) —
+                // storage convention is naive-IS-UTC-wall-time
+                // (classesHydrology.js:511-519). A local parse shifts by the
+                // browser's offset (probable run-1283 killer: '2000-01-01
+                // 00:00' stored as '1999-12-31T20:00:00' on a UTC+4 box).
+                const parsedMoment = moment.utc(timestampStr, 'YYYY-MM-DD HH:mm');
                 const value = parseFloat(valueStr);
                 const valid = parsedMoment.isValid() && Number.isFinite(value);
                 return {

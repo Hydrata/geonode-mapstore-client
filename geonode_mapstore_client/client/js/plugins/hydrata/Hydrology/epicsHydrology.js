@@ -62,6 +62,10 @@ import {CLICK_ON_MAP, registerEventListener, unRegisterEventListener} from '../.
 import {purgeMapInfoResults, hideMapinfoMarker, toggleMapInfoState} from '../../../../MapStore2/web/client/actions/mapInfo';
 import {deriveIdf, getIdfTable, deriveDesignStorm, attachDesignStorm} from './api/hydrologyApi';
 import {getAnugaConfig} from '../Anuga/api/anugaApi';
+// TASK-2214 (W4.3) — re-fetch state.anuga.resources.rainfalls after a
+// design-storm attach succeeds (see attachDesignStormEpic below).
+import {fetchResourceEndpoint} from '../Anuga/epics/pollingEpics';
+import {setAnugaRainfallData} from '../Anuga/actions/dataActions';
 
 // V2P-79 / V2P-77 — V1 hydrology routes were /anuga/api/{pid}/<endpoint>/
 // where <endpoint> was 'time-series' / 'temporal-pattern' / 'sv-idf-table'
@@ -797,17 +801,32 @@ export const attachDesignStormEpic = (action$, store) =>
             return Rx.Observable.from(attachDesignStorm(projectId, rainfallPk, payload))
                 .mergeMap(response => {
                     const ts = response.data;
-                    return Rx.Observable.from([
-                        attachDesignStormSuccess(ts, rainfallPk),
-                        show({
-                            message: `Design storm "${ts.name}" attached to rainfall.`,
-                            title: 'hydrata.hydrology.success',
-                            uid: 1002,
-                            position: 'tc'
-                        }),
-                        // Re-fetch time-series list so new row appears in the rail.
-                        fetchHydrologyTimeSeriesData()
-                    ]);
+                    return Rx.Observable.concat(
+                        Rx.Observable.of(
+                            attachDesignStormSuccess(ts, rainfallPk),
+                            show({
+                                message: `Design storm "${ts.name}" attached to rainfall.`,
+                                title: 'hydrata.hydrology.success',
+                                uid: 1002,
+                                position: 'tc'
+                            }),
+                            // Re-fetch time-series list so new row appears in the rail.
+                            fetchHydrologyTimeSeriesData()
+                        ),
+                        // TASK-2214 (W4.3) — the attach just wrote
+                        // data_timeseries_id onto rainfallPk's feature row,
+                        // flipping RainfallSerializerV2.has_feature_data
+                        // server-side. state.anuga.resources.rainfalls (the
+                        // ONLY place has_feature_data lives on the FE —
+                        // scenarioPane.js's rainfallAttachedButEmpty) was
+                        // never re-fetched here before, so a freshly-created
+                        // rainfall's cached has_feature_data=false stayed
+                        // stale and the "attached but empty" hint kept
+                        // firing on a well-formed attachment. Reuses the
+                        // SAME resource-list fetch every other endpoint
+                        // refresh already goes through (pollingEpics.js).
+                        fetchResourceEndpoint('rainfall', projectId).map(setAnugaRainfallData)
+                    );
                 })
                 .catch(error => {
                     const detail = error?.data?.detail

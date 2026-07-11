@@ -8,7 +8,54 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { act } from 'react-dom/test-utils';
 import { fireEvent } from '@testing-library/react';
-import { ManualPasteGrid } from '../ManualPasteGrid';
+import moment from 'moment';
+import { ManualPasteGrid, TableCell, buildColumns } from '../ManualPasteGrid';
+
+// TASK-2212 (W4.1) — deterministically simulate a NON-UTC browser without
+// depending on the box's actual system timezone (this box happens to be
+// UTC+4/Asia-Dubai, but the wave brief explicitly does not want the test to
+// rely on that coincidence — a UTC CI box would silently mask the
+// regression). moment's LOCAL parse mode (`moment(str, fmt)`, no `.utc()`)
+// builds its Date via the native multi-arg constructor
+// `new Date(y, m, d, h, mi, s, ms)`, which the JS engine resolves using the
+// REAL host timezone — overriding only `Date.prototype.getTimezoneOffset`
+// does NOT change that native construction. So this shim replaces the
+// global `Date` constructor itself for the duration of the test: any
+// multi-arg construction is re-derived from `Date.UTC(...)` shifted by the
+// mocked offset, and `getTimezoneOffset()` is pinned to match — giving a
+// fully deterministic, non-UTC "browser" on any host. `moment.utc(...)`
+// (the FIXED code path) never goes through the multi-arg local constructor
+// at all (it calls `Date.UTC` directly via moment's createUTCDate), so it
+// is unaffected by this mock either way — which is exactly the point: it
+// proves the fix is genuinely tz-independent, not just "happens to work on
+// this box".
+function withMockedNonUtcTimezone(offsetMinutes, fn) {
+    const RealDate = Date;
+    class MockDate extends RealDate {
+        constructor(...args) {
+            if (args.length >= 3) {
+                const [y, m, d, h = 0, mi = 0, s = 0, ms = 0] = args;
+                super(RealDate.UTC(y, m, d, h, mi, s, ms) + offsetMinutes * 60000);
+            } else {
+                super(...args);
+            }
+        }
+        static now() {
+            return RealDate.now();
+        }
+        getTimezoneOffset() {
+            return offsetMinutes;
+        }
+    }
+    // eslint-disable-next-line no-global-assign
+    Date = MockDate;
+    try {
+        return fn();
+    } finally {
+        // eslint-disable-next-line no-global-assign
+        Date = RealDate;
+    }
+}
 
 describe('ManualPasteGrid TASK-2026 (W5.4) page-aware value-column header', () => {
     const noop = () => {};
@@ -476,5 +523,199 @@ describe('TASK-2120 — ManualPasteGrid paste format hint + parse-failure feedba
         expect(container.querySelector('.sv-error-strip')).toNotExist();
         ReactDOM.unmountComponentAtNode(container);
         document.body.removeChild(container);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-2212 (W4.1) — Hydrograph/Design-Storm paste timezone shift.
+// Storage convention (classesHydrology.js:511-519, mirrored here): a naive
+// (no "Z"/offset) rowData timestamp IS the UTC wall time. A paste of
+// '2000-01-01 00:00' must be STORED as exactly that wall time and DISPLAYED
+// back unshifted, regardless of the browser's local timezone — probable
+// killer of run 1283 (model_start stored as 1999-12-31T20:00:00Z on a UTC+4
+// box, misaligning the hydrograph 4h early against the tz-aware design
+// storm).
+// ---------------------------------------------------------------------------
+describe('TASK-2212 (W4.1) — paste + display are UTC, tz-independent', () => {
+    const baseItem = {
+        id: 'temp-2212',
+        name: 'Test',
+        columnDefs: [],
+        rowData: []
+    };
+
+    const firePaste = (node, text) => {
+        const event = new Event('paste', { bubbles: true, cancelable: true });
+        event.clipboardData = { getData: () => text };
+        act(() => { node.dispatchEvent(event); });
+    };
+
+    // AC1: a paste of '2000-01-01 00:00' stores exactly that wall time
+    // regardless of browser tz, under a MOCKED non-UTC timezone (UTC-5 —
+    // deliberately NOT this box's real UTC+4, so a pass here cannot be an
+    // accident of the host's own zone).
+    it('AC1: paste stores the exact wall-clock naive-UTC timestamp under a mocked UTC-5 browser', () => {
+        withMockedNonUtcTimezone(300, () => { // +300min = UTC-5
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            let replaced = null;
+            act(() => {
+                ReactDOM.render(
+                    React.createElement(ManualPasteGrid, {
+                        activeHydrologyItem: baseItem,
+                        dispatchUpdateRowData: () => {},
+                        dispatchReplaceRowData: (id, rowData) => { replaced = {id, rowData}; }
+                    }),
+                    container
+                );
+            });
+            const pasteInput = container.querySelector('input#name');
+            firePaste(pasteInput, '2000-01-01 00:00\t1.5');
+            expect(replaced).toExist();
+            expect(replaced.rowData.length).toBe(1);
+            // Pre-fix (moment(str, fmt) local parse), a UTC-5 browser would
+            // shift this to '2000-01-01T05:00:00.000' (5h later — local
+            // 00:00 in UTC-5 is 05:00Z). The fix must store the wall time
+            // UNSHIFTED.
+            expect(replaced.rowData[0].timestamp).toBe('2000-01-01T00:00:00.000');
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    it('AC1 (UTC+4 mock — mirrors this box, and the actual run-1283 shift direction)', () => {
+        withMockedNonUtcTimezone(-240, () => { // -240min = UTC+4
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            let replaced = null;
+            act(() => {
+                ReactDOM.render(
+                    React.createElement(ManualPasteGrid, {
+                        activeHydrologyItem: baseItem,
+                        dispatchUpdateRowData: () => {},
+                        dispatchReplaceRowData: (id, rowData) => { replaced = {id, rowData}; }
+                    }),
+                    container
+                );
+            });
+            const pasteInput = container.querySelector('input#name');
+            firePaste(pasteInput, '2000-01-01 00:00\t1.5');
+            expect(replaced).toExist();
+            // Pre-fix this shifted to '1999-12-31T20:00:00.000' — the exact
+            // run-1283 value from the design record.
+            expect(replaced.rowData[0].timestamp).toBe('2000-01-01T00:00:00.000');
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // AC2 (unit-level, TableCell direct — exercises the moment.utc formatting
+    // fixed at ManualPasteGrid.js:51, exported precisely "for render
+    // isolation tests"): a stored naive-UTC value must format back to the
+    // SAME wall-clock digits under a mocked non-UTC browser.
+    //
+    // P2-A (TASK-2217/2204 gate-fix): pulls the REAL columnDef from
+    // buildColumns instead of hand-rolling `meta: {type: 'datetime'}` — a
+    // shape buildColumns never produces (the timestamp column's ONLY
+    // meta.type is 'datetime-local'). The hand-rolled shape exercised the
+    // TableCell guard's dead branch two ways at once: the guard's own
+    // `=== 'datetime'` check never matches reality, AND `type="datetime"`
+    // is a REMOVED/deprecated HTML input type that browsers silently
+    // fall back to `type="text"` for — so the old test never even rendered
+    // a native datetime-local input, let alone proved the guard reachable.
+    //
+    // Uses a Z-SUFFIXED source value deliberately: a bare 'YYYY-MM-DDTHH:mm
+    // :ss' value would normalise IDENTICALLY whether the branch runs or is
+    // skipped (raw passthrough is already a valid local-datetime string),
+    // which is exactly how the pre-fix "integration-level" test below kept
+    // passing for the wrong reason. A Z suffix is NOT a valid
+    // type="datetime-local" value per the HTML living standard — a native
+    // input silently BLANKS (.value === '') when assigned one. Only the
+    // fixed branch (moment.utc(...).format(...), which strips the Z)
+    // produces a value the input actually accepts — so this genuinely
+    // discriminates "branch ran" from "branch skipped, raw passthrough".
+    it('AC2: TableCell datetime formatting is UTC (moment.utc), not local — real buildColumns columnDef', () => {
+        withMockedNonUtcTimezone(300, () => { // UTC-5
+            const realColumns = buildColumns(false);
+            const column = { columnDef: realColumns[0] }; // buildColumns' first entry is the timestamp column
+            expect(column.columnDef.meta.type).toBe('datetime-local');
+            const table = { options: { meta: { updateData: () => {} } } };
+            const row = { index: 0 };
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            act(() => {
+                ReactDOM.render(
+                    React.createElement(TableCell, {
+                        getValue: () => '2000-01-01T00:00:00.000Z',
+                        row,
+                        column,
+                        table
+                    }),
+                    container
+                );
+            });
+            const input = container.querySelector('input');
+            expect(input.type).toBe('datetime-local');
+            // Dead-branch raw passthrough would assign the Z-suffixed
+            // string directly — INVALID for datetime-local, so a real
+            // browser blanks the input (.value === ''). The fixed branch
+            // strips the Z via moment.utc(...).format(...), producing a
+            // value the native input actually accepts.
+            expect(input.value).toBe('2000-01-01T00:00');
+            expect(input.value).toNotBe('');
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // AC2 (integration-level, the LIVE rendered path): the grid's real
+    // 'datetime-local' column (buildColumns) must display a stored naive-UTC
+    // row value unshifted end-to-end, under a mocked non-UTC browser.
+    it('AC2: the rendered grid displays a stored naive-UTC row value unshifted', () => {
+        withMockedNonUtcTimezone(300, () => { // UTC-5
+            const item = {
+                id: 'temp-2212b',
+                name: 'Test',
+                series_type: 'hydrograph',
+                columnDefs: [],
+                rowData: [
+                    {timestamp: '2000-01-01T00:00:00.000', value: 1.5}
+                ]
+            };
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            act(() => {
+                ReactDOM.render(
+                    React.createElement(ManualPasteGrid, {
+                        activeHydrologyItem: item,
+                        dispatchUpdateRowData: () => {},
+                        dispatchReplaceRowData: () => {}
+                    }),
+                    container
+                );
+            });
+            const tsInput = container.querySelector('table.time-series-table tbody input[type="datetime-local"]');
+            expect(tsInput).toExist();
+            // A native <input type="datetime-local"> NORMALISES its .value
+            // getter per the HTML living standard (drops trailing :00
+            // seconds/.000 milliseconds) — that normalisation is NOT a
+            // timezone shift, so assert on wall-clock digits, not exact
+            // string equality with the stored value's own format. A
+            // pre-fix (local-moment) shift under this UTC-5 mock would
+            // instead read '2000-01-01T05:00'.
+            expect(tsInput.value).toBe('2000-01-01T00:00');
+            ReactDOM.unmountComponentAtNode(container);
+            document.body.removeChild(container);
+        });
+    });
+
+    // AC3 (parse+display round-trip, sanity check that buildColumns/moment
+    // are wired as expected — guards against a future accidental
+    // reintroduction of a local moment() call anywhere in the parse chain).
+    it('AC3: moment.utc parse of the pasted string matches the format used to seed new items (classesHydrology.js)', () => {
+        withMockedNonUtcTimezone(-240, () => { // UTC+4
+            const parsed = moment.utc('2000-01-01 00:00', 'YYYY-MM-DD HH:mm');
+            expect(parsed.toISOString().slice(0, -1)).toBe('2000-01-01T00:00:00.000');
+        });
     });
 });

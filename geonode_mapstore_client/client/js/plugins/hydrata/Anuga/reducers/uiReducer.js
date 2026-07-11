@@ -91,6 +91,13 @@ const initialState = {
     // allowlist (retired site)" hide it.
     availableComputeTargets: null,
     defaultComputeTarget: null,
+    // TASK-2211 (W3.2, epic 2204, AC#4) — the divergence-interrupt threshold
+    // (GET /api/v2/anuga/config/'s mesh_divergence_threshold), hydrated by
+    // the SAME SET_ANUGA_COMPUTE_CONFIG action as the two fields above.
+    // null = not hydrated yet OR a malformed payload — anugaScenarioMenu.js
+    // falls back to scenarioHelpers.DEFAULT_MESH_DIVERGENCE_THRESHOLD (2x)
+    // in that case, never blocking the Build-and-Run flow on a config load.
+    meshDivergenceThreshold: null,
     // TASK-2194 (review fix) — { [scenarioId]: '<target>' }: the staff user's
     // THIS-SESSION compute-target choice per scenario. Lives here (NOT on the
     // scenario object) so choosing a target never flips scenario.unsaved and
@@ -200,6 +207,16 @@ export default (state = initialState, action) => {
                 : [],
             defaultComputeTarget: typeof cfg.default_compute_target === 'string'
                 ? cfg.default_compute_target
+                : null,
+            // TASK-2211 (W3.2, epic 2204, AC#4) — shape-tolerant like the two
+            // fields above: a non-finite-number payload yields null, which
+            // anugaScenarioMenu.js's divergence gate treats as "use the FE
+            // default" (never a crash, never a blocked Build-and-Run).
+            // Number.isFinite (not the global isFinite) never coerces — it
+            // already returns false for a string/array/object/NaN, so no
+            // separate typeof guard is needed.
+            meshDivergenceThreshold: Number.isFinite(cfg.mesh_divergence_threshold)
+                ? cfg.mesh_divergence_threshold
                 : null
         };
     }

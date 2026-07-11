@@ -335,7 +335,14 @@ const ANUGA_FEATURE_CONFIG = {
                 // TASK-1273 W5.1: label updated from 'Resolution (m²)' to clarify the field is a
                 // target EDGE LENGTH (metres), not an area.  The stored value is unchanged — the
                 // backend computes max_area = resolution² / 2.  No migration, no mesh change.
-                {name: 'resolution', type: 'number', label: 'Resolution (m) — target edge length', "default": 10, step: 1, min: 0.1}
+                //
+                // TASK-2210 (W3.1, epic 2204, od-2): relabeled AGAIN — this is the per-feature
+                // REFINEMENT lever glossary's "Mesh resolution" entry describes (it already
+                // existed, dogfood found it invisible): each MeshRegion meshes finer than the
+                // scenario's base mesh size wherever it's drawn. The scenario-level field
+                // (scenarioPane.js) is relabeled "Base mesh size" for the SAME honest framing —
+                // the two labels must never drift apart on what "base" vs "refines" means.
+                {name: 'resolution', type: 'number', label: 'Resolution (m) — refines the mesh finer here than the scenario base mesh size', "default": 10, step: 1, min: 0.1}
             ]
         }
     },

@@ -2,7 +2,8 @@ import React, {useEffect} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {
-    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress
+    secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
+    getMeshComparison, getMeshCostDriverHint
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -388,7 +389,111 @@ function renderInflowAnchorMismatchWarning(scenario) {
     );
 }
 
-function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls}) {
+/**
+ * TASK-2205 (W0.2 epic 2204) — when the scenario's assigned terrain is a
+ * ready terrain flagged with coverage gaps (TerrainSerializerV2
+ * has_coverage_gaps, from the TASK-2201 import-time nodata check), surface
+ * an in-pane suggestion pointing at the EXISTING Combined-surface merge
+ * (anugaInputMenu.js's "Combined surface" panel) rather than leaving the
+ * user to discover the gap ~2 hours later at build (dogfood run 1283).
+ * `has_coverage_gaps === true` only — `false` (clean) and `null`/`undefined`
+ * (unstamped legacy terrain, pre-backfill) both stay silent; a legacy
+ * terrain must not falsely claim to have gaps it was never checked for.
+ */
+function renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel) {
+    const selectedTerrain = (terrain || []).find(t => t && t.id === scenario?.terrain);
+    if (selectedTerrain?.has_coverage_gaps !== true) return null;
+    return (
+        <div
+            className="sv-anuga-scenario-terrain-gap-suggestion"
+            role="alert"
+        >
+            <Message msgId="hydrata.anuga.terrainCoverageGapSuggestion" />
+            {' '}
+            <a
+                href="#"
+                data-testid="anuga-terrain-gap-suggestion-merge-link"
+                onClick={(e) => {
+                    e.preventDefault();
+                    if (onOpenMergeTerrainsPanel) onOpenMergeTerrainsPanel();
+                }}
+            >
+                <Message msgId="hydrata.anuga.terrainCoverageGapSuggestionLink" />
+            </a>
+        </div>
+    );
+}
+
+// TASK-2210 (W3.1, epic 2204, AC#2) — which W2.1 estimate term the hint
+// should name, keyed off getMeshCostDriverHint's driver key. 'holes' is
+// deliberately absent (see scenarioHelpers.js — it is never reported as a
+// driver: a negative term, not a cost source).
+const MESH_COST_DRIVER_HINT_MESSAGE_IDS = {
+    regions: 'hydrata.anuga.meshCostDriverHintRegions',
+    breaklines: 'hydrata.anuga.meshCostDriverHintBreaklines',
+    hole_perimeter: 'hydrata.anuga.meshCostDriverHintHolePerimeter'
+};
+
+/**
+ * TASK-2210 (W3.1, AC#2) — the pre-build cost-driver hint: "your mesh
+ * regions drive ~85% of your mesh cost" when a source OTHER than the base
+ * mesh dominates the W2.1 estimate decomposition (the dogfood finding:
+ * Resolution — the one visible lever — barely moved a mesh a MeshRegion
+ * actually dominated). Reuses the amber advisory family (anuga.css: extend,
+ * don't invent a parallel style) shared with the anchor-mismatch warning /
+ * mesh-region-unattached hint / terrain-gap suggestion above. Silent
+ * (returns null) when the breakdown is missing or 'base' dominates — see
+ * getMeshCostDriverHint's own contract.
+ */
+function renderMeshCostDriverHint(scenario) {
+    const hint = getMeshCostDriverHint(scenario?.mesh_triangle_count_estimate_breakdown);
+    const msgId = hint && MESH_COST_DRIVER_HINT_MESSAGE_IDS[hint.driver];
+    if (!hint || !msgId) return null;
+    return (
+        <div
+            className="sv-anuga-scenario-pane-section sv-anuga-scenario-mesh-cost-driver-hint"
+            role="note"
+        >
+            <Message msgId={msgId} msgParams={{share: hint.share}} />
+        </div>
+    );
+}
+
+/**
+ * TASK-2210 (W3.1, AC#3) — post-build transparency: actual triangle count
+ * vs. the stamped pre-build estimate + a re-priced actual-$ cost, once a
+ * build has completed. Reads scenario.latest_run (RunSerializerV2's
+ * mesh_provenance / mesh_triangle_count / mesh_actual_cost_estimate, W3.1
+ * BE) via the SAME getMeshComparison the divergence-interrupt gate
+ * (anugaScenarioMenu.js, TASK-2211) uses — one arithmetic source.
+ *
+ * Degrades gracefully (renders nothing) when there is nothing honest to
+ * show: mesh_provenance REALITY (epic 2204 environment note, verified
+ * live) — a FAILED build carries an EMPTY {}; a pre-epic/legacy run
+ * carries NULL. Never fabricates a comparison from either.
+ */
+function renderMeshBuildComparison(scenario) {
+    const comparison = getMeshComparison(scenario?.latest_run);
+    if (!comparison) return null;
+    return (
+        <div className="sv-anuga-scenario-pane-section anuga-scenario-mesh-comparison-section">
+            <span className="sv-anuga-scenario-mesh-comparison-label">
+                <Message
+                    msgId="hydrata.anuga.meshComparisonLabel"
+                    msgParams={{
+                        actual: Number(comparison.actual).toLocaleString(),
+                        estimate: Number(comparison.estimate).toLocaleString()
+                    }}
+                />
+                {comparison.actualCost !== null
+                    ? ` — ~$${Number(comparison.actualCost).toFixed(2)}`
+                    : ''}
+            </span>
+        </div>
+    );
+}
+
+function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls, onOpenMergeTerrainsPanel}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -426,6 +531,7 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div>
             </FormRow>
             {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, handleField)}
+            {renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel)}
             {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
             {renderSelectField('inflow', 'hydrata.anuga.inflow', scenario?.inflow, inflows, !canEdit, handleField)}
             {renderInflowAnchorMismatchWarning(scenario)}
@@ -542,6 +648,14 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
             <FormRow
                 extraClassName="sv-anuga-scenario-pane-section"
                 label={
+                    // TASK-2210 (W3.1, epic 2204, od-2) — honest relabel: this field
+                    // was "Resolution", implying it sets THE mesh size. It only sets
+                    // an upper bound on the BASE mesh — MeshRegions (each with their
+                    // OWN resolution, simpleViewMenuRow.js's 'mes_' field), Reflective
+                    // structures and breaklines mesh finer wherever they're drawn, and
+                    // in a refinement-heavy scenario THEY dominate triangle count, not
+                    // this field (the dogfood finding: halving this moved a 768k-tri
+                    // mesh ~5%). Glossary: "Mesh resolution" entry.
                     <label className="sv-anuga-scenario-pane-label" htmlFor="resolution">
                         <Message msgId="hydrata.anuga.resolutionM2" />
                     </label>
@@ -666,6 +780,8 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                     </span>
                 </div>
             )}
+            {renderMeshCostDriverHint(scenario)}
+            {renderMeshBuildComparison(scenario)}
         </div>
     );
 }
@@ -695,7 +811,11 @@ function renderRunPane(props) {
             {/* Section (a): config fields */}
             {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
             {/* Section (b): status feedback (ETA, progress, error) */}
-            <ScenarioErrorStrip scenario={scenario} />
+            {/* W1.2 (TASK-2207, epic 2204) — isStaff gates the CloudWatch
+                deep link only; the classified cause + log tail render for
+                everyone (same isStaff prop this pane already threads to
+                renderRunConfigPane's compute-target selector). */}
+            <ScenarioErrorStrip scenario={scenario} isStaff={isStaff} />
             <ScenarioStatusCard scenario={scenario} />
             {/* Section (c): UAT #8 — the Build / Run / Build-and-Run / Retry /
                 Download / Archive / Delete action strip moved UP into the
@@ -763,7 +883,16 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
     // TASK-1587 W1.9 UAT (2026-06-19): auto-default to the first RUNNABLE terrain
     // ('ready') — never a layer-less failed/creating terrain that the V2 list now
     // surfaces (it can't be selected in the picker either).
-    const firstReadyTerrain = (terrain || []).find(t => t?.status === 'ready');
+    // TASK-2205 (W0.2 epic 2204): among ready terrains, prefer a full-coverage
+    // one (has_coverage_gaps === false, TerrainSerializerV2) over an
+    // earlier-listed gappy fine survey — auto-defaulting to a known-gappy
+    // terrain silently seeds a new scenario for the run-1283 class of
+    // build-time failure. Falls back to the first ready terrain (even gappy,
+    // or unstamped/null) so an all-gappy or pre-epic project still gets a
+    // usable default.
+    const readyTerrains = (terrain || []).filter(t => t?.status === 'ready');
+    const fullCoverageTerrain = readyTerrains.find(t => t?.has_coverage_gaps === false);
+    const firstReadyTerrain = fullCoverageTerrain || readyTerrains[0];
     const firstTerrainId = firstReadyTerrain ? firstReadyTerrain.id : null;
     const firstBoundaryId = boundaries && boundaries[0] ? boundaries[0].id : null;
     const firstInflowId = inflows && inflows[0] ? inflows[0].id : null;
@@ -876,6 +1005,11 @@ ScenarioPane.propTypes = {
     sessionComputeTarget: PropTypes.string,
     onSetSessionComputeTarget: PropTypes.func,
     currentUserId: PropTypes.number,
+    // TASK-2205 (W0.2 epic 2204) — opens the stand-alone "Combined surface"
+    // merge panel from the gap-suggestion link (see
+    // renderTerrainCoverageGapSuggestion). Same action anugaInputMenu.js's
+    // header button dispatches (setTerrainWorkbenchVisible(true)).
+    onOpenMergeTerrainsPanel: PropTypes.func,
     terrain: PropTypes.array,
     boundaries: PropTypes.array,
     inflows: PropTypes.array,
