@@ -30,6 +30,7 @@ import {
     addLinks,
     INIT_ANUGA,
     initAnuga,
+    SET_ANUGA_INIT_IN_FLIGHT,
     setAnugaBoundaryData,
     setAnugaTerrainData,
     setAnugaFrictionData,
@@ -323,6 +324,95 @@ export const initAnugaEpic = (action$, store) =>
                         })
                 );
         });
+
+// TASK-2232 — bootstrap recovery epics. INIT_ANUGA has exactly ONE trigger
+// (anugaContainer.componentDidUpdate; componentDidMount is empty), which
+// leaves two blind spots that strand the model-builder menus with no error:
+//
+//   Mode A — hidden-tab drop: the TASK-603 visibility gate above drops
+//     INIT_ANUGA while the tab is backgrounded, and tab-focus fires no React
+//     re-render to retry it.
+//   Mode B — wedged guard: initAnugaEpic dispatches setAnugaInitInFlight(mapId)
+//     BEFORE the from-map waterfall; a switchMap teardown of that inner
+//     observable (superseding source emission, gnresource churn, HMR) fires
+//     neither the success reducer nor the error catch, so initInFlight stays
+//     === mapId forever and both re-init gates (epic + componentDidUpdate)
+//     deadlock shut.
+//
+// Both recoveries are ADDITIVE — the initAnugaEpic waterfall is untouched and
+// stays authoritative (auth/visibility/dedupe gates all still apply to the
+// re-dispatched INIT_ANUGA).
+
+// Evidence gate: map ids AnugaContainer has already requested init for this
+// session (recorded from observed INIT_ANUGA actions). Recovery only ever
+// re-offers an init the container itself asked for, so it can never fire a
+// get-or-create from-map POST on a NON-anuga map — never more aggressive
+// than today's componentDidUpdate trigger. Module-var recorder idiom, same
+// as _seenProjectInitIds above.
+let _initRequestedMapIds = new Set();
+export const __resetInitRequestedForTests = () => { _initRequestedMapIds = new Set(); };
+
+// Mode A recovery: on a hidden→visible TRANSITION (pairwise — the initial/
+// steady visibility value can never fire, so a normal foreground load is
+// untouched), re-dispatch initAnuga() iff the container already requested
+// init for the CURRENT map, project data hasn't landed, and no init is in
+// flight for it.
+export const anugaVisibilityBootstrapEpic = (action$, store) =>
+    Rx.Observable.merge(
+        action$
+            .ofType(INIT_ANUGA)
+            .do(() => {
+                const mapId = store.getState()?.gnresource?.id;
+                if (mapId) _initRequestedMapIds.add(mapId);
+            })
+            .ignoreElements(),
+        visibility$
+            .distinctUntilChanged()
+            .pairwise()
+            .filter(([wasVisible, isVisible]) => wasVisible === false && isVisible === true)
+            .filter(() => {
+                const state = store.getState();
+                const mapId = state?.gnresource?.id;
+                return !!mapId &&
+                    _initRequestedMapIds.has(mapId) &&
+                    !state?.anuga?.projects?.data?.id &&
+                    state?.anuga?.projects?.initInFlight !== mapId;
+            })
+            .map(() => initAnuga())
+    );
+
+// Mode B watchdog window. Generous vs the observed happy path (from-map +
+// getProjectV2 complete in ~1s on prod): a slow-but-healthy init clears the
+// guard via SET_ANUGA_PROJECT_DATA long before this fires, and a wedge only
+// costs the user ~7s before self-heal.
+export const ANUGA_INIT_WATCHDOG_MS = 7000;
+
+// Mode B recovery: every truthy guard-set arms a one-shot timer (switchMap —
+// a newer guard-set restarts it). If the guard is STILL held by the same map
+// with no project data when it fires, the init was torn down mid-flight:
+// clear the guard, then re-offer INIT_ANUGA. A completed init (reducer clears
+// on SET_ANUGA_PROJECT_DATA), an errored init (catch clears explicitly), or
+// an SPA nav away from the wedged map (gnresource.id moved on — re-init there
+// is the new map's own container's job) all make the check a no-op. The
+// `scheduler` arg is a test seam (virtual time); redux-observable passes
+// undefined in prod → default async scheduler.
+export const anugaInitWatchdogEpic = (action$, store, scheduler) =>
+    action$
+        .ofType(SET_ANUGA_INIT_IN_FLIGHT)
+        .filter((action) => !!action.mapId)
+        .switchMap((action) =>
+            Rx.Observable.timer(ANUGA_INIT_WATCHDOG_MS, scheduler)
+                .mergeMap(() => {
+                    const state = store.getState();
+                    const stillWedged =
+                        state?.anuga?.projects?.initInFlight === action.mapId &&
+                        !state?.anuga?.projects?.data?.id &&
+                        state?.gnresource?.id === action.mapId;
+                    return stillWedged
+                        ? Rx.Observable.of(setAnugaInitInFlight(false), initAnuga())
+                        : Rx.Observable.empty();
+                })
+        );
 
 // TASK-2078: result-load "already loaded?" check reads latest_complete_run —
 // the run whose COGs are actually eligible to be on the map — not latest_run

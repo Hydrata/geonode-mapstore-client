@@ -5,6 +5,9 @@ import terrainWorkbench from '../TerrainWorkbench/reducersTerrainWorkbench';
 import anugaContainer from "./components/anugaContainer";
 import {
     initAnugaEpic,
+    // TASK-2232 — bootstrap recovery (hidden-tab drop + wedged-guard watchdog).
+    anugaVisibilityBootstrapEpic,
+    anugaInitWatchdogEpic,
     cancelAnugaRunEpic,
     retryAnugaRunEpic,
     pollActiveRunStatusEpic,
@@ -146,6 +149,9 @@ export default createPlugin('Anuga', {
     },
     epics: {
         initAnugaEpic,
+        // TASK-2232 — bootstrap recovery (hidden-tab drop + wedged-guard watchdog).
+        anugaVisibilityBootstrapEpic,
+        anugaInitWatchdogEpic,
         cancelAnugaRunEpic,
         retryAnugaRunEpic,
         pollActiveRunStatusEpic,

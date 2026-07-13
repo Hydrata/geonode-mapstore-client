@@ -37,6 +37,12 @@
 // ──────────────────────────────────────────────────────────────────────────
 export {
     initAnugaEpic,
+    // TASK-2232 — additive bootstrap recovery: hidden-tab drop (Mode A) +
+    // wedged initInFlight guard (Mode B). Neither touches the initAnugaEpic
+    // waterfall; both only re-offer INIT_ANUGA for a map the container
+    // already requested init for.
+    anugaVisibilityBootstrapEpic,
+    anugaInitWatchdogEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
     ensureAnugaGroupsEpic,
