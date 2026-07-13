@@ -7,6 +7,20 @@
  * dashboards key on these label strings; if any drift, the dashboards
  * silently lose data for 365 days (pin: TASK-606 / TASK-897-class bug).
  *
+ * TASK-2241 (epic 2237 W1.3) — re-cut for the run cluster + lifecycle-slot
+ * mutex (TASK-2239) and the custom portaled overflow (kebab) menu
+ * (TASK-2240): every RETAINED control (build, run, rerun, retry,
+ * cancel-run, build-and-run, download, view-results, archive, unarchive,
+ * delete, duplicate, new-scenario) is re-verified firing its
+ * BYTE-IDENTICAL label from its new location, closing two pre-existing
+ * coverage gaps (build-and-run, view-results — see 'Action toolbar
+ * events'). Click targets are the actual clickable elements throughout
+ * (menu <button role="menuitem"> anchors, never a wrapping <li> — see
+ * 'overflow-menu click targets are anchors, not li elements' below,
+ * amendment A3). compare-tab-toggle / compare-execute retire into the
+ * removed-labels regression-guard pattern (precedent below) now that
+ * Compare's UI entry is gone entirely.
+ *
  * Methodology:
  *   - Set window.umami = { track: spy } so trackEvent() captures the
  *     label, category, action without requiring a webpack-aware
@@ -202,6 +216,47 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 expect(runBtn).toExist();
                 runBtn.click();
                 expect(labelsFired()).toInclude('anuga-scenario-menu-run');
+                done();
+            });
+        });
+
+        // TASK-2241 (epic 2237 W1.3) — closes a pre-existing parity-coverage
+        // gap: build-and-run and view-results moved location across earlier
+        // waves (2239's run cluster; TASK-2115's "leads the row") without
+        // ever gaining a parity assertion in THIS file. Added now so both
+        // are byte-identical-pinned like every other retained control.
+        it('fires anuga-scenario-menu-build-and-run on Build & Run click (created status)', (done) => {
+            const s1 = makeScenario(21, 'A', {status: 'created'});
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            setTimeout(() => {
+                const btn = container.querySelector('.sv-scenario-action-build-run');
+                expect(btn).toExist();
+                btn.click();
+                expect(labelsFired()).toInclude('anuga-scenario-menu-build-and-run');
+                done();
+            });
+        });
+
+        it('fires anuga-scenario-menu-view-results on View Results click (complete run present)', (done) => {
+            const s1 = makeScenario(21, 'A', {
+                status: 'complete',
+                latest_run: {id: 999, status: 'complete'},
+                latest_complete_run: {id: 999, status: 'complete'}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            setTimeout(() => {
+                const btn = container.querySelector('.sv-anuga-btn-view-results');
+                expect(btn).toExist();
+                btn.click();
+                expect(labelsFired()).toInclude('anuga-scenario-menu-view-results');
                 done();
             });
         });
@@ -467,6 +522,31 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             expect(cancelBtn).toExist();
             cancelBtn.click();
             expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-cancel');
+        });
+    });
+
+    // TASK-2241 / amendment A3 — react-bootstrap 0.31 MenuItem puts its
+    // className on the <li> while onClick lives on the inner <a>, which
+    // breaks the "the label fires from the thing that carries the
+    // classname" assumption every other parity test in this file relies
+    // on. AnugaScenarioOverflowMenu deliberately uses plain
+    // <button role="menuitem"> so class + onClick + the fired label all
+    // live on the SAME node — this locks that in as a regression guard.
+    describe('overflow-menu click targets are anchors, not li elements (amendment A3)', () => {
+        it('every kebab menu item is a <button>, never an <li>, and carries its own analytics classname', () => {
+            const s1 = makeScenario(21, 'A', {status: 'built'});
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            openKebab(container);
+            const items = Array.prototype.slice.call(kebabMenu().querySelectorAll('[role="menuitem"]'));
+            expect(items.length).toBe(4);
+            items.forEach((item) => {
+                expect(item.tagName).toBe('BUTTON');
+                expect(item.className).toInclude('sv-anuga-scenario-overflow-item');
+            });
         });
     });
 
