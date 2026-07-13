@@ -171,15 +171,23 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('Run badge reads err severity when scenario.status === error', (done) => {
+        // TASK-2244 (epic 2237 W2.2) — the run-category 'err' badge is now
+        // suppressed at RENDER level (validateCategoryProgress itself still
+        // computes severity:'err' underneath — pinned, untouched; see
+        // scenarioHelpers-test.js). The title pill (toolbar) + the
+        // Run-failed notice are the sole error indicators now — see
+        // 'Error consolidation (TASK-2244)' below for both.
+        it('suppresses the Run badge (no "err" pill) when scenario.status === error', (done) => {
             const s = {...baseScenario, status: 'error', latest_run: {status: 'error'}};
             ReactDOM.render(
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    expect(badges[2].textContent).toBe('err');
-                    expect(badges[2].className).toInclude('is-err');
+                    // Required + Optional badges still render (2); the 3rd
+                    // (Run) badge is gone, not merely relabelled.
+                    expect(badges.length).toBe(2);
+                    expect(container.querySelector('.sv-anuga-scenario-pane-detail-head-badge.is-err')).toNotExist();
                     done();
                 }
             );
@@ -1893,8 +1901,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 container,
                 () => {
                     expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
-                    // Pill renders inside the status card; container also has compact
-                    // pill in the toolbar.
+                    // Pill renders inside the status card. TASK-2244
+                    // (epic 2237 W2.2) — the toolbar's compact pill is now
+                    // error-only (the title pill), so for a non-error status
+                    // like 'built' the status card's pill is the ONLY one.
                     const pills = container.querySelectorAll('.sv-scenario-status-pill');
                     expect(pills.length).toBeGreaterThan(0);
                     done();
@@ -1924,7 +1934,12 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('renders the error strip when status === error', (done) => {
+        // TASK-2244 (epic 2237 W2.2) — re-pointed: the error strip is no
+        // longer a standalone render at the bottom of the Run pane; it's now
+        // embedded (unmodified) as the Run-failed notice's body inside the
+        // notices panel. Scoping the query to `.sv-anuga-notices-panel`
+        // proves the relocation, not just that the strip exists SOMEWHERE.
+        it('renders the error strip inside the notices panel when status === error', (done) => {
             const s = {
                 ...baseScenario,
                 status: 'error',
@@ -1938,7 +1953,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.sv-anuga-scenario-error-strip')).toExist();
+                    const panel = container.querySelector('.sv-anuga-notices-panel');
+                    expect(panel).toExist();
+                    expect(panel.querySelector('.sv-anuga-scenario-error-strip')).toExist();
                     done();
                 }
             );
@@ -1965,6 +1982,134 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     // Run-failed notice. Exactly one standing indicator (the title pill)
     // plus the one notice for errored scenarios; neither for anything else.
     // ------------------------------------------------------------------
+    describe('Error consolidation (TASK-2244)', () => {
+        const erroredScenario = {
+            ...baseScenario,
+            status: 'error',
+            latest_run: {status: 'error', error_message: 'mesh validation failed'}
+        };
+
+        it('renders the title pill (toolbar, compact, error-styled) only when the latest run errored', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={erroredScenario} selectedCategoryId={'run'} canEdit />,
+                container,
+                () => {
+                    const pill = container.querySelector('.sv-anuga-pane-head-actions .sv-scenario-status-pill');
+                    expect(pill).toExist();
+                    expect(pill.className).toInclude('sv-status-error');
+                    done();
+                }
+            );
+        });
+
+        it('renders no toolbar pill for a non-error status', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, status: 'built'}}
+                    selectedCategoryId={'run'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-pane-head-actions')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('renders the Run-failed notice hosting the error strip inside the notices panel', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={erroredScenario} selectedCategoryId={'run'} canEdit />,
+                container,
+                () => {
+                    const panel = container.querySelector('.sv-anuga-notices-panel');
+                    expect(panel).toExist();
+                    const strip = panel.querySelector('.sv-anuga-scenario-error-strip');
+                    expect(strip).toExist();
+                    expect(strip.textContent).toInclude('mesh validation failed');
+                    done();
+                }
+            );
+        });
+
+        it('renders no Run-failed notice for a non-error status', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, status: 'built'}}
+                    selectedCategoryId={'run'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-error-strip')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('suppresses the Run-heading "err" badge for an errored scenario (render-level only)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={erroredScenario} selectedCategoryId={'run'} canEdit />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-detail-head-badge.is-err')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        // TASK-2221 (W5, epic 2204) — ScenarioErrorStrip resets logTailOpen
+        // when the (scenario id, latest_run id) identity changes, not on
+        // every re-render. Collapsing/expanding the notices panel does NOT
+        // change that identity, so the always-render + .is-open CSS-collapse
+        // convention (the panel body never unmounts) must let logTailOpen
+        // survive a toggle — the whole point of embedding the strip rather
+        // than re-implementing it.
+        it('logTailOpen survives a notices-panel collapse/expand toggle', (done) => {
+            const s = {
+                ...erroredScenario,
+                id: 21,
+                latest_run: {id: 99, status: 'error', log: 'line1\nline2\nline3'}
+            };
+            ReactDOM.render(
+                <ScenarioPane scenario={s} selectedCategoryId={'run'} canEdit />,
+                container,
+                () => {
+                    const toggleLogTail = container.querySelector('.sv-anuga-scenario-error-log-tail-toggle');
+                    expect(toggleLogTail).toExist();
+
+                    // Every click here is deferred a tick — see the comment
+                    // in 'shows the "{N} notices" header...' above: a click
+                    // dispatched from inside this mount-commit callback
+                    // doesn't flush its state update until the callback's
+                    // own call stack unwinds.
+                    setTimeout(() => {
+                        toggleLogTail.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-log-viewer')).toExist();
+
+                            // Collapse the notices panel, then re-expand it.
+                            const panelHeader = container.querySelector('.sv-anuga-notices-panel-header');
+                            panelHeader.click();
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-notices-panel').className).toNotInclude('is-open');
+                                panelHeader.click();
+                                setTimeout(() => {
+                                    expect(container.querySelector('.sv-anuga-notices-panel').className).toInclude('is-open');
+                                    // The log tail is still expanded — its own
+                                    // state was never touched by the panel's
+                                    // collapse/expand.
+                                    expect(container.querySelector('.sv-log-viewer')).toExist();
+                                    done();
+                                }, 0);
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+    });
+
     // ------------------------------------------------------------------
     // Inline ScenarioRunLog (rendered at bottom of Status-and-actions pane)
     // ------------------------------------------------------------------

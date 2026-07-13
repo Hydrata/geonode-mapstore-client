@@ -3,7 +3,7 @@ const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
-    getMeshComparison, getMeshCostDriverHint, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES
+    getMeshComparison, getMeshCostDriverHint, findScenarioStatus, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -414,13 +414,13 @@ function renderResultsFreshnessNotice(scenario, status) {
 // ------------------------------------------------------------------------
 
 /**
- * TASK-2243 (epic 2237 W2.1) — ordering matches the 7-item inventory
+ * TASK-2244 (epic 2237 W2.2) — ordering matches the TASK-2243 inventory
  * (freshness-failed, freshness-building, rainfall-unattached,
  * rainfall-attached-empty, meshregion-unattached, inflow-anchor-mismatch,
- * terrain-coverage-gap).
+ * terrain-coverage-gap), with the Run-failed notice appended last.
  */
 function buildScenarioNotices(props) {
-    const {scenario, meshRegions, rainfalls, terrain, onOpenMergeTerrainsPanel} = props;
+    const {scenario, meshRegions, rainfalls, terrain, onOpenMergeTerrainsPanel, isStaff} = props;
     const notices = [];
 
     const freshnessStatus = getResultsFreshnessStatus(scenario);
@@ -444,6 +444,15 @@ function buildScenarioNotices(props) {
 
     const terrainCoverageGapNode = renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel);
     if (terrainCoverageGapNode) notices.push({key: 'terrain-coverage-gap', node: terrainCoverageGapNode});
+
+    // TASK-2244 (W2.2) — hosts the EXISTING ScenarioErrorStrip (cause line,
+    // collapsible log tail, staff CloudWatch link) as this notice's body —
+    // embedded verbatim, not re-implemented. Member only while the
+    // scenario's resolved lifecycle status is 'error' (mirrors the strip's
+    // own internal gate, so the notice and its content activate together).
+    if (findScenarioStatus(scenario) === 'error') {
+        notices.push({key: 'run-failed', node: <ScenarioErrorStrip scenario={scenario} isStaff={isStaff} />});
+    }
 
     return notices;
 }
@@ -957,12 +966,13 @@ function renderRunPane(props) {
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
             {/* Section (a): config fields */}
             {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
-            {/* Section (b): status feedback (ETA, progress, error) */}
-            {/* W1.2 (TASK-2207, epic 2204) — isStaff gates the CloudWatch
-                deep link only; the classified cause + log tail render for
-                everyone (same isStaff prop this pane already threads to
-                renderRunConfigPane's compute-target selector). */}
-            <ScenarioErrorStrip scenario={scenario} isStaff={isStaff} />
+            {/* Section (b): status feedback (ETA, progress). TASK-2244
+                (epic 2237 W2.2) — the standalone ScenarioErrorStrip render
+                that used to sit here is REMOVED: it's now embedded as the
+                Run-failed notice's body in the notices panel (single error
+                surface — see buildScenarioNotices), not re-implemented, just
+                relocated. ScenarioStatusCard is untouched (own ETA/progress
+                display, not one of the consolidated error indicators). */}
             <ScenarioStatusCard scenario={scenario} />
             {/* Section (c): UAT #8 — the Build / Run / Build-and-Run / Retry /
                 Download / Archive / Delete action strip moved UP into the
@@ -996,8 +1006,18 @@ function renderRunPane(props) {
 // (is-ok/is-warn/is-err) under a NEW classname (not the rail's, which is
 // gone) so the pill visually extends the existing token system rather than
 // inventing a parallel one.
+// TASK-2244 (epic 2237 W2.2) — the run-category 'err' tag is suppressed
+// HERE, at render level only: the title pill (ScenarioPane's toolbar,
+// error-only) + the Run-failed notice (notices panel) are now the sole
+// standing error indicators, so painting a 3rd "err" badge in the Run
+// heading would just re-introduce the duplicate this wave removes.
+// `validateCategoryProgress` itself is UNTOUCHED (pinned by
+// scenarioHelpers-test) and still returns severity:'err' — W3.1's
+// heading-badge merge depends on that value continuing to be computed and
+// passed in here; only THIS render skips painting it for the 'run' heading.
 function renderSectionHeading(msgId, progress) {
     const severity = progress && progress.severity;
+    const suppressErrBadge = msgId === 'hydrata.anuga.run' && severity === 'err';
     const badgeClass = 'sv-anuga-scenario-pane-detail-head-badge'
         + (severity === 'ok' ? ' is-ok' : '')
         + (severity === 'warn' ? ' is-warn' : '')
@@ -1007,7 +1027,7 @@ function renderSectionHeading(msgId, progress) {
             <h3 className="sv-anuga-scenario-pane-detail-head-title">
                 <Message msgId={msgId} />
             </h3>
-            {progress ? <span className={badgeClass}>{progress.tag}</span> : null}
+            {progress && !suppressErrBadge ? <span className={badgeClass}>{progress.tag}</span> : null}
         </div>
     );
 }
@@ -1073,9 +1093,20 @@ const ScenarioPane = (props) => {
     const advancedProgress = validateCategoryProgress('advanced', scenario);
     const runProgress = validateCategoryProgress('run', scenario);
 
-    // TASK-2243 (epic 2237 W2.1) — every member notice (the 7-item
-    // inventory), single source computed here so the panel below is the
-    // only thing that renders them.
+    // TASK-2244 (epic 2237 W2.2) — the title pill: the ONE standing error
+    // indicator that survives the error-surface consolidation (alongside the
+    // Run-failed notice below). Reuses ScenarioStatusPill verbatim (compact)
+    // — it already renders the exact "Error" chip this needs — but now ONLY
+    // for the errored case; for every other status this slot renders
+    // nothing (previously it showed a compact pill for ANY status, which is
+    // one of the "duplicate 'Error' label" sources this wave removes: the
+    // Run pane's own ScenarioStatusCard already carries the canonical
+    // status pill for the non-error case).
+    const latestRunErrored = findScenarioStatus(scenario) === 'error';
+
+    // TASK-2243/2244 (epic 2237 W2) — every member notice (7-item inventory
+    // + the Run-failed notice), single source computed here so the panel
+    // below and nothing else derives them.
     const notices = buildScenarioNotices(props);
 
     // TASK-1410: auto-populate required dropdowns for new scenarios.
@@ -1092,7 +1123,7 @@ const ScenarioPane = (props) => {
                 <span className="sv-anuga-pane-head-label">
                     <Message msgId="hydrata.anuga.scenarios" />
                 </span>
-                {scenario ?
+                {scenario && latestRunErrored ?
                     <span className="sv-anuga-pane-head-actions">
                         <ScenarioStatusPill scenario={scenario} compact />
                     </span> : null
