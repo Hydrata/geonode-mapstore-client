@@ -545,7 +545,7 @@ describe('TASK-2207 ERROR_CLASS_MESSAGE_IDS', () => {
     });
 
     it('has no entry for an unrecognised/null class (caller skips rendering)', () => {
-        expect(ERROR_CLASS_MESSAGE_IDS[null]).toBe(undefined);
+        expect(ERROR_CLASS_MESSAGE_IDS.null).toBe(undefined);
         expect(ERROR_CLASS_MESSAGE_IDS.somethingelse).toBe(undefined);
     });
 });
