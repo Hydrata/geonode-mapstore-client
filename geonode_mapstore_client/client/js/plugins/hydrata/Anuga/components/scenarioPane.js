@@ -398,6 +398,75 @@ function renderResultsFreshnessNotice(scenario, status) {
     );
 }
 
+/**
+ * TASK-2085 (epic-2077, part (b)) — pre-build warning when a scenario's
+ * inflow-location series have MISMATCHED first-timestamp anchors.
+ *
+ * A Run merges every inflow-location series onto ONE absolute-time index
+ * anchored at `model_start` — the EARLIEST first-timestamp across all of
+ * the scenario's inflow-location series (BE: Scenario.make_package,
+ * scenario.py ~1218-1242, stamps `run.model_start` from
+ * `sorted(timeseries_starts)[0]`; run_anuga.run_utils._merge_timeseries,
+ * ~1153-1177, left-merges + ffills every other series onto that anchor).
+ * A series whose own first timestamp is LATER than model_start therefore
+ * has its FIRST value silently repeated backward over the missing lead-in
+ * window — it never truly has "no flow" there.
+ *
+ * `scenario.inflow_anchor_mismatch` (BE-computed, see
+ * `Scenario.inflow_anchor_mismatch`) is `null` when there's nothing to
+ * warn about, or `{series: [{timeseries_id, name, first_timestamp}, ...]}`
+ * naming EVERY timeseries-backed inflow location when 2+ distinct anchors
+ * exist. Rendered as a visible (non-blocking) warning naming every series.
+ */
+function renderInflowAnchorMismatchWarning(scenario) {
+    const series = scenario?.inflow_anchor_mismatch?.series;
+    if (!Array.isArray(series) || series.length < 2) return null;
+    const names = series.map(s => s?.name).filter(Boolean).join(', ');
+    return (
+        <div
+            className="sv-anuga-scenario-pane-section sv-anuga-scenario-anchor-mismatch-warning"
+            role="alert"
+        >
+            <Message msgId="hydrata.anuga.inflowAnchorMismatchWarning" msgParams={{names}} />
+        </div>
+    );
+}
+
+/**
+ * TASK-2205 (W0.2 epic 2204) — when the scenario's assigned terrain is a
+ * ready terrain flagged with coverage gaps (TerrainSerializerV2
+ * has_coverage_gaps, from the TASK-2201 import-time nodata check), surface
+ * an in-pane suggestion pointing at the EXISTING Combined-surface merge
+ * (anugaInputMenu.js's "Combined surface" panel) rather than leaving the
+ * user to discover the gap ~2 hours later at build (dogfood run 1283).
+ * `has_coverage_gaps === true` only — `false` (clean) and `null`/`undefined`
+ * (unstamped legacy terrain, pre-backfill) both stay silent; a legacy
+ * terrain must not falsely claim to have gaps it was never checked for.
+ */
+function renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel) {
+    const selectedTerrain = (terrain || []).find(t => t && t.id === scenario?.terrain);
+    if (selectedTerrain?.has_coverage_gaps !== true) return null;
+    return (
+        <div
+            className="sv-anuga-scenario-terrain-gap-suggestion"
+            role="alert"
+        >
+            <Message msgId="hydrata.anuga.terrainCoverageGapSuggestion" />
+            {' '}
+            <a
+                href="#"
+                data-testid="anuga-terrain-gap-suggestion-merge-link"
+                onClick={(e) => {
+                    e.preventDefault();
+                    if (onOpenMergeTerrainsPanel) onOpenMergeTerrainsPanel();
+                }}
+            >
+                <Message msgId="hydrata.anuga.terrainCoverageGapSuggestionLink" />
+            </a>
+        </div>
+    );
+}
+
 // ------------------------------------------------------------------------
 // TASK-2243 (epic 2237 W2.1) — the notices panel: single collapsible
 // amber advisory surface between the toolbar and the Required-inputs
@@ -515,75 +584,6 @@ ScenarioNoticesPanel.defaultProps = {
 // Pane renderers — one per category
 // ------------------------------------------------------------------------
 
-/**
- * TASK-2085 (epic-2077, part (b)) — pre-build warning when a scenario's
- * inflow-location series have MISMATCHED first-timestamp anchors.
- *
- * A Run merges every inflow-location series onto ONE absolute-time index
- * anchored at `model_start` — the EARLIEST first-timestamp across all of
- * the scenario's inflow-location series (BE: Scenario.make_package,
- * scenario.py ~1218-1242, stamps `run.model_start` from
- * `sorted(timeseries_starts)[0]`; run_anuga.run_utils._merge_timeseries,
- * ~1153-1177, left-merges + ffills every other series onto that anchor).
- * A series whose own first timestamp is LATER than model_start therefore
- * has its FIRST value silently repeated backward over the missing lead-in
- * window — it never truly has "no flow" there.
- *
- * `scenario.inflow_anchor_mismatch` (BE-computed, see
- * `Scenario.inflow_anchor_mismatch`) is `null` when there's nothing to
- * warn about, or `{series: [{timeseries_id, name, first_timestamp}, ...]}`
- * naming EVERY timeseries-backed inflow location when 2+ distinct anchors
- * exist. Rendered as a visible (non-blocking) warning naming every series.
- */
-function renderInflowAnchorMismatchWarning(scenario) {
-    const series = scenario?.inflow_anchor_mismatch?.series;
-    if (!Array.isArray(series) || series.length < 2) return null;
-    const names = series.map(s => s?.name).filter(Boolean).join(', ');
-    return (
-        <div
-            className="sv-anuga-scenario-pane-section sv-anuga-scenario-anchor-mismatch-warning"
-            role="alert"
-        >
-            <Message msgId="hydrata.anuga.inflowAnchorMismatchWarning" msgParams={{names}} />
-        </div>
-    );
-}
-
-/**
- * TASK-2205 (W0.2 epic 2204) — when the scenario's assigned terrain is a
- * ready terrain flagged with coverage gaps (TerrainSerializerV2
- * has_coverage_gaps, from the TASK-2201 import-time nodata check), surface
- * an in-pane suggestion pointing at the EXISTING Combined-surface merge
- * (anugaInputMenu.js's "Combined surface" panel) rather than leaving the
- * user to discover the gap ~2 hours later at build (dogfood run 1283).
- * `has_coverage_gaps === true` only — `false` (clean) and `null`/`undefined`
- * (unstamped legacy terrain, pre-backfill) both stay silent; a legacy
- * terrain must not falsely claim to have gaps it was never checked for.
- */
-function renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel) {
-    const selectedTerrain = (terrain || []).find(t => t && t.id === scenario?.terrain);
-    if (selectedTerrain?.has_coverage_gaps !== true) return null;
-    return (
-        <div
-            className="sv-anuga-scenario-terrain-gap-suggestion"
-            role="alert"
-        >
-            <Message msgId="hydrata.anuga.terrainCoverageGapSuggestion" />
-            {' '}
-            <a
-                href="#"
-                data-testid="anuga-terrain-gap-suggestion-merge-link"
-                onClick={(e) => {
-                    e.preventDefault();
-                    if (onOpenMergeTerrainsPanel) onOpenMergeTerrainsPanel();
-                }}
-            >
-                <Message msgId="hydrata.anuga.terrainCoverageGapSuggestionLink" />
-            </a>
-        </div>
-    );
-}
-
 // TASK-2210 (W3.1, epic 2204, AC#2) — which W2.1 estimate term the hint
 // should name, keyed off getMeshCostDriverHint's driver key. 'holes' is
 // deliberately absent (see scenarioHelpers.js — it is never reported as a
@@ -653,7 +653,7 @@ function renderMeshBuildComparison(scenario) {
     );
 }
 
-function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls, onOpenMergeTerrainsPanel}) {
+function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
