@@ -1249,13 +1249,17 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
         expect(loaded).toBe(true, 'clicking loads the recipe data');
     });
 
-    it('#3 (TASK-2205): the Merge terrains button carries a visible text label, not just a tooltip', () => {
+    it('#3 (ad-hoc design fix 2026-07-13): the Merge terrains button is icon-only with a hover tooltip, no visible text label', () => {
+        // Reverses TASK-2205: the visible text label was dropped so the three
+        // terrain-source icons read as a consistent icon-only row; the affordance
+        // now lives in the "Combine Surface" hover tooltip.
         const tree = renderTerrainPaneTree([]);
+        expect(findTestIdInTree(tree, 'anuga-terrain-merge-panel-button'))
+            .toBe(true, 'the merge button itself still renders');
         expect(findTestIdInTree(tree, 'anuga-terrain-merge-panel-label'))
-            .toBe(true, 'a visible text-label element must render inside the merge button — ' +
-                'the dogfood user misread the icon-only, tooltip-only affordance as a show/hide toggle');
+            .toBe(false, 'no visible text-label element renders inside the merge button');
         expect(findClassInTree(tree, 'sv-menu-row-glyph-labeled'))
-            .toBe(true, 'the merge button chip must carry the labeled-variant class');
+            .toBe(false, 'the merge button chip must NOT carry the labeled-variant class');
     });
 });
 

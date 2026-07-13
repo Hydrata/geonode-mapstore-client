@@ -1517,43 +1517,11 @@ class AnugaInputMenuClass extends React.Component {
         const canEdit = this.props.canEditAnugaMap;
         const actions = (
             <React.Fragment>
-                {/* TASK-1800 (W1.9 UAT): "Combined surface" — opens the stand-alone
-                    recipe-builder side panel. First child so it sits LEFT of the
-                    globe (GLO-30) + upload icons. Custom layered-mountain + cog SVG
-                    (no glyphicon class); sv-glyph-active colours it limegreen via
-                    currentColor and sv-menu-row-glyph centres the svg. NOT gated by
-                    canEdit, matching the globe/upload icons.
-                    TASK-2205 (W0.2 epic 2204): the icon used to be tooltip-only —
-                    the dogfood user misread it as a show/hide visibility toggle
-                    (tooltips are invisible until hover). sv-menu-row-glyph-labeled
-                    widens the fixed 24x24 chip to fit a visible text label; the
-                    other icon-only siblings (globe/upload) are unaffected. */}
-                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.combinedSurfaceTooltip" /></Tooltip>}>
-                    <span
-                        className={"btn sv-menu-row-glyph sv-menu-row-glyph-labeled sv-glyph-active"}
-                        data-testid="anuga-terrain-merge-panel-button"
-                        onClick={() => {
-                            this.props.onOpenMergeTerrainsPanel();
-                            this.props.onTwLoadData();
-                            trackEvent('button', 'click', 'anuga-input-menu-open-merge-terrains');
-                        }}
-                    >
-                        <MergeTerrainsIcon/>
-                        <span className="sv-menu-row-glyph-label" data-testid="anuga-terrain-merge-panel-label">
-                            <Message msgId="hydrata.anuga.combinedSurfaceLabel" />
-                        </span>
-                    </span>
-                </OverlayTrigger>
-                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
-                    <span
-                        className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-globe"}
-                        data-testid="anuga-terrain-global-dem-button"
-                        onClick={() => {
-                            this.props.setVisibleTerrainBboxPanel(true);
-                            trackEvent('button', 'click', 'anuga-input-menu-show-terrain-bbox-picker');
-                        }}
-                    />
-                </OverlayTrigger>
+                {/* Ad-hoc design fix 2026-07-13: the three terrain-source header icons
+                    run local → global → combine, left to right, matching the workflow
+                    (upload your own DEM, else pull a global one, then combine). All
+                    three are icon-only with hover tooltips.
+                    1) Upload local DEM (TASK-1729 W1.7 direct-to-S3 presigned PUT). */}
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
                     <span
                         className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-upload"}
@@ -1566,6 +1534,37 @@ class AnugaInputMenuClass extends React.Component {
                             trackEvent('button', 'click', 'anuga-input-menu-show-terrain-uploader');
                         }}
                     />
+                </OverlayTrigger>
+                {/* 2) Download global DEM — draw a bbox, pull Copernicus GLO-30. */}
+                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
+                    <span
+                        className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-globe"}
+                        data-testid="anuga-terrain-global-dem-button"
+                        onClick={() => {
+                            this.props.setVisibleTerrainBboxPanel(true);
+                            trackEvent('button', 'click', 'anuga-input-menu-show-terrain-bbox-picker');
+                        }}
+                    />
+                </OverlayTrigger>
+                {/* 3) Combine surface — opens the stand-alone recipe-builder side
+                    panel. Custom layered-mountain + cog SVG (no glyphicon class);
+                    sv-glyph-active colours it limegreen via currentColor and
+                    sv-menu-row-glyph centres the svg. NOT gated by canEdit, matching
+                    the globe/upload icons. Icon-only with a hover tooltip (ad-hoc
+                    design fix 2026-07-13 dropped the visible text label TASK-2205 had
+                    added; the tooltip now carries the affordance). */}
+                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.combinedSurfaceTooltip" /></Tooltip>}>
+                    <span
+                        className={"btn sv-menu-row-glyph sv-glyph-active"}
+                        data-testid="anuga-terrain-merge-panel-button"
+                        onClick={() => {
+                            this.props.onOpenMergeTerrainsPanel();
+                            this.props.onTwLoadData();
+                            trackEvent('button', 'click', 'anuga-input-menu-open-merge-terrains');
+                        }}
+                    >
+                        <MergeTerrainsIcon/>
+                    </span>
                 </OverlayTrigger>
                 {/* TASK-1729: hidden file input driven by the upload glyph. */}
                 <input
