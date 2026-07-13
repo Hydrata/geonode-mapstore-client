@@ -1618,10 +1618,13 @@
 }
 
 /* TASK-2126 (epic 2092 bundled launch) — "Coming soon" launch gates.
-   Entry points for launch-unready features (IDF Derive, Networks tab,
-   Depth/elevation profile) render disabled with an inline badge. These classes
-   are bundled into the global app CSS, so they also style the Anuga profile
-   button's badge/disabled state. */
+   Entry points for launch-unready features (IDF Derive, Networks tab) render
+   disabled with an inline badge. These classes are bundled into the global
+   app CSS. The ANUGA Cross-section button (formerly "Depth/elevation
+   profile") used this same badge until its own launch gate was deleted
+   (TASK-2253, epic 2249 W2) — it is unconditionally live now, so these
+   classes no longer style it, but they stay in the global sheet for the 2
+   remaining Hydrology consumers. */
 .sv-coming-soon-badge {
     display: inline-block;
     margin-left: 6px;

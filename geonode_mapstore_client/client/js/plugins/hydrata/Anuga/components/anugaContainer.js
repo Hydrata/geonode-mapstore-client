@@ -265,6 +265,11 @@ export class AnugaContainer extends React.Component {
     // the Results tab is the open group.
     // TASK-2253 — the resultsProfile LAUNCH_GATES entry is DELETED: the button
     // is live (no ComingSoonBadge branch).
+    // TASK-2257 (epic 2249 W3) — renamed "Depth / elevation profile" ->
+    // "Cross-section". Reuses the SAME msgId the panel header already uses
+    // (hydrata.anuga.crossSectionPanelTitle, TASK-2253) rather than keeping a
+    // second near-duplicate "Cross-section" string — the button and the panel
+    // it opens should always say the exact same thing.
     renderResultsProfileButton() {
         return (
             <div className="sv-results-profile-action" data-testid="anuga-results-profile-action">
@@ -278,7 +283,7 @@ export class AnugaContainer extends React.Component {
                         trackEvent('button', 'click', 'anuga-results-profile-toggle');
                     }}
                 >
-                    <Message msgId="hydrata.anuga.profilePanelTitle" />
+                    <Message msgId="hydrata.anuga.crossSectionPanelTitle" />
                 </button>
             </div>
         );
