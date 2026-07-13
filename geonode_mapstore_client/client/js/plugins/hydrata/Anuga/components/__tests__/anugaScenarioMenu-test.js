@@ -1547,17 +1547,21 @@ describe('anugaScenarioMenu — Rainfall unattached build confirm (TASK-2160)', 
 });
 
 /*
- * TASK-2245 (epic 2237 W3.1, AC#2/#3) — RUN SETTINGS expand-then-focus:
- * resolution/duration now live inside the collapsed-by-default RUN SETTINGS
+ * TASK-2245 (epic 2237 W3.1, AC#2/#3) — Run settings expand-then-focus:
+ * resolution/duration live inside the collapsed-by-default Run settings
  * section (scenarioPane.js), so a missing-field build-validation failure on
  * either one must expand the section AND focus the field, not just pop the
  * (pre-existing) validation dialog. Direct mirror of the MeshRegion/Rainfall
- * "Attach first" harness above — AC#3 (mesh_region "Attach first" still
- * expands-then-focuses under the new collapse) is ALREADY covered by
- * 'anugaScenarioMenu — MeshRegion unattached build confirm (TASK-2116)' /
- * "Attach first" ... focuses #mesh_region' above, unmodified: that test still
- * passes because the expand commits synchronously (useLayoutEffect,
- * scenarioPane.js) within the same click.
+ * "Attach first" harness above — mesh_region's "Attach first" expand-then-
+ * focus is ALREADY covered by 'anugaScenarioMenu — MeshRegion unattached
+ * build confirm (TASK-2116)' / "Attach first" ... focuses #mesh_region'
+ * above, unmodified: that test still passes because the expand commits
+ * synchronously (useLayoutEffect, scenarioPane.js) within the same click —
+ * TASK-2265 (epic 2237 W5) retargets that flow at the SEPARATE Optional
+ * inputs section (mesh_region moved out of Run settings), via the new
+ * requestOptionalInputsFocus/optionalInputsExpandToken pair, but the test's
+ * own assertions (focus lands on #mesh_region) are unaffected by which
+ * section actually opened.
  */
 describe('anugaScenarioMenu — RUN SETTINGS auto-expand on build validation (TASK-2245)', () => {
     let container;

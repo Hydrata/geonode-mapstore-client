@@ -146,13 +146,16 @@ const CONFIRM_DIALOG_REGISTRY = {
     }
 };
 
-// TASK-2245 (epic 2237 W3.1) — validateScenario's two build-REQUIRED fields
-// that now live inside the collapsed-by-default RUN SETTINGS section
-// (scenarioPane.js). A missing-field build-validation failure on either one
-// must expand-then-focus the matching field (AC#2), same as "Attach first"
-// already does for mesh_region — see requestRunSettingsFocus. Every OTHER
-// validateScenario field (name/terrain/inflowOrRainfall/boundary) lives in
-// the always-visible Required-inputs section, so no expand plumbing applies.
+// TASK-2245 (epic 2237 W3.1); re-scoped TASK-2265 (epic 2237 W5) —
+// validateScenario's two build-REQUIRED fields that live inside the
+// collapsed-by-default Run settings section (scenarioPane.js). A
+// missing-field build-validation failure on either one must expand-then-
+// focus the matching field (AC#2) — see requestRunSettingsFocus. mesh_region
+// uses the SAME expand-then-focus mechanism but targets the SEPARATE
+// Optional inputs section (see requestOptionalInputsFocus) since TASK-2265
+// moved it out of Run settings. Every OTHER validateScenario field
+// (name/terrain/inflowOrRainfall/boundary) lives in the always-visible
+// Required-inputs section, so no expand plumbing applies.
 const RUN_SETTINGS_FOCUS_FIELD_IDS = {
     resolution: 'resolution',
     duration: 'duration-hours'
@@ -257,8 +260,8 @@ class AnugaScenarioMenuClass extends React.Component {
           divergenceConfirm: null,
           // TASK-2245 (epic 2237 W3.1) — expand-then-focus bridge: bumped by
           // requestRunSettingsFocus so the CHANGE in identity (not the value
-          // itself) trips ScenarioPane's useRunSettingsCollapse effect,
-          // which opens the RUN SETTINGS section and calls back
+          // itself) trips ScenarioPane's useCollapsibleSection effect for
+          // the RUN SETTINGS section, which opens it and calls back
           // handleRunSettingsExpanded once that open state has committed —
           // see requestRunSettingsFocus's own doc comment for the full
           // ownership split (focuser stays here; collapse state moves to
@@ -266,12 +269,23 @@ class AnugaScenarioMenuClass extends React.Component {
           // null/undefined as "no request yet" — starting at 0 would make
           // the very first mount look like an unhandled request and
           // spuriously auto-expand + focus on every fresh menu mount.
-          runSettingsExpandToken: null
+          runSettingsExpandToken: null,
+          // TASK-2265 (epic 2237 W5, UAT re-aim finding 4) — the Optional
+          // inputs analog of runSettingsExpandToken above: mesh_region
+          // moved out of the merged RUN SETTINGS section into its own
+          // Optional inputs section, so its "Attach first" flow now needs
+          // its own independent expand token (bumping runSettingsExpandToken
+          // would wrongly open Run settings instead). Same null-start
+          // rationale.
+          optionalInputsExpandToken: null
       };
       // Not React state: read synchronously by handleRunSettingsExpanded
       // once the pane's callback fires; nothing ever renders off this value
       // directly, so it doesn't need to trigger its own re-render.
       this.pendingRunSettingsFocusFieldId = null;
+      // TASK-2265 — the Optional inputs analog, read by
+      // handleOptionalInputsExpanded.
+      this.pendingOptionalInputsFocusFieldId = null;
   }
 
   componentDidMount() {
@@ -713,14 +727,33 @@ class AnugaScenarioMenuClass extends React.Component {
       if (el && typeof el.focus === 'function') el.focus();
   };
 
-  // TASK-2116 (F4) — "Attach first": dismiss without building, expand-then-
-  // focus the mesh-region selector (TASK-2245: it now lives inside the
-  // collapsed-by-default RUN SETTINGS section) so the user can pick a
-  // region right away instead of hunting for the field.
+  // TASK-2265 (epic 2237 W5) — Optional inputs analog of
+  // requestRunSettingsFocus above: bumps optionalInputsExpandToken instead,
+  // so the pane opens the Optional inputs section (not Run settings).
+  requestOptionalInputsFocus = (fieldId) => {
+      this.pendingOptionalInputsFocusFieldId = fieldId;
+      this.setState((prevState) => ({optionalInputsExpandToken: (prevState.optionalInputsExpandToken || 0) + 1}));
+  };
+
+  // TASK-2265 — fired by ScenarioPane's onOptionalInputsExpanded prop once
+  // the Optional inputs section is confirmed open (post-commit). This is
+  // the ONLY place that actually calls .focus() for Optional inputs fields.
+  handleOptionalInputsExpanded = () => {
+      const fieldId = this.pendingOptionalInputsFocusFieldId;
+      this.pendingOptionalInputsFocusFieldId = null;
+      const el = typeof document !== 'undefined' && fieldId ? document.getElementById(fieldId) : null;
+      if (el && typeof el.focus === 'function') el.focus();
+  };
+
+  // TASK-2116 (F4); re-targeted TASK-2265 (epic 2237 W5, UAT re-aim finding
+  // 4) — "Attach first": dismiss without building, expand-then-focus the
+  // mesh-region selector. mesh_region now lives inside its own Optional
+  // inputs section (moved out of the merged RUN SETTINGS section), so this
+  // targets requestOptionalInputsFocus, not requestRunSettingsFocus.
   handleMeshRegionWarningAttachFirst = () => {
       this.setState({meshRegionWarning: null});
       trackEvent('button', 'click', 'anuga-scenario-menu-mesh-region-warning-attach-first');
-      this.requestRunSettingsFocus('mesh_region');
+      this.requestOptionalInputsFocus('mesh_region');
   };
 
   // TASK-2160 (epic 2147 W4) — "Build anyway" for the rainfall warning:
@@ -868,6 +901,8 @@ class AnugaScenarioMenuClass extends React.Component {
               onOpenMergeTerrainsPanel={this.props.onOpenMergeTerrainsPanel}
               runSettingsExpandToken={this.state.runSettingsExpandToken}
               onRunSettingsExpanded={this.handleRunSettingsExpanded}
+              optionalInputsExpandToken={this.state.optionalInputsExpandToken}
+              onOptionalInputsExpanded={this.handleOptionalInputsExpanded}
           />
       );
   }

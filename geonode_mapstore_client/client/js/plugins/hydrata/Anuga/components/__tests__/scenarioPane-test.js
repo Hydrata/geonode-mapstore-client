@@ -117,47 +117,52 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
 
     // ------------------------------------------------------------------
     // Section-heading completeness badges (UAT re-aim, finding 2; re-cut
-    // TASK-2245/W3.1 for the 2-heading RUN SETTINGS merge) — the rail's
-    // per-category "N/M" / "built" / "100%" tags now render right-aligned
-    // inside each merged-pane section heading, reusing
-    // validateCategoryProgress (scenarioHelpers.js) with the EXACT same
-    // arguments the rail used to pass (including the TASK-2045
-    // boundaryHasFeatures gate) — never re-derived. TASK-2245 collapses the
-    // former Optional + Run headings into ONE "RUN SETTINGS" heading whose
-    // badge is the run-category tag alone (AC#4) — 'Optional' progress is no
-    // longer painted anywhere.
+    // TASK-2245/W3.1 for the 2-heading RUN SETTINGS merge; RESTORED to 3
+    // headings by TASK-2265/W5, UAT re-aim findings 3+4) — the rail's
+    // per-category "N/M" / "built" / "100%" tags render right-aligned
+    // inside each section heading, reusing validateCategoryProgress
+    // (scenarioHelpers.js) with the EXACT same arguments the rail used to
+    // pass (including the TASK-2045 boundaryHasFeatures gate) — never
+    // re-derived. Optional inputs' badge is the 'advanced'-category tag
+    // (never err — see validateCategoryProgress); Run settings' badge keeps
+    // the TASK-2244/2245 'err' suppression (AC#4) since the title pill + the
+    // Run-failed notice are the sole standing error indicators.
     // ------------------------------------------------------------------
     describe('Section-heading completeness badges (finding 2)', () => {
-        it('renders the 2 section headings in document order with right-aligned badges', (done) => {
+        it('renders the 3 section headings in document order with right-aligned badges', (done) => {
             // baseScenario: terrain(3)+boundary(4)+inflow(5) all set → Required
-            // 3/3 (is-ok). status 'built' → RUN SETTINGS badge 'built'.
+            // 3/3 (is-ok). No friction/structure/mesh_region set → Optional
+            // inputs 0/3 (always is-ok). status 'built' → Run settings 'built'.
             ReactDOM.render(
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
                     const heads = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-title');
-                    expect(heads.length).toBe(2);
+                    expect(heads.length).toBe(3);
                     expect(heads[0].textContent).toInclude('hydrata.anuga.requiredInputs');
-                    expect(heads[1].textContent).toInclude('hydrata.anuga.runSettings');
+                    expect(heads[1].textContent).toInclude('hydrata.anuga.optionalInputs');
+                    expect(heads[2].textContent).toInclude('hydrata.anuga.runSettings');
 
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    expect(badges.length).toBe(2);
+                    expect(badges.length).toBe(3);
                     expect(badges[0].textContent).toBe('3/3');
                     expect(badges[0].className).toInclude('is-ok');
-                    expect(badges[1].textContent).toBe('built');
+                    expect(badges[1].textContent).toBe('0/3');
+                    expect(badges[1].className).toInclude('is-ok');
+                    expect(badges[2].textContent).toBe('built');
                     done();
                 }
             );
         });
 
-        it('RUN SETTINGS badge shows 100% for a complete scenario (operator UAT example)', (done) => {
+        it('Run settings badge shows 100% for a complete scenario (operator UAT example)', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={{...baseScenario, status: 'complete'}} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    expect(badges[1].textContent).toBe('100%');
-                    expect(badges[1].className).toInclude('is-ok');
+                    expect(badges[2].textContent).toBe('100%');
+                    expect(badges[2].className).toInclude('is-ok');
                     done();
                 }
             );
@@ -165,15 +170,15 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
 
         // AC#4 — "pct while running": a computing run's badge is a rounded
         // percentage, not the config-completeness tag.
-        it('RUN SETTINGS badge shows a rounded percentage while computing (AC#4)', (done) => {
+        it('Run settings badge shows a rounded percentage while computing (AC#4)', (done) => {
             const s = {...baseScenario, status: 'computing', latest_run: {status: 'computing', progress_pct: 41.7}};
             ReactDOM.render(
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    expect(badges[1].textContent).toBe('42%');
-                    expect(badges[1].className).toInclude('is-ok');
+                    expect(badges[2].textContent).toBe('42%');
+                    expect(badges[2].className).toInclude('is-ok');
                     done();
                 }
             );
@@ -192,23 +197,23 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // TASK-2244 (epic 2237 W2.2); carried forward verbatim by TASK-2245 —
-        // the run-category 'err' badge is suppressed at RENDER level
-        // (validateCategoryProgress itself still computes severity:'err'
-        // underneath — pinned, untouched; see scenarioHelpers-test.js). The
-        // title pill (toolbar) + the Run-failed notice are the sole error
-        // indicators now — see 'Error consolidation (TASK-2244)' below for
-        // both.
-        it('suppresses the RUN SETTINGS badge (no "err" pill) when scenario.status === error', (done) => {
+        // TASK-2244 (epic 2237 W2.2); carried forward verbatim by TASK-2245,
+        // then TASK-2265 — the run-category 'err' badge is suppressed at
+        // RENDER level (validateCategoryProgress itself still computes
+        // severity:'err' underneath — pinned, untouched; see
+        // scenarioHelpers-test.js). The title pill (toolbar) + the
+        // Run-failed notice are the sole error indicators now — see 'Error
+        // consolidation (TASK-2244)' below for both.
+        it('suppresses the Run settings badge (no "err" pill) when scenario.status === error', (done) => {
             const s = {...baseScenario, status: 'error', latest_run: {status: 'error'}};
             ReactDOM.render(
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    // Required badge still renders (1); the RUN SETTINGS
-                    // badge is gone, not merely relabelled.
-                    expect(badges.length).toBe(1);
+                    // Required + Optional inputs badges still render (2);
+                    // the Run settings badge is gone, not merely relabelled.
+                    expect(badges.length).toBe(2);
                     expect(container.querySelector('.sv-anuga-scenario-pane-detail-head-badge.is-err')).toNotExist();
                     done();
                 }
@@ -521,6 +526,222 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                             done();
                         }
                     );
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // TASK-2265 (epic 2237 W5, UAT re-aim findings 3+4) — Required and
+    // Optional inputs become independently collapsible too, generalizing
+    // TASK-2245's RUN SETTINGS-only chevron pattern (useCollapsibleSection).
+    // Required starts OPEN (no expand-then-focus bridge in this wave's
+    // scope); Optional inputs starts COLLAPSED and gains its OWN
+    // expand-then-focus bridge (mesh_region's "Attach first" now targets
+    // this section instead of Run settings — see anugaScenarioMenu-test.js
+    // for the full menu-driven flow).
+    // ------------------------------------------------------------------
+    describe('Required collapse (TASK-2265)', () => {
+        it('is OPEN by default (AC#3)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    const section = container.querySelector('.sv-anuga-scenario-pane-required');
+                    expect(section).toExist();
+                    expect(section.className).toInclude('is-open');
+                    expect(section.querySelector('[aria-expanded="true"]')).toExist();
+                    expect(container.querySelector('#name')).toExist();
+                    done();
+                }
+            );
+        });
+
+        it('clicking the header toggles collapsed <-> open (user action)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    const header = container.querySelector('.sv-anuga-scenario-pane-required-header');
+                    // Deferred a tick — a click dispatched from inside this
+                    // mount-commit callback doesn't flush its state update
+                    // until the callback's own call stack unwinds.
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toNotInclude('is-open');
+                            header.click();
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+                                done();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+    });
+
+    describe('Optional inputs collapse (TASK-2265)', () => {
+        it('is collapsed by default (AC#3) — fields still exist (always-render)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit meshRegions={meshRegionOpts} />,
+                container,
+                () => {
+                    const section = container.querySelector('.sv-anuga-scenario-pane-optional-inputs');
+                    expect(section).toExist();
+                    expect(section.className).toNotInclude('is-open');
+                    expect(section.querySelector('[aria-expanded="false"]')).toExist();
+                    expect(container.querySelector('#mesh_region')).toExist();
+                    done();
+                }
+            );
+        });
+
+        it('clicking the header toggles collapsed <-> open (user action)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    const header = container.querySelector('.sv-anuga-scenario-pane-optional-inputs-header');
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-optional-inputs').className).toInclude('is-open');
+                            header.click();
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-optional-inputs').className).toNotInclude('is-open');
+                                done();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        // Expand-then-focus bridge (pane side only — see
+        // anugaScenarioMenu-test.js for the full menu-driven "Attach first"
+        // flow that now bumps this token for mesh_region, TASK-2265 finding 4).
+        it('optionalInputsExpandToken opens the section and fires onOptionalInputsExpanded exactly once', (done) => {
+            let expandedCalls = 0;
+            const onOptionalInputsExpanded = () => { expandedCalls += 1; };
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    optionalInputsExpandToken={null}
+                    onOptionalInputsExpanded={onOptionalInputsExpanded}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-optional-inputs').className).toNotInclude('is-open');
+                    expect(expandedCalls).toBe(0);
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={baseScenario}
+                            canEdit
+                            optionalInputsExpandToken={1}
+                            onOptionalInputsExpanded={onOptionalInputsExpanded}
+                        />,
+                        container,
+                        () => {
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-optional-inputs').className).toInclude('is-open');
+                                expect(expandedCalls).toBe(1);
+                                ReactDOM.render(
+                                    <ScenarioPane
+                                        scenario={baseScenario}
+                                        canEdit
+                                        optionalInputsExpandToken={1}
+                                        onOptionalInputsExpanded={onOptionalInputsExpanded}
+                                    />,
+                                    container,
+                                    () => {
+                                        expect(expandedCalls).toBe(1);
+                                        done();
+                                    }
+                                );
+                            }, 0);
+                        }
+                    );
+                }
+            );
+        });
+    });
+
+    // TASK-2265 — the pre-epic field-grouping contract, scoped to each
+    // section's own -body wrapper (not merely "exists somewhere in the DOM")
+    // so a field silently drifting into the wrong section would fail here.
+    describe('Section field membership (TASK-2265)', () => {
+        it('Required body contains name/terrain/boundary/inflow/rainfall, nothing from the other 2 sections', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    terrain={terrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                />,
+                container,
+                () => {
+                    const body = container.querySelector('.sv-anuga-scenario-pane-required-body');
+                    expect(body).toExist();
+                    expect(body.querySelector('#name')).toExist();
+                    expect(body.querySelector('#terrain')).toExist();
+                    expect(body.querySelector('#boundary')).toExist();
+                    expect(body.querySelector('#inflow')).toExist();
+                    expect(body.querySelector('#rainfall')).toExist();
+                    expect(body.querySelector('#friction')).toNotExist();
+                    expect(body.querySelector('#resolution')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('Optional inputs body contains friction/structure/mesh_region only', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    frictions={frictionOpts}
+                    structures={structureOpts}
+                    meshRegions={meshRegionOpts}
+                />,
+                container,
+                () => {
+                    const body = container.querySelector('.sv-anuga-scenario-pane-optional-inputs-body');
+                    expect(body).toExist();
+                    expect(body.querySelector('#friction')).toExist();
+                    expect(body.querySelector('#structure')).toExist();
+                    expect(body.querySelector('#mesh_region')).toExist();
+                    expect(body.querySelector('#name')).toNotExist();
+                    expect(body.querySelector('#resolution')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('Run settings body contains duration/base-mesh-size/compute-target only', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    isStaff
+                    availableComputeTargets={['local', 'batch-x32']}
+                    defaultComputeTarget={'batch-x32'}
+                />,
+                container,
+                () => {
+                    const body = container.querySelector('.sv-anuga-scenario-pane-run-settings-body');
+                    expect(body).toExist();
+                    expect(body.querySelector('#resolution')).toExist();
+                    expect(body.querySelector('#duration-hours')).toExist();
+                    expect(body.querySelector('#duration-minutes')).toExist();
+                    expect(body.querySelector('#compute_target')).toExist();
+                    expect(body.querySelector('#friction')).toNotExist();
+                    expect(body.querySelector('#name')).toNotExist();
+                    done();
                 }
             );
         });
