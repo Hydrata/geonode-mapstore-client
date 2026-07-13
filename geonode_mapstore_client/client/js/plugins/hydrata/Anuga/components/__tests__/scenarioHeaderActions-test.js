@@ -17,6 +17,7 @@
 import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
+import {Simulate} from 'react-dom/test-utils';
 import {ScenarioHeaderActions, ACTION_DEBOUNCE_MS} from '../scenarioHeaderActions';
 
 const baseScenario = {
@@ -710,6 +711,218 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                     expect(info.getAttribute('aria-live')).toBe('polite');
                     expect(cluster).toExist();
                     done();
+                }
+            );
+        });
+    });
+
+    // TASK-2242 (epic 2237 W1.4) — executable tooltips: helper text + the
+    // live estimate echo (Build / Build-and-Run only), disabled-button
+    // wrapper, z-index fix. react-bootstrap's OverlayTrigger mounts its
+    // Tooltip (portaled to document.body) asynchronously after the
+    // triggering mouseOver — the DOM node is NOT there on the same tick, so
+    // every assertion here waits one short macrotask before reading it.
+    describe('Executable tooltips (TASK-2242)', () => {
+        // Simulate.mouseOver dispatches straight to whatever element
+        // OverlayTrigger attached its handler to (the wrapper SPAN, not the
+        // button) — this is exactly the mechanism the disabled-button fix
+        // depends on: a real browser's disabled <button> never dispatches
+        // hover at all, so the wrapper having its OWN box/handler is what
+        // makes the tooltip fire regardless of the button's disabled state.
+        function hoverTooltipWrapOf(btnSelector, cb) {
+            const btn = container.querySelector(btnSelector);
+            const wrap = btn.parentElement;
+            expect(wrap.className).toInclude('sv-scenario-tooltip-wrap');
+            Simulate.mouseOver(wrap);
+            setTimeout(cb, 50);
+        }
+
+        it('Build & Run shows its helper-text tooltip, z-index-lifted above the page wrapper', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-build-run', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-and-run-tooltip');
+                        expect(tooltip).toExist();
+                        expect(tooltip.getAttribute('role')).toBe('tooltip');
+                        expect(tooltip.textContent).toInclude('hydrata.anuga.buildAndRunTooltip');
+                        expect(tooltip.style.zIndex).toBe('100000');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('Build shows its helper-text tooltip', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-build', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-tooltip');
+                        expect(tooltip).toExist();
+                        expect(tooltip.textContent).toInclude('hydrata.anuga.buildTooltip');
+                        expect(tooltip.style.zIndex).toBe('100000');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('Build & Run tooltip echoes the live estimate when the scenario carries one', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 12345, compute_cost_estimate: 3.2}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-build-run', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-and-run-tooltip');
+                        expect(tooltip.textContent).toInclude('12,345 triangles');
+                        expect(tooltip.textContent).toInclude('$3.20');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('Build tooltip echoes the live estimate when the scenario carries one', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 500, compute_cost_estimate: 0.5}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-build', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-tooltip');
+                        expect(tooltip.textContent).toInclude('500 triangles');
+                        expect(tooltip.textContent).toInclude('$0.50');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('omits the estimate echo cleanly when the scenario carries neither value', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-build-run', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-and-run-tooltip');
+                        expect(tooltip.textContent).toNotInclude('triangles');
+                        expect(tooltip.textContent).toNotInclude('$');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('the Build & Run tooltip still renders while the button is disabled mid-flight (in-flight status)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'computing', latest_run: {id: 9, status: 'computing'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const btn = container.querySelector('.sv-scenario-action-build-run');
+                    expect(btn.disabled).toBe(true);
+                    hoverTooltipWrapOf('.sv-scenario-action-build-run', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-and-run-tooltip');
+                        expect(tooltip).toExist();
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('the Build tooltip still renders while disabled mid-flight', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'computing', latest_run: {id: 9, status: 'computing'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const btn = container.querySelector('.sv-scenario-action-build');
+                    expect(btn.disabled).toBe(true);
+                    hoverTooltipWrapOf('.sv-scenario-action-build', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-tooltip');
+                        expect(tooltip).toExist();
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('the lifecycle-slot Run tooltip still renders while disabled (created status)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={{...baseScenario, status: 'created'}} canEdit canRunScenario />,
+                container,
+                () => {
+                    const btn = container.querySelector('.sv-scenario-action-run');
+                    expect(btn.disabled).toBe(true);
+                    hoverTooltipWrapOf('.sv-scenario-action-run', () => {
+                        const tooltip = document.getElementById('sv-scenario-run-tooltip');
+                        expect(tooltip).toExist();
+                        expect(tooltip.textContent).toInclude('hydrata.anuga.runTooltip');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('the lifecycle-slot Re-run tooltip is slot-state-appropriate (cancelled status)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'cancelled', latest_run: {id: 9, status: 'cancelled'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-rerun', () => {
+                        const tooltip = document.getElementById('sv-scenario-run-tooltip');
+                        expect(tooltip.textContent).toInclude('hydrata.anuga.rerunTooltip');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('the lifecycle-slot Retry tooltip is slot-state-appropriate (error status)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'error', latest_run: {id: 9, status: 'error'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-retry', () => {
+                        const tooltip = document.getElementById('sv-scenario-retry-tooltip');
+                        expect(tooltip.textContent).toInclude('hydrata.anuga.retryTooltip');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('the lifecycle-slot Cancel-run tooltip is slot-state-appropriate (computing status)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'computing', latest_run: {id: 9, status: 'computing'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-cancel-run', () => {
+                        const tooltip = document.getElementById('sv-scenario-cancel-run-tooltip');
+                        expect(tooltip.textContent).toInclude('hydrata.anuga.cancelRunTooltip');
+                        done();
+                    });
                 }
             );
         });

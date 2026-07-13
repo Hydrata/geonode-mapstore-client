@@ -1249,11 +1249,33 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     const label = container.querySelector('label[for="resolution"]');
                     expect(label).toExist();
                     expect(label.textContent).toInclude('Base mesh size');
-                    // The run-config help caption explains WHY: refinement inputs
-                    // mesh finer than this — the label alone must not have to
-                    // carry the whole honesty story.
-                    const help = container.querySelector('.sv-anuga-scenario-pane-help');
-                    expect(help.textContent.toLowerCase()).toInclude('mesh finer');
+                    // TASK-2242 (epic 2237 W1.4) — the run-config help caption that
+                    // used to explain WHY here (refinement inputs mesh finer than
+                    // this) is REMOVED from the pane; that honesty story now lives
+                    // in the Build / Build-and-Run executable tooltips (header
+                    // strip) instead, which additionally echo the live estimate.
+                    done();
+                }
+            );
+        });
+
+        // TASK-2242 (epic 2237 W1.4) — regression guard: the removed runConfigHelp
+        // paragraph must not silently come back in this pane.
+        it('TASK-2242: does not render the removed run-config help caption in the Run section', (done) => {
+            ReactDOM.render(
+                <Localized locale="en-US" messages={enData.messages}>
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />
+                </Localized>,
+                container,
+                () => {
+                    const runSection = container.querySelector('.sv-anuga-scenario-pane-rows-run');
+                    expect(runSection).toExist();
+                    expect(runSection.querySelector('.sv-anuga-scenario-pane-section--help')).toNotExist();
+                    expect((runSection.textContent || '').toLowerCase()).toNotInclude('mesh finer wherever');
                     done();
                 }
             );

@@ -756,11 +756,15 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                     </div>
                 </FormRow>
             ) : null}
-            <div className="sv-anuga-scenario-pane-section sv-anuga-scenario-pane-section--help">
-                <span className="sv-anuga-scenario-pane-help">
-                    <Message msgId="hydrata.anuga.runConfigHelp" />
-                </span>
-            </div>
+            {/* TASK-2242 (epic 2237 W1.4) — the runConfigHelp paragraph that used
+                to render here is REMOVED: its content (mesh-region/structure/
+                breakline fine-mesh note, duration requirement, compute-backend
+                default) is now fully covered by the Build / Build-and-Run
+                executable tooltips in the header strip (ScenarioHeaderActions),
+                which additionally echo the live estimate right where the user's
+                cursor already is. hydrata.anuga.runConfigHelp is retired
+                deliberately (kept in the locale files as a historical, now-
+                unreferenced key rather than deleted — see the wave report). */}
             {/* W3.2 (TASK-1267); re-based TASK-2093 (epic 2092 W1.1) — pre-dispatch
                 triangle count + DOLLAR cost estimate. compute_cost_estimate used to
                 be raw vCPU-hours mislabeled as a cost and printed with a '$' AND a

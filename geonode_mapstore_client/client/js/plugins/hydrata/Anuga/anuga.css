@@ -1866,6 +1866,25 @@ div that holds the feature-grid */
     background-color: #43c47a;
 }
 
+/* TASK-2242 (epic 2237 W1.4) — each of the 3 cluster executables (Build-
+   and-Run / the lifecycle slot / Build) is now wrapped in a plain
+   .sv-scenario-tooltip-wrap span so its OverlayTrigger tooltip still fires
+   while the inner <button> is natively `disabled` (a disabled form control
+   never dispatches pointer events, including hover, in Chrome — the
+   wrapper's OWN box is what actually catches the hover). inline-flex +
+   the SAME flex-basis the buttons used to carry directly keeps the row's
+   equal-width layout unchanged now that the button is nested one level
+   deeper; the inner button fills 100% of the wrapper. */
+.sv-scenario-header-run-actions .sv-scenario-tooltip-wrap {
+    display: inline-flex;
+    flex: 0 1 150px;
+    min-width: 92px;
+}
+
+.sv-scenario-tooltip-wrap .sv-scenario-action-toolbar-btn {
+    width: 100%;
+}
+
 /* Results / Download — OUTLINE per the family rule (FILLED = executes or
    costs money; OUTLINE = safe/non-destructive read). Overrides the
    Bootstrap bsStyle solid fill with a transparent background + a coloured

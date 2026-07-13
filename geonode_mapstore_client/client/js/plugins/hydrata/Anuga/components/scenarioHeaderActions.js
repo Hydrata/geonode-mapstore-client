@@ -1,6 +1,6 @@
 import React, {useState, useRef, useEffect, useCallback} from "react";
 const PropTypes = require('prop-types');
-import {Button} from "react-bootstrap";
+import {Button, OverlayTrigger, Tooltip} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
@@ -80,6 +80,30 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * container's inline-dialog props — NO window.confirm here (memory pin
  * feedback-window-confirm-blocks-automation).
  *
+ * TASK-2242 (epic 2237 W1.4) — the three executables (Build-and-Run, the
+ * lifecycle slot, Build) each carry a hover tooltip: helper text explaining
+ * what the click actually does, plus (Build / Build-and-Run only) a live
+ * echo of the pre-build estimate (scenario.mesh_triangle_count_estimate /
+ * compute_cost_estimate) when the scenario carries one — the estimate's
+ * HOME stays the in-pane section (scenarioPane.js); this is a read-only
+ * echo, no new data plumbing (amendment A1). The removed runConfigHelp
+ * paragraph's content is now fully covered by these tooltips.
+ *
+ * Two idioms reused verbatim from commit 82eca8880 (Terrain/Friction
+ * pane-header tooltips, same class of bug):
+ *   - z-index: react-bootstrap OverlayTrigger portals its overlay to
+ *     <body>, where geonode.css's `.msgapi .tooltip` sits at z-index:10000
+ *     — BELOW `.gn-page-wrapper`'s z-index:99999, so a body-level tooltip
+ *     paints invisibly behind the whole app unless lifted. PANE_TOOLTIP_STYLE
+ *     (inline zIndex:100000) fixes that; every Tooltip below also carries the
+ *     `id` react-bootstrap requires for screen-reader accessibility.
+ *   - disabled buttons swallow pointer events, so OverlayTrigger's hover
+ *     listener on a `disabled` <button> never fires. Each tooltip-bearing
+ *     executable is wrapped in a plain <span> (withExecutableTooltip below)
+ *     — the OverlayTrigger listens on the SPAN, which stays hoverable
+ *     regardless of the button's own disabled state (acceptance: tooltip
+ *     still renders while disabled mid-flight).
+ *
  * UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3) —
  * STANDARDISED this row: every button is now EQUAL WIDTH (anuga.css,
  * `.sv-scenario-action-toolbar-btn` — the shared hook class every button
@@ -95,6 +119,35 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
 
 // Minimum time (ms) a debounced action button stays disabled after a click.
 export const ACTION_DEBOUNCE_MS = 2000;
+
+// TASK-2242 — see the file doc comment's z-index note (idiom from commit
+// 82eca8880). Inline beats the stylesheet rule.
+const PANE_TOOLTIP_STYLE = {zIndex: 100000};
+
+// TASK-2242 — Build / Build-and-Run tooltips echo the SAME pre-build
+// estimate scenarioPane.js's own in-pane section renders (mesh triangle
+// count + dollar cost), read-only, no new data plumbing (amendment A1).
+// Returns null (renders nothing) when the scenario carries neither value.
+const estimateEcho = (scenario) => {
+    const hasTriangles = scenario?.mesh_triangle_count_estimate !== null
+        && scenario?.mesh_triangle_count_estimate !== undefined;
+    const hasCost = scenario?.compute_cost_estimate !== null
+        && scenario?.compute_cost_estimate !== undefined;
+    if (!hasTriangles && !hasCost) return null;
+    const parts = [];
+    if (hasTriangles) parts.push(`~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`);
+    if (hasCost) parts.push(`~$${Number(scenario.compute_cost_estimate).toFixed(2)}`);
+    return ` (${parts.join(', ')})`;
+};
+
+// TASK-2242 — wraps an executable button in an OverlayTrigger + a plain
+// <span> (see the file doc comment's disabled-pointer-events note). `id`
+// must be unique per call site (react-bootstrap requires it on Tooltip).
+const withExecutableTooltip = (id, content, child) => (
+    <OverlayTrigger placement="top" overlay={<Tooltip id={id} style={PANE_TOOLTIP_STYLE}>{content}</Tooltip>}>
+        <span className="sv-scenario-tooltip-wrap">{child}</span>
+    </OverlayTrigger>
+);
 
 // Mid-run statuses (IN_FLIGHT_STATUSES, imported from scenarioHelpers): no new
 // build/run can start, and Build/Run/Build-and-Run are held disabled until the
@@ -217,7 +270,9 @@ const ScenarioHeaderActions = (props, context) => {
     // used — only the mutex wrapping is new.
     const renderLifecycleSlot = () => {
         if (canCancelRun) {
-            return (
+            return withExecutableTooltip(
+                'sv-scenario-cancel-run-tooltip',
+                <Message msgId="hydrata.anuga.cancelRunTooltip" />,
                 <Button
                     bsStyle={'danger'}
                     bsSize={'xsmall'}
@@ -232,7 +287,9 @@ const ScenarioHeaderActions = (props, context) => {
             );
         }
         if (canRunScenario && isError) {
-            return (
+            return withExecutableTooltip(
+                'sv-scenario-retry-tooltip',
+                <Message msgId="hydrata.anuga.retryTooltip" />,
                 <Button
                     bsStyle={'warning'}
                     bsSize={'xsmall'}
@@ -244,7 +301,9 @@ const ScenarioHeaderActions = (props, context) => {
             );
         }
         if (canRunScenario && !isError) {
-            return (
+            return withExecutableTooltip(
+                'sv-scenario-run-tooltip',
+                <Message msgId={isRerun ? 'hydrata.anuga.rerunTooltip' : 'hydrata.anuga.runTooltip'} />,
                 <Button
                     bsStyle={'success'}
                     bsSize={'xsmall'}
@@ -285,27 +344,41 @@ const ScenarioHeaderActions = (props, context) => {
                 segmented pill/tab strip. */}
             <div className="sv-scenario-run-cluster">
                 {canEdit && canRunScenario ?
-                    <Button
-                        bsStyle={'primary'}
-                        bsSize={'xsmall'}
-                        className={btn('sv-scenario-action-build-run') + (lockBuildAndRun ? ' disabled' : '')}
-                        disabled={lockBuildAndRun}
-                        onClick={fireDebounced('buildAndRun', onBuildAndRunClick, 'anuga-scenario-menu-build-and-run')}
-                    >
-                        <Message msgId="hydrata.anuga.buildAndRun" />
-                    </Button> : null
+                    withExecutableTooltip(
+                        'sv-scenario-build-and-run-tooltip',
+                        <React.Fragment>
+                            <Message msgId="hydrata.anuga.buildAndRunTooltip" />
+                            {estimateEcho(scenario)}
+                        </React.Fragment>,
+                        <Button
+                            bsStyle={'primary'}
+                            bsSize={'xsmall'}
+                            className={btn('sv-scenario-action-build-run') + (lockBuildAndRun ? ' disabled' : '')}
+                            disabled={lockBuildAndRun}
+                            onClick={fireDebounced('buildAndRun', onBuildAndRunClick, 'anuga-scenario-menu-build-and-run')}
+                        >
+                            <Message msgId="hydrata.anuga.buildAndRun" />
+                        </Button>
+                    ) : null
                 }
                 {renderLifecycleSlot()}
                 {canEdit ?
-                    <Button
-                        bsStyle={'success'}
-                        bsSize={'xsmall'}
-                        className={btn('sv-scenario-action-build') + (lockBuild ? ' disabled' : '')}
-                        disabled={lockBuild}
-                        onClick={fireDebounced('build', onBuildClick, 'anuga-scenario-menu-build')}
-                    >
-                        <Message msgId="hydrata.anuga.build" />
-                    </Button> : null
+                    withExecutableTooltip(
+                        'sv-scenario-build-tooltip',
+                        <React.Fragment>
+                            <Message msgId="hydrata.anuga.buildTooltip" />
+                            {estimateEcho(scenario)}
+                        </React.Fragment>,
+                        <Button
+                            bsStyle={'success'}
+                            bsSize={'xsmall'}
+                            className={btn('sv-scenario-action-build') + (lockBuild ? ' disabled' : '')}
+                            disabled={lockBuild}
+                            onClick={fireDebounced('build', onBuildClick, 'anuga-scenario-menu-build')}
+                        >
+                            <Message msgId="hydrata.anuga.build" />
+                        </Button>
+                    ) : null
                 }
             </div>
             {canRunScenario && priceLabel ?
