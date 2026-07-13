@@ -181,7 +181,7 @@ The dev-only primitive catalogue is registered as `SimpleViewReference` in the
 **dev localConfig only** (gitignored working copy).
 
 **How to open on :8081:**
-1. Navigate to any map\_viewer URL, e.g. `http://localhost:8081/maps/1335/map_viewer`
+1. Navigate to any map URL, e.g. `http://localhost:8081/catalogue/#/map/1335` (the old `/maps/<id>/map_viewer` path 404s — the viewer rides the catalogue hash route)
 2. Look for the yellow `☰ Ref` button at the **bottom-left** of the map.
 3. Click it — the primitive catalogue opens in a `.simple-view-panel` shell.
 4. The panel is scrollable; all v1 primitives + variants + token swatches are shown.
