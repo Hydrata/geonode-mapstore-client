@@ -262,3 +262,83 @@ describe('ClickDisambiguationPanel (TASK-1993 W2.1)', () => {
         });
     });
 });
+
+// TASK-2235 — the chooser rides the MovablePanel primitive (drag + resize +
+// per-panelId persistence) while keeping its dim backdrop; only a click on the
+// backdrop itself (not inside the panel) closes it.
+describe('ClickDisambiguationPanel — movable (TASK-2235)', () => {
+
+    beforeEach(() => cleanClickTargets());
+    afterEach(() => cleanClickTargets());
+
+    const two = () => [
+        candidate('bdy_', 'bdy_1_b.5', { title: 'Boundary', subtitle: '', icon: '' }),
+        candidate('inf_', 'inf_2_i.3', { title: 'Inflow', subtitle: '', icon: '' })
+    ];
+
+    it('renders the chooser rows inside a MovablePanel carrying the panel class', () => {
+        render(<ClickDisambiguationPanel candidates={two()} onSelect={() => {}} onClose={() => {}} />);
+        const panel = document.querySelector('[data-testid="movable-panel-clickDisambiguation"]');
+        expect(panel).toExist();
+        expect(panel.className).toInclude('sv-movable-panel');
+        expect(panel.className).toInclude('click-disambiguation-panel');
+        expect(panel.querySelectorAll('.click-disambiguation-row').length).toBe(2);
+        expect(panel.querySelector('.sv-panel-header-close')).toExist();
+    });
+
+    it('backdrop click closes; a click inside the panel does not', () => {
+        const onClose = expect.createSpy();
+        const { container } = render(
+            <ClickDisambiguationPanel candidates={two()} onSelect={() => {}} onClose={onClose} />
+        );
+        const title = document.querySelector('[data-testid="movable-panel-clickDisambiguation"] .sv-panel-header-title');
+        fireEvent.click(title);
+        expect(onClose).toNotHaveBeenCalled();
+        fireEvent.click(container.querySelector('.click-disambiguation-overlay'));
+        expect(onClose).toHaveBeenCalled();
+    });
+
+    it('applies a persisted position from panelState', () => {
+        render(
+            <ClickDisambiguationPanel
+                candidates={two()}
+                onSelect={() => {}}
+                onClose={() => {}}
+                panelState={{ position: { x: 33, y: 44 } }}
+            />
+        );
+        const panel = document.querySelector('[data-testid="movable-panel-clickDisambiguation"]');
+        expect(panel.style.transform).toInclude('33px');
+        expect(panel.style.transform).toInclude('44px');
+    });
+
+    it('drag-end persists the position keyed by the clickDisambiguation panel id', () => {
+        const onPanelStateChange = expect.createSpy();
+        render(
+            <ClickDisambiguationPanel
+                candidates={two()}
+                onSelect={() => {}}
+                onClose={() => {}}
+                onPanelStateChange={onPanelStateChange}
+            />
+        );
+        const header = document.querySelector('[data-testid="movable-panel-clickDisambiguation"] .sv-movable-panel-header');
+        header.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }));
+        document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 90, clientY: 70 }));
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: 90, clientY: 70 }));
+        expect(onPanelStateChange).toHaveBeenCalled();
+        const args = onPanelStateChange.calls[onPanelStateChange.calls.length - 1].arguments;
+        expect(args[0]).toBe('clickDisambiguation');
+        expect(args[1].position).toExist();
+    });
+
+    it('mapStateToProps surfaces panelState from anuga.ui.movablePanels', () => {
+        const state = {
+            anuga: {
+                clickDisambiguation: { candidates: [candidate('bdy_', 'b.1'), candidate('inf_', 'i.2')] },
+                ui: { movablePanels: { clickDisambiguation: { position: { x: 1, y: 2 } } } }
+            }
+        };
+        expect(mapStateToProps(state).panelState).toEqual({ position: { x: 1, y: 2 } });
+    });
+});

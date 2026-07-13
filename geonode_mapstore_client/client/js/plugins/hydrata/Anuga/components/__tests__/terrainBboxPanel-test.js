@@ -337,3 +337,78 @@ describe('TASK-1648 GLO-30 bbox panel survives Inputs-menu close (UAT freeze reg
         });
     });
 });
+
+// TASK-2235 — the Copernicus import panel rides the MovablePanel primitive
+// (replacing the .sv-uploader-panel fixed shell): drag by header, corner
+// resize, position/size persisted per panelId 'terrainBbox'. The close chip
+// keeps the FULL cancel cleanup (draw clean + hide).
+describe('TASK-2235 TerrainBboxPanel — movable', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function mountPanel(uiOverrides = {}) {
+        const { TerrainBboxPanel } = require('../terrainBboxPanel');
+        const store = createMockStore({ terrainBboxPanelVisible: true, ...uiOverrides });
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}><TerrainBboxPanel /></Provider>,
+                container,
+                () => resolve({ store })
+            );
+        });
+    }
+
+    it('renders inside a MovablePanel; terrain-bbox-panel testid intact', () => {
+        return mountPanel().then(() => {
+            const panel = container.querySelector('[data-testid="movable-panel-terrainBbox"]');
+            expect(panel).toExist();
+            expect(panel.querySelector('[data-testid="terrain-bbox-panel"]')).toExist();
+            expect(panel.querySelector('.sv-movable-panel-header')).toExist();
+            expect(panel.querySelector('.sv-panel-header-close')).toExist();
+        });
+    });
+
+    it('close chip runs the full cancel cleanup (draw clean + hide)', () => {
+        return mountPanel({ terrainBboxDrawingActive: true }).then(({ store }) => {
+            container.querySelector('.sv-panel-header-close').click();
+            const closeAction = store.dispatched.find(a =>
+                a.type === 'SET_VISIBLE_TERRAIN_BBOX_PANEL' && a.visible === false
+            );
+            expect(closeAction).toExist();
+            const cleanAction = store.dispatched.find(a =>
+                a.status === 'clean' && a.owner === 'terrain-bbox'
+            );
+            expect(cleanAction).toExist();
+        });
+    });
+
+    it('applies a persisted position from anuga.ui.movablePanels.terrainBbox', () => {
+        return mountPanel({ movablePanels: { terrainBbox: { position: { x: 13, y: 24 } } } }).then(() => {
+            const panel = container.querySelector('[data-testid="movable-panel-terrainBbox"]');
+            expect(panel.style.transform).toInclude('13px');
+            expect(panel.style.transform).toInclude('24px');
+        });
+    });
+
+    it('drag-end dispatches ANUGA:SET_MOVABLE_PANEL_STATE keyed terrainBbox', () => {
+        return mountPanel().then(({ store }) => {
+            const header = container.querySelector('[data-testid="movable-panel-terrainBbox"] .sv-movable-panel-header');
+            header.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }));
+            document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 95, clientY: 75 }));
+            document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: 95, clientY: 75 }));
+            const act = store.dispatched.find(a => a.type === 'ANUGA:SET_MOVABLE_PANEL_STATE');
+            expect(act).toExist();
+            expect(act.panelId).toBe('terrainBbox');
+            expect(act.patch.position).toExist();
+        });
+    });
+});

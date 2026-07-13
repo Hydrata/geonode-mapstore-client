@@ -30,7 +30,12 @@ import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 
 import Message from '@mapstore/framework/components/I18N/Message';
-import { PanelShell, PanelHeader, ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
+import { ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
+// TASK-2235 — the panel rides the MovablePanel primitive (drag + resize +
+// per-panelId persistence on the anuga ui slice) instead of the PanelShell
+// fixed shell; header/close now come from MovablePanel.
+import MovablePanel from '../../shared/components/MovablePanel';
+import { setMovablePanelState } from '../../Anuga/actions/uiActions';
 import {
     setTerrainWorkbenchVisible,
     twLoadData,
@@ -39,6 +44,8 @@ import {
 } from '../actionsTerrainWorkbench';
 import { TWRecipeBuilder, TW_PARAM_DEFAULTS } from './recipeBuilderComponents';
 import '../terrainWorkbench.css';
+
+export const MERGE_TERRAINS_PANEL_ID = 'mergeTerrains';
 
 /**
  * pickCombinedSurface — deterministic single-surface selection rule.
@@ -120,7 +127,10 @@ export class MergeTerrainsPanelClass extends React.Component {
         deriveError: PropTypes.string,
         onClose: PropTypes.func,
         onUpdateSurface: PropTypes.func,
-        onDerive: PropTypes.func
+        onDerive: PropTypes.func,
+        // TASK-2235 — persisted MovablePanel position/size + its setter.
+        panelState: PropTypes.object,
+        onPanelStateChange: PropTypes.func
     };
 
     static defaultProps = {
@@ -140,8 +150,10 @@ export class MergeTerrainsPanelClass extends React.Component {
         const {
             terrains, surface,
             loading, error, saving, saveError, deriving, deriveError,
-            onClose, onUpdateSurface, onDerive
+            onClose, onUpdateSurface, onDerive,
+            panelState, onPanelStateChange
         } = this.props;
+        const persist = onPanelStateChange || (() => {});
         const hasTerrains = (terrains || []).length >= 1;
         // TASK-1800 (r2): a project owns ONE combined surface. Edit the selected
         // surface, or a synthetic placeholder (id null) when none exists yet — the
@@ -149,11 +161,17 @@ export class MergeTerrainsPanelClass extends React.Component {
         const editSurface = surface || PLACEHOLDER_SURFACE;
 
         return (
-            <PanelShell extraClassName="sv-merge-terrains-panel">
-                <PanelHeader
-                    title={<Message msgId="hydrata.anuga.combinedSurfacePanelTitle" />}
-                    onClose={onClose}
-                />
+            <MovablePanel
+                panelId={MERGE_TERRAINS_PANEL_ID}
+                className="sv-merge-terrains-panel"
+                title={<Message msgId="hydrata.anuga.combinedSurfacePanelTitle" />}
+                onClose={onClose}
+                position={panelState?.position}
+                size={panelState?.size}
+                defaultPosition={{ x: 20, y: 70 }}
+                onMove={(position) => persist(MERGE_TERRAINS_PANEL_ID, { position })}
+                onResize={(size) => persist(MERGE_TERRAINS_PANEL_ID, { size })}
+            >
                 <div className="sv-merge-terrains-body" data-testid="merge-terrains-panel">
                     {/* Empty state: with ZERO terrains there is nothing to combine. */}
                     {!hasTerrains ? (
@@ -190,7 +208,7 @@ export class MergeTerrainsPanelClass extends React.Component {
                         </React.Fragment>
                     )}
                 </div>
-            </PanelShell>
+            </MovablePanel>
         );
     }
 }
@@ -213,7 +231,9 @@ const mapStateToProps = (state) => {
         saving: state?.terrainWorkbench?.saving || false,
         saveError: state?.terrainWorkbench?.saveError || null,
         deriving: state?.terrainWorkbench?.deriving || false,
-        deriveError: state?.terrainWorkbench?.deriveError || null
+        deriveError: state?.terrainWorkbench?.deriveError || null,
+        // TASK-2235 — persisted MovablePanel position/size (anuga ui slice).
+        panelState: state?.anuga?.ui?.movablePanels?.[MERGE_TERRAINS_PANEL_ID]
     };
 };
 
@@ -221,7 +241,8 @@ const mapDispatchToProps = (dispatch) => ({
     onClose: () => dispatch(setTerrainWorkbenchVisible(false)),
     onLoadData: () => dispatch(twLoadData()),
     onUpdateSurface: (id, payload) => dispatch(twUpdateSurface(id, payload)),
-    onDerive: (id, body) => dispatch(twDerive(id, body))
+    onDerive: (id, body) => dispatch(twDerive(id, body)),
+    onPanelStateChange: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
 });
 
 export const MergeTerrainsPanel = connect(mapStateToProps, mapDispatchToProps)(MergeTerrainsPanelClass);

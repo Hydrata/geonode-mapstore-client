@@ -87,17 +87,20 @@ describe('SimpleView PanelHeader chassis primitive (TASK-1759)', () => {
             });
         });
 
-        it('CRITICAL: close chip has position:static in inline style (cascade-trap safety)', (done) => {
-            // The .sv-legend-close CSS rule has position:absolute which causes a cascade trap:
-            // an absolutely-positioned close chip escapes the flex row and overlaps the title.
-            // PanelHeader uses sv-panel-header-close (not sv-legend-close) AND sets position:static
-            // via inline style so the trap is blocked at two levels.
+        it('CRITICAL: close chip is corner-anchored (absolute top/right 2px) with reserved header padding', (done) => {
+            // TASK-2235 r2 (operator): the chip hugs the panel's top-right corner
+            // at exactly 2px, matching the Task Manager chip. The historic
+            // cascade-trap concern (an absolute chip overlapping the title) is
+            // neutralised structurally: the header reserves padding-right for
+            // the chip whenever onClose renders.
             ReactDOM.render(<PanelHeader title="T" onClose={() => {}} />, container, () => {
                 const btn = container.querySelector('.sv-panel-header-close');
                 expect(btn).toExist();
-                // jsdom preserves the raw inline style; check position is static
-                const styleAttr = btn.getAttribute('style') || '';
-                expect(styleAttr).toInclude('static');
+                expect(btn.style.position).toBe('absolute');
+                expect(btn.style.top).toBe('2px');
+                expect(btn.style.right).toBe('2px');
+                const header = container.querySelector('.sv-panel-header');
+                expect(header.style.paddingRight).toInclude('--sv-icon-size');
                 done();
             });
         });
@@ -158,6 +161,39 @@ describe('SimpleView PanelHeader chassis primitive (TASK-1759)', () => {
         it('does NOT render actions when children are absent', (done) => {
             ReactDOM.render(<PanelHeader title="T" />, container, () => {
                 expect(container.querySelector('.sv-panel-header-actions')).toNotExist();
+                done();
+            });
+        });
+    });
+
+    // TASK-2235 — the close chip adopts the RED close convention (matching the
+    // Task Manager .sv-legend-close chip), reversing the W1.9 translucent chip
+    // on operator instruction (2026-07-13). r2: same glyphicon-remove cross as
+    // the Task Manager (the thin &times; entity read too small), corner-anchored
+    // at 2px (asserted in the CRITICAL positioning spec above).
+    describe('Close chip red convention (TASK-2235)', () => {
+        it('close chip carries the red close-bg token + the Task-Manager glyphicon cross', (done) => {
+            ReactDOM.render(<PanelHeader title="T" onClose={() => {}} />, container, () => {
+                const chip = container.querySelector('.sv-panel-header-close');
+                expect(chip).toExist();
+                expect(chip.style.backgroundColor).toInclude('--sv-close-bg');
+                expect(chip.querySelector('.glyphicon.glyphicon-remove')).toExist();
+                done();
+            });
+        });
+
+        it('hover swaps to the hover token and restores on leave', (done) => {
+            // Simulate drives the synthetic onMouseEnter/onMouseLeave handlers
+            // directly — native mouseover does not reliably reach React 16's
+            // enter/leave synthesis in the test harness.
+            const TestUtils = require('react-dom/test-utils');
+            ReactDOM.render(<PanelHeader title="T" onClose={() => {}} />, container, () => {
+                const chip = container.querySelector('.sv-panel-header-close');
+                TestUtils.Simulate.mouseEnter(chip);
+                expect(chip.style.backgroundColor).toInclude('--sv-close-bg-hover');
+                TestUtils.Simulate.mouseLeave(chip);
+                expect(chip.style.backgroundColor).toInclude('--sv-close-bg');
+                expect(chip.style.backgroundColor).toExclude('--sv-close-bg-hover');
                 done();
             });
         });

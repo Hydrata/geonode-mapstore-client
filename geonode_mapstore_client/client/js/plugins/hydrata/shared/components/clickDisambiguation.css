@@ -28,3 +28,13 @@
 .click-disambiguation-row-icon {
     font-size: 0.95em;
 }
+
+/* TASK-2235 — the chooser rides MovablePanel: this sets only the FIRST-OPEN
+   width (position/size persist per panelId afterwards). The triple selector
+   outranks the .sv-movable-panel base (0,2,0) regardless of load order; the
+   max-height keeps a long candidate list scrolling in the panel body instead
+   of growing past the viewport. */
+.simple-view-panel.sv-movable-panel.click-disambiguation-panel {
+    width: 360px;
+    max-height: 70vh;
+}

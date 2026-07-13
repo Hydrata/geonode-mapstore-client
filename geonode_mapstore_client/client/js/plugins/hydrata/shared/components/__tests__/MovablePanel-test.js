@@ -158,7 +158,12 @@ describe('MovablePanel — TASK-2233', () => {
         const onMove = expect.createSpy();
         render({ onClose, onMove });
         const close = container.querySelector('.sv-panel-header-close');
-        mouse(close, 'mousedown', 5, 5);
+        // TASK-2235 r2: the chip contains a glyphicon span, so the REAL
+        // mousedown target is the chip's CHILD — the cancel selector must
+        // match descendants too (the ".cls, .cls *" idiom), or pressing the
+        // cross starts a drag.
+        const glyph = close.querySelector('.glyphicon') || close;
+        mouse(glyph, 'mousedown', 5, 5);
         mouse(document, 'mousemove', 60, 60);
         mouse(document, 'mouseup', 60, 60);
         close.click();

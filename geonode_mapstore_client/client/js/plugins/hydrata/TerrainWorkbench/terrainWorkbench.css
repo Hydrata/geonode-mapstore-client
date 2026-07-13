@@ -52,6 +52,19 @@
     font-size: var(--sv-font-size);
 }
 
+/* TASK-2235 — the panel rides MovablePanel: this sets only the FIRST-OPEN
+   width (position/size persist per panelId 'mergeTerrains' afterwards). The
+   triple selector outranks the .sv-movable-panel base regardless of load
+   order. The recipe body above keeps its own padding/scroll, so the movable
+   body wrapper contributes none (no double padding). */
+.simple-view-panel.sv-movable-panel.sv-merge-terrains-panel {
+    width: min(700px, calc(100vw - 20px));
+    max-height: calc(100vh - 140px);
+}
+.sv-movable-panel.sv-merge-terrains-panel .sv-movable-panel-body {
+    padding: 0;
+}
+
 /* ── Empty-state hint ──────────────────────────────────────────────────────
  * TASK-1800 (W1.9 UAT r2): the surface LIST chrome (.sv-tw-surface-list /
  * -header / -item / -title / -title-input / -delete and the green .sv-tw-new-btn)

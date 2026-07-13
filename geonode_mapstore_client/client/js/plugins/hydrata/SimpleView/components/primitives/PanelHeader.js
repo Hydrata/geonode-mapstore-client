@@ -24,16 +24,14 @@ import PropTypes from 'prop-types';
  *   8. TerrainWorkbench   — sv-anuga-pane-toolbar usage
  * Total: 8 consumers.
  *
- * CRITICAL — close chip position:static safety:
- *   The surviving `.sv-legend-close` rule in simpleView.css has `position:absolute`,
- *   which causes a CASCADE TRAP: any close button that inadvertently picks up
- *   `.sv-legend-close` will escape the flex row and overlap the title text.
- *   This primitive renders the close chip via inline style with `position:'static'`
- *   (explicit, not relying on flex default) so the cascade trap cannot bite.
- *   The stable `.sv-panel-header-close` class is also emitted, but it carries NO
- *   positional CSS in simpleView.css — only the `.sv-legend-close` rule does, and
- *   that only applies when the class is literally "sv-legend-close". As long as
- *   PanelHeader uses sv-panel-header-close, the trap is avoided at the DOM level.
+ * Close chip positioning (TASK-2235 r2, operator standard):
+ *   The chip is corner-anchored — inline `position:absolute; top:2px; right:2px`
+ *   inside the position:relative header — so it hugs the panel's top-right
+ *   corner with exactly 2px clearance regardless of header padding, matching
+ *   the Task Manager chip. The historic cascade trap (an absolutely positioned
+ *   `.sv-legend-close` chip overlapping the title) cannot bite here because the
+ *   header reserves padding-right for the chip whenever onClose renders, and
+ *   the chip's inline top/right always win over any bleeding sheet rule.
  *
  * Cascade-proof self-styling via inline styles (same principle as ErrorStrip):
  *   inline style >> later-loaded equal-specificity sheet.
@@ -78,17 +76,24 @@ const actionsStyle = {
     marginLeft: 8
 };
 
-// CRITICAL: position:static (explicit) prevents the .sv-legend-close{position:absolute}
-// cascade trap. The close chip is ALWAYS a flex sibling, never absolutely positioned.
+// TASK-2235: RED close convention (operator standard 2026-07-13) — matches the
+// Task Manager .sv-legend-close chip (same 24px box, same glyphicon-remove
+// cross) and REPLACES the W1.9 translucent chip on every PanelHeader consumer.
+// TASK-2235 r2: the chip is deliberately corner-anchored — absolute at
+// top/right 2px inside the position:relative header, so it hugs the panel's
+// top-right corner with exactly 2px clearance regardless of header padding.
+// The old cascade-trap concern (an absolute chip overlapping the title) is
+// neutralised structurally: the header reserves padding-right for the chip
+// (see closePaddingStyle below). Hover rides mouse handlers because this base
+// style is inline (cascade-proof), so no sheet :hover rule can reach it.
 const closeStyle = {
-    position: 'static',   // safe: explicit override even if .sv-legend-close somehow applies
-    flexShrink: 0,
+    position: 'absolute',
+    top: '2px',
+    right: '2px',
     cursor: 'pointer',
-    // Dark-glass close chip (W1.9 UAT): the old solid-red #c9544d clashed with the
-    // dark-glass theme on every panel. Subtle translucent chip + light glyph instead.
-    color: 'var(--sv-text, rgba(255, 255, 255, 0.85))',
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    border: '1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.18))',
+    color: 'var(--sv-text, rgba(255, 255, 255, 0.95))',
+    backgroundColor: 'var(--sv-close-bg, #c9544d)',
+    border: 'none',
     borderRadius: '3px',
     width: 'var(--sv-icon-size, 24px)',
     height: 'var(--sv-icon-size, 24px)',
@@ -102,6 +107,12 @@ const closeStyle = {
     justifyContent: 'center'
 };
 
+// Reserved on the header whenever the close chip renders, so the flex title
+// can never run under the corner-anchored chip.
+const closePaddingStyle = {
+    paddingRight: 'calc(var(--sv-icon-size, 24px) + 8px)'
+};
+
 const PanelHeader = ({
     title,
     onClose,
@@ -113,7 +124,7 @@ const PanelHeader = ({
     const className = 'sv-panel-header' + (extraClassName ? ' ' + extraClassName : '');
 
     return (
-        <div className={className} style={{...headerStyle, ...style}}>
+        <div className={className} style={{...headerStyle, ...(onClose ? closePaddingStyle : {}), ...style}}>
             {title !== null && title !== undefined ? (
                 <h4 className="sv-panel-header-title" style={titleStyle}>{title}</h4>
             ) : null}
@@ -127,10 +138,12 @@ const PanelHeader = ({
                     className="sv-panel-header-close"
                     style={closeStyle}
                     onClick={onClose}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--sv-close-bg-hover, #b5403a)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--sv-close-bg, #c9544d)'; }}
                     aria-label={closeLabel || 'Close panel'}
                     type="button"
                 >
-                    &times;
+                    <span className="glyphicon glyphicon-remove" aria-hidden="true" />
                 </button>
             ) : null}
         </div>

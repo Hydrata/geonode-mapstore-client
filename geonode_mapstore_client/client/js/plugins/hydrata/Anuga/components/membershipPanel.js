@@ -30,12 +30,17 @@ import {
 } from "../selectorsAnuga";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
-// TASK-1764 (epic-1758 W1) — chassis PanelHeader for the panel header
-// (cascade-safe sv-panel-header-close ×-chip, replaces the .sv-legend-close span).
+// TASK-2235 — the panel rides the MovablePanel primitive (drag + resize +
+// per-panelId persistence on the anuga ui slice); header/close now come from
+// MovablePanel (which renders the chassis PanelHeader internally, TASK-1764).
 // The 3-radio visibility group + the react-bootstrap member/invitation Tables
-// stay bespoke (flagged gaps). No test pins the close button class; the
-// #membership-panel id + inner row classes the tests query are untouched.
-import {PanelHeader, Table as ChassisTable} from '../../SimpleView/components/primitives';
+// stay bespoke (flagged gaps). The #membership-panel id survives on an inner
+// wrapper so the tests + CSS that target its descendants keep working.
+import {Table as ChassisTable} from '../../SimpleView/components/primitives';
+import MovablePanel from '../../shared/components/MovablePanel';
+import {setMovablePanelState} from '../actions/uiActions';
+
+export const MEMBERSHIP_PANEL_ID = 'membership';
 
 const ROLES = [
     {value: 1, label: 'Viewer'},
@@ -80,7 +85,10 @@ class MembershipPanelClass extends React.Component {
         updateProjectVisibilityRequest: PropTypes.func,
         sendInvitationRequest: PropTypes.func,
         revokeInvitationRequest: PropTypes.func,
-        resendInvitationRequest: PropTypes.func
+        resendInvitationRequest: PropTypes.func,
+        // TASK-2235 — persisted MovablePanel position/size + its setter.
+        panelState: PropTypes.object,
+        setMovablePanelState: PropTypes.func
     };
 
     constructor(props) {
@@ -372,70 +380,80 @@ class MembershipPanelClass extends React.Component {
         );
     }
 
+    handleClose = () => {
+        this.props.setMembershipPanel(false);
+        trackEvent('button', 'click', 'membership-panel-close');
+    };
+
     render() {
+        const persist = this.props.setMovablePanelState || (() => {});
         return (
-            <div id="membership-panel" className="simple-view-panel sv-anuga-panel">
-                <div className="sv-menu-rows-container">
-                    <PanelHeader
-                        extraClassName="sv-menu-row-header sv-membership-header-row"
-                        title={<Message msgId="hydrata.anuga.members" />}
-                        onClose={() => {
-                            this.props.setMembershipPanel(false);
-                            trackEvent('button', 'click', 'membership-panel-close');
-                        }}
-                    />
-                    {/*
+            <MovablePanel
+                panelId={MEMBERSHIP_PANEL_ID}
+                className="sv-membership-movable"
+                title={<Message msgId="hydrata.anuga.members" />}
+                onClose={this.handleClose}
+                position={this.props.panelState?.position}
+                size={this.props.panelState?.size}
+                defaultPosition={{x: 20, y: 70}}
+                onMove={(position) => persist(MEMBERSHIP_PANEL_ID, {position})}
+                onResize={(size) => persist(MEMBERSHIP_PANEL_ID, {size})}
+            >
+                <div id="membership-panel">
+                    <div className="sv-menu-rows-container">
+                        {/*
                       V2P-24 read-only fallback banner — when permsLoadFailed=true
                       (V2P-20 /my-perms/ retry exhausted) the panel still renders
                       the row list but suppresses Add/Change/Remove affordances.
                       Owners must still SEE who's a member after a transient 5xx.
                     */}
-                    {this.props.permsLoadFailed ? (
-                        <div className="alert alert-warning sv-membership-perms-warning">
-                            <Message msgId="hydrata.anuga.permsUnavailable.message" />
-                        </div>
-                    ) : null}
-                    {/* TASK-1409 — inline confirm overlays replace window.confirm.
+                        {this.props.permsLoadFailed ? (
+                            <div className="alert alert-warning sv-membership-perms-warning">
+                                <Message msgId="hydrata.anuga.permsUnavailable.message" />
+                            </div>
+                        ) : null}
+                        {/* TASK-1409 — inline confirm overlays replace window.confirm.
                         removeMemberConfirm and visibilityConfirm are mutually
                         exclusive in normal use; both are guarded separately. */}
-                    {this.state.removeMemberConfirm?.visible ? (
-                        <div className="sv-membership-confirm-overlay">
-                            <p>{`Remove ${this.state.removeMemberConfirm.username} from project?`}</p>
-                            <div className="sv-membership-confirm-buttons">
-                                <Button bsSize="small" onClick={this.cancelRemoveMember}>Cancel</Button>
-                                <Button bsStyle="danger" bsSize="small" className="membership-confirm-remove-btn" onClick={this.confirmRemoveMember}>Remove</Button>
+                        {this.state.removeMemberConfirm?.visible ? (
+                            <div className="sv-membership-confirm-overlay">
+                                <p>{`Remove ${this.state.removeMemberConfirm.username} from project?`}</p>
+                                <div className="sv-membership-confirm-buttons">
+                                    <Button bsSize="small" onClick={this.cancelRemoveMember}>Cancel</Button>
+                                    <Button bsStyle="danger" bsSize="small" className="membership-confirm-remove-btn" onClick={this.confirmRemoveMember}>Remove</Button>
+                                </div>
                             </div>
-                        </div>
-                    ) : null}
-                    {this.state.visibilityConfirm?.visible ? (
-                        <div className="sv-membership-confirm-overlay">
-                            <p>This will expose all project data to anonymous users. Continue?</p>
-                            <div className="sv-membership-confirm-buttons">
-                                <Button bsSize="small" onClick={this.cancelVisibilityChange}>Cancel</Button>
-                                <Button bsStyle="danger" bsSize="small" className="membership-confirm-visibility-btn" onClick={this.confirmVisibilityChange}>Make Public</Button>
+                        ) : null}
+                        {this.state.visibilityConfirm?.visible ? (
+                            <div className="sv-membership-confirm-overlay">
+                                <p>This will expose all project data to anonymous users. Continue?</p>
+                                <div className="sv-membership-confirm-buttons">
+                                    <Button bsSize="small" onClick={this.cancelVisibilityChange}>Cancel</Button>
+                                    <Button bsStyle="danger" bsSize="small" className="membership-confirm-visibility-btn" onClick={this.confirmVisibilityChange}>Make Public</Button>
+                                </div>
                             </div>
-                        </div>
-                    ) : null}
-                    {this.renderVisibilitySection()}
-                    <ChassisTable surface="dark" extraClassName="sv-scenario-table">
-                        <thead>
-                            <tr className="sv-scenario-table-header">
-                                <th><Message msgId="hydrata.anuga.memberUser" /></th>
-                                <th><Message msgId="hydrata.anuga.memberRole" /></th>
-                                <th/>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {this.renderOwnerRow()}
-                            {this.props.memberships?.map(m => this.renderMemberRow(m))}
-                        </tbody>
-                    </ChassisTable>
-                    {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
-                    {this.renderInviteSection()}
-                    {/* TASK-860 — pending invitations list */}
-                    {this.renderInvitationsSection()}
+                        ) : null}
+                        {this.renderVisibilitySection()}
+                        <ChassisTable surface="dark" extraClassName="sv-scenario-table">
+                            <thead>
+                                <tr className="sv-scenario-table-header">
+                                    <th><Message msgId="hydrata.anuga.memberUser" /></th>
+                                    <th><Message msgId="hydrata.anuga.memberRole" /></th>
+                                    <th/>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {this.renderOwnerRow()}
+                                {this.props.memberships?.map(m => this.renderMemberRow(m))}
+                            </tbody>
+                        </ChassisTable>
+                        {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
+                        {this.renderInviteSection()}
+                        {/* TASK-860 — pending invitations list */}
+                        {this.renderInvitationsSection()}
+                    </div>
                 </div>
-            </div>
+            </MovablePanel>
         );
     }
 }
@@ -487,7 +505,9 @@ const mapStateToProps = (state) => {
         // ownership rule. Pulled from the same security slice the helpers'
         // state-shaped wrappers use (canEditLayerSelector et al).
         currentUserId: state?.security?.user?.pk || null,
-        ownerUsername: state?.anuga?.projects?.data?.owner_username || 'owner'
+        ownerUsername: state?.anuga?.projects?.data?.owner_username || 'owner',
+        // TASK-2235 — persisted MovablePanel position/size for this panelId.
+        panelState: state?.anuga?.ui?.movablePanels?.[MEMBERSHIP_PANEL_ID]
     };
 };
 
@@ -500,7 +520,9 @@ const mapDispatchToProps = (dispatch) => ({
     updateProjectVisibilityRequest: (visibility) => dispatch(updateProjectVisibilityRequest(visibility)),
     sendInvitationRequest: (email, role) => dispatch(sendInvitationRequest(email, role)),
     revokeInvitationRequest: (invitationId) => dispatch(revokeInvitationRequest(invitationId)),
-    resendInvitationRequest: (invitationId) => dispatch(resendInvitationRequest(invitationId))
+    resendInvitationRequest: (invitationId) => dispatch(resendInvitationRequest(invitationId)),
+    // TASK-2235 — persist the MovablePanel position/size per panelId.
+    setMovablePanelState: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
 });
 
 const MembershipPanel = connect(mapStateToProps, mapDispatchToProps)(MembershipPanelClass);

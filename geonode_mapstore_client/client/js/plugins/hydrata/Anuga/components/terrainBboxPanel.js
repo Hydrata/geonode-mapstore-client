@@ -22,7 +22,8 @@ import {
     createTerrainFromBbox
 } from "../actionsAnuga";
 // TASK-1648: close the Inputs menu when draw starts.
-import { setAnugaInputMenu } from '../actions/uiActions';
+// TASK-2235: setMovablePanelState persists the MovablePanel position/size.
+import { setAnugaInputMenu, setMovablePanelState } from '../actions/uiActions';
 import { changeDrawingStatus } from '../../../../../MapStore2/web/client/actions/draw';
 import { trackEvent } from "@js/utils/analytics";
 import {
@@ -33,16 +34,25 @@ import {
     formatAreaKm2,
     bboxDimsKm
 } from './terrainBboxEstimate';
-// TASK-1764 (epic-1758 W1) — CHROME-ONLY re-skin of the panel header onto the
-// chassis PanelHeader (cascade-safe close chip, replaces the .sv-legend-close
-// span). TASK-1587 terrain behaviour/layout intent is unchanged: the close
-// chip still fires handleCancel; the terrain-bbox-* testids + draw/review flow
-// are untouched.
-import {PanelHeader} from '../../SimpleView/components/primitives';
+// TASK-2235 — the panel rides the MovablePanel primitive (drag + resize +
+// per-panelId persistence on the anuga ui slice), replacing the fixed
+// .sv-uploader-panel shell + chassis PanelHeader (TASK-1764). The close chip
+// still fires handleCancel (full draw cleanup); the terrain-bbox-* testids +
+// draw/review flow are untouched.
+import MovablePanel from '../../shared/components/MovablePanel';
 import '../../SimpleView/simpleView.css';
 import '../anuga.css';
 
 const DEFAULT_TITLE_FALLBACK = 'Copernicus GLO-30 DEM';
+
+export const TERRAIN_BBOX_PANEL_ID = 'terrainBbox';
+
+// Mimic the old .sv-uploader-panel fixed spot (top: 70px, right: 10px at the
+// 800px default width); MovablePanel clamps it back on-screen anyway.
+function defaultBboxPosition() {
+    if (typeof window === 'undefined') { return { x: 0, y: 70 }; }
+    return { x: Math.max(8, window.innerWidth - 810), y: 70 };
+}
 
 export class TerrainBboxPanelClass extends React.Component {
     static propTypes = {
@@ -59,7 +69,10 @@ export class TerrainBboxPanelClass extends React.Component {
         createTerrainFromBbox: PropTypes.func,
         changeDrawingStatus: PropTypes.func,
         // TASK-1648: dispatch to close the Inputs menu when draw starts.
-        setAnugaInputMenu: PropTypes.func
+        setAnugaInputMenu: PropTypes.func,
+        // TASK-2235 — persisted MovablePanel position/size + its setter.
+        panelState: PropTypes.object,
+        setMovablePanelState: PropTypes.func
     };
 
     constructor(props) {
@@ -194,73 +207,81 @@ export class TerrainBboxPanelClass extends React.Component {
 
     render() {
         if (!this.props.visible) return null;
+        const persist = this.props.setMovablePanelState || (() => {});
         return (
-            <div className={'simple-view-panel sv-uploader-panel'} data-testid="terrain-bbox-panel">
-                <PanelHeader
-                    extraClassName="h4 sv-legend-heading"
-                    title={<Message msgId="hydrata.anuga.terrainBboxPanelTitle" />}
-                    onClose={this.handleCancel}
-                />
-                <div style={{padding: "10px"}}>
-                    {/* Title input */}
-                    <div style={{marginBottom: "10px"}}>
-                        <label htmlFor="terrain-bbox-title-input" style={{display: "block", marginBottom: "4px"}}>
-                            <Message msgId="hydrata.anuga.terrainBboxTitleLabel" />
-                        </label>
-                        <input
-                            id="terrain-bbox-title-input"
-                            data-testid="terrain-bbox-title-input"
-                            className={'sv-data-title-input'}
-                            type={'text'}
-                            value={this.state.title}
-                            onChange={(e) => this.setState({title: e.target.value})}
-                            style={{width: "100%"}}
-                        />
-                    </div>
+            <MovablePanel
+                panelId={TERRAIN_BBOX_PANEL_ID}
+                className="sv-terrain-bbox-movable"
+                title={<Message msgId="hydrata.anuga.terrainBboxPanelTitle" />}
+                onClose={this.handleCancel}
+                position={this.props.panelState?.position}
+                size={this.props.panelState?.size}
+                defaultPosition={defaultBboxPosition()}
+                onMove={(position) => persist(TERRAIN_BBOX_PANEL_ID, { position })}
+                onResize={(size) => persist(TERRAIN_BBOX_PANEL_ID, { size })}
+            >
+                <div data-testid="terrain-bbox-panel">
+                    <div style={{padding: "10px"}}>
+                        {/* Title input */}
+                        <div style={{marginBottom: "10px"}}>
+                            <label htmlFor="terrain-bbox-title-input" style={{display: "block", marginBottom: "4px"}}>
+                                <Message msgId="hydrata.anuga.terrainBboxTitleLabel" />
+                            </label>
+                            <input
+                                id="terrain-bbox-title-input"
+                                data-testid="terrain-bbox-title-input"
+                                className={'sv-data-title-input'}
+                                type={'text'}
+                                value={this.state.title}
+                                onChange={(e) => this.setState({title: e.target.value})}
+                                style={{width: "100%"}}
+                            />
+                        </div>
 
-                    {/* TASK-1647: area guidance sentence */}
-                    <div className="sv-terrain-bbox-area-guidance" data-testid="terrain-bbox-area-guidance" style={{marginBottom: "12px"}}>
-                        <Message msgId="hydrata.anuga.terrainBboxAreaGuidance" />
-                    </div>
+                        {/* TASK-1647: area guidance sentence */}
+                        <div className="sv-terrain-bbox-area-guidance" data-testid="terrain-bbox-area-guidance" style={{marginBottom: "12px"}}>
+                            <Message msgId="hydrata.anuga.terrainBboxAreaGuidance" />
+                        </div>
 
-                    {/* TASK-1647: 'Define import area' green button, left-justified */}
-                    <div style={{marginBottom: "10px"}}>
+                        {/* TASK-1647: 'Define import area' green button, left-justified */}
+                        <div style={{marginBottom: "10px"}}>
+                            <Button
+                                data-testid="terrain-bbox-draw-button"
+                                bsSize="small"
+                                bsStyle={this.props.drawingActive ? "info" : "success"}
+                                onClick={this.handleDrawClick}
+                            >
+                                <Message msgId="hydrata.anuga.terrainBboxDrawButton" />
+                            </Button>
+                            <span style={{marginLeft: "10px"}}>{this.renderBboxSummary()}</span>
+                        </div>
+
+                        {/* Error inline */}
+                        {this.props.error ?
+                            <div
+                                className={"alert alert-danger sv-terrain-bbox-error"}
+                                data-testid="terrain-bbox-error"
+                                style={{padding: "6px 10px", marginBottom: "10px"}}
+                            >
+                                <Message msgId={this.props.error} />
+                            </div> : null
+                        }
+
+                        {/* TASK-1647: inline review (replaces popup) */}
+                        {this.renderInlineReview()}
+                    </div>
+                    <div className={"simple-view-panel-footer"}>
                         <Button
-                            data-testid="terrain-bbox-draw-button"
-                            bsSize="small"
-                            bsStyle={this.props.drawingActive ? "info" : "success"}
-                            onClick={this.handleDrawClick}
+                            data-testid="terrain-bbox-cancel"
+                            bsStyle="default"
+                            onClick={this.handleCancel}
                         >
-                            <Message msgId="hydrata.anuga.terrainBboxDrawButton" />
+                            <Message msgId="hydrata.anuga.terrainBboxCancel" />
                         </Button>
-                        <span style={{marginLeft: "10px"}}>{this.renderBboxSummary()}</span>
                     </div>
-
-                    {/* Error inline */}
-                    {this.props.error ?
-                        <div
-                            className={"alert alert-danger sv-terrain-bbox-error"}
-                            data-testid="terrain-bbox-error"
-                            style={{padding: "6px 10px", marginBottom: "10px"}}
-                        >
-                            <Message msgId={this.props.error} />
-                        </div> : null
-                    }
-
-                    {/* TASK-1647: inline review (replaces popup) */}
-                    {this.renderInlineReview()}
+                    {/* TASK-1647: confirm popup REMOVED — review is now inline above */}
                 </div>
-                <div className={"simple-view-panel-footer"}>
-                    <Button
-                        data-testid="terrain-bbox-cancel"
-                        bsStyle="default"
-                        onClick={this.handleCancel}
-                    >
-                        <Message msgId="hydrata.anuga.terrainBboxCancel" />
-                    </Button>
-                </div>
-                {/* TASK-1647: confirm popup REMOVED — review is now inline above */}
-            </div>
+            </MovablePanel>
         );
     }
 }
@@ -273,7 +294,9 @@ const mapStateToProps = (state) => ({
     // TASK-1647: confirmVisible no longer drives a popup; kept for any
     // consumer that checks state, but renderInlineReview uses bbox presence.
     confirmVisible: !!state?.anuga?.ui?.terrainBboxConfirmVisible,
-    areaKm2: state?.anuga?.ui?.terrainBboxAreaKm2 || 0
+    areaKm2: state?.anuga?.ui?.terrainBboxAreaKm2 || 0,
+    // TASK-2235 — persisted MovablePanel position/size for this panelId.
+    panelState: state?.anuga?.ui?.movablePanels?.[TERRAIN_BBOX_PANEL_ID]
 });
 
 const mapDispatchToProps = (dispatch) => ({
@@ -285,7 +308,9 @@ const mapDispatchToProps = (dispatch) => ({
     changeDrawingStatus: (status, method, owner, features, options) =>
         dispatch(changeDrawingStatus(status, method, owner, features, options)),
     // TASK-1648: close the Inputs menu when 'Define import area' is clicked.
-    setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible))
+    setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
+    // TASK-2235 — persist the MovablePanel position/size per panelId.
+    setMovablePanelState: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
 });
 
 export const TerrainBboxPanel = connect(mapStateToProps, mapDispatchToProps)(TerrainBboxPanelClass);

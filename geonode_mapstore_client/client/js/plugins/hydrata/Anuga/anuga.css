@@ -11,27 +11,18 @@
     height: 80%;
 }
 
-#membership-panel {
-    min-width: 400px;
-    /* FINDING 3 (UAT 2026-06-23): the Permissions panel had no desktop width
-       cap, so its width:100% member/invite tables stretched it toward
-       full-viewport. Pin a normal dialog width. */
+/* TASK-2235 — the Permissions + Copernicus-import panels ride MovablePanel;
+   these rules set only the FIRST-OPEN width (position/size persist per panelId
+   afterwards). The triple selector (0,3,0)-ish outranks the .sv-movable-panel
+   base regardless of stylesheet load order.
+   FINDING 3's 480px Permissions width cap (UAT 2026-06-23) carries over here;
+   its red close-chip override is GONE — the red convention is now PanelHeader's
+   own inline standard (TASK-2235), no per-panel override needed. */
+.simple-view-panel.sv-movable-panel.sv-membership-movable {
     width: 480px;
-    max-width: 480px;
 }
-
-/* FINDING 3 (UAT 2026-06-23): give the Permissions panel close (×) the red
-   convention (matches .sv-legend-close). PanelHeader sets the close chip via an
-   INLINE dark-glass style, so these MUST be !important to win over inline.
-   Scoped to #membership-panel only — the deliberate W1.9 dark-glass chassis
-   stays put on every other panel. */
-#membership-panel .sv-panel-header-close {
-    background-color: var(--sv-close-bg, #c9544d) !important;
-    color: var(--sv-text, rgba(255, 255, 255, 0.95)) !important;
-    border-color: transparent !important;
-}
-#membership-panel .sv-panel-header-close:hover {
-    background-color: var(--sv-close-bg-hover, #b5403a) !important;
+.simple-view-panel.sv-movable-panel.sv-terrain-bbox-movable {
+    width: min(800px, calc(100vw - 20px));
 }
 
 #anuga-container {
@@ -920,11 +911,8 @@ div that holds the feature-grid */
     width: 160px;
 }
 
-.sv-membership-header-row {
-    height: 40px;
-    text-align: left;
-    font-size: var(--sv-header-font-size, 14px);
-}
+/* TASK-2235: .sv-membership-header-row removed — the Permissions header now
+   comes from MovablePanel/PanelHeader, so no JS emits that class anymore. */
 
 /* -- Publication panel styles -- */
 

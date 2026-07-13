@@ -31,7 +31,13 @@ import React from 'react';
 import { connect } from 'react-redux';
 import { getClickTarget } from '../clickTargetRegistry';
 import { hideClickDisambiguation } from '../../Anuga/actions/clickDisambiguationActions';
-import { PanelHeader } from '../../SimpleView/components/primitives';
+// TASK-2235 — the chooser rides the MovablePanel primitive (drag + resize +
+// per-panelId persistence on the anuga ui slice, the FloatingDemLegendPanel
+// pattern) instead of a bespoke PanelHeader shell. The dim backdrop stays;
+// only a click on the backdrop ITSELF closes (a click inside the panel — or a
+// drag that ends over the backdrop — must not).
+import { MovablePanel } from './MovablePanel';
+import { setMovablePanelState } from '../../Anuga/actions/uiActions';
 import './clickDisambiguation.css';
 
 /**
@@ -60,14 +66,24 @@ export const resolveCandidateOpenActions = (candidate, getState) => {
     }
 };
 
+export const CLICK_DISAMBIGUATION_PANEL_ID = 'clickDisambiguation';
+
+// The MovablePanel is position:fixed, so the backdrop no longer centres it —
+// first open lands centred-ish below the top nav; MovablePanel clamps any
+// persisted position back on-screen.
+function defaultChooserPosition() {
+    if (typeof window === 'undefined') { return { x: 0, y: 0 }; }
+    return {
+        x: Math.max(8, Math.round((window.innerWidth - 360) / 2)),
+        y: Math.max(56, Math.round(window.innerHeight * 0.18))
+    };
+}
+
 const overlayStyle = {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 1030,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
+    zIndex: 1030
 };
 
 const rowStyle = {
@@ -84,57 +100,57 @@ const rowStyle = {
  * choose. Row-click invokes onSelect(candidate); the overlay / close chip
  * invokes onClose.
  */
-export const ClickDisambiguationPanel = ({ candidates, onSelect, onClose }) => {
+export const ClickDisambiguationPanel = ({ candidates, onSelect, onClose, panelState, onPanelStateChange }) => {
     if (!candidates || candidates.length === 0) { return null; }
+    const persist = onPanelStateChange || (() => {});
 
     return (
         <div
             className="click-disambiguation-overlay"
             style={overlayStyle}
-            onClick={onClose}
+            onClick={(e) => { if (e.target === e.currentTarget) { onClose(); } }}
         >
-            <div
-                className="simple-view-panel click-disambiguation-panel"
-                style={{ minWidth: 320, maxWidth: 500, padding: 0 }}
-                onClick={(e) => e.stopPropagation()}
+            <MovablePanel
+                panelId={CLICK_DISAMBIGUATION_PANEL_ID}
+                className="click-disambiguation-panel"
+                title={<span>Select a feature</span>}
+                onClose={onClose}
+                position={panelState?.position}
+                size={panelState?.size}
+                defaultPosition={defaultChooserPosition()}
+                onMove={(position) => persist(CLICK_DISAMBIGUATION_PANEL_ID, { position })}
+                onResize={(size) => persist(CLICK_DISAMBIGUATION_PANEL_ID, { size })}
             >
-                <PanelHeader
-                    title={<span>Select a feature</span>}
-                    onClose={onClose}
-                    closeLabel="Close feature chooser"
-                />
-                <div style={{ padding: '8px 12px', maxHeight: 300, overflowY: 'auto' }}>
-                    {candidates.map((candidate) => {
-                        const label = candidate.label || {};
-                        return (
-                            <div
-                                key={candidate.featureId}
-                                className="simple-view-panel-item-row click-disambiguation-row"
-                                style={rowStyle}
-                                onClick={() => onSelect(candidate)}
-                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--sv-input-bg, rgba(255,255,255,0.22))'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg, rgba(255,255,255,0.10))'; }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center' }}>
-                                    {label.icon ? (
-                                        <span
-                                            className={`glyphicon glyphicon-${label.icon} click-disambiguation-row-icon`}
-                                            style={{ marginRight: 8, opacity: 0.85 }}
-                                            aria-hidden="true"
-                                        />
-                                    ) : null}
-                                    <strong>{candidate.layerTitle || label.title || candidate.kind}</strong>
-                                </div>
-                                {label.subtitle ? (
-                                    <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: 2 }}>
-                                        {label.subtitle}
-                                    </div>
+                {candidates.map((candidate) => {
+                    const label = candidate.label || {};
+                    return (
+                        <div
+                            key={candidate.featureId}
+                            className="simple-view-panel-item-row click-disambiguation-row"
+                            style={rowStyle}
+                            onClick={() => onSelect(candidate)}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--sv-input-bg, rgba(255,255,255,0.22))'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg, rgba(255,255,255,0.10))'; }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                {label.icon ? (
+                                    <span
+                                        className={`glyphicon glyphicon-${label.icon} click-disambiguation-row-icon`}
+                                        style={{ marginRight: 8, opacity: 0.85 }}
+                                        aria-hidden="true"
+                                    />
                                 ) : null}
+                                <strong>{candidate.layerTitle || label.title || candidate.kind}</strong>
                             </div>
-                        );
-                    })}
-                </div>
-            </div>
+                            {label.subtitle ? (
+                                <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: 2 }}>
+                                    {label.subtitle}
+                                </div>
+                            ) : null}
+                        </div>
+                    );
+                })}
+            </MovablePanel>
         </div>
     );
 };
@@ -171,7 +187,9 @@ export const mapStateToProps = (state) => {
         candidates: candidates.map((c) => ({
             ...c,
             layerTitle: resolveLayerTitle(c.layerName, state)
-        }))
+        })),
+        // TASK-2235 — persisted MovablePanel position/size for this panelId.
+        panelState: state?.anuga?.ui?.movablePanels?.[CLICK_DISAMBIGUATION_PANEL_ID]
     };
 };
 
@@ -183,7 +201,8 @@ const mapDispatchToProps = (dispatch) => ({
         resolveCandidateOpenActions(candidate, getState).forEach((action) => thunkDispatch(action));
         thunkDispatch(hideClickDisambiguation());
     }),
-    onClose: () => dispatch(hideClickDisambiguation())
+    onClose: () => dispatch(hideClickDisambiguation()),
+    onPanelStateChange: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(ClickDisambiguationPanel);

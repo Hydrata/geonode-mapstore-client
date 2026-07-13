@@ -346,6 +346,9 @@
     background-color: var(--sv-close-bg, #c9544d);
     border: none;
     border-radius: 3px;
+    /* TASK-2235: every close chip keeps >= 2px clear of the panel edge (for the
+       absolute case, right:0 + margin insets the box 2px from the edge). */
+    margin: 2px;
     width: var(--sv-icon-size);
     height: var(--sv-icon-size);
     padding: 0;
@@ -360,6 +363,16 @@
 .sv-legend-header .sv-legend-close {
     position: static;
     flex-shrink: 0;
+}
+
+/* TASK-2235 r2: the Tasks-panel chip stays corner-anchored (absolute, from the
+   base rule) but at 2px instead of flush — the flush right:0 chip sat ON the
+   panel's border radius. margin:0 overrides the base 2px margin so the offsets
+   are exact. */
+.sv-tm-header .sv-legend-close {
+    top: 2px;
+    right: 2px;
+    margin: 0;
 }
 
 .sv-legend-close:hover {

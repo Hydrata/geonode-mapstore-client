@@ -159,7 +159,7 @@ export class MovablePanel extends React.Component {
         return (
             <Draggable
                 handle=".sv-movable-panel-header, .sv-movable-panel-header *"
-                cancel=".sv-panel-header-close"
+                cancel=".sv-panel-header-close, .sv-panel-header-close *"
                 position={controlledPosition}
                 defaultPosition={clampToViewport(defaultPosition || { x: 0, y: 0 }, this.getWidth())}
                 bounds={this.getBounds()}

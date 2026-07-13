@@ -221,3 +221,54 @@ describe('TASK-1800 MergeTerrainsIcon', () => {
         expect(svg.querySelector('circle')).toExist('cog badge present');
     });
 });
+
+// TASK-2235 — the Combined-surface panel rides the MovablePanel primitive
+// (replacing the PanelShell fixed shell): drag by header, corner resize,
+// position/size persisted per panelId 'mergeTerrains'.
+describe('TASK-2235 MergeTerrainsPanel — movable', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); container = undefined; });
+
+    const renderPanel = (props = {}) => ReactDOM.render(
+        <MergeTerrainsPanelClass
+            visible
+            terrains={[{ id: 1, title: 'Top DEM' }]}
+            surface={SURFACE}
+            onClose={() => {}}
+            {...props}
+        />,
+        container
+    );
+
+    it('renders inside a MovablePanel; body testid + close chip intact', () => {
+        renderPanel();
+        const panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(panel).toExist('movable shell renders');
+        expect(panel.className).toInclude('sv-merge-terrains-panel');
+        expect(panel.querySelector('.sv-movable-panel-header')).toExist('drag header renders');
+        expect(panel.querySelector('[data-testid="merge-terrains-panel"]')).toExist('panel body intact');
+        expect(panel.querySelector('.sv-panel-header-close')).toExist('close chip intact');
+    });
+
+    it('applies a persisted position + size from panelState', () => {
+        renderPanel({ panelState: { position: { x: 17, y: 28 }, size: { width: 640 } } });
+        const panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(panel.style.transform).toInclude('17px');
+        expect(panel.style.transform).toInclude('28px');
+        expect(panel.style.width).toBe('640px');
+    });
+
+    it('drag-end persists via onPanelStateChange keyed by mergeTerrains', () => {
+        const calls = [];
+        renderPanel({ onPanelStateChange: (panelId, patch) => calls.push([panelId, patch]) });
+        const header = container.querySelector('[data-testid="movable-panel-mergeTerrains"] .sv-movable-panel-header');
+        header.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }));
+        document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 80, clientY: 90 }));
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: 80, clientY: 90 }));
+        expect(calls.length).toBeGreaterThan(0, 'onPanelStateChange fired');
+        const [panelId, patch] = calls[calls.length - 1];
+        expect(panelId).toBe('mergeTerrains');
+        expect(patch.position).toExist();
+    });
+});

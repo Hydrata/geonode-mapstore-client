@@ -433,3 +433,83 @@ describe('TASK-860 W3 — email-invite gating, pending-invitations, throttle, i1
         });
     });
 });
+
+// TASK-2235 — the Permissions panel rides the MovablePanel primitive: drag by
+// header, corner resize, position/size persisted per panelId 'membership'.
+// The #membership-panel id survives on an inner wrapper so the existing tests
+// + CSS that target its descendants keep working.
+describe('TASK-2235 MembershipPanel — movable', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function mountMovable(opts = {}, mutateState) {
+        const { MembershipPanel } = require('../membershipPanel');
+        const base = createMockStore(opts);
+        if (mutateState) { mutateState(base.getState()); }
+        const dispatched = [];
+        const store = {
+            getState: base.getState,
+            subscribe: base.subscribe,
+            dispatch: (a) => { dispatched.push(a); return a; }
+        };
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}><MembershipPanel /></Provider>,
+                container,
+                () => resolve({ dispatched })
+            );
+        });
+    }
+
+    it('renders inside a MovablePanel; #membership-panel id survives as inner wrapper', () => {
+        return mountMovable({ role: 'manager' }).then(() => {
+            const panel = container.querySelector('[data-testid="movable-panel-membership"]');
+            expect(panel).toExist();
+            expect(panel.querySelector('#membership-panel')).toExist();
+            expect(panel.querySelector('.sv-movable-panel-header')).toExist();
+            expect(panel.querySelector('.sv-panel-header-close')).toExist();
+        });
+    });
+
+    it('close chip dispatches SET_MEMBERSHIP_PANEL visible=false', () => {
+        return mountMovable({ role: 'manager' }).then(({ dispatched }) => {
+            container.querySelector('.sv-panel-header-close').click();
+            const closeAction = dispatched.find(a =>
+                a.type === 'SET_MEMBERSHIP_PANEL' && a.visible === false
+            );
+            expect(closeAction).toExist();
+        });
+    });
+
+    it('applies a persisted position from anuga.ui.movablePanels.membership', () => {
+        return mountMovable({ role: 'manager' }, (state) => {
+            state.anuga.ui = { movablePanels: { membership: { position: { x: 19, y: 27 } } } };
+        }).then(() => {
+            const panel = container.querySelector('[data-testid="movable-panel-membership"]');
+            expect(panel.style.transform).toInclude('19px');
+            expect(panel.style.transform).toInclude('27px');
+        });
+    });
+
+    it('drag-end dispatches ANUGA:SET_MOVABLE_PANEL_STATE keyed membership', () => {
+        return mountMovable({ role: 'manager' }).then(({ dispatched }) => {
+            const header = container.querySelector('[data-testid="movable-panel-membership"] .sv-movable-panel-header');
+            header.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }));
+            document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 85, clientY: 95 }));
+            document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: 85, clientY: 95 }));
+            const act = dispatched.find(a => a.type === 'ANUGA:SET_MOVABLE_PANEL_STATE');
+            expect(act).toExist();
+            expect(act.panelId).toBe('membership');
+            expect(act.patch.position).toExist();
+        });
+    });
+});

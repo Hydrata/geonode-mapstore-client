@@ -351,3 +351,48 @@ describe('TaskMonitor dark-glass migration (TASK-1665 W2)', () => {
         });
     });
 });
+
+// TASK-2235 (r2) — the Tasks-panel close chip must not sit flush at the panel
+// corner: it stays corner-anchored (absolute) but at top/right 2px, off the
+// border radius.
+describe('TASK-2235 TaskMonitor close chip 2px edge margin', () => {
+    let container;
+
+    beforeEach(() => {
+        // ensure the shared stylesheet with the .sv-tm-header/.sv-legend-close
+        // rules is in the karma bundle before computing styles.
+        require('../../SimpleView/simpleView.css');
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('close chip is corner-anchored at 2px (not flush over the panel border radius)', (done) => {
+        ReactDOM.render(
+            <TaskMonitorPanel
+                processes={[]}
+                filter="active"
+                onClose={() => {}}
+                onSetFilter={() => {}}
+                onExpandProcess={() => {}}
+                onToggleLog={() => {}}
+                onCancel={() => {}}
+            />,
+            container,
+            () => {
+                const chip = container.querySelector('.sv-tm-header .sv-legend-close');
+                expect(chip).toExist();
+                const cs = window.getComputedStyle(chip);
+                expect(cs.position).toBe('absolute');
+                expect(cs.top).toBe('2px');
+                expect(cs.right).toBe('2px');
+                expect(cs.marginTop).toBe('0px');
+                done();
+            }
+        );
+    });
+});
