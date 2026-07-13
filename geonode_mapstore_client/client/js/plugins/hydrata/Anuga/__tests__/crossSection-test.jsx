@@ -1,9 +1,8 @@
 /**
- * TASK-1862 (epic 1814 W4.5) — cross-section / transect MODE spec.
- *
- * The cross-section tool is added as a MODE of the W4.4 line-profile tool (same
- * draw interaction, same W4.3 multi-raster endpoint, same panel/epic) rather
- * than a duplicate tool. This spec pins the net-new pieces:
+ * TASK-1862 (epic 1814 W4.5) — cross-section builder spec.
+ * TASK-2253 (epic 2249 W2) — Profile mode DELETED; cross-section is the only
+ * mode now, so the mode-toggle / profileMode reducer coverage was retired
+ * (git history keeps it). This spec pins the surviving net-new pieces:
  *
  *   - getProfileTraces tags each trace with a `role` ('dem' | 'depth' | 'other')
  *     so the cross-section builder can find the terrain + depth rasters
@@ -12,10 +11,8 @@
  *     terrain + water-surface chart: terrain as a FILLED area (elevation vs
  *     distance) and the water surface (terrain + depth = stage) overlaid as a
  *     second trace, also filled down to the terrain so the water body reads.
- *   - the uiReducer carries a `profileMode` ('profile' | 'crosssection') flipped
- *     by setProfileMode, defaulting to 'profile' (W4.4 behaviour unchanged).
- *   - the panel shows a mode toggle and renders the cross-section chart in
- *     cross-section mode.
+ *   - the panel renders the cross-section chart unconditionally, with no mode
+ *     toggle.
  */
 import React from 'react';
 import ReactDOM from 'react-dom';
@@ -26,8 +23,6 @@ import {
     buildCrossSectionData
 } from '../components/TerrainProfilePanel';
 import { getProfileTraces } from '../epics/profileEpic';
-import uiReducer from '../reducers/uiReducer';
-import { setProfileMode } from '../actionsAnuga';
 
 // A state with a selected scenario carrying a latest_run (depth/velocity/momentum
 // result rasters, geonode:-prefixed names — the real serializer shape).
@@ -138,41 +133,25 @@ describe('cross-section — buildCrossSectionData (TASK-1862)', () => {
     });
 });
 
-describe('uiReducer — cross-section mode (TASK-1862)', () => {
-    it('defaults profileMode to "profile"', () => {
-        const s = uiReducer(undefined, { type: '@@INIT' });
-        expect(s.profileMode).toBe('profile');
-    });
-    it('setProfileMode flips to crosssection and back', () => {
-        let s = uiReducer(undefined, setProfileMode('crosssection'));
-        expect(s.profileMode).toBe('crosssection');
-        s = uiReducer(s, setProfileMode('profile'));
-        expect(s.profileMode).toBe('profile');
-    });
-    it('closing the panel resets mode to profile', () => {
-        let s = uiReducer(undefined, setProfileMode('crosssection'));
-        s = uiReducer(s, { type: 'ANUGA:SET_PROFILE_PANEL_VISIBLE', visible: false });
-        expect(s.profileMode).toBe('profile');
-    });
-});
-
-describe('TerrainProfilePanel — cross-section mode render (TASK-1862)', () => {
+describe('TerrainProfilePanel — cross-section render (TASK-2253, cross-section-only)', () => {
     let container;
     beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
     afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); });
     const noop = () => {};
 
-    it('shows the mode toggle when a DEM is ready', () => {
+    // TASK-2253 — the Profile/Cross-section mode toggle is DELETED; the panel
+    // renders the combined terrain+water-surface chart unconditionally.
+    it('does NOT show a mode toggle', () => {
         ReactDOM.render(
             <TerrainProfilePanelClass
-                visible demReady mode="profile"
-                setProfilePanelVisible={noop} startProfileDraw={noop} setProfileMode={noop}
+                visible demReady
+                setProfilePanelVisible={noop} startProfileDraw={noop}
             />, container
         );
-        expect(container.querySelector('[data-testid="profile-mode-toggle"]')).toExist();
+        expect(container.querySelector('[data-testid="profile-mode-toggle"]')).toBe(null);
     });
 
-    it('in cross-section mode renders the combined terrain+water-surface chart', () => {
+    it('renders the combined terrain+water-surface chart', () => {
         const samples = [
             { distance_m: 0, dem: 100, depth: 1 },
             { distance_m: 10, dem: 98, depth: 2 }
@@ -183,8 +162,8 @@ describe('TerrainProfilePanel — cross-section mode render (TASK-1862)', () => 
         ];
         ReactDOM.render(
             <TerrainProfilePanelClass
-                visible demReady mode="crosssection" samples={samples} traces={traces}
-                setProfilePanelVisible={noop} startProfileDraw={noop} setProfileMode={noop}
+                visible demReady samples={samples} traces={traces}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
             />, container
         );
         expect(container.querySelector('[data-testid="profile-chart"]')).toExist();

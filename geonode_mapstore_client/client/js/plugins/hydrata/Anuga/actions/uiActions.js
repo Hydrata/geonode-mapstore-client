@@ -38,11 +38,8 @@ const SET_PROFILE_LOADING = 'ANUGA:SET_PROFILE_LOADING';
 const SET_PROFILE_SAMPLES = 'ANUGA:SET_PROFILE_SAMPLES';
 const SET_PROFILE_ERROR = 'ANUGA:SET_PROFILE_ERROR';
 const CLEAR_PROFILE = 'ANUGA:CLEAR_PROFILE';
-// TASK-1862 (epic 1814 W4.5) — cross-section / transect MODE of the profile
-// tool. 'profile' = raw value-vs-distance traces (W4.4); 'crosssection' = the
-// combined terrain (filled area) + water-surface (terrain+depth=stage) chart.
-// Same draw interaction / endpoint / samples — only the chart rendering differs.
-const SET_PROFILE_MODE = 'ANUGA:SET_PROFILE_MODE';
+// TASK-2253 (epic 2249 W2) — SET_PROFILE_MODE DELETED: Profile mode is gone,
+// Cross-section is the tool's only chart now (git history keeps the action).
 // TASK-1880 (epic 1884 W2 — THE HEADLINE) — in-app terrain-upload CRS picker.
 // The upload glyph / starter CTA no longer fire the byte transfer directly; they
 // OPEN this panel carrying the picked File + an auto-title, so a CRS-less DEM can
@@ -193,13 +190,6 @@ function setProfileError(error) {
 function clearProfile() {
     return { type: CLEAR_PROFILE };
 }
-// TASK-1862 (W4.5) — switch the profile tool between 'profile' (raw traces) and
-// 'crosssection' (combined terrain + water-surface chart). Same samples; only
-// the chart rendering differs, so switching mode is free (no re-sample).
-function setProfileMode(mode) {
-    return { type: SET_PROFILE_MODE, mode };
-}
-
 // TASK-1880 (W2) — open/close the terrain-upload CRS picker. On open carry the
 // picked `file` (a File/Blob, survives in redux so the Confirm dispatch can run
 // the upload) + an auto-derived `title` (file.name minus extension). Closing
@@ -267,8 +257,6 @@ module.exports = {
     SET_PROFILE_SAMPLES, setProfileSamples,
     SET_PROFILE_ERROR, setProfileError,
     CLEAR_PROFILE, clearProfile,
-    // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode.
-    SET_PROFILE_MODE, setProfileMode,
     // TASK-2194 (epic 2190 W2) — staff compute-target selector site config.
     SET_ANUGA_COMPUTE_CONFIG, setAnugaComputeConfig,
     // TASK-2194 (review fix) — per-scenario session compute-target choice.

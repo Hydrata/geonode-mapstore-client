@@ -9,8 +9,8 @@
 // gate UI (the `disabled`/badge wiring at the entry point).
 export const LAUNCH_GATES = {
     idfDerive: false,      // IDF tables tab → "Derive" sub-toggle
-    networksTab: false,    // Hydrology "Networks" rail tab
-    resultsProfile: false  // Results tab → "Depth / elevation profile" button
+    networksTab: false     // Hydrology "Networks" rail tab
+    // TASK-2253 — resultsProfile gate DELETED: Cross-section shipped, button live.
 };
 
 export default LAUNCH_GATES;

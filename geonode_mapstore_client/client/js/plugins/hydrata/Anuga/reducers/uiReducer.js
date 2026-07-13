@@ -21,8 +21,6 @@ import {
     SET_PROFILE_SAMPLES,
     SET_PROFILE_ERROR,
     CLEAR_PROFILE,
-    // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode.
-    SET_PROFILE_MODE,
     // TASK-1880 (epic 1884 W2) — in-app terrain-upload CRS picker.
     SET_TERRAIN_UPLOAD_CRS_PANEL,
     SET_TERRAIN_UPLOAD_CRS_ERROR,
@@ -77,11 +75,8 @@ const initialState = {
     profileSamples: null,
     profileTraces: null,
     profileError: null,
-    // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode. The same drawn
-    // line + samples render either as raw value-vs-distance traces ('profile',
-    // W4.4) or the combined terrain + water-surface chart ('crosssection').
-    // Defaults to 'profile' so W4.4 behaviour is unchanged.
-    profileMode: 'profile',
+    // TASK-2253 (epic 2249 W2) — profileMode DELETED: Cross-section is the only
+    // mode now (git history keeps the removed 'profile' mode).
     // TASK-1880 (epic 1884 W2 — THE HEADLINE) — in-app terrain-upload CRS picker.
     // The cluster lives on `ui` like the terrainBbox / profile state. The picked
     // File rides redux (terrainUploadCrsFile) so it survives open → Confirm; it is
@@ -275,13 +270,8 @@ export default (state = initialState, action) => {
                 profileLoading: false,
                 profileSamples: null,
                 profileTraces: null,
-                profileError: null,
-                // TASK-1862: reset the mode so re-opening starts in 'profile'.
-                profileMode: 'profile'
+                profileError: null
             };
-    // TASK-1862 (W4.5) — flip cross-section / transect mode (free; no re-sample).
-    case SET_PROFILE_MODE:
-        return { ...state, profileMode: action.mode === 'crosssection' ? 'crosssection' : 'profile' };
     case SET_PROFILE_DRAWING:
         return { ...state, profileDrawingActive: action.active };
     case SET_PROFILE_LOADING:
