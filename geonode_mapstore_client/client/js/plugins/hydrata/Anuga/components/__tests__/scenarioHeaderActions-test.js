@@ -78,13 +78,16 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
     });
 
     // TASK-2115 (C) — View Results folded into this strip (dogfood finding C:
-    // was a separate .sv-anuga-view-results-bar sibling row).
-    describe('View Results (TASK-2115 C)', () => {
-        it('renders View Results as the FIRST button in the strip when hasCompleteResults is true', (done) => {
+    // was a separate .sv-anuga-view-results-bar sibling row). TASK-2266
+    // (epic 2237 W5, UAT re-aim finding 1) repositioned it: 2nd-from-right,
+    // immediately left of Download, not leading the row — see the DOM-order
+    // assertion below and 'Toolbar order (TASK-2266)' further down.
+    describe('View Results (TASK-2115 C, repositioned TASK-2266)', () => {
+        it('renders View Results immediately before Download in the DOM (2nd-from-right, TASK-2266)', (done) => {
             let captured = null;
             ReactDOM.render(
                 <ScenarioHeaderActions
-                    scenario={baseScenario}
+                    scenario={{...baseScenario, status: 'built', latest_run: {id: 9, s3_package_url: 'https://x/y.zip'}}}
                     canEdit canRunScenario
                     hasCompleteResults
                     onViewResultsClick={(s) => { captured = s; }}
@@ -94,9 +97,13 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                     const strip = container.querySelector('#scenario-run-actions');
                     expect(strip).toExist();
                     const vrBtn = strip.querySelector('.sv-anuga-btn-view-results');
+                    const dlBtn = strip.querySelector('.sv-scenario-action-download');
                     expect(vrBtn).toExist();
-                    // Leads the row — first child button.
-                    expect(strip.firstElementChild).toBe(vrBtn);
+                    expect(dlBtn).toExist();
+                    // Download is rightmost; View Results is its immediate
+                    // predecessor sibling — 2nd-from-right in the RENDERED strip.
+                    expect(strip.lastElementChild).toBe(dlBtn);
+                    expect(dlBtn.previousElementSibling).toBe(vrBtn);
                     vrBtn.click();
                     expect(captured?.id).toBe(21);
                     done();
@@ -581,6 +588,66 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                     Array.from(buttons).forEach((btn) => {
                         expect(btn.className).toInclude('sv-scenario-action-toolbar-btn');
                     });
+                    done();
+                }
+            );
+        });
+    });
+
+    // TASK-2266 (epic 2237 W5, UAT re-aim finding 1) — the operator's dogfood
+    // UAT read the RENDERED strip as [Build and Run][Run][Build][Download];
+    // this asserts the actual final DOM order (not the JSX source order,
+    // which reads run-cluster-first) with every optional slot populated, so
+    // a future reshuffle of the JSX can't silently drift the visual order
+    // this finding was about.
+    describe('Toolbar order (TASK-2266)', () => {
+        it('final DOM order is: run cluster (Build-and-Run, lifecycle slot, Build), View Results, Download', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'built', latest_run: {id: 9, s3_package_url: 'https://x/y.zip'}}}
+                    canEdit canRunScenario
+                    hasCompleteResults
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    // Query the top-level action nodes in DOM order: the run
+                    // cluster wrapper div, then the two trailing buttons.
+                    const topLevelNodes = Array.from(strip.children);
+                    const cluster = strip.querySelector('.sv-scenario-run-cluster');
+                    expect(topLevelNodes[0]).toBe(cluster);
+                    // Inside the cluster: Build-and-Run, Run (lifecycle slot,
+                    // 'created' is false here so Run, not Retry/Cancel), Build.
+                    const clusterButtons = Array.from(cluster.querySelectorAll('.sv-scenario-action-toolbar-btn'));
+                    expect(clusterButtons[0].className).toInclude('sv-scenario-action-build-run');
+                    expect(clusterButtons[1].className).toInclude('sv-scenario-action-run');
+                    expect(clusterButtons[2].className).toInclude('sv-scenario-action-build');
+                    // Trailing pair: View Results immediately before Download.
+                    expect(topLevelNodes[topLevelNodes.length - 2].className).toInclude('sv-anuga-btn-view-results');
+                    expect(topLevelNodes[topLevelNodes.length - 1].className).toInclude('sv-scenario-action-download');
+                    done();
+                }
+            );
+        });
+
+        it('still holds when the build-conflict info span also renders between the cluster and the trailing pair', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{
+                        ...baseScenario, status: 'built',
+                        latest_run: {id: 9, s3_package_url: 'https://x/y.zip'},
+                        buildConflict: {runId: 501, status: 'building', detail: 'x'}
+                    }}
+                    canEdit canRunScenario
+                    hasCompleteResults
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    const vrBtn = strip.querySelector('.sv-anuga-btn-view-results');
+                    const dlBtn = strip.querySelector('.sv-scenario-action-download');
+                    expect(strip.lastElementChild).toBe(dlBtn);
+                    expect(dlBtn.previousElementSibling).toBe(vrBtn);
                     done();
                 }
             );

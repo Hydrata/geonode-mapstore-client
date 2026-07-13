@@ -20,15 +20,26 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * toolbar so the analytics-parity suite (and the Umami dashboards it guards)
  * keep working after the move.
  *
- * TASK-2115 (C, epic 2111 W2, dogfood finding C) — View Results now renders
- * as the FIRST (leftmost, most prominent) button in THIS same strip instead
- * of a separate `.sv-anuga-view-results-bar` sibling row, so the panel has
- * ONE consistent action row instead of two. Gate + href logic is unchanged
- * (the container still derives `hasCompleteResults` from
- * `latest_complete_run`, TASK-2078's D1 "RESULT consumer" contract) — only
- * WHERE the button renders moved. `hasCompleteResults`/`onViewResultsClick`
- * are both optional so every existing caller/test that doesn't pass them
- * keeps rendering exactly as before (no button, no behaviour change).
+ * TASK-2115 (C, epic 2111 W2, dogfood finding C) — View Results renders in
+ * THIS same strip instead of a separate `.sv-anuga-view-results-bar` sibling
+ * row, so the panel has ONE consistent action row instead of two. Gate +
+ * href logic is unchanged (the container still derives `hasCompleteResults`
+ * from `latest_complete_run`, TASK-2078's D1 "RESULT consumer" contract) —
+ * only WHERE the button renders has moved (see TASK-2266 below).
+ * `hasCompleteResults`/`onViewResultsClick` are both optional so every
+ * existing caller/test that doesn't pass them keeps rendering exactly as
+ * before (no button, no behaviour change).
+ *
+ * TASK-2266 (epic 2237 W5, UAT re-aim finding 1) — View Results originally
+ * led the row (leftmost); the operator's dogfood UAT read it as visually
+ * disconnected from Download (the other read-only/OUTLINE action it
+ * pairs with), separated by the whole run cluster. Moved to render
+ * immediately LEFT of Download — 2nd-from-right in the strip — regardless
+ * of whether the price-band span or the build-conflict info span also
+ * render in between (both are non-button `<span>`s, not buttons the
+ * "2nd from the right" count is about). Gate/handler/classname are
+ * byte-identical; only JSX position changed (no CSS `order:` reordering
+ * exists anywhere in this strip — DOM order IS visual order here).
  *
  * TASK-2239 (epic 2237 W1.1, "hydraulics panel declutter") — the Build /
  * Build-and-Run / Run family regroups into an explicit RUN CLUSTER
@@ -322,21 +333,6 @@ const ScenarioHeaderActions = (props, context) => {
 
     return (
         <div id="scenario-run-actions" className="sv-scenario-header-run-actions">
-            {/* TASK-2115 (C) — View Results leads the row when results exist
-                (dogfood finding C: was a separate .sv-anuga-view-results-bar
-                sibling row; same classname + gate + handler, new position).
-                TASK-2239 — OUTLINE per the family rule (safe/non-destructive
-                read, not an execute/cost action). */}
-            {hasCompleteResults ?
-                <Button
-                    bsStyle={'success'}
-                    bsSize={'xsmall'}
-                    className={outlineBtn('sv-anuga-btn-view-results')}
-                    onClick={() => { if (onViewResultsClick) onViewResultsClick(scenario); }}
-                >
-                    <Message msgId="hydrata.anuga.viewResults" />
-                </Button> : null
-            }
             {/* TASK-2239 (epic 2237 W1.1) — the run cluster: Build-and-Run,
                 then the 4-state lifecycle slot, then Build. Three raised
                 FILLED sv-* buttons with a small explicit gap (anuga.css
@@ -408,6 +404,23 @@ const ScenarioHeaderActions = (props, context) => {
                     {tr('hydrata.anuga.buildAlreadyInProgress',
                         'A build is already in progress for this scenario.')}
                 </span> : null
+            }
+            {/* TASK-2115 (C); repositioned TASK-2266 (epic 2237 W5, UAT
+                re-aim finding 1) — View Results now renders immediately LEFT
+                of Download (2nd-from-right), not leading the row: both are
+                the strip's OUTLINE (safe/non-destructive read) actions and
+                now sit adjacent, rather than View Results being separated
+                from Download by the whole run cluster. Same classname +
+                gate + handler as before; only JSX position changed. */}
+            {hasCompleteResults ?
+                <Button
+                    bsStyle={'success'}
+                    bsSize={'xsmall'}
+                    className={outlineBtn('sv-anuga-btn-view-results')}
+                    onClick={() => { if (onViewResultsClick) onViewResultsClick(scenario); }}
+                >
+                    <Message msgId="hydrata.anuga.viewResults" />
+                </Button> : null
             }
             {/* TASK-2239 — OUTLINE per the family rule (safe/non-destructive
                 read). */}
