@@ -10,12 +10,16 @@
  */
 import React from 'react';
 import ReactDOM from 'react-dom';
+import TestUtils from 'react-dom/test-utils';
 import expect from 'expect';
 
 import {
     TerrainProfilePanelClass,
     buildCrossSectionData,
-    computeYRange
+    computeYRange,
+    DARK_GLASS_LAYOUT,
+    TERRAIN_PALETTE,
+    WATER_PALETTE
 } from '../components/TerrainProfilePanel';
 
 describe('TerrainProfilePanel — computeYRange (W4 UAT, TASK-1861/1862)', () => {
@@ -136,5 +140,155 @@ describe('TerrainProfilePanel — render gating (TASK-1861)', () => {
             container
         );
         expect(container.querySelector('[data-testid="profile-chart"]')).toExist();
+    });
+});
+
+// ── TASK-2256 (epic 2249 W3) — picker-as-legend component ───────────────────
+
+describe('TerrainProfilePanel — Plotly legend removed (TASK-2256, LOCKED decision #5)', () => {
+    it('DARK_GLASS_LAYOUT disables the Plotly legend — the picker rows ARE the legend', () => {
+        expect(DARK_GLASS_LAYOUT.showlegend).toBe(false);
+    });
+});
+
+describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); });
+
+    // 4 ready terrains (only 3 can be checked — the 4th exercises cap grey-out)
+    // and 4 scenario rows spanning every checkability status + a stale one.
+    const terrainRows = [
+        { id: 1, status: 'ready', gn_layer_name: 'ele_1', title: 'Terrain One' },
+        { id: 2, status: 'ready', gn_layer_name: 'ele_2', title: 'Terrain Two' },
+        { id: 3, status: 'ready', gn_layer_name: 'ele_3', title: 'Terrain Three' },
+        { id: 4, status: 'ready', gn_layer_name: 'ele_4', title: 'Terrain Four' }
+    ];
+    const scenarioRows = [
+        {
+            id: 10, status: 'ready',
+            scenario: {
+                id: 10, name: 'Scenario Ready', terrain: 1, latest_run_is_valid: true,
+                latest_complete_run: { real_world_end: '2026-06-01T00:00:00Z' }
+            }
+        },
+        { id: 11, status: 'no-run', scenario: { id: 11, name: 'Scenario NoRun', latest_complete_run: null } },
+        {
+            id: 12, status: 'no-stage',
+            scenario: { id: 12, name: 'Scenario NoStage', latest_complete_run: { real_world_end: null } }
+        },
+        {
+            id: 13, status: 'ready',
+            scenario: {
+                id: 13, name: 'Scenario Stale', terrain: 1, latest_run_is_valid: false,
+                latest_complete_run: { real_world_end: '2026-05-01T00:00:00Z' }
+            }
+        }
+    ];
+    const noop = () => {};
+
+    const render = (props) => {
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady
+                terrainRows={terrainRows}
+                scenarioRows={scenarioRows}
+                checkedTerrainIds={[1]}
+                checkedScenarioIds={[10]}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+                toggleCheckedTerrain={noop} toggleCheckedScenario={noop}
+                {...props}
+            />,
+            container
+        );
+    };
+
+    it('renders both groups with a live n/3 counter', () => {
+        render();
+        expect(container.querySelector('[data-testid="picker-group-terrain"]')).toExist();
+        expect(container.querySelector('[data-testid="picker-group-water"]')).toExist();
+        expect(container.querySelector('[data-testid="picker-counter-terrain"]').textContent).toBe('1/3');
+        expect(container.querySelector('[data-testid="picker-counter-water"]').textContent).toBe('1/3');
+    });
+
+    it('counter reflects the checked count, not the row count', () => {
+        render({ checkedTerrainIds: [1, 2, 3] });
+        expect(container.querySelector('[data-testid="picker-counter-terrain"]').textContent).toBe('3/3');
+    });
+
+    it('cap grey-out: an unchecked row is disabled with a hint once the group is at 3/3', () => {
+        render({ checkedTerrainIds: [1, 2, 3] });
+        const row4 = container.querySelector('[data-testid="picker-row-terrain-4"]');
+        expect(row4.className).toContain('sv-picker-row-disabled');
+        const checkbox4 = container.querySelector('[data-testid="picker-checkbox-terrain-4"]');
+        expect(checkbox4.disabled).toBe(true);
+        expect(container.querySelector('[data-testid="picker-hint-terrain-4"]')).toExist();
+        // A row already checked stays enabled even AT the cap (uncheckable is
+        // never the issue — only a NEW check past 3 is blocked).
+        const row1 = container.querySelector('[data-testid="picker-row-terrain-1"]');
+        expect(row1.className).toNotContain('sv-picker-row-disabled');
+    });
+
+    it('disabled reasons: no-run and no-stage scenario rows show their own hint text', () => {
+        render();
+        const noRunHint = container.querySelector('[data-testid="picker-hint-water-11"]');
+        const noStageHint = container.querySelector('[data-testid="picker-hint-water-12"]');
+        expect(noRunHint).toExist();
+        expect(noRunHint.textContent.length).toBeGreaterThan(0);
+        expect(noStageHint).toExist();
+        expect(noStageHint.textContent).toNotBe(noRunHint.textContent);
+        // Both checkboxes are disabled regardless of the 3+3 cap.
+        expect(container.querySelector('[data-testid="picker-checkbox-water-11"]').disabled).toBe(true);
+        expect(container.querySelector('[data-testid="picker-checkbox-water-12"]').disabled).toBe(true);
+    });
+
+    it('swatch colour === chart trace colour for the same checked row (AC1)', () => {
+        render();
+        const terrainSwatch = container.querySelector('[data-testid="picker-swatch-terrain-1"]');
+        const waterSwatch = container.querySelector('[data-testid="picker-swatch-water-10"]');
+        // rgb(184, 153, 104) === #B89968 (TERRAIN_PALETTE[0], slot 0 for the
+        // one-and-only checked terrain) — jsdom normalises inline hex styles
+        // to rgb() on read-back, so compare against the browser-normalised form.
+        expect(terrainSwatch.style.backgroundColor).toBe('rgb(184, 153, 104)');
+        expect(waterSwatch.style.backgroundColor).toBe('rgb(91, 192, 255)');
+        expect(TERRAIN_PALETTE[0]).toBe('#B89968');
+        expect(WATER_PALETTE[0]).toBe('#5BC0FF');
+    });
+
+    it('an unchecked, uncheckable-status row never gets a swatch colour', () => {
+        render();
+        const disabledSwatch = container.querySelector('[data-testid="picker-swatch-water-11"]');
+        expect(disabledSwatch.style.backgroundColor).toBe('transparent');
+    });
+
+    it('a ready water row shows its run date', () => {
+        render();
+        const rundate = container.querySelector('[data-testid="picker-rundate-10"]');
+        expect(rundate).toExist();
+        expect(rundate.textContent).toBe(new Date('2026-06-01T00:00:00Z').toLocaleDateString());
+    });
+
+    it('a stale water row (latest_run_is_valid=false) shows a staleness hint', () => {
+        render({ checkedScenarioIds: [10, 13] });
+        expect(container.querySelector('[data-testid="picker-stale-13"]')).toExist();
+        // The non-stale row never renders one.
+        expect(container.querySelector('[data-testid="picker-stale-10"]')).toBe(null);
+    });
+
+    it('clicking an enabled, unchecked checkbox dispatches the toggle action with its row id', () => {
+        let toggledId = null;
+        render({ checkedTerrainIds: [1], toggleCheckedTerrain: (id) => { toggledId = id; } });
+        const checkbox2 = container.querySelector('[data-testid="picker-checkbox-terrain-2"]');
+        TestUtils.Simulate.change(checkbox2, { target: { checked: true } });
+        expect(toggledId).toBe(2);
+    });
+
+    it('terrain rows never carry a disabled-reason status (LOCKED decision #10 — only scenarios do)', () => {
+        render({ checkedTerrainIds: [1, 2, 3] });
+        // Terrain row 4 is cap-blocked (disabled) but its ONLY hint is the cap
+        // hint — never a no-run/no-stage style reason (terrain has no such
+        // status at all).
+        const hint = container.querySelector('[data-testid="picker-hint-terrain-4"]');
+        expect(hint.textContent).toNotBe('');
     });
 });

@@ -415,7 +415,13 @@
         "buildValidationAriaLabel": "Build validation error",
         "categoryRailAriaLabel": "Scenario categories",
         "railUnsavedAriaLabel": "Unsaved",
-        "railArchivedAriaLabel": "Archived"
+        "railArchivedAriaLabel": "Archived",
+        "crossSectionTerrainGroup": "Terrain",
+        "crossSectionWaterGroup": "Water surface",
+        "crossSectionCapReachedHint": "Uncheck another row first (max 3)",
+        "crossSectionNoRunHint": "No completed run yet",
+        "crossSectionNoStageHint": "Re-run to get a water surface",
+        "crossSectionStaleHint": "Results may be stale — scenario edited since this run"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

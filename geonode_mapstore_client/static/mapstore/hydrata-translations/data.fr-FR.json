@@ -415,7 +415,13 @@
         "buildValidationAriaLabel": "Erreur de validation de la construction",
         "categoryRailAriaLabel": "Catégories de scénario",
         "railUnsavedAriaLabel": "Non enregistré",
-        "railArchivedAriaLabel": "Archivé"
+        "railArchivedAriaLabel": "Archivé",
+        "crossSectionTerrainGroup": "Terrain",
+        "crossSectionWaterGroup": "Surface de l'eau",
+        "crossSectionCapReachedHint": "Décochez une autre ligne d'abord (max 3)",
+        "crossSectionNoRunHint": "Aucune simulation terminée pour l’instant",
+        "crossSectionNoStageHint": "Relancez la simulation pour obtenir une surface d'eau",
+        "crossSectionStaleHint": "Les résultats sont peut-être obsolètes — le scénario a été modifié depuis cette simulation"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

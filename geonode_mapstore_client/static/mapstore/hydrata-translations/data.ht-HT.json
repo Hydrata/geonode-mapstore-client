@@ -415,7 +415,13 @@
         "buildValidationAriaLabel": "Erè validasyon konstriksyon",
         "categoryRailAriaLabel": "Kategori senaryo",
         "railUnsavedAriaLabel": "Pa sove",
-        "railArchivedAriaLabel": "Achive"
+        "railArchivedAriaLabel": "Achive",
+        "crossSectionTerrainGroup": "Tèren",
+        "crossSectionWaterGroup": "Sifas dlo",
+        "crossSectionCapReachedHint": "Dekoche yon lòt liy anvan (maks 3)",
+        "crossSectionNoRunHint": "Poko gen yon egzekisyon konplè",
+        "crossSectionNoStageHint": "Fè egzekisyon an ankò pou jwenn yon sifas dlo",
+        "crossSectionStaleHint": "Rezilta yo ka demode — senàyo a te modifye depi egzekisyon sa a"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

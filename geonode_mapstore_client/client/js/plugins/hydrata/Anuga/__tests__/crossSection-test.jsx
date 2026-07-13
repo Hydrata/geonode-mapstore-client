@@ -148,6 +148,118 @@ describe('cross-section — buildCrossSectionData (TASK-1862, reworked TASK-2255
     });
 });
 
+// ── TASK-2256 (epic 2249 W3) — multi-series + fill rules (LOCKED decision #7) ─
+
+describe('buildCrossSectionData — multi-terrain fill rules (TASK-2256)', () => {
+    const samples = [
+        { distance_m: 0, dem1: 100, dem2: 90, dem3: 80 },
+        { distance_m: 10, dem1: 96, dem2: 88, dem3: 79 }
+    ];
+    const multiDemTraces = [
+        { key: 'dem1', label: 'Terrain A', role: 'dem', terrainId: 1 },
+        { key: 'dem2', label: 'Terrain B', role: 'dem', terrainId: 2 },
+        { key: 'dem3', label: 'Terrain C', role: 'dem', terrainId: 3 }
+    ];
+
+    it('only slot-1 (the first dem trace) is a FILLED area — slots 2/3 are plain lines', () => {
+        const data = buildCrossSectionData(samples, multiDemTraces);
+        expect(data.length).toBe(3);
+        expect(data[0].fill).toBe('tozeroy');
+        expect(data[1].fill).toBe(undefined);
+        expect(data[2].fill).toBe(undefined);
+    });
+
+    it('each terrain trace colour matches its stable slot (TERRAIN_PALETTE order)', () => {
+        const data = buildCrossSectionData(samples, multiDemTraces);
+        expect(data[0].line.color).toBe('#B89968');
+        expect(data[1].line.color).toBe('#D08770');
+        expect(data[2].line.color).toBe('#A3BE8C');
+    });
+});
+
+describe('buildCrossSectionData — single-water conditional fill (TASK-2256, LOCKED decision #7)', () => {
+    const samples = [
+        { distance_m: 0, dem1: 100, stageA: 100.5 },
+        { distance_m: 10, dem1: 96, stageA: 99.0 }
+    ];
+    const oneDemOneStage = [
+        { key: 'dem1', label: 'Terrain A', role: 'dem', terrainId: 7 },
+        { key: 'stageA', label: 'Scenario 1', role: 'stage', scenarioId: 3 }
+    ];
+
+    it('fills when the single water\'s scenario CURRENT terrain === slot-1 terrain', () => {
+        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: 7 } });
+        const water = data.find(d => d.name !== 'Terrain A');
+        expect(water.fill).toBe('tonexty');
+    });
+
+    it('is a LINE (no fill) when the scenario\'s current terrain is a DIFFERENT terrain', () => {
+        // Scenario 3's current terrain is 99, not 7 (slot-1) — a mismatch, e.g.
+        // the scenario was re-pointed at a different terrain since this stage
+        // was sampled against terrain 7.
+        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: 99 } });
+        const water = data.find(d => d.name !== 'Terrain A');
+        expect(water.fill).toBe(undefined);
+    });
+
+    it('is a LINE when the scenario has no known current terrain at all (null/missing)', () => {
+        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: null } });
+        const water = data.find(d => d.name !== 'Terrain A');
+        expect(water.fill).toBe(undefined);
+    });
+});
+
+describe('buildCrossSectionData — multi-water: waters are ALWAYS lines when 2+ are checked (TASK-2256)', () => {
+    const samples = [
+        { distance_m: 0, dem1: 100, stageA: 100.5, stageB: 99.5 },
+        { distance_m: 10, dem1: 96, stageA: 99.0, stageB: 97.0 }
+    ];
+    const oneDemTwoStages = [
+        { key: 'dem1', label: 'Terrain A', role: 'dem', terrainId: 7 },
+        { key: 'stageA', label: 'Scenario 1', role: 'stage', scenarioId: 3 },
+        { key: 'stageB', label: 'Scenario 2', role: 'stage', scenarioId: 4 }
+    ];
+
+    it('neither water fills, even when BOTH scenarios currently point at slot-1 terrain', () => {
+        const data = buildCrossSectionData(samples, oneDemTwoStages, {
+            scenarioTerrainById: { 3: 7, 4: 7 }
+        });
+        expect(data.length).toBe(3);
+        const waters = data.filter(d => d.name !== 'Terrain A');
+        expect(waters.length).toBe(2);
+        waters.forEach((w) => expect(w.fill).toBe(undefined));
+    });
+
+    it('each water colour matches its stable slot within the stage subset (WATER_PALETTE order)', () => {
+        const data = buildCrossSectionData(samples, oneDemTwoStages, {
+            scenarioTerrainById: { 3: 7, 4: 7 }
+        });
+        const waterA = data.find(d => d.name === 'Scenario 1');
+        const waterB = data.find(d => d.name === 'Scenario 2');
+        expect(waterA.line.color).toBe('#5BC0FF');
+        expect(waterB.line.color).toBe('#38B2A3');
+    });
+});
+
+describe('buildCrossSectionData — default seed reproduces pre-rework single-terrain/single-water look (TASK-2256, AC3)', () => {
+    it('a scenario checked against its OWN current terrain (the default seed) fills exactly like today', () => {
+        const samples = [
+            { distance_m: 0, dem: 810, stage: 810 },
+            { distance_m: 25, dem: 805, stage: 811 }
+        ];
+        const traces = [
+            { key: 'dem', label: 'Active terrain', role: 'dem', terrainId: 1 },
+            { key: 'stage', label: 'Selected scenario', role: 'stage', scenarioId: 1 }
+        ];
+        const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 } });
+        expect(data.length).toBe(2);
+        expect(data[0].fill).toBe('tozeroy');
+        expect(data[0].line.color).toBe('#B89968');
+        expect(data[1].fill).toBe('tonexty');
+        expect(data[1].line.color).toBe('#5BC0FF');
+    });
+});
+
 describe('TerrainProfilePanel — cross-section render (TASK-2253, cross-section-only)', () => {
     let container;
     beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
