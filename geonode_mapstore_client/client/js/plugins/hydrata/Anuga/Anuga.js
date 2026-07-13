@@ -76,6 +76,8 @@ import {
     // TASK-1861 (W4.4) — Depth/result line-profile tool.
     profileStartDrawEpic,
     profileEndDrawingEpic,
+    // TASK-2254 (epic 2249 W2) — Cross-section picker seed-from-visibility.
+    pickerSeedEpic,
     // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
     layerOrderReconcilerEpic,
     // TASK-1902 — terrain sub-order: Contour > DEM > Hillshade (via FK).
@@ -239,6 +241,9 @@ export default createPlugin('Anuga', {
         // TASK-1861 (W4.4) — Depth/result line-profile tool epics.
         profileStartDrawEpic,
         profileEndDrawingEpic,
+        // TASK-2254 (epic 2249 W2) — Cross-section picker seed-from-visibility
+        // (checked terrains/scenarios on panel open).
+        pickerSeedEpic,
         // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
         layerOrderReconcilerEpic,
         // TASK-1902 — terrain sub-order: Contour > DEM > Hillshade.

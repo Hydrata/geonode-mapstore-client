@@ -141,9 +141,12 @@ export {
 } from './epics/cursorElevationEpic';
 
 // TASK-1861 (W4.4) — Depth/result line-profile tool (draw-line + sampler).
+// TASK-2254 (epic 2249 W2) — pickerSeedEpic seeds the checked terrain/scenario
+// picker rows from map visibility on panel open.
 export {
     profileStartDrawEpic,
-    profileEndDrawingEpic
+    profileEndDrawingEpic,
+    pickerSeedEpic
 } from './epics/profileEpic';
 
 // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.

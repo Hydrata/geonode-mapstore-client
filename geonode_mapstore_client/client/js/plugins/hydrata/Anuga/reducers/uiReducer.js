@@ -21,6 +21,11 @@ import {
     SET_PROFILE_SAMPLES,
     SET_PROFILE_ERROR,
     CLEAR_PROFILE,
+    // TASK-2254 (epic 2249 W2) — Cross-section picker checked-id state.
+    SET_CHECKED_TERRAINS,
+    SET_CHECKED_SCENARIOS,
+    TOGGLE_CHECKED_TERRAIN,
+    TOGGLE_CHECKED_SCENARIO,
     // TASK-1880 (epic 1884 W2) — in-app terrain-upload CRS picker.
     SET_TERRAIN_UPLOAD_CRS_PANEL,
     SET_TERRAIN_UPLOAD_CRS_ERROR,
@@ -77,6 +82,11 @@ const initialState = {
     profileError: null,
     // TASK-2253 (epic 2249 W2) — profileMode DELETED: Cross-section is the only
     // mode now (git history keeps the removed 'profile' mode).
+    // TASK-2254 (epic 2249 W2) — Cross-section picker checked-id sets. Seeded
+    // from map visibility on panel open (pickerSeedEpic); each capped
+    // independently at 3 (LOCKED decision #2/#6/#10 — "3+3 cap").
+    checkedTerrainIds: [],
+    checkedScenarioIds: [],
     // TASK-1880 (epic 1884 W2 — THE HEADLINE) — in-app terrain-upload CRS picker.
     // The cluster lives on `ui` like the terrainBbox / profile state. The picked
     // File rides redux (terrainUploadCrsFile) so it survives open → Confirm; it is
@@ -290,6 +300,32 @@ export default (state = initialState, action) => {
         return { ...state, profileError: action.error || null, profileLoading: false, profileDrawingActive: false };
     case CLEAR_PROFILE:
         return { ...state, profileSamples: null, profileTraces: null, profileError: null };
+    // ── TASK-2254 (W2) — Cross-section picker checked-id state ─────────────
+    // Bulk-replace (pickerSeedEpic on panel open). Defensively capped to 3
+    // even though every caller already caps — never trust a bulk payload.
+    case SET_CHECKED_TERRAINS:
+        return { ...state, checkedTerrainIds: (action.ids || []).slice(0, 3) };
+    case SET_CHECKED_SCENARIOS:
+        return { ...state, checkedScenarioIds: (action.ids || []).slice(0, 3) };
+    // User checkbox click: uncheck if already checked, else add — but a 4th
+    // add is a no-op (the hard cap is enforced HERE, not just the disabled
+    // checkbox UI, so a stale/racing click can never exceed 3).
+    case TOGGLE_CHECKED_TERRAIN: {
+        const current = state.checkedTerrainIds || [];
+        if (current.includes(action.id)) {
+            return { ...state, checkedTerrainIds: current.filter(id => id !== action.id) };
+        }
+        if (current.length >= 3) return state;
+        return { ...state, checkedTerrainIds: [...current, action.id] };
+    }
+    case TOGGLE_CHECKED_SCENARIO: {
+        const current = state.checkedScenarioIds || [];
+        if (current.includes(action.id)) {
+            return { ...state, checkedScenarioIds: current.filter(id => id !== action.id) };
+        }
+        if (current.length >= 3) return state;
+        return { ...state, checkedScenarioIds: [...current, action.id] };
+    }
     // ── TASK-1880 (W2) — in-app terrain-upload CRS picker ──────────────────
     case SET_TERRAIN_UPLOAD_CRS_PANEL:
         // Opening carries the picked File + auto-title; closing (visible=false)
