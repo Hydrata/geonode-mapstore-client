@@ -146,6 +146,18 @@ const CONFIRM_DIALOG_REGISTRY = {
     }
 };
 
+// TASK-2245 (epic 2237 W3.1) — validateScenario's two build-REQUIRED fields
+// that now live inside the collapsed-by-default RUN SETTINGS section
+// (scenarioPane.js). A missing-field build-validation failure on either one
+// must expand-then-focus the matching field (AC#2), same as "Attach first"
+// already does for mesh_region — see requestRunSettingsFocus. Every OTHER
+// validateScenario field (name/terrain/inflowOrRainfall/boundary) lives in
+// the always-visible Required-inputs section, so no expand plumbing applies.
+const RUN_SETTINGS_FOCUS_FIELD_IDS = {
+    resolution: 'resolution',
+    duration: 'duration-hours'
+};
+
 class AnugaScenarioMenuClass extends React.Component {
   static propTypes = {
       // Redux state
@@ -242,8 +254,24 @@ class AnugaScenarioMenuClass extends React.Component {
           // actual mesh diverged beyond threshold; cleared by
           // handleDivergenceConfirm (fires the run) or handleDivergenceCancel
           // (leaves the scenario 'built', no run dispatched).
-          divergenceConfirm: null
+          divergenceConfirm: null,
+          // TASK-2245 (epic 2237 W3.1) — expand-then-focus bridge: bumped by
+          // requestRunSettingsFocus so the CHANGE in identity (not the value
+          // itself) trips ScenarioPane's useRunSettingsCollapse effect,
+          // which opens the RUN SETTINGS section and calls back
+          // handleRunSettingsExpanded once that open state has committed —
+          // see requestRunSettingsFocus's own doc comment for the full
+          // ownership split (focuser stays here; collapse state moves to
+          // the pane). MUST start `null` (never 0): the pane's guard treats
+          // null/undefined as "no request yet" — starting at 0 would make
+          // the very first mount look like an unhandled request and
+          // spuriously auto-expand + focus on every fresh menu mount.
+          runSettingsExpandToken: null
       };
+      // Not React state: read synchronously by handleRunSettingsExpanded
+      // once the pane's callback fires; nothing ever renders off this value
+      // directly, so it doesn't need to trigger its own re-render.
+      this.pendingRunSettingsFocusFieldId = null;
   }
 
   componentDidMount() {
@@ -551,6 +579,15 @@ class AnugaScenarioMenuClass extends React.Component {
       if (missingField) {
           this.setState({buildValidationError: missingField});
           trackEvent('button', 'click', `anuga-scenario-menu-build-validate-missing-${missingField}`);
+          // TASK-2245 (AC#2) — resolution/duration now live inside the
+          // collapsed-by-default RUN SETTINGS section; expand-then-focus the
+          // matching field so the validation dialog doesn't leave the user
+          // hunting for a hidden field. Every other missingField (name/
+          // terrain/inflowOrRainfall/boundary) is in the always-visible
+          // Required-inputs section — no expand plumbing applies there.
+          if (RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]) {
+              this.requestRunSettingsFocus(RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]);
+          }
           return;
       }
       this.setState({buildValidationError: null});
@@ -621,6 +658,10 @@ class AnugaScenarioMenuClass extends React.Component {
       if (missingField) {
           this.setState({buildValidationError: missingField});
           trackEvent('button', 'click', `anuga-scenario-menu-build-and-run-validate-missing-${missingField}`);
+          // TASK-2245 (AC#2) — same expand-then-focus as handleBuildClick.
+          if (RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]) {
+              this.requestRunSettingsFocus(RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]);
+          }
           return;
       }
       this.setState({buildValidationError: null});
@@ -647,15 +688,39 @@ class AnugaScenarioMenuClass extends React.Component {
       }
   };
 
-  // TASK-2116 (F4) — "Attach first": dismiss without building, focus the
-  // mesh-region selector (always present now that TASK-2114 merged Advanced
-  // into the single scrollable panel) so the user can pick a region right
-  // away instead of hunting for the field.
+  // TASK-2245 (epic 2237 W3.1) — expand-then-focus bridge. Collapse-state
+  // ownership split (binding design decision): the FOCUSER — this method,
+  // the actual `document.getElementById(fieldId).focus()` call — stays
+  // HERE in the menu, unchanged from the pre-merge "Attach first" handlers
+  // (TASK-2116). Only the RUN SETTINGS open/closed boolean moved to
+  // scenarioPane.js's useRunSettingsCollapse. Bumping the token (any value
+  // whose IDENTITY changes) is what trips that hook's effect; it opens the
+  // section and calls handleRunSettingsExpanded back ONCE that open state
+  // has actually committed to the DOM — never call .focus() directly from
+  // here, or it can race a still-collapsed (`display:none`) field.
+  requestRunSettingsFocus = (fieldId) => {
+      this.pendingRunSettingsFocusFieldId = fieldId;
+      this.setState((prevState) => ({runSettingsExpandToken: (prevState.runSettingsExpandToken || 0) + 1}));
+  };
+
+  // TASK-2245 — fired by ScenarioPane's onRunSettingsExpanded prop once the
+  // RUN SETTINGS section is confirmed open (post-commit). This is the ONLY
+  // place that actually calls .focus() for the RUN SETTINGS fields.
+  handleRunSettingsExpanded = () => {
+      const fieldId = this.pendingRunSettingsFocusFieldId;
+      this.pendingRunSettingsFocusFieldId = null;
+      const el = typeof document !== 'undefined' && fieldId ? document.getElementById(fieldId) : null;
+      if (el && typeof el.focus === 'function') el.focus();
+  };
+
+  // TASK-2116 (F4) — "Attach first": dismiss without building, expand-then-
+  // focus the mesh-region selector (TASK-2245: it now lives inside the
+  // collapsed-by-default RUN SETTINGS section) so the user can pick a
+  // region right away instead of hunting for the field.
   handleMeshRegionWarningAttachFirst = () => {
       this.setState({meshRegionWarning: null});
       trackEvent('button', 'click', 'anuga-scenario-menu-mesh-region-warning-attach-first');
-      const el = typeof document !== 'undefined' ? document.getElementById('mesh_region') : null;
-      if (el && typeof el.focus === 'function') el.focus();
+      this.requestRunSettingsFocus('mesh_region');
   };
 
   // TASK-2160 (epic 2147 W4) — "Build anyway" for the rainfall warning:
@@ -801,6 +866,8 @@ class AnugaScenarioMenuClass extends React.Component {
               networks={networks}
               onUpdateScenario={this.handleUpdateScenario}
               onOpenMergeTerrainsPanel={this.props.onOpenMergeTerrainsPanel}
+              runSettingsExpandToken={this.state.runSettingsExpandToken}
+              onRunSettingsExpanded={this.handleRunSettingsExpanded}
           />
       );
   }

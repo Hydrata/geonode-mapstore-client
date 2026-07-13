@@ -1,9 +1,10 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useLayoutEffect, useRef, useState} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
-    getMeshComparison, getMeshCostDriverHint, findScenarioStatus, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES
+    getMeshComparison, getMeshCostDriverHint, findScenarioStatus, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES,
+    runSettingsMustStayOpen
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -19,12 +20,14 @@ import {FormRow} from '../../SimpleView/components/primitives';
 
 /**
  * Merged-panel renderer for the Miller-columns scenarios panel (TASK-2114,
- * epic 2111 W2, dogfood findings A+B). Pane 3 stacks all three sections
- * (Required inputs / Optional inputs / Run) in ONE scrollable body, each
- * behind its own in-pane heading, so nothing is hidden behind a tab click.
- * This is the direct fix for dogfood finding F4's root cause: the old
- * Advanced tab HID mesh_region until clicked, so a drawn-but-unattached mesh
- * region silently no-op'd at build time without ever being seen.
+ * epic 2111 W2, dogfood findings A+B). Pane 3 stacks Required inputs and the
+ * merged RUN SETTINGS section (TASK-2245, epic 2237 W3.1 — Optional/Advanced
+ * + Run merged into one collapsible section) in ONE scrollable body, so
+ * nothing is hidden behind a tab click. This is the direct fix for dogfood
+ * finding F4's root cause: the old Advanced tab HID mesh_region until
+ * clicked, so a drawn-but-unattached mesh region silently no-op'd at build
+ * time without ever being seen — RUN SETTINGS stays always-rendered (only
+ * CSS-collapsed) for the same reason; see useRunSettingsCollapse.
  *
  * UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, findings 1+2) —
  * the vertical category rail (`ScenarioCategoryRail`, Pane 2) that used to
@@ -991,12 +994,11 @@ function renderRunPane(props) {
 // Section headings (inside the merged Pane 3 body)
 // ------------------------------------------------------------------------
 
-// TASK-2114 (A+B) — Required/Optional/Run no longer gate separate panes; each
-// gets an in-body heading instead, reusing the same
+// TASK-2114 (A+B) — Required no longer gates a separate pane; it gets an
+// in-body heading instead, reusing the same
 // .sv-anuga-scenario-pane-detail-head(-title) chrome the single selected-
 // category head used to own (border-bottom rule, font sizing) so no parallel
-// heading style is introduced — see anuga.css's `--merged` rule for the
-// small top-margin added between repeated headings.
+// heading style is introduced.
 //
 // UAT re-aim (finding 2) — `progress` is the SAME `validateCategoryProgress`
 // result object the now-removed category rail rendered as its tag pill
@@ -1006,18 +1008,14 @@ function renderRunPane(props) {
 // (is-ok/is-warn/is-err) under a NEW classname (not the rail's, which is
 // gone) so the pill visually extends the existing token system rather than
 // inventing a parallel one.
-// TASK-2244 (epic 2237 W2.2) — the run-category 'err' tag is suppressed
-// HERE, at render level only: the title pill (ScenarioPane's toolbar,
-// error-only) + the Run-failed notice (notices panel) are now the sole
-// standing error indicators, so painting a 3rd "err" badge in the Run
-// heading would just re-introduce the duplicate this wave removes.
-// `validateCategoryProgress` itself is UNTOUCHED (pinned by
-// scenarioHelpers-test) and still returns severity:'err' — W3.1's
-// heading-badge merge depends on that value continuing to be computed and
-// passed in here; only THIS render skips painting it for the 'run' heading.
+//
+// TASK-2245 (W3.1) — the Optional+Run merge (and its own render-level 'err'
+// suppression, carried forward from TASK-2244) now lives in
+// renderRunSettingsSection below, the ONLY other heading in the merged pane;
+// this renderer is left generic (no suppression) since Required legitimately
+// shows every severity, including 'err' (0/3 required fields is a real error).
 function renderSectionHeading(msgId, progress) {
     const severity = progress && progress.severity;
-    const suppressErrBadge = msgId === 'hydrata.anuga.run' && severity === 'err';
     const badgeClass = 'sv-anuga-scenario-pane-detail-head-badge'
         + (severity === 'ok' ? ' is-ok' : '')
         + (severity === 'warn' ? ' is-warn' : '')
@@ -1027,7 +1025,153 @@ function renderSectionHeading(msgId, progress) {
             <h3 className="sv-anuga-scenario-pane-detail-head-title">
                 <Message msgId={msgId} />
             </h3>
-            {progress && !suppressErrBadge ? <span className={badgeClass}>{progress.tag}</span> : null}
+            {progress ? <span className={badgeClass}>{progress.tag}</span> : null}
+        </div>
+    );
+}
+
+// ------------------------------------------------------------------------
+// TASK-2245 (epic 2237 W3.1) — RUN SETTINGS: Optional (Advanced) + Run merge
+// ------------------------------------------------------------------------
+
+/**
+ * Collapse-state + expand-then-focus bridge for the merged RUN SETTINGS
+ * section (amendment A4 — labelled "Run settings", not "Optional & Run":
+ * duration is build-REQUIRED per validateScenario, so "optional" would be
+ * dishonest). Shaped like `useAutoPopulateDefaults` below — a plain
+ * hook-like function called directly from ScenarioPane's render body (never
+ * as a JSX component) so its hook calls stay attributed to ScenarioPane
+ * itself and run in a stable order every render.
+ *
+ * Two independent triggers keep the section open, both landing on the SAME
+ * underlying `isOpen` boolean:
+ *
+ *   (a) auto-expand while the run is actively IN_FLIGHT or has errored
+ *       (`runSettingsMustStayOpen`, scenarioHelpers.js) — the progress card
+ *       + log viewer live inside and must not hide while running. This is a
+ *       plain `setIsOpen(true)` (not a mere OR) so the section is STILL open
+ *       once the run settles, unless the user has since clicked to collapse
+ *       it — AC#1 "collapses again only by user action" describes what
+ *       happens AFTER the run, and nothing here auto-closes it.
+ *
+ *   (b) the "must not hide while running" hard guarantee itself: the
+ *       returned `displayOpen = isOpen || mustStayOpen` ALSO forces the
+ *       section visually open independent of (a) ever having run — e.g. a
+ *       user click to collapse arriving mid-run sets the underlying `isOpen`
+ *       to false, but `displayOpen` stays true until the run actually
+ *       settles (at which point the collapse the user asked for finally
+ *       takes visual effect — still "by user action", just deferred).
+ *
+ * (c) expand-then-focus request from anugaScenarioMenu.js (a build-
+ *     validation failure or "Attach first" targeting a field inside this
+ *     section — mesh_region / resolution / duration-hours). Collapse-state
+ *     ownership split (binding design decision, TASK-2245): the FOCUSER —
+ *     the actual `document.getElementById(fieldId).focus()` call — stays in
+ *     the menu, unchanged from the pre-merge "Attach first" handlers. Only
+ *     the open/closed boolean moves here. `expandToken` null/undefined means
+ *     "no request yet" (the menu's own initial state); any OTHER value
+ *     whose IDENTITY changes from the last one HANDLED counts as a new
+ *     request (the menu uses an incrementing counter that starts at null and
+ *     is bumped to 1, 2, ... — never starts at 0, which would itself look
+ *     like an unhandled request on the very first mount). This hook opens in
+ *     response and calls `onExpanded()` back once that open state has
+ *     actually committed to the DOM — `useLayoutEffect` (never `useEffect`)
+ *     is deliberate: a `.focus()` fired in the same tick as the setState
+ *     that reveals the field would race the commit and land on a
+ *     still-collapsed (`display:none`) element (the W2 karma flush gotcha,
+ *     generalised here to a real-browser CSS-collapse).
+ */
+function useRunSettingsCollapse(scenario, expandToken, onExpanded) {
+    const [isOpen, setIsOpen] = useState(false);
+    const handledTokenRef = useRef(null);
+    const pendingNotifyRef = useRef(false);
+    const mustStayOpen = runSettingsMustStayOpen(scenario);
+    const displayOpen = isOpen || mustStayOpen;
+
+    useLayoutEffect(() => {
+        if (mustStayOpen) setIsOpen(true);
+    }, [mustStayOpen]);
+
+    useLayoutEffect(() => {
+        if (expandToken === null || expandToken === undefined || expandToken === handledTokenRef.current) return; // eslint-disable-line no-eq-null, eqeqeq
+        handledTokenRef.current = expandToken;
+        if (displayOpen) {
+            // Already open (e.g. a run is in flight) — no OPEN transition
+            // will fire below, so notify immediately.
+            if (onExpanded) onExpanded();
+        } else {
+            pendingNotifyRef.current = true;
+            setIsOpen(true);
+        }
+        // Deliberately keyed on `expandToken` alone (not `displayOpen` /
+        // `onExpanded`) — this effect must fire exactly once PER REQUEST
+        // (a new token), not on every render where those happen to change;
+        // handledTokenRef is the de-dupe guard, not the dep array. (No
+        // react-hooks/exhaustive-deps rule is configured in this project's
+        // eslint config, so no suppression comment is needed here.)
+    }, [expandToken]);
+
+    // Fires exactly once the isOpen->true transition armed above has
+    // actually committed (a NEW render with displayOpen===true has
+    // painted its DOM) — i.e. only now is it safe for the menu to focus.
+    useLayoutEffect(() => {
+        if (displayOpen && pendingNotifyRef.current) {
+            pendingNotifyRef.current = false;
+            if (onExpanded) onExpanded();
+        }
+    }, [displayOpen]);
+
+    const toggle = () => setIsOpen((prev) => !prev);
+    return [displayOpen, toggle];
+}
+
+/**
+ * TASK-2245 (AC#4) — collapsed header badge is the run-category
+ * `validateCategoryProgress` tag ALONE ('advanced' can never err, so it
+ * contributes nothing a user needs warned about here) — carrying forward
+ * TASK-2244's render-level raw-'err' suppression verbatim: the title pill
+ * (toolbar) + the Run-failed notice (notices panel) remain the sole standing
+ * error indicators, so this heading must never repaint a 3rd duplicate 'err'
+ * tag. `validateCategoryProgress` itself is UNTOUCHED (pinned by
+ * scenarioHelpers-test) and still returns severity:'err' for an errored run —
+ * only this render skips painting it.
+ */
+function renderRunSettingsSection(props, isOpen, onToggle, runProgress) {
+    const severity = runProgress && runProgress.severity;
+    const suppressErrBadge = severity === 'err';
+    const badgeClass = 'sv-anuga-scenario-pane-detail-head-badge'
+        + (severity === 'ok' ? ' is-ok' : '')
+        + (severity === 'warn' ? ' is-warn' : '');
+    const sectionClass = 'sv-anuga-scenario-pane-run-settings' + (isOpen ? ' is-open' : '');
+    const toggleIconClass = 'sv-anuga-scenario-pane-run-settings-toggle-icon glyphicon'
+        + (isOpen ? ' glyphicon-chevron-up' : ' glyphicon-chevron-down');
+    return (
+        <div className={sectionClass}>
+            <button
+                type="button"
+                className="sv-anuga-scenario-pane-detail-head sv-anuga-scenario-pane-run-settings-header"
+                aria-expanded={isOpen}
+                onClick={onToggle}
+            >
+                <h3 className="sv-anuga-scenario-pane-detail-head-title">
+                    <Message msgId="hydrata.anuga.runSettings" />
+                </h3>
+                {runProgress && !suppressErrBadge ? <span className={badgeClass}>{runProgress.tag}</span> : null}
+                <span className={toggleIconClass} aria-hidden="true" />
+            </button>
+            {/* Always-render + .is-open CSS-collapse convention (karma
+                determinism), consistent with the notices panel — the body
+                never unmounts; only CSS visibility flips via `.is-open` on
+                the wrapper above. Keep verbatim (spec): renderAdvancedPane's
+                friction/structure/mesh_region rows + renderRunPane's
+                resolution/duration/compute-target rows, the live estimate
+                line, the mesh cost-driver hint, the post-build comparison,
+                the status card and the log viewer — none of their own
+                internals change, only what wraps them. */}
+            <div className="sv-anuga-scenario-pane-run-settings-body">
+                {renderAdvancedPane(props)}
+                {renderRunPane(props)}
+            </div>
         </div>
     );
 }
@@ -1082,16 +1226,25 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
 const ScenarioPane = (props) => {
     const {scenario, canEdit} = props;
 
-    // UAT re-aim (finding 2) — completeness badges for the 3 section
-    // headings, reusing validateCategoryProgress verbatim (same function,
-    // same arguments) rather than re-deriving. boundaryHasFeatures
-    // resolution (TASK-2045) moves here from the now-deleted
-    // ScenarioCategoryRail — same one-line lookup against `boundaries`.
+    // UAT re-aim (finding 2) — completeness badges for the section headings,
+    // reusing validateCategoryProgress verbatim (same function, same
+    // arguments) rather than re-deriving. boundaryHasFeatures resolution
+    // (TASK-2045) moves here from the now-deleted ScenarioCategoryRail —
+    // same one-line lookup against `boundaries`. TASK-2245 (W3.1) — the
+    // 'advanced' progress is no longer painted anywhere (the merged RUN
+    // SETTINGS heading shows the run-category badge alone, AC#4: advanced
+    // can never err) so it is no longer computed here either.
     const selectedBoundary = (props.boundaries || []).find(b => b && b.id === scenario?.boundary);
     const boundaryHasFeatures = selectedBoundary?.has_features;
     const inputsProgress = validateCategoryProgress('inputs', scenario, {boundaryHasFeatures});
-    const advancedProgress = validateCategoryProgress('advanced', scenario);
     const runProgress = validateCategoryProgress('run', scenario);
+
+    // TASK-2245 (epic 2237 W3.1) — RUN SETTINGS collapse state + the
+    // expand-then-focus bridge to anugaScenarioMenu.js. See
+    // useRunSettingsCollapse's own doc comment for the full contract.
+    const [isRunSettingsOpen, toggleRunSettings] = useRunSettingsCollapse(
+        scenario, props.runSettingsExpandToken, props.onRunSettingsExpanded
+    );
 
     // TASK-2244 (epic 2237 W2.2) — the title pill: the ONE standing error
     // indicator that survives the error-surface consolidation (alongside the
@@ -1153,18 +1306,21 @@ const ScenarioPane = (props) => {
                                     <Message msgId="hydrata.anuga.readOnlyPaneHint" />
                                 </div> : null
                             }
-                            {/* TASK-2114 (A+B) — Required/Optional/Run stack in ONE
-                                scrollable body; no category gates which section
-                                renders. UAT re-aim (finding 2) — each heading now
-                                carries its own completeness badge (right-aligned),
-                                replacing the removed rail's at-a-glance nav. */}
+                            {/* TASK-2114 (A+B) — Required no longer gates a
+                                separate pane; no category gates which section
+                                renders. UAT re-aim (finding 2) — the Required
+                                heading carries its own completeness badge
+                                (right-aligned), replacing the removed rail's
+                                at-a-glance nav. TASK-2245 (W3.1) — Optional
+                                (Advanced) + Run are merged into ONE collapsed-
+                                by-default RUN SETTINGS section below (amendment
+                                A4); see renderRunSettingsSection/
+                                useRunSettingsCollapse for the collapse +
+                                expand-then-focus contract. */}
                             <div className="sv-anuga-scenario-pane-detail-body sv-anuga-scenario-pane-detail-body--merged">
                                 {renderSectionHeading('hydrata.anuga.requiredInputs', inputsProgress)}
                                 {renderInputsPane(props)}
-                                {renderSectionHeading('hydrata.anuga.optionalInputs', advancedProgress)}
-                                {renderAdvancedPane(props)}
-                                {renderSectionHeading('hydrata.anuga.run', runProgress)}
-                                {renderRunPane(props)}
+                                {renderRunSettingsSection(props, isRunSettingsOpen, toggleRunSettings, runProgress)}
                             </div>
                         </React.Fragment>
                     }
@@ -1205,7 +1361,17 @@ ScenarioPane.propTypes = {
     structures: PropTypes.array,
     meshRegions: PropTypes.array,
     networks: PropTypes.array,
-    onUpdateScenario: PropTypes.func
+    onUpdateScenario: PropTypes.func,
+    // TASK-2245 (epic 2237 W3.1) — expand-then-focus bridge for the RUN
+    // SETTINGS collapse: the menu bumps `runSettingsExpandToken` (any value
+    // whose IDENTITY changes per request) whenever a build-validation
+    // failure or "Attach first" click targets a field inside this section;
+    // `onRunSettingsExpanded` fires back once the section has actually
+    // committed open, so the menu's own .focus() call never races the
+    // collapse. See useRunSettingsCollapse's doc comment for the full
+    // contract.
+    runSettingsExpandToken: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    onRunSettingsExpanded: PropTypes.func
 };
 
 ScenarioPane.defaultProps = {

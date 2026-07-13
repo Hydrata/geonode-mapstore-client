@@ -1470,12 +1470,45 @@ div that holds the feature-grid */
     overflow-y: auto;
 }
 
-/* TASK-2114 (A+B) — merged single-scroll body: Required/Optional/Run no
-   longer gate separate panes, so the same .sv-anuga-scenario-pane-detail-head
-   heading now repeats 3x inline. Add a little breathing room above the 2nd
-   and 3rd heading so the sections read as distinct chunks while scrolling. */
-.sv-anuga-scenario-pane-detail-body--merged .sv-anuga-scenario-pane-detail-head:not(:first-child) {
+/* TASK-2114 (A+B); re-scoped TASK-2245 (W3.1) — merged single-scroll body:
+   Required no longer gates a separate pane, and the RUN SETTINGS section
+   (below) merges what used to be two more repeated headings into one. Add a
+   little breathing room above RUN SETTINGS so it reads as a distinct chunk
+   from Required while scrolling. NOTE: this no longer targets
+   .sv-anuga-scenario-pane-detail-head directly — that class is now also
+   used by the RUN SETTINGS header (a <button>) nested one level deeper
+   inside .sv-anuga-scenario-pane-run-settings, so it is no longer a sibling
+   of Required's heading at this container's own child level and
+   `:not(:first-child)` would never match it. */
+.sv-anuga-scenario-pane-detail-body--merged .sv-anuga-scenario-pane-run-settings {
     margin-top: 14px;
+}
+
+/* TASK-2245 (epic 2237 W3.1) — RUN SETTINGS: the Optional (Advanced) + Run
+   sections merged into ONE collapsed-by-default section (amendment A4).
+   Always-render + .is-open CSS-collapse convention (karma determinism),
+   consistent with the notices panel (.sv-anuga-notices-panel above) — the
+   body never unmounts; only CSS visibility flips with `.is-open`. */
+.sv-anuga-scenario-pane-run-settings-header {
+    width: 100%;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.sv-anuga-scenario-pane-run-settings-toggle-icon {
+    flex-shrink: 0;
+    font-size: 10px;
+    opacity: 0.75;
+}
+
+.sv-anuga-scenario-pane-run-settings-body {
+    display: none;
+}
+
+.sv-anuga-scenario-pane-run-settings.is-open .sv-anuga-scenario-pane-run-settings-body {
+    display: block;
 }
 
 /* Wave 3A — pane sections inside Pane 3 use the existing .sv-anuga-scenario-pane-section

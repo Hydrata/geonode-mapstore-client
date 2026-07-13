@@ -395,6 +395,7 @@
         "runLog": "Journal d'exécution",
         "requiredInputs": "Requis",
         "optionalInputs": "Optionnel",
+        "runSettings": "Paramètres d'exécution",
         "sectionInputs": "Entrées",
         "sectionConfiguration": "Configuration",
         "sectionExecution": "Exécution",

@@ -395,6 +395,7 @@
         "runLog": "Run log",
         "requiredInputs": "Required",
         "optionalInputs": "Optional",
+        "runSettings": "Run settings",
         "sectionInputs": "Inputs",
         "sectionConfiguration": "Configuration",
         "sectionExecution": "Execution",

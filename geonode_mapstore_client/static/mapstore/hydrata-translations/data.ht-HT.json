@@ -395,6 +395,7 @@
         "runLog": "Jounal ekzekisyon",
         "requiredInputs": "Egzije",
         "optionalInputs": "Opsyonèl",
+        "runSettings": "Paramèt ekzekisyon",
         "sectionInputs": "Antre",
         "sectionConfiguration": "Konfigirasyon",
         "sectionExecution": "Ekzekisyon",

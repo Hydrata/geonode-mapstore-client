@@ -24,7 +24,7 @@ import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP,
     ERROR_CLASS_MESSAGE_IDS, tailLines, capChars, TAIL_MAX_CHARS, buildCloudWatchDeepLink,
     getMeshComparison, getMeshDivergence, getMeshCostDriverHint,
-    DEFAULT_MESH_DIVERGENCE_THRESHOLD
+    DEFAULT_MESH_DIVERGENCE_THRESHOLD, runSettingsMustStayOpen, IN_FLIGHT_STATUSES
 } from '../scenarioHelpers';
 
 function makeValidScenario(overrides) {
@@ -831,5 +831,43 @@ describe('TASK-2210 getMeshCostDriverHint', () => {
         // holes is large and negative but must never be reported as "driving" cost.
         const breakdown = {base: 600, regions: 0, hole_perimeter: 0, breaklines: 0, holes: -5000, total: 600};
         expect(getMeshCostDriverHint(breakdown)).toBe(null);
+    });
+});
+
+/*
+ * TASK-2245 (epic 2237 W3.1) — runSettingsMustStayOpen: the RUN SETTINGS
+ * auto-expand predicate (a) — true while the scenario's resolved lifecycle
+ * status is IN_FLIGHT or 'error', so scenarioPane.js's collapse hook and any
+ * future consumer share one source rather than re-deriving the check.
+ */
+describe('TASK-2245 runSettingsMustStayOpen', () => {
+    it('returns false for a fresh/idle scenario (status created)', () => {
+        expect(runSettingsMustStayOpen({status: 'created'})).toBe(false);
+    });
+
+    it('returns false for a null/undefined scenario (defensive default)', () => {
+        expect(runSettingsMustStayOpen(null)).toBe(false);
+        expect(runSettingsMustStayOpen(undefined)).toBe(false);
+    });
+
+    it('returns false for terminal non-error statuses (built/complete/cancelled)', () => {
+        expect(runSettingsMustStayOpen({status: 'built'})).toBe(false);
+        expect(runSettingsMustStayOpen({status: 'complete'})).toBe(false);
+        expect(runSettingsMustStayOpen({status: 'cancelled'})).toBe(false);
+    });
+
+    it('returns true for every IN_FLIGHT_STATUSES member', () => {
+        IN_FLIGHT_STATUSES.forEach((status) => {
+            expect(runSettingsMustStayOpen({status})).toBe(true, `expected true for status '${status}'`);
+        });
+    });
+
+    it("returns true for status 'error'", () => {
+        expect(runSettingsMustStayOpen({status: 'error'})).toBe(true);
+    });
+
+    it('reads computed_status over status, like findScenarioStatus (DRY)', () => {
+        expect(runSettingsMustStayOpen({status: 'built', computed_status: 'computing'})).toBe(true);
+        expect(runSettingsMustStayOpen({status: 'computing', computed_status: 'built'})).toBe(false);
     });
 });

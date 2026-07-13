@@ -4,6 +4,10 @@ import ReactDOM from 'react-dom';
 import {Simulate} from 'react-dom/test-utils';
 import Localized from '@mapstore/framework/components/I18N/Localized';
 import {ScenarioPane, formatBuildLog, meshRegionIsUnattached, rainfallIsUnattached, rainfallAttachedButEmpty} from '../scenarioPane';
+// TASK-2245 (epic 2237 W3.1) — the RUN SETTINGS auto-expand statuses, read
+// from the SAME source scenarioPane.js's collapse hook uses (never a
+// hand-copied literal that could drift from IN_FLIGHT_STATUSES).
+import {IN_FLIGHT_STATUSES as IN_FLIGHT_TEST_STATUSES} from '../scenarioHelpers';
 const {enData} = require('../../../../../__tests__/fixtures/translations');
 
 /**
@@ -112,47 +116,64 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     });
 
     // ------------------------------------------------------------------
-    // Section-heading completeness badges (UAT re-aim, finding 2) — the
-    // rail's per-category "N/M" / "built" / "100%" tags now render
-    // right-aligned inside each merged-pane section heading, reusing
+    // Section-heading completeness badges (UAT re-aim, finding 2; re-cut
+    // TASK-2245/W3.1 for the 2-heading RUN SETTINGS merge) — the rail's
+    // per-category "N/M" / "built" / "100%" tags now render right-aligned
+    // inside each merged-pane section heading, reusing
     // validateCategoryProgress (scenarioHelpers.js) with the EXACT same
     // arguments the rail used to pass (including the TASK-2045
-    // boundaryHasFeatures gate) — never re-derived.
+    // boundaryHasFeatures gate) — never re-derived. TASK-2245 collapses the
+    // former Optional + Run headings into ONE "RUN SETTINGS" heading whose
+    // badge is the run-category tag alone (AC#4) — 'Optional' progress is no
+    // longer painted anywhere.
     // ------------------------------------------------------------------
     describe('Section-heading completeness badges (finding 2)', () => {
-        it('renders the 3 section headings in document order with right-aligned badges', (done) => {
+        it('renders the 2 section headings in document order with right-aligned badges', (done) => {
             // baseScenario: terrain(3)+boundary(4)+inflow(5) all set → Required
-            // 3/3 (is-ok). No friction/structure/mesh_region → Optional 0/3
-            // (advanced never errs, so is-ok too). status 'built' → Run 'built'.
+            // 3/3 (is-ok). status 'built' → RUN SETTINGS badge 'built'.
             ReactDOM.render(
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
                     const heads = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-title');
-                    expect(heads.length).toBe(3);
+                    expect(heads.length).toBe(2);
                     expect(heads[0].textContent).toInclude('hydrata.anuga.requiredInputs');
-                    expect(heads[1].textContent).toInclude('hydrata.anuga.optionalInputs');
-                    expect(heads[2].textContent).toInclude('hydrata.anuga.run');
+                    expect(heads[1].textContent).toInclude('hydrata.anuga.runSettings');
 
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    expect(badges.length).toBe(3);
+                    expect(badges.length).toBe(2);
                     expect(badges[0].textContent).toBe('3/3');
                     expect(badges[0].className).toInclude('is-ok');
-                    expect(badges[1].textContent).toBe('0/3');
-                    expect(badges[2].textContent).toBe('built');
+                    expect(badges[1].textContent).toBe('built');
                     done();
                 }
             );
         });
 
-        it('Run badge shows 100% for a complete scenario (operator UAT example)', (done) => {
+        it('RUN SETTINGS badge shows 100% for a complete scenario (operator UAT example)', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={{...baseScenario, status: 'complete'}} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    expect(badges[2].textContent).toBe('100%');
-                    expect(badges[2].className).toInclude('is-ok');
+                    expect(badges[1].textContent).toBe('100%');
+                    expect(badges[1].className).toInclude('is-ok');
+                    done();
+                }
+            );
+        });
+
+        // AC#4 — "pct while running": a computing run's badge is a rounded
+        // percentage, not the config-completeness tag.
+        it('RUN SETTINGS badge shows a rounded percentage while computing (AC#4)', (done) => {
+            const s = {...baseScenario, status: 'computing', latest_run: {status: 'computing', progress_pct: 41.7}};
+            ReactDOM.render(
+                <ScenarioPane scenario={s} selectedCategoryId={'inputs'} canEdit />,
+                container,
+                () => {
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[1].textContent).toBe('42%');
+                    expect(badges[1].className).toInclude('is-ok');
                     done();
                 }
             );
@@ -171,22 +192,23 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // TASK-2244 (epic 2237 W2.2) — the run-category 'err' badge is now
-        // suppressed at RENDER level (validateCategoryProgress itself still
-        // computes severity:'err' underneath — pinned, untouched; see
-        // scenarioHelpers-test.js). The title pill (toolbar) + the
-        // Run-failed notice are the sole error indicators now — see
-        // 'Error consolidation (TASK-2244)' below for both.
-        it('suppresses the Run badge (no "err" pill) when scenario.status === error', (done) => {
+        // TASK-2244 (epic 2237 W2.2); carried forward verbatim by TASK-2245 —
+        // the run-category 'err' badge is suppressed at RENDER level
+        // (validateCategoryProgress itself still computes severity:'err'
+        // underneath — pinned, untouched; see scenarioHelpers-test.js). The
+        // title pill (toolbar) + the Run-failed notice are the sole error
+        // indicators now — see 'Error consolidation (TASK-2244)' below for
+        // both.
+        it('suppresses the RUN SETTINGS badge (no "err" pill) when scenario.status === error', (done) => {
             const s = {...baseScenario, status: 'error', latest_run: {status: 'error'}};
             ReactDOM.render(
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    // Required + Optional badges still render (2); the 3rd
-                    // (Run) badge is gone, not merely relabelled.
-                    expect(badges.length).toBe(2);
+                    // Required badge still renders (1); the RUN SETTINGS
+                    // badge is gone, not merely relabelled.
+                    expect(badges.length).toBe(1);
                     expect(container.querySelector('.sv-anuga-scenario-pane-detail-head-badge.is-err')).toNotExist();
                     done();
                 }
@@ -273,7 +295,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // The 3-heading document-order assertion (+ its badges) now lives in
+        // The 2-heading document-order assertion (+ its badges) now lives in
         // 'Section-heading completeness badges (finding 2)' above, next to
         // the rest of the badge coverage it was split off to avoid.
 
@@ -298,6 +320,207 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 () => {
                     expect(container.querySelectorAll('.sv-anuga-scenario-resource-summary').length).toBe(0);
                     done();
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // TASK-2245 (epic 2237 W3.1) — RUN SETTINGS collapse: Optional (Advanced)
+    // + Run merged into ONE collapsible section, collapsed by default,
+    // auto-expanding while the run is in flight/errored (AC#1), and via the
+    // expand-then-focus bridge to anugaScenarioMenu.js (AC#2/#3 — the
+    // full menu-driven integration for those two lives in
+    // anugaScenarioMenu-test.js; this block proves the pane's own half of
+    // that bridge in isolation).
+    // ------------------------------------------------------------------
+    describe('RUN SETTINGS collapse (TASK-2245)', () => {
+        it('is collapsed by default for an idle/fresh scenario (AC#1) — fields still exist (always-render)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />, // baseScenario.status is 'built' — not in flight, not error
+                container,
+                () => {
+                    const section = container.querySelector('.sv-anuga-scenario-pane-run-settings');
+                    expect(section).toExist();
+                    expect(section.className).toNotInclude('is-open');
+                    expect(section.querySelector('[aria-expanded="false"]')).toExist();
+                    // Always-render + .is-open CSS-collapse convention — the
+                    // fields are still in the DOM, just CSS-hidden.
+                    expect(container.querySelector('#resolution')).toExist();
+                    expect(container.querySelector('#duration-hours')).toExist();
+                    done();
+                }
+            );
+        });
+
+        IN_FLIGHT_TEST_STATUSES.forEach((status) => {
+            it(`auto-expands on mount when status is '${status}' (AC#1)`, (done) => {
+                ReactDOM.render(
+                    <ScenarioPane scenario={{...baseScenario, status}} canEdit />,
+                    container,
+                    () => {
+                        const section = container.querySelector('.sv-anuga-scenario-pane-run-settings');
+                        expect(section.className).toInclude('is-open');
+                        expect(section.querySelector('[aria-expanded="true"]')).toExist();
+                        done();
+                    }
+                );
+            });
+        });
+
+        it("auto-expands on mount when status is 'error' (AC#1)", (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={{...baseScenario, status: 'error'}} canEdit />,
+                container,
+                () => {
+                    const section = container.querySelector('.sv-anuga-scenario-pane-run-settings');
+                    expect(section.className).toInclude('is-open');
+                    done();
+                }
+            );
+        });
+
+        it('clicking the header toggles collapsed <-> open for an idle scenario (user action)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    const header = container.querySelector('.sv-anuga-scenario-pane-run-settings-header');
+                    // Deferred a tick — a click dispatched from inside this
+                    // mount-commit callback doesn't flush its state update
+                    // until the callback's own call stack unwinds (see the
+                    // logTailOpen precedent above).
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                            header.click();
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toNotInclude('is-open');
+                                done();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        // The hard "(a) ... must not hide while running" guarantee — a
+        // click on the header while the run is IN_FLIGHT must not visually
+        // collapse the section (the progress card + log viewer live inside).
+        it('clicking the header while running does NOT visually collapse the section', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={{...baseScenario, status: 'computing'}} canEdit />,
+                container,
+                () => {
+                    const header = container.querySelector('.sv-anuga-scenario-pane-run-settings-header');
+                    expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                            done();
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        // Expand-then-focus bridge (pane side only — see anugaScenarioMenu-test.js
+        // for the full menu-driven "Attach first" / build-validation flows).
+        // `runSettingsExpandToken` is any value whose IDENTITY changes per
+        // request; bumping it must open the section and fire
+        // `onRunSettingsExpanded` exactly once, only after the open state
+        // has committed.
+        it('runSettingsExpandToken opens the section and fires onRunSettingsExpanded exactly once', (done) => {
+            let expandedCalls = 0;
+            const onRunSettingsExpanded = () => { expandedCalls += 1; };
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    // null = "no request yet" (the menu's own initial state,
+                    // anugaScenarioMenu.js) — 0 is a REAL token value, not a
+                    // sentinel, so starting here would itself look like an
+                    // unhandled request.
+                    runSettingsExpandToken={null}
+                    onRunSettingsExpanded={onRunSettingsExpanded}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toNotInclude('is-open');
+                    expect(expandedCalls).toBe(0);
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={baseScenario}
+                            canEdit
+                            runSettingsExpandToken={1}
+                            onRunSettingsExpanded={onRunSettingsExpanded}
+                        />,
+                        container,
+                        () => {
+                            // Deferred a tick — the token effect's own
+                            // setIsOpen(true) (and the SECOND effect's
+                            // onExpanded() call it cascades into) is a nested
+                            // update triggered FROM a useLayoutEffect during
+                            // THIS render's commit; neither the DOM mutation
+                            // nor the onExpanded() call is guaranteed to have
+                            // flushed before THIS render call's own callback
+                            // fires (the same class of W2 karma flush gotcha,
+                            // here on a nested-render callback rather than a
+                            // click).
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                                expect(expandedCalls).toBe(1);
+                                // Re-rendering with the SAME token again must
+                                // not re-notify (already-handled token, AC —
+                                // no repeat focus fights on an unrelated
+                                // re-render).
+                                ReactDOM.render(
+                                    <ScenarioPane
+                                        scenario={baseScenario}
+                                        canEdit
+                                        runSettingsExpandToken={1}
+                                        onRunSettingsExpanded={onRunSettingsExpanded}
+                                    />,
+                                    container,
+                                    () => {
+                                        expect(expandedCalls).toBe(1);
+                                        done();
+                                    }
+                                );
+                            }, 0);
+                        }
+                    );
+                }
+            );
+        });
+
+        it('a token arriving while already open (run in flight) notifies immediately, without a further OPEN transition', (done) => {
+            let expandedCalls = 0;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, status: 'computing'}}
+                    canEdit
+                    runSettingsExpandToken={null}
+                    onRunSettingsExpanded={() => { expandedCalls += 1; }}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={{...baseScenario, status: 'computing'}}
+                            canEdit
+                            runSettingsExpandToken={1}
+                            onRunSettingsExpanded={() => { expandedCalls += 1; }}
+                        />,
+                        container,
+                        () => {
+                            expect(expandedCalls).toBe(1);
+                            done();
+                        }
+                    );
                 }
             );
         });

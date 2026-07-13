@@ -395,6 +395,7 @@
         "runLog": "Registro de ejecución",
         "requiredInputs": "Requeridos",
         "optionalInputs": "Opcionales",
+        "runSettings": "Configuración de ejecución",
         "sectionInputs": "Entradas",
         "sectionConfiguration": "Configuración",
         "sectionExecution": "Ejecución",

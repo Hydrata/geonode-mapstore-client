@@ -1547,6 +1547,120 @@ describe('anugaScenarioMenu — Rainfall unattached build confirm (TASK-2160)', 
 });
 
 /*
+ * TASK-2245 (epic 2237 W3.1, AC#2/#3) — RUN SETTINGS expand-then-focus:
+ * resolution/duration now live inside the collapsed-by-default RUN SETTINGS
+ * section (scenarioPane.js), so a missing-field build-validation failure on
+ * either one must expand the section AND focus the field, not just pop the
+ * (pre-existing) validation dialog. Direct mirror of the MeshRegion/Rainfall
+ * "Attach first" harness above — AC#3 (mesh_region "Attach first" still
+ * expands-then-focuses under the new collapse) is ALREADY covered by
+ * 'anugaScenarioMenu — MeshRegion unattached build confirm (TASK-2116)' /
+ * "Attach first" ... focuses #mesh_region' above, unmodified: that test still
+ * passes because the expand commits synchronously (useLayoutEffect,
+ * scenarioPane.js) within the same click.
+ */
+describe('anugaScenarioMenu — RUN SETTINGS auto-expand on build validation (TASK-2245)', () => {
+    let container;
+
+    // Passes every validateScenario field EXCEPT the one under test, and
+    // carries empty meshRegions/rainfalls so the click reaches the missing-
+    // field validation dialog rather than either "unattached" gate.
+    function scenarioMissing(id, field, extras = {}) {
+        const base = {
+            id, name: `Scenario ${id}`, status: 'created', created_by: 9999,
+            terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+            friction: null, structure: null, mesh_region: null, network: null,
+            resolution: 1000, duration: 1800, unsaved: false,
+            ...extras
+        };
+        delete base[field];
+        if (field === 'resolution') base.resolution = 0;
+        if (field === 'duration') base.duration = null;
+        return base;
+    }
+
+    function makeHarness() {
+        const buildCalls = [];
+        const base = {
+            archiveFilter: 'none',
+            terrain: [], boundaries: [], inflows: [], rainfalls: [],
+            frictions: [], structures: [], meshRegions: [], networks: [],
+            computeInstances: [],
+            canCreateScenario: true,
+            canRunScenario: true,
+            myRole: 'editor',
+            currentUserId: 9999,
+            selectedScenarios: [],
+            readyToCompare: false,
+            flatLayers: [],
+            selectAnugaScenario: () => {},
+            setOpenMenuGroupId: () => {},
+            saveAnugaScenario: () => {},
+            buildScenarioExplicit: (sid) => buildCalls.push(sid),
+            runAnugaScenario: () => {}
+        };
+        const render = (scenario) => {
+            ReactDOM.render(
+                <AnugaScenarioMenuClass {...base} scenarios={[scenario]} selectedScenario={scenario} />,
+                container
+            );
+        };
+        return {buildCalls, render};
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('Build with duration null: validation dialog fires, RUN SETTINGS auto-expands, #duration-hours is focused (AC#2)', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(81, 'duration'));
+        expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toNotInclude('is-open');
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        const dialog = container.querySelector('.anuga-build-validation-dialog.is-open');
+        expect(dialog).toExist();
+        expect(dialog.textContent).toInclude('hydrata.anuga.validateMissingField.duration');
+        expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('duration-hours');
+    });
+
+    it('Build with resolution unset: validation dialog fires, RUN SETTINGS auto-expands, #resolution is focused', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(82, 'resolution'));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.anuga-build-validation-dialog.is-open')).toExist();
+        expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('resolution');
+    });
+
+    it('Build-and-Run with duration null ALSO auto-expands + focuses #duration-hours', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(83, 'duration'));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('duration-hours');
+    });
+
+    it('a missing REQUIRED-section field (e.g. terrain) does NOT touch the RUN SETTINGS collapse', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(84, 'terrain'));
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.anuga-build-validation-dialog.is-open')).toExist();
+        expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toNotInclude('is-open');
+    });
+});
+
+/*
  * Regression guard — source-text scan for window.confirm / window.alert.
  *
  * Stops the bug class from recurring (memory pin

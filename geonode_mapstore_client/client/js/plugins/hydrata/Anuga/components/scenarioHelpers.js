@@ -95,6 +95,18 @@ export const findScenarioStatus = (scenario) => {
     return scenario?.computed_status || scenario?.status || 'created';
 };
 
+// TASK-2245 (epic 2237 W3.1) — RUN SETTINGS auto-expand predicate (a): the
+// merged section (scenarioPane.js) must not hide the progress card + log
+// viewer it hosts while a build/run is actively in flight, or once it has
+// failed (the same combined-status test the notices panel's Run-failed
+// member and the divergence machinery already key off). Pure + exported so
+// scenarioPane.js's collapse hook and this file's own unit tests share one
+// source rather than re-deriving the IN_FLIGHT_STATUSES-or-'error' check.
+export const runSettingsMustStayOpen = (scenario) => {
+    const status = findScenarioStatus(scenario);
+    return IN_FLIGHT_STATUSES.includes(status) || status === 'error';
+};
+
 // W1.2 (TASK-2207, epic 2204) — maps Run.error_class (BE, TASK-2206) to the
 // translation key for its human label. Null/unrecognised classes (pre-2206
 // rows, or a class not in this map) resolve to undefined so the caller can
