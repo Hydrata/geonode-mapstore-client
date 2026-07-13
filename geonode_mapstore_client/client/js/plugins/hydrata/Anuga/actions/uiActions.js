@@ -69,6 +69,18 @@ const SET_ANUGA_COMPUTE_CONFIG = 'ANUGA:SET_ANUGA_COMPUTE_CONFIG';
 // explicit pick of the SITE DEFAULT is stored (and POSTed) too — the server
 // validates allowlist membership either way.
 const SET_SESSION_COMPUTE_TARGET = 'ANUGA:SET_SESSION_COMPUTE_TARGET';
+// TASK-2233 — reusable MovablePanel per-panel UI state. Dragged position /
+// resized size are keyed by panel id on state.anuga.ui.movablePanels so they
+// survive re-renders in-session ({ [panelId]: { position?, size? } }, patches
+// merged). Shared by every MovablePanel consumer (DEM legend today; the
+// TASK-2046 result-raster legends are the planned second consumer).
+const SET_MOVABLE_PANEL_STATE = 'ANUGA:SET_MOVABLE_PANEL_STATE';
+// TASK-2233 — stand-alone floating dynamic-DEM legend visibility. The panel
+// auto-shows whenever a dynamic-mode terrain pair exists; visible=false
+// records that the user closed it. The closed flag is ALSO cleared by
+// UPDATE_TERRAIN_ROW flipping a terrain to styling_mode='dynamic' (see
+// uiReducer) so re-entering dynamic mode re-shows the legend (AC2).
+const SET_DEM_LEGEND_PANEL = 'ANUGA:SET_DEM_LEGEND_PANEL';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -216,6 +228,17 @@ function setSessionComputeTarget(scenarioId, target) {
     return { type: SET_SESSION_COMPUTE_TARGET, scenarioId, target };
 }
 
+// TASK-2233 — merge a {position?, size?} patch into one movable panel's
+// persisted UI state (keyed by panelId).
+function setMovablePanelState(panelId, patch) {
+    return { type: SET_MOVABLE_PANEL_STATE, panelId, patch };
+}
+
+// TASK-2233 — show (true) / close (false) the floating dynamic-DEM legend.
+function setDemLegendPanel(visible) {
+    return { type: SET_DEM_LEGEND_PANEL, visible };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -252,5 +275,8 @@ module.exports = {
     SET_SESSION_COMPUTE_TARGET, setSessionComputeTarget,
     // TASK-1880 (epic 1884 W2) — in-app terrain-upload CRS picker.
     SET_TERRAIN_UPLOAD_CRS_PANEL, setTerrainUploadCrsPanel,
-    SET_TERRAIN_UPLOAD_CRS_ERROR, setTerrainUploadCrsError
+    SET_TERRAIN_UPLOAD_CRS_ERROR, setTerrainUploadCrsError,
+    // TASK-2233 — MovablePanel per-panel state + floating DEM legend visibility.
+    SET_MOVABLE_PANEL_STATE, setMovablePanelState,
+    SET_DEM_LEGEND_PANEL, setDemLegendPanel
 };

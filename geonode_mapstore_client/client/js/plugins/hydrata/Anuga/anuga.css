@@ -2362,6 +2362,13 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.8);
     font-variant-numeric: tabular-nums;
 }
+/* TASK-2233 — the legend now floats in its own MovablePanel (mounted at the
+   anugaContainer level) instead of inline under the DEM row. A compact
+   default width; the user's resize (inline style from the persisted size)
+   overrides this. */
+.sv-movable-panel.sv-dem-legend-panel {
+    width: 210px;
+}
 
 /* ── TASK-1861 (W4.4) — depth/result line-profile tool panel ──────────────── */
 .sv-profile-panel {

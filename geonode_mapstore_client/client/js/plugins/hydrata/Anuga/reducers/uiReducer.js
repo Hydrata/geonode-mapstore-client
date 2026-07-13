@@ -29,7 +29,13 @@ import {
     // TASK-2194 (epic 2190 W2) — staff compute-target selector site config.
     SET_ANUGA_COMPUTE_CONFIG,
     // TASK-2194 (review fix) — per-scenario session compute-target choice.
-    SET_SESSION_COMPUTE_TARGET
+    SET_SESSION_COMPUTE_TARGET,
+    // TASK-2233 — MovablePanel per-panel state + floating DEM legend visibility.
+    // UPDATE_TERRAIN_ROW (dataActions) is ALSO handled here: flipping a terrain
+    // to styling_mode='dynamic' re-shows a user-closed legend (AC2).
+    SET_MOVABLE_PANEL_STATE,
+    SET_DEM_LEGEND_PANEL,
+    UPDATE_TERRAIN_ROW
 } from "../actionsAnuga";
 
 import {
@@ -104,7 +110,15 @@ const initialState = {
     // the choice survives SAVE_ANUGA_SCENARIO_SUCCESS / SET_ANUGA_SCENARIO_DATA
     // wholesale-replaces of the scenarios slice. An explicit pick of the site
     // default is stored (and POSTed) like any other pick.
-    sessionComputeTargets: {}
+    sessionComputeTargets: {},
+    // TASK-2233 — per-MovablePanel dragged position / resized size, keyed by
+    // panel id ({ [panelId]: { position?: {x,y}, size?: {width,height} } }),
+    // so drag/resize survive re-renders in-session. Not persisted to storage.
+    movablePanels: {},
+    // TASK-2233 — the floating dynamic-DEM legend auto-shows whenever a
+    // dynamic-mode terrain pair exists; true = the user closed it. Cleared by
+    // a terrain re-entering dynamic styling mode (UPDATE_TERRAIN_ROW below).
+    demLegendPanelClosed: false
 };
 
 export default (state = initialState, action) => {
@@ -308,6 +322,28 @@ export default (state = initialState, action) => {
             };
     case SET_TERRAIN_UPLOAD_CRS_ERROR:
         return { ...state, terrainUploadCrsError: action.error || null };
+    // ── TASK-2233 — MovablePanel state + floating DEM legend visibility ────
+    case SET_MOVABLE_PANEL_STATE: {
+        // Merge the {position?, size?} patch into one panel's entry so a drag
+        // never clobbers a persisted resize (and vice versa).
+        if (!action.panelId) return state;
+        const panels = state.movablePanels || {};
+        return {
+            ...state,
+            movablePanels: {
+                ...panels,
+                [action.panelId]: { ...(panels[action.panelId] || {}), ...(action.patch || {}) }
+            }
+        };
+    }
+    case SET_DEM_LEGEND_PANEL:
+        return { ...state, demLegendPanelClosed: !action.visible };
+    case UPDATE_TERRAIN_ROW:
+        // Re-entering dynamic styling mode re-shows a user-closed legend (AC2).
+        // Any other row update (including a traditional switch) leaves it alone.
+        return action.fields?.styling_mode === 'dynamic' && state.demLegendPanelClosed
+            ? { ...state, demLegendPanelClosed: false }
+            : state;
     default:
         return state;
     }

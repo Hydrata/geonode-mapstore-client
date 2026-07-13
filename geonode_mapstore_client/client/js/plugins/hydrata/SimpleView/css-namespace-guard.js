@@ -167,7 +167,9 @@ const PANEL_CSS_FILES = [
     'js/plugins/hydrata/Swamm/swamm.css',
     'js/plugins/hydrata/HGeval/styles/hgeval.css',
     'js/plugins/hydrata/TaskMonitor/taskMonitor.css',
-    'js/plugins/hydrata/VectorDraw/components/vectorDrawPopup.css'
+    'js/plugins/hydrata/VectorDraw/components/vectorDrawPopup.css',
+    // TASK-2233 — shared MovablePanel primitive stylesheet (sv-movable-*).
+    'js/plugins/hydrata/shared/components/movablePanel.css'
 ].map(f => path.join(CLIENT_DIR, f));
 
 // ── CSS class selector regex ──

@@ -37,6 +37,11 @@ import {
     parseEnvString,
     buildLegendStops
 } from '../utils/demRamp';
+// TASK-2233 — the legend now floats as a stand-alone MovablePanel (mounted at
+// anugaContainer level) instead of rendering inline in the Terrain menu.
+import MovablePanel from '../../shared/components/MovablePanel';
+import { findDynamicDemPairs } from '../epics/demRescaleEpic';
+import { setMovablePanelState, setDemLegendPanel } from '../actions/uiActions';
 
 /**
  * Resolve the {elevMin..elevMax} stops to label the swatches with, applying the
@@ -134,3 +139,75 @@ const mapStateToProps = (state, ownProps) => ({
 });
 
 export default connect(mapStateToProps)(DemRampLegendComponent);
+
+/* ── TASK-2233 — stand-alone floating legend panel ──────────────────────────
+ *
+ * The legend used to render inline inside the Terrain layer-management panel
+ * (anugaInputMenu), which meant it unmounted exactly when the user closed the
+ * Inputs menu to study the map. It now rides a MovablePanel mounted at the
+ * anugaContainer level (the TerrainBboxPanel pattern), self-gating on:
+ *   - a dynamic-mode terrain with its DEM layer present (findDynamicDemPairs —
+ *     the SAME predicate the rescale epic uses, so legend visibility can never
+ *     disagree with what the epic actually rescales), and
+ *   - the user-closed flag (state.anuga.ui.demLegendPanelClosed; cleared when
+ *     a terrain re-enters dynamic mode, see uiReducer).
+ * Dragged position / resized size persist in-session on the ui slice keyed by
+ * DEM_LEGEND_PANEL_ID. Legend CONTENT is untouched — the same
+ * DemRampLegendComponent renders inside the panel (degraded flag mapped by
+ * the panel's own connect, so there is no nested store subscription).
+ */
+export const DEM_LEGEND_PANEL_ID = 'demRampLegend';
+
+// Default to the top-right of the map, clear of the left-docked menus the
+// user is likely to have open; MovablePanel clamps it back on-screen anyway.
+function defaultLegendPosition() {
+    if (typeof window === 'undefined') return { x: 20, y: 80 };
+    return { x: Math.max(20, window.innerWidth - 300), y: 80 };
+}
+
+export function FloatingDemLegendPanelComponent({ pair, closed, degraded, panelState, onClose, onPanelStateChange }) {
+    if (!pair || closed) {
+        return null;
+    }
+    return (
+        <MovablePanel
+            panelId={DEM_LEGEND_PANEL_ID}
+            className="sv-dem-legend-panel"
+            title={pair.terrain?.title || 'Elevation'}
+            position={panelState?.position}
+            defaultPosition={defaultLegendPosition()}
+            size={panelState?.size}
+            onClose={onClose}
+            onMove={(position) => onPanelStateChange(DEM_LEGEND_PANEL_ID, { position })}
+            onResize={(size) => onPanelStateChange(DEM_LEGEND_PANEL_ID, { size })}
+        >
+            <DemRampLegendComponent demLayer={pair.layer} terrainModel={pair.terrain} degraded={degraded} />
+        </MovablePanel>
+    );
+}
+
+FloatingDemLegendPanelComponent.propTypes = {
+    // {layer, terrain} for the first dynamic-mode DEM (null = no legend)
+    pair: PropTypes.object,
+    closed: PropTypes.bool,
+    degraded: PropTypes.bool,
+    // { position?: {x,y}, size?: {width,height} } persisted on the ui slice
+    panelState: PropTypes.object,
+    onClose: PropTypes.func,
+    onPanelStateChange: PropTypes.func
+};
+
+const floatingMapStateToProps = (state) => {
+    const pair = findDynamicDemPairs(state)[0] || null;
+    return {
+        pair,
+        closed: !!state?.anuga?.ui?.demLegendPanelClosed,
+        degraded: isDemRampDegraded(state, pair?.layer?.id),
+        panelState: state?.anuga?.ui?.movablePanels?.[DEM_LEGEND_PANEL_ID]
+    };
+};
+
+export const FloatingDemLegendPanel = connect(floatingMapStateToProps, {
+    onClose: () => setDemLegendPanel(false),
+    onPanelStateChange: setMovablePanelState
+})(FloatingDemLegendPanelComponent);

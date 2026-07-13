@@ -58,6 +58,11 @@ import ClickDisambiguationPanel from '../../shared/components/ClickDisambiguatio
 // container level (like TerrainBboxPanel) so closing a menu can't unmount it
 // mid-draw; self-gates on profilePanelVisible.
 import {TerrainProfilePanel} from './TerrainProfilePanel';
+// TASK-2233 — stand-alone floating dynamic-DEM legend (a MovablePanel).
+// Mounted at the container level so closing the Inputs menu can't unmount it
+// (the whole point of floating it); self-gates on a dynamic-mode terrain pair
+// being present + the user-closed flag.
+import {FloatingDemLegendPanel} from './DemRampLegend';
 // TASK-1869 (W5.4) — vertical-exaggeration slider for the 3D Cesium terrain.
 // GATED (TASK-1870/epic-1871): the slider is visually inert in prod — it sets
 // scene.verticalExaggeration but the GeoServerBILTerrainProvider mesh never
@@ -339,6 +344,11 @@ export class AnugaContainer extends React.Component {
                         profilePanelVisible) like TerrainBboxPanel so closing a
                         menu can't unmount it mid-draw. */}
                     <TerrainProfilePanel/>
+                    {/* TASK-2233: floating dynamic-DEM legend (MovablePanel).
+                        Self-gates on a dynamic-mode terrain + DEM layer being
+                        present and on the user-closed flag, so it survives
+                        closing the Inputs menu. */}
+                    <FloatingDemLegendPanel/>
                     {/* TASK-1869 (W5.4): vertical-exaggeration slider for the 3D
                         Cesium terrain. GATED until TASK-1870 (epic 1871) makes it
                         actually move the mesh — it is visually inert today, so the

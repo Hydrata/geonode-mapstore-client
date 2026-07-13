@@ -1,0 +1,39 @@
+/* TASK-2233 — MovablePanel: reusable draggable + resizable floating panel
+   (shared Layer-1 primitive, imported by MovablePanel.jsx like the
+   ClickDisambiguationPanel css). Scanned by the css-namespace-guard.
+
+   The double selector (0,2,0) outranks the base .simple-view-panel rule
+   (0,1,0) regardless of stylesheet load order: the panel is repositioned to
+   a fixed top-left origin so react-draggable's translate(x,y) IS the viewport
+   position (which keeps the clamping math trivial), and the base rule's
+   min-width/max-height/padding are neutralised for a small floating panel.
+   The stacking z-index (>= 100000, above .gn-page-wrapper's 99999) rides an
+   inline style in the component, not this sheet. */
+.simple-view-panel.sv-movable-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 160px;
+    min-height: 64px;
+    max-height: none;
+    /* Native corner resize handle; requires overflow != visible. The body
+       below scrolls instead so the header never scrolls away. */
+    resize: both;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.sv-movable-panel-header {
+    cursor: move;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.sv-movable-panel-body {
+    /* Gotcha #1 (BUILD-A-PANEL-GUIDE): .simple-view-panel centres text. */
+    text-align: left;
+    padding: 8px 12px;
+    overflow: auto;
+    flex: 1 1 auto;
+}
