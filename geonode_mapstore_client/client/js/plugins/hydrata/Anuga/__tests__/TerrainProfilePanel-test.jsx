@@ -10,7 +10,7 @@
  */
 import React from 'react';
 import ReactDOM from 'react-dom';
-import TestUtils from 'react-dom/test-utils';
+import { fireEvent } from '@testing-library/react';
 import expect from 'expect';
 
 import {
@@ -279,7 +279,7 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         let toggledId = null;
         render({ checkedTerrainIds: [1], toggleCheckedTerrain: (id) => { toggledId = id; } });
         const checkbox2 = container.querySelector('[data-testid="picker-checkbox-terrain-2"]');
-        TestUtils.Simulate.change(checkbox2, { target: { checked: true } });
+        fireEvent.click(checkbox2);
         expect(toggledId).toBe(2);
     });
 

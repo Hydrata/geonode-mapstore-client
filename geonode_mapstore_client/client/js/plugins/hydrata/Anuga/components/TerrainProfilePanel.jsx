@@ -35,6 +35,7 @@ import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import PlotlyChart from '@mapstore/framework/components/charts/PlotlyChart';
+import { colorToRgbaStr } from '../../../../../MapStore2/web/client/utils/ColorUtils';
 import { PanelHeader } from '../../SimpleView/components/primitives';
 import {
     setProfilePanelVisible,
@@ -134,15 +135,6 @@ export const WATER_PALETTE = ['#5BC0FF', '#38B2A3', '#8C9BFF'];
 const TERRAIN_FILL_ALPHA = 0.30;
 const WATER_FILL_ALPHA = 0.25;
 
-// #rrggbb -> rgba(r,g,b,alpha). Returns the hex unchanged on a malformed
-// input (defensive — never crash the chart over a palette typo).
-function hexToRgba(hex, alpha) {
-    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
-    if (!m) return hex;
-    const [r, g, b] = m.slice(1).map((h) => parseInt(h, 16));
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 // Slot is the 0-based index within the CHECKED subset of a role, in stable
 // picker-list order (see getColorSlot). Clamped to the last palette entry so
 // a 4th+ trace (should never happen — the 3+3 cap enforces this upstream)
@@ -150,14 +142,17 @@ function hexToRgba(hex, alpha) {
 export function terrainColor(slot) {
     return TERRAIN_PALETTE[slot] || TERRAIN_PALETTE[TERRAIN_PALETTE.length - 1];
 }
+// hex -> rgba(...) at a fixed alpha via MapStore's own colorToRgbaStr
+// (ColorUtils.js, tinycolor-backed) — reuse the framework's colour-parsing
+// rather than hand-rolling a #rrggbb regex.
 export function terrainFillColor(slot) {
-    return hexToRgba(terrainColor(slot), TERRAIN_FILL_ALPHA);
+    return colorToRgbaStr(terrainColor(slot), TERRAIN_FILL_ALPHA);
 }
 export function waterColor(slot) {
     return WATER_PALETTE[slot] || WATER_PALETTE[WATER_PALETTE.length - 1];
 }
 export function waterFillColor(slot) {
-    return hexToRgba(waterColor(slot), WATER_FILL_ALPHA);
+    return colorToRgbaStr(waterColor(slot), WATER_FILL_ALPHA);
 }
 
 /**
