@@ -272,7 +272,7 @@
         "run": "Egzekite",
         "runQueued": "Egzekisyon nan liy",
         "save": "Anrejistre",
-        "scenarios": "Idwolik",
+        "scenarios": "Senaryo yo",
         "status": "Estati",
         "statusBuilding": "Konstwi...",
         "statusBuilt": "Konstwi",
@@ -415,7 +415,8 @@
         "buildValidationAriaLabel": "Erè validasyon konstriksyon",
         "categoryRailAriaLabel": "Kategori senaryo",
         "railUnsavedAriaLabel": "Pa sove",
-        "railArchivedAriaLabel": "Achive"
+        "railArchivedAriaLabel": "Achive",
+        "hydraulicsTab": "Idwolik"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

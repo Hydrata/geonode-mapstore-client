@@ -272,7 +272,7 @@
         "run": "Run",
         "runQueued": "Run queued",
         "save": "Save",
-        "scenarios": "Hydraulics",
+        "scenarios": "Scenarios",
         "status": "Status",
         "statusBuilding": "Building...",
         "statusBuilt": "Built",
@@ -415,7 +415,8 @@
         "buildValidationAriaLabel": "Build validation error",
         "categoryRailAriaLabel": "Scenario categories",
         "railUnsavedAriaLabel": "Unsaved",
-        "railArchivedAriaLabel": "Archived"
+        "railArchivedAriaLabel": "Archived",
+        "hydraulicsTab": "Hydraulics"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

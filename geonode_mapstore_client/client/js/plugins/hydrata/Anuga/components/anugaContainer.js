@@ -214,7 +214,7 @@ export class AnugaContainer extends React.Component {
                             trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
                         }}
                     >
-                        <Message msgId="hydrata.anuga.scenarios" />
+                        <Message msgId="hydrata.anuga.hydraulicsTab" />
                     </button>
                     : null
                 }
