@@ -133,14 +133,21 @@ export function extractLineFromDrawAction(action) {
 
 /**
  * Terrain picker rows: project Terrain resources with status='ready' AND a
- * gn_layer_name, in resource-list order (the BE-returned order — the same
- * stable order hasDemReady/findActiveTerrain already key off).  A not-ready
+ * gn_layer_name, SORTED BY ID (mirrors getScenariosArray) — TerrainViewSetV2's
+ * BE queryset has no explicit ORDER BY, so the raw fetch order is not
+ * guaranteed stable across polls/refetches. Colour-slot assignment
+ * (getColorSlot, LOCKED decision #6) depends on this list's order being
+ * stable; an unsorted "whatever the BE returned this time" order would
+ * silently reintroduce the exact colour-churn bug the slot design exists to
+ * prevent, just relocated from check-order to fetch-order. A not-ready
  * terrain is excluded entirely (no disabled state for terrain — only
  * scenarios have listed-disabled rows, LOCKED decision #10).
  */
 export function getTerrainPickerRows(state) {
     const terrain = state?.anuga?.resources?.terrain || [];
-    return terrain.filter(t => t?.status === 'ready' && t?.gn_layer_name);
+    return terrain
+        .filter(t => t?.status === 'ready' && t?.gn_layer_name)
+        .sort((a, b) => (a?.id || 0) - (b?.id || 0));
 }
 
 /**
@@ -308,18 +315,29 @@ export function getProfileTraces(state) {
 }
 
 /**
- * The deduped request token set for the layers= param: every trace's key,
- * PLUS every stage trace's maskKey (sampled so applyDryMask can read the
- * paired depth value — the mask key never appears in getProfileTraces'
- * chart-facing metadata as its own trace). Order-preserving dedup.
+ * The deduped request token set for a traces array: every trace's key, PLUS
+ * every stage trace's maskKey (sampled so applyDryMask can read the paired
+ * depth value — the mask key never appears in getProfileTraces' chart-facing
+ * metadata as its own trace). Order-preserving dedup. Exported so a caller
+ * that already HAS a traces array (profileEndDrawingEpic) never needs to
+ * re-derive it via a second getProfileTraces(state) call.
  */
-export function getProfileLayers(state) {
+export function tokensFromTraces(traces) {
     const tokens = [];
-    getProfileTraces(state).forEach((t) => {
+    (traces || []).forEach((t) => {
         tokens.push(t.key);
         if (t.maskKey) tokens.push(t.maskKey);
     });
     return Array.from(new Set(tokens));
+}
+
+/**
+ * Convenience: the deduped request token set for the layers= param, derived
+ * from a FRESH getProfileTraces(state) call. Prefer tokensFromTraces directly
+ * when the caller already has a traces array in hand.
+ */
+export function getProfileLayers(state) {
+    return tokensFromTraces(getProfileTraces(state));
 }
 
 /**
@@ -439,15 +457,17 @@ export function profileEndDrawingEpic(action$, store) {
             }
 
             // traces ({key,label,role}) are the single source of truth for BOTH
-            // the request tokens (getProfileLayers derives from them) and the
-            // chart metadata stored alongside the samples.
+            // the request tokens and the chart metadata stored alongside the
+            // samples — derive the tokens from THIS traces value (tokensFromTraces)
+            // rather than a second getProfileLayers(state) call, which would
+            // silently redo the same terrain/scenario derivation twice per draw.
             const traces = getProfileTraces(state);
             if (traces.length === 0) {
                 // Nothing checked (or every checked row lost its stage/terrain
                 // since being checked) — nothing to sample, no pointless call.
                 return Rx.Observable.of(stopDraw, setProfileError('hydrata.anuga.profileNoTerrain'));
             }
-            const layers = getProfileLayers(state);
+            const layers = tokensFromTraces(traces);
 
             return Rx.Observable.concat(
                 Rx.Observable.of(stopDraw, setProfileLoading(true)),
