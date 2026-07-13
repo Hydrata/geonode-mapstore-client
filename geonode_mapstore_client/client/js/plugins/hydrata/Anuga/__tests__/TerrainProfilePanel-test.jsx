@@ -57,17 +57,18 @@ describe('TerrainProfilePanel — computeYRange (W4 UAT, TASK-1861/1862)', () =>
     });
 });
 
-describe('TerrainProfilePanel — cross-section UNCHANGED (W4.5)', () => {
+describe('TerrainProfilePanel — cross-section (W4.5; TASK-2255 reworked stage sampling)', () => {
     // Cross-section terrain + stage are BOTH elevation magnitude: single axis
-    // framed to relief, no role-based y2 split. (Must not regress.)
+    // framed to relief, no role-based y2 split. (Must not regress.) Stage is
+    // now the PUBLISHED value sampled directly (TASK-2255) — never bed+depth.
     const samples = [
-        { distance_m: 0, dem: 810, depth: 0 },
-        { distance_m: 25, dem: 805, depth: 6 },
-        { distance_m: 50, dem: 800, depth: 0 }
+        { distance_m: 0, dem: 810, stage: 810 },
+        { distance_m: 25, dem: 805, stage: 811 },
+        { distance_m: 50, dem: 800, stage: 800 }
     ];
     const traces = [
         { key: 'dem', label: 'Elevation', role: 'dem' },
-        { key: 'depth', label: 'Depth (max)', role: 'depth' }
+        { key: 'stage', label: 'Water surface', role: 'stage' }
     ];
 
     it('builds terrain (tozeroy) + water-surface (tonexty) on a SINGLE axis', () => {
@@ -78,7 +79,7 @@ describe('TerrainProfilePanel — cross-section UNCHANGED (W4.5)', () => {
         // No dual-axis assignment leaked into cross-section traces.
         expect(data[0].yaxis).toBe(undefined);
         expect(data[1].yaxis).toBe(undefined);
-        // stage = bed + depth.
+        // stage = the raw published value, sampled directly (never bed+depth).
         expect(data[1].y).toEqual([810, 811, 800]);
         // Single-axis range still frames to relief (excludes 0).
         const range = computeYRange(data);

@@ -1,7 +1,16 @@
 /**
  * TASK-1861 (epic 1814 W4.4) — profileEpic
+ * TASK-2254/TASK-2255 (epic 2249 W2) — Cross-section rework: the picker
+ * checked-id state (TASK-2254) + the multi-terrain/multi-scenario sampling
+ * rework (TASK-2255) both live in this file alongside the original two epics.
  *
- * The depth/result line-profile tool. Two epics:
+ * The Cross-section tool. Three epics:
+ *
+ *   pickerSeedEpic — on SET_PROFILE_PANEL_VISIBLE(true) (panel open) seeds
+ *     state.anuga.ui.checkedTerrainIds/checkedScenarioIds from current map
+ *     visibility (TASK-2254): overflow (>3) takes the first 3 by picker-list
+ *     order; nothing visible falls back to the active terrain / selected
+ *     scenario (today's single-terrain/single-water default).
  *
  *   profileStartDrawEpic — on START_PROFILE_DRAW (the panel's "Draw profile
  *     line" button) flips the drawing flag, clears any stale samples/error, and
@@ -14,21 +23,23 @@
  *        (DrawSupport emits coords in the map CRS — usually EPSG:3857);
  *     2. gates on a DEM being ready (reuses hasDemReady from cursorElevationEpic
  *        — no crash when no terrain/result is present, AC-5);
- *     3. discovers the layers to sample: the active terrain DEM ('dem') plus the
- *        SELECTED scenario's result rasters (depth_max / velocity_max /
- *        depthintegratedvelocity_max) from latest_complete_run (TASK-2078 —
- *        cross-section sampling is a RESULT consumer; a newer in-flight or
- *        errored latest_run must not blank/break the profile), with the
- *        geonode: workspace prefix STRIPPED to bare names (W3 LESSON: the BE
+ *     3. builds ONE trace per CHECKED terrain (its own bare gn_layer_name,
+ *        role='dem' — the literal 'dem' token is gone) and ONE trace per
+ *        CHECKED, stage-published scenario (its bare stage_max name,
+ *        role='stage', LOCKED decision #3 — published stage is the ONLY
+ *        water source, no terrain+depth derivation), with the geonode:
+ *        workspace prefix STRIPPED to bare names (W3 LESSON: the BE
  *        resolve_coverage_vsi_path matches the bare coveragestore name);
- *     4. calls the W4.3 endpoint (anugaApi.getTerrainProfile) with the WKT line,
- *        the comma-joined layer set, and a fixed sample count;
- *     5. dispatches SET_PROFILE_SAMPLES(series, traces) on success or
- *        SET_PROFILE_ERROR on any failure (no DEM / bad line / network).
+ *     4. calls the endpoint (anugaApi.getTerrainProfile) ONCE with the WKT
+ *        line, the deduped layer token set (dem + stage + depth-mask tokens),
+ *        and a fixed sample count — the URL path terrain id is just the
+ *        perms anchor (LOCKED decision #8), not a sampling selector;
+ *     5. dry-masks the response (applyDryMask — depth<0.02m or null -> null
+ *        stage, LOCKED decision #9) and dispatches SET_PROFILE_SAMPLES(series,
+ *        traces) on success, or SET_PROFILE_ERROR on any failure (no DEM /
+ *        nothing checked / bad line / network).
  *
- * PURE DATA epics (karma-testable with MockAdapter). The active-terrain id used
- * for the route is the W3 findActiveTerrain match; the result layers are passed
- * by NAME in the layers= param, so a single terrain route samples every raster.
+ * PURE DATA epics (karma-testable with MockAdapter).
  */
 import Rx from 'rxjs';
 import {
@@ -59,16 +70,16 @@ export const PROFILE_DRAW_OWNER = 'terrain-profile';
 // bounding the /vsis3 read cost.
 export const PROFILE_SAMPLES = 100;
 
-// The three ANUGA result rasters exposed on a Run (read via latest_complete_run
-// — TASK-2078), in chart order, with the human label used as the trace name.
-// Keys map to the run serializer fields.
-// `role` (TASK-1862, W4.5) lets the cross-section chart find the terrain + depth
-// rasters UNAMBIGUOUSLY (water surface = terrain + DEPTH = stage) instead of
-// sniffing the layer name: depth is role='depth', the rest role='other'.
+// The three ANUGA result rasters that DO become MapLayers (depth/velocity/
+// momentum — stage_max NEVER does, W1). TASK-2255 note: this list now drives
+// ONLY the "is this scenario visible on the map" check (TASK-2254,
+// isScenarioRowVisible below) — the sampling epic no longer requests
+// velocity/momentum at all (published stage_max is the sole water source,
+// LOCKED decision #3).
 const RESULT_LAYER_FIELDS = [
-    { field: 'gn_layer_depth_max', label: 'Depth (max)', role: 'depth' },
-    { field: 'gn_layer_velocity_max', label: 'Velocity (max)', role: 'other' },
-    { field: 'gn_layer_depth_integrated_velocity_max', label: 'Momentum (max)', role: 'other' }
+    { field: 'gn_layer_depth_max' },
+    { field: 'gn_layer_velocity_max' },
+    { field: 'gn_layer_depth_integrated_velocity_max' }
 ];
 
 // bareName is imported from terrainEpics.js (canonical source, W5.1/TASK-1866).
@@ -111,44 +122,6 @@ export function extractLineFromDrawAction(action) {
     if (lonLats.some((c) => c === null)) return null;
     if (lonLats.length < 2) return null;
     return lonLats;
-}
-
-/**
- * Build the ordered {key,label} entries to sample: 'dem' first, then the
- * SELECTED scenario's result rasters (latest_complete_run.gn_layer_*) as BARE
- * layer names. TASK-2078: reads latest_complete_run, NOT latest_run — a newer
- * in-flight/errored run has no (or stale) result rasters, so sampling must
- * stay pinned to the last COMPLETE run's COGs. The LABEL is sourced
- * AUTHORITATIVELY from the run field (not from sniffing the layer name) so it
- * is correct regardless of how the coverage is named — localhost result
- * layers are temp-file-named (tmp*_cog) while prod uses run_<…>_<token>_cog,
- * and both must label as "Depth (max)" etc.
- * Returns [{key:'dem', label:'Elevation', role:'dem'}, {key:'<bare>',
- * label:'Depth (max)', role:'depth'}, …]. Always includes 'dem'. `role`
- * (TASK-1862) drives the cross-section chart (terrain=dem, water surface=depth).
- */
-export function getProfileTraces(state) {
-    const traces = [{ key: 'dem', label: 'Elevation', role: 'dem' }];
-    const scenario = getSelectedScenario(state);
-    const run = scenario && scenario.latest_complete_run;
-    if (run) {
-        RESULT_LAYER_FIELDS.forEach(({ field, label, role }) => {
-            const name = run[field] && run[field].name;
-            const bare = bareName(name);
-            if (bare && !traces.some(t => t.key === bare)) {
-                traces.push({ key: bare, label, role });
-            }
-        });
-    }
-    return traces;
-}
-
-/**
- * Convenience: just the layer-key set (['dem', '<bare>', ...]) for the layers=
- * request param.  Derived from getProfileTraces so keys + labels never drift.
- */
-export function getProfileLayers(state) {
-    return getProfileTraces(state).map(t => t.key);
 }
 
 // ── TASK-2254 (epic 2249 W2) — Cross-section PICKER series model ───────────
@@ -277,6 +250,127 @@ export function getColorSlot(rows, checkedIds, id) {
     return checkedInListOrder.indexOf(id);
 }
 
+// ── TASK-2255 (epic 2249 W2) — sampling epic rework ─────────────────────────
+
+/**
+ * Build ONE trace per CHECKED terrain (role='dem', keyed by ITS OWN bare
+ * gn_layer_name — the literal 'dem' token is DROPPED, LOCKED decision #8)
+ * and ONE trace per CHECKED, stage-published scenario (role='stage', keyed
+ * by its bare stage_max name). The water surface comes ONLY from the
+ * published stage_max (LOCKED decision #3) — there is no 'depth'-role
+ * terrain+depth derivation trace any more (AC4). Each stage trace carries
+ * `maskKey` (its scenario's bare depth_max name) so the epic can dry-mask
+ * the response (LOCKED decision #9) without ever combining the two values
+ * arithmetically.
+ *
+ * Reads state.anuga.ui.checkedTerrainIds / checkedScenarioIds (TASK-2254) —
+ * sampling is EXACTLY what is checked, nothing implicit/selected. A checked
+ * id that no longer resolves to a checkable row (stale id, deleted terrain,
+ * a scenario that lost its stage) is silently dropped, never crashes.
+ *
+ * Returns [{key, label, role:'dem', terrainId}, {key, label, role:'stage',
+ * scenarioId, maskKey}, ...], deduped by key (first occurrence wins).
+ */
+export function getProfileTraces(state) {
+    const checkedTerrainIds = state?.anuga?.ui?.checkedTerrainIds || [];
+    const terrainTraces = getTerrainPickerRows(state)
+        .filter(t => checkedTerrainIds.includes(t.id))
+        .map((t) => ({
+            key: bareName(t.gn_layer_name),
+            label: t.title || t.name || t.gn_layer_name,
+            role: 'dem',
+            terrainId: t.id
+        }))
+        .filter(t => t.key);
+
+    const checkedScenarioIds = state?.anuga?.ui?.checkedScenarioIds || [];
+    const scenarioTraces = getScenarioPickerRows(state)
+        .filter(r => r.status === 'ready' && checkedScenarioIds.includes(r.id))
+        .map(({ scenario }) => {
+            const run = scenario.latest_complete_run;
+            const maskName = run.gn_layer_depth_max && run.gn_layer_depth_max.name;
+            return {
+                key: bareName(run.gn_layer_stage_max.name),
+                label: scenario.name || `Scenario ${scenario.id}`,
+                role: 'stage',
+                scenarioId: scenario.id,
+                maskKey: maskName ? bareName(maskName) : null
+            };
+        })
+        .filter(t => t.key);
+
+    const seen = new Set();
+    return [...terrainTraces, ...scenarioTraces].filter((t) => {
+        if (seen.has(t.key)) return false;
+        seen.add(t.key);
+        return true;
+    });
+}
+
+/**
+ * The deduped request token set for the layers= param: every trace's key,
+ * PLUS every stage trace's maskKey (sampled so applyDryMask can read the
+ * paired depth value — the mask key never appears in getProfileTraces'
+ * chart-facing metadata as its own trace). Order-preserving dedup.
+ */
+export function getProfileLayers(state) {
+    const tokens = [];
+    getProfileTraces(state).forEach((t) => {
+        tokens.push(t.key);
+        if (t.maskKey) tokens.push(t.maskKey);
+    });
+    return Array.from(new Set(tokens));
+}
+
+/**
+ * TASK-2255 (LOCKED decision #9) — dry-mask epsilon: a stage sample whose
+ * paired depth_max is null (nodata / out-of-raster) or < 0.02 m is set to
+ * null (no water at that point) rather than left as a wet-looking value —
+ * the epsilon kills kNN/IDW interpolation skirts at wet/dry fronts. This is
+ * the ONLY arithmetic ever applied to a stage sample: a comparison against
+ * the epsilon, never an addition to the terrain/bed value (AC4 — no code
+ * path computes terrain+depth).
+ *
+ * `traces` is a getProfileTraces() array; only role='stage' entries with a
+ * `maskKey` are maskable. Returns a NEW array (does not mutate `samples`).
+ */
+export function applyDryMask(samples, traces) {
+    if (!Array.isArray(samples)) return samples;
+    const maskable = (traces || []).filter(t => t && t.role === 'stage' && t.maskKey);
+    if (maskable.length === 0) return samples;
+    return samples.map((s) => {
+        if (!s) return s;
+        let next = s;
+        maskable.forEach((t) => {
+            const depth = s[t.maskKey];
+            const isDry = typeof depth !== 'number' || depth < 0.02;
+            if (isDry && s[t.key] !== null) {
+                if (next === s) next = { ...s };
+                next[t.key] = null;
+            }
+        });
+        return next;
+    });
+}
+
+/**
+ * The URL-path terrain id — a perms anchor ONLY (LOCKED decision #8), not a
+ * sampling selector: the endpoint authorizes layers= tokens against this
+ * terrain's own project. Anchors to the first CHECKED terrain (stable
+ * picker-list order); falls back to findActiveTerrain (today's single-DEM
+ * resolution) when nothing is checked but a DEM is otherwise ready.
+ */
+function resolveAnchorTerrainId(state) {
+    const checkedTerrainIds = state?.anuga?.ui?.checkedTerrainIds || [];
+    if (checkedTerrainIds.length > 0) {
+        const rows = getTerrainPickerRows(state);
+        const anchor = rows.find(r => checkedTerrainIds.includes(r.id));
+        if (anchor) return anchor.id;
+    }
+    const active = findActiveTerrain(state);
+    return active ? active.id : null;
+}
+
 /**
  * pickerSeedEpic — on SET_PROFILE_PANEL_VISIBLE(true) (panel open) seed both
  * checked-id sets from current map visibility. Panel CLOSE is a no-op here:
@@ -309,7 +403,15 @@ export function profileStartDrawEpic(action$) {
 }
 
 /**
- * profileEndDrawingEpic — END_DRAWING(owner=terrain-profile) -> sample + store.
+ * profileEndDrawingEpic — END_DRAWING(owner=terrain-profile) -> ONE sample
+ * call over every checked terrain + checked scenario, dry-masked, stored.
+ *
+ * TASK-2255: previously this sampled the single active terrain's DEM + the
+ * single selected scenario's 3 result rasters. It now samples EVERY checked
+ * terrain + EVERY checked, stage-published scenario in exactly ONE request
+ * (LOCKED decision #8) — the layers= token set and the traces metadata come
+ * from getProfileLayers/getProfileTraces (TASK-2254 checked-id state), and
+ * the response is dry-masked (applyDryMask) before being stored.
  */
 export function profileEndDrawingEpic(action$, store) {
     return action$.ofType(END_DRAWING)
@@ -325,8 +427,8 @@ export function profileEndDrawingEpic(action$, store) {
                 return Rx.Observable.of(stopDraw, setProfileError('hydrata.anuga.profileNoTerrain'));
             }
             const projectId = getProjectId(state);
-            const activeTerrain = findActiveTerrain(state);
-            if (!projectId || !activeTerrain) {
+            const anchorTerrainId = resolveAnchorTerrainId(state);
+            if (!projectId || !anchorTerrainId) {
                 return Rx.Observable.of(stopDraw, setProfileError('hydrata.anuga.profileNoTerrain'));
             }
 
@@ -336,16 +438,23 @@ export function profileEndDrawingEpic(action$, store) {
                 return Rx.Observable.of(stopDraw, setProfileError('hydrata.anuga.profileBadLine'));
             }
 
-            // traces ({key,label}) are the single source of truth; the layers=
-            // param is just their keys, so keys + chart labels never drift.
+            // traces ({key,label,role}) are the single source of truth for BOTH
+            // the request tokens (getProfileLayers derives from them) and the
+            // chart metadata stored alongside the samples.
             const traces = getProfileTraces(state);
+            if (traces.length === 0) {
+                // Nothing checked (or every checked row lost its stage/terrain
+                // since being checked) — nothing to sample, no pointless call.
+                return Rx.Observable.of(stopDraw, setProfileError('hydrata.anuga.profileNoTerrain'));
+            }
+            const layers = getProfileLayers(state);
 
             return Rx.Observable.concat(
                 Rx.Observable.of(stopDraw, setProfileLoading(true)),
                 Rx.Observable
-                    .from(anugaApi.getTerrainProfile(projectId, activeTerrain.id, {
+                    .from(anugaApi.getTerrainProfile(projectId, anchorTerrainId, {
                         line: wkt,
-                        layers: traces.map(t => t.key).join(','),
+                        layers: layers.join(','),
                         samples: PROFILE_SAMPLES
                     }))
                     .map((response) => {
@@ -353,7 +462,7 @@ export function profileEndDrawingEpic(action$, store) {
                         if (!Array.isArray(samples)) {
                             return setProfileError('hydrata.anuga.profileFailed');
                         }
-                        return setProfileSamples(samples, traces);
+                        return setProfileSamples(applyDryMask(samples, traces), traces);
                     })
                     .catch(() => Rx.Observable.of(setProfileError('hydrata.anuga.profileFailed')))
             );

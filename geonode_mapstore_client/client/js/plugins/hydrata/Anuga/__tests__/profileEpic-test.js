@@ -1,26 +1,34 @@
 /**
  * TASK-1861 (epic 1814 W4.4) — profileEpic spec.
+ * TASK-2255 (epic 2249 W2) — sampling epic REWORKED: single call over every
+ * CHECKED terrain + CHECKED scenario (state.anuga.ui.checkedTerrainIds /
+ * checkedScenarioIds, TASK-2254), published stage_max ONLY (no velocity/
+ * momentum, no terrain+depth derivation), dry-mask epsilon.
  *
- * The depth/result line-profile tool: the user draws a LineString; on
- * END_DRAWING (owner='terrain-profile') the epic extracts the WGS84 line,
- * discovers the layers to sample (the active terrain DEM + the selected
- * scenario's result rasters), calls the W4.3 endpoint and dispatches the
- * sampled series.
+ * The cross-section tool: the user draws a LineString; on END_DRAWING
+ * (owner='terrain-profile') the epic extracts the WGS84 line, builds the
+ * layer tokens for every checked terrain (dem-role, keyed by the terrain's
+ * OWN bare layer name — never the literal 'dem') and every checked,
+ * stage-published scenario (stage-role, keyed by its bare stage_max name,
+ * plus a maskKey to its bare depth_max name for the dry-mask), calls the
+ * profile endpoint ONCE and dry-masks the response before storing it.
  *
  * Pure helpers under test:
- *   - coordsToWkt          — [[lon,lat],...] -> "LINESTRING(lon lat, ...)"
- *   - extractLineFromDrawAction — END_DRAWING geometry -> WGS84 [[lon,lat],...]
- *                            (reprojected from the map CRS, like the bbox tool)
- *   - getProfileLayers     — selected-scenario result rasters + DEM, geonode:
- *                            prefix STRIPPED to bare names for the BE param
+ *   - coordsToWkt / extractLineFromDrawAction — unchanged (line geometry).
+ *   - getProfileTraces  — the checked-entity trace list (dem + stage roles).
+ *   - getProfileLayers  — the deduped request token set (dem + stage + mask
+ *                          tokens), derived from getProfileTraces.
+ *   - applyDryMask      — depth_max < 0.02 m or null -> null stage (AC2/AC4).
  *
  * Epic behaviour:
  *   1. START_PROFILE_DRAW -> SET_PROFILE_DRAWING(true) + changeDrawingStatus start
  *   2. END_DRAWING(owner='terrain-profile') with a valid line + a DEM ready ->
- *      SET_PROFILE_LOADING(true) then SET_PROFILE_SAMPLES(series, traces)
+ *      SET_PROFILE_LOADING(true) then SET_PROFILE_SAMPLES(series, traces) —
+ *      exactly ONE request regardless of how many terrains/scenarios checked.
  *   3. END_DRAWING with no DEM ready -> SET_PROFILE_ERROR (no crash, no call)
- *   4. endpoint error -> SET_PROFILE_ERROR
- *   5. a < 2-vertex line -> SET_PROFILE_ERROR (cannot profile a point)
+ *   4. nothing checked at all -> SET_PROFILE_ERROR (no crash, no call)
+ *   5. endpoint error -> SET_PROFILE_ERROR
+ *   6. a < 2-vertex line -> SET_PROFILE_ERROR (cannot profile a point)
  *
  * W3 LESSON (TASK-1856): real map/serializer layer names carry the geonode:
  * workspace prefix; the BE strips it.  The mocks below use the geonode:-prefixed
@@ -37,70 +45,48 @@ import {
     coordsToWkt,
     extractLineFromDrawAction,
     getProfileLayers,
-    getProfileTraces
+    getProfileTraces,
+    applyDryMask
 } from '../epics/profileEpic';
 import { END_DRAWING, CHANGE_DRAWING_STATUS } from '../../../../../MapStore2/web/client/actions/draw';
 
 // ── State helpers ──────────────────────────────────────────────────────────
 // A WGS84 project so reprojection is a pass-through and we can assert the WKT
-// numerically.  The DEM map layer + terrain resource match across the geonode:
-// prefix (terrain gn_layer_name is bare).  The selected scenario carries a
-// latest_complete_run with the three result gn_layer_* objects (geonode:-prefixed
-// names) — TASK-2078: cross-section sampling reads latest_complete_run, NOT
-// latest_run (a newer in-flight/errored run must not blank/break the profile).
-// `latest_run` mirrors `latest_complete_run` here (the common single-run case);
-// tests that need latest_run/latest_complete_run to DIVERGE override it.
+// numerically. `terrain` = the project's Terrain resources; `scenarios` =
+// {id: scenario} keyed by id; `checkedTerrainIds`/`checkedScenarioIds` drive
+// getProfileTraces (TASK-2254 picker state) — the epic samples exactly what
+// is checked, nothing implicit.
 const makeState = ({
     terrainLoaded = true,
-    withResults = true,
-    withSelectedScenario = true
-} = {}) => ({
-    anuga: {
-        projects: { data: { id: 42 } },
-        resources: {
-            terrainLoaded,
-            terrain: [
-                {
-                    id: 7,
-                    status: 'ready',
-                    gn_layer_name: 'ele_7_blue_mountains'
-                }
-            ]
-        },
-        scenarios: {
-            selectedId: withSelectedScenario ? 3 : null,
-            byId: {
-                3: {
-                    id: 3,
-                    selected: true,
-                    latest_run: withResults ? {
-                        id: 99,
-                        status: 'complete',
-                        gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog', title: 'Depth max' },
-                        gn_layer_velocity_max: { name: 'geonode:run_42_3_99_velocity_max_cog', title: 'Velocity max' },
-                        gn_layer_depth_integrated_velocity_max: { name: 'geonode:run_42_3_99_depthintegratedvelocity_max_cog', title: 'Momentum max' }
-                    } : null,
-                    latest_complete_run: withResults ? {
-                        id: 99,
-                        status: 'complete',
-                        gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog', title: 'Depth max' },
-                        gn_layer_velocity_max: { name: 'geonode:run_42_3_99_velocity_max_cog', title: 'Velocity max' },
-                        gn_layer_depth_integrated_velocity_max: { name: 'geonode:run_42_3_99_depthintegratedvelocity_max_cog', title: 'Momentum max' }
-                    } : null
-                }
+    terrain = [{ id: 7, status: 'ready', gn_layer_name: 'ele_7_blue_mountains' }],
+    scenarios = {
+        3: {
+            id: 3,
+            name: 'Baseline',
+            latest_complete_run: {
+                id: 99,
+                gn_layer_stage_max: { name: 'geonode:run_42_3_99_stage_max_cog' },
+                gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog' }
             }
         }
     },
-    layers: {
-        flat: [
-            {
-                id: 'layer-dem-7',
-                name: 'geonode:ele_7_blue_mountains',
-                type: 'wms',
-                group: 'Input Data.Terrain'
-            }
-        ]
-    }
+    checkedTerrainIds = [7],
+    checkedScenarioIds = [3],
+    layers = [
+        { id: 'layer-dem-7', name: 'geonode:ele_7_blue_mountains', type: 'wms', group: 'Input Data.Terrain' }
+    ]
+} = {}) => ({
+    anuga: {
+        projects: { data: { id: 42 } },
+        resources: { terrainLoaded, terrain },
+        scenarios: {
+            selectedId: Object.keys(scenarios).length ? Number(Object.keys(scenarios)[0]) : null,
+            allIds: Object.keys(scenarios).map(Number),
+            byId: scenarios
+        },
+        ui: { checkedTerrainIds, checkedScenarioIds }
+    },
+    layers: { flat: layers }
 });
 
 const storeFrom = (state) => ({ getState: () => state });
@@ -131,9 +117,9 @@ const runEpic = (epic, action$, state, done, assert) => {
     }, COLLECT_AFTER_MS);
 };
 
-// ── Pure helpers ───────────────────────────────────────────────────────────
+// ── Pure helpers: line geometry (unchanged by TASK-2255) ───────────────────
 
-describe('profileEpic — pure helpers (TASK-1861)', () => {
+describe('profileEpic — pure helpers: line geometry (TASK-1861)', () => {
     describe('coordsToWkt', () => {
         it('builds a LINESTRING WKT from lon/lat pairs', () => {
             expect(coordsToWkt([[150.1, -33.6], [150.2, -33.7]]))
@@ -160,78 +146,137 @@ describe('profileEpic — pure helpers (TASK-1861)', () => {
             expect(extractLineFromDrawAction(endDrawingLine([[150.1, -33.6]]))).toBe(null);
         });
     });
+});
 
-    describe('getProfileLayers', () => {
-        it('includes the DEM + result layers with the geonode: prefix STRIPPED', () => {
-            // W3 LESSON: serializer names carry geonode:; the BE strips it. The
-            // FE must send bare names so resolve_coverage_vsi_path matches.
-            const keys = getProfileLayers(makeState());
-            expect(keys).toContain('dem');
-            expect(keys).toContain('run_42_3_99_depth_max_cog');
-            expect(keys).toContain('run_42_3_99_velocity_max_cog');
-            // none of the result keys retain the workspace prefix
-            keys.filter(k => k !== 'dem').forEach(k => {
-                expect(k.indexOf('geonode:')).toBe(-1);
-            });
-        });
-        it('returns just dem when no scenario/run results exist', () => {
-            const keys = getProfileLayers(makeState({ withResults: false }));
-            expect(keys).toEqual(['dem']);
-        });
+// ── getProfileTraces / getProfileLayers — multi-terrain/multi-scenario ─────
+
+describe('getProfileTraces / getProfileLayers — checked-entity model (TASK-2255)', () => {
+    it('AC1: 2 checked terrains + 2 checked scenarios -> exactly the deduped expected token set, no "dem"', () => {
+        const terrain = [
+            { id: 7, status: 'ready', gn_layer_name: 'ele_7_a' },
+            { id: 8, status: 'ready', gn_layer_name: 'ele_8_b' }
+        ];
+        const scenarios = {
+            3: {
+                id: 3,
+                latest_complete_run: {
+                    id: 99,
+                    gn_layer_stage_max: { name: 'geonode:run_42_3_99_stage_max_cog' },
+                    gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog' }
+                }
+            },
+            4: {
+                id: 4,
+                latest_complete_run: {
+                    id: 100,
+                    gn_layer_stage_max: { name: 'geonode:run_42_4_100_stage_max_cog' },
+                    gn_layer_depth_max: { name: 'geonode:run_42_4_100_depth_max_cog' }
+                }
+            }
+        };
+        const state = makeState({ terrain, scenarios, checkedTerrainIds: [7, 8], checkedScenarioIds: [3, 4] });
+        const layers = getProfileLayers(state);
+        expect([...layers].sort()).toEqual([
+            'ele_7_a', 'ele_8_b',
+            'run_42_3_99_stage_max_cog', 'run_42_3_99_depth_max_cog',
+            'run_42_4_100_stage_max_cog', 'run_42_4_100_depth_max_cog'
+        ].sort());
+        // NOTE: this repo's expect (mjackson/expect@1.20.1) has no `.not`
+        // chain — use its own toNotContain negation (see meterReducer-test.js).
+        expect(layers).toNotContain('dem');
+        expect(new Set(layers).size).toBe(layers.length); // deduped, no repeats
     });
 
-    describe('getProfileTraces', () => {
-        it('labels each result raster AUTHORITATIVELY from the run field, not the name', () => {
-            // Localhost result layers are temp-file-named (tmp*_cog); the label
-            // must STILL be "Depth (max)" etc. — sourced from the gn_layer_* field,
-            // not sniffed from the layer name.
-            const state = makeState();
-            // Swap in temp-file-style names that DON'T contain the *_max tokens.
-            // TASK-2078: getProfileTraces reads latest_complete_run, so mutate
-            // that (not latest_run) to affect the traces under test.
-            const run = state.anuga.scenarios.byId[3].latest_complete_run;
-            run.gn_layer_depth_max.name = 'geonode:tmpabc_cog';
-            run.gn_layer_velocity_max.name = 'geonode:tmpdef_cog';
-            run.gn_layer_depth_integrated_velocity_max.name = 'geonode:tmpghi_cog';
-            const traces = getProfileTraces(state);
-            const byKey = Object.fromEntries(traces.map(t => [t.key, t.label]));
-            expect(byKey.dem).toBe('Elevation');
-            expect(byKey.tmpabc_cog).toBe('Depth (max)');
-            expect(byKey.tmpdef_cog).toBe('Velocity (max)');
-            expect(byKey.tmpghi_cog).toBe('Momentum (max)');
-        });
-        it('keys match getProfileLayers exactly (no drift)', () => {
-            const state = makeState();
-            expect(getProfileTraces(state).map(t => t.key)).toEqual(getProfileLayers(state));
-        });
+    it('AC2: traces are keyed per entity — dem-role per checked terrain, stage-role per checked scenario, with maskKey attached', () => {
+        const traces = getProfileTraces(makeState());
+        expect(traces.length).toBe(2);
+        const dem = traces.find(t => t.role === 'dem');
+        const stage = traces.find(t => t.role === 'stage');
+        expect(dem).toExist();
+        expect(dem.key).toBe('ele_7_blue_mountains');
+        expect(stage).toExist();
+        expect(stage.key).toBe('run_42_3_99_stage_max_cog');
+        expect(stage.maskKey).toBe('run_42_3_99_depth_max_cog');
+    });
 
-        // TASK-2078 — cross-section sampling is a RESULT consumer (D1): it must
-        // read latest_complete_run, not latest_run, so a newer in-flight/errored
-        // run never blanks or breaks the profile tool.
-        describe('TASK-2078 — samples latest_complete_run, not latest_run', () => {
-            it('samples the complete run\'s rasters even when a newer, different latest_run is in-flight (AC1)', () => {
-                const state = makeState();
-                const scenario = state.anuga.scenarios.byId[3];
-                // Newer in-flight run, no result rasters at all yet — must be ignored.
-                scenario.latest_run = { id: 100, status: 'computing' };
-                const keys = getProfileLayers(state);
-                expect(keys).toContain('dem');
-                expect(keys).toContain('run_42_3_99_depth_max_cog');
-                expect(keys).toContain('run_42_3_99_velocity_max_cog');
-                expect(keys).toContain('run_42_3_99_depthintegratedvelocity_max_cog');
-            });
+    it('AC3: a checked scenario without gn_layer_stage_max issues NO stage/depth tokens', () => {
+        const scenarios = {
+            3: {
+                id: 3,
+                latest_complete_run: {
+                    id: 99,
+                    gn_layer_stage_max: null,
+                    gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog' }
+                }
+            }
+        };
+        const state = makeState({ scenarios, checkedScenarioIds: [3] });
+        expect(getProfileTraces(state).some(t => t.role === 'stage')).toBe(false);
+        expect(getProfileLayers(state)).toNotContain('run_42_3_99_depth_max_cog');
+    });
 
-            it('returns just dem when latest_complete_run is absent, even if a newer in-flight latest_run exists', () => {
-                const state = makeState({ withResults: false });
-                state.anuga.scenarios.byId[3].latest_run = { id: 100, status: 'computing' };
-                const keys = getProfileLayers(state);
-                expect(keys).toEqual(['dem']);
-            });
-        });
+    it('a checked scenario with no completed run at all issues no tokens (never crashes)', () => {
+        const scenarios = { 3: { id: 3, latest_complete_run: null } };
+        // No terrain checked either, so getProfileTraces is EXACTLY the
+        // scenario's (empty) contribution — isolates the assertion.
+        const state = makeState({ scenarios, checkedTerrainIds: [], checkedScenarioIds: [3] });
+        expect(getProfileTraces(state)).toEqual([]);
+        expect(getProfileLayers(state)).toEqual([]);
+    });
+
+    it('nothing checked -> no traces, no request tokens (never falls back to an implicit selection)', () => {
+        const state = makeState({ checkedTerrainIds: [], checkedScenarioIds: [] });
+        expect(getProfileTraces(state)).toEqual([]);
+        expect(getProfileLayers(state)).toEqual([]);
+    });
+
+    it('a checked-but-NOT-ready terrain id (stale id, e.g. terrain since deleted) is silently ignored', () => {
+        const state = makeState({ checkedTerrainIds: [7, 999] });
+        expect(getProfileTraces(state).filter(t => t.role === 'dem').length).toBe(1);
     });
 });
 
-// ── Epic: start draw ────────────────────────────────────────────────────────
+describe('applyDryMask — dry-mask epsilon (TASK-2255, AC2/AC4)', () => {
+    const traces = [
+        { key: 'dem_a', role: 'dem' },
+        { key: 'stage_a', role: 'stage', maskKey: 'depth_a' }
+    ];
+
+    it('masks a sample to null when depth < 0.02 m', () => {
+        const samples = [{ dem_a: 100, stage_a: 100.5, depth_a: 0.01 }];
+        expect(applyDryMask(samples, traces)[0].stage_a).toBe(null);
+    });
+
+    it('masks a sample to null when depth is null (nodata)', () => {
+        const samples = [{ dem_a: 100, stage_a: 100.5, depth_a: null }];
+        expect(applyDryMask(samples, traces)[0].stage_a).toBe(null);
+    });
+
+    it('keeps the stage value when depth >= 0.02 m', () => {
+        const samples = [{ dem_a: 100, stage_a: 100.5, depth_a: 0.02 }];
+        expect(applyDryMask(samples, traces)[0].stage_a).toBe(100.5);
+    });
+
+    it('AC4: the kept value is the RAW stage sample — never computed from dem+depth', () => {
+        // dem+depth would be 105; the raw stage sample (42) is nonsense next to
+        // it on purpose, to prove nothing recombines them.
+        const samples = [{ dem_a: 100, stage_a: 42, depth_a: 5 }];
+        expect(applyDryMask(samples, traces)[0].stage_a).toBe(42);
+    });
+
+    it('is a no-op for a trace list with no maskable (stage) entries', () => {
+        const samples = [{ dem_a: 100 }];
+        const demOnly = [{ key: 'dem_a', role: 'dem' }];
+        expect(applyDryMask(samples, demOnly)).toEqual(samples);
+    });
+
+    it('is null-safe for missing/malformed samples', () => {
+        expect(applyDryMask(null, traces)).toBe(null);
+        expect(applyDryMask([null, undefined], traces)).toEqual([null, undefined]);
+    });
+});
+
+// ── Epic: start draw (unchanged) ────────────────────────────────────────────
 
 describe('profileStartDrawEpic (TASK-1861)', () => {
     it('on START_PROFILE_DRAW dispatches drawing-active + starts a LineString draw', function(done) {
@@ -249,38 +294,81 @@ describe('profileStartDrawEpic (TASK-1861)', () => {
     });
 });
 
-// ── Epic: end drawing -> sample ─────────────────────────────────────────────
+// ── Epic: end drawing -> ONE multi-entity sample call ───────────────────────
 
-describe('profileEndDrawingEpic (TASK-1861)', () => {
+describe('profileEndDrawingEpic — single call, multi-terrain/multi-scenario (TASK-2255)', () => {
     let mock;
     beforeEach(() => { mock = new MockAdapter(axios); });
     afterEach(() => { mock.restore(); });
 
-    it('samples the line and dispatches SET_PROFILE_SAMPLES on success', function(done) {
+    it('samples 2 terrains + 2 scenarios in exactly ONE request and dry-masks the response', function(done) {
         this.timeout(3000);
-        const series = [
-            { distance_m: 0, dem: 100.0, run_42_3_99_depth_max_cog: 0.5 },
-            { distance_m: 50, dem: 98.0, run_42_3_99_depth_max_cog: 1.2 }
+        const terrain = [
+            { id: 7, status: 'ready', gn_layer_name: 'ele_7_a' },
+            { id: 8, status: 'ready', gn_layer_name: 'ele_8_b' }
         ];
+        const scenarios = {
+            3: {
+                id: 3,
+                latest_complete_run: {
+                    id: 99,
+                    gn_layer_stage_max: { name: 'geonode:run_3_99_stage_max_cog' },
+                    gn_layer_depth_max: { name: 'geonode:run_3_99_depth_max_cog' }
+                }
+            },
+            4: {
+                id: 4,
+                latest_complete_run: {
+                    id: 100,
+                    gn_layer_stage_max: { name: 'geonode:run_4_100_stage_max_cog' },
+                    gn_layer_depth_max: { name: 'geonode:run_4_100_depth_max_cog' }
+                }
+            }
+        };
+        const state = makeState({ terrain, scenarios, checkedTerrainIds: [7, 8], checkedScenarioIds: [3, 4] });
+
+        const series = [
+            {
+                distance_m: 0,
+                ele_7_a: 100, ele_8_b: 102,
+                run_3_99_stage_max_cog: 100.5, run_3_99_depth_max_cog: 0.5,
+                run_4_100_stage_max_cog: 101.0, run_4_100_depth_max_cog: 0.01 // dry -> masked
+            },
+            {
+                distance_m: 50,
+                ele_7_a: 98, ele_8_b: 99,
+                run_3_99_stage_max_cog: 98.5, run_3_99_depth_max_cog: 0.5,
+                run_4_100_stage_max_cog: 99.0, run_4_100_depth_max_cog: 0.5 // wet -> kept
+            }
+        ];
+        let capturedParams;
         mock.onGet(/profile/).reply((cfg) => {
-            // The line must be sent as WKT and the layers param must carry BARE
-            // names (geonode: stripped) — assert the request shape.
-            expect(cfg.params.line).toContain('LINESTRING(');
-            expect(cfg.params.layers).toContain('dem');
-            expect(cfg.params.layers.indexOf('geonode:')).toBe(-1);
+            capturedParams = cfg.params;
             return [200, { samples: series, crs: 'EPSG:4326' }];
         });
 
         const action$ = mockActions([endDrawingLine([[150.1, -33.6], [150.2, -33.7]])]);
-        runEpic(profileEndDrawingEpic, action$, makeState(), done, (emitted) => {
-            expect(emitted.some(a => a.type === 'ANUGA:SET_PROFILE_LOADING' && a.loading === true))
-                .toBe(true, 'expected a loading=true dispatch');
+        runEpic(profileEndDrawingEpic, action$, state, done, (emitted) => {
+            // Exactly ONE profile GET for the whole drawn line.
+            const calls = mock.history.get.filter(c => /profile/.test(c.url));
+            expect(calls.length).toBe(1);
+            expect(capturedParams.layers).toNotContain('dem');
+            expect(capturedParams.layers.indexOf('geonode:')).toBe(-1);
+            ['ele_7_a', 'ele_8_b', 'run_3_99_stage_max_cog', 'run_3_99_depth_max_cog',
+                'run_4_100_stage_max_cog', 'run_4_100_depth_max_cog'].forEach((tok) => {
+                expect(capturedParams.layers).toContain(tok);
+            });
+
             const samplesAction = emitted.find(a => a.type === 'ANUGA:SET_PROFILE_SAMPLES');
             expect(samplesAction).toExist('expected SET_PROFILE_SAMPLES');
-            expect(samplesAction.samples).toEqual(series);
-            // traces describe the present raster keys (used by the chart)
-            expect(Array.isArray(samplesAction.traces)).toBe(true);
-            expect(samplesAction.traces.map(t => t.key)).toContain('dem');
+            // Scenario 4 sample 0 is dry (depth 0.01 < 0.02) -> stage masked null.
+            expect(samplesAction.samples[0].run_4_100_stage_max_cog).toBe(null);
+            // Scenario 3 stays wet throughout -> stage kept, unmodified.
+            expect(samplesAction.samples[0].run_3_99_stage_max_cog).toBe(100.5);
+            expect(samplesAction.samples[1].run_4_100_stage_max_cog).toBe(99.0);
+            // traces describe both checked terrains + both checked scenarios.
+            expect(samplesAction.traces.filter(t => t.role === 'dem').length).toBe(2);
+            expect(samplesAction.traces.filter(t => t.role === 'stage').length).toBe(2);
         });
     });
 
@@ -301,6 +389,18 @@ describe('profileEndDrawingEpic (TASK-1861)', () => {
         const action$ = mockActions([endDrawingLine([[150.1, -33.6], [150.2, -33.7]])]);
         runEpic(profileEndDrawingEpic, action$, makeState({ terrainLoaded: false }), done, (emitted) => {
             expect(called).toBe(false, 'must NOT call the endpoint with no DEM');
+            expect(emitted.some(a => a.type === 'ANUGA:SET_PROFILE_ERROR')).toBe(true);
+        });
+    });
+
+    it('AC (defensive): nothing checked at all -> SET_PROFILE_ERROR, no call', function(done) {
+        this.timeout(3000);
+        let called = false;
+        mock.onGet(/profile/).reply(() => { called = true; return [200, {}]; });
+        const action$ = mockActions([endDrawingLine([[150.1, -33.6], [150.2, -33.7]])]);
+        const state = makeState({ checkedTerrainIds: [], checkedScenarioIds: [] });
+        runEpic(profileEndDrawingEpic, action$, state, done, (emitted) => {
+            expect(called).toBe(false, 'must NOT call the endpoint with nothing checked');
             expect(emitted.some(a => a.type === 'ANUGA:SET_PROFILE_ERROR')).toBe(true);
         });
     });

@@ -116,21 +116,29 @@ const WATER_FILL = 'rgba(91, 192, 255, 0.30)';
 
 /**
  * TASK-1862 (W4.5) — combined terrain + water-surface cross-section.
+ * TASK-2255 (epic 2249 W2) — the water surface is now the PUBLISHED stage_max
+ * value, SAMPLED DIRECTLY (role='stage') — never derived from terrain+depth.
+ * (DEM+depth_max=stage derivation was explicitly rejected: raster-level max
+ * identity fails, and there is no run->terrain pairing record. LOCKED
+ * decision #3 / AC4.) This is still the SINGLE-series interim rendering — W3
+ * (TASK-2256) builds the picker-as-legend multi-series chart + fill rules;
+ * here the first checked terrain/scenario pair is what renders, which is
+ * exactly today's single-terrain/single-water default seed.
  *
  * The hydraulic cross-section overlays the channel/terrain shape and the flood
  * water level along the transect. Two Plotly traces:
  *   1. Terrain — the DEM as a FILLED area (fill to zero) so the ground body
  *      reads as the channel cross-section (x = distance along the line).
- *   2. Water surface — stage = terrain + DEPTH per sample, filled DOWN TO the
+ *   2. Water surface — the sampled stage value AS-IS, filled DOWN TO the
  *      terrain trace ('tonexty') so the water column between bed and surface is
- *      shaded. A null/absent depth -> null stage (a gap, NOT a false water line)
- *      so dry reaches don't paint water.
+ *      shaded. A null stage sample (already dry-masked upstream, TASK-2255) is
+ *      a gap, NOT a false water line.
  *
- * Uses the trace `role` (TASK-1862 getProfileTraces tag) to find the terrain
- * (role='dem') and depth (role='depth') rasters unambiguously — never name
- * sniffing. With no depth raster present it degrades to terrain-only (a plain
- * filled cross-section, still useful). With no DEM trace it returns [] (cannot
- * build a cross-section without the bed).
+ * Uses the trace `role` (getProfileTraces tag) to find the terrain (role='dem')
+ * and water (role='stage') series unambiguously — never name sniffing. With no
+ * stage trace present it degrades to terrain-only (a plain filled
+ * cross-section, still useful). With no DEM trace it returns [] (cannot build
+ * a cross-section without the bed).
  *
  * Trace ORDER matters: terrain MUST precede the water trace because the water
  * fills 'tonexty' (down to the previous trace = terrain).
@@ -155,22 +163,21 @@ export function buildCrossSectionData(samples, traces) {
         connectgaps: false,
         line: { color: TERRAIN_COLOR, width: 2 }
     }];
-    // Water surface (stage = terrain + depth) — only when a depth raster sampled.
-    const depthTrace = traces.find(t => t && t.role === 'depth');
-    if (depthTrace) {
+    // Water surface — the published stage sampled directly, only when a stage
+    // raster was sampled (a checked scenario without a published stage never
+    // emits a role='stage' trace at all, TASK-2255 AC3).
+    const stageTrace = traces.find(t => t && t.role === 'stage');
+    if (stageTrace) {
         const stageY = samples.map((s) => {
-            const d = s && s[depthTrace.key];
-            const bed = s && s[demTrace.key];
-            // No depth (null/NaN) or no bed -> null stage (dry, a gap not water).
-            if (typeof d !== 'number' || typeof bed !== 'number') return null;
-            return bed + d;
+            const v = s && s[stageTrace.key];
+            return (typeof v === 'number') ? v : null;
         });
         // Only add the water trace if it has at least one real stage value.
         if (stageY.some(v => v !== null)) {
             data.push({
                 x,
                 y: stageY,
-                name: depthTrace.waterLabel || 'Water surface',
+                name: stageTrace.waterLabel || stageTrace.label || 'Water surface',
                 type: 'scatter',
                 mode: 'lines',
                 fill: 'tonexty',
@@ -207,9 +214,10 @@ export class TerrainProfilePanelClass extends React.Component {
     };
 
     // TASK-2253 — Cross-section is the ONLY mode now: build the combined
-    // terrain + water-surface chart. The water-surface trace is a DERIVED
-    // quantity (terrain+depth=stage), so it gets the localized "Water surface"
-    // label (resolved off legacy context), NOT the depth raster's label.
+    // terrain + water-surface chart. TASK-2255 — the water-surface trace is
+    // now the PUBLISHED stage sampled directly (role='stage'), so it gets the
+    // localized "Water surface" label (resolved off legacy context), NOT the
+    // scenario's own label.
     renderChart() {
         const messages = this.context && this.context.messages;
         const fallback = 'Water surface';
@@ -217,7 +225,7 @@ export class TerrainProfilePanelClass extends React.Component {
         // getMessageById returns the msgId itself on a lookup miss.
         const waterLabel = (!resolved || resolved === 'hydrata.anuga.profileWaterSurface') ? fallback : resolved;
         const traces = (this.props.traces || []).map(t => (
-            t && t.role === 'depth' ? { ...t, waterLabel } : t
+            t && t.role === 'stage' ? { ...t, waterLabel } : t
         ));
         const data = buildCrossSectionData(this.props.samples, traces);
         if (data.length === 0) return null;

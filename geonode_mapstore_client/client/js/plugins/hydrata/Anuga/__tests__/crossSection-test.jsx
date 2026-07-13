@@ -2,15 +2,19 @@
  * TASK-1862 (epic 1814 W4.5) — cross-section builder spec.
  * TASK-2253 (epic 2249 W2) — Profile mode DELETED; cross-section is the only
  * mode now, so the mode-toggle / profileMode reducer coverage was retired
- * (git history keeps it). This spec pins the surviving net-new pieces:
+ * (git history keeps it).
+ * TASK-2255 (epic 2249 W2) — getProfileTraces now tags a trace per CHECKED
+ * terrain (role='dem', keyed by its own bare layer name) and per CHECKED,
+ * stage-published scenario (role='stage', keyed by its bare stage_max name).
+ * The water surface is the PUBLISHED stage sampled DIRECTLY — buildCrossSection
+ * Data no longer computes terrain+depth (LOCKED decision #3, AC4). This spec
+ * pins the surviving net-new pieces:
  *
- *   - getProfileTraces tags each trace with a `role` ('dem' | 'depth' | 'other')
- *     so the cross-section builder can find the terrain + depth rasters
- *     UNAMBIGUOUSLY (not by sniffing the layer name).
  *   - buildCrossSectionData(samples, traces) -> Plotly data for the combined
  *     terrain + water-surface chart: terrain as a FILLED area (elevation vs
- *     distance) and the water surface (terrain + depth = stage) overlaid as a
- *     second trace, also filled down to the terrain so the water body reads.
+ *     distance) and the water surface (the raw sampled stage value, already
+ *     dry-masked upstream) overlaid as a second trace, filled down to the
+ *     terrain so the water body reads.
  *   - the panel renders the cross-section chart unconditionally, with no mode
  *     toggle.
  */
@@ -24,8 +28,9 @@ import {
 } from '../components/TerrainProfilePanel';
 import { getProfileTraces } from '../epics/profileEpic';
 
-// A state with a selected scenario carrying a latest_run (depth/velocity/momentum
-// result rasters, geonode:-prefixed names — the real serializer shape).
+// A state with one checked terrain + one checked scenario carrying a
+// published stage_max + depth_max (geonode:-prefixed names — the real
+// serializer shape).
 const makeState = () => ({
     anuga: {
         projects: { data: { id: 42 } },
@@ -35,52 +40,54 @@ const makeState = () => ({
         },
         scenarios: {
             selectedId: 3,
+            allIds: [3],
             byId: {
                 3: {
                     id: 3,
                     selected: true,
                     // TASK-2078: getProfileTraces samples the latest COMPLETE run's
-                    // result rasters (a completed run is both latest_run and
+                    // published stage (a completed run is both latest_run and
                     // latest_complete_run when no newer run exists).
                     latest_complete_run: {
                         id: 99,
-                        gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog' },
-                        gn_layer_velocity_max: { name: 'geonode:run_42_3_99_velocity_max_cog' },
-                        gn_layer_depth_integrated_velocity_max: { name: 'geonode:run_42_3_99_depthintegratedvelocity_max_cog' }
+                        gn_layer_stage_max: { name: 'geonode:run_42_3_99_stage_max_cog' },
+                        gn_layer_depth_max: { name: 'geonode:run_42_3_99_depth_max_cog' }
                     }
                 }
             }
-        }
+        },
+        ui: { checkedTerrainIds: [7], checkedScenarioIds: [3] }
     },
     layers: { flat: [{ id: 'layer-dem-7', name: 'geonode:ele_7_blue_mountains', type: 'wms', group: 'Input Data.Terrain' }] }
 });
 
-describe('cross-section — getProfileTraces role tagging (TASK-1862)', () => {
-    it('tags the DEM trace role=dem and the depth trace role=depth', () => {
+describe('cross-section — getProfileTraces role tagging (TASK-1862, reworked TASK-2255)', () => {
+    it('tags the checked terrain role=dem, keyed by its OWN bare layer name (never the literal "dem")', () => {
         const traces = getProfileTraces(makeState());
-        const byKey = Object.fromEntries(traces.map(t => [t.key, t]));
-        expect(byKey.dem.role).toBe('dem');
-        expect(byKey.run_42_3_99_depth_max_cog.role).toBe('depth');
+        const dem = traces.find(t => t.role === 'dem');
+        expect(dem).toExist();
+        expect(dem.key).toBe('ele_7_blue_mountains');
     });
-    it('tags velocity/momentum role=other (not the stage source)', () => {
+    it('tags the checked scenario\'s published stage role=stage, with its depth_max as maskKey', () => {
         const traces = getProfileTraces(makeState());
-        const byKey = Object.fromEntries(traces.map(t => [t.key, t]));
-        expect(byKey.run_42_3_99_velocity_max_cog.role).toBe('other');
-        expect(byKey.run_42_3_99_depthintegratedvelocity_max_cog.role).toBe('other');
+        const stage = traces.find(t => t.role === 'stage');
+        expect(stage).toExist();
+        expect(stage.key).toBe('run_42_3_99_stage_max_cog');
+        expect(stage.maskKey).toBe('run_42_3_99_depth_max_cog');
     });
 });
 
-describe('cross-section — buildCrossSectionData (TASK-1862)', () => {
+describe('cross-section — buildCrossSectionData (TASK-1862, reworked TASK-2255: stage sampled directly)', () => {
     const traces = [
         { key: 'dem', label: 'Elevation', role: 'dem' },
-        { key: 'depth', label: 'Depth (max)', role: 'depth' }
+        { key: 'stage', label: 'Water surface', role: 'stage' }
     ];
 
-    it('renders terrain as a filled area and water surface (terrain+depth=stage) overlaid', () => {
+    it('renders terrain as a filled area and the published stage sampled directly (never bed+depth)', () => {
         const samples = [
-            { distance_m: 0, dem: 100, depth: 0.5 },
-            { distance_m: 25, dem: 98, depth: 1.0 },
-            { distance_m: 50, dem: 96, depth: 2.0 }
+            { distance_m: 0, dem: 100, stage: 100.5 },
+            { distance_m: 25, dem: 98, stage: 99.0 },
+            { distance_m: 50, dem: 96, stage: 98.0 }
         ];
         const data = buildCrossSectionData(samples, traces);
         // Two traces: terrain (filled) + water surface (stage).
@@ -93,23 +100,22 @@ describe('cross-section — buildCrossSectionData (TASK-1862)', () => {
         expect(terrain.x).toEqual([0, 25, 50]);
         expect(terrain.y).toEqual([100, 98, 96]);
         expect(terrain.fill).toExist();
-        // Water surface = terrain + depth (stage), per-sample.
+        // Water surface = the raw sampled stage value, unmodified.
         expect(water.y).toEqual([100.5, 99.0, 98.0]);
     });
 
-    it('drops a water sample to null where depth is null/dry (no false water surface)', () => {
+    it('a null stage sample (dry-masked upstream) is a gap, never a false water surface', () => {
         const samples = [
-            { distance_m: 0, dem: 100, depth: 1.0 },
-            { distance_m: 25, dem: 98, depth: null },
-            { distance_m: 50, dem: 96, depth: 0.0 }
+            { distance_m: 0, dem: 100, stage: 101.0 },
+            { distance_m: 25, dem: 98, stage: null },
+            { distance_m: 50, dem: 96, stage: 96.0 }
         ];
         const data = buildCrossSectionData(samples, traces);
         const water = data.find(d => d.name !== 'Elevation');
-        // null depth -> null stage (gap); 0 depth -> stage == terrain (still water-level=ground).
         expect(water.y).toEqual([101.0, null, 96.0]);
     });
 
-    it('still renders terrain-only when no depth raster is present (DEM-only transect)', () => {
+    it('still renders terrain-only when no stage raster is present (DEM-only transect)', () => {
         const demOnly = [{ key: 'dem', label: 'Elevation', role: 'dem' }];
         const samples = [{ distance_m: 0, dem: 100 }, { distance_m: 10, dem: 99 }];
         const data = buildCrossSectionData(samples, demOnly);
@@ -125,11 +131,20 @@ describe('cross-section — buildCrossSectionData (TASK-1862)', () => {
     });
 
     it('returns terrain-only (no water) when no DEM trace exists', () => {
-        // A degenerate trace set without role=dem can't compute stage; render
-        // nothing rather than crash.
-        const noDem = [{ key: 'depth', label: 'Depth (max)', role: 'depth' }];
-        const samples = [{ distance_m: 0, depth: 1 }, { distance_m: 10, depth: 2 }];
+        // A degenerate trace set without role=dem can't anchor the chart;
+        // render nothing rather than crash.
+        const noDem = [{ key: 'stage', label: 'Water surface', role: 'stage' }];
+        const samples = [{ distance_m: 0, stage: 1 }, { distance_m: 10, stage: 2 }];
         expect(buildCrossSectionData(samples, noDem)).toEqual([]);
+    });
+
+    // AC4 (TASK-2255) — no code path computes terrain+depth: the water trace
+    // is the RAW sampled stage value even when it does NOT equal bed+anything.
+    it('AC4: water trace equals the raw stage sample, never derived from bed+depth', () => {
+        const samples = [{ distance_m: 0, dem: 100, stage: 42 }]; // nonsensical bed+depth relationship
+        const data = buildCrossSectionData(samples, traces);
+        const water = data.find(d => d.name !== 'Elevation');
+        expect(water.y).toEqual([42]);
     });
 });
 
@@ -153,12 +168,12 @@ describe('TerrainProfilePanel — cross-section render (TASK-2253, cross-section
 
     it('renders the combined terrain+water-surface chart', () => {
         const samples = [
-            { distance_m: 0, dem: 100, depth: 1 },
-            { distance_m: 10, dem: 98, depth: 2 }
+            { distance_m: 0, dem: 100, stage: 101 },
+            { distance_m: 10, dem: 98, stage: 100 }
         ];
         const traces = [
             { key: 'dem', label: 'Elevation', role: 'dem' },
-            { key: 'depth', label: 'Depth (max)', role: 'depth' }
+            { key: 'stage', label: 'Water surface', role: 'stage' }
         ];
         ReactDOM.render(
             <TerrainProfilePanelClass
