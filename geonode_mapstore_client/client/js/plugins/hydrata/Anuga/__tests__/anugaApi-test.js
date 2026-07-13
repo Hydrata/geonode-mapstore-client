@@ -70,7 +70,9 @@ describe('anugaApi', () => {
             // TASK-1964 (epic 1952 W5.1) — staff run-actuals ledger fetch
             'listAdminRunLedger',
             // TASK-2099 / TASK-2100 (epic 2092 W4) — paywall + compute-meter checkout
-            'createCheckoutSession', 'getComputeBalance'
+            'createCheckoutSession', 'getComputeBalance',
+            // TASK-2165 — post-WFS-T-save dataset bbox recalc
+            'recalcDatasetBbox'
         ];
 
         expectedFunctions.forEach(name => {
@@ -79,7 +81,7 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 67 API functions', () => {
+        it('should export exactly 68 API functions', () => {
             // Branch baseline (epic/1587) ships 55 exported functions (the
             // historical "53→54" comment chain undercounted by one; the live
             // module is 55). TASK-1729 adds 4: presignTerrainUpload +
@@ -92,10 +94,11 @@ describe('anugaApi', () => {
             // TASK-1964 (epic 1952 W5.1) adds 1: listAdminRunLedger = 65.
             // TASK-2099/2100 (epic 2092 W4) adds 2: createCheckoutSession +
             // getComputeBalance = 67.
+            // TASK-2165 adds 1: recalcDatasetBbox = 68.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(67);
+            expect(exportedFunctions.length).toBe(68);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {

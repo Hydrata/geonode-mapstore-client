@@ -778,7 +778,9 @@ class MenuRowClass extends React.Component {
                 formConfig: cfg.formConfig,
                 onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE',
                 onCancel: 'ANUGA:VECTOR_DRAW_CANCELLED',
-                meta: { prefix, layerId: layer.id }
+                // layerName: consumed by vectorDrawRecalcBboxEpic (TASK-2165)
+                // to recalc the dataset bbox after the WFS-T save.
+                meta: { prefix, layerId: layer.id, layerName: layer.name }
             });
         } else {
             // Legacy FeatureGrid path for non-migrated prefixes
@@ -802,6 +804,16 @@ class MenuRowClass extends React.Component {
             .then(response => {
                 const extent = response?.data?.datasets?.[0]?.extent;
                 if (extent?.coords && extent.coords.length === 4) {
+                    // TASK-2165 — re-apply the world-extent guard to the API
+                    // coords. Drawn-from-scratch ANUGA layers keep the
+                    // createlayer world placeholder in the Dataset extent
+                    // (WFS-T bypasses Django), so without this the fallback
+                    // "zooms" to the planet instead of degrading to the toast.
+                    const [minx, miny, maxx, maxy] = extent.coords;
+                    if (isGlobalExtent({minx, miny, maxx, maxy})) {
+                        this.props.showExtentUnavailable(this.props.layer?.title);
+                        return;
+                    }
                     this.props.zoomToLayer(extent.coords, extent.srid || "EPSG:4326");
                     trackEvent('button', 'click', `simpleview-menu-row-zoom-to-fallback-${this.props.layer.title}`);
                 } else {

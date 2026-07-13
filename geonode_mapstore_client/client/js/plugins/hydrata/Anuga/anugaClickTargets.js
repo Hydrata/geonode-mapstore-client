@@ -96,7 +96,9 @@ export const registerAnugaClickTargets = () => {
                     formConfig: cfg.formConfig,
                     onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE',
                     onCancel: 'ANUGA:VECTOR_DRAW_CANCELLED',
-                    meta: { prefix, source: 'map-click' }
+                    // layerName: consumed by vectorDrawRecalcBboxEpic
+                    // (TASK-2165) to recalc the dataset bbox after the save.
+                    meta: { prefix, source: 'map-click', layerName: qualifyTypeName(parsed.layerName) }
                 })];
             }
         });

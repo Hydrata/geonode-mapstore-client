@@ -458,6 +458,15 @@ export const createFigure = (projectId, publicationId, title) =>
 export const searchDataset = (datasetName) =>
     axios.get(`/api/v2/datasets?search=${datasetName}&search_fields=name`);
 
+// TASK-2165 — recalculate a dataset's bbox from PostGIS truth after a
+// VectorDraw WFS-T save (which bypasses Django, leaving the createlayer
+// world-extent placeholder on the GeoServer featuretype + GeoNode Dataset).
+// Fire-and-forget from vectorDrawRecalcBboxEpic; BE requires
+// change_dataset_data on the dataset. layerName may carry the "geonode:"
+// workspace prefix (the BE strips it).
+export const recalcDatasetBbox = (layerName) =>
+    axios.post('/api/v2/anuga/datasets/recalc-bbox/', { layer_name: layerName });
+
 // -- v2 Project -----------------------------------------------------------
 
 export const getProjectV2 = (projectId) =>

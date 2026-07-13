@@ -107,7 +107,10 @@ export {
 // which was the legacy FeatureGrid pre-population epic.
 export {
     vectorDrawAnugaCompleteEpic,
-    vectorDrawAnugaCancelledEpic
+    vectorDrawAnugaCancelledEpic,
+    // TASK-2165 — post-save bbox recalc (fixes zoom-to-layer planet-zoom on
+    // drawn-from-scratch ANUGA layers).
+    vectorDrawRecalcBboxEpic
 } from './epics/vectorDrawAnugaEpics';
 
 export {

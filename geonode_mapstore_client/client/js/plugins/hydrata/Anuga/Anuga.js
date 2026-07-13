@@ -63,6 +63,8 @@ import {
     // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
     vectorDrawAnugaCompleteEpic,
     vectorDrawAnugaCancelledEpic,
+    // TASK-2165 — post-save bbox recalc (zoom-to-layer planet-zoom fix)
+    vectorDrawRecalcBboxEpic,
     // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker.
     terrainBboxEndDrawingEpic,
     createTerrainFromBboxEpic,
@@ -224,6 +226,8 @@ export default createPlugin('Anuga', {
         // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
         vectorDrawAnugaCompleteEpic,
         vectorDrawAnugaCancelledEpic,
+        // TASK-2165 — post-save bbox recalc (zoom-to-layer planet-zoom fix)
+        vectorDrawRecalcBboxEpic,
         // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker epics.
         terrainBboxEndDrawingEpic,
         createTerrainFromBboxEpic,
