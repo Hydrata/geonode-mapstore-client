@@ -1,9 +1,9 @@
-import React, {useEffect} from "react";
+import React, {useEffect, useState} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
-    getMeshComparison, getMeshCostDriverHint
+    getMeshComparison, getMeshCostDriverHint, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -352,6 +352,154 @@ function renderRainfallAttachedEmptyHint(scenario, rainfalls) {
 }
 
 // ------------------------------------------------------------------------
+// TASK-2078 — results-freshness (a newer run is building/failed while the
+// results on-screen are from the last COMPLETE run), relocated into the
+// notices panel (TASK-2243, epic 2237 W2.1). Previously computed inline in
+// anugaScenarioMenu.js's render(); moved here since `scenario` (carrying
+// both latest_run and latest_complete_run) is already a ScenarioPane prop —
+// no new prop threading needed. Both variants (FAILED and BUILDING) are
+// preserved — dropping BUILDING would silently kill a live trust signal.
+// ------------------------------------------------------------------------
+
+/**
+ * Returns 'failed' | 'building' | null. `null` covers both "no complete
+ * results to protect yet" (hasCompleteResults false) and "the newest run IS
+ * the complete one" (nothing fresher in flight/failed) — the two cases the
+ * old inline gate (`showFreshnessBanner`) folded into a single boolean.
+ */
+export function getResultsFreshnessStatus(scenario) {
+    const latestCompleteRun = scenario?.latest_complete_run;
+    if (!latestCompleteRun) return null;
+    const latestRun = scenario?.latest_run;
+    const latestRunIsNewer = !!latestRun && latestRun.id !== latestCompleteRun.id;
+    if (!latestRunIsNewer) return null;
+    if (RUN_FAILURE_STATES.includes(latestRun.status)) return 'failed';
+    if (IN_FLIGHT_STATUSES.includes(latestRun.status)) return 'building';
+    return null;
+}
+
+function renderResultsFreshnessNotice(scenario, status) {
+    const latestCompleteRun = scenario?.latest_complete_run;
+    const msgId = status === 'failed'
+        ? 'hydrata.anuga.resultsFreshnessBannerFailed'
+        : 'hydrata.anuga.resultsFreshnessBannerBuilding';
+    const className = status === 'failed'
+        ? 'sv-anuga-scenario-results-freshness-failed-hint'
+        : 'sv-anuga-scenario-results-freshness-building-hint';
+    return (
+        <div className={className} role="status" aria-live="polite">
+            <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+            {' '}
+            <Message msgId={msgId} msgParams={{id: latestCompleteRun?.id}} />
+        </div>
+    );
+}
+
+// ------------------------------------------------------------------------
+// TASK-2243 (epic 2237 W2.1) — the notices panel: single collapsible
+// amber advisory surface between the toolbar and the Required-inputs
+// section. Centralizes derivation of every member notice (the 7-item
+// inventory below, plus the W2.2 Run-failed notice) so the pane's
+// individual sections no longer render these hints inline — but the
+// existing predicate functions + their classnames/msgIds are reused
+// UNCHANGED (DRY: no re-derivation, no new test-visible contract).
+//
+// Always-render + .is-open CSS-collapse convention (project-wide pin): the
+// panel body itself never unmounts on toggle — only `.is-open` on the
+// wrapper flips visibility via CSS — so a mounted child (e.g. the Run-failed
+// notice's embedded ScenarioErrorStrip, TASK-2244) never loses its own
+// internal state (logTailOpen) across a collapse/expand. The panel's own
+// mount/unmount (returning null at N=0) is a DIFFERENT axis — there is
+// nothing stateful to protect when no notice is active.
+// ------------------------------------------------------------------------
+
+/**
+ * TASK-2243 (epic 2237 W2.1) — ordering matches the 7-item inventory
+ * (freshness-failed, freshness-building, rainfall-unattached,
+ * rainfall-attached-empty, meshregion-unattached, inflow-anchor-mismatch,
+ * terrain-coverage-gap).
+ */
+function buildScenarioNotices(props) {
+    const {scenario, meshRegions, rainfalls, terrain, onOpenMergeTerrainsPanel} = props;
+    const notices = [];
+
+    const freshnessStatus = getResultsFreshnessStatus(scenario);
+    if (freshnessStatus === 'failed') {
+        notices.push({key: 'results-freshness-failed', node: renderResultsFreshnessNotice(scenario, 'failed')});
+    } else if (freshnessStatus === 'building') {
+        notices.push({key: 'results-freshness-building', node: renderResultsFreshnessNotice(scenario, 'building')});
+    }
+
+    const rainfallUnattachedNode = renderRainfallUnattachedHint(scenario, rainfalls);
+    if (rainfallUnattachedNode) notices.push({key: 'rainfall-unattached', node: rainfallUnattachedNode});
+
+    const rainfallAttachedEmptyNode = renderRainfallAttachedEmptyHint(scenario, rainfalls);
+    if (rainfallAttachedEmptyNode) notices.push({key: 'rainfall-attached-empty', node: rainfallAttachedEmptyNode});
+
+    const meshRegionUnattachedNode = renderMeshRegionUnattachedHint(scenario, meshRegions);
+    if (meshRegionUnattachedNode) notices.push({key: 'meshregion-unattached', node: meshRegionUnattachedNode});
+
+    const inflowAnchorMismatchNode = renderInflowAnchorMismatchWarning(scenario);
+    if (inflowAnchorMismatchNode) notices.push({key: 'inflow-anchor-mismatch', node: inflowAnchorMismatchNode});
+
+    const terrainCoverageGapNode = renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel);
+    if (terrainCoverageGapNode) notices.push({key: 'terrain-coverage-gap', node: terrainCoverageGapNode});
+
+    return notices;
+}
+
+/**
+ * TASK-2243 (AC#1) — header '{N} notices' toggles collapse; dynamic count;
+ * default open; NO persistence (plain useState, resets on remount — e.g. a
+ * scenario switch remounts this component at a new tree position only if
+ * the parent keys it, which it does not, so state naturally persists across
+ * re-renders of the SAME scenario, exactly like every other local-state
+ * component on this pane). Whole panel hidden at N=0 (nothing to toggle).
+ */
+function ScenarioNoticesPanel({notices}) {
+    const [isOpen, setIsOpen] = useState(true);
+    const count = notices.length;
+    if (count === 0) return null;
+    const panelClass = 'sv-anuga-notices-panel' + (isOpen ? ' is-open' : '');
+    const toggleIconClass = 'sv-anuga-notices-panel-toggle-icon glyphicon'
+        + (isOpen ? ' glyphicon-chevron-up' : ' glyphicon-chevron-down');
+    return (
+        <div className={panelClass}>
+            <button
+                type="button"
+                className="sv-anuga-notices-panel-header"
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((prev) => !prev)}
+            >
+                <span className="glyphicon glyphicon-info-sign sv-anuga-notices-panel-icon" aria-hidden="true" />
+                <span className="sv-anuga-notices-panel-header-label">
+                    <Message msgId="hydrata.anuga.noticesPanelHeader" msgParams={{count}} />
+                </span>
+                <span className={toggleIconClass} aria-hidden="true" />
+            </button>
+            {/* Always-render + .is-open CSS-collapse convention (karma
+                determinism + logTailOpen survival, see block comment above). */}
+            <div className="sv-anuga-notices-panel-body">
+                {notices.map((notice) => (
+                    <React.Fragment key={notice.key}>{notice.node}</React.Fragment>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+ScenarioNoticesPanel.propTypes = {
+    notices: PropTypes.arrayOf(PropTypes.shape({
+        key: PropTypes.string,
+        node: PropTypes.node
+    }))
+};
+
+ScenarioNoticesPanel.defaultProps = {
+    notices: []
+};
+
+// ------------------------------------------------------------------------
 // Pane renderers — one per category
 // ------------------------------------------------------------------------
 
@@ -531,10 +679,8 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div>
             </FormRow>
             {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, handleField)}
-            {renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel)}
             {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
             {renderSelectField('inflow', 'hydrata.anuga.inflow', scenario?.inflow, inflows, !canEdit, handleField)}
-            {renderInflowAnchorMismatchWarning(scenario)}
             {/* TASK-2083 (epic 2077) — empty-state helper explaining an Inflow
                 (the layer) can hold more than one inflow location (a feature
                 inside it), each with its own hydrograph. Shown only while the
@@ -548,8 +694,6 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div> : null
             }
             {renderSelectField('rainfall', 'hydrata.anuga.rainfall', scenario?.rainfall, rainfalls, !canEdit, handleField)}
-            {renderRainfallUnattachedHint(scenario, rainfalls)}
-            {renderRainfallAttachedEmptyHint(scenario, rainfalls)}
         </div>
     );
 }
@@ -568,7 +712,6 @@ function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, str
             {renderSelectField('friction', 'hydrata.anuga.friction', scenario?.friction, frictions, !canEdit, handleField)}
             {renderSelectField('structure', 'hydrata.anuga.structures', scenario?.structure, structures, !canEdit, handleField)}
             {renderSelectField('mesh_region', 'hydrata.anuga.meshRegions', scenario?.mesh_region, meshRegions, !canEdit, handleField)}
-            {renderMeshRegionUnattachedHint(scenario, meshRegions)}
         </div>
     );
 }
@@ -930,6 +1073,11 @@ const ScenarioPane = (props) => {
     const advancedProgress = validateCategoryProgress('advanced', scenario);
     const runProgress = validateCategoryProgress('run', scenario);
 
+    // TASK-2243 (epic 2237 W2.1) — every member notice (the 7-item
+    // inventory), single source computed here so the panel below is the
+    // only thing that renders them.
+    const notices = buildScenarioNotices(props);
+
     // TASK-1410: auto-populate required dropdowns for new scenarios.
     useAutoPopulateDefaults(
         scenario,
@@ -950,6 +1098,10 @@ const ScenarioPane = (props) => {
                     </span> : null
                 }
             </div>
+            {/* TASK-2243 (epic 2237 W2.1) — the notices panel: single
+                collapsible amber advisory surface, between the toolbar and
+                the Required-inputs section (below, inside the shell). */}
+            <ScenarioNoticesPanel notices={notices} />
             <div className="sv-anuga-scenario-pane-shell">
                 <div className="sv-anuga-scenario-pane-detail">
                     {!scenario ?

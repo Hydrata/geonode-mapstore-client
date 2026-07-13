@@ -1114,24 +1114,15 @@ class AnugaScenarioMenuClass extends React.Component {
       // of a COMPLETE run (latest_complete_run), NOT computed_status /
       // latest_run's status. A newer in-flight or errored latest_run must
       // never hide an older complete run's View Results affordance.
-      const latestCompleteRun = selectedScenario?.latest_complete_run;
-      const hasCompleteResults = !!latestCompleteRun;
-      // Freshness banner (NEW element, TASK-2078): shown only when latest_run
-      // is a DIFFERENT, newer run than latest_complete_run AND is itself
-      // in-flight or errored. The status pill/card/error strip/run log stay
-      // on latest_run untouched (ScenarioHeaderActions) — this banner does
-      // not replace them.
-      const latestRun = selectedScenario?.latest_run;
-      const latestRunIsNewer = !!latestRun && latestRun.id !== latestCompleteRun?.id;
-      const latestRunFailed = latestRunIsNewer && RUN_FAILURE_STATES.includes(latestRun.status);
-      const latestRunInFlight = latestRunIsNewer && IN_FLIGHT_STATUSES.includes(latestRun.status);
-      const showFreshnessBanner = hasCompleteResults && (latestRunFailed || latestRunInFlight);
-      const freshnessBannerMsgId = latestRunFailed
-          ? 'hydrata.anuga.resultsFreshnessBannerFailed'
-          : 'hydrata.anuga.resultsFreshnessBannerBuilding';
-      const freshnessBannerFallback = latestRunFailed
-          ? `A newer run failed — results shown are from run ${latestCompleteRun?.id}`
-          : `A newer run is building — results shown are from run ${latestCompleteRun?.id}`;
+      const hasCompleteResults = !!selectedScenario?.latest_complete_run;
+      // TASK-2243 (epic 2237 W2.1) — the freshness banner (a newer run is
+      // building/failed while the results shown are from the last complete
+      // run) is RELOCATED into the notices panel (scenarioPane.js's
+      // ScenarioNoticesPanel, via getResultsFreshnessStatus) — both variants
+      // preserved there under their existing msgIds. `selectedScenario` is
+      // already threaded into ScenarioPane as `scenario` (renderPane below),
+      // which carries the same latest_run/latest_complete_run fields, so no
+      // new prop-threading was needed; nothing left to derive/render here.
       return (
           <div
               id={'anuga-scenario-menu'}
@@ -1144,19 +1135,6 @@ class AnugaScenarioMenuClass extends React.Component {
                       (ScenarioHeaderActions), leading the row, instead of this
                       separate sibling bar — one consistent action row. */}
                   {this.renderRunActions(hasCompleteResults)}
-                  {/* TASK-2078: freshness banner — a newer run is building/failed
-                      while the results shown are from the last complete run. */}
-                  {showFreshnessBanner ? (
-                      <div
-                          className="sv-anuga-results-freshness-banner"
-                          role="status"
-                          aria-live="polite"
-                      >
-                          <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
-                          {' '}
-                          {this.tr(freshnessBannerMsgId, freshnessBannerFallback)}
-                      </div>
-                  ) : null}
                   <div className={'sv-rail-pane-shell'}>
                       {this.renderRail()}
                       {this.renderPane()}

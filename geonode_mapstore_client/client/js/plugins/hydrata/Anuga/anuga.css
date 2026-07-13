@@ -490,6 +490,64 @@
     padding: 0 2px;
 }
 
+/* TASK-2243 (epic 2237 W2.1) — the notices panel: the single collapsible
+   advisory surface between the toolbar and the Required-inputs section.
+   Handoff tokens (pinned): rgba(224, 169, 43, .12) background, #e0a92b left
+   accent — a distinct amber shade from the pre-existing per-hint amber
+   (#f0ad4e, below) so the PANEL itself reads as one coherent container;
+   the individual notices nested inside keep their own established styling
+   unchanged (extend, don't invent a parallel style at the item level). */
+.sv-anuga-notices-panel {
+    margin: 6px 10px 8px;
+    background: rgba(224, 169, 43, 0.12);
+    border: 1px solid rgba(224, 169, 43, 0.35);
+    border-left: 3px solid #e0a92b;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.sv-anuga-notices-panel-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
+    padding: 6px 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #f7d6a3;
+    text-align: left;
+}
+
+.sv-anuga-notices-panel-header-label {
+    flex: 1;
+}
+
+.sv-anuga-notices-panel-icon {
+    font-size: 13px;
+    opacity: 0.85;
+}
+
+.sv-anuga-notices-panel-toggle-icon {
+    font-size: 10px;
+    opacity: 0.75;
+}
+
+/* Always-render + .is-open CSS-collapse convention (karma determinism +
+   the Run-failed notice's embedded ScenarioErrorStrip keeping its
+   logTailOpen state across a toggle) — the body never unmounts; only its
+   visibility flips with the wrapper's `.is-open` class. */
+.sv-anuga-notices-panel-body {
+    display: none;
+    padding: 2px 0 4px;
+}
+
+.sv-anuga-notices-panel.is-open .sv-anuga-notices-panel-body {
+    display: block;
+}
+
 /* Static category glyph for the rail item. Replaces the previous
    tri-state visibility chip — per-layer visibility lives on each
    MenuRow, not on the rail. */
@@ -788,11 +846,16 @@ div that holds the feature-grid */
     color: var(--sv-warning-color, #fcf8e3);
 }
 
-/* TASK-2078 results-freshness banner + TASK-2079 build-conflict notice — both
- * are inline informational lozenges (a newer run building/errored; a build
- * already in flight). sv info-token tint over glass, matching the wider
- * .sv-membership-invite-disabled info pattern so they don't render as raw text. */
-.sv-anuga-results-freshness-banner,
+/* TASK-2079 build-conflict notice (A5, epic 2237 W1 — inline, stays beside
+ * the run cluster; NOT a notices-panel member) — an inline informational
+ * lozenge for a build already in flight. sv info-token tint over glass,
+ * matching the wider .sv-membership-invite-disabled info pattern so it
+ * doesn't render as raw text.
+ * TASK-2243 (epic 2237 W2.1) — the OLD .sv-anuga-results-freshness-banner
+ * rule that used to share this selector is RETIRED: both freshness variants
+ * moved into the notices panel and now join the amber advisory family
+ * below instead (extend, don't invent a parallel style) — nothing outside
+ * anugaScenarioMenu.js/scenarioPane.js consumed the old classname. */
 .sv-scenario-build-conflict-info {
     display: inline-flex;
     align-items: center;
@@ -1692,10 +1755,19 @@ div that holds the feature-grid */
 /* TASK-2210 (W3.1 epic 2204) — the pre-build mesh cost-driver hint is the
    SAME advisory family (pre-build, non-blocking) — extend, don't invent a
    parallel style. */
+/* TASK-2243 (epic 2237 W2.1) — the notices panel joins its member notices
+   (rainfall-unattached/-attached-empty, previously unstyled beyond the
+   generic .sv-anuga-scenario-pane-section row, + the relocated
+   results-freshness variants) onto this SAME advisory family, now that
+   all of them sit together as rows inside the one notices panel. */
 .sv-anuga-scenario-anchor-mismatch-warning,
 .sv-anuga-scenario-mesh-region-unattached-hint,
 .sv-anuga-scenario-terrain-gap-suggestion,
-.sv-anuga-scenario-mesh-cost-driver-hint {
+.sv-anuga-scenario-mesh-cost-driver-hint,
+.sv-anuga-scenario-rainfall-unattached-hint,
+.sv-anuga-scenario-rainfall-attached-empty-hint,
+.sv-anuga-scenario-results-freshness-failed-hint,
+.sv-anuga-scenario-results-freshness-building-hint {
     margin: 6px 10px 8px;
     background: rgba(240, 173, 78, 0.14);
     border: 1px solid rgba(240, 173, 78, 0.30);

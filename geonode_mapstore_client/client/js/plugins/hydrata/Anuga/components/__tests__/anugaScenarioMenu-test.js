@@ -399,20 +399,16 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(container.querySelector('.sv-anuga-btn-view-results')).toNotExist();
         });
 
-        it('shows the freshness banner when latest_run is newer + in-flight (AC1)', () => {
-            const s1 = makeScenario(21, 'Baseline', {
-                latest_run: {id: 2, status: 'computing'},
-                latest_complete_run: {id: 1, status: 'complete'}
-            });
-            const store = makeStore({scenariosArr: [s1]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            expect(container.querySelector('.sv-anuga-results-freshness-banner')).toExist();
-        });
-
-        it('shows the freshness banner when latest_run is newer + errored', () => {
+        // TASK-2243 (epic 2237 W2.1) — the freshness banner relocated into
+        // the notices panel (scenarioPane.js's ScenarioNoticesPanel, nested
+        // INSIDE this same AnugaScenarioMenu tree via renderPane), under new
+        // classnames (the old .sv-anuga-results-freshness-banner retired —
+        // nothing outside anugaScenarioMenu.js/scenarioPane.js consumed it).
+        // Both variants still exist under their ORIGINAL msgIds — see
+        // scenarioPane-test.js's 'Results-freshness notice' block for the
+        // msgId/role assertions; these container-level specs just prove the
+        // notice actually surfaces through the connected menu.
+        it('shows the failed-variant freshness notice inside the notices panel when latest_run is newer + errored', () => {
             const s1 = makeScenario(21, 'Baseline', {
                 latest_run: {id: 2, status: 'error'},
                 latest_complete_run: {id: 1, status: 'complete'}
@@ -422,10 +418,29 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            expect(container.querySelector('.sv-anuga-results-freshness-banner')).toExist();
+            const panel = container.querySelector('.sv-anuga-notices-panel');
+            expect(panel).toExist();
+            expect(panel.querySelector('.sv-anuga-scenario-results-freshness-failed-hint')).toExist();
+            expect(panel.querySelector('.sv-anuga-scenario-results-freshness-building-hint')).toNotExist();
         });
 
-        it('clears the banner once the newer run also completes (AC2: latest_run === latest_complete_run)', () => {
+        it('shows the building-variant freshness notice inside the notices panel when latest_run is newer + in-flight (AC1)', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_run: {id: 2, status: 'computing'},
+                latest_complete_run: {id: 1, status: 'complete'}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            const panel = container.querySelector('.sv-anuga-notices-panel');
+            expect(panel).toExist();
+            expect(panel.querySelector('.sv-anuga-scenario-results-freshness-building-hint')).toExist();
+            expect(panel.querySelector('.sv-anuga-scenario-results-freshness-failed-hint')).toNotExist();
+        });
+
+        it('clears the freshness notice once the newer run also completes (AC2: latest_run === latest_complete_run)', () => {
             const s1 = makeScenario(21, 'Baseline', {
                 latest_run: {id: 2, status: 'complete'},
                 latest_complete_run: {id: 2, status: 'complete'}
@@ -435,12 +450,13 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            expect(container.querySelector('.sv-anuga-results-freshness-banner')).toNotExist();
+            expect(container.querySelector('.sv-anuga-scenario-results-freshness-failed-hint')).toNotExist();
+            expect(container.querySelector('.sv-anuga-scenario-results-freshness-building-hint')).toNotExist();
             // Results still shown — View Results stays enabled.
             expect(container.querySelector('.sv-anuga-btn-view-results')).toExist();
         });
 
-        it('does not show the banner when there is no complete run at all', () => {
+        it('does not show a freshness notice when there is no complete run at all', () => {
             const s1 = makeScenario(21, 'Baseline', {
                 latest_run: {id: 2, status: 'computing'},
                 latest_complete_run: null
@@ -450,7 +466,8 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            expect(container.querySelector('.sv-anuga-results-freshness-banner')).toNotExist();
+            expect(container.querySelector('.sv-anuga-scenario-results-freshness-failed-hint')).toNotExist();
+            expect(container.querySelector('.sv-anuga-scenario-results-freshness-building-hint')).toNotExist();
         });
     });
 });

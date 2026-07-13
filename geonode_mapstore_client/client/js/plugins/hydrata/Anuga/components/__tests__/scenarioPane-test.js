@@ -1580,6 +1580,306 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     });
 
     // ------------------------------------------------------------------
+    // TASK-2243 (epic 2237 W2.1) — the notices panel: single collapsible
+    // amber advisory surface between the toolbar and the Required-inputs
+    // section. Drives all 7 member notices individually + shell mechanics
+    // (count string, N=0 hidden, default-open, collapse toggle aria) +
+    // regression coverage that the explicit NON-members (mesh cost-driver
+    // hint, post-build actual-vs-estimate comparison, read-only pane hint)
+    // still render field-adjacent in their current homes, NOT inside the
+    // panel.
+    // ------------------------------------------------------------------
+    describe('Notices panel (TASK-2243)', () => {
+        it('is hidden entirely (N=0) when the scenario has nothing to advise on', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-notices-panel')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('shows the "{N} notices" header, defaults open, and toggles collapse via aria-expanded', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_region: null}}
+                    canEdit
+                    meshRegions={meshRegionOpts}
+                />,
+                container,
+                () => {
+                    const panel = container.querySelector('.sv-anuga-notices-panel');
+                    expect(panel).toExist();
+                    expect(panel.className).toInclude('is-open');
+                    const header = panel.querySelector('.sv-anuga-notices-panel-header');
+                    expect(header.getAttribute('aria-expanded')).toBe('true');
+                    // Bare render (no intl context) — Message.jsx falls back
+                    // to the raw msgId; see the localized test below for the
+                    // actual "{count} notices" interpolation proof.
+                    expect(header.textContent).toInclude('hydrata.anuga.noticesPanelHeader');
+
+                    // The click + its assertions run in a SEPARATE tick: this
+                    // callback is itself invoked from inside React's mount
+                    // commit call stack (commitLayoutEffects), and a state
+                    // update dispatched from THERE is applied once that
+                    // commit unwinds — not synchronously within this same
+                    // callback. setTimeout(0) gets us outside of it, matching
+                    // how the rest of the suite drives click-then-assert
+                    // (e.g. anugaScenarioMenu-test.js's openKebab helper,
+                    // which clicks from plain top-level test code, never
+                    // nested inside a render callback).
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(panel.className).toNotInclude('is-open');
+                            expect(header.getAttribute('aria-expanded')).toBe('false');
+                            // Always-render + .is-open CSS-collapse
+                            // convention — the notice itself stays mounted
+                            // (queryable) through the collapse; only the
+                            // wrapper's class flips.
+                            expect(panel.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint')).toExist();
+
+                            header.click();
+                            setTimeout(() => {
+                                expect(panel.className).toInclude('is-open');
+                                done();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        // Mounts through the real Localized wrapper (IntlProvider), seeded
+        // with the REAL en-US translation file (mirrors the anchor-mismatch
+        // warning's own localized test above) — proves the {count} msgParam
+        // actually threads through and grows as more notices activate,
+        // which the bare-render fallback (raw msgId) cannot show.
+        it('the header count grows (localized) as more member notices become active', (done) => {
+            const oneNoticeScenario = {...baseScenario, mesh_region: null};
+            const twoNoticeScenario = {
+                ...baseScenario,
+                mesh_region: null,
+                inflow_anchor_mismatch: {
+                    series: [
+                        {timeseries_id: 101, name: 'Hydrograph A', first_timestamp: '2000-01-01T00:00:00.000'},
+                        {timeseries_id: 102, name: 'Hydrograph B', first_timestamp: '2000-01-01T01:00:00.000'}
+                    ]
+                }
+            };
+            ReactDOM.render(
+                <Localized locale="en-US" messages={enData.messages}>
+                    <ScenarioPane
+                        scenario={oneNoticeScenario}
+                        canEdit
+                        meshRegions={meshRegionOpts}
+                    />
+                </Localized>,
+                container,
+                () => {
+                    const headerOne = container.querySelector('.sv-anuga-notices-panel-header');
+                    expect(headerOne.textContent).toInclude('1 notices');
+                    ReactDOM.render(
+                        <Localized locale="en-US" messages={enData.messages}>
+                            <ScenarioPane
+                                scenario={twoNoticeScenario}
+                                canEdit
+                                meshRegions={meshRegionOpts}
+                            />
+                        </Localized>,
+                        container,
+                        () => {
+                            const headerTwo = container.querySelector('.sv-anuga-notices-panel-header');
+                            expect(headerTwo.textContent).toInclude('2 notices');
+                            done();
+                        }
+                    );
+                }
+            );
+        });
+
+        // The 7-item inventory, each driven individually against the
+        // notices panel (rather than their old field-adjacent homes, which
+        // the earlier per-hint describes above now cover as pure-predicate
+        // + msgId/role regressions on the RELOCATED markup).
+        describe('7-item inventory — one member at a time', () => {
+            it('results-freshness FAILED', (done) => {
+                const s = {
+                    ...baseScenario,
+                    latest_run: {id: 2, status: 'error'},
+                    latest_complete_run: {id: 1, status: 'complete'}
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-results-freshness-failed-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('results-freshness BUILDING', (done) => {
+                const s = {
+                    ...baseScenario,
+                    latest_run: {id: 2, status: 'computing'},
+                    latest_complete_run: {id: 1, status: 'complete'}
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-results-freshness-building-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('rainfall-unattached', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane scenario={{...baseScenario, rainfall: null}} canEdit rainfalls={rainfallOpts} />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-rainfall-unattached-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('rainfall-attached-empty', (done) => {
+                const emptyRainfallOpts = [{id: 6, title: 'Default Rainfall', has_feature_data: false}];
+                ReactDOM.render(
+                    <ScenarioPane scenario={{...baseScenario, rainfall: 6}} canEdit rainfalls={emptyRainfallOpts} />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-rainfall-attached-empty-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('meshregion-unattached', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane scenario={{...baseScenario, mesh_region: null}} canEdit meshRegions={meshRegionOpts} />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('inflow-anchor-mismatch', (done) => {
+                const s = {
+                    ...baseScenario,
+                    inflow_anchor_mismatch: {
+                        series: [
+                            {timeseries_id: 101, name: 'Hydrograph A', first_timestamp: '2000-01-01T00:00:00.000'},
+                            {timeseries_id: 102, name: 'Hydrograph B', first_timestamp: '2000-01-01T01:00:00.000'}
+                        ]
+                    }
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-anchor-mismatch-warning')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('terrain-coverage-gap (with its suggestion link)', (done) => {
+                const gappyTerrainOpts = [{id: 3, title: 'Gappy Survey', status: 'ready', has_coverage_gaps: true}];
+                let opened = false;
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        canEdit
+                        terrain={gappyTerrainOpts}
+                        onOpenMergeTerrainsPanel={() => { opened = true; }}
+                    />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        const suggestion = panel.querySelector('.sv-anuga-scenario-terrain-gap-suggestion');
+                        expect(suggestion).toExist();
+                        const link = panel.querySelector('[data-testid="anuga-terrain-gap-suggestion-merge-link"]');
+                        expect(link).toExist();
+                        Simulate.click(link);
+                        expect(opened).toBe(true);
+                        done();
+                    }
+                );
+            });
+        });
+
+        // Non-members (design-pinned): explicit regression that these three
+        // still render field-adjacent in their existing homes, NOT inside
+        // the notices panel. (The 4th non-member, the build-conflict inline
+        // span, lives in anugaScenarioMenu.js/anugaScenarioMenu-test.js, not
+        // here.)
+        describe('Non-members stay field-adjacent (regression)', () => {
+            it('mesh cost-driver hint renders in the Run section, not the notices panel', (done) => {
+                const s = {
+                    ...baseScenario,
+                    resolution: 500,
+                    mesh_triangle_count_estimate_breakdown: {base: 10, regions: 90, hole_perimeter: 0, breaklines: 0, total: 100}
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        const hint = container.querySelector('.sv-anuga-scenario-mesh-cost-driver-hint');
+                        expect(hint).toExist();
+                        expect(container.querySelector('.sv-anuga-notices-panel')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('post-build actual-vs-estimate comparison renders in the Run section, not the notices panel', (done) => {
+                const s = {
+                    ...baseScenario,
+                    latest_run: {
+                        mesh_provenance: {pre_build_triangle_estimate: 1000},
+                        mesh_triangle_count: 1200
+                    }
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toExist();
+                        expect(container.querySelector('.sv-anuga-notices-panel')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('the read-only pane hint renders in its own place, not the notices panel', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane scenario={baseScenario} canEdit={false} />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-pane-readonly-hint')).toExist();
+                        expect(container.querySelector('.sv-anuga-notices-panel')).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+    });
+
+    // ------------------------------------------------------------------
     // Status and actions pane (Pane 3)
     // ------------------------------------------------------------------
     describe('Status and actions pane', () => {
@@ -1660,6 +1960,11 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
         });
     });
 
+    // ------------------------------------------------------------------
+    // TASK-2244 (epic 2237 W2.2) — error consolidation: title pill + the
+    // Run-failed notice. Exactly one standing indicator (the title pill)
+    // plus the one notice for errored scenarios; neither for anything else.
+    // ------------------------------------------------------------------
     // ------------------------------------------------------------------
     // Inline ScenarioRunLog (rendered at bottom of Status-and-actions pane)
     // ------------------------------------------------------------------
