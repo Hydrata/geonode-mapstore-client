@@ -104,6 +104,7 @@ const ALLOWED_PREFIXES = new Set([
     'gn',          // .gn-brand-navbar override in simpleView.css
     'mapstore',    // .mapstore-slider override in simpleView.css
     'sk',          // .sk-circle (spinkit spinner) in simpleView.css
+    'square',      // MapStore core map-control buttons — simpleView.css forces the nav toolbar (#navigationBar-container .square-button) opaque; core class, no hydrata JS sets it.
 
     // ══ Category 3 — RATCHET TARGETS (rename to sv-/sv-<panel>-, then delete here) ══
     'idf'          // IDF-derive panel (epic-1768, hydrology.css). Live in prod; admitted

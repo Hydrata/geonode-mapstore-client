@@ -19,9 +19,13 @@
 
 :root {
     /* ── Button chrome ── */
-    --sv-button-bg:            rgba(0, 60, 136, 0.6);
-    --sv-button-bg-hover:      rgba(0, 60, 136, 0.8);
-    --sv-button-bg-active:     rgba(0, 60, 136, 0.9);
+    /* Opaque button chrome (ad-hoc design fix 2026-07-13): buttons are no longer
+       glassy — solid blue for legibility + consistency across the app. Hover /
+       active lighten the blue (was: same blue at 0.8 / 0.9 alpha). Panels keep
+       their glass via the separate --sv-panel-bg token below. */
+    --sv-button-bg:            rgb(0, 60, 136);
+    --sv-button-bg-hover:      rgb(0, 80, 170);
+    --sv-button-bg-active:     rgb(0, 100, 200);
     --sv-button-border:        rgba(255, 255, 255, 0.5);
     --sv-button-border-hover:  rgba(255, 255, 255, 0.7);
     --sv-button-border-active: rgba(255, 255, 255, 0.9);

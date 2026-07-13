@@ -52,8 +52,28 @@
 }
 
 .simple-view-menu-button.active {
-    background-color: var(--sv-row-active-bg, rgba(30, 126, 52, 0.7));
+    background-color: rgb(30, 126, 52); /* opaque active green (ad-hoc design fix 2026-07-13; was rgba(...,0.7)) */
     border-color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Map navigation toolbar (MapStore core #navigationBar-container) ──────────
+   Ad-hoc design fix 2026-07-13: the core map controls (zoom in/out, identify,
+   zoom-to-extent, 3D, burger) rendered translucent (0.6 / 0.9 alpha) and the
+   MapLoading spinner had a WHITE background (core maploading.css) — visibly a
+   different colour from the blue buttons. Force the shared opaque button-chrome
+   token across every control + the spinner so the whole column is one solid
+   colour. Layer-1 override (no core/fork edit). */
+#navigationBar-container .square-button,
+#navigationBar-container .square-button:focus,
+#navigationBar-container .square-button.btn-primary,
+#navigationBar-container .square-button.btn-success,
+#navigationBar-container .square-button.btn-success.active {
+    background-color: var(--sv-button-bg, rgb(0, 60, 136)) !important;
+}
+#navigationBar-container #mapstore-globalspinner {
+    background-color: var(--sv-button-bg, rgb(0, 60, 136)) !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .simple-view-right-button {
