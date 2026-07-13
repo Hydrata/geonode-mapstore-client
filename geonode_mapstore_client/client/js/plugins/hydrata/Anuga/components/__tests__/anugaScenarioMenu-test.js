@@ -1665,6 +1665,166 @@ describe('anugaScenarioMenu — RUN SETTINGS auto-expand on build validation (TA
 });
 
 /*
+ * TASK-2268 (epic 2237 W5.3) — REQUIRED section expand-then-focus: the
+ * Required section (name/terrain/boundary/inflow-or-rainfall) became
+ * collapsible in TASK-2265, but its own missing-field build-validation
+ * failures were never wired to the expand-then-focus bridge the way
+ * resolution/duration (Run settings, TASK-2245) and mesh_region (Optional
+ * inputs, TASK-2265) already are — so a user who had collapsed Required
+ * would get the validation dialog with the offending field still
+ * CSS-hidden behind it. Direct mirror of the RUN SETTINGS harness above,
+ * with the section collapsed FIRST (Required starts open by default,
+ * unlike Run settings/Optional inputs, so the "reopen" half of the bridge
+ * has nothing to prove unless the user already collapsed it).
+ */
+describe('anugaScenarioMenu — REQUIRED auto-expand on build validation (TASK-2268)', () => {
+    let container;
+
+    // Passes every validateScenario field EXCEPT the one under test, and
+    // carries empty meshRegions/rainfalls so the click reaches the missing-
+    // field validation dialog rather than either "unattached" gate.
+    // 'inflowOrRainfall' clears BOTH substitutable water-source fields
+    // (validateScenario requires one of the two).
+    function scenarioMissing(id, field, extras = {}) {
+        const base = {
+            id, name: `Scenario ${id}`, status: 'created', created_by: 9999,
+            terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+            friction: null, structure: null, mesh_region: null, network: null,
+            resolution: 1000, duration: 1800, unsaved: false,
+            ...extras
+        };
+        if (field === 'inflowOrRainfall') {
+            delete base.inflow;
+            delete base.rainfall;
+        } else {
+            delete base[field];
+        }
+        return base;
+    }
+
+    function makeHarness() {
+        const buildCalls = [];
+        const base = {
+            archiveFilter: 'none',
+            terrain: [], boundaries: [], inflows: [], rainfalls: [],
+            frictions: [], structures: [], meshRegions: [], networks: [],
+            computeInstances: [],
+            canCreateScenario: true,
+            canRunScenario: true,
+            myRole: 'editor',
+            currentUserId: 9999,
+            selectedScenarios: [],
+            readyToCompare: false,
+            flatLayers: [],
+            selectAnugaScenario: () => {},
+            setOpenMenuGroupId: () => {},
+            saveAnugaScenario: () => {},
+            buildScenarioExplicit: (sid) => buildCalls.push(sid),
+            runAnugaScenario: () => {}
+        };
+        const render = (scenario) => {
+            ReactDOM.render(
+                <AnugaScenarioMenuClass {...base} scenarios={[scenario]} selectedScenario={scenario} />,
+                container
+            );
+        };
+        return {buildCalls, render};
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('Build with terrain missing while Required is collapsed: validation dialog fires, REQUIRED auto-expands, #terrain is focused', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(90, 'terrain'));
+        // Required starts OPEN by default (TASK-2265, AC#3) — collapse it
+        // first via the user-action toggle so the auto-EXPAND this test
+        // proves actually has something to reverse.
+        container.querySelector('.sv-anuga-scenario-pane-required-header').click();
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toNotInclude('is-open');
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        const dialog = container.querySelector('.anuga-build-validation-dialog.is-open');
+        expect(dialog).toExist();
+        expect(dialog.textContent).toInclude('hydrata.anuga.validateMissingField.terrain');
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('terrain');
+    });
+
+    it('Build with name missing while Required is collapsed: REQUIRED auto-expands, #name is focused', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(91, 'name'));
+        container.querySelector('.sv-anuga-scenario-pane-required-header').click();
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('name');
+    });
+
+    it('Build with boundary missing while Required is collapsed: REQUIRED auto-expands, #boundary is focused', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(92, 'boundary'));
+        container.querySelector('.sv-anuga-scenario-pane-required-header').click();
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('boundary');
+    });
+
+    it('Build with neither inflow nor rainfall set while Required is collapsed: REQUIRED auto-expands, #inflow is focused', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(93, 'inflowOrRainfall'));
+        container.querySelector('.sv-anuga-scenario-pane-required-header').click();
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        const dialog = container.querySelector('.anuga-build-validation-dialog.is-open');
+        expect(dialog.textContent).toInclude('hydrata.anuga.validateMissingField.inflowOrRainfall');
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('inflow');
+    });
+
+    it('Build-and-Run with terrain missing while Required is collapsed ALSO auto-expands + focuses #terrain', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(94, 'terrain'));
+        container.querySelector('.sv-anuga-scenario-pane-required-header').click();
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('terrain');
+    });
+
+    it('a missing RUN-SETTINGS-section field (e.g. duration) does NOT touch the REQUIRED collapse', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(95, 'duration'));
+        container.querySelector('.sv-anuga-scenario-pane-required-header').click();
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toNotInclude('is-open');
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.anuga-build-validation-dialog.is-open')).toExist();
+        // Required stays collapsed — this token belongs to Run settings, not Required.
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toNotInclude('is-open');
+        expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+    });
+
+    it('when Required is already open (default), a validation failure notifies without a further OPEN transition (focus still lands)', () => {
+        const {buildCalls, render} = makeHarness();
+        render(scenarioMissing(96, 'terrain'));
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(buildCalls.length).toBe(0);
+        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+        expect(document.activeElement.id).toBe('terrain');
+    });
+});
+
+/*
  * Regression guard — source-text scan for window.confirm / window.alert.
  *
  * Stops the bug class from recurring (memory pin

@@ -1090,9 +1090,12 @@ function renderCollapsibleSection(kebabName, headerNode, bodyNode, isOpen) {
  *   the last one HANDLED counts as a new expand-then-focus request from
  *   anugaScenarioMenu.js (the menu uses an incrementing counter that starts
  *   at null and is bumped to 1, 2, ... — never starts at 0, which would
- *   itself look like an unhandled request on the very first mount). Pass
- *   `null` for a section with no such bridge (Required has none in this
- *   wave's declared scope).
+ *   itself look like an unhandled request on the very first mount). Every
+ *   section now has a bridge (TASK-2268 adds Required's, closing the W5 gap
+ *   where a Build-validation failure on a Required-section field left the
+ *   field CSS-hidden if the user had collapsed it) — none is passed `null`
+ *   for lack of a bridge any more, but the contract still allows it for any
+ *   FUTURE section that legitimately has none.
  * @param {function} onExpanded - fired once the open state has actually
  *   committed to the DOM (see the useLayoutEffect ordering below) so the
  *   menu's own `.focus()` call never races a still-collapsed element.
@@ -1228,12 +1231,20 @@ const ScenarioPane = (props) => {
 
     // TASK-2265 (epic 2237 W5, UAT re-aim findings 3+4) — three
     // independently collapsible sections (see useCollapsibleSection's doc
-    // comment for the full contract). Required starts OPEN and has no
-    // expand-then-focus bridge; Optional inputs and Run settings start
-    // COLLAPSED. mesh_region's "Attach first" flow now targets Optional
-    // inputs (it moved there); resolution/duration build-validation and the
-    // in-flight/errored guarantee still target Run settings, unchanged.
-    const [isRequiredOpen, toggleRequired] = useCollapsibleSection(true, null, null, false);
+    // comment for the full contract). Required starts OPEN; Optional inputs
+    // and Run settings start COLLAPSED. mesh_region's "Attach first" flow
+    // targets Optional inputs; resolution/duration build-validation and the
+    // in-flight/errored guarantee target Run settings. TASK-2268 (epic 2237
+    // W5.3) gives Required its OWN expand-then-focus bridge too: a Build /
+    // Build-and-Run validation failure on a Required-section field
+    // (name/terrain/boundary/inflowOrRainfall) must still expand-then-focus
+    // even though Required starts open — the user may have manually
+    // collapsed it (TASK-2265 made Required collapsible), which is exactly
+    // the gap that left the offending field CSS-hidden behind the fired
+    // dialog.
+    const [isRequiredOpen, toggleRequired] = useCollapsibleSection(
+        true, props.requiredExpandToken, props.onRequiredExpanded, false
+    );
     const [isOptionalInputsOpen, toggleOptionalInputs] = useCollapsibleSection(
         false, props.optionalInputsExpandToken, props.onOptionalInputsExpanded, false
     );
@@ -1381,6 +1392,16 @@ ScenarioPane.propTypes = {
     meshRegions: PropTypes.array,
     networks: PropTypes.array,
     onUpdateScenario: PropTypes.func,
+    // TASK-2268 (epic 2237 W5.3) — expand-then-focus bridge for the
+    // REQUIRED section, mirroring runSettingsExpandToken/
+    // optionalInputsExpandToken below exactly: the menu bumps
+    // `requiredExpandToken` (any value whose IDENTITY changes per request)
+    // whenever a build-validation failure targets a Required-section field
+    // (name/terrain/boundary/inflowOrRainfall) while the section is
+    // collapsed; `onRequiredExpanded` fires back once the section has
+    // actually committed open.
+    requiredExpandToken: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    onRequiredExpanded: PropTypes.func,
     // TASK-2245 (epic 2237 W3.1); re-targeted TASK-2265 (epic 2237 W5) —
     // expand-then-focus bridge for the RUN SETTINGS collapse: the menu bumps
     // `runSettingsExpandToken` (any value whose IDENTITY changes per

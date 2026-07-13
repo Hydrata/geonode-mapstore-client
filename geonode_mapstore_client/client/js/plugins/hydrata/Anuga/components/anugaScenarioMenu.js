@@ -154,11 +154,31 @@ const CONFIRM_DIALOG_REGISTRY = {
 // uses the SAME expand-then-focus mechanism but targets the SEPARATE
 // Optional inputs section (see requestOptionalInputsFocus) since TASK-2265
 // moved it out of Run settings. Every OTHER validateScenario field
-// (name/terrain/inflowOrRainfall/boundary) lives in the always-visible
-// Required-inputs section, so no expand plumbing applies.
+// (name/terrain/inflowOrRainfall/boundary) lives in the Required section —
+// see REQUIRED_FOCUS_FIELD_IDS below, added TASK-2268, for its own
+// expand-then-focus map (Required is collapsible too since TASK-2265, so it
+// needs the same bridge, not "no expand plumbing applies" as this comment
+// used to say).
 const RUN_SETTINGS_FOCUS_FIELD_IDS = {
     resolution: 'resolution',
     duration: 'duration-hours'
+};
+
+// TASK-2268 (epic 2237 W5.3) — validateScenario's four build-REQUIRED
+// fields that live inside the (now collapsible, TASK-2265) Required
+// section. Direct analog of RUN_SETTINGS_FOCUS_FIELD_IDS above: a
+// missing-field build-validation failure on any of these must expand-then-
+// focus the matching field via requestRequiredFocus, closing the gap where
+// the fired validation dialog left the offending field CSS-hidden behind a
+// user-collapsed Required section. `inflowOrRainfall` focuses the 'inflow'
+// select — the primary water-source field the Required section shows first
+// — mirroring the "Attach first" precedent of focusing one concrete field
+// for a two-field-substitutable validation failure.
+const REQUIRED_FOCUS_FIELD_IDS = {
+    name: 'name',
+    terrain: 'terrain',
+    boundary: 'boundary',
+    inflowOrRainfall: 'inflow'
 };
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -277,7 +297,15 @@ class AnugaScenarioMenuClass extends React.Component {
           // its own independent expand token (bumping runSettingsExpandToken
           // would wrongly open Run settings instead). Same null-start
           // rationale.
-          optionalInputsExpandToken: null
+          optionalInputsExpandToken: null,
+          // TASK-2268 (epic 2237 W5.3) — the Required analog of the two
+          // tokens above: a missing-field build-validation failure on a
+          // Required-section field (name/terrain/boundary/inflowOrRainfall)
+          // bumps THIS token so the pane's own Required
+          // useCollapsibleSection expands (and only that section — a
+          // separate token per section is what keeps the three bridges from
+          // ever cross-firing). Same null-start rationale.
+          requiredExpandToken: null
       };
       // Not React state: read synchronously by handleRunSettingsExpanded
       // once the pane's callback fires; nothing ever renders off this value
@@ -286,6 +314,8 @@ class AnugaScenarioMenuClass extends React.Component {
       // TASK-2265 — the Optional inputs analog, read by
       // handleOptionalInputsExpanded.
       this.pendingOptionalInputsFocusFieldId = null;
+      // TASK-2268 — the Required analog, read by handleRequiredExpanded.
+      this.pendingRequiredFocusFieldId = null;
   }
 
   componentDidMount() {
@@ -593,14 +623,18 @@ class AnugaScenarioMenuClass extends React.Component {
       if (missingField) {
           this.setState({buildValidationError: missingField});
           trackEvent('button', 'click', `anuga-scenario-menu-build-validate-missing-${missingField}`);
-          // TASK-2245 (AC#2) — resolution/duration now live inside the
+          // TASK-2245 (AC#2) — resolution/duration live inside the
           // collapsed-by-default RUN SETTINGS section; expand-then-focus the
           // matching field so the validation dialog doesn't leave the user
-          // hunting for a hidden field. Every other missingField (name/
-          // terrain/inflowOrRainfall/boundary) is in the always-visible
-          // Required-inputs section — no expand plumbing applies there.
+          // hunting for a hidden field. TASK-2268 (epic 2237 W5.3) — every
+          // OTHER missingField (name/terrain/inflowOrRainfall/boundary)
+          // lives in the Required section, which is ALSO collapsible
+          // (TASK-2265) — same bridge, separate map + token so the two
+          // sections never cross-fire.
           if (RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]) {
               this.requestRunSettingsFocus(RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]);
+          } else if (REQUIRED_FOCUS_FIELD_IDS[missingField]) {
+              this.requestRequiredFocus(REQUIRED_FOCUS_FIELD_IDS[missingField]);
           }
           return;
       }
@@ -672,9 +706,12 @@ class AnugaScenarioMenuClass extends React.Component {
       if (missingField) {
           this.setState({buildValidationError: missingField});
           trackEvent('button', 'click', `anuga-scenario-menu-build-and-run-validate-missing-${missingField}`);
-          // TASK-2245 (AC#2) — same expand-then-focus as handleBuildClick.
+          // TASK-2245 (AC#2) / TASK-2268 — same expand-then-focus as
+          // handleBuildClick.
           if (RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]) {
               this.requestRunSettingsFocus(RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]);
+          } else if (REQUIRED_FOCUS_FIELD_IDS[missingField]) {
+              this.requestRequiredFocus(REQUIRED_FOCUS_FIELD_IDS[missingField]);
           }
           return;
       }
@@ -741,6 +778,24 @@ class AnugaScenarioMenuClass extends React.Component {
   handleOptionalInputsExpanded = () => {
       const fieldId = this.pendingOptionalInputsFocusFieldId;
       this.pendingOptionalInputsFocusFieldId = null;
+      const el = typeof document !== 'undefined' && fieldId ? document.getElementById(fieldId) : null;
+      if (el && typeof el.focus === 'function') el.focus();
+  };
+
+  // TASK-2268 (epic 2237 W5.3) — Required analog of requestRunSettingsFocus/
+  // requestOptionalInputsFocus above: bumps requiredExpandToken so the pane
+  // opens (only) the Required section.
+  requestRequiredFocus = (fieldId) => {
+      this.pendingRequiredFocusFieldId = fieldId;
+      this.setState((prevState) => ({requiredExpandToken: (prevState.requiredExpandToken || 0) + 1}));
+  };
+
+  // TASK-2268 — fired by ScenarioPane's onRequiredExpanded prop once the
+  // Required section is confirmed open (post-commit). This is the ONLY
+  // place that actually calls .focus() for Required-section fields.
+  handleRequiredExpanded = () => {
+      const fieldId = this.pendingRequiredFocusFieldId;
+      this.pendingRequiredFocusFieldId = null;
       const el = typeof document !== 'undefined' && fieldId ? document.getElementById(fieldId) : null;
       if (el && typeof el.focus === 'function') el.focus();
   };
@@ -903,6 +958,8 @@ class AnugaScenarioMenuClass extends React.Component {
               onRunSettingsExpanded={this.handleRunSettingsExpanded}
               optionalInputsExpandToken={this.state.optionalInputsExpandToken}
               onOptionalInputsExpanded={this.handleOptionalInputsExpanded}
+              requiredExpandToken={this.state.requiredExpandToken}
+              onRequiredExpanded={this.handleRequiredExpanded}
           />
       );
   }

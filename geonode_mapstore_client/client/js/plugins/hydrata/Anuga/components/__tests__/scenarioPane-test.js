@@ -582,6 +582,108 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
         });
     });
 
+    // ------------------------------------------------------------------
+    // TASK-2268 (epic 2237 W5.3) — Required gains its OWN expand-then-focus
+    // bridge, direct analog of the Run settings / Optional inputs ones
+    // above: a Build/Build-and-Run validation failure on a Required-section
+    // field must reopen the section (if the user had collapsed it) and
+    // focus the offending field. Pane-side only — see
+    // anugaScenarioMenu-test.js for the full menu-driven build-validation
+    // flow.
+    // ------------------------------------------------------------------
+    describe('Required expand-then-focus bridge (TASK-2268)', () => {
+        it('requiredExpandToken opens the section (from collapsed) and fires onRequiredExpanded exactly once', (done) => {
+            let expandedCalls = 0;
+            const onRequiredExpanded = () => { expandedCalls += 1; };
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    // null = "no request yet", matching the menu's initial state.
+                    requiredExpandToken={null}
+                    onRequiredExpanded={onRequiredExpanded}
+                />,
+                container,
+                () => {
+                    // Required starts OPEN by default (AC#3) — collapse it
+                    // first via the user-action toggle so the token's own
+                    // OPEN transition (and thus the onRequiredExpanded call)
+                    // has something to prove, exactly the "user had
+                    // collapsed Required" gap TASK-2268 closes.
+                    const header = container.querySelector('.sv-anuga-scenario-pane-required-header');
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toNotInclude('is-open');
+                            expect(expandedCalls).toBe(0);
+                            ReactDOM.render(
+                                <ScenarioPane
+                                    scenario={baseScenario}
+                                    canEdit
+                                    requiredExpandToken={1}
+                                    onRequiredExpanded={onRequiredExpanded}
+                                />,
+                                container,
+                                () => {
+                                    // Deferred a tick — same nested-update
+                                    // flush gotcha as the Run settings /
+                                    // Optional inputs token tests above.
+                                    setTimeout(() => {
+                                        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+                                        expect(expandedCalls).toBe(1);
+                                        // Re-rendering with the SAME token again must not re-notify.
+                                        ReactDOM.render(
+                                            <ScenarioPane
+                                                scenario={baseScenario}
+                                                canEdit
+                                                requiredExpandToken={1}
+                                                onRequiredExpanded={onRequiredExpanded}
+                                            />,
+                                            container,
+                                            () => {
+                                                expect(expandedCalls).toBe(1);
+                                                done();
+                                            }
+                                        );
+                                    }, 0);
+                                }
+                            );
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        it('a token arriving while Required is still open (the default) notifies immediately, without a further OPEN transition', (done) => {
+            let expandedCalls = 0;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    requiredExpandToken={null}
+                    onRequiredExpanded={() => { expandedCalls += 1; }}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={baseScenario}
+                            canEdit
+                            requiredExpandToken={1}
+                            onRequiredExpanded={() => { expandedCalls += 1; }}
+                        />,
+                        container,
+                        () => {
+                            expect(expandedCalls).toBe(1);
+                            done();
+                        }
+                    );
+                }
+            );
+        });
+    });
+
     describe('Optional inputs collapse (TASK-2265)', () => {
         it('is collapsed by default (AC#3) — fields still exist (always-render)', (done) => {
             ReactDOM.render(
