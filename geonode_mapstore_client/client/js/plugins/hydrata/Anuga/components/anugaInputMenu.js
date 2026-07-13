@@ -134,6 +134,15 @@ const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Rainfall', 'Friction', 'St
 const EMPTY_BY_ID = {};
 const EMPTY_IDS = [];
 
+// Ad-hoc design fix 2026-07-13: react-bootstrap OverlayTrigger tooltips portal to
+// <body> where geonode.css gives `.msgapi .tooltip` z-index:10000 — but the GeoNode
+// page wrapper (`.gn-page-wrapper`) is z-index:99999, so a body-level tooltip paints
+// BEHIND the whole app and is never visible (the "clearer tooltips" from 61f29d9b7
+// were invisible for exactly this reason). Lift these pane-header tooltips above the
+// wrapper via an inline z-index (inline beats the stylesheet rule) so they show on
+// hover. Applied to every OverlayTrigger overlay in this file's pane headers.
+const PANE_TOOLTIP_STYLE = { zIndex: 100000 };
+
 const stripModelPrefix = (name) => {
     if (!name || typeof name !== 'string') return name;
     const idx = name.indexOf(': ');
@@ -1522,7 +1531,7 @@ class AnugaInputMenuClass extends React.Component {
                     (upload your own DEM, else pull a global one, then combine). All
                     three are icon-only with hover tooltips.
                     1) Upload local DEM (TASK-1729 W1.7 direct-to-S3 presigned PUT). */}
-                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
+                <OverlayTrigger placement="bottom" overlay={<Tooltip id="anuga-terrain-upload-tooltip" style={PANE_TOOLTIP_STYLE}><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
                     <span
                         className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-upload"}
                         data-testid="anuga-terrain-upload-button"
@@ -1536,7 +1545,7 @@ class AnugaInputMenuClass extends React.Component {
                     />
                 </OverlayTrigger>
                 {/* 2) Download global DEM — draw a bbox, pull Copernicus GLO-30. */}
-                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
+                <OverlayTrigger placement="bottom" overlay={<Tooltip id="anuga-terrain-global-dem-tooltip" style={PANE_TOOLTIP_STYLE}><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
                     <span
                         className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-globe"}
                         data-testid="anuga-terrain-global-dem-button"
@@ -1553,7 +1562,7 @@ class AnugaInputMenuClass extends React.Component {
                     the globe/upload icons. Icon-only with a hover tooltip (ad-hoc
                     design fix 2026-07-13 dropped the visible text label TASK-2205 had
                     added; the tooltip now carries the affordance). */}
-                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.combinedSurfaceTooltip" /></Tooltip>}>
+                <OverlayTrigger placement="bottom" overlay={<Tooltip id="anuga-terrain-combined-surface-tooltip" style={PANE_TOOLTIP_STYLE}><Message msgId="hydrata.anuga.combinedSurfaceTooltip" /></Tooltip>}>
                     <span
                         className={"btn sv-menu-row-glyph sv-glyph-active"}
                         data-testid="anuga-terrain-merge-panel-button"
@@ -1703,7 +1712,7 @@ class AnugaInputMenuClass extends React.Component {
     renderFrictionRastersPane() {
         const layers = this.props.frictionRasterLayers || [];
         const actions = (
-            <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadFrictionRasterTooltip" /></Tooltip>}>
+            <OverlayTrigger placement="bottom" overlay={<Tooltip id="anuga-friction-raster-upload-tooltip" style={PANE_TOOLTIP_STYLE}><Message msgId="hydrata.anuga.uploadFrictionRasterTooltip" /></Tooltip>}>
                 <span
                     className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-upload"}
                     onClick={() => {
