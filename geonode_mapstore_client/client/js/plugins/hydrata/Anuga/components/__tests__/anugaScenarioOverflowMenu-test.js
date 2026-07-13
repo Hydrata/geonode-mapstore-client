@@ -27,7 +27,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
         return trackCalls.map((c) => c.label);
     }
 
-    function openMenu(container) {
+    function openMenu() {
         container.querySelector('.sv-anuga-scenario-overflow-trigger').click();
     }
 
@@ -73,7 +73,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 container
             );
             expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toExist();
-            openMenu(container);
+            openMenu();
             const newBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-new');
             expect(newBtn).toExist();
             expect(newBtn.disabled).toBe(false);
@@ -84,7 +84,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={null} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             expect(menuEl().querySelector('.sv-anuga-scenario-overflow-duplicate').disabled).toBe(true);
             expect(menuEl().querySelector('.sv-anuga-scenario-overflow-archive').disabled).toBe(true);
             expect(menuEl().querySelector('.sv-anuga-scenario-overflow-delete').disabled).toBe(true);
@@ -99,7 +99,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const menu = menuEl();
             expect(menu).toExist();
             expect(container.contains(menu)).toBe(false);
@@ -111,7 +111,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             expect(menuEl()).toExist();
             const escEvent = new window.KeyboardEvent('keydown', {key: 'Escape', keyCode: 27, bubbles: true});
             document.dispatchEvent(escEvent);
@@ -124,7 +124,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             expect(menuEl()).toExist();
             const outsideEvent = new window.MouseEvent('mousedown', {bubbles: true});
             document.body.dispatchEvent(outsideEvent);
@@ -136,7 +136,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={null} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const menu = menuEl();
             const insideEvent = new window.MouseEvent('mousedown', {bubbles: true});
             menu.dispatchEvent(insideEvent);
@@ -162,7 +162,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             expect(menuEl()).toExist();
             const trigger = container.querySelector('.sv-anuga-scenario-overflow-trigger');
             const evt = new window.KeyboardEvent('keydown', {key: ' ', keyCode: 32, bubbles: true});
@@ -186,7 +186,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             expect(document.activeElement).toBe(menuEl().querySelector('.sv-anuga-scenario-overflow-new'));
         });
 
@@ -195,7 +195,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const items = Array.prototype.slice.call(menuEl().querySelectorAll('[role="menuitem"]'));
             expect(items.length).toBe(4);
             expect(document.activeElement).toBe(items[0]);
@@ -213,7 +213,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const items = Array.prototype.slice.call(menuEl().querySelectorAll('[role="menuitem"]'));
             items[0].dispatchEvent(new window.KeyboardEvent('keydown', {key: 'End', bubbles: true}));
             expect(document.activeElement).toBe(items[items.length - 1]);
@@ -226,7 +226,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const items = Array.prototype.slice.call(menuEl().querySelectorAll('[role="menuitem"]'));
             items[0].dispatchEvent(new window.KeyboardEvent('keydown', {key: 'Escape', keyCode: 27, bubbles: true}));
             expect(menuEl()).toNotExist();
@@ -244,7 +244,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
             const trigger = container.querySelector('.sv-anuga-scenario-overflow-trigger');
             expect(trigger.getAttribute('aria-haspopup')).toBe('true');
             expect(trigger.getAttribute('aria-expanded')).toBe('false');
-            openMenu(container);
+            openMenu();
             expect(container.querySelector('.sv-anuga-scenario-overflow-trigger').getAttribute('aria-expanded')).toBe('true');
         });
 
@@ -253,7 +253,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
-            openMenu(container);
+            openMenu();
             expect(menuEl().getAttribute('role')).toBe('menu');
             const items = menuEl().querySelectorAll('[role="menuitem"]');
             expect(items.length).toBe(4);
@@ -271,7 +271,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const archBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-archive');
             expect(archBtn).toExist();
             expect(menuEl().querySelector('.sv-anuga-scenario-overflow-unarchive')).toNotExist();
@@ -289,7 +289,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const unarchBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-unarchive');
             expect(unarchBtn).toExist();
             expect(menuEl().querySelector('.sv-anuga-scenario-overflow-archive')).toNotExist();
@@ -303,7 +303,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit inFlight />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const archBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-archive');
             expect(archBtn.disabled).toBe(true);
             expect(archBtn.getAttribute('title')).toInclude('progress');
@@ -322,7 +322,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const delBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-delete');
             expect(delBtn.disabled).toBe(false);
             delBtn.click();
@@ -339,7 +339,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const delBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-delete');
             expect(delBtn.disabled).toBe(true);
             expect(delBtn.getAttribute('title')).toInclude('progress');
@@ -362,7 +362,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const newBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-new');
             expect(newBtn.tagName).toBe('BUTTON');
             newBtn.click();
@@ -378,7 +378,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
                 />,
                 container
             );
-            openMenu(container);
+            openMenu();
             const dupBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-duplicate');
             expect(dupBtn.tagName).toBe('BUTTON');
             dupBtn.click();
@@ -400,9 +400,9 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
             />,
             container
         );
-        openMenu(container);
+        openMenu();
         menuEl().querySelector('.sv-anuga-scenario-overflow-archive').click();
-        openMenu(container);
+        openMenu();
         menuEl().querySelector('.sv-anuga-scenario-overflow-delete').click();
         expect(confirmCalls).toBe(0);
         window.confirm = origConfirm;

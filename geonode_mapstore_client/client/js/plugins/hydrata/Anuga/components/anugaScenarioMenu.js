@@ -857,11 +857,12 @@ class AnugaScenarioMenuClass extends React.Component {
   // single kebab overflow menu (AnugaScenarioOverflowMenu) carrying New
   // scenario / Duplicate / Archive-Restore / Delete. Compare's UI entry is
   // REMOVED entirely (amendment, epic 2237): no button anywhere dispatches
-  // it any more — see handleToggleCompareMode/handleExecuteCompare's
-  // removal note below. inFlight mirrors ScenarioHeaderActions' own
-  // derivation (findScenarioStatus + IN_FLIGHT_STATUSES) so the menu's
-  // Archive/Delete disable-while-running gate can never drift from the
-  // strip's own Cancel-run gate.
+  // it any more — see the handleArchiveFilterToggle-adjacent removal note
+  // earlier in this file (where handleToggleCompareMode/handleExecuteCompare
+  // used to live). inFlight mirrors ScenarioHeaderActions' own derivation
+  // (findScenarioStatus + IN_FLIGHT_STATUSES) so the menu's Archive/Delete
+  // disable-while-running gate can never drift from the strip's own
+  // Cancel-run gate.
   renderHeader() {
       const {canCreateScenario: canCreate, myRole, currentUserId, selectedScenario} = this.props;
       const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);

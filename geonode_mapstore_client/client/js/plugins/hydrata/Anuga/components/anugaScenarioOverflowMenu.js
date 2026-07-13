@@ -82,7 +82,13 @@ const AnugaScenarioOverflowMenu = (props, context) => {
     // real fast double-keystroke) can never dispatch Escape/an outside
     // click into a window where the listener isn't registered yet.
     useLayoutEffect(() => {
-        if (!open) return undefined;
+        // Every path returns a cleanup FUNCTION (a no-op when closed) — single
+        // return "shape" keeps eslint's consistent-return happy (same idiom as
+        // terrainUploadCrsPanel.js's _resolveCrsOverride) while still matching
+        // exactly what useLayoutEffect expects.
+        if (!open) {
+            return () => {};
+        }
         const handleDocMouseDown = (e) => {
             const target = e.target;
             if (menuRef.current && menuRef.current.contains(target)) return;
