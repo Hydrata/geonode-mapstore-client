@@ -609,4 +609,150 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
     });
+
+    // TASK-2239 (epic 2237 W1.1) — run cluster + 4-state lifecycle-slot mutex.
+    describe('Run cluster + lifecycle-slot mutex (TASK-2239)', () => {
+        it('the cluster renders exactly 3 buttons for a built, editable, runnable scenario', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    const cluster = container.querySelector('.sv-scenario-run-cluster');
+                    expect(cluster).toExist();
+                    expect(cluster.querySelectorAll('button, a').length).toBe(3);
+                    expect(cluster.querySelector('.sv-scenario-action-build-run')).toExist();
+                    expect(cluster.querySelector('.sv-scenario-action-run')).toExist();
+                    expect(cluster.querySelector('.sv-scenario-action-build')).toExist();
+                    done();
+                }
+            );
+        });
+
+        it('mutex: Cancel run replaces Run entirely while cancellable (no visible-disabled Run alongside it)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'computing', latest_run: {id: 9, status: 'computing'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const cluster = container.querySelector('.sv-scenario-run-cluster');
+                    expect(cluster.querySelector('.sv-scenario-action-cancel-run')).toExist();
+                    expect(cluster.querySelector('.sv-scenario-action-run')).toNotExist();
+                    expect(cluster.querySelector('.sv-scenario-action-rerun')).toNotExist();
+                    expect(cluster.querySelector('.sv-scenario-action-retry')).toNotExist();
+                    // Exactly 3 slots still: Build-and-Run, Cancel (the slot), Build.
+                    expect(cluster.querySelectorAll('button, a').length).toBe(3);
+                    done();
+                }
+            );
+        });
+
+        it('poll-lag fallback: in-flight status + a TERMINAL latest_run falls back to a disabled Run (not Cancel)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'computing', latest_run: {id: 9, status: 'complete'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const cluster = container.querySelector('.sv-scenario-run-cluster');
+                    expect(cluster.querySelector('.sv-scenario-action-cancel-run')).toNotExist();
+                    const runBtn = cluster.querySelector('.sv-scenario-action-run');
+                    expect(runBtn).toExist();
+                    expect(runBtn.disabled).toBe(true);
+                    done();
+                }
+            );
+        });
+
+        it('Build & Run carries its own primary-green hook class, distinct from the standard success family', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    const btn = container.querySelector('.sv-scenario-action-build-run');
+                    expect(btn).toExist();
+                    // Byte-identical legacy classnames still present.
+                    expect(btn.className).toInclude('sv-anuga-btn');
+                    expect(btn.className).toInclude('sv-scenario-action-toolbar-btn');
+                    done();
+                }
+            );
+        });
+
+        it('View Results and Download carry the OUTLINE family modifier (safe/non-destructive)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'built', latest_run: {id: 9, s3_package_url: 'https://x/y.zip'}}}
+                    canEdit canRunScenario
+                    hasCompleteResults
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-btn-view-results').className)
+                        .toInclude('sv-scenario-action-outline');
+                    expect(container.querySelector('.sv-scenario-action-download').className)
+                        .toInclude('sv-scenario-action-outline');
+                    done();
+                }
+            );
+        });
+
+        it('the run cluster does not read as an inset segmented pill/tab group (no shared pill wrapper class)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    const cluster = container.querySelector('.sv-scenario-run-cluster');
+                    expect(cluster).toExist();
+                    expect(cluster.className).toNotInclude('pill');
+                    expect(cluster.className).toNotInclude('tab');
+                    done();
+                }
+            );
+        });
+
+        it('Delete stays a standalone button (not fused with Cancel run) when not cancellable', (done) => {
+            let captured = null;
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={baseScenario}
+                    canEdit canRunScenario
+                    onConfirmDelete={(s) => { captured = s; }}
+                />,
+                container,
+                () => {
+                    const del = container.querySelector('.sv-scenario-action-delete');
+                    expect(del).toExist();
+                    // Not inside the run cluster — Delete lives in the wider strip.
+                    expect(container.querySelector('.sv-scenario-run-cluster .sv-scenario-action-delete')).toNotExist();
+                    del.click();
+                    expect(captured?.id).toBe(21);
+                    expect(labels()).toInclude('anuga-scenario-menu-delete-scenario');
+                    done();
+                }
+            );
+        });
+
+        it('the build-conflict span still renders adjacent to the cluster (role=status, aria-live=polite)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, buildConflict: {runId: 501, status: 'building', detail: 'x'}}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    const cluster = strip.querySelector('.sv-scenario-run-cluster');
+                    const info = strip.querySelector('.sv-scenario-build-conflict-info');
+                    expect(info).toExist();
+                    expect(info.getAttribute('role')).toBe('status');
+                    expect(info.getAttribute('aria-live')).toBe('polite');
+                    expect(cluster).toExist();
+                    done();
+                }
+            );
+        });
+    });
 });

@@ -29,7 +29,36 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * are both optional so every existing caller/test that doesn't pass them
  * keeps rendering exactly as before (no button, no behaviour change).
  *
- * Three new behaviours land here:
+ * TASK-2239 (epic 2237 W1.1, "hydraulics panel declutter") — the Build /
+ * Build-and-Run / Run family regroups into an explicit RUN CLUSTER
+ * (`.sv-scenario-run-cluster`): Build-and-Run, then a 4-state LIFECYCLE SLOT
+ * mutex (Run / Re-run / Retry / Cancel run), then Build — three raised
+ * FILLED sv-* buttons with a small explicit gap (deliberately NOT an inset
+ * segmented pill/tab strip). Family rule for the whole strip: FILLED =
+ * executes or costs money (the cluster, Archive/Unarchive, Delete);
+ * OUTLINE = safe/non-destructive (View Results, Download — `.sv-scenario-
+ * action-outline`).
+ *
+ * Lifecycle slot (amendment A2) — a MUTEX, not independent conditionals:
+ * today's code rendered a (possibly disabled) Run/Retry button ALONGSIDE
+ * Cancel while a run was in flight; this collapses that to exactly one
+ * visible control at a time, in priority order:
+ *   1. Cancel run  — cancellable (in flight, not yet terminal); destructive
+ *      fill, existing confirm (onConfirmCancelRun).
+ *   2. Retry       — status === 'error'.
+ *   3. Run / Re-run — everything else (Re-run label+class when status ===
+ *      'cancelled'); disabled while created/in-flight/debounced.
+ *   4. FALLBACK: a disabled Run silently falls out of branch 3 in the
+ *      poll-lag window — scenario status still reads in-flight but
+ *      latest_run has already gone terminal (Cancel's `!isTerminalRun` gate
+ *      fails, so control falls through to Run, which the `inFlight` term of
+ *      `lockRun` keeps disabled). No separate fallback branch needed — the
+ *      existing gates already produce it.
+ * The underlying gating CONDITIONS (`canCancelRun`, `isError`, `isRerun`,
+ * `lockRun`, …) are byte-for-byte unchanged from before this task; only the
+ * VISIBLE SET they render into collapsed from "independent" to "mutex".
+ *
+ * Three new behaviours land here (pre-2239, UAT #8):
  *   - "Build and Run" — a combined button that calls the existing build then
  *     run handlers in sequence (the container owns the chaining).
  *   - "Download" — visible only when the scenario is actually BUILT (status
@@ -127,7 +156,6 @@ const ScenarioHeaderActions = (props, context) => {
 
     const canCancelRun = inFlight && canRunScenario && !isTerminalRun;
     const canDeleteScenario = !inFlight && canEdit;
-    const showDeleteOrCancel = canCancelRun || canDeleteScenario;
     const showArchive = canEdit && !!scenario.id;
 
     // Build / Run / Build-and-Run stay disabled while a run is in flight OR
@@ -176,72 +204,48 @@ const ScenarioHeaderActions = (props, context) => {
     };
 
     const btn = (extra) => 'sv-anuga-btn sv-scenario-action-toolbar-btn ' + extra;
+    // Family rule (TASK-2239): OUTLINE = safe/non-destructive read (View
+    // Results, Download). Adds a modifier class alongside the existing
+    // bsStyle-driven Bootstrap class; does not touch legacy classnames.
+    const outlineBtn = (extra) => btn(extra) + ' sv-scenario-action-outline';
 
-    return (
-        <div id="scenario-run-actions" className="sv-scenario-header-run-actions">
-            {/* TASK-2115 (C) — View Results leads the row when results exist
-                (dogfood finding C: was a separate .sv-anuga-view-results-bar
-                sibling row; same classname + gate + handler, new position). */}
-            {hasCompleteResults ?
+    // TASK-2239 — the 4-state lifecycle-slot mutex (amendment A2). Exactly
+    // one of Cancel run / Retry / Run / Re-run renders, in that priority
+    // order; the FALLBACK (disabled Run in the poll-lag window) falls out
+    // of the Run/Re-run branch for free because canCancelRun's own
+    // `!isTerminalRun` term already excludes it there. Every condition below
+    // is byte-for-byte the same gate the pre-2239 independent conditionals
+    // used — only the mutex wrapping is new.
+    const renderLifecycleSlot = () => {
+        if (canCancelRun) {
+            return (
                 <Button
-                    bsStyle={'success'}
+                    bsStyle={'danger'}
                     bsSize={'xsmall'}
-                    className={btn('sv-anuga-btn-view-results')}
-                    onClick={() => { if (onViewResultsClick) onViewResultsClick(scenario); }}
+                    className={"sv-anuga-btn-delete sv-scenario-action-toolbar-btn sv-scenario-action-cancel-run"}
+                    onClick={() => {
+                        if (onConfirmCancelRun) onConfirmCancelRun(scenario);
+                        trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run');
+                    }}
                 >
-                    <Message msgId="hydrata.anuga.viewResults" />
-                </Button> : null
-            }
-            {canEdit ?
+                    <Message msgId="hydrata.anuga.btnCancelRun" />
+                </Button>
+            );
+        }
+        if (canRunScenario && isError) {
+            return (
                 <Button
-                    bsStyle={'success'}
+                    bsStyle={'warning'}
                     bsSize={'xsmall'}
-                    className={btn('sv-scenario-action-build') + (lockBuild ? ' disabled' : '')}
-                    disabled={lockBuild}
-                    onClick={fireDebounced('build', onBuildClick, 'anuga-scenario-menu-build')}
+                    className={btn('sv-scenario-action-retry')}
+                    onClick={fire(onRetryClick, 'anuga-scenario-menu-retry')}
                 >
-                    <Message msgId="hydrata.anuga.build" />
-                </Button> : null
-            }
-            {/* TASK-2079: a benign 409 (build-dedup guard — a build is
-                already in flight/just-dispatched for this scenario) shows
-                inline info here instead of the 'Build failed' toast. Does
-                NOT block the Build-and-Run piggyback: maybeRunAfterBuild
-                (anugaScenarioMenu.js) arms off the synchronous dispatch
-                click, then rides the live scenario-status poll to observe
-                the EXISTING in-flight build through to 'built' regardless
-                of whether this POST 202'd or 409'd. */}
-            {canEdit && scenario.buildConflict ?
-                <span
-                    className="sv-scenario-build-conflict-info"
-                    role="status"
-                    aria-live="polite"
-                >
-                    {tr('hydrata.anuga.buildAlreadyInProgress',
-                        'A build is already in progress for this scenario.')}
-                </span> : null
-            }
-            {canEdit && canRunScenario ?
-                <Button
-                    bsStyle={'primary'}
-                    bsSize={'xsmall'}
-                    className={btn('sv-scenario-action-build-run') + (lockBuildAndRun ? ' disabled' : '')}
-                    disabled={lockBuildAndRun}
-                    onClick={fireDebounced('buildAndRun', onBuildAndRunClick, 'anuga-scenario-menu-build-and-run')}
-                >
-                    <Message msgId="hydrata.anuga.buildAndRun" />
-                </Button> : null
-            }
-            {canRunScenario && priceLabel ?
-                <span
-                    data-testid="sv-scenario-run-price"
-                    className="sv-scenario-run-price"
-                    title="This run's price band — what you'll actually be charged (compute meter)"
-                >
-                    {priceLabel}
-                </span> : null
-            }
-            {canRunScenario && !isError ?
+                    <Message msgId="hydrata.anuga.retry" />
+                </Button>
+            );
+        }
+        if (canRunScenario && !isError) {
+            return (
                 <Button
                     bsStyle={'success'}
                     bsSize={'xsmall'}
@@ -252,25 +256,96 @@ const ScenarioHeaderActions = (props, context) => {
                         isRerun ? 'anuga-scenario-menu-rerun' : 'anuga-scenario-menu-run')}
                 >
                     <Message msgId="hydrata.anuga.run" />
-                </Button> : null
-            }
-            {canRunScenario && isError ?
+                </Button>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <div id="scenario-run-actions" className="sv-scenario-header-run-actions">
+            {/* TASK-2115 (C) — View Results leads the row when results exist
+                (dogfood finding C: was a separate .sv-anuga-view-results-bar
+                sibling row; same classname + gate + handler, new position).
+                TASK-2239 — OUTLINE per the family rule (safe/non-destructive
+                read, not an execute/cost action). */}
+            {hasCompleteResults ?
                 <Button
-                    bsStyle={'warning'}
+                    bsStyle={'success'}
                     bsSize={'xsmall'}
-                    className={btn('sv-scenario-action-retry')}
-                    onClick={fire(onRetryClick, 'anuga-scenario-menu-retry')}
+                    className={outlineBtn('sv-anuga-btn-view-results')}
+                    onClick={() => { if (onViewResultsClick) onViewResultsClick(scenario); }}
                 >
-                    <Message msgId="hydrata.anuga.retry" />
+                    <Message msgId="hydrata.anuga.viewResults" />
                 </Button> : null
             }
+            {/* TASK-2239 (epic 2237 W1.1) — the run cluster: Build-and-Run,
+                then the 4-state lifecycle slot, then Build. Three raised
+                FILLED sv-* buttons with a small explicit gap (anuga.css
+                `.sv-scenario-run-cluster`) — deliberately NOT an inset
+                segmented pill/tab strip. */}
+            <div className="sv-scenario-run-cluster">
+                {canEdit && canRunScenario ?
+                    <Button
+                        bsStyle={'primary'}
+                        bsSize={'xsmall'}
+                        className={btn('sv-scenario-action-build-run') + (lockBuildAndRun ? ' disabled' : '')}
+                        disabled={lockBuildAndRun}
+                        onClick={fireDebounced('buildAndRun', onBuildAndRunClick, 'anuga-scenario-menu-build-and-run')}
+                    >
+                        <Message msgId="hydrata.anuga.buildAndRun" />
+                    </Button> : null
+                }
+                {renderLifecycleSlot()}
+                {canEdit ?
+                    <Button
+                        bsStyle={'success'}
+                        bsSize={'xsmall'}
+                        className={btn('sv-scenario-action-build') + (lockBuild ? ' disabled' : '')}
+                        disabled={lockBuild}
+                        onClick={fireDebounced('build', onBuildClick, 'anuga-scenario-menu-build')}
+                    >
+                        <Message msgId="hydrata.anuga.build" />
+                    </Button> : null
+                }
+            </div>
+            {canRunScenario && priceLabel ?
+                <span
+                    data-testid="sv-scenario-run-price"
+                    className="sv-scenario-run-price"
+                    title="This run's price band — what you'll actually be charged (compute meter)"
+                >
+                    {priceLabel}
+                </span> : null
+            }
+            {/* TASK-2079: a benign 409 (build-dedup guard — a build is
+                already in flight/just-dispatched for this scenario) shows
+                inline info here instead of the 'Build failed' toast. Does
+                NOT block the Build-and-Run piggyback: maybeRunAfterBuild
+                (anugaScenarioMenu.js) arms off the synchronous dispatch
+                click, then rides the live scenario-status poll to observe
+                the EXISTING in-flight build through to 'built' regardless
+                of whether this POST 202'd or 409'd. Amendment A5 — stays
+                INLINE beside the cluster (not moved into any notices UI). */}
+            {canEdit && scenario.buildConflict ?
+                <span
+                    className="sv-scenario-build-conflict-info"
+                    role="status"
+                    aria-live="polite"
+                >
+                    {tr('hydrata.anuga.buildAlreadyInProgress',
+                        'A build is already in progress for this scenario.')}
+                </span> : null
+            }
+            {/* TASK-2239 — OUTLINE per the family rule (safe/non-destructive
+                read). */}
             {showDownload ?
                 <Button
                     download
                     href={downloadHref}
                     bsStyle={'success'}
                     bsSize={'xsmall'}
-                    className={btn('sv-scenario-action-download')}
+                    className={outlineBtn('sv-scenario-action-download')}
                     onClick={() => trackEvent('button', 'click', 'anuga-scenario-menu-download')}
                 >
                     <Message msgId="hydrata.anuga.download" />
@@ -308,26 +383,23 @@ const ScenarioHeaderActions = (props, context) => {
                     <Message msgId={isArchived ? 'hydrata.anuga.btnRestore' : 'hydrata.anuga.btnArchive'} />
                 </Button> : null
             }
-            {/* UAT re-aim finding 3 — Delete/Cancel-run was icon-only too; same
-                treatment, reusing btnDelete/btnCancelRun (already used by the
-                confirm dialog for these same actions). */}
-            {showDeleteOrCancel ?
+            {/* TASK-2239 — Delete now stands alone (Cancel-run moved into the
+                lifecycle slot above); canDeleteScenario (`!inFlight && canEdit`)
+                is unchanged and was already mutually exclusive with
+                canCancelRun (`inFlight && …`), so this never double-renders
+                against the slot's Cancel button. Classname/label/handler
+                byte-identical to the pre-2239 combined button's Delete branch. */}
+            {canDeleteScenario ?
                 <Button
                     bsStyle={'danger'}
                     bsSize={'xsmall'}
-                    className={"sv-anuga-btn-delete sv-scenario-action-toolbar-btn "
-                        + (canCancelRun ? 'sv-scenario-action-cancel-run' : 'sv-scenario-action-delete')}
+                    className={"sv-anuga-btn-delete sv-scenario-action-toolbar-btn sv-scenario-action-delete"}
                     onClick={() => {
-                        if (canCancelRun) {
-                            if (onConfirmCancelRun) onConfirmCancelRun(scenario);
-                            trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run');
-                        } else {
-                            if (onConfirmDelete) onConfirmDelete(scenario);
-                            trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario');
-                        }
+                        if (onConfirmDelete) onConfirmDelete(scenario);
+                        trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario');
                     }}
                 >
-                    <Message msgId={canCancelRun ? 'hydrata.anuga.btnCancelRun' : 'hydrata.anuga.btnDelete'} />
+                    <Message msgId="hydrata.anuga.btnDelete" />
                 </Button> : null
             }
         </div>

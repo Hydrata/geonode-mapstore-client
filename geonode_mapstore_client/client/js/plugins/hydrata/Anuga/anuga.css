@@ -1774,6 +1774,48 @@ div that holds the feature-grid */
     text-align: center;
 }
 
+/* TASK-2239 (epic 2237 W1.1) — the run cluster: Build-and-Run, the 4-state
+   lifecycle slot, then Build. Three raised FILLED buttons with a small
+   explicit gap — deliberately NOT an inset segmented pill (no shared
+   border-radius/border-collapse trick joining them into one control). */
+.sv-scenario-run-cluster {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sv-scenario-run-cluster .sv-anuga-btn {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* Build & Run — the cluster's primary CTA gets its own green family token
+   (tokens.css --sv-btn-run-primary), distinct from the standard Bootstrap
+   success green the other filled cluster buttons (Build / Run / Re-run)
+   use, so it reads as the most prominent action in the row. */
+.sv-scenario-action-build-run {
+    background-color: var(--sv-btn-run-primary, #38b06b);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.sv-scenario-action-build-run:hover:not(.disabled):not([disabled]) {
+    background-color: #43c47a;
+}
+
+/* Results / Download — OUTLINE per the family rule (FILLED = executes or
+   costs money; OUTLINE = safe/non-destructive read). Overrides the
+   Bootstrap bsStyle solid fill with a transparent background + a coloured
+   border/text derived from the same bsStyle variant. */
+.sv-scenario-action-outline.btn-success {
+    background-color: transparent;
+    border: 1px solid #5cb85c;
+    color: #5cb85c;
+}
+
+.sv-scenario-action-outline.btn-success:hover:not(.disabled):not([disabled]) {
+    background-color: rgba(92, 184, 92, 0.12);
+    color: #5cb85c;
+}
+
 /* Build-and-Run combined action — sits between Build and Run; the primary
    bsStyle differentiates it from the green single-step Build/Run buttons. */
 .sv-scenario-action-build-run.disabled,
