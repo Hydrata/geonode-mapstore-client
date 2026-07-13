@@ -2,7 +2,10 @@
  * UAT #8 — ScenarioHeaderActions: the always-visible run-action strip that
  * moved out of the Run pane up into the Scenarios heading. Covers the three
  * new behaviours (Build-and-Run, built-gated Download, click debounce) plus
- * the preserved Build/Run/Retry/Archive/Delete/Cancel wiring + Umami labels.
+ * the preserved Build/Run/Retry/Cancel wiring + Umami labels. TASK-2239 adds
+ * the run-cluster + lifecycle-slot mutex; TASK-2240 moves Archive/Unarchive/
+ * Delete out of this strip into the overflow (kebab) menu — see the
+ * regression guards below and anugaScenarioOverflowMenu-test.js.
  *
  * Memory pins:
  *   - feedback-window-confirm-blocks-automation: the strip must never call
@@ -358,21 +361,20 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
-    it('Delete (non-running) routes through onConfirmDelete + fires the delete label', (done) => {
-        let captured = null;
+    // TASK-2240 — Delete moved OUT of this strip into the overflow (kebab)
+    // menu; see anugaScenarioOverflowMenu-test.js for its coverage. This
+    // strip no longer accepts onConfirmDelete / renders .sv-scenario-action-
+    // delete at all (regression guard below).
+    it('does NOT render a Delete button or accept onConfirmDelete (moved to the overflow menu, TASK-2240)', (done) => {
         ReactDOM.render(
             <ScenarioHeaderActions
                 scenario={baseScenario}
                 canEdit canRunScenario
-                onConfirmDelete={(s) => { captured = s; }}
+                onConfirmDelete={() => {}}
             />,
             container,
             () => {
-                const del = container.querySelector('.sv-scenario-action-delete');
-                expect(del).toExist();
-                del.click();
-                expect(captured?.id).toBe(21);
-                expect(labels()).toInclude('anuga-scenario-menu-delete-scenario');
+                expect(container.querySelector('.sv-scenario-action-delete')).toNotExist();
                 done();
             }
         );
@@ -436,13 +438,13 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
     it('never calls window.confirm / window.alert', (done) => {
         ReactDOM.render(
             <ScenarioHeaderActions
-                scenario={baseScenario}
+                scenario={{...baseScenario, status: 'computing', latest_run: {id: 9, status: 'computing'}}}
                 canEdit canRunScenario
-                onConfirmDelete={() => {}}
+                onConfirmCancelRun={() => {}}
             />,
             container,
             () => {
-                container.querySelector('.sv-scenario-action-delete').click();
+                container.querySelector('.sv-scenario-action-cancel-run').click();
                 expect(confirmCalls).toBe(0);
                 expect(alertCalls).toBe(0);
                 done();
@@ -527,21 +529,10 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('Archive button is a TEXT button (hydrata.anuga.btnArchive), no longer icon-only', (done) => {
-            ReactDOM.render(
-                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
-                container,
-                () => {
-                    const archBtn = container.querySelector('.sv-scenario-action-archive');
-                    expect(archBtn).toExist();
-                    expect(archBtn.querySelector('.glyphicon')).toNotExist();
-                    expect(archBtn.textContent).toInclude('hydrata.anuga.btnArchive');
-                    done();
-                }
-            );
-        });
-
-        it('Unarchive button is a TEXT button reusing hydrata.anuga.btnRestore (same id the confirm dialog uses)', (done) => {
+        // TASK-2240 — Archive/Unarchive/Delete moved OUT of this strip into
+        // the overflow (kebab) menu; see anugaScenarioOverflowMenu-test.js
+        // for their (still icon-free, text-button) coverage there.
+        it('does NOT render Archive/Unarchive/Delete anywhere in this strip (moved to the overflow menu, TASK-2240)', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={{...baseScenario, archived_at: '2026-01-01T00:00:00Z'}}
@@ -549,24 +540,9 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 />,
                 container,
                 () => {
-                    const unarchBtn = container.querySelector('.sv-scenario-action-unarchive');
-                    expect(unarchBtn).toExist();
-                    expect(unarchBtn.querySelector('.glyphicon')).toNotExist();
-                    expect(unarchBtn.textContent).toInclude('hydrata.anuga.btnRestore');
-                    done();
-                }
-            );
-        });
-
-        it('Delete button is a TEXT button (hydrata.anuga.btnDelete), no longer icon-only', (done) => {
-            ReactDOM.render(
-                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
-                container,
-                () => {
-                    const delBtn = container.querySelector('.sv-scenario-action-delete');
-                    expect(delBtn).toExist();
-                    expect(delBtn.querySelector('.glyphicon')).toNotExist();
-                    expect(delBtn.textContent).toInclude('hydrata.anuga.btnDelete');
+                    expect(container.querySelector('.sv-scenario-action-archive')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-action-unarchive')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-action-delete')).toNotExist();
                     done();
                 }
             );
@@ -713,27 +689,10 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('Delete stays a standalone button (not fused with Cancel run) when not cancellable', (done) => {
-            let captured = null;
-            ReactDOM.render(
-                <ScenarioHeaderActions
-                    scenario={baseScenario}
-                    canEdit canRunScenario
-                    onConfirmDelete={(s) => { captured = s; }}
-                />,
-                container,
-                () => {
-                    const del = container.querySelector('.sv-scenario-action-delete');
-                    expect(del).toExist();
-                    // Not inside the run cluster — Delete lives in the wider strip.
-                    expect(container.querySelector('.sv-scenario-run-cluster .sv-scenario-action-delete')).toNotExist();
-                    del.click();
-                    expect(captured?.id).toBe(21);
-                    expect(labels()).toInclude('anuga-scenario-menu-delete-scenario');
-                    done();
-                }
-            );
-        });
+        // TASK-2240 — superseded: Delete moved OUT of this strip entirely
+        // into the overflow menu (see the regression guard in the
+        // Icon-free/fixed-width describe block above, and
+        // anugaScenarioOverflowMenu-test.js for Delete's own coverage).
 
         it('the build-conflict span still renders adjacent to the cluster (role=status, aria-live=polite)', (done) => {
             ReactDOM.render(

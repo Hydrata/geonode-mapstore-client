@@ -22,10 +22,8 @@ import {AnugaScenarioMenu, AnugaScenarioMenuClass} from '../anugaScenarioMenu';
  *      dropdown dispatches UPDATE_ANUGA_SCENARIO).
  *   E. Empty-scenarios fallback (rail empty + pane "no scenario"
  *      placeholder; container does not crash).
- *   F. Compare-mode (Option A header): clicking `.sv-anuga-btn-compare`
- *      flips local state + shows checkboxes; `.anuga-btn-run-compare`
- *      renders only when readyToCompare; click dispatches
- *      COMPARE_SCENARIOS.
+ *   F. Compare — REMOVED entirely (epic 2237 amendment, TASK-2240/2241):
+ *      regression guard only, no positive behaviour left to cover.
  *   G. Cross-plugin no-leak smoke (mount alongside another panel,
  *      no state collision; mount/unmount cycle is clean).
  *
@@ -359,12 +357,24 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     expect(strip).toExist();
                     const actionButtons = strip.querySelectorAll('.sv-scenario-action-toolbar-btn');
                     expect(actionButtons.length).toBeGreaterThanOrEqualTo(1);
-                    // Delete is present and clickable; it opens the inline confirm dialog
-                    // (NOT window.confirm, which the beforeEach guard would throw on).
-                    const deleteBtn = strip.querySelector('.sv-scenario-action-delete');
-                    expect(deleteBtn).toExist();
-                    deleteBtn.click();
+                    // Build is present and clickable inside the run cluster
+                    // (proves the strip is genuinely live).
+                    expect(strip.querySelector('.sv-scenario-action-build')).toExist();
+                    // TASK-2240 — Delete now lives in the header's overflow
+                    // (kebab) menu; it still opens the inline confirm dialog
+                    // (NOT window.confirm, which the beforeEach guard would
+                    // throw on).
+                    const trigger = container.querySelector('.sv-anuga-scenario-overflow-trigger');
+                    expect(trigger).toExist();
+                    trigger.click();
                     setTimeout(() => {
+                        expect(trigger.getAttribute('aria-expanded')).toBe('true');
+                        expect(document.querySelector('.sv-anuga-scenario-overflow-menu')).toExist();
+                        const deleteBtn = document.querySelector(
+                            '.sv-anuga-scenario-overflow-menu .sv-anuga-scenario-overflow-delete'
+                        );
+                        expect(deleteBtn).toExist();
+                        deleteBtn.click();
                         expect(container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open')).toExist();
                         done();
                     });
@@ -536,10 +546,14 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
     });
 
     // ------------------------------------------------------------------
-    // F. Compare-mode (Option A header)
+    // F. Compare — REMOVED entirely (epic 2237 amendment, TASK-2240/2241):
+    // no UI entry anywhere dispatches Compare any more; ScenarioRail's own
+    // compare-checkbox rendering capability stays wired but permanently
+    // dark (it only ever activates on a `compareMode` prop this container
+    // can no longer set to true). Regression guard, not behaviour coverage.
     // ------------------------------------------------------------------
-    describe('F. Compare-mode toggle (Option A header)', () => {
-        it('clicking .sv-anuga-btn-compare flips compareMode and surfaces rail checkboxes', (done) => {
+    describe('F. Compare removed entirely (TASK-2240/2241)', () => {
+        it('renders no .sv-anuga-btn-compare / .anuga-btn-run-compare anywhere, and rail checkboxes stay hidden', (done) => {
             const s1 = makeScenario(21, 'Baseline');
             const s2 = makeScenario(22, 'With levee');
             const store = createMockStore({
@@ -551,51 +565,17 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    // Initially: checkboxes hidden.
-                    let checkboxes = container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox.is-hidden');
-                    expect(checkboxes.length).toBe(2);
-                    // Click the Compare button in the new action strip.
-                    const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-                    expect(compareBtn).toExist();
-                    compareBtn.click();
-                    setTimeout(() => {
-                        const visibleCheckboxes = container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox:not(.is-hidden)');
-                        expect(visibleCheckboxes.length).toBe(2);
-                        const compareBtnAfter = container.querySelector('.sv-anuga-btn-compare');
-                        expect(compareBtnAfter.className).toInclude('is-active');
-                        done();
-                    });
-                }
-            );
-        });
-
-        it('.anuga-btn-run-compare absent until compareMode AND 2 scenarios are selected', (done) => {
-            // No `selected: true` scenarios → readyToCompare is false.
-            const s1 = makeScenario(21, 'A');
-            const s2 = makeScenario(22, 'B');
-            const store = createMockStore({
-                anuga: {
-                    scenarios: {byId: {21: s1, 22: s2}, allIds: [21, 22], archiveFilter: 'none', selectedId: 21}
-                }
-            });
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container,
-                () => {
+                    expect(container.querySelector('.sv-anuga-btn-compare')).toNotExist();
                     expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
-                    // Toggle compare.
-                    const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-                    compareBtn.click();
-                    setTimeout(() => {
-                        // Still not rendered — no scenarios are .selected.
-                        expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
-                        done();
-                    });
+                    const hidden = container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox.is-hidden');
+                    expect(hidden.length).toBe(2);
+                    expect(container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox:not(.is-hidden)').length).toBe(0);
+                    done();
                 }
             );
         });
 
-        it('.anuga-btn-run-compare renders when compareMode && readyToCompare', (done) => {
+        it('never dispatches COMPARE_SCENARIOS, even with 2 scenarios selected and the overflow menu open', (done) => {
             const s1 = makeScenario(21, 'A', {selected: true});
             const s2 = makeScenario(22, 'B', {selected: true});
             const store = createMockStore({
@@ -607,41 +587,10 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    // Off-by-default check.
-                    expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
-                    // Toggle compare on.
-                    const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-                    compareBtn.click();
-                    setTimeout(() => {
-                        expect(container.querySelector('.anuga-btn-run-compare')).toExist();
-                        done();
-                    });
-                }
-            );
-        });
-
-        it('clicking .anuga-btn-run-compare dispatches COMPARE_SCENARIOS exactly once', (done) => {
-            const s1 = makeScenario(21, 'A', {selected: true});
-            const s2 = makeScenario(22, 'B', {selected: true});
-            const store = createMockStore({
-                anuga: {
-                    scenarios: {byId: {21: s1, 22: s2}, allIds: [21, 22], archiveFilter: 'none', selectedId: 21}
-                }
-            });
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container,
-                () => {
-                    const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-                    compareBtn.click();
-                    setTimeout(() => {
-                        const runCompare = container.querySelector('.anuga-btn-run-compare');
-                        expect(runCompare).toExist();
-                        runCompare.click();
-                        const dispatched = store.__actions().filter(a => a?.type === 'COMPARE_SCENARIOS');
-                        expect(dispatched.length).toBe(1);
-                        done();
-                    });
+                    container.querySelector('.sv-anuga-scenario-overflow-trigger').click();
+                    const dispatched = store.__actions().filter(a => a?.type === 'COMPARE_SCENARIOS');
+                    expect(dispatched.length).toBe(0);
+                    done();
                 }
             );
         });

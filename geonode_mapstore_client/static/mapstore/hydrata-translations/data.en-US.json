@@ -379,6 +379,8 @@
         "btnDelete": "Delete",
         "btnCancelRun": "Cancel Run",
         "archiveDisabledWhileRunning": "Cannot archive while a run is in progress. Cancel the run first.",
+        "deleteDisabledWhileRunning": "Cannot delete while a run is in progress. Cancel the run first.",
+        "scenarioMenuAriaLabel": "Scenario actions menu",
         "runConfig": "Run config",
         "statusActions": "Run",
         "runLog": "Run log",

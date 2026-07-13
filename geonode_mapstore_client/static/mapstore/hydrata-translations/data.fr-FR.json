@@ -379,6 +379,8 @@
         "btnDelete": "Delete",
         "btnCancelRun": "Cancel Run",
         "archiveDisabledWhileRunning": "Impossible d'archiver pendant qu'une exécution est en cours. Annulez d'abord l'exécution.",
+        "deleteDisabledWhileRunning": "Impossible de supprimer pendant qu'une exécution est en cours. Annulez d'abord l'exécution.",
+        "scenarioMenuAriaLabel": "Menu des actions du scénario",
         "runConfig": "Configuration d'exécution",
         "statusActions": "Exécuter",
         "runLog": "Journal d'exécution",

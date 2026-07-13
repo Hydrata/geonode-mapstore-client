@@ -83,6 +83,15 @@ function makeStore({scenariosArr = [], archiveFilter = 'none'} = {}) {
     };
 }
 
+// TASK-2240 — the overflow menu portals to document.body; open it via the
+// trigger and read the portal off the document, not `container`.
+function openKebab(container) {
+    container.querySelector('.sv-anuga-scenario-overflow-trigger').click();
+}
+function kebabMenu() {
+    return document.querySelector('.sv-anuga-scenario-overflow-menu');
+}
+
 describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
     let container;
     let origUmami;
@@ -111,24 +120,25 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
     }
 
     describe('Header strip events', () => {
-        // Scenarios Option A redesign — the header is now a flat
-        // .sv-scenario-header-actions span with .anuga-btn-new-scenario /
-        // .sv-anuga-btn-compare / .anuga-btn-run-compare /
-        // .sv-anuga-btn-duplicate-header. The old #scenario-tab-button-group +
+        // TASK-2240 (epic 2237 W1.2) — the header's New Scenario/Compare/
+        // Duplicate cluster is now a single overflow (kebab) menu
+        // (AnugaScenarioOverflowMenu). The old #scenario-tab-button-group +
         // .sv-scenario-tab structure (active+compare tabs) is gone, along
         // with #new-scenario-button and #depth-difference-button id
         // wrappers. The archive-filter chip UI is removed entirely;
         // setAnugaScenarioArchiveFilter still exists as a handler but no
         // surface fires it (see the 'removed analytics labels regression
-        // guard' block below).
+        // guard' block below, which also now covers Compare's two retired
+        // labels).
 
-        it('fires anuga-scenario-menu-new-scenario on + New Scenario click', () => {
+        it('fires anuga-scenario-menu-new-scenario on + New Scenario click (via the kebab menu)', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const btn = container.querySelector('.anuga-btn-new-scenario');
+            openKebab(container);
+            const btn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-new');
             expect(btn).toExist();
             btn.click();
             expect(labelsFired()).toInclude('anuga-scenario-menu-new-scenario');
@@ -149,38 +159,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             );
             expect(container.querySelector('.sv-legend-close')).toNotExist();
             expect(labelsFired()).toNotInclude('anuga-scenario-menu-close');
-        });
-
-        it('fires anuga-scenario-menu-compare-tab-toggle when toggling compare mode', () => {
-            const store = makeStore();
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const btn = container.querySelector('.sv-anuga-btn-compare');
-            expect(btn).toExist();
-            btn.click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-compare-tab-toggle');
-        });
-
-        it('fires anuga-scenario-menu-compare-execute on Execute Compare click', (done) => {
-            const s1 = makeScenario(21, 'A', {selected: true});
-            const s2 = makeScenario(22, 'B', {selected: true});
-            const store = makeStore({scenariosArr: [s1, s2]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            // Enter compare mode first so .anuga-btn-run-compare renders
-            // (it only mounts when compareMode && readyToCompare).
-            container.querySelector('.sv-anuga-btn-compare').click();
-            setTimeout(() => {
-                const execBtn = container.querySelector('.anuga-btn-run-compare');
-                expect(execBtn).toExist();
-                execBtn.click();
-                expect(labelsFired()).toInclude('anuga-scenario-menu-compare-execute');
-                done();
-            });
         });
     });
 
@@ -291,89 +269,84 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             });
         });
 
-        it('opens the confirm dialog when the header Duplicate button is clicked (saved scenario)', () => {
-            // Scenarios Option A redesign — Duplicate moved from the
-            // toolbar (.sv-scenario-action-duplicate) to the header
-            // (.sv-anuga-btn-duplicate-header). It opens the confirm dialog
-            // via openConfirm('duplicate', scenario) without firing a
-            // bare 'anuga-scenario-menu-duplicate-scenario' label — only
-            // -confirm / -duplicate-cancel fire from the dialog flow.
+        it('opens the confirm dialog when the Duplicate menu item is clicked (saved scenario)', () => {
+            // TASK-2240 — Duplicate moved from the header cluster into the
+            // overflow (kebab) menu (.sv-anuga-scenario-overflow-duplicate).
+            // It opens the confirm dialog via openConfirm('duplicate', scenario)
+            // without firing a bare 'anuga-scenario-menu-duplicate-scenario'
+            // label — only -confirm / -duplicate-cancel fire from the dialog flow.
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
+            openKebab(container);
+            const dupBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate');
             expect(dupBtn).toExist();
             expect(dupBtn.className).toNotInclude('disabled');
             dupBtn.click();
             const dialog = container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open');
             expect(dialog).toExist();
-            // The header opens the dialog without a bare label; the
+            // The menu item opens the dialog without a bare label; the
             // -confirm / -cancel labels fire from the dialog buttons (see
             // 'Confirm-dialog parity events' block below).
             expect(labelsFired()).toNotInclude('anuga-scenario-menu-duplicate-scenario');
         });
 
-        it('disables the header Duplicate button when no scenario is selected', () => {
+        it('disables the Duplicate menu item when no scenario is selected', () => {
             const store = makeStore(); // no scenarios → no selectedScenario
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
+            openKebab(container);
+            const dupBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate');
             expect(dupBtn).toExist();
             expect(dupBtn.className).toInclude('disabled');
         });
 
-        it('fires anuga-scenario-menu-archive-scenario on Archive click', (done) => {
+        it('fires anuga-scenario-menu-archive-scenario on Archive click (from the overflow menu)', () => {
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            setTimeout(() => {
-                const archBtn = container.querySelector('.sv-scenario-action-archive');
-                expect(archBtn).toExist();
-                archBtn.click();
-                expect(labelsFired()).toInclude('anuga-scenario-menu-archive-scenario');
-                done();
-            });
+            openKebab(container);
+            const archBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-archive');
+            expect(archBtn).toExist();
+            archBtn.click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-archive-scenario');
         });
 
-        it('fires anuga-scenario-menu-unarchive-scenario on Unarchive click', (done) => {
+        it('fires anuga-scenario-menu-unarchive-scenario on Unarchive click (from the overflow menu)', () => {
             const s1 = makeScenario(21, 'A', {status: 'built', archived_at: '2026-01-01T00:00:00Z'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            setTimeout(() => {
-                const unarchBtn = container.querySelector('.sv-scenario-action-unarchive');
-                expect(unarchBtn).toExist();
-                unarchBtn.click();
-                expect(labelsFired()).toInclude('anuga-scenario-menu-unarchive-scenario');
-                done();
-            });
+            openKebab(container);
+            const unarchBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-unarchive');
+            expect(unarchBtn).toExist();
+            unarchBtn.click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-unarchive-scenario');
         });
 
-        it('fires anuga-scenario-menu-delete-scenario on Delete click (non-cancellable)', (done) => {
+        it('fires anuga-scenario-menu-delete-scenario on Delete click (from the overflow menu, non-cancellable)', () => {
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            setTimeout(() => {
-                const delBtn = container.querySelector('.sv-scenario-action-delete');
-                expect(delBtn).toExist();
-                expect(delBtn.className).toNotInclude('is-hidden');
-                delBtn.click();
-                expect(labelsFired()).toInclude('anuga-scenario-menu-delete-scenario');
-                done();
-            });
+            openKebab(container);
+            const delBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-delete');
+            expect(delBtn).toExist();
+            expect(delBtn.disabled).toBe(false);
+            delBtn.click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-delete-scenario');
         });
 
         it('fires anuga-scenario-menu-cancel-run on Cancel Run click (computing)', (done) => {
@@ -413,58 +386,48 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
     });
 
     describe('Confirm-dialog parity events', () => {
-        it('fires anuga-scenario-menu-duplicate-scenario-confirm on Duplicate confirm', (done) => {
-            // Scenarios Option A — dialog opens from the header
-            // .sv-anuga-btn-duplicate-header (not the toolbar). Confirm/
-            // cancel flow on the dialog itself is unchanged.
+        it('fires anuga-scenario-menu-duplicate-scenario-confirm on Duplicate confirm', () => {
+            // TASK-2240 — dialog opens from the overflow menu's
+            // .sv-anuga-scenario-overflow-duplicate item (not the header
+            // cluster). Confirm/cancel flow on the dialog itself is unchanged.
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            container.querySelector('.sv-anuga-btn-duplicate-header').click();
-            setTimeout(() => {
-                const confirmBtn = container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open .confirm');
-                expect(confirmBtn).toExist();
-                confirmBtn.click();
-                expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-scenario-confirm');
-                done();
-            });
+            openKebab(container);
+            kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate').click();
+            const confirmBtn = container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open .confirm');
+            expect(confirmBtn).toExist();
+            confirmBtn.click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-scenario-confirm');
         });
 
-        it('fires anuga-scenario-menu-archive-scenario-confirm on Archive confirm', (done) => {
+        it('fires anuga-scenario-menu-archive-scenario-confirm on Archive confirm', () => {
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            setTimeout(() => {
-                container.querySelector('.sv-scenario-action-archive').click();
-                setTimeout(() => {
-                    container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open .confirm').click();
-                    expect(labelsFired()).toInclude('anuga-scenario-menu-archive-scenario-confirm');
-                    done();
-                });
-            });
+            openKebab(container);
+            kebabMenu().querySelector('.sv-anuga-scenario-overflow-archive').click();
+            container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open .confirm').click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-archive-scenario-confirm');
         });
 
-        it('fires anuga-scenario-menu-delete-scenario-confirm on Delete confirm', (done) => {
+        it('fires anuga-scenario-menu-delete-scenario-confirm on Delete confirm', () => {
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            setTimeout(() => {
-                container.querySelector('.sv-scenario-action-delete').click();
-                setTimeout(() => {
-                    container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open .confirm').click();
-                    expect(labelsFired()).toInclude('anuga-scenario-menu-delete-scenario-confirm');
-                    done();
-                });
-            });
+            openKebab(container);
+            kebabMenu().querySelector('.sv-anuga-scenario-overflow-delete').click();
+            container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open .confirm').click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-delete-scenario-confirm');
         });
 
         it('fires anuga-scenario-menu-cancel-run-confirm on Cancel Run confirm', (done) => {
@@ -487,25 +450,23 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             });
         });
 
-        it('fires anuga-scenario-menu-duplicate-cancel on confirm dialog Cancel (header-opened)', (done) => {
+        it('fires anuga-scenario-menu-duplicate-cancel on confirm dialog Cancel (opened from the overflow menu)', () => {
             // Cancel label uses the action that was active (duplicate).
-            // The dialog opens via the header .sv-anuga-btn-duplicate-header
-            // post-Option A redesign; the cancel-label semantics are
-            // unchanged.
+            // TASK-2240 — the dialog opens via the overflow menu's
+            // .sv-anuga-scenario-overflow-duplicate item; the cancel-label
+            // semantics are unchanged.
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            container.querySelector('.sv-anuga-btn-duplicate-header').click();
-            setTimeout(() => {
-                const cancelBtn = container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open .cancel');
-                expect(cancelBtn).toExist();
-                cancelBtn.click();
-                expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-cancel');
-                done();
-            });
+            openKebab(container);
+            kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate').click();
+            const cancelBtn = container.querySelector('.sv-anuga-scenario-confirm-dialog.is-open .cancel');
+            expect(cancelBtn).toExist();
+            cancelBtn.click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-cancel');
         });
     });
 
@@ -572,6 +533,27 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 expect(labelsFired()).toNotInclude('anuga-scenario-menu-duplicate-scenario');
                 done();
             });
+        });
+
+        // TASK-2240/2241 (epic 2237, "Compare is REMOVED from the UI
+        // entirely; its code stays dark") — the two Compare Umami labels
+        // retire into this SAME regression-guard pattern so a future
+        // re-add can never silently mint new label spellings for the same
+        // feature. No DOM element anywhere (old header cluster, the
+        // overflow menu, or elsewhere) can fire either label any more.
+        it('does not render .sv-anuga-btn-compare / .anuga-btn-run-compare, and never fires the retired compare labels', () => {
+            const s1 = makeScenario(21, 'A', {selected: true});
+            const s2 = makeScenario(22, 'B', {selected: true});
+            const store = makeStore({scenariosArr: [s1, s2]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-btn-compare')).toNotExist();
+            expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
+            openKebab(container);
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-compare-tab-toggle');
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-compare-execute');
         });
     });
 });

@@ -173,6 +173,71 @@
     cursor: not-allowed;
 }
 
+/* TASK-2240 (epic 2237 W1.2) — the custom portaled overflow (kebab) menu
+ * replacing the old New Scenario / Compare / Duplicate header cluster and
+ * the strip's Archive/Delete buttons. The trigger sits inline in the
+ * section header; the open menu itself portals to <body> (see
+ * anugaScenarioOverflowMenu.js) so `position: fixed` coordinates are set
+ * inline per-render — only static chrome lives here. */
+.sv-anuga-scenario-overflow-trigger {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 3px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    width: 26px;
+    height: 26px;
+    line-height: 1;
+    font-size: 16px;
+    padding: 0;
+    cursor: pointer;
+}
+
+.sv-anuga-scenario-overflow-trigger:hover,
+.sv-anuga-scenario-overflow-trigger.is-open {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.55);
+}
+
+.sv-anuga-scenario-overflow-menu {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    background: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    border: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
+    border-radius: var(--sv-card-radius, 4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    padding: 4px 0;
+}
+
+.sv-anuga-scenario-overflow-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.sv-anuga-scenario-overflow-item:hover:not(.disabled):not([disabled]),
+.sv-anuga-scenario-overflow-item:focus:not(.disabled):not([disabled]) {
+    background: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
+    outline: none;
+}
+
+.sv-anuga-scenario-overflow-item.disabled,
+.sv-anuga-scenario-overflow-item[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.sv-anuga-scenario-overflow-delete {
+    color: var(--sv-text-danger, #ffb3b3);
+}
+
 /* TASK-1411 (ISSUE 20.2): Restyle Hydrata-plugin native <select> elements to
  * match the panel's dark-blue aesthetic. Scope: .sv-scenario-select class used
  * within the ANUGA scenario-config panel and other Hydrata plugin selects

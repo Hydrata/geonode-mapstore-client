@@ -379,6 +379,8 @@
         "btnDelete": "Delete",
         "btnCancelRun": "Cancel Run",
         "archiveDisabledWhileRunning": "No se puede archivar mientras una ejecución está en progreso. Cancele la ejecución primero.",
+        "deleteDisabledWhileRunning": "No se puede eliminar mientras una ejecución está en progreso. Cancele la ejecución primero.",
+        "scenarioMenuAriaLabel": "Menú de acciones del escenario",
         "runConfig": "Configuración de ejecución",
         "statusActions": "Ejecutar",
         "runLog": "Registro de ejecución",

@@ -10,14 +10,15 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
 /**
  * UAT #8 — always-visible run-action strip for the selected scenario, rendered
  * on the right-hand side of the Scenarios heading (a sibling of, and visually
- * separate from, the New Scenario / Compare / Duplicate cluster).
+ * separate from, the overflow-menu kebab — anugaScenarioOverflowMenu.js,
+ * TASK-2240 — that now carries New Scenario / Duplicate / Archive / Delete).
  *
  * Replaces the status-mutex ScenarioActionToolbar that used to live INSIDE the
- * Run pane: the user can now Build / Build-and-Run / Run / Retry / Download /
- * Archive / Delete from anywhere in the panel, not just when the Run tab is
- * open. The button class names + Umami analytics labels are preserved 1:1 from
- * the old toolbar so the analytics-parity suite (and the Umami dashboards it
- * guards) keep working after the move.
+ * Run pane: the user can now Build / Build-and-Run / Run / Retry / Download
+ * from anywhere in the panel, not just when the Run tab is open. The button
+ * class names + Umami analytics labels are preserved 1:1 from the old
+ * toolbar so the analytics-parity suite (and the Umami dashboards it guards)
+ * keep working after the move.
  *
  * TASK-2115 (C, epic 2111 W2, dogfood finding C) — View Results now renders
  * as the FIRST (leftmost, most prominent) button in THIS same strip instead
@@ -35,9 +36,14 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * mutex (Run / Re-run / Retry / Cancel run), then Build — three raised
  * FILLED sv-* buttons with a small explicit gap (deliberately NOT an inset
  * segmented pill/tab strip). Family rule for the whole strip: FILLED =
- * executes or costs money (the cluster, Archive/Unarchive, Delete);
- * OUTLINE = safe/non-destructive (View Results, Download — `.sv-scenario-
- * action-outline`).
+ * executes or costs money (the cluster); OUTLINE = safe/non-destructive
+ * (View Results, Download — `.sv-scenario-action-outline`).
+ *
+ * TASK-2240 (epic 2237 W1.2) — Archive/Unarchive and Delete moved OUT of
+ * this strip into the new custom portaled overflow (kebab) menu
+ * (anugaScenarioOverflowMenu.js), alongside New Scenario/Duplicate (which
+ * moved out of the SectionHeader). Cancel run stays HERE, in the lifecycle
+ * slot — it is a run-lifecycle action, not a scenario-management one.
  *
  * Lifecycle slot (amendment A2) — a MUTEX, not independent conditionals:
  * today's code rendered a (possibly disabled) Run/Retry button ALONGSIDE
@@ -69,23 +75,22 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  *     The button also stays disabled while the scenario is in flight, so the
  *     effective lock is max(2s, pending) per the UAT note.
  *
- * Confirm-requiring actions (archive / unarchive / delete / cancel-run) dispatch
- * through the container's inline-dialog props — NO window.confirm here (memory
- * pin feedback-window-confirm-blocks-automation).
+ * Confirm-requiring actions (cancel-run, still rendered here; archive /
+ * unarchive / delete, now in the overflow menu) dispatch through the
+ * container's inline-dialog props — NO window.confirm here (memory pin
+ * feedback-window-confirm-blocks-automation).
  *
  * UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3) —
  * STANDARDISED this row: every button is now EQUAL WIDTH (anuga.css,
  * `.sv-scenario-action-toolbar-btn` — the shared hook class every button
  * here already carried) and ICON-FREE (all glyphicons removed: View
  * Results' eye-open, the build-conflict info-sign, Download's
- * download-glyph, Archive/Unarchive's folder-close/open, Delete/Cancel-run's
- * trash/ban-circle). Archive/Unarchive and Delete/Cancel-run were
- * previously icon-ONLY buttons; they now render visible text via the SAME
- * Message msgIds the confirm dialog already used for these actions
- * (btnArchive/btnRestore/btnDelete/btnCancelRun) — no new translation
- * strings were needed. Classnames + Umami labels are all BYTE-IDENTICAL
- * (analytics-parity constraint) — only icon presence, text presentation,
- * and width changed.
+ * download-glyph, Cancel-run's ban-circle). Cancel-run was previously an
+ * icon-ONLY button; it now renders visible text via the SAME Message
+ * msgId the confirm dialog already used (btnCancelRun) — no new
+ * translation strings were needed. Classnames + Umami labels are all
+ * BYTE-IDENTICAL (analytics-parity constraint) — only icon presence, text
+ * presentation, and width changed.
  */
 
 // Minimum time (ms) a debounced action button stays disabled after a click.
@@ -106,9 +111,6 @@ const ScenarioHeaderActions = (props, context) => {
         onRunClick,
         onBuildAndRunClick,
         onRetryClick,
-        onArchiveClick,
-        onUnarchiveClick,
-        onConfirmDelete,
         onConfirmCancelRun
     } = props;
 
@@ -131,10 +133,10 @@ const ScenarioHeaderActions = (props, context) => {
         }, ACTION_DEBOUNCE_MS);
     }, []);
 
-    // Resolve archive-disabled tooltip via the locale dictionary, falling back
-    // to English. getMessageById returns the msgId itself on a miss, so compare
-    // against the input id to detect the unresolved case (same idiom as the
-    // legacy toolbar).
+    // Resolve the build-conflict info text via the locale dictionary, falling
+    // back to English. getMessageById returns the msgId itself on a miss, so
+    // compare against the input id to detect the unresolved case (same idiom
+    // as the legacy toolbar).
     const tr = (msgId, fallback) => {
         const messages = (context && context.messages) || {};
         const resolved = getMessageById(messages, msgId);
@@ -149,14 +151,11 @@ const ScenarioHeaderActions = (props, context) => {
     const isComplete = status === 'complete';
     const isError = status === 'error';
     const isCreated = status === 'created';
-    const isArchived = !!scenario.archived_at;
 
     const runStatus = scenario?.latest_run?.status;
     const isTerminalRun = TERMINAL_RUN_STATES.includes(runStatus);
 
     const canCancelRun = inFlight && canRunScenario && !isTerminalRun;
-    const canDeleteScenario = !inFlight && canEdit;
-    const showArchive = canEdit && !!scenario.id;
 
     // Build / Run / Build-and-Run stay disabled while a run is in flight OR
     // during the post-click debounce window.
@@ -351,57 +350,6 @@ const ScenarioHeaderActions = (props, context) => {
                     <Message msgId="hydrata.anuga.download" />
                 </Button> : null
             }
-            {/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3)
-                — Archive/Unarchive was an icon-only glyph button; it now renders
-                its existing Message text (btnArchive/btnRestore — the SAME
-                msgIds the confirm dialog already uses for these actions, not new
-                strings) so the row reads as text, matching every other button. */}
-            {showArchive ?
-                <Button
-                    bsStyle={isArchived ? 'success' : 'warning'}
-                    bsSize={'xsmall'}
-                    className={btn(isArchived
-                        ? 'sv-anuga-btn-unarchive sv-scenario-action-unarchive'
-                        : 'sv-anuga-btn-archive sv-scenario-action-archive')
-                        + (inFlight ? ' disabled' : '')}
-                    disabled={inFlight}
-                    title={inFlight
-                        ? tr('hydrata.anuga.archiveDisabledWhileRunning',
-                            'Cannot archive while a run is in progress. Cancel the run first.')
-                        : undefined}
-                    onClick={() => {
-                        if (inFlight) return;
-                        if (isArchived) {
-                            if (onUnarchiveClick) onUnarchiveClick(scenario);
-                            trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario');
-                        } else {
-                            if (onArchiveClick) onArchiveClick(scenario);
-                            trackEvent('button', 'click', 'anuga-scenario-menu-archive-scenario');
-                        }
-                    }}
-                >
-                    <Message msgId={isArchived ? 'hydrata.anuga.btnRestore' : 'hydrata.anuga.btnArchive'} />
-                </Button> : null
-            }
-            {/* TASK-2239 — Delete now stands alone (Cancel-run moved into the
-                lifecycle slot above); canDeleteScenario (`!inFlight && canEdit`)
-                is unchanged and was already mutually exclusive with
-                canCancelRun (`inFlight && …`), so this never double-renders
-                against the slot's Cancel button. Classname/label/handler
-                byte-identical to the pre-2239 combined button's Delete branch. */}
-            {canDeleteScenario ?
-                <Button
-                    bsStyle={'danger'}
-                    bsSize={'xsmall'}
-                    className={"sv-anuga-btn-delete sv-scenario-action-toolbar-btn sv-scenario-action-delete"}
-                    onClick={() => {
-                        if (onConfirmDelete) onConfirmDelete(scenario);
-                        trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario');
-                    }}
-                >
-                    <Message msgId="hydrata.anuga.btnDelete" />
-                </Button> : null
-            }
         </div>
     );
 };
@@ -418,9 +366,6 @@ ScenarioHeaderActions.propTypes = {
     onRunClick: PropTypes.func,
     onBuildAndRunClick: PropTypes.func,
     onRetryClick: PropTypes.func,
-    onArchiveClick: PropTypes.func,
-    onUnarchiveClick: PropTypes.func,
-    onConfirmDelete: PropTypes.func,
     onConfirmCancelRun: PropTypes.func
 };
 
@@ -431,7 +376,7 @@ ScenarioHeaderActions.defaultProps = {
 };
 
 // Pull intl messages off React legacy context so getMessageById can resolve
-// the archive-disabled tooltip at render time (same pattern as the toolbar).
+// the build-conflict info text at render time (same pattern as the toolbar).
 ScenarioHeaderActions.contextTypes = {
     messages: PropTypes.object
 };

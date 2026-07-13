@@ -379,6 +379,8 @@
         "btnDelete": "Delete",
         "btnCancelRun": "Cancel Run",
         "archiveDisabledWhileRunning": "Pa ka achive pandan yon ekzekisyon ap fèt. Anile ekzekisyon an dabò.",
+        "deleteDisabledWhileRunning": "Pa ka efase pandan yon ekzekisyon ap fèt. Anile ekzekisyon an dabò.",
+        "scenarioMenuAriaLabel": "Meni aksyon senaryo",
         "runConfig": "Konfigirasyon ekzekisyon",
         "statusActions": "Egzekite",
         "runLog": "Jounal ekzekisyon",

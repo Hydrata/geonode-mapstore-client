@@ -1,6 +1,5 @@
 import React from "react";
 import {connect} from "react-redux";
-import {Button} from "react-bootstrap";
 const PropTypes = require('prop-types');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
@@ -52,6 +51,9 @@ import {
 import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane, meshRegionIsUnattached, rainfallIsUnattached} from './scenarioPane';
 import {ScenarioHeaderActions} from './scenarioHeaderActions';
+// TASK-2240 (epic 2237 W1.2) — the custom portaled overflow (kebab) menu
+// replacing the old New Scenario/Compare/Duplicate header cluster.
+import {AnugaScenarioOverflowMenu} from './anugaScenarioOverflowMenu';
 // TASK-2194 (epic 2190 W2) — the FE staff-gate precedent (is_staff OR is_superuser).
 import {isStaffUser} from './AnugaRunsDashboard/runsDashboardUtils';
 import {SectionHeader} from "../../SimpleView/components/primitives";
@@ -60,7 +62,10 @@ import {SectionHeader} from "../../SimpleView/components/primitives";
  * Miller-columns container for the ANUGA scenarios panel.
  *
  * Local component state:
- *   - compareMode — header chip toggle; rail items expose compare checkboxes.
+ *   - compareMode — REMOVED (TASK-2240, epic 2237 amendment): Compare's UI
+ *     entry is gone entirely; ScenarioRail's compare-checkbox rendering
+ *     capability now permanently receives no `compareMode` prop (defaults
+ *     false) and stays dark, untouched.
  *   - confirmingAction — single 'duplicate' | 'archive' | 'unarchive' |
  *     'delete' | 'cancel-run' string gating the container-level inline
  *     confirm dialog (always rendered, `.is-open` toggled via CSS so Karma
@@ -210,7 +215,6 @@ class AnugaScenarioMenuClass extends React.Component {
   constructor(props) {
       super(props);
       this.state = {
-          compareMode: false,
           confirmingAction: null,
           confirmingScenario: null,
           buildValidationError: null,
@@ -415,20 +419,18 @@ class AnugaScenarioMenuClass extends React.Component {
   // propTypes/mapDispatchToProps because they are still needed by the run-now
   // chain (handleRunClick → setAnugaScenarioMenu(false)).
 
-  handleToggleCompareMode = () => {
-      const nextCompareMode = !this.state.compareMode;
-      this.setState({compareMode: nextCompareMode});
-      // When leaving compare mode, clear any lingering `selected` flags so
-      // the next compare session starts fresh (memory pin §5.7).
-      if (!nextCompareMode && Array.isArray(this.props.selectedScenarios)) {
-          this.props.selectedScenarios.forEach((s) => {
-              if (this.props.toggleScenarioSelected) {
-                  this.props.toggleScenarioSelected(s);
-              }
-          });
-      }
-      trackEvent('button', 'click', 'anuga-scenario-menu-compare-tab-toggle');
-  };
+  // TASK-2240 (epic 2237 W1.2) — Compare's UI entry is REMOVED entirely
+  // (epic 2237 amendment): handleToggleCompareMode/handleExecuteCompare,
+  // the header's Compare/Execute-Compare buttons that called them, are
+  // deleted here as dead code (nothing left to call them). The underlying
+  // redux plumbing (compareScenarios action, selectedScenariosSelector,
+  // toggleScenarioSelected, ScenarioRail's own compare-checkbox rendering
+  // capability) is left wired but DARK — untouched — so the feature can be
+  // re-lit later without redux-level rework, per the amendment's "code
+  // stays dark" instruction. The two retired Umami labels
+  // (anuga-scenario-menu-compare-tab-toggle / -compare-execute) move into
+  // the removed-labels regression-guard pattern
+  // (anugaScenarioAnalyticsParity-test.js).
 
   handleArchiveFilterToggle = () => {
       const archived = this.props.archiveFilter === 'only';
@@ -437,13 +439,6 @@ class AnugaScenarioMenuClass extends React.Component {
           this.props.setAnugaScenarioArchiveFilter(nextMode);
       }
       trackEvent('button', 'click', `anuga-scenario-menu-archive-filter-${nextMode}`);
-  };
-
-  handleExecuteCompare = () => {
-      if (this.props.readyToCompare && this.props.compareScenarios) {
-          this.props.compareScenarios(this.props.selectedScenarios);
-      }
-      trackEvent('button', 'click', 'anuga-scenario-menu-compare-execute');
   };
 
   handleUpdateScenario = (scenario, kv) => {
@@ -757,7 +752,6 @@ class AnugaScenarioMenuClass extends React.Component {
           <ScenarioRail
               scenarios={scenarios}
               selectedId={selectedId}
-              compareMode={this.state.compareMode}
               currentUserId={currentUserId}
               onSelect={this.handleSelect}
               onToggleSelected={this.handleToggleSelected}
@@ -822,10 +816,13 @@ class AnugaScenarioMenuClass extends React.Component {
   };
 
   // UAT #8 — always-visible run-action strip rendered on the right of the
-  // Scenarios heading, separate from the New/Compare/Duplicate cluster. canEdit
-  // mirrors the gate ScenarioPane uses for the pane fields. Handlers reuse the
-  // existing build/run/retry/confirm chains so behaviour (and Umami analytics
-  // labels) is unchanged — only the buttons' location moved out of the Run pane.
+  // Scenarios heading, separate from the header's overflow (kebab) menu.
+  // canEdit mirrors the gate ScenarioPane uses for the pane fields. Handlers
+  // reuse the existing build/run/retry/confirm chains so behaviour (and
+  // Umami analytics labels) is unchanged — only the buttons' location moved
+  // out of the Run pane. TASK-2240 — Archive/Unarchive/Delete no longer pass
+  // through here; the overflow menu (renderHeader) opens those confirms
+  // directly.
   //
   // TASK-2115 (C) — View Results now folds INTO this same strip (dogfood
   // finding C: one consistent action row instead of a separate
@@ -851,19 +848,24 @@ class AnugaScenarioMenuClass extends React.Component {
               onRunClick={this.handleRunClick}
               onBuildAndRunClick={this.handleBuildAndRunClick}
               onRetryClick={this.handleRetryClick}
-              onArchiveClick={(s) => this.openConfirm('archive', s)}
-              onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
-              onConfirmDelete={(s) => this.openConfirm('delete', s)}
               onConfirmCancelRun={(s) => this.openConfirm('cancel-run', s)}
           />
       );
   }
 
+  // TASK-2240 (epic 2237 W1.2) — the header's action cluster is now a
+  // single kebab overflow menu (AnugaScenarioOverflowMenu) carrying New
+  // scenario / Duplicate / Archive-Restore / Delete. Compare's UI entry is
+  // REMOVED entirely (amendment, epic 2237): no button anywhere dispatches
+  // it any more — see handleToggleCompareMode/handleExecuteCompare's
+  // removal note below. inFlight mirrors ScenarioHeaderActions' own
+  // derivation (findScenarioStatus + IN_FLIGHT_STATUSES) so the menu's
+  // Archive/Delete disable-while-running gate can never drift from the
+  // strip's own Cancel-run gate.
   renderHeader() {
-      const {canCreateScenario: canCreate, readyToCompare, selectedScenario} = this.props;
-      const {compareMode} = this.state;
-      const hasSelected = !!(selectedScenario && selectedScenario.id);
-      const canDuplicateNow = canCreate && hasSelected;
+      const {canCreateScenario: canCreate, myRole, currentUserId, selectedScenario} = this.props;
+      const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
+      const inFlight = IN_FLIGHT_STATUSES.includes(findScenarioStatus(selectedScenario));
       // Use the shared SectionHeader primitive (also used by anugaInputMenu /
       // InputSection / swammInputMenu) instead of a hand-written .row.sv-menu-row
       // .sv-menu-row-header className chain. extraClassName preserves the per-site
@@ -872,53 +874,17 @@ class AnugaScenarioMenuClass extends React.Component {
           <SectionHeader extraClassName="sv-anuga-section-header sv-scenario-menu-header">
               <Message msgId="hydrata.anuga.scenarios" />
               <span id={"scenario-header-actions"} className="sv-scenario-header-actions">
-                  {canCreate ?
-                      <Button
-                          bsStyle={'success'}
-                          bsSize={'xsmall'}
-                          className="sv-anuga-btn anuga-btn-new-scenario"
-                          onClick={this.handleNewScenario}
-                      >
-                          <Message msgId="hydrata.anuga.newScenario" />
-                      </Button>
-                      : null
-                  }
-                  <Button
-                      bsSize={'xsmall'}
-                      className={"sv-anuga-btn sv-anuga-btn-compare" + (compareMode ? ' is-active' : '')}
-                      onClick={this.handleToggleCompareMode}
-                      title={compareMode
-                          ? this.tr('hydrata.anuga.exitCompareModeTooltip', 'Exit compare mode')
-                          : this.tr('hydrata.anuga.enterCompareModeTooltip',
-                              'Enter compare mode, then select 2 scenarios to compare')}
-                  >
-                      <Message msgId="hydrata.anuga.compare" />
-                  </Button>
-                  {compareMode && readyToCompare ?
-                      <Button
-                          bsStyle={'success'}
-                          bsSize={'xsmall'}
-                          className="sv-anuga-btn anuga-btn-run-compare"
-                          onClick={this.handleExecuteCompare}
-                      >
-                          <Message msgId="hydrata.anuga.run" />
-                      </Button>
-                      : null
-                  }
-                  <Button
-                      bsSize={'xsmall'}
-                      className={"sv-anuga-btn sv-anuga-btn-duplicate-header"
-              + (canDuplicateNow ? '' : ' disabled')}
-                      disabled={!canDuplicateNow}
-                      onClick={() => {
-                          if (canDuplicateNow) this.openConfirm('duplicate', selectedScenario);
-                      }}
-                      title={canDuplicateNow
-                          ? this.tr('hydrata.anuga.duplicateSelectedTooltip', 'Duplicate the selected scenario')
-                          : this.tr('hydrata.anuga.duplicateDisabledTooltip', 'Select a saved scenario to duplicate')}
-                  >
-                      <Message msgId="hydrata.anuga.btnDuplicate" />
-                  </Button>
+                  <AnugaScenarioOverflowMenu
+                      canCreateScenario={canCreate}
+                      scenario={selectedScenario}
+                      canEdit={canEdit}
+                      inFlight={inFlight}
+                      onNewScenario={this.handleNewScenario}
+                      onDuplicateClick={(s) => this.openConfirm('duplicate', s)}
+                      onArchiveClick={(s) => this.openConfirm('archive', s)}
+                      onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
+                      onDeleteClick={(s) => this.openConfirm('delete', s)}
+                  />
               </span>
           </SectionHeader>
       );

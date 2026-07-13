@@ -2,19 +2,21 @@
  * Container-level wiring + header-strip behaviour test for the new
  * Miller-columns anugaScenarioMenu. Re-cut after the Option A header
  * refactor replaced the chip/tab group with the
- * `<span id="scenario-header-actions">` action strip.
+ * `<span id="scenario-header-actions">` action strip; re-cut AGAIN for
+ * TASK-2240 (epic 2237 W1.2), which replaced that strip's New/Compare/
+ * Duplicate buttons with a single custom portaled overflow (kebab) menu
+ * (AnugaScenarioOverflowMenu) carrying New scenario / Duplicate /
+ * Archive-Restore / Delete. Compare's UI entry is REMOVED entirely.
  *
  * Anchors:
- *   - Header action strip composition (3 or 4 buttons in the right order).
- *   - + New Scenario dispatches addAnugaScenario via the new class hook.
- *   - Compare-mode toggle (`.sv-anuga-btn-compare`) flips local state, gets
- *     `.is-active` when on, and clears `selected` flags via
- *     toggleScenarioSelected when leaving compare mode.
- *   - Execute Compare button (`.anuga-btn-run-compare`) only renders when
- *     `compareMode && readyToCompare`, and dispatches COMPARE_SCENARIOS.
- *   - Duplicate header button (`.sv-anuga-btn-duplicate-header`) is disabled
- *     without a saved selected scenario and opens the inline confirm
- *     dialog when clicked with one.
+ *   - Header renders exactly one kebab trigger; opening it portals a menu
+ *     with New scenario / Duplicate / Archive / Delete, in that order.
+ *   - The kebab itself is gated on canCreateScenario (scenario-INDEPENDENT
+ *     — the menu, not just one item inside it, disappears for a viewer).
+ *   - + New scenario dispatches addAnugaScenario via the new class hook.
+ *   - Compare is REMOVED entirely — regression guard below.
+ *   - Duplicate menu item is disabled without a saved selected scenario and
+ *     opens the inline confirm dialog when clicked with one.
  *   - Wave 3C C3: Close X removed per operator decision D3 — top-tab
  *     switch on anugaContainer.js handles panel close + polling stop. The
  *     panel header MUST NOT render a .sv-legend-close element.
@@ -90,6 +92,18 @@ function makeScenario(id, name, extras = {}) {
     };
 }
 
+// TASK-2240 — the overflow menu portals to document.body, so its items are
+// never inside `container`; open it via the trigger and read the portal off
+// the document.
+function openKebab(container) {
+    const trigger = container.querySelector('.sv-anuga-scenario-overflow-trigger');
+    trigger.click();
+    return trigger;
+}
+function kebabMenu() {
+    return document.querySelector('.sv-anuga-scenario-overflow-menu');
+}
+
 describe('anugaScenarioMenu — header strip wiring', () => {
     let container;
     let origConfirm;
@@ -108,7 +122,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
     });
 
     // ----------------------------------------------------------------
-    // Header action strip composition (Option A refactor)
+    // Header action strip composition (TASK-2240 — single kebab menu)
     // ----------------------------------------------------------------
     describe('Header action strip composition', () => {
         it('renders #scenario-header-actions in place of #scenario-tab-button-group', () => {
@@ -123,25 +137,26 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
         });
 
-        it('renders 3 header buttons in order: New, Compare, Duplicate (when compareMode off)', () => {
-            const store = makeStore();
+        it('renders exactly one kebab trigger; opening it lists New / Duplicate / Archive / Delete in order', () => {
+            const s1 = makeScenario(21, 'Baseline');
+            const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
             const strip = container.querySelector('#scenario-header-actions');
             expect(strip).toExist();
-            const btns = Array.from(strip.querySelectorAll('button'));
-            // 3 buttons rendered (no run-compare).
-            expect(btns.length).toBe(3);
-            expect(btns[0].className).toInclude('anuga-btn-new-scenario');
-            expect(btns[1].className).toInclude('sv-anuga-btn-compare');
-            expect(btns[2].className).toInclude('sv-anuga-btn-duplicate-header');
-            // run-compare absent.
-            expect(strip.querySelector('.anuga-btn-run-compare')).toNotExist();
+            expect(strip.querySelectorAll('.sv-anuga-scenario-overflow-trigger').length).toBe(1);
+            openKebab(container);
+            const items = Array.prototype.slice.call(kebabMenu().querySelectorAll('[role="menuitem"]'));
+            expect(items.length).toBe(4);
+            expect(items[0].className).toInclude('sv-anuga-scenario-overflow-new');
+            expect(items[1].className).toInclude('sv-anuga-scenario-overflow-duplicate');
+            expect(items[2].className).toInclude('sv-anuga-scenario-overflow-archive');
+            expect(items[3].className).toInclude('sv-anuga-scenario-overflow-delete');
         });
 
-        it('omits the New Scenario button when canCreateScenario is false', () => {
+        it('the kebab itself is gated on canCreateScenario (viewer role never sees it — scenario-independent gate)', () => {
             // Viewer role kills canCreateScenario.
             const store = makeStore();
             const state = store.getState();
@@ -150,34 +165,33 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            expect(container.querySelector('.anuga-btn-new-scenario')).toNotExist();
-            // Compare + Duplicate still render.
-            expect(container.querySelector('.sv-anuga-btn-compare')).toExist();
-            expect(container.querySelector('.sv-anuga-btn-duplicate-header')).toExist();
+            expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
         });
     });
 
     // ----------------------------------------------------------------
-    // + New Scenario button
+    // + New Scenario menu item
     // ----------------------------------------------------------------
-    describe('+ New Scenario button', () => {
-        it('renders inside .anuga-btn-new-scenario when canCreateScenario is true', () => {
+    describe('+ New Scenario menu item', () => {
+        it('renders inside the kebab menu when canCreateScenario is true', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            expect(container.querySelector('.anuga-btn-new-scenario')).toExist();
+            openKebab(container);
+            expect(kebabMenu().querySelector('.sv-anuga-scenario-overflow-new')).toExist();
         });
 
-        it('dispatches ADD_ANUGA_SCENARIO when clicked', () => {
-            const store = makeStore();
+        it('is enabled + dispatches ADD_ANUGA_SCENARIO even with NO scenario selected (survives the empty project)', () => {
+            const store = makeStore(); // no scenarios → no selectedScenario
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const btn = container.querySelector('.anuga-btn-new-scenario');
-            expect(btn).toExist();
+            openKebab(container);
+            const btn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-new');
+            expect(btn.disabled).toBe(false);
             btn.click();
             const add = store.__actions().find(a => a?.type === 'ADD_ANUGA_SCENARIO');
             expect(add).toExist();
@@ -185,21 +199,27 @@ describe('anugaScenarioMenu — header strip wiring', () => {
     });
 
     // ----------------------------------------------------------------
-    // Compare-mode toggle
+    // Compare REMOVED entirely (epic 2237 amendment, TASK-2240) —
+    // regression guard. No button anywhere (old header cluster OR the
+    // kebab menu) can dispatch COMPARE_SCENARIOS or reveal the rail's
+    // compare checkboxes any more.
     // ----------------------------------------------------------------
-    describe('Compare-mode toggle', () => {
-        it('renders .sv-anuga-btn-compare without .is-active by default', () => {
-            const store = makeStore();
+    describe('Compare removed entirely (TASK-2240)', () => {
+        it('renders no .sv-anuga-btn-compare / .anuga-btn-run-compare anywhere', () => {
+            const s1 = makeScenario(21, 'A', {selected: true});
+            const s2 = makeScenario(22, 'B', {selected: true});
+            const store = makeStore({scenariosArr: [s1, s2]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-            expect(compareBtn).toExist();
-            expect(compareBtn.className).toNotInclude('is-active');
+            expect(container.querySelector('.sv-anuga-btn-compare')).toNotExist();
+            expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
+            // Old id should not come back either.
+            expect(container.querySelector('#depth-difference-button')).toNotExist();
         });
 
-        it('clicking the Compare button flips compareMode + reveals rail checkboxes', (done) => {
+        it('rail compare-checkboxes stay permanently hidden (compareMode can never become true)', () => {
             const s1 = makeScenario(21, 'Baseline');
             const s2 = makeScenario(22, 'With levee');
             const store = makeStore({scenariosArr: [s1, s2]});
@@ -207,74 +227,12 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-            const hiddenBefore = container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox.is-hidden');
-            expect(hiddenBefore.length).toBe(2);
-            compareBtn.click();
-            setTimeout(() => {
-                const visibleAfter = container.querySelectorAll(
-                    '.sv-scenario-rail-item-compare-checkbox:not(.is-hidden)'
-                );
-                expect(visibleAfter.length).toBe(2);
-                const compareBtnAfter = container.querySelector('.sv-anuga-btn-compare');
-                expect(compareBtnAfter.className).toInclude('is-active');
-                done();
-            });
+            const hidden = container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox.is-hidden');
+            expect(hidden.length).toBe(2);
+            expect(container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox:not(.is-hidden)').length).toBe(0);
         });
 
-        it('toggling Compare twice clears any `selected` flags via toggleScenarioSelected', (done) => {
-            const s1 = makeScenario(21, 'Baseline', {selected: true});
-            const s2 = makeScenario(22, 'With levee', {selected: true});
-            const store = makeStore({scenariosArr: [s1, s2]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-            compareBtn.click(); // enter compare
-            setTimeout(() => {
-                const compareBtn2 = container.querySelector('.sv-anuga-btn-compare');
-                compareBtn2.click(); // leave compare → should clear flags
-                setTimeout(() => {
-                    const toggles = store.__actions().filter(a => a?.type === 'TOGGLE_SCENARIO_SELECTED');
-                    expect(toggles.length).toBe(2);
-                    done();
-                });
-            });
-        });
-    });
-
-    // ----------------------------------------------------------------
-    // Execute Compare button (.anuga-btn-run-compare)
-    // ----------------------------------------------------------------
-    describe('Execute Compare button', () => {
-        it('is absent by default (compareMode off)', () => {
-            const store = makeStore({scenariosArr: [makeScenario(21, 'A'), makeScenario(22, 'B')]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
-            // Old id should not come back.
-            expect(container.querySelector('#depth-difference-button')).toNotExist();
-        });
-
-        it('is absent in compare mode when fewer than 2 are selected', (done) => {
-            const s1 = makeScenario(21, 'A'); // not selected → readyToCompare=false
-            const store = makeStore({scenariosArr: [s1]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-            compareBtn.click();
-            setTimeout(() => {
-                expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
-                done();
-            });
-        });
-
-        it('renders only when compareMode && readyToCompare (2 selected scenarios)', (done) => {
+        it('never dispatches COMPARE_SCENARIOS or TOGGLE_SCENARIO_SELECTED from the header', () => {
             const s1 = makeScenario(21, 'A', {selected: true});
             const s2 = makeScenario(22, 'B', {selected: true});
             const store = makeStore({scenariosArr: [s1, s2]});
@@ -282,49 +240,25 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            // Before compare-toggle click, button is not rendered.
-            expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
-            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-            compareBtn.click();
-            setTimeout(() => {
-                expect(container.querySelector('.anuga-btn-run-compare')).toExist();
-                done();
-            });
-        });
-
-        it('dispatches COMPARE_SCENARIOS when clicked with exactly 2 selected', (done) => {
-            const s1 = makeScenario(21, 'A', {selected: true});
-            const s2 = makeScenario(22, 'B', {selected: true});
-            const store = makeStore({scenariosArr: [s1, s2]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-            compareBtn.click();
-            setTimeout(() => {
-                const runCompare = container.querySelector('.anuga-btn-run-compare');
-                expect(runCompare).toExist();
-                runCompare.click();
-                const dispatched = store.__actions().filter(a => a?.type === 'COMPARE_SCENARIOS');
-                expect(dispatched.length).toBe(1);
-                done();
-            });
+            openKebab(container);
+            expect(store.__actions().filter(a => a?.type === 'COMPARE_SCENARIOS').length).toBe(0);
+            expect(store.__actions().filter(a => a?.type === 'TOGGLE_SCENARIO_SELECTED').length).toBe(0);
         });
     });
 
     // ----------------------------------------------------------------
-    // Duplicate header button (.sv-anuga-btn-duplicate-header)
+    // Duplicate menu item (.sv-anuga-scenario-overflow-duplicate)
     // ----------------------------------------------------------------
-    describe('Duplicate header button', () => {
-        it('renders and is disabled when no selectedScenario.id', () => {
+    describe('Duplicate menu item', () => {
+        it('is disabled when no selectedScenario.id', () => {
             // Empty store → no selected.
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
+            openKebab(container);
+            const dupBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate');
             expect(dupBtn).toExist();
             expect(dupBtn.disabled).toBe(true);
             expect(dupBtn.className).toInclude('disabled');
@@ -337,13 +271,14 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
+            openKebab(container);
+            const dupBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate');
             expect(dupBtn).toExist();
             expect(dupBtn.disabled).toBe(false);
             expect(dupBtn.className).toNotInclude('disabled');
         });
 
-        it('opens the inline confirm dialog (.is-open) when clicked with a selected scenario', (done) => {
+        it('opens the inline confirm dialog (.is-open) when clicked with a selected scenario', () => {
             const s1 = makeScenario(21, 'Baseline');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
@@ -354,30 +289,26 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             const dialog = container.querySelector('.sv-anuga-scenario-confirm-dialog');
             expect(dialog).toExist();
             expect(dialog.className).toNotInclude('is-open');
-            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
-            dupBtn.click();
-            setTimeout(() => {
-                const dialogAfter = container.querySelector('.sv-anuga-scenario-confirm-dialog');
-                expect(dialogAfter.className).toInclude('is-open');
-                done();
-            });
+            openKebab(container);
+            kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate').click();
+            const dialogAfter = container.querySelector('.sv-anuga-scenario-confirm-dialog');
+            expect(dialogAfter.className).toInclude('is-open');
         });
 
-        it('does not open the confirm dialog when disabled (no selected)', (done) => {
+        it('does not open the confirm dialog when disabled (no selected)', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
+            openKebab(container);
+            const dupBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate');
             // .click() on a `disabled` button is a no-op in JSDOM (no event fires).
-            // Defensive: even if it did fire, openConfirm is gated on canDuplicateNow.
+            // Defensive: even if it did fire, the item's own onClick is gated on
+            // canDuplicateNow.
             dupBtn.click();
-            setTimeout(() => {
-                const dialog = container.querySelector('.sv-anuga-scenario-confirm-dialog');
-                expect(dialog.className).toNotInclude('is-open');
-                done();
-            });
+            const dialog = container.querySelector('.sv-anuga-scenario-confirm-dialog');
+            expect(dialog.className).toNotInclude('is-open');
         });
     });
 
