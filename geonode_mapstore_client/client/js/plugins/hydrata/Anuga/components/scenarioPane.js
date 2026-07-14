@@ -222,16 +222,30 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
  * silently multiply the run's price band post-flip). This is hint + confirm
  * only — the build-time confirm dialog lives in anugaScenarioMenu.js.
  */
+/**
+ * TASK-2267 — a drawn layer whose linked PostGIS table is empty
+ * (`has_features === false`, from RainfallSerializerV2 / MeshRegionSerializerV2)
+ * is an empty scaffold, not a real drawn resource the user forgot to attach,
+ * so it must NOT trigger the "unattached" nag. Strict `!== false`: both `true`
+ * and `undefined` (a pre-2267 cached API response, or a serializer that didn't
+ * carry the field) count as a real drawn layer — keep the notice, never
+ * fabricate suppression from a missing field (same strict-boolean guard as
+ * rainfallAttachedButEmpty's `=== false`).
+ */
+function isNonEmptyDrawnLayer(resource) {
+    return !!resource && resource.has_features !== false;
+}
+
 export function meshRegionIsUnattached(scenario, meshRegions) {
-    const hasDrawnRegion = Array.isArray(meshRegions) && meshRegions.length > 0;
-    if (!hasDrawnRegion) return false;
+    const drawnRegions = (Array.isArray(meshRegions) ? meshRegions : []).filter(isNonEmptyDrawnLayer);
+    if (drawnRegions.length === 0) return false;
     const isAttached = scenario?.mesh_region != null && scenario?.mesh_region !== ''; // eslint-disable-line no-eq-null, eqeqeq
     return !isAttached;
 }
 
 function renderMeshRegionUnattachedHint(scenario, meshRegions) {
     if (!meshRegionIsUnattached(scenario, meshRegions)) return null;
-    const names = (meshRegions || []).map(r => r?.title).filter(Boolean).join(', ');
+    const names = (meshRegions || []).filter(isNonEmptyDrawnLayer).map(r => r?.title).filter(Boolean).join(', ');
     return (
         <div
             className="sv-anuga-scenario-pane-section sv-anuga-scenario-mesh-region-unattached-hint"
@@ -275,15 +289,17 @@ function renderMeshRegionUnattachedHint(scenario, meshRegions) {
  * Exported so that dialog can reuse the exact same predicate (DRY).
  */
 export function rainfallIsUnattached(scenario, rainfalls) {
-    const hasDrawnRainfall = Array.isArray(rainfalls) && rainfalls.length > 0;
-    if (!hasDrawnRainfall) return false;
+    // TASK-2267 — an empty drawn rainfall (has_features === false) is a scaffold,
+    // not a resource the user forgot to attach; filter it out before nagging.
+    const drawnRainfalls = (Array.isArray(rainfalls) ? rainfalls : []).filter(isNonEmptyDrawnLayer);
+    if (drawnRainfalls.length === 0) return false;
     const isAttached = scenario?.rainfall != null && scenario?.rainfall !== ''; // eslint-disable-line no-eq-null, eqeqeq
     return !isAttached;
 }
 
 function renderRainfallUnattachedHint(scenario, rainfalls) {
     if (!rainfallIsUnattached(scenario, rainfalls)) return null;
-    const names = (rainfalls || []).map(r => r?.title).filter(Boolean).join(', ');
+    const names = (rainfalls || []).filter(isNonEmptyDrawnLayer).map(r => r?.title).filter(Boolean).join(', ');
     return (
         <div
             className="sv-anuga-scenario-pane-section sv-anuga-scenario-rainfall-unattached-hint"

@@ -3050,6 +3050,49 @@ describe('rainfallAttachedButEmpty (TASK-2189)', () => {
 });
 
 // ------------------------------------------------------------------
+// TASK-2267 — an empty drawn layer (has_features === false) must NOT trigger
+// the "unattached" nag. Both predicates filter empty scaffolds; true/undefined
+// still count as a real drawn layer (never fabricate suppression).
+// ------------------------------------------------------------------
+describe('meshRegionIsUnattached — empty-layer suppression (TASK-2267)', () => {
+    it('is false when the only drawn region is empty (has_features === false)', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, [{id: 9, title: 'Empty', has_features: false}])).toBe(false);
+    });
+
+    it('is true when the drawn region has features (has_features === true)', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, [{id: 9, title: 'Drawn', has_features: true}])).toBe(true);
+    });
+
+    it('is true when has_features is undefined (never fabricate suppression)', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, [{id: 9, title: 'Legacy'}])).toBe(true);
+    });
+
+    it('is true when at least one drawn region is non-empty (mixed list)', () => {
+        const mixed = [{id: 9, title: 'Empty', has_features: false}, {id: 10, title: 'Real', has_features: true}];
+        expect(meshRegionIsUnattached({mesh_region: null}, mixed)).toBe(true);
+    });
+});
+
+describe('rainfallIsUnattached — empty-layer suppression (TASK-2267)', () => {
+    it('is false when the only drawn rainfall is empty (has_features === false)', () => {
+        expect(rainfallIsUnattached({rainfall: null}, [{id: 6, title: 'Empty', has_features: false}])).toBe(false);
+    });
+
+    it('is true when the drawn rainfall has features (has_features === true)', () => {
+        expect(rainfallIsUnattached({rainfall: null}, [{id: 6, title: 'Drawn', has_features: true}])).toBe(true);
+    });
+
+    it('is true when has_features is undefined (never fabricate suppression)', () => {
+        expect(rainfallIsUnattached({rainfall: null}, [{id: 6, title: 'Legacy'}])).toBe(true);
+    });
+
+    it('is true when at least one drawn rainfall is non-empty (mixed list)', () => {
+        const mixed = [{id: 6, title: 'Empty', has_features: false}, {id: 7, title: 'Real', has_features: true}];
+        expect(rainfallIsUnattached({rainfall: null}, mixed)).toBe(true);
+    });
+});
+
+// ------------------------------------------------------------------
 // TASK-1420 (ISSUE 30) — formatBuildLog pure-function unit tests
 // ------------------------------------------------------------------
 describe('formatBuildLog (TASK-1420)', () => {
