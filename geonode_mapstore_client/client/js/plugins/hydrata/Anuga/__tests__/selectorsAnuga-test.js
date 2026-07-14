@@ -98,6 +98,34 @@ describe('Anuga Selectors', () => {
             });
         });
 
+        // TASK-2263 — the permission selectors compare my_role against
+        // LOWERCASE slugs; the BE previously returned the capitalized
+        // Role.label ("Editor"/"Manager") for members, so every non-owner
+        // member's role failed every gate (an invited Editor saw the read-only
+        // lock banner). These pin that capitalized input DOES fail — the exact
+        // bug — so the canonical lowercase contract (fixed BE-side in
+        // serializers get_my_role) can never silently regress.
+        describe('my_role case contract (TASK-2263)', () => {
+            it('canEditAnugaMap is FALSE for capitalized labels (the pre-fix bug)', () => {
+                expect(canEditAnugaMap(createStateWithRole('Editor'))).toBe(false);
+                expect(canEditAnugaMap(createStateWithRole('Manager'))).toBe(false);
+            });
+            it('canEditAnugaMap is TRUE only for the lowercase slugs', () => {
+                expect(canEditAnugaMap(createStateWithRole('editor'))).toBe(true);
+                expect(canEditAnugaMap(createStateWithRole('manager'))).toBe(true);
+                expect(canEditAnugaMap(createStateWithRole('viewer'))).toBe(false);
+                expect(canEditAnugaMap(createStateWithRole('contributor'))).toBe(false);
+            });
+            it('canManageAnugaMap is FALSE for a capitalized "Manager" label', () => {
+                expect(canManageAnugaMap(createStateWithRole('Manager'))).toBe(false);
+            });
+            it('canManageAnugaMap is TRUE only for lowercase manager/owner', () => {
+                expect(canManageAnugaMap(createStateWithRole('manager'))).toBe(true);
+                expect(canManageAnugaMap(createStateWithRole('owner'))).toBe(true);
+                expect(canManageAnugaMap(createStateWithRole('editor'))).toBe(false);
+            });
+        });
+
         describe('isOwnerAnugaMap', () => {
             it('should return false for non-owners', () => {
                 expect(isOwnerAnugaMap(createStateWithRole('viewer'))).toBe(false);
