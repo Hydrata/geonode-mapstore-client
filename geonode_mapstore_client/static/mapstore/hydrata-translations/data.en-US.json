@@ -405,6 +405,7 @@
         "etaPrefix": "ETA",
         "stoppedAfter": "Stopped after",
         "runFailedHead": "Run failed",
+        "archiveErrorHead": "Cannot archive",
         "errorCausePrefix": "Cause:",
         "errorClassOom": "Out of memory",
         "errorClassEntrypointFailure": "Batch entrypoint failure",

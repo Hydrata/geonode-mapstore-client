@@ -405,6 +405,7 @@
         "etaPrefix": "ETA",
         "stoppedAfter": "Arrêté après",
         "runFailedHead": "Échec de l'exécution",
+        "archiveErrorHead": "Archivage impossible",
         "errorCausePrefix": "Cause :",
         "errorClassOom": "Mémoire insuffisante",
         "errorClassEntrypointFailure": "Échec du point d'entrée Batch",

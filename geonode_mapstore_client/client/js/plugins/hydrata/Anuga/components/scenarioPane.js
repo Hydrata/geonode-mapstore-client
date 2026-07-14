@@ -16,7 +16,7 @@ import {ScenarioErrorStrip} from './scenarioErrorStrip';
 // .sv-anuga-scenario-pane-field.is-readonly / #id assertions stay intact; the
 // .sv-anuga-scenario-pane-field wrapper (carrying .is-readonly) is preserved as
 // the FormRow child so the readonly-count contract holds.
-import {FormRow} from '../../SimpleView/components/primitives';
+import {FormRow, ErrorStrip} from '../../SimpleView/components/primitives';
 
 /**
  * Merged-panel renderer for the Miller-columns scenarios panel (TASK-2114,
@@ -511,9 +511,35 @@ function renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrai
  * rainfall-attached-empty, meshregion-unattached, inflow-anchor-mismatch,
  * terrain-coverage-gap), with the Run-failed notice appended last.
  */
+/**
+ * TASK-2264 — a failed archive (412: the scenario has an active/queued run)
+ * stashes the BE detail on the scenario as `archiveError` (scenariosReducer).
+ * Render it in the pane's consolidated notices surface via the shared
+ * ErrorStrip primitive so the message is anchored beside the scenario the
+ * archive was attempted on, not only in the easy-to-miss top-centre toast
+ * (W4.2: the toast alone was never seen). Cleared on the next archive attempt
+ * or a successful archive.
+ */
+function renderArchiveErrorNotice(scenario) {
+    const detail = scenario?.archiveError;
+    if (!detail) return null;
+    return (
+        <ErrorStrip
+            extraClassName="sv-anuga-scenario-archive-error-strip"
+            head={<Message msgId="hydrata.anuga.archiveErrorHead" />}
+            payload={detail}
+        />
+    );
+}
+
 function buildScenarioNotices(props) {
     const {scenario, meshRegions, rainfalls, terrain, onOpenMergeTerrainsPanel, isStaff} = props;
     const notices = [];
+
+    // TASK-2264 — a transient archive failure is the most actionable notice
+    // (the user just clicked Archive); surface it first.
+    const archiveErrorNode = renderArchiveErrorNotice(scenario);
+    if (archiveErrorNode) notices.push({key: 'archive-error', node: archiveErrorNode});
 
     const freshnessStatus = getResultsFreshnessStatus(scenario);
     if (freshnessStatus === 'failed') {

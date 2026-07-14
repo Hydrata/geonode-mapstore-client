@@ -2155,6 +2155,38 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
+        // TASK-2264 — a stashed archiveError (412: scenario has an active run)
+        // surfaces the BE detail inline in the consolidated notices panel.
+        it('surfaces a stashed archiveError as an in-pane error strip (TASK-2264)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, archiveError: 'Cannot archive: scenario has an active run.'}}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const panel = container.querySelector('.sv-anuga-notices-panel');
+                    expect(panel).toExist();
+                    const strip = panel.querySelector('.sv-anuga-scenario-archive-error-strip');
+                    expect(strip).toExist();
+                    // The raw BE detail string reaches the consolidated surface.
+                    expect(strip.textContent).toInclude('Cannot archive: scenario has an active run.');
+                    done();
+                }
+            );
+        });
+
+        it('shows NO archive-error strip when archiveError is absent (happy path — TASK-2264)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-archive-error-strip')).toNotExist();
+                    done();
+                }
+            );
+        });
+
         it('shows the "{N} notices" header, defaults open, and toggles collapse via aria-expanded', (done) => {
             ReactDOM.render(
                 <ScenarioPane

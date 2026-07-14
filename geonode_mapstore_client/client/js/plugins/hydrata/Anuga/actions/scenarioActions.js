@@ -16,13 +16,14 @@ const DUPLICATE_ANUGA_SCENARIO = 'DUPLICATE_ANUGA_SCENARIO';
 const DUPLICATE_ANUGA_SCENARIO_SUCCESS = 'DUPLICATE_ANUGA_SCENARIO_SUCCESS';
 const ARCHIVE_ANUGA_SCENARIO = 'ARCHIVE_ANUGA_SCENARIO';
 const ARCHIVE_ANUGA_SCENARIO_SUCCESS = 'ARCHIVE_ANUGA_SCENARIO_SUCCESS';
-// Wave 3C C5: ARCHIVE_ANUGA_SCENARIO_ERROR + archiveAnugaScenarioError
-// thunk removed. The action was dispatched by crudEpics.archiveAnugaScenarioEpic
-// alongside SHOW_NOTIFICATION on a 412 from the BE, but no reducer ever
-// handled it (only SUCCESS had a reducer case) and no middleware/analytics
-// hook consumed it. Wave 3C C1 also pre-disables the Archive button while
-// a run is in flight, eliminating the most common 412 path before it
-// reaches the network. The toast still fires inline from the epic.
+// TASK-2264 — ARCHIVE_ANUGA_SCENARIO_ERROR REVIVED (Wave 3C C5 removed it as
+// dead — it had no reducer). It now DOES have one (scenariosReducer stashes the
+// 412 detail as `archiveError` on the scenario, mirroring TASK-2079's
+// buildConflict), so the message is anchored in the pane's consolidated notices
+// surface where the action happened — not only the easy-to-miss top-centre
+// toast (which W4.2 found the user never saw). The toast still fires too
+// (defence in depth); this action carries the same detail into Redux.
+const ARCHIVE_ANUGA_SCENARIO_ERROR = 'ARCHIVE_ANUGA_SCENARIO_ERROR';
 const UNARCHIVE_ANUGA_SCENARIO = 'UNARCHIVE_ANUGA_SCENARIO';
 const UNARCHIVE_ANUGA_SCENARIO_SUCCESS = 'UNARCHIVE_ANUGA_SCENARIO_SUCCESS';
 const SET_ANUGA_SCENARIO_ARCHIVE_FILTER = 'SET_ANUGA_SCENARIO_ARCHIVE_FILTER';
@@ -209,6 +210,18 @@ function showArchiveError(errorBody) {
     };
 }
 
+// TASK-2264 — carries the 412 detail into Redux so the pane's consolidated
+// notices surface (buildScenarioNotices -> archive-error ErrorStrip) can anchor
+// it beside the scenario the archive was attempted on. Plain action (reducer
+// stashes `archiveError` on byId[scenarioId]); dispatched alongside the toast.
+function archiveAnugaScenarioError(scenarioId, errorBody) {
+    return {
+        type: ARCHIVE_ANUGA_SCENARIO_ERROR,
+        scenarioId,
+        detail: errorBody?.detail || 'Could not archive scenario.'
+    };
+}
+
 function unarchiveAnugaScenario(scenario) {
     return { type: UNARCHIVE_ANUGA_SCENARIO, scenario };
 }
@@ -269,9 +282,9 @@ module.exports = {
     DUPLICATE_ANUGA_SCENARIO_SUCCESS, duplicateAnugaScenarioSuccess,
     ARCHIVE_ANUGA_SCENARIO, archiveAnugaScenario,
     ARCHIVE_ANUGA_SCENARIO_SUCCESS, archiveAnugaScenarioSuccess,
-    // Wave 3C C5: ARCHIVE_ANUGA_SCENARIO_ERROR removed (no consumers).
-    // showArchiveError replaces the prior archiveAnugaScenarioError thunk;
-    // it dispatches the toast only.
+    // TASK-2264: ARCHIVE_ANUGA_SCENARIO_ERROR revived WITH a reducer (in-pane
+    // surface); showArchiveError (toast) stays and fires alongside it.
+    ARCHIVE_ANUGA_SCENARIO_ERROR, archiveAnugaScenarioError,
     showArchiveError,
     UNARCHIVE_ANUGA_SCENARIO, unarchiveAnugaScenario,
     UNARCHIVE_ANUGA_SCENARIO_SUCCESS, unarchiveAnugaScenarioSuccess,
