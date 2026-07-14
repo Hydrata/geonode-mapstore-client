@@ -1,9 +1,10 @@
-import React, {useEffect} from "react";
+import React, {useEffect, useLayoutEffect, useRef, useState} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
-    getMeshComparison, getMeshCostDriverHint
+    getMeshComparison, getMeshCostDriverHint, findScenarioStatus, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES,
+    runSettingsMustStayOpen
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -15,16 +16,22 @@ import {ScenarioErrorStrip} from './scenarioErrorStrip';
 // .sv-anuga-scenario-pane-field.is-readonly / #id assertions stay intact; the
 // .sv-anuga-scenario-pane-field wrapper (carrying .is-readonly) is preserved as
 // the FormRow child so the readonly-count contract holds.
-import {FormRow} from '../../SimpleView/components/primitives';
+import {FormRow, ErrorStrip} from '../../SimpleView/components/primitives';
 
 /**
  * Merged-panel renderer for the Miller-columns scenarios panel (TASK-2114,
- * epic 2111 W2, dogfood findings A+B). Pane 3 stacks all three sections
- * (Required inputs / Optional inputs / Run) in ONE scrollable body, each
- * behind its own in-pane heading, so nothing is hidden behind a tab click.
- * This is the direct fix for dogfood finding F4's root cause: the old
- * Advanced tab HID mesh_region until clicked, so a drawn-but-unattached mesh
- * region silently no-op'd at build time without ever being seen.
+ * epic 2111 W2, dogfood findings A+B). Pane 3 stacks THREE sections —
+ * Required / Optional inputs / Run settings — in ONE scrollable body, so
+ * nothing is hidden behind a tab click. TASK-2245 (epic 2237 W3.1) had
+ * merged Optional + Run into one collapsed-by-default RUN SETTINGS section;
+ * TASK-2265 (epic 2237 W5, UAT re-aim findings 3+4) restores the pre-epic
+ * 3-section shape while keeping EVERY section independently collapsible —
+ * generalizing the W3.1 chevron pattern (useRunSettingsCollapse ->
+ * useCollapsibleSection) rather than forking a second copy. Each section
+ * stays always-rendered (only CSS-collapsed, never unmounted) for the same
+ * reason TASK-2245 introduced that convention: the old Advanced tab HID
+ * mesh_region until clicked, so a drawn-but-unattached mesh region silently
+ * no-op'd at build time without ever being seen; see useCollapsibleSection.
  *
  * UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, findings 1+2) —
  * the vertical category rail (`ScenarioCategoryRail`, Pane 2) that used to
@@ -34,7 +41,7 @@ import {FormRow} from '../../SimpleView/components/primitives';
  * pane (Pane 3) now expands to occupy the freed width. The per-category
  * completeness counts the rail used to show ("3/3", "0/3", "100%", ...)
  * move INTO each section's own heading instead, right-aligned in the same
- * heading band — see `renderSectionHeading` below — reusing
+ * heading band — see `renderCollapsibleSectionHeader` below — reusing
  * `validateCategoryProgress` (scenarioHelpers.js) with the EXACT SAME
  * arguments the rail used to pass (including the TASK-2045
  * boundaryHasFeatures gate for 'inputs'), never re-derived.
@@ -215,16 +222,30 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
  * silently multiply the run's price band post-flip). This is hint + confirm
  * only — the build-time confirm dialog lives in anugaScenarioMenu.js.
  */
+/**
+ * TASK-2267 — a drawn layer whose linked PostGIS table is empty
+ * (`has_features === false`, from RainfallSerializerV2 / MeshRegionSerializerV2)
+ * is an empty scaffold, not a real drawn resource the user forgot to attach,
+ * so it must NOT trigger the "unattached" nag. Strict `!== false`: both `true`
+ * and `undefined` (a pre-2267 cached API response, or a serializer that didn't
+ * carry the field) count as a real drawn layer — keep the notice, never
+ * fabricate suppression from a missing field (same strict-boolean guard as
+ * rainfallAttachedButEmpty's `=== false`).
+ */
+function isNonEmptyDrawnLayer(resource) {
+    return !!resource && resource.has_features !== false;
+}
+
 export function meshRegionIsUnattached(scenario, meshRegions) {
-    const hasDrawnRegion = Array.isArray(meshRegions) && meshRegions.length > 0;
-    if (!hasDrawnRegion) return false;
+    const drawnRegions = (Array.isArray(meshRegions) ? meshRegions : []).filter(isNonEmptyDrawnLayer);
+    if (drawnRegions.length === 0) return false;
     const isAttached = scenario?.mesh_region != null && scenario?.mesh_region !== ''; // eslint-disable-line no-eq-null, eqeqeq
     return !isAttached;
 }
 
 function renderMeshRegionUnattachedHint(scenario, meshRegions) {
     if (!meshRegionIsUnattached(scenario, meshRegions)) return null;
-    const names = (meshRegions || []).map(r => r?.title).filter(Boolean).join(', ');
+    const names = (meshRegions || []).filter(isNonEmptyDrawnLayer).map(r => r?.title).filter(Boolean).join(', ');
     return (
         <div
             className="sv-anuga-scenario-pane-section sv-anuga-scenario-mesh-region-unattached-hint"
@@ -268,15 +289,17 @@ function renderMeshRegionUnattachedHint(scenario, meshRegions) {
  * Exported so that dialog can reuse the exact same predicate (DRY).
  */
 export function rainfallIsUnattached(scenario, rainfalls) {
-    const hasDrawnRainfall = Array.isArray(rainfalls) && rainfalls.length > 0;
-    if (!hasDrawnRainfall) return false;
+    // TASK-2267 — an empty drawn rainfall (has_features === false) is a scaffold,
+    // not a resource the user forgot to attach; filter it out before nagging.
+    const drawnRainfalls = (Array.isArray(rainfalls) ? rainfalls : []).filter(isNonEmptyDrawnLayer);
+    if (drawnRainfalls.length === 0) return false;
     const isAttached = scenario?.rainfall != null && scenario?.rainfall !== ''; // eslint-disable-line no-eq-null, eqeqeq
     return !isAttached;
 }
 
 function renderRainfallUnattachedHint(scenario, rainfalls) {
     if (!rainfallIsUnattached(scenario, rainfalls)) return null;
-    const names = (rainfalls || []).map(r => r?.title).filter(Boolean).join(', ');
+    const names = (rainfalls || []).filter(isNonEmptyDrawnLayer).map(r => r?.title).filter(Boolean).join(', ');
     return (
         <div
             className="sv-anuga-scenario-pane-section sv-anuga-scenario-rainfall-unattached-hint"
@@ -352,8 +375,48 @@ function renderRainfallAttachedEmptyHint(scenario, rainfalls) {
 }
 
 // ------------------------------------------------------------------------
-// Pane renderers — one per category
+// TASK-2078 — results-freshness (a newer run is building/failed while the
+// results on-screen are from the last COMPLETE run), relocated into the
+// notices panel (TASK-2243, epic 2237 W2.1). Previously computed inline in
+// anugaScenarioMenu.js's render(); moved here since `scenario` (carrying
+// both latest_run and latest_complete_run) is already a ScenarioPane prop —
+// no new prop threading needed. Both variants (FAILED and BUILDING) are
+// preserved — dropping BUILDING would silently kill a live trust signal.
 // ------------------------------------------------------------------------
+
+/**
+ * Returns 'failed' | 'building' | null. `null` covers both "no complete
+ * results to protect yet" (hasCompleteResults false) and "the newest run IS
+ * the complete one" (nothing fresher in flight/failed) — the two cases the
+ * old inline gate (`showFreshnessBanner`) folded into a single boolean.
+ */
+export function getResultsFreshnessStatus(scenario) {
+    const latestCompleteRun = scenario?.latest_complete_run;
+    if (!latestCompleteRun) return null;
+    const latestRun = scenario?.latest_run;
+    const latestRunIsNewer = !!latestRun && latestRun.id !== latestCompleteRun.id;
+    if (!latestRunIsNewer) return null;
+    if (RUN_FAILURE_STATES.includes(latestRun.status)) return 'failed';
+    if (IN_FLIGHT_STATUSES.includes(latestRun.status)) return 'building';
+    return null;
+}
+
+function renderResultsFreshnessNotice(scenario, status) {
+    const latestCompleteRun = scenario?.latest_complete_run;
+    const msgId = status === 'failed'
+        ? 'hydrata.anuga.resultsFreshnessBannerFailed'
+        : 'hydrata.anuga.resultsFreshnessBannerBuilding';
+    const className = status === 'failed'
+        ? 'sv-anuga-scenario-results-freshness-failed-hint'
+        : 'sv-anuga-scenario-results-freshness-building-hint';
+    return (
+        <div className={className} role="status" aria-live="polite">
+            <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+            {' '}
+            <Message msgId={msgId} msgParams={{id: latestCompleteRun?.id}} />
+        </div>
+    );
+}
 
 /**
  * TASK-2085 (epic-2077, part (b)) — pre-build warning when a scenario's
@@ -424,6 +487,149 @@ function renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrai
     );
 }
 
+// ------------------------------------------------------------------------
+// TASK-2243 (epic 2237 W2.1) — the notices panel: single collapsible
+// amber advisory surface between the toolbar and the Required-inputs
+// section. Centralizes derivation of every member notice (the 7-item
+// inventory below, plus the W2.2 Run-failed notice) so the pane's
+// individual sections no longer render these hints inline — but the
+// existing predicate functions + their classnames/msgIds are reused
+// UNCHANGED (DRY: no re-derivation, no new test-visible contract).
+//
+// Always-render + .is-open CSS-collapse convention (project-wide pin): the
+// panel body itself never unmounts on toggle — only `.is-open` on the
+// wrapper flips visibility via CSS — so a mounted child (e.g. the Run-failed
+// notice's embedded ScenarioErrorStrip, TASK-2244) never loses its own
+// internal state (logTailOpen) across a collapse/expand. The panel's own
+// mount/unmount (returning null at N=0) is a DIFFERENT axis — there is
+// nothing stateful to protect when no notice is active.
+// ------------------------------------------------------------------------
+
+/**
+ * TASK-2244 (epic 2237 W2.2) — ordering matches the TASK-2243 inventory
+ * (freshness-failed, freshness-building, rainfall-unattached,
+ * rainfall-attached-empty, meshregion-unattached, inflow-anchor-mismatch,
+ * terrain-coverage-gap), with the Run-failed notice appended last.
+ */
+/**
+ * TASK-2264 — a failed archive (412: the scenario has an active/queued run)
+ * stashes the BE detail on the scenario as `archiveError` (scenariosReducer).
+ * Render it in the pane's consolidated notices surface via the shared
+ * ErrorStrip primitive so the message is anchored beside the scenario the
+ * archive was attempted on, not only in the easy-to-miss top-centre toast
+ * (W4.2: the toast alone was never seen). Cleared on the next archive attempt
+ * or a successful archive.
+ */
+function renderArchiveErrorNotice(scenario) {
+    const detail = scenario?.archiveError;
+    if (!detail) return null;
+    return (
+        <ErrorStrip
+            extraClassName="sv-anuga-scenario-archive-error-strip"
+            head={<Message msgId="hydrata.anuga.archiveErrorHead" />}
+            payload={detail}
+        />
+    );
+}
+
+function buildScenarioNotices(props) {
+    const {scenario, meshRegions, rainfalls, terrain, onOpenMergeTerrainsPanel, isStaff} = props;
+    const notices = [];
+
+    // TASK-2264 — a transient archive failure is the most actionable notice
+    // (the user just clicked Archive); surface it first.
+    const archiveErrorNode = renderArchiveErrorNotice(scenario);
+    if (archiveErrorNode) notices.push({key: 'archive-error', node: archiveErrorNode});
+
+    const freshnessStatus = getResultsFreshnessStatus(scenario);
+    if (freshnessStatus === 'failed') {
+        notices.push({key: 'results-freshness-failed', node: renderResultsFreshnessNotice(scenario, 'failed')});
+    } else if (freshnessStatus === 'building') {
+        notices.push({key: 'results-freshness-building', node: renderResultsFreshnessNotice(scenario, 'building')});
+    }
+
+    const rainfallUnattachedNode = renderRainfallUnattachedHint(scenario, rainfalls);
+    if (rainfallUnattachedNode) notices.push({key: 'rainfall-unattached', node: rainfallUnattachedNode});
+
+    const rainfallAttachedEmptyNode = renderRainfallAttachedEmptyHint(scenario, rainfalls);
+    if (rainfallAttachedEmptyNode) notices.push({key: 'rainfall-attached-empty', node: rainfallAttachedEmptyNode});
+
+    const meshRegionUnattachedNode = renderMeshRegionUnattachedHint(scenario, meshRegions);
+    if (meshRegionUnattachedNode) notices.push({key: 'meshregion-unattached', node: meshRegionUnattachedNode});
+
+    const inflowAnchorMismatchNode = renderInflowAnchorMismatchWarning(scenario);
+    if (inflowAnchorMismatchNode) notices.push({key: 'inflow-anchor-mismatch', node: inflowAnchorMismatchNode});
+
+    const terrainCoverageGapNode = renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel);
+    if (terrainCoverageGapNode) notices.push({key: 'terrain-coverage-gap', node: terrainCoverageGapNode});
+
+    // TASK-2244 (W2.2) — hosts the EXISTING ScenarioErrorStrip (cause line,
+    // collapsible log tail, staff CloudWatch link) as this notice's body —
+    // embedded verbatim, not re-implemented. Member only while the
+    // scenario's resolved lifecycle status is 'error' (mirrors the strip's
+    // own internal gate, so the notice and its content activate together).
+    if (findScenarioStatus(scenario) === 'error') {
+        notices.push({key: 'run-failed', node: <ScenarioErrorStrip scenario={scenario} isStaff={isStaff} />});
+    }
+
+    return notices;
+}
+
+/**
+ * TASK-2243 (AC#1) — header '{N} notices' toggles collapse; dynamic count;
+ * default open; NO persistence (plain useState, resets on remount — e.g. a
+ * scenario switch remounts this component at a new tree position only if
+ * the parent keys it, which it does not, so state naturally persists across
+ * re-renders of the SAME scenario, exactly like every other local-state
+ * component on this pane). Whole panel hidden at N=0 (nothing to toggle).
+ */
+function ScenarioNoticesPanel({notices}) {
+    const [isOpen, setIsOpen] = useState(true);
+    const count = notices.length;
+    if (count === 0) return null;
+    const panelClass = 'sv-anuga-notices-panel' + (isOpen ? ' is-open' : '');
+    const toggleIconClass = 'sv-anuga-notices-panel-toggle-icon glyphicon'
+        + (isOpen ? ' glyphicon-chevron-up' : ' glyphicon-chevron-down');
+    return (
+        <div className={panelClass}>
+            <button
+                type="button"
+                className="sv-anuga-notices-panel-header"
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((prev) => !prev)}
+            >
+                <span className="glyphicon glyphicon-info-sign sv-anuga-notices-panel-icon" aria-hidden="true" />
+                <span className="sv-anuga-notices-panel-header-label">
+                    <Message msgId="hydrata.anuga.noticesPanelHeader" msgParams={{count}} />
+                </span>
+                <span className={toggleIconClass} aria-hidden="true" />
+            </button>
+            {/* Always-render + .is-open CSS-collapse convention (karma
+                determinism + logTailOpen survival, see block comment above). */}
+            <div className="sv-anuga-notices-panel-body">
+                {notices.map((notice) => (
+                    <React.Fragment key={notice.key}>{notice.node}</React.Fragment>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+ScenarioNoticesPanel.propTypes = {
+    notices: PropTypes.arrayOf(PropTypes.shape({
+        key: PropTypes.string,
+        node: PropTypes.node
+    }))
+};
+
+ScenarioNoticesPanel.defaultProps = {
+    notices: []
+};
+
+// ------------------------------------------------------------------------
+// Pane renderers — one per category
+// ------------------------------------------------------------------------
+
 // TASK-2210 (W3.1, epic 2204, AC#2) — which W2.1 estimate term the hint
 // should name, keyed off getMeshCostDriverHint's driver key. 'holes' is
 // deliberately absent (see scenarioHelpers.js — it is never reported as a
@@ -493,7 +699,7 @@ function renderMeshBuildComparison(scenario) {
     );
 }
 
-function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls, onOpenMergeTerrainsPanel}) {
+function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -531,10 +737,8 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div>
             </FormRow>
             {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, handleField)}
-            {renderTerrainCoverageGapSuggestion(scenario, terrain, onOpenMergeTerrainsPanel)}
             {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
             {renderSelectField('inflow', 'hydrata.anuga.inflow', scenario?.inflow, inflows, !canEdit, handleField)}
-            {renderInflowAnchorMismatchWarning(scenario)}
             {/* TASK-2083 (epic 2077) — empty-state helper explaining an Inflow
                 (the layer) can hold more than one inflow location (a feature
                 inside it), each with its own hydrograph. Shown only while the
@@ -548,8 +752,6 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                 </div> : null
             }
             {renderSelectField('rainfall', 'hydrata.anuga.rainfall', scenario?.rainfall, rainfalls, !canEdit, handleField)}
-            {renderRainfallUnattachedHint(scenario, rainfalls)}
-            {renderRainfallAttachedEmptyHint(scenario, rainfalls)}
         </div>
     );
 }
@@ -568,7 +770,6 @@ function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, str
             {renderSelectField('friction', 'hydrata.anuga.friction', scenario?.friction, frictions, !canEdit, handleField)}
             {renderSelectField('structure', 'hydrata.anuga.structures', scenario?.structure, structures, !canEdit, handleField)}
             {renderSelectField('mesh_region', 'hydrata.anuga.meshRegions', scenario?.mesh_region, meshRegions, !canEdit, handleField)}
-            {renderMeshRegionUnattachedHint(scenario, meshRegions)}
         </div>
     );
 }
@@ -756,11 +957,15 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                     </div>
                 </FormRow>
             ) : null}
-            <div className="sv-anuga-scenario-pane-section sv-anuga-scenario-pane-section--help">
-                <span className="sv-anuga-scenario-pane-help">
-                    <Message msgId="hydrata.anuga.runConfigHelp" />
-                </span>
-            </div>
+            {/* TASK-2242 (epic 2237 W1.4) — the runConfigHelp paragraph that used
+                to render here is REMOVED: its content (mesh-region/structure/
+                breakline fine-mesh note, duration requirement, compute-backend
+                default) is now fully covered by the Build / Build-and-Run
+                executable tooltips in the header strip (ScenarioHeaderActions),
+                which additionally echo the live estimate right where the user's
+                cursor already is. hydrata.anuga.runConfigHelp is retired
+                deliberately (kept in the locale files as a historical, now-
+                unreferenced key rather than deleted — see the wave report). */}
             {/* W3.2 (TASK-1267); re-based TASK-2093 (epic 2092 W1.1) — pre-dispatch
                 triangle count + DOLLAR cost estimate. compute_cost_estimate used to
                 be raw vCPU-hours mislabeled as a cost and printed with a '$' AND a
@@ -810,12 +1015,13 @@ function renderRunPane(props) {
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
             {/* Section (a): config fields */}
             {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
-            {/* Section (b): status feedback (ETA, progress, error) */}
-            {/* W1.2 (TASK-2207, epic 2204) — isStaff gates the CloudWatch
-                deep link only; the classified cause + log tail render for
-                everyone (same isStaff prop this pane already threads to
-                renderRunConfigPane's compute-target selector). */}
-            <ScenarioErrorStrip scenario={scenario} isStaff={isStaff} />
+            {/* Section (b): status feedback (ETA, progress). TASK-2244
+                (epic 2237 W2.2) — the standalone ScenarioErrorStrip render
+                that used to sit here is REMOVED: it's now embedded as the
+                Run-failed notice's body in the notices panel (single error
+                surface — see buildScenarioNotices), not re-implemented, just
+                relocated. ScenarioStatusCard is untouched (own ETA/progress
+                display, not one of the consolidated error indicators). */}
             <ScenarioStatusCard scenario={scenario} />
             {/* Section (c): UAT #8 — the Build / Run / Build-and-Run / Retry /
                 Download / Archive / Delete action strip moved UP into the
@@ -834,12 +1040,11 @@ function renderRunPane(props) {
 // Section headings (inside the merged Pane 3 body)
 // ------------------------------------------------------------------------
 
-// TASK-2114 (A+B) — Required/Optional/Run no longer gate separate panes; each
-// gets an in-body heading instead, reusing the same
+// TASK-2114 (A+B) — Required no longer gates a separate pane; it gets an
+// in-body heading instead, reusing the same
 // .sv-anuga-scenario-pane-detail-head(-title) chrome the single selected-
 // category head used to own (border-bottom rule, font sizing) so no parallel
-// heading style is introduced — see anuga.css's `--merged` rule for the
-// small top-margin added between repeated headings.
+// heading style is introduced.
 //
 // UAT re-aim (finding 2) — `progress` is the SAME `validateCategoryProgress`
 // result object the now-removed category rail rendered as its tag pill
@@ -849,20 +1054,157 @@ function renderRunPane(props) {
 // (is-ok/is-warn/is-err) under a NEW classname (not the rail's, which is
 // gone) so the pill visually extends the existing token system rather than
 // inventing a parallel one.
-function renderSectionHeading(msgId, progress) {
+//
+// TASK-2265 (epic 2237 W5, UAT re-aim findings 3+4) — every section heading
+// is now a chevron TOGGLE (a <button>, not a plain <div>), generalizing the
+// TASK-2245 RUN SETTINGS-only chevron pattern to all three sections
+// (Required / Optional inputs / Run settings) rather than forking a second
+// copy. `suppressErrBadge` carries forward TASK-2244's render-level 'err'
+// suppression for the Run settings heading ONLY (the title pill + the
+// Run-failed notice remain the sole standing error indicators there);
+// Required legitimately shows every severity including 'err' (0/3 required
+// fields is a real error), and 'advanced' progress (Optional inputs) can
+// never BE 'err' in the first place (validateCategoryProgress), so
+// suppression is a no-op for both — pass `false` for them.
+function renderCollapsibleSectionHeader(kebabName, msgId, progress, isOpen, onToggle, suppressErrBadge) {
     const severity = progress && progress.severity;
+    const suppressed = severity === 'err' && !!suppressErrBadge;
     const badgeClass = 'sv-anuga-scenario-pane-detail-head-badge'
         + (severity === 'ok' ? ' is-ok' : '')
         + (severity === 'warn' ? ' is-warn' : '')
-        + (severity === 'err' ? ' is-err' : '');
+        + (severity === 'err' && !suppressed ? ' is-err' : '');
+    const toggleIconClass = `sv-anuga-scenario-pane-${kebabName}-toggle-icon glyphicon`
+        + (isOpen ? ' glyphicon-chevron-up' : ' glyphicon-chevron-down');
     return (
-        <div className="sv-anuga-scenario-pane-detail-head">
+        <button
+            type="button"
+            className={`sv-anuga-scenario-pane-detail-head sv-anuga-scenario-pane-${kebabName}-header`}
+            aria-expanded={isOpen}
+            onClick={onToggle}
+        >
             <h3 className="sv-anuga-scenario-pane-detail-head-title">
                 <Message msgId={msgId} />
             </h3>
-            {progress ? <span className={badgeClass}>{progress.tag}</span> : null}
+            {progress && !suppressed ? <span className={badgeClass}>{progress.tag}</span> : null}
+            <span className={toggleIconClass} aria-hidden="true" />
+        </button>
+    );
+}
+
+/**
+ * TASK-2265 — wraps a section's chevron header + body in the always-render +
+ * `.is-open` CSS-collapse convention (project-wide pin, TASK-2243/2245
+ * precedent): the body never unmounts on toggle, only `.is-open` on the
+ * wrapper flips CSS visibility — so karma stays deterministic and no mounted
+ * child (e.g. the Run settings log viewer) ever loses internal state across
+ * a collapse/expand.
+ */
+function renderCollapsibleSection(kebabName, headerNode, bodyNode, isOpen) {
+    const sectionClass = `sv-anuga-scenario-pane-${kebabName}` + (isOpen ? ' is-open' : '');
+    return (
+        <div className={sectionClass}>
+            {headerNode}
+            <div className={`sv-anuga-scenario-pane-${kebabName}-body`}>
+                {bodyNode}
+            </div>
         </div>
     );
+}
+
+// ------------------------------------------------------------------------
+// TASK-2265 (epic 2237 W5) — generalized collapse + expand-then-focus bridge
+// ------------------------------------------------------------------------
+
+/**
+ * Collapse-state + expand-then-focus bridge, generalized (TASK-2265, UAT
+ * re-aim findings 3+4) from TASK-2245's RUN-SETTINGS-only
+ * `useRunSettingsCollapse` so all THREE ScenarioPane sections (Required /
+ * Optional inputs / Run settings) share one implementation rather than
+ * forking a second near-identical copy. Shaped like `useAutoPopulateDefaults`
+ * below — a plain hook-like function called directly from ScenarioPane's
+ * render body (never as a JSX component) so its hook calls stay attributed
+ * to ScenarioPane itself and run in a stable order every render.
+ *
+ * @param {boolean} initialOpen - this section's starting isOpen (Required:
+ *   true; Optional inputs / Run settings: false — TASK-2265 AC#3).
+ * @param {*} expandToken - null/undefined means "no request yet" (the
+ *   menu's own initial state); any OTHER value whose IDENTITY changes from
+ *   the last one HANDLED counts as a new expand-then-focus request from
+ *   anugaScenarioMenu.js (the menu uses an incrementing counter that starts
+ *   at null and is bumped to 1, 2, ... — never starts at 0, which would
+ *   itself look like an unhandled request on the very first mount). Every
+ *   section now has a bridge (TASK-2268 adds Required's, closing the W5 gap
+ *   where a Build-validation failure on a Required-section field left the
+ *   field CSS-hidden if the user had collapsed it) — none is passed `null`
+ *   for lack of a bridge any more, but the contract still allows it for any
+ *   FUTURE section that legitimately has none.
+ * @param {function} onExpanded - fired once the open state has actually
+ *   committed to the DOM (see the useLayoutEffect ordering below) so the
+ *   menu's own `.focus()` call never races a still-collapsed element.
+ * @param {boolean} mustStayOpen - two independent triggers keep the section
+ *   open, both landing on the SAME underlying `isOpen` boolean:
+ *     (a) `mustStayOpen === true` forces a plain `setIsOpen(true)` (not a
+ *         mere OR) so the section is STILL open once the condition clears,
+ *         unless the user has since clicked to collapse it (Run settings
+ *         only: `runSettingsMustStayOpen`, scenarioHelpers.js — a build/run
+ *         in flight or errored must not hide the progress card + log viewer
+ *         it hosts). Pass `false` for Required/Optional inputs — nothing
+ *         forces those open.
+ *     (b) the returned `displayOpen = isOpen || mustStayOpen` ALSO forces
+ *         the section visually open independent of (a) ever having run —
+ *         e.g. a user click to collapse arriving mid-run sets the
+ *         underlying `isOpen` to false, but `displayOpen` stays true until
+ *         the condition actually clears (at which point the collapse the
+ *         user asked for finally takes visual effect — still "by user
+ *         action", just deferred).
+ *
+ * `useLayoutEffect` (never `useEffect`) is deliberate throughout: a
+ * `.focus()` fired in the same tick as the setState that reveals the field
+ * would race the commit and land on a still-collapsed (`display:none`)
+ * element (the W2 karma flush gotcha, generalised here to a real-browser
+ * CSS-collapse).
+ */
+function useCollapsibleSection(initialOpen, expandToken, onExpanded, mustStayOpen) {
+    const [isOpen, setIsOpen] = useState(initialOpen);
+    const handledTokenRef = useRef(null);
+    const pendingNotifyRef = useRef(false);
+    const displayOpen = isOpen || !!mustStayOpen;
+
+    useLayoutEffect(() => {
+        if (mustStayOpen) setIsOpen(true);
+    }, [mustStayOpen]);
+
+    useLayoutEffect(() => {
+        if (expandToken === null || expandToken === undefined || expandToken === handledTokenRef.current) return; // eslint-disable-line no-eq-null, eqeqeq
+        handledTokenRef.current = expandToken;
+        if (displayOpen) {
+            // Already open (e.g. a run is in flight) — no OPEN transition
+            // will fire below, so notify immediately.
+            if (onExpanded) onExpanded();
+        } else {
+            pendingNotifyRef.current = true;
+            setIsOpen(true);
+        }
+        // Deliberately keyed on `expandToken` alone (not `displayOpen` /
+        // `onExpanded`) — this effect must fire exactly once PER REQUEST
+        // (a new token), not on every render where those happen to change;
+        // handledTokenRef is the de-dupe guard, not the dep array. (No
+        // react-hooks/exhaustive-deps rule is configured in this project's
+        // eslint config, so no suppression comment is needed here.)
+    }, [expandToken]);
+
+    // Fires exactly once the isOpen->true transition armed above has
+    // actually committed (a NEW render with displayOpen===true has
+    // painted its DOM) — i.e. only now is it safe for the menu to focus.
+    useLayoutEffect(() => {
+        if (displayOpen && pendingNotifyRef.current) {
+            pendingNotifyRef.current = false;
+            if (onExpanded) onExpanded();
+        }
+    }, [displayOpen]);
+
+    const toggle = () => setIsOpen((prev) => !prev);
+    return [displayOpen, toggle];
 }
 
 // ------------------------------------------------------------------------
@@ -915,16 +1257,58 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
 const ScenarioPane = (props) => {
     const {scenario, canEdit} = props;
 
-    // UAT re-aim (finding 2) — completeness badges for the 3 section
-    // headings, reusing validateCategoryProgress verbatim (same function,
-    // same arguments) rather than re-deriving. boundaryHasFeatures
-    // resolution (TASK-2045) moves here from the now-deleted
-    // ScenarioCategoryRail — same one-line lookup against `boundaries`.
+    // UAT re-aim (finding 2) — completeness badges for the section headings,
+    // reusing validateCategoryProgress verbatim (same function, same
+    // arguments) rather than re-deriving. boundaryHasFeatures resolution
+    // (TASK-2045) moves here from the now-deleted ScenarioCategoryRail —
+    // same one-line lookup against `boundaries`. TASK-2265 (epic 2237 W5) —
+    // Optional inputs is its own section again (the W3.1 merge that had
+    // stopped painting 'advanced' progress anywhere is reverted), so it is
+    // computed here again too.
     const selectedBoundary = (props.boundaries || []).find(b => b && b.id === scenario?.boundary);
     const boundaryHasFeatures = selectedBoundary?.has_features;
     const inputsProgress = validateCategoryProgress('inputs', scenario, {boundaryHasFeatures});
     const advancedProgress = validateCategoryProgress('advanced', scenario);
     const runProgress = validateCategoryProgress('run', scenario);
+
+    // TASK-2265 (epic 2237 W5, UAT re-aim findings 3+4) — three
+    // independently collapsible sections (see useCollapsibleSection's doc
+    // comment for the full contract). Required starts OPEN; Optional inputs
+    // and Run settings start COLLAPSED. mesh_region's "Attach first" flow
+    // targets Optional inputs; resolution/duration build-validation and the
+    // in-flight/errored guarantee target Run settings. TASK-2268 (epic 2237
+    // W5.3) gives Required its OWN expand-then-focus bridge too: a Build /
+    // Build-and-Run validation failure on a Required-section field
+    // (name/terrain/boundary/inflowOrRainfall) must still expand-then-focus
+    // even though Required starts open — the user may have manually
+    // collapsed it (TASK-2265 made Required collapsible), which is exactly
+    // the gap that left the offending field CSS-hidden behind the fired
+    // dialog.
+    const [isRequiredOpen, toggleRequired] = useCollapsibleSection(
+        true, props.requiredExpandToken, props.onRequiredExpanded, false
+    );
+    const [isOptionalInputsOpen, toggleOptionalInputs] = useCollapsibleSection(
+        false, props.optionalInputsExpandToken, props.onOptionalInputsExpanded, false
+    );
+    const [isRunSettingsOpen, toggleRunSettings] = useCollapsibleSection(
+        false, props.runSettingsExpandToken, props.onRunSettingsExpanded, runSettingsMustStayOpen(scenario)
+    );
+
+    // TASK-2244 (epic 2237 W2.2) — the title pill: the ONE standing error
+    // indicator that survives the error-surface consolidation (alongside the
+    // Run-failed notice below). Reuses ScenarioStatusPill verbatim (compact)
+    // — it already renders the exact "Error" chip this needs — but now ONLY
+    // for the errored case; for every other status this slot renders
+    // nothing (previously it showed a compact pill for ANY status, which is
+    // one of the "duplicate 'Error' label" sources this wave removes: the
+    // Run pane's own ScenarioStatusCard already carries the canonical
+    // status pill for the non-error case).
+    const latestRunErrored = findScenarioStatus(scenario) === 'error';
+
+    // TASK-2243/2244 (epic 2237 W2) — every member notice (7-item inventory
+    // + the Run-failed notice), single source computed here so the panel
+    // below and nothing else derives them.
+    const notices = buildScenarioNotices(props);
 
     // TASK-1410: auto-populate required dropdowns for new scenarios.
     useAutoPopulateDefaults(
@@ -940,12 +1324,16 @@ const ScenarioPane = (props) => {
                 <span className="sv-anuga-pane-head-label">
                     <Message msgId="hydrata.anuga.scenarios" />
                 </span>
-                {scenario ?
+                {scenario && latestRunErrored ?
                     <span className="sv-anuga-pane-head-actions">
                         <ScenarioStatusPill scenario={scenario} compact />
                     </span> : null
                 }
             </div>
+            {/* TASK-2243 (epic 2237 W2.1) — the notices panel: single
+                collapsible amber advisory surface, between the toolbar and
+                the Required-inputs section (below, inside the shell). */}
+            <ScenarioNoticesPanel notices={notices} />
             <div className="sv-anuga-scenario-pane-shell">
                 <div className="sv-anuga-scenario-pane-detail">
                     {!scenario ?
@@ -966,18 +1354,45 @@ const ScenarioPane = (props) => {
                                     <Message msgId="hydrata.anuga.readOnlyPaneHint" />
                                 </div> : null
                             }
-                            {/* TASK-2114 (A+B) — Required/Optional/Run stack in ONE
-                                scrollable body; no category gates which section
-                                renders. UAT re-aim (finding 2) — each heading now
-                                carries its own completeness badge (right-aligned),
-                                replacing the removed rail's at-a-glance nav. */}
+                            {/* TASK-2114 (A+B) — no category gates which
+                                section renders; all three stack in one
+                                scroll. UAT re-aim (finding 2) — each heading
+                                carries its own completeness badge
+                                (right-aligned), replacing the removed rail's
+                                at-a-glance nav. TASK-2265 (epic 2237 W5) —
+                                Required / Optional inputs / Run settings are
+                                THREE independently collapsible sections again
+                                (the pre-epic shape, restored from TASK-2245's
+                                merge) — see useCollapsibleSection for the
+                                collapse + expand-then-focus contract. */}
                             <div className="sv-anuga-scenario-pane-detail-body sv-anuga-scenario-pane-detail-body--merged">
-                                {renderSectionHeading('hydrata.anuga.requiredInputs', inputsProgress)}
-                                {renderInputsPane(props)}
-                                {renderSectionHeading('hydrata.anuga.optionalInputs', advancedProgress)}
-                                {renderAdvancedPane(props)}
-                                {renderSectionHeading('hydrata.anuga.run', runProgress)}
-                                {renderRunPane(props)}
+                                {renderCollapsibleSection(
+                                    'required',
+                                    renderCollapsibleSectionHeader(
+                                        'required', 'hydrata.anuga.requiredInputs', inputsProgress,
+                                        isRequiredOpen, toggleRequired, false
+                                    ),
+                                    renderInputsPane(props),
+                                    isRequiredOpen
+                                )}
+                                {renderCollapsibleSection(
+                                    'optional-inputs',
+                                    renderCollapsibleSectionHeader(
+                                        'optional-inputs', 'hydrata.anuga.optionalInputs', advancedProgress,
+                                        isOptionalInputsOpen, toggleOptionalInputs, false
+                                    ),
+                                    renderAdvancedPane(props),
+                                    isOptionalInputsOpen
+                                )}
+                                {renderCollapsibleSection(
+                                    'run-settings',
+                                    renderCollapsibleSectionHeader(
+                                        'run-settings', 'hydrata.anuga.runSettings', runProgress,
+                                        isRunSettingsOpen, toggleRunSettings, true
+                                    ),
+                                    renderRunPane(props),
+                                    isRunSettingsOpen
+                                )}
                             </div>
                         </React.Fragment>
                     }
@@ -1018,7 +1433,34 @@ ScenarioPane.propTypes = {
     structures: PropTypes.array,
     meshRegions: PropTypes.array,
     networks: PropTypes.array,
-    onUpdateScenario: PropTypes.func
+    onUpdateScenario: PropTypes.func,
+    // TASK-2268 (epic 2237 W5.3) — expand-then-focus bridge for the
+    // REQUIRED section, mirroring runSettingsExpandToken/
+    // optionalInputsExpandToken below exactly: the menu bumps
+    // `requiredExpandToken` (any value whose IDENTITY changes per request)
+    // whenever a build-validation failure targets a Required-section field
+    // (name/terrain/boundary/inflowOrRainfall) while the section is
+    // collapsed; `onRequiredExpanded` fires back once the section has
+    // actually committed open.
+    requiredExpandToken: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    onRequiredExpanded: PropTypes.func,
+    // TASK-2245 (epic 2237 W3.1); re-targeted TASK-2265 (epic 2237 W5) —
+    // expand-then-focus bridge for the RUN SETTINGS collapse: the menu bumps
+    // `runSettingsExpandToken` (any value whose IDENTITY changes per
+    // request) whenever a build-validation failure on resolution/duration
+    // targets a field inside this section; `onRunSettingsExpanded` fires
+    // back once the section has actually committed open, so the menu's own
+    // .focus() call never races the collapse. See useCollapsibleSection's
+    // doc comment for the full contract.
+    runSettingsExpandToken: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    onRunSettingsExpanded: PropTypes.func,
+    // TASK-2265 (epic 2237 W5, UAT re-aim finding 4) — the Optional inputs
+    // analog of the pair above: mesh_region's "Attach first" flow
+    // (anugaScenarioMenu.js's handleMeshRegionWarningAttachFirst) now bumps
+    // THIS token instead, since mesh_region moved out of the merged RUN
+    // SETTINGS section into its own Optional inputs section.
+    optionalInputsExpandToken: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    onOptionalInputsExpanded: PropTypes.func
 };
 
 ScenarioPane.defaultProps = {

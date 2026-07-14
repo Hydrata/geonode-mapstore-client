@@ -1173,15 +1173,17 @@ describe('ANUGA Epics', () => {
                 });
         });
 
-        it('Archive POST 412 → routes through showArchiveError (toast only, no Redux action)', (done) => {
-            // Wave 3C C5: 412 = active run blocker. BE returns `{detail: '...'}` body.
-            // The catch handler now dispatches the toast-only showArchiveError thunk.
-            // The prior ARCHIVE_ANUGA_SCENARIO_ERROR action had no consumer (no
-            // reducer or middleware) so it was removed; toast remains the user
-            // signal. The detail surfacing is exercised in anuga-test.js.
+        it('Archive POST 412 → routes the detail to BOTH the toast and the in-pane surface (TASK-2264)', (done) => {
+            // 412 = active run blocker. BE returns `{detail: '...'}` body.
+            // TASK-2264 (was Wave 3C C5 toast-only): the catch now dispatches
+            // BOTH the toast thunk (showArchiveError) AND
+            // archiveAnugaScenarioError, whose detail the reducer stashes as
+            // `archiveError` so the pane's consolidated notices surface can
+            // anchor it (W4.2: the toast alone was missed).
+            const detail = 'Cannot archive — scenario has an active or queued compute job. Cancel the run first.';
             mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/42/archive/').reply(
                 412,
-                { detail: 'Cannot archive — scenario has an active or queued compute job. Cancel the run first.' }
+                { detail }
             );
             const scenario = { id: 42, name: 'source' };
             const action$ = mockActions([{ type: ARCHIVE_ANUGA_SCENARIO, scenario }]);
@@ -1199,15 +1201,21 @@ describe('ANUGA Epics', () => {
                     err => finish(err),
                     () => {
                         try {
-                            expect(emitted.length).toBe(1);
+                            // Two emissions: the toast thunk, then the plain
+                            // ARCHIVE_ANUGA_SCENARIO_ERROR action.
+                            expect(emitted.length).toBe(2);
+                            // [0] toast thunk (redux-thunk fn) → SHOW_NOTIFICATION.
                             expect(typeof emitted[0]).toBe('function');
                             const dispatched = [];
                             emitted[0]((d) => dispatched.push(d));
-                            // SHOW_NOTIFICATION only (Wave 3C C5 dropped the
-                            // ARCHIVE_ANUGA_SCENARIO_ERROR follow-up).
                             expect(dispatched.length).toBe(1);
                             expect(dispatched[0].type).toBe('SHOW_NOTIFICATION');
                             expect(dispatched[0].level).toBe('warning');
+                            expect(dispatched[0].message).toBe(detail);
+                            // [1] plain action carrying the detail into Redux.
+                            expect(emitted[1].type).toBe('ARCHIVE_ANUGA_SCENARIO_ERROR');
+                            expect(emitted[1].scenarioId).toBe(42);
+                            expect(emitted[1].detail).toBe(detail);
                             finish();
                         } catch (e) { finish(e); }
                     }

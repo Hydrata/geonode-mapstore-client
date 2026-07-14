@@ -188,4 +188,7 @@
     --sv-row-hover-bg-strong:rgba(255, 255, 255, 0.20);/* deeper row hover (VectorDraw picker onRowEnter) */
     --sv-accent-green-dim:   rgba(39, 202, 59, 0.6);   /* dim/inactive variant of --sv-accent-green (Swamm dashboard) */
     --sv-btn-warn:           darkorange;               /* warn/secondary-action button fill (Swamm add-geometry) */
+
+    /* ── Epic 2237 W1.1 (hydraulics panel declutter) ── */
+    --sv-btn-run-primary:    #38b06b; /* Build & Run — the run cluster's primary CTA green, distinct from the standard Bootstrap success green the other filled cluster buttons use */
 }

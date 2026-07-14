@@ -67,6 +67,7 @@ describe('Anuga i18n', () => {
         const uiKeys = [
             'hydrata.anuga.inputs',
             'hydrata.anuga.scenarios',
+            'hydrata.anuga.hydraulicsTab',
             'hydrata.anuga.results',
             'hydrata.anuga.publish'
         ];
@@ -109,6 +110,7 @@ describe('Anuga i18n', () => {
         const requiredKeys = [
             'hydrata.anuga.inputs',
             'hydrata.anuga.scenarios',
+            'hydrata.anuga.hydraulicsTab',
             'hydrata.anuga.results',
             'hydrata.anuga.publish',
             'hydrata.anuga.run',

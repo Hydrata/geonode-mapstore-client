@@ -1,6 +1,5 @@
 import React from "react";
 import {connect} from "react-redux";
-import {Button} from "react-bootstrap";
 const PropTypes = require('prop-types');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
@@ -52,6 +51,9 @@ import {
 import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane, meshRegionIsUnattached, rainfallIsUnattached} from './scenarioPane';
 import {ScenarioHeaderActions} from './scenarioHeaderActions';
+// TASK-2240 (epic 2237 W1.2) — the custom portaled overflow (kebab) menu
+// replacing the old New Scenario/Compare/Duplicate header cluster.
+import {AnugaScenarioOverflowMenu} from './anugaScenarioOverflowMenu';
 // TASK-2194 (epic 2190 W2) — the FE staff-gate precedent (is_staff OR is_superuser).
 import {isStaffUser} from './AnugaRunsDashboard/runsDashboardUtils';
 import {SectionHeader} from "../../SimpleView/components/primitives";
@@ -60,7 +62,10 @@ import {SectionHeader} from "../../SimpleView/components/primitives";
  * Miller-columns container for the ANUGA scenarios panel.
  *
  * Local component state:
- *   - compareMode — header chip toggle; rail items expose compare checkboxes.
+ *   - compareMode — REMOVED (TASK-2240, epic 2237 amendment): Compare's UI
+ *     entry is gone entirely; ScenarioRail's compare-checkbox rendering
+ *     capability now permanently receives no `compareMode` prop (defaults
+ *     false) and stays dark, untouched.
  *   - confirmingAction — single 'duplicate' | 'archive' | 'unarchive' |
  *     'delete' | 'cancel-run' string gating the container-level inline
  *     confirm dialog (always rendered, `.is-open` toggled via CSS so Karma
@@ -141,6 +146,41 @@ const CONFIRM_DIALOG_REGISTRY = {
     }
 };
 
+// TASK-2245 (epic 2237 W3.1); re-scoped TASK-2265 (epic 2237 W5) —
+// validateScenario's two build-REQUIRED fields that live inside the
+// collapsed-by-default Run settings section (scenarioPane.js). A
+// missing-field build-validation failure on either one must expand-then-
+// focus the matching field (AC#2) — see requestRunSettingsFocus. mesh_region
+// uses the SAME expand-then-focus mechanism but targets the SEPARATE
+// Optional inputs section (see requestOptionalInputsFocus) since TASK-2265
+// moved it out of Run settings. Every OTHER validateScenario field
+// (name/terrain/inflowOrRainfall/boundary) lives in the Required section —
+// see REQUIRED_FOCUS_FIELD_IDS below, added TASK-2268, for its own
+// expand-then-focus map (Required is collapsible too since TASK-2265, so it
+// needs the same bridge, not "no expand plumbing applies" as this comment
+// used to say).
+const RUN_SETTINGS_FOCUS_FIELD_IDS = {
+    resolution: 'resolution',
+    duration: 'duration-hours'
+};
+
+// TASK-2268 (epic 2237 W5.3) — validateScenario's four build-REQUIRED
+// fields that live inside the (now collapsible, TASK-2265) Required
+// section. Direct analog of RUN_SETTINGS_FOCUS_FIELD_IDS above: a
+// missing-field build-validation failure on any of these must expand-then-
+// focus the matching field via requestRequiredFocus, closing the gap where
+// the fired validation dialog left the offending field CSS-hidden behind a
+// user-collapsed Required section. `inflowOrRainfall` focuses the 'inflow'
+// select — the primary water-source field the Required section shows first
+// — mirroring the "Attach first" precedent of focusing one concrete field
+// for a two-field-substitutable validation failure.
+const REQUIRED_FOCUS_FIELD_IDS = {
+    name: 'name',
+    terrain: 'terrain',
+    boundary: 'boundary',
+    inflowOrRainfall: 'inflow'
+};
+
 class AnugaScenarioMenuClass extends React.Component {
   static propTypes = {
       // Redux state
@@ -210,7 +250,6 @@ class AnugaScenarioMenuClass extends React.Component {
   constructor(props) {
       super(props);
       this.state = {
-          compareMode: false,
           confirmingAction: null,
           confirmingScenario: null,
           buildValidationError: null,
@@ -238,8 +277,45 @@ class AnugaScenarioMenuClass extends React.Component {
           // actual mesh diverged beyond threshold; cleared by
           // handleDivergenceConfirm (fires the run) or handleDivergenceCancel
           // (leaves the scenario 'built', no run dispatched).
-          divergenceConfirm: null
+          divergenceConfirm: null,
+          // TASK-2245 (epic 2237 W3.1) — expand-then-focus bridge: bumped by
+          // requestRunSettingsFocus so the CHANGE in identity (not the value
+          // itself) trips ScenarioPane's useCollapsibleSection effect for
+          // the RUN SETTINGS section, which opens it and calls back
+          // handleRunSettingsExpanded once that open state has committed —
+          // see requestRunSettingsFocus's own doc comment for the full
+          // ownership split (focuser stays here; collapse state moves to
+          // the pane). MUST start `null` (never 0): the pane's guard treats
+          // null/undefined as "no request yet" — starting at 0 would make
+          // the very first mount look like an unhandled request and
+          // spuriously auto-expand + focus on every fresh menu mount.
+          runSettingsExpandToken: null,
+          // TASK-2265 (epic 2237 W5, UAT re-aim finding 4) — the Optional
+          // inputs analog of runSettingsExpandToken above: mesh_region
+          // moved out of the merged RUN SETTINGS section into its own
+          // Optional inputs section, so its "Attach first" flow now needs
+          // its own independent expand token (bumping runSettingsExpandToken
+          // would wrongly open Run settings instead). Same null-start
+          // rationale.
+          optionalInputsExpandToken: null,
+          // TASK-2268 (epic 2237 W5.3) — the Required analog of the two
+          // tokens above: a missing-field build-validation failure on a
+          // Required-section field (name/terrain/boundary/inflowOrRainfall)
+          // bumps THIS token so the pane's own Required
+          // useCollapsibleSection expands (and only that section — a
+          // separate token per section is what keeps the three bridges from
+          // ever cross-firing). Same null-start rationale.
+          requiredExpandToken: null
       };
+      // Not React state: read synchronously by handleRunSettingsExpanded
+      // once the pane's callback fires; nothing ever renders off this value
+      // directly, so it doesn't need to trigger its own re-render.
+      this.pendingRunSettingsFocusFieldId = null;
+      // TASK-2265 — the Optional inputs analog, read by
+      // handleOptionalInputsExpanded.
+      this.pendingOptionalInputsFocusFieldId = null;
+      // TASK-2268 — the Required analog, read by handleRequiredExpanded.
+      this.pendingRequiredFocusFieldId = null;
   }
 
   componentDidMount() {
@@ -415,20 +491,18 @@ class AnugaScenarioMenuClass extends React.Component {
   // propTypes/mapDispatchToProps because they are still needed by the run-now
   // chain (handleRunClick → setAnugaScenarioMenu(false)).
 
-  handleToggleCompareMode = () => {
-      const nextCompareMode = !this.state.compareMode;
-      this.setState({compareMode: nextCompareMode});
-      // When leaving compare mode, clear any lingering `selected` flags so
-      // the next compare session starts fresh (memory pin §5.7).
-      if (!nextCompareMode && Array.isArray(this.props.selectedScenarios)) {
-          this.props.selectedScenarios.forEach((s) => {
-              if (this.props.toggleScenarioSelected) {
-                  this.props.toggleScenarioSelected(s);
-              }
-          });
-      }
-      trackEvent('button', 'click', 'anuga-scenario-menu-compare-tab-toggle');
-  };
+  // TASK-2240 (epic 2237 W1.2) — Compare's UI entry is REMOVED entirely
+  // (epic 2237 amendment): handleToggleCompareMode/handleExecuteCompare,
+  // the header's Compare/Execute-Compare buttons that called them, are
+  // deleted here as dead code (nothing left to call them). The underlying
+  // redux plumbing (compareScenarios action, selectedScenariosSelector,
+  // toggleScenarioSelected, ScenarioRail's own compare-checkbox rendering
+  // capability) is left wired but DARK — untouched — so the feature can be
+  // re-lit later without redux-level rework, per the amendment's "code
+  // stays dark" instruction. The two retired Umami labels
+  // (anuga-scenario-menu-compare-tab-toggle / -compare-execute) move into
+  // the removed-labels regression-guard pattern
+  // (anugaScenarioAnalyticsParity-test.js).
 
   handleArchiveFilterToggle = () => {
       const archived = this.props.archiveFilter === 'only';
@@ -437,13 +511,6 @@ class AnugaScenarioMenuClass extends React.Component {
           this.props.setAnugaScenarioArchiveFilter(nextMode);
       }
       trackEvent('button', 'click', `anuga-scenario-menu-archive-filter-${nextMode}`);
-  };
-
-  handleExecuteCompare = () => {
-      if (this.props.readyToCompare && this.props.compareScenarios) {
-          this.props.compareScenarios(this.props.selectedScenarios);
-      }
-      trackEvent('button', 'click', 'anuga-scenario-menu-compare-execute');
   };
 
   handleUpdateScenario = (scenario, kv) => {
@@ -556,6 +623,19 @@ class AnugaScenarioMenuClass extends React.Component {
       if (missingField) {
           this.setState({buildValidationError: missingField});
           trackEvent('button', 'click', `anuga-scenario-menu-build-validate-missing-${missingField}`);
+          // TASK-2245 (AC#2) — resolution/duration live inside the
+          // collapsed-by-default RUN SETTINGS section; expand-then-focus the
+          // matching field so the validation dialog doesn't leave the user
+          // hunting for a hidden field. TASK-2268 (epic 2237 W5.3) — every
+          // OTHER missingField (name/terrain/inflowOrRainfall/boundary)
+          // lives in the Required section, which is ALSO collapsible
+          // (TASK-2265) — same bridge, separate map + token so the two
+          // sections never cross-fire.
+          if (RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]) {
+              this.requestRunSettingsFocus(RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]);
+          } else if (REQUIRED_FOCUS_FIELD_IDS[missingField]) {
+              this.requestRequiredFocus(REQUIRED_FOCUS_FIELD_IDS[missingField]);
+          }
           return;
       }
       this.setState({buildValidationError: null});
@@ -626,6 +706,13 @@ class AnugaScenarioMenuClass extends React.Component {
       if (missingField) {
           this.setState({buildValidationError: missingField});
           trackEvent('button', 'click', `anuga-scenario-menu-build-and-run-validate-missing-${missingField}`);
+          // TASK-2245 (AC#2) / TASK-2268 — same expand-then-focus as
+          // handleBuildClick.
+          if (RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]) {
+              this.requestRunSettingsFocus(RUN_SETTINGS_FOCUS_FIELD_IDS[missingField]);
+          } else if (REQUIRED_FOCUS_FIELD_IDS[missingField]) {
+              this.requestRequiredFocus(REQUIRED_FOCUS_FIELD_IDS[missingField]);
+          }
           return;
       }
       this.setState({buildValidationError: null});
@@ -652,15 +739,76 @@ class AnugaScenarioMenuClass extends React.Component {
       }
   };
 
-  // TASK-2116 (F4) — "Attach first": dismiss without building, focus the
-  // mesh-region selector (always present now that TASK-2114 merged Advanced
-  // into the single scrollable panel) so the user can pick a region right
-  // away instead of hunting for the field.
+  // TASK-2245 (epic 2237 W3.1) — expand-then-focus bridge. Collapse-state
+  // ownership split (binding design decision): the FOCUSER — this method,
+  // the actual `document.getElementById(fieldId).focus()` call — stays
+  // HERE in the menu, unchanged from the pre-merge "Attach first" handlers
+  // (TASK-2116). Only the RUN SETTINGS open/closed boolean moved to
+  // scenarioPane.js's useRunSettingsCollapse. Bumping the token (any value
+  // whose IDENTITY changes) is what trips that hook's effect; it opens the
+  // section and calls handleRunSettingsExpanded back ONCE that open state
+  // has actually committed to the DOM — never call .focus() directly from
+  // here, or it can race a still-collapsed (`display:none`) field.
+  requestRunSettingsFocus = (fieldId) => {
+      this.pendingRunSettingsFocusFieldId = fieldId;
+      this.setState((prevState) => ({runSettingsExpandToken: (prevState.runSettingsExpandToken || 0) + 1}));
+  };
+
+  // TASK-2245 — fired by ScenarioPane's onRunSettingsExpanded prop once the
+  // RUN SETTINGS section is confirmed open (post-commit). This is the ONLY
+  // place that actually calls .focus() for the RUN SETTINGS fields.
+  handleRunSettingsExpanded = () => {
+      const fieldId = this.pendingRunSettingsFocusFieldId;
+      this.pendingRunSettingsFocusFieldId = null;
+      const el = typeof document !== 'undefined' && fieldId ? document.getElementById(fieldId) : null;
+      if (el && typeof el.focus === 'function') el.focus();
+  };
+
+  // TASK-2265 (epic 2237 W5) — Optional inputs analog of
+  // requestRunSettingsFocus above: bumps optionalInputsExpandToken instead,
+  // so the pane opens the Optional inputs section (not Run settings).
+  requestOptionalInputsFocus = (fieldId) => {
+      this.pendingOptionalInputsFocusFieldId = fieldId;
+      this.setState((prevState) => ({optionalInputsExpandToken: (prevState.optionalInputsExpandToken || 0) + 1}));
+  };
+
+  // TASK-2265 — fired by ScenarioPane's onOptionalInputsExpanded prop once
+  // the Optional inputs section is confirmed open (post-commit). This is
+  // the ONLY place that actually calls .focus() for Optional inputs fields.
+  handleOptionalInputsExpanded = () => {
+      const fieldId = this.pendingOptionalInputsFocusFieldId;
+      this.pendingOptionalInputsFocusFieldId = null;
+      const el = typeof document !== 'undefined' && fieldId ? document.getElementById(fieldId) : null;
+      if (el && typeof el.focus === 'function') el.focus();
+  };
+
+  // TASK-2268 (epic 2237 W5.3) — Required analog of requestRunSettingsFocus/
+  // requestOptionalInputsFocus above: bumps requiredExpandToken so the pane
+  // opens (only) the Required section.
+  requestRequiredFocus = (fieldId) => {
+      this.pendingRequiredFocusFieldId = fieldId;
+      this.setState((prevState) => ({requiredExpandToken: (prevState.requiredExpandToken || 0) + 1}));
+  };
+
+  // TASK-2268 — fired by ScenarioPane's onRequiredExpanded prop once the
+  // Required section is confirmed open (post-commit). This is the ONLY
+  // place that actually calls .focus() for Required-section fields.
+  handleRequiredExpanded = () => {
+      const fieldId = this.pendingRequiredFocusFieldId;
+      this.pendingRequiredFocusFieldId = null;
+      const el = typeof document !== 'undefined' && fieldId ? document.getElementById(fieldId) : null;
+      if (el && typeof el.focus === 'function') el.focus();
+  };
+
+  // TASK-2116 (F4); re-targeted TASK-2265 (epic 2237 W5, UAT re-aim finding
+  // 4) — "Attach first": dismiss without building, expand-then-focus the
+  // mesh-region selector. mesh_region now lives inside its own Optional
+  // inputs section (moved out of the merged RUN SETTINGS section), so this
+  // targets requestOptionalInputsFocus, not requestRunSettingsFocus.
   handleMeshRegionWarningAttachFirst = () => {
       this.setState({meshRegionWarning: null});
       trackEvent('button', 'click', 'anuga-scenario-menu-mesh-region-warning-attach-first');
-      const el = typeof document !== 'undefined' ? document.getElementById('mesh_region') : null;
-      if (el && typeof el.focus === 'function') el.focus();
+      this.requestOptionalInputsFocus('mesh_region');
   };
 
   // TASK-2160 (epic 2147 W4) — "Build anyway" for the rainfall warning:
@@ -757,7 +905,6 @@ class AnugaScenarioMenuClass extends React.Component {
           <ScenarioRail
               scenarios={scenarios}
               selectedId={selectedId}
-              compareMode={this.state.compareMode}
               currentUserId={currentUserId}
               onSelect={this.handleSelect}
               onToggleSelected={this.handleToggleSelected}
@@ -807,6 +954,12 @@ class AnugaScenarioMenuClass extends React.Component {
               networks={networks}
               onUpdateScenario={this.handleUpdateScenario}
               onOpenMergeTerrainsPanel={this.props.onOpenMergeTerrainsPanel}
+              runSettingsExpandToken={this.state.runSettingsExpandToken}
+              onRunSettingsExpanded={this.handleRunSettingsExpanded}
+              optionalInputsExpandToken={this.state.optionalInputsExpandToken}
+              onOptionalInputsExpanded={this.handleOptionalInputsExpanded}
+              requiredExpandToken={this.state.requiredExpandToken}
+              onRequiredExpanded={this.handleRequiredExpanded}
           />
       );
   }
@@ -822,10 +975,13 @@ class AnugaScenarioMenuClass extends React.Component {
   };
 
   // UAT #8 — always-visible run-action strip rendered on the right of the
-  // Scenarios heading, separate from the New/Compare/Duplicate cluster. canEdit
-  // mirrors the gate ScenarioPane uses for the pane fields. Handlers reuse the
-  // existing build/run/retry/confirm chains so behaviour (and Umami analytics
-  // labels) is unchanged — only the buttons' location moved out of the Run pane.
+  // Scenarios heading, separate from the header's overflow (kebab) menu.
+  // canEdit mirrors the gate ScenarioPane uses for the pane fields. Handlers
+  // reuse the existing build/run/retry/confirm chains so behaviour (and
+  // Umami analytics labels) is unchanged — only the buttons' location moved
+  // out of the Run pane. TASK-2240 — Archive/Unarchive/Delete no longer pass
+  // through here; the overflow menu (renderHeader) opens those confirms
+  // directly.
   //
   // TASK-2115 (C) — View Results now folds INTO this same strip (dogfood
   // finding C: one consistent action row instead of a separate
@@ -851,19 +1007,25 @@ class AnugaScenarioMenuClass extends React.Component {
               onRunClick={this.handleRunClick}
               onBuildAndRunClick={this.handleBuildAndRunClick}
               onRetryClick={this.handleRetryClick}
-              onArchiveClick={(s) => this.openConfirm('archive', s)}
-              onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
-              onConfirmDelete={(s) => this.openConfirm('delete', s)}
               onConfirmCancelRun={(s) => this.openConfirm('cancel-run', s)}
           />
       );
   }
 
+  // TASK-2240 (epic 2237 W1.2) — the header's action cluster is now a
+  // single kebab overflow menu (AnugaScenarioOverflowMenu) carrying New
+  // scenario / Duplicate / Archive-Restore / Delete. Compare's UI entry is
+  // REMOVED entirely (amendment, epic 2237): no button anywhere dispatches
+  // it any more — see the handleArchiveFilterToggle-adjacent removal note
+  // earlier in this file (where handleToggleCompareMode/handleExecuteCompare
+  // used to live). inFlight mirrors ScenarioHeaderActions' own derivation
+  // (findScenarioStatus + IN_FLIGHT_STATUSES) so the menu's Archive/Delete
+  // disable-while-running gate can never drift from the strip's own
+  // Cancel-run gate.
   renderHeader() {
-      const {canCreateScenario: canCreate, readyToCompare, selectedScenario} = this.props;
-      const {compareMode} = this.state;
-      const hasSelected = !!(selectedScenario && selectedScenario.id);
-      const canDuplicateNow = canCreate && hasSelected;
+      const {canCreateScenario: canCreate, myRole, currentUserId, selectedScenario} = this.props;
+      const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
+      const inFlight = IN_FLIGHT_STATUSES.includes(findScenarioStatus(selectedScenario));
       // Use the shared SectionHeader primitive (also used by anugaInputMenu /
       // InputSection / swammInputMenu) instead of a hand-written .row.sv-menu-row
       // .sv-menu-row-header className chain. extraClassName preserves the per-site
@@ -872,53 +1034,17 @@ class AnugaScenarioMenuClass extends React.Component {
           <SectionHeader extraClassName="sv-anuga-section-header sv-scenario-menu-header">
               <Message msgId="hydrata.anuga.scenarios" />
               <span id={"scenario-header-actions"} className="sv-scenario-header-actions">
-                  {canCreate ?
-                      <Button
-                          bsStyle={'success'}
-                          bsSize={'xsmall'}
-                          className="sv-anuga-btn anuga-btn-new-scenario"
-                          onClick={this.handleNewScenario}
-                      >
-                          <Message msgId="hydrata.anuga.newScenario" />
-                      </Button>
-                      : null
-                  }
-                  <Button
-                      bsSize={'xsmall'}
-                      className={"sv-anuga-btn sv-anuga-btn-compare" + (compareMode ? ' is-active' : '')}
-                      onClick={this.handleToggleCompareMode}
-                      title={compareMode
-                          ? this.tr('hydrata.anuga.exitCompareModeTooltip', 'Exit compare mode')
-                          : this.tr('hydrata.anuga.enterCompareModeTooltip',
-                              'Enter compare mode, then select 2 scenarios to compare')}
-                  >
-                      <Message msgId="hydrata.anuga.compare" />
-                  </Button>
-                  {compareMode && readyToCompare ?
-                      <Button
-                          bsStyle={'success'}
-                          bsSize={'xsmall'}
-                          className="sv-anuga-btn anuga-btn-run-compare"
-                          onClick={this.handleExecuteCompare}
-                      >
-                          <Message msgId="hydrata.anuga.run" />
-                      </Button>
-                      : null
-                  }
-                  <Button
-                      bsSize={'xsmall'}
-                      className={"sv-anuga-btn sv-anuga-btn-duplicate-header"
-              + (canDuplicateNow ? '' : ' disabled')}
-                      disabled={!canDuplicateNow}
-                      onClick={() => {
-                          if (canDuplicateNow) this.openConfirm('duplicate', selectedScenario);
-                      }}
-                      title={canDuplicateNow
-                          ? this.tr('hydrata.anuga.duplicateSelectedTooltip', 'Duplicate the selected scenario')
-                          : this.tr('hydrata.anuga.duplicateDisabledTooltip', 'Select a saved scenario to duplicate')}
-                  >
-                      <Message msgId="hydrata.anuga.btnDuplicate" />
-                  </Button>
+                  <AnugaScenarioOverflowMenu
+                      canCreateScenario={canCreate}
+                      scenario={selectedScenario}
+                      canEdit={canEdit}
+                      inFlight={inFlight}
+                      onNewScenario={this.handleNewScenario}
+                      onDuplicateClick={(s) => this.openConfirm('duplicate', s)}
+                      onArchiveClick={(s) => this.openConfirm('archive', s)}
+                      onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
+                      onDeleteClick={(s) => this.openConfirm('delete', s)}
+                  />
               </span>
           </SectionHeader>
       );
@@ -1147,24 +1273,15 @@ class AnugaScenarioMenuClass extends React.Component {
       // of a COMPLETE run (latest_complete_run), NOT computed_status /
       // latest_run's status. A newer in-flight or errored latest_run must
       // never hide an older complete run's View Results affordance.
-      const latestCompleteRun = selectedScenario?.latest_complete_run;
-      const hasCompleteResults = !!latestCompleteRun;
-      // Freshness banner (NEW element, TASK-2078): shown only when latest_run
-      // is a DIFFERENT, newer run than latest_complete_run AND is itself
-      // in-flight or errored. The status pill/card/error strip/run log stay
-      // on latest_run untouched (ScenarioHeaderActions) — this banner does
-      // not replace them.
-      const latestRun = selectedScenario?.latest_run;
-      const latestRunIsNewer = !!latestRun && latestRun.id !== latestCompleteRun?.id;
-      const latestRunFailed = latestRunIsNewer && RUN_FAILURE_STATES.includes(latestRun.status);
-      const latestRunInFlight = latestRunIsNewer && IN_FLIGHT_STATUSES.includes(latestRun.status);
-      const showFreshnessBanner = hasCompleteResults && (latestRunFailed || latestRunInFlight);
-      const freshnessBannerMsgId = latestRunFailed
-          ? 'hydrata.anuga.resultsFreshnessBannerFailed'
-          : 'hydrata.anuga.resultsFreshnessBannerBuilding';
-      const freshnessBannerFallback = latestRunFailed
-          ? `A newer run failed — results shown are from run ${latestCompleteRun?.id}`
-          : `A newer run is building — results shown are from run ${latestCompleteRun?.id}`;
+      const hasCompleteResults = !!selectedScenario?.latest_complete_run;
+      // TASK-2243 (epic 2237 W2.1) — the freshness banner (a newer run is
+      // building/failed while the results shown are from the last complete
+      // run) is RELOCATED into the notices panel (scenarioPane.js's
+      // ScenarioNoticesPanel, via getResultsFreshnessStatus) — both variants
+      // preserved there under their existing msgIds. `selectedScenario` is
+      // already threaded into ScenarioPane as `scenario` (renderPane below),
+      // which carries the same latest_run/latest_complete_run fields, so no
+      // new prop-threading was needed; nothing left to derive/render here.
       return (
           <div
               id={'anuga-scenario-menu'}
@@ -1177,19 +1294,6 @@ class AnugaScenarioMenuClass extends React.Component {
                       (ScenarioHeaderActions), leading the row, instead of this
                       separate sibling bar — one consistent action row. */}
                   {this.renderRunActions(hasCompleteResults)}
-                  {/* TASK-2078: freshness banner — a newer run is building/failed
-                      while the results shown are from the last complete run. */}
-                  {showFreshnessBanner ? (
-                      <div
-                          className="sv-anuga-results-freshness-banner"
-                          role="status"
-                          aria-live="polite"
-                      >
-                          <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
-                          {' '}
-                          {this.tr(freshnessBannerMsgId, freshnessBannerFallback)}
-                      </div>
-                  ) : null}
                   <div className={'sv-rail-pane-shell'}>
                       {this.renderRail()}
                       {this.renderPane()}

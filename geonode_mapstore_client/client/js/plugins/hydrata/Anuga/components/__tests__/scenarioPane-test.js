@@ -4,6 +4,10 @@ import ReactDOM from 'react-dom';
 import {Simulate} from 'react-dom/test-utils';
 import Localized from '@mapstore/framework/components/I18N/Localized';
 import {ScenarioPane, formatBuildLog, meshRegionIsUnattached, rainfallIsUnattached, rainfallAttachedButEmpty} from '../scenarioPane';
+// TASK-2245 (epic 2237 W3.1) — the RUN SETTINGS auto-expand statuses, read
+// from the SAME source scenarioPane.js's collapse hook uses (never a
+// hand-copied literal that could drift from IN_FLIGHT_STATUSES).
+import {IN_FLIGHT_STATUSES as IN_FLIGHT_TEST_STATUSES} from '../scenarioHelpers';
 const {enData} = require('../../../../../__tests__/fixtures/translations');
 
 /**
@@ -112,18 +116,23 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     });
 
     // ------------------------------------------------------------------
-    // Section-heading completeness badges (UAT re-aim, finding 2) — the
-    // rail's per-category "N/M" / "built" / "100%" tags now render
-    // right-aligned inside each merged-pane section heading, reusing
-    // validateCategoryProgress (scenarioHelpers.js) with the EXACT same
-    // arguments the rail used to pass (including the TASK-2045
-    // boundaryHasFeatures gate) — never re-derived.
+    // Section-heading completeness badges (UAT re-aim, finding 2; re-cut
+    // TASK-2245/W3.1 for the 2-heading RUN SETTINGS merge; RESTORED to 3
+    // headings by TASK-2265/W5, UAT re-aim findings 3+4) — the rail's
+    // per-category "N/M" / "built" / "100%" tags render right-aligned
+    // inside each section heading, reusing validateCategoryProgress
+    // (scenarioHelpers.js) with the EXACT same arguments the rail used to
+    // pass (including the TASK-2045 boundaryHasFeatures gate) — never
+    // re-derived. Optional inputs' badge is the 'advanced'-category tag
+    // (never err — see validateCategoryProgress); Run settings' badge keeps
+    // the TASK-2244/2245 'err' suppression (AC#4) since the title pill + the
+    // Run-failed notice are the sole standing error indicators.
     // ------------------------------------------------------------------
     describe('Section-heading completeness badges (finding 2)', () => {
         it('renders the 3 section headings in document order with right-aligned badges', (done) => {
             // baseScenario: terrain(3)+boundary(4)+inflow(5) all set → Required
-            // 3/3 (is-ok). No friction/structure/mesh_region → Optional 0/3
-            // (advanced never errs, so is-ok too). status 'built' → Run 'built'.
+            // 3/3 (is-ok). No friction/structure/mesh_region set → Optional
+            // inputs 0/3 (always is-ok). status 'built' → Run settings 'built'.
             ReactDOM.render(
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} canEdit />,
                 container,
@@ -132,26 +141,43 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     expect(heads.length).toBe(3);
                     expect(heads[0].textContent).toInclude('hydrata.anuga.requiredInputs');
                     expect(heads[1].textContent).toInclude('hydrata.anuga.optionalInputs');
-                    expect(heads[2].textContent).toInclude('hydrata.anuga.run');
+                    expect(heads[2].textContent).toInclude('hydrata.anuga.runSettings');
 
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
                     expect(badges.length).toBe(3);
                     expect(badges[0].textContent).toBe('3/3');
                     expect(badges[0].className).toInclude('is-ok');
                     expect(badges[1].textContent).toBe('0/3');
+                    expect(badges[1].className).toInclude('is-ok');
                     expect(badges[2].textContent).toBe('built');
                     done();
                 }
             );
         });
 
-        it('Run badge shows 100% for a complete scenario (operator UAT example)', (done) => {
+        it('Run settings badge shows 100% for a complete scenario (operator UAT example)', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={{...baseScenario, status: 'complete'}} selectedCategoryId={'inputs'} canEdit />,
                 container,
                 () => {
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
                     expect(badges[2].textContent).toBe('100%');
+                    expect(badges[2].className).toInclude('is-ok');
+                    done();
+                }
+            );
+        });
+
+        // AC#4 — "pct while running": a computing run's badge is a rounded
+        // percentage, not the config-completeness tag.
+        it('Run settings badge shows a rounded percentage while computing (AC#4)', (done) => {
+            const s = {...baseScenario, status: 'computing', latest_run: {status: 'computing', progress_pct: 41.7}};
+            ReactDOM.render(
+                <ScenarioPane scenario={s} selectedCategoryId={'inputs'} canEdit />,
+                container,
+                () => {
+                    const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
+                    expect(badges[2].textContent).toBe('42%');
                     expect(badges[2].className).toInclude('is-ok');
                     done();
                 }
@@ -171,15 +197,24 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('Run badge reads err severity when scenario.status === error', (done) => {
+        // TASK-2244 (epic 2237 W2.2); carried forward verbatim by TASK-2245,
+        // then TASK-2265 — the run-category 'err' badge is suppressed at
+        // RENDER level (validateCategoryProgress itself still computes
+        // severity:'err' underneath — pinned, untouched; see
+        // scenarioHelpers-test.js). The title pill (toolbar) + the
+        // Run-failed notice are the sole error indicators now — see 'Error
+        // consolidation (TASK-2244)' below for both.
+        it('suppresses the Run settings badge (no "err" pill) when scenario.status === error', (done) => {
             const s = {...baseScenario, status: 'error', latest_run: {status: 'error'}};
             ReactDOM.render(
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
                     const badges = container.querySelectorAll('.sv-anuga-scenario-pane-detail-head-badge');
-                    expect(badges[2].textContent).toBe('err');
-                    expect(badges[2].className).toInclude('is-err');
+                    // Required + Optional inputs badges still render (2);
+                    // the Run settings badge is gone, not merely relabelled.
+                    expect(badges.length).toBe(2);
+                    expect(container.querySelector('.sv-anuga-scenario-pane-detail-head-badge.is-err')).toNotExist();
                     done();
                 }
             );
@@ -265,7 +300,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // The 3-heading document-order assertion (+ its badges) now lives in
+        // The 2-heading document-order assertion (+ its badges) now lives in
         // 'Section-heading completeness badges (finding 2)' above, next to
         // the rest of the badge coverage it was split off to avoid.
 
@@ -289,6 +324,525 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 container,
                 () => {
                     expect(container.querySelectorAll('.sv-anuga-scenario-resource-summary').length).toBe(0);
+                    done();
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // TASK-2245 (epic 2237 W3.1) — RUN SETTINGS collapse: Optional (Advanced)
+    // + Run merged into ONE collapsible section, collapsed by default,
+    // auto-expanding while the run is in flight/errored (AC#1), and via the
+    // expand-then-focus bridge to anugaScenarioMenu.js (AC#2/#3 — the
+    // full menu-driven integration for those two lives in
+    // anugaScenarioMenu-test.js; this block proves the pane's own half of
+    // that bridge in isolation).
+    // ------------------------------------------------------------------
+    describe('RUN SETTINGS collapse (TASK-2245)', () => {
+        it('is collapsed by default for an idle/fresh scenario (AC#1) — fields still exist (always-render)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />, // baseScenario.status is 'built' — not in flight, not error
+                container,
+                () => {
+                    const section = container.querySelector('.sv-anuga-scenario-pane-run-settings');
+                    expect(section).toExist();
+                    expect(section.className).toNotInclude('is-open');
+                    expect(section.querySelector('[aria-expanded="false"]')).toExist();
+                    // Always-render + .is-open CSS-collapse convention — the
+                    // fields are still in the DOM, just CSS-hidden.
+                    expect(container.querySelector('#resolution')).toExist();
+                    expect(container.querySelector('#duration-hours')).toExist();
+                    done();
+                }
+            );
+        });
+
+        IN_FLIGHT_TEST_STATUSES.forEach((status) => {
+            it(`auto-expands on mount when status is '${status}' (AC#1)`, (done) => {
+                ReactDOM.render(
+                    <ScenarioPane scenario={{...baseScenario, status}} canEdit />,
+                    container,
+                    () => {
+                        const section = container.querySelector('.sv-anuga-scenario-pane-run-settings');
+                        expect(section.className).toInclude('is-open');
+                        expect(section.querySelector('[aria-expanded="true"]')).toExist();
+                        done();
+                    }
+                );
+            });
+        });
+
+        it("auto-expands on mount when status is 'error' (AC#1)", (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={{...baseScenario, status: 'error'}} canEdit />,
+                container,
+                () => {
+                    const section = container.querySelector('.sv-anuga-scenario-pane-run-settings');
+                    expect(section.className).toInclude('is-open');
+                    done();
+                }
+            );
+        });
+
+        it('clicking the header toggles collapsed <-> open for an idle scenario (user action)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    const header = container.querySelector('.sv-anuga-scenario-pane-run-settings-header');
+                    // Deferred a tick — a click dispatched from inside this
+                    // mount-commit callback doesn't flush its state update
+                    // until the callback's own call stack unwinds (see the
+                    // logTailOpen precedent above).
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                            header.click();
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toNotInclude('is-open');
+                                done();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        // The hard "(a) ... must not hide while running" guarantee — a
+        // click on the header while the run is IN_FLIGHT must not visually
+        // collapse the section (the progress card + log viewer live inside).
+        it('clicking the header while running does NOT visually collapse the section', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={{...baseScenario, status: 'computing'}} canEdit />,
+                container,
+                () => {
+                    const header = container.querySelector('.sv-anuga-scenario-pane-run-settings-header');
+                    expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                            done();
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        // Expand-then-focus bridge (pane side only — see anugaScenarioMenu-test.js
+        // for the full menu-driven "Attach first" / build-validation flows).
+        // `runSettingsExpandToken` is any value whose IDENTITY changes per
+        // request; bumping it must open the section and fire
+        // `onRunSettingsExpanded` exactly once, only after the open state
+        // has committed.
+        it('runSettingsExpandToken opens the section and fires onRunSettingsExpanded exactly once', (done) => {
+            let expandedCalls = 0;
+            const onRunSettingsExpanded = () => { expandedCalls += 1; };
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    // null = "no request yet" (the menu's own initial state,
+                    // anugaScenarioMenu.js) — 0 is a REAL token value, not a
+                    // sentinel, so starting here would itself look like an
+                    // unhandled request.
+                    runSettingsExpandToken={null}
+                    onRunSettingsExpanded={onRunSettingsExpanded}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toNotInclude('is-open');
+                    expect(expandedCalls).toBe(0);
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={baseScenario}
+                            canEdit
+                            runSettingsExpandToken={1}
+                            onRunSettingsExpanded={onRunSettingsExpanded}
+                        />,
+                        container,
+                        () => {
+                            // Deferred a tick — the token effect's own
+                            // setIsOpen(true) (and the SECOND effect's
+                            // onExpanded() call it cascades into) is a nested
+                            // update triggered FROM a useLayoutEffect during
+                            // THIS render's commit; neither the DOM mutation
+                            // nor the onExpanded() call is guaranteed to have
+                            // flushed before THIS render call's own callback
+                            // fires (the same class of W2 karma flush gotcha,
+                            // here on a nested-render callback rather than a
+                            // click).
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                                expect(expandedCalls).toBe(1);
+                                // Re-rendering with the SAME token again must
+                                // not re-notify (already-handled token, AC —
+                                // no repeat focus fights on an unrelated
+                                // re-render).
+                                ReactDOM.render(
+                                    <ScenarioPane
+                                        scenario={baseScenario}
+                                        canEdit
+                                        runSettingsExpandToken={1}
+                                        onRunSettingsExpanded={onRunSettingsExpanded}
+                                    />,
+                                    container,
+                                    () => {
+                                        expect(expandedCalls).toBe(1);
+                                        done();
+                                    }
+                                );
+                            }, 0);
+                        }
+                    );
+                }
+            );
+        });
+
+        it('a token arriving while already open (run in flight) notifies immediately, without a further OPEN transition', (done) => {
+            let expandedCalls = 0;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, status: 'computing'}}
+                    canEdit
+                    runSettingsExpandToken={null}
+                    onRunSettingsExpanded={() => { expandedCalls += 1; }}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-run-settings').className).toInclude('is-open');
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={{...baseScenario, status: 'computing'}}
+                            canEdit
+                            runSettingsExpandToken={1}
+                            onRunSettingsExpanded={() => { expandedCalls += 1; }}
+                        />,
+                        container,
+                        () => {
+                            expect(expandedCalls).toBe(1);
+                            done();
+                        }
+                    );
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // TASK-2265 (epic 2237 W5, UAT re-aim findings 3+4) — Required and
+    // Optional inputs become independently collapsible too, generalizing
+    // TASK-2245's RUN SETTINGS-only chevron pattern (useCollapsibleSection).
+    // Required starts OPEN (no expand-then-focus bridge in this wave's
+    // scope); Optional inputs starts COLLAPSED and gains its OWN
+    // expand-then-focus bridge (mesh_region's "Attach first" now targets
+    // this section instead of Run settings — see anugaScenarioMenu-test.js
+    // for the full menu-driven flow).
+    // ------------------------------------------------------------------
+    describe('Required collapse (TASK-2265)', () => {
+        it('is OPEN by default (AC#3)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    const section = container.querySelector('.sv-anuga-scenario-pane-required');
+                    expect(section).toExist();
+                    expect(section.className).toInclude('is-open');
+                    expect(section.querySelector('[aria-expanded="true"]')).toExist();
+                    expect(container.querySelector('#name')).toExist();
+                    done();
+                }
+            );
+        });
+
+        it('clicking the header toggles collapsed <-> open (user action)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    const header = container.querySelector('.sv-anuga-scenario-pane-required-header');
+                    // Deferred a tick — a click dispatched from inside this
+                    // mount-commit callback doesn't flush its state update
+                    // until the callback's own call stack unwinds.
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toNotInclude('is-open');
+                            header.click();
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+                                done();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // TASK-2268 (epic 2237 W5.3) — Required gains its OWN expand-then-focus
+    // bridge, direct analog of the Run settings / Optional inputs ones
+    // above: a Build/Build-and-Run validation failure on a Required-section
+    // field must reopen the section (if the user had collapsed it) and
+    // focus the offending field. Pane-side only — see
+    // anugaScenarioMenu-test.js for the full menu-driven build-validation
+    // flow.
+    // ------------------------------------------------------------------
+    describe('Required expand-then-focus bridge (TASK-2268)', () => {
+        it('requiredExpandToken opens the section (from collapsed) and fires onRequiredExpanded exactly once', (done) => {
+            let expandedCalls = 0;
+            const onRequiredExpanded = () => { expandedCalls += 1; };
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    // null = "no request yet", matching the menu's initial state.
+                    requiredExpandToken={null}
+                    onRequiredExpanded={onRequiredExpanded}
+                />,
+                container,
+                () => {
+                    // Required starts OPEN by default (AC#3) — collapse it
+                    // first via the user-action toggle so the token's own
+                    // OPEN transition (and thus the onRequiredExpanded call)
+                    // has something to prove, exactly the "user had
+                    // collapsed Required" gap TASK-2268 closes.
+                    const header = container.querySelector('.sv-anuga-scenario-pane-required-header');
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toNotInclude('is-open');
+                            expect(expandedCalls).toBe(0);
+                            ReactDOM.render(
+                                <ScenarioPane
+                                    scenario={baseScenario}
+                                    canEdit
+                                    requiredExpandToken={1}
+                                    onRequiredExpanded={onRequiredExpanded}
+                                />,
+                                container,
+                                () => {
+                                    // Deferred a tick — same nested-update
+                                    // flush gotcha as the Run settings /
+                                    // Optional inputs token tests above.
+                                    setTimeout(() => {
+                                        expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+                                        expect(expandedCalls).toBe(1);
+                                        // Re-rendering with the SAME token again must not re-notify.
+                                        ReactDOM.render(
+                                            <ScenarioPane
+                                                scenario={baseScenario}
+                                                canEdit
+                                                requiredExpandToken={1}
+                                                onRequiredExpanded={onRequiredExpanded}
+                                            />,
+                                            container,
+                                            () => {
+                                                expect(expandedCalls).toBe(1);
+                                                done();
+                                            }
+                                        );
+                                    }, 0);
+                                }
+                            );
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        it('a token arriving while Required is still open (the default) notifies immediately, without a further OPEN transition', (done) => {
+            let expandedCalls = 0;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    requiredExpandToken={null}
+                    onRequiredExpanded={() => { expandedCalls += 1; }}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-required').className).toInclude('is-open');
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={baseScenario}
+                            canEdit
+                            requiredExpandToken={1}
+                            onRequiredExpanded={() => { expandedCalls += 1; }}
+                        />,
+                        container,
+                        () => {
+                            expect(expandedCalls).toBe(1);
+                            done();
+                        }
+                    );
+                }
+            );
+        });
+    });
+
+    describe('Optional inputs collapse (TASK-2265)', () => {
+        it('is collapsed by default (AC#3) — fields still exist (always-render)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit meshRegions={meshRegionOpts} />,
+                container,
+                () => {
+                    const section = container.querySelector('.sv-anuga-scenario-pane-optional-inputs');
+                    expect(section).toExist();
+                    expect(section.className).toNotInclude('is-open');
+                    expect(section.querySelector('[aria-expanded="false"]')).toExist();
+                    expect(container.querySelector('#mesh_region')).toExist();
+                    done();
+                }
+            );
+        });
+
+        it('clicking the header toggles collapsed <-> open (user action)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    const header = container.querySelector('.sv-anuga-scenario-pane-optional-inputs-header');
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-anuga-scenario-pane-optional-inputs').className).toInclude('is-open');
+                            header.click();
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-optional-inputs').className).toNotInclude('is-open');
+                                done();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        // Expand-then-focus bridge (pane side only — see
+        // anugaScenarioMenu-test.js for the full menu-driven "Attach first"
+        // flow that now bumps this token for mesh_region, TASK-2265 finding 4).
+        it('optionalInputsExpandToken opens the section and fires onOptionalInputsExpanded exactly once', (done) => {
+            let expandedCalls = 0;
+            const onOptionalInputsExpanded = () => { expandedCalls += 1; };
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    optionalInputsExpandToken={null}
+                    onOptionalInputsExpanded={onOptionalInputsExpanded}
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-optional-inputs').className).toNotInclude('is-open');
+                    expect(expandedCalls).toBe(0);
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={baseScenario}
+                            canEdit
+                            optionalInputsExpandToken={1}
+                            onOptionalInputsExpanded={onOptionalInputsExpanded}
+                        />,
+                        container,
+                        () => {
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-scenario-pane-optional-inputs').className).toInclude('is-open');
+                                expect(expandedCalls).toBe(1);
+                                ReactDOM.render(
+                                    <ScenarioPane
+                                        scenario={baseScenario}
+                                        canEdit
+                                        optionalInputsExpandToken={1}
+                                        onOptionalInputsExpanded={onOptionalInputsExpanded}
+                                    />,
+                                    container,
+                                    () => {
+                                        expect(expandedCalls).toBe(1);
+                                        done();
+                                    }
+                                );
+                            }, 0);
+                        }
+                    );
+                }
+            );
+        });
+    });
+
+    // TASK-2265 — the pre-epic field-grouping contract, scoped to each
+    // section's own -body wrapper (not merely "exists somewhere in the DOM")
+    // so a field silently drifting into the wrong section would fail here.
+    describe('Section field membership (TASK-2265)', () => {
+        it('Required body contains name/terrain/boundary/inflow/rainfall, nothing from the other 2 sections', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    terrain={terrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                />,
+                container,
+                () => {
+                    const body = container.querySelector('.sv-anuga-scenario-pane-required-body');
+                    expect(body).toExist();
+                    expect(body.querySelector('#name')).toExist();
+                    expect(body.querySelector('#terrain')).toExist();
+                    expect(body.querySelector('#boundary')).toExist();
+                    expect(body.querySelector('#inflow')).toExist();
+                    expect(body.querySelector('#rainfall')).toExist();
+                    expect(body.querySelector('#friction')).toNotExist();
+                    expect(body.querySelector('#resolution')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('Optional inputs body contains friction/structure/mesh_region only', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    frictions={frictionOpts}
+                    structures={structureOpts}
+                    meshRegions={meshRegionOpts}
+                />,
+                container,
+                () => {
+                    const body = container.querySelector('.sv-anuga-scenario-pane-optional-inputs-body');
+                    expect(body).toExist();
+                    expect(body.querySelector('#friction')).toExist();
+                    expect(body.querySelector('#structure')).toExist();
+                    expect(body.querySelector('#mesh_region')).toExist();
+                    expect(body.querySelector('#name')).toNotExist();
+                    expect(body.querySelector('#resolution')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('Run settings body contains duration/base-mesh-size/compute-target only', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    canEdit
+                    isStaff
+                    availableComputeTargets={['local', 'batch-x32']}
+                    defaultComputeTarget={'batch-x32'}
+                />,
+                container,
+                () => {
+                    const body = container.querySelector('.sv-anuga-scenario-pane-run-settings-body');
+                    expect(body).toExist();
+                    expect(body.querySelector('#resolution')).toExist();
+                    expect(body.querySelector('#duration-hours')).toExist();
+                    expect(body.querySelector('#duration-minutes')).toExist();
+                    expect(body.querySelector('#compute_target')).toExist();
+                    expect(body.querySelector('#friction')).toNotExist();
+                    expect(body.querySelector('#name')).toNotExist();
                     done();
                 }
             );
@@ -1249,11 +1803,33 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     const label = container.querySelector('label[for="resolution"]');
                     expect(label).toExist();
                     expect(label.textContent).toInclude('Base mesh size');
-                    // The run-config help caption explains WHY: refinement inputs
-                    // mesh finer than this — the label alone must not have to
-                    // carry the whole honesty story.
-                    const help = container.querySelector('.sv-anuga-scenario-pane-help');
-                    expect(help.textContent.toLowerCase()).toInclude('mesh finer');
+                    // TASK-2242 (epic 2237 W1.4) — the run-config help caption that
+                    // used to explain WHY here (refinement inputs mesh finer than
+                    // this) is REMOVED from the pane; that honesty story now lives
+                    // in the Build / Build-and-Run executable tooltips (header
+                    // strip) instead, which additionally echo the live estimate.
+                    done();
+                }
+            );
+        });
+
+        // TASK-2242 (epic 2237 W1.4) — regression guard: the removed runConfigHelp
+        // paragraph must not silently come back in this pane.
+        it('TASK-2242: does not render the removed run-config help caption in the Run section', (done) => {
+            ReactDOM.render(
+                <Localized locale="en-US" messages={enData.messages}>
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />
+                </Localized>,
+                container,
+                () => {
+                    const runSection = container.querySelector('.sv-anuga-scenario-pane-rows-run');
+                    expect(runSection).toExist();
+                    expect(runSection.querySelector('.sv-anuga-scenario-pane-section--help')).toNotExist();
+                    expect((runSection.textContent || '').toLowerCase()).toNotInclude('mesh finer wherever');
                     done();
                 }
             );
@@ -1558,6 +2134,338 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     });
 
     // ------------------------------------------------------------------
+    // TASK-2243 (epic 2237 W2.1) — the notices panel: single collapsible
+    // amber advisory surface between the toolbar and the Required-inputs
+    // section. Drives all 7 member notices individually + shell mechanics
+    // (count string, N=0 hidden, default-open, collapse toggle aria) +
+    // regression coverage that the explicit NON-members (mesh cost-driver
+    // hint, post-build actual-vs-estimate comparison, read-only pane hint)
+    // still render field-adjacent in their current homes, NOT inside the
+    // panel.
+    // ------------------------------------------------------------------
+    describe('Notices panel (TASK-2243)', () => {
+        it('is hidden entirely (N=0) when the scenario has nothing to advise on', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-notices-panel')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        // TASK-2264 — a stashed archiveError (412: scenario has an active run)
+        // surfaces the BE detail inline in the consolidated notices panel.
+        it('surfaces a stashed archiveError as an in-pane error strip (TASK-2264)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, archiveError: 'Cannot archive: scenario has an active run.'}}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const panel = container.querySelector('.sv-anuga-notices-panel');
+                    expect(panel).toExist();
+                    const strip = panel.querySelector('.sv-anuga-scenario-archive-error-strip');
+                    expect(strip).toExist();
+                    // The raw BE detail string reaches the consolidated surface.
+                    expect(strip.textContent).toInclude('Cannot archive: scenario has an active run.');
+                    done();
+                }
+            );
+        });
+
+        it('shows NO archive-error strip when archiveError is absent (happy path — TASK-2264)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={baseScenario} canEdit />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-archive-error-strip')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('shows the "{N} notices" header, defaults open, and toggles collapse via aria-expanded', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_region: null}}
+                    canEdit
+                    meshRegions={meshRegionOpts}
+                />,
+                container,
+                () => {
+                    const panel = container.querySelector('.sv-anuga-notices-panel');
+                    expect(panel).toExist();
+                    expect(panel.className).toInclude('is-open');
+                    const header = panel.querySelector('.sv-anuga-notices-panel-header');
+                    expect(header.getAttribute('aria-expanded')).toBe('true');
+                    // Bare render (no intl context) — Message.jsx falls back
+                    // to the raw msgId; see the localized test below for the
+                    // actual "{count} notices" interpolation proof.
+                    expect(header.textContent).toInclude('hydrata.anuga.noticesPanelHeader');
+
+                    // The click + its assertions run in a SEPARATE tick: this
+                    // callback is itself invoked from inside React's mount
+                    // commit call stack (commitLayoutEffects), and a state
+                    // update dispatched from THERE is applied once that
+                    // commit unwinds — not synchronously within this same
+                    // callback. setTimeout(0) gets us outside of it, matching
+                    // how the rest of the suite drives click-then-assert
+                    // (e.g. anugaScenarioMenu-test.js's openKebab helper,
+                    // which clicks from plain top-level test code, never
+                    // nested inside a render callback).
+                    setTimeout(() => {
+                        header.click();
+                        setTimeout(() => {
+                            expect(panel.className).toNotInclude('is-open');
+                            expect(header.getAttribute('aria-expanded')).toBe('false');
+                            // Always-render + .is-open CSS-collapse
+                            // convention — the notice itself stays mounted
+                            // (queryable) through the collapse; only the
+                            // wrapper's class flips.
+                            expect(panel.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint')).toExist();
+
+                            header.click();
+                            setTimeout(() => {
+                                expect(panel.className).toInclude('is-open');
+                                done();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }
+            );
+        });
+
+        // Mounts through the real Localized wrapper (IntlProvider), seeded
+        // with the REAL en-US translation file (mirrors the anchor-mismatch
+        // warning's own localized test above) — proves the {count} msgParam
+        // actually threads through and grows as more notices activate,
+        // which the bare-render fallback (raw msgId) cannot show.
+        it('the header count grows (localized) as more member notices become active', (done) => {
+            const oneNoticeScenario = {...baseScenario, mesh_region: null};
+            const twoNoticeScenario = {
+                ...baseScenario,
+                mesh_region: null,
+                inflow_anchor_mismatch: {
+                    series: [
+                        {timeseries_id: 101, name: 'Hydrograph A', first_timestamp: '2000-01-01T00:00:00.000'},
+                        {timeseries_id: 102, name: 'Hydrograph B', first_timestamp: '2000-01-01T01:00:00.000'}
+                    ]
+                }
+            };
+            ReactDOM.render(
+                <Localized locale="en-US" messages={enData.messages}>
+                    <ScenarioPane
+                        scenario={oneNoticeScenario}
+                        canEdit
+                        meshRegions={meshRegionOpts}
+                    />
+                </Localized>,
+                container,
+                () => {
+                    const headerOne = container.querySelector('.sv-anuga-notices-panel-header');
+                    expect(headerOne.textContent).toInclude('1 notices');
+                    ReactDOM.render(
+                        <Localized locale="en-US" messages={enData.messages}>
+                            <ScenarioPane
+                                scenario={twoNoticeScenario}
+                                canEdit
+                                meshRegions={meshRegionOpts}
+                            />
+                        </Localized>,
+                        container,
+                        () => {
+                            const headerTwo = container.querySelector('.sv-anuga-notices-panel-header');
+                            expect(headerTwo.textContent).toInclude('2 notices');
+                            done();
+                        }
+                    );
+                }
+            );
+        });
+
+        // The 7-item inventory, each driven individually against the
+        // notices panel (rather than their old field-adjacent homes, which
+        // the earlier per-hint describes above now cover as pure-predicate
+        // + msgId/role regressions on the RELOCATED markup).
+        describe('7-item inventory — one member at a time', () => {
+            it('results-freshness FAILED', (done) => {
+                const s = {
+                    ...baseScenario,
+                    latest_run: {id: 2, status: 'error'},
+                    latest_complete_run: {id: 1, status: 'complete'}
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-results-freshness-failed-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('results-freshness BUILDING', (done) => {
+                const s = {
+                    ...baseScenario,
+                    latest_run: {id: 2, status: 'computing'},
+                    latest_complete_run: {id: 1, status: 'complete'}
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-results-freshness-building-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('rainfall-unattached', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane scenario={{...baseScenario, rainfall: null}} canEdit rainfalls={rainfallOpts} />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-rainfall-unattached-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('rainfall-attached-empty', (done) => {
+                const emptyRainfallOpts = [{id: 6, title: 'Default Rainfall', has_feature_data: false}];
+                ReactDOM.render(
+                    <ScenarioPane scenario={{...baseScenario, rainfall: 6}} canEdit rainfalls={emptyRainfallOpts} />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-rainfall-attached-empty-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('meshregion-unattached', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane scenario={{...baseScenario, mesh_region: null}} canEdit meshRegions={meshRegionOpts} />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-mesh-region-unattached-hint')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('inflow-anchor-mismatch', (done) => {
+                const s = {
+                    ...baseScenario,
+                    inflow_anchor_mismatch: {
+                        series: [
+                            {timeseries_id: 101, name: 'Hydrograph A', first_timestamp: '2000-01-01T00:00:00.000'},
+                            {timeseries_id: 102, name: 'Hydrograph B', first_timestamp: '2000-01-01T01:00:00.000'}
+                        ]
+                    }
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        expect(panel.querySelector('.sv-anuga-scenario-anchor-mismatch-warning')).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('terrain-coverage-gap (with its suggestion link)', (done) => {
+                const gappyTerrainOpts = [{id: 3, title: 'Gappy Survey', status: 'ready', has_coverage_gaps: true}];
+                let opened = false;
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={baseScenario}
+                        canEdit
+                        terrain={gappyTerrainOpts}
+                        onOpenMergeTerrainsPanel={() => { opened = true; }}
+                    />,
+                    container,
+                    () => {
+                        const panel = container.querySelector('.sv-anuga-notices-panel');
+                        const suggestion = panel.querySelector('.sv-anuga-scenario-terrain-gap-suggestion');
+                        expect(suggestion).toExist();
+                        const link = panel.querySelector('[data-testid="anuga-terrain-gap-suggestion-merge-link"]');
+                        expect(link).toExist();
+                        Simulate.click(link);
+                        expect(opened).toBe(true);
+                        done();
+                    }
+                );
+            });
+        });
+
+        // Non-members (design-pinned): explicit regression that these three
+        // still render field-adjacent in their existing homes, NOT inside
+        // the notices panel. (The 4th non-member, the build-conflict inline
+        // span, lives in anugaScenarioMenu.js/anugaScenarioMenu-test.js, not
+        // here.)
+        describe('Non-members stay field-adjacent (regression)', () => {
+            it('mesh cost-driver hint renders in the Run section, not the notices panel', (done) => {
+                const s = {
+                    ...baseScenario,
+                    resolution: 500,
+                    mesh_triangle_count_estimate_breakdown: {base: 10, regions: 90, hole_perimeter: 0, breaklines: 0, total: 100}
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        const hint = container.querySelector('.sv-anuga-scenario-mesh-cost-driver-hint');
+                        expect(hint).toExist();
+                        expect(container.querySelector('.sv-anuga-notices-panel')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('post-build actual-vs-estimate comparison renders in the Run section, not the notices panel', (done) => {
+                const s = {
+                    ...baseScenario,
+                    latest_run: {
+                        mesh_provenance: {pre_build_triangle_estimate: 1000},
+                        mesh_triangle_count: 1200
+                    }
+                };
+                ReactDOM.render(
+                    <ScenarioPane scenario={s} canEdit />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toExist();
+                        expect(container.querySelector('.sv-anuga-notices-panel')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('the read-only pane hint renders in its own place, not the notices panel', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane scenario={baseScenario} canEdit={false} />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.sv-anuga-scenario-pane-readonly-hint')).toExist();
+                        expect(container.querySelector('.sv-anuga-notices-panel')).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+    });
+
+    // ------------------------------------------------------------------
     // Status and actions pane (Pane 3)
     // ------------------------------------------------------------------
     describe('Status and actions pane', () => {
@@ -1571,8 +2479,10 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 container,
                 () => {
                     expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
-                    // Pill renders inside the status card; container also has compact
-                    // pill in the toolbar.
+                    // Pill renders inside the status card. TASK-2244
+                    // (epic 2237 W2.2) — the toolbar's compact pill is now
+                    // error-only (the title pill), so for a non-error status
+                    // like 'built' the status card's pill is the ONLY one.
                     const pills = container.querySelectorAll('.sv-scenario-status-pill');
                     expect(pills.length).toBeGreaterThan(0);
                     done();
@@ -1602,7 +2512,12 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('renders the error strip when status === error', (done) => {
+        // TASK-2244 (epic 2237 W2.2) — re-pointed: the error strip is no
+        // longer a standalone render at the bottom of the Run pane; it's now
+        // embedded (unmodified) as the Run-failed notice's body inside the
+        // notices panel. Scoping the query to `.sv-anuga-notices-panel`
+        // proves the relocation, not just that the strip exists SOMEWHERE.
+        it('renders the error strip inside the notices panel when status === error', (done) => {
             const s = {
                 ...baseScenario,
                 status: 'error',
@@ -1616,7 +2531,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.sv-anuga-scenario-error-strip')).toExist();
+                    const panel = container.querySelector('.sv-anuga-notices-panel');
+                    expect(panel).toExist();
+                    expect(panel.querySelector('.sv-anuga-scenario-error-strip')).toExist();
                     done();
                 }
             );
@@ -1633,6 +2550,139 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 () => {
                     expect(container.querySelector('.sv-anuga-scenario-error-strip')).toNotExist();
                     done();
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // TASK-2244 (epic 2237 W2.2) — error consolidation: title pill + the
+    // Run-failed notice. Exactly one standing indicator (the title pill)
+    // plus the one notice for errored scenarios; neither for anything else.
+    // ------------------------------------------------------------------
+    describe('Error consolidation (TASK-2244)', () => {
+        const erroredScenario = {
+            ...baseScenario,
+            status: 'error',
+            latest_run: {status: 'error', error_message: 'mesh validation failed'}
+        };
+
+        it('renders the title pill (toolbar, compact, error-styled) only when the latest run errored', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={erroredScenario} selectedCategoryId={'run'} canEdit />,
+                container,
+                () => {
+                    const pill = container.querySelector('.sv-anuga-pane-head-actions .sv-scenario-status-pill');
+                    expect(pill).toExist();
+                    expect(pill.className).toInclude('sv-status-error');
+                    done();
+                }
+            );
+        });
+
+        it('renders no toolbar pill for a non-error status', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, status: 'built'}}
+                    selectedCategoryId={'run'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-pane-head-actions')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('renders the Run-failed notice hosting the error strip inside the notices panel', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={erroredScenario} selectedCategoryId={'run'} canEdit />,
+                container,
+                () => {
+                    const panel = container.querySelector('.sv-anuga-notices-panel');
+                    expect(panel).toExist();
+                    const strip = panel.querySelector('.sv-anuga-scenario-error-strip');
+                    expect(strip).toExist();
+                    expect(strip.textContent).toInclude('mesh validation failed');
+                    done();
+                }
+            );
+        });
+
+        it('renders no Run-failed notice for a non-error status', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, status: 'built'}}
+                    selectedCategoryId={'run'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-error-strip')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('suppresses the Run-heading "err" badge for an errored scenario (render-level only)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane scenario={erroredScenario} selectedCategoryId={'run'} canEdit />,
+                container,
+                () => {
+                    expect(container.querySelector('.sv-anuga-scenario-pane-detail-head-badge.is-err')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        // TASK-2221 (W5, epic 2204) — ScenarioErrorStrip resets logTailOpen
+        // when the (scenario id, latest_run id) identity changes, not on
+        // every re-render. Collapsing/expanding the notices panel does NOT
+        // change that identity, so the always-render + .is-open CSS-collapse
+        // convention (the panel body never unmounts) must let logTailOpen
+        // survive a toggle — the whole point of embedding the strip rather
+        // than re-implementing it.
+        it('logTailOpen survives a notices-panel collapse/expand toggle', (done) => {
+            const s = {
+                ...erroredScenario,
+                id: 21,
+                latest_run: {id: 99, status: 'error', log: 'line1\nline2\nline3'}
+            };
+            ReactDOM.render(
+                <ScenarioPane scenario={s} selectedCategoryId={'run'} canEdit />,
+                container,
+                () => {
+                    const toggleLogTail = container.querySelector('.sv-anuga-scenario-error-log-tail-toggle');
+                    expect(toggleLogTail).toExist();
+
+                    // Every click here is deferred a tick — see the comment
+                    // in 'shows the "{N} notices" header...' above: a click
+                    // dispatched from inside this mount-commit callback
+                    // doesn't flush its state update until the callback's
+                    // own call stack unwinds.
+                    setTimeout(() => {
+                        toggleLogTail.click();
+                        setTimeout(() => {
+                            expect(container.querySelector('.sv-log-viewer')).toExist();
+
+                            // Collapse the notices panel, then re-expand it.
+                            const panelHeader = container.querySelector('.sv-anuga-notices-panel-header');
+                            panelHeader.click();
+                            setTimeout(() => {
+                                expect(container.querySelector('.sv-anuga-notices-panel').className).toNotInclude('is-open');
+                                panelHeader.click();
+                                setTimeout(() => {
+                                    expect(container.querySelector('.sv-anuga-notices-panel').className).toInclude('is-open');
+                                    // The log tail is still expanded — its own
+                                    // state was never touched by the panel's
+                                    // collapse/expand.
+                                    expect(container.querySelector('.sv-log-viewer')).toExist();
+                                    done();
+                                }, 0);
+                            }, 0);
+                        }, 0);
+                    }, 0);
                 }
             );
         });
@@ -2028,6 +3078,49 @@ describe('rainfallAttachedButEmpty (TASK-2189)', () => {
 
     it('is false when rainfalls is undefined/absent', () => {
         expect(rainfallAttachedButEmpty({rainfall: 6}, undefined)).toBe(false);
+    });
+});
+
+// ------------------------------------------------------------------
+// TASK-2267 — an empty drawn layer (has_features === false) must NOT trigger
+// the "unattached" nag. Both predicates filter empty scaffolds; true/undefined
+// still count as a real drawn layer (never fabricate suppression).
+// ------------------------------------------------------------------
+describe('meshRegionIsUnattached — empty-layer suppression (TASK-2267)', () => {
+    it('is false when the only drawn region is empty (has_features === false)', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, [{id: 9, title: 'Empty', has_features: false}])).toBe(false);
+    });
+
+    it('is true when the drawn region has features (has_features === true)', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, [{id: 9, title: 'Drawn', has_features: true}])).toBe(true);
+    });
+
+    it('is true when has_features is undefined (never fabricate suppression)', () => {
+        expect(meshRegionIsUnattached({mesh_region: null}, [{id: 9, title: 'Legacy'}])).toBe(true);
+    });
+
+    it('is true when at least one drawn region is non-empty (mixed list)', () => {
+        const mixed = [{id: 9, title: 'Empty', has_features: false}, {id: 10, title: 'Real', has_features: true}];
+        expect(meshRegionIsUnattached({mesh_region: null}, mixed)).toBe(true);
+    });
+});
+
+describe('rainfallIsUnattached — empty-layer suppression (TASK-2267)', () => {
+    it('is false when the only drawn rainfall is empty (has_features === false)', () => {
+        expect(rainfallIsUnattached({rainfall: null}, [{id: 6, title: 'Empty', has_features: false}])).toBe(false);
+    });
+
+    it('is true when the drawn rainfall has features (has_features === true)', () => {
+        expect(rainfallIsUnattached({rainfall: null}, [{id: 6, title: 'Drawn', has_features: true}])).toBe(true);
+    });
+
+    it('is true when has_features is undefined (never fabricate suppression)', () => {
+        expect(rainfallIsUnattached({rainfall: null}, [{id: 6, title: 'Legacy'}])).toBe(true);
+    });
+
+    it('is true when at least one drawn rainfall is non-empty (mixed list)', () => {
+        const mixed = [{id: 6, title: 'Empty', has_features: false}, {id: 7, title: 'Real', has_features: true}];
+        expect(rainfallIsUnattached({rainfall: null}, mixed)).toBe(true);
     });
 });
 

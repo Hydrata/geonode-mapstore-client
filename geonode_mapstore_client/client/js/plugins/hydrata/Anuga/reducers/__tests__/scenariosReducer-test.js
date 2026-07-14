@@ -7,7 +7,13 @@
  */
 import expect from 'expect';
 import scenariosReducer from '../scenariosReducer';
-import {ADD_ANUGA_SCENARIO} from '../../actions/scenarioActions';
+import {
+    ADD_ANUGA_SCENARIO,
+    ARCHIVE_ANUGA_SCENARIO,
+    ARCHIVE_ANUGA_SCENARIO_ERROR,
+    ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+    archiveAnugaScenarioError
+} from '../../actions/scenarioActions';
 import {
     BUILD_SCENARIO,
     BUILD_SCENARIO_SUCCESS,
@@ -148,6 +154,68 @@ describe('TASK-2079 scenariosReducer BUILD_SCENARIO_ERROR / buildConflict', () =
             runId: 1,
             runStatus: 'building',
             detail: 'in flight'
+        });
+        expect(state).toEqual(baseState());
+    });
+});
+
+// TASK-2264 — a failed archive (412: scenario has an active/queued run)
+// stashes the BE detail as `archiveError` on the scenario so the pane's
+// notices surface can anchor it inline, not just in the easy-to-miss toast.
+describe('TASK-2264 scenariosReducer ARCHIVE_ANUGA_SCENARIO_ERROR / archiveError', () => {
+    const baseState = () => ({
+        byId: {7: {id: 7, name: 'Scenario 7'}},
+        allIds: [7],
+        selectedId: 7,
+        archiveFilter: 'none'
+    });
+
+    it('stashes the BE detail as archiveError on the scenario', () => {
+        const state = scenariosReducer(baseState(), {
+            type: ARCHIVE_ANUGA_SCENARIO_ERROR,
+            scenarioId: 7,
+            detail: 'Cannot archive: scenario has an active run.'
+        });
+        expect(state.byId[7].archiveError).toBe('Cannot archive: scenario has an active run.');
+    });
+
+    it('the archiveAnugaScenarioError action creator carries the BE detail string', () => {
+        const action = archiveAnugaScenarioError(7, {detail: 'active run'});
+        expect(action.type).toBe(ARCHIVE_ANUGA_SCENARIO_ERROR);
+        expect(action.scenarioId).toBe(7);
+        expect(action.detail).toBe('active run');
+    });
+
+    it('falls back to a default detail when the BE body has none', () => {
+        const action = archiveAnugaScenarioError(7, undefined);
+        expect(action.detail).toBe('Could not archive scenario.');
+    });
+
+    it('a fresh ARCHIVE_ANUGA_SCENARIO optimistically clears a stale archiveError', () => {
+        const errored = scenariosReducer(baseState(), {
+            type: ARCHIVE_ANUGA_SCENARIO_ERROR, scenarioId: 7, detail: 'active run'
+        });
+        const state = scenariosReducer(errored, {
+            type: ARCHIVE_ANUGA_SCENARIO, scenario: {id: 7}
+        });
+        expect(state.byId[7].archiveError).toBe(null);
+    });
+
+    it('ARCHIVE_ANUGA_SCENARIO_SUCCESS clears a stale archiveError', () => {
+        const errored = scenariosReducer(baseState(), {
+            type: ARCHIVE_ANUGA_SCENARIO_ERROR, scenarioId: 7, detail: 'active run'
+        });
+        const state = scenariosReducer(errored, {
+            type: ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+            scenario: {id: 7, archived_at: '2026-07-14T00:00:00Z'}
+        });
+        expect(state.byId[7].archiveError).toBe(null);
+        expect(state.byId[7].archived_at).toBe('2026-07-14T00:00:00Z');
+    });
+
+    it('is a no-op for an unknown scenarioId', () => {
+        const state = scenariosReducer(baseState(), {
+            type: ARCHIVE_ANUGA_SCENARIO_ERROR, scenarioId: 999, detail: 'x'
         });
         expect(state).toEqual(baseState());
     });

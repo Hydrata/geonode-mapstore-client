@@ -32,10 +32,11 @@ import {
     duplicateAnugaScenarioSuccess,
     ARCHIVE_ANUGA_SCENARIO,
     archiveAnugaScenarioSuccess,
-    // Wave 3C C5: archiveAnugaScenarioError → showArchiveError. Toast-only
-    // (no Redux action dispatch); the prior ARCHIVE_ANUGA_SCENARIO_ERROR
-    // action had no reducer or middleware consumer.
+    // TASK-2264: on a 412 the epic now dispatches BOTH the toast
+    // (showArchiveError) and archiveAnugaScenarioError (which the reducer
+    // stashes as `archiveError` for the pane's in-pane notices surface).
     showArchiveError,
+    archiveAnugaScenarioError,
     UNARCHIVE_ANUGA_SCENARIO,
     unarchiveAnugaScenarioSuccess,
     initAnuga,
@@ -205,13 +206,15 @@ export const duplicateAnugaScenarioEpic = (action$, store) =>
                 .concatMap((response) => Rx.Observable.of(duplicateAnugaScenarioSuccess(response.data)))
         );
 
-// 412 Precondition Failed surfaces a user-visible toast (the scenario has an
-// active/queued run). Wave 3C C5: the catch handler now dispatches only the
-// toast thunk — the prior ARCHIVE_ANUGA_SCENARIO_ERROR action had no
-// reducer or middleware consumer. Wave 3C C1 also pre-disables the Archive
-// button while a run is in flight, so this 412 path is now a defence-in-depth
-// fallback (race window between the BE flipping a run to terminal and the
-// FE poller refreshing the row).
+// 412 Precondition Failed (the scenario has an active/queued run). Wave 3C C1
+// pre-disables the Archive button while a run is in flight, so this path is a
+// defence-in-depth fallback (race window between the BE flipping a run to
+// terminal and the FE poller refreshing the row). TASK-2264: on a 412 the
+// catch now dispatches BOTH the toast (showArchiveError) AND
+// archiveAnugaScenarioError — the latter the reducer stashes as `archiveError`
+// on the scenario, which the pane's consolidated notices surface renders
+// inline, anchored where the action happened (W4.2: the toast alone was
+// missed).
 export const archiveAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(ARCHIVE_ANUGA_SCENARIO)
@@ -221,12 +224,16 @@ export const archiveAnugaScenarioEpic = (action$, store) =>
             )
                 .concatMap((response) => Rx.Observable.of(archiveAnugaScenarioSuccess(response.data)))
                 // axios surfaces 4xx as a thrown error with .response; pull the
-                // BE detail string off and route through the toast thunk.
-                // Fallback to err.data covers test mocks that don't construct
-                // a full response object on the thrown error.
-                .catch((err) => Rx.Observable.of(
-                    showArchiveError(err?.response?.data || err?.data)
-                ))
+                // BE detail string off and route it to BOTH the toast and the
+                // in-pane surface. Fallback to err.data covers test mocks that
+                // don't construct a full response object on the thrown error.
+                .catch((err) => {
+                    const errorBody = err?.response?.data || err?.data;
+                    return Rx.Observable.of(
+                        showArchiveError(errorBody),
+                        archiveAnugaScenarioError(action.scenario.id, errorBody)
+                    );
+                })
         );
 
 // Simpler than archive: no 412 case, since unarchive is always safe (it

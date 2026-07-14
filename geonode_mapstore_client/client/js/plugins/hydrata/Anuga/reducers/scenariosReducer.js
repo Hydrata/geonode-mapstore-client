@@ -5,7 +5,12 @@ import {
     UPDATE_ANUGA_SCENARIO,
     SAVE_ANUGA_SCENARIO_SUCCESS,
     DUPLICATE_ANUGA_SCENARIO_SUCCESS,
+    ARCHIVE_ANUGA_SCENARIO,
     ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+    // TASK-2264 — a 412 (scenario has an active/queued run) stashes the BE
+    // detail as `archiveError` on the scenario so the pane's notices surface
+    // can anchor it, instead of relying only on the easy-to-miss toast.
+    ARCHIVE_ANUGA_SCENARIO_ERROR,
     UNARCHIVE_ANUGA_SCENARIO_SUCCESS,
     SET_ANUGA_SCENARIO_ARCHIVE_FILTER,
     SELECT_ANUGA_SCENARIO,
@@ -190,9 +195,32 @@ export default (state = initialState, action) => {
                     ...state.byId[id],
                     archived_at: action.scenario.archived_at,
                     archived_by: action.scenario.archived_by,
-                    archived_by_username: action.scenario.archived_by_username
+                    archived_by_username: action.scenario.archived_by_username,
+                    // TASK-2264 — a successful archive clears any stale 412 error.
+                    archiveError: null
                 }
             }
+        };
+    }
+    case ARCHIVE_ANUGA_SCENARIO: {
+        // TASK-2264 — a fresh archive attempt optimistically clears any stale
+        // archiveError before the request resolves (mirrors BUILD_SCENARIO
+        // clearing buildConflict).
+        const id = action.scenario?.id;
+        if (!id || !state.byId[id] || !state.byId[id].archiveError) return state;
+        return {
+            ...state,
+            byId: { ...state.byId, [id]: { ...state.byId[id], archiveError: null } }
+        };
+    }
+    case ARCHIVE_ANUGA_SCENARIO_ERROR: {
+        // TASK-2264 — stash the BE 412 detail on the scenario so the pane's
+        // consolidated notices surface can render it inline.
+        const id = action.scenarioId;
+        if (!id || !state.byId[id]) return state;
+        return {
+            ...state,
+            byId: { ...state.byId, [id]: { ...state.byId[id], archiveError: action.detail } }
         };
     }
     case SET_ANUGA_SCENARIO_ARCHIVE_FILTER: {
