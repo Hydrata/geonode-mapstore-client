@@ -49,6 +49,7 @@ import {
     applyDryMask
 } from '../epics/profileEpic';
 import { END_DRAWING, CHANGE_DRAWING_STATUS } from '../../../../../MapStore2/web/client/actions/draw';
+import { clearProfile } from '../actionsAnuga';
 
 // ── State helpers ──────────────────────────────────────────────────────────
 // A WGS84 project so reprojection is a pass-through and we can assert the WKT
@@ -379,6 +380,30 @@ describe('profileEndDrawingEpic — single call, multi-terrain/multi-scenario (T
         runEpic(profileEndDrawingEpic, action$, makeState(), done, (emitted) => {
             expect(emitted.filter(a => String(a.type).startsWith('ANUGA:SET_PROFILE')).length)
                 .toBe(0, 'expected no profile actions for a foreign owner');
+        });
+    });
+
+    // W5 review fix (TASK-2272): a "Clear" mid-sample must cancel the in-flight
+    // request, else the late response repopulates the chart after Clear wiped the
+    // state + map line. CLEAR_PROFILE fires synchronously right after END_DRAWING
+    // (same tick), before the mocked response resolves on a microtask, so takeUntil
+    // cancels deterministically — no SET_PROFILE_SAMPLES is ever emitted.
+    it('CLEAR_PROFILE mid-sample cancels the request (no late SET_PROFILE_SAMPLES)', function(done) {
+        this.timeout(3000);
+        let called = false;
+        mock.onGet(/profile/).reply(() => {
+            called = true;
+            return [200, { samples: [{ distance_m: 0, ele_7_blue_mountains: 100 }], crs: 'EPSG:4326' }];
+        });
+        const action$ = mockActions([
+            endDrawingLine([[150.1, -33.6], [150.2, -33.7]]),
+            clearProfile()
+        ]);
+        runEpic(profileEndDrawingEpic, action$, makeState(), done, (emitted) => {
+            // Loading was flipped on before the cancel...
+            expect(emitted.some(a => a.type === 'ANUGA:SET_PROFILE_LOADING' && a.loading === true)).toBe(true);
+            // ...but the (cancelled) response never repopulated the chart.
+            expect(emitted.some(a => a.type === 'ANUGA:SET_PROFILE_SAMPLES')).toBe(false);
         });
     });
 

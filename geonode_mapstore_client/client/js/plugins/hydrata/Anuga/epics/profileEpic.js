@@ -50,6 +50,7 @@ import { reproject } from '../../../../../MapStore2/web/client/utils/Coordinates
 import {
     START_PROFILE_DRAW,
     SET_PROFILE_PANEL_VISIBLE,
+    CLEAR_PROFILE,
     setProfileDrawing,
     setProfileLoading,
     setProfileSamples,
@@ -485,6 +486,11 @@ export function profileEndDrawingEpic(action$, store) {
                         return setProfileSamples(applyDryMask(samples, traces), traces);
                     })
                     .catch(() => Rx.Observable.of(setProfileError('hydrata.anuga.profileFailed')))
+                    // W5 review fix (TASK-2272): if the user hits "Clear" while
+                    // this sample is in flight, cancel it — otherwise the late
+                    // response repopulates the chart after the state + map line
+                    // were already wiped, leaving chart/map inconsistent.
+                    .takeUntil(action$.ofType(CLEAR_PROFILE))
             );
         });
 }

@@ -2386,8 +2386,8 @@ div that holds the feature-grid */
 }
 .sv-profile-chart {
     margin-top: 8px;
-    /* The plotly SVG paints its own surface; the panel glass shows through via
-       the transparent paper/plot bg set in DARK_GLASS_LAYOUT. */
+    /* The plotly SVG paints its own white surface (paper/plot bg in
+       CROSS_SECTION_LAYOUT, TASK-2270) for maximum line contrast. */
 }
 
 /* ── TASK-2256 (epic 2249 W3) — picker-as-legend ───────────────────────────

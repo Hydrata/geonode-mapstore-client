@@ -334,6 +334,26 @@ describe('buildCrossSectionData — mask water below terrain (TASK-2273)', () =>
         const water = data.find(d => d.name !== 'Elevation');
         expect(water.y).toEqual([null, 22.0]);
     });
+
+    // W5 review fix: the mask compares ONLY against the water's OWN terrain. When
+    // that terrain is not among the sampled dem traces (e.g. a proposed-design
+    // scenario whose terrain isn't checked), the water is a legitimate
+    // below-a-DIFFERENT-terrain surface, NOT the resolution artefact — leave it
+    // unmasked rather than silently delete the whole trace via a slot-1 fallback.
+    it('does NOT mask when the water\'s own scenario terrain is absent from the sampled terrains', () => {
+        const samples = [
+            { distance_m: 0, demA: 30, stageB: 25 }, // stageB below terrain A, but A is NOT B's terrain
+            { distance_m: 5, demA: 30, stageB: 26 }
+        ];
+        const mixed = [
+            { key: 'demA', label: 'Terrain A', role: 'dem', terrainId: 1 },
+            { key: 'stageB', label: 'Scenario B', role: 'stage', scenarioId: 2 }
+        ];
+        // Scenario 2's own terrain is 9, which has no dem trace here.
+        const data = buildCrossSectionData(samples, mixed, { scenarioTerrainById: { 2: 9 } });
+        const water = data.find(d => d.name !== 'Terrain A');
+        expect(water.y).toEqual([25, 26]);
+    });
 });
 
 describe('TerrainProfilePanel — cross-section render (TASK-2253, cross-section-only)', () => {

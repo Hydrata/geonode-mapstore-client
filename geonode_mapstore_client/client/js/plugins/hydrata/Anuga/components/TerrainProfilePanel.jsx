@@ -9,7 +9,7 @@
  * conditional fill rule live alongside buildCrossSectionData below (LOCKED
  * decisions #6/#7).
  *
- * Cross-section tool. A dark-glass SimpleView side panel with the picker, a
+ * Cross-section tool. A SimpleView side panel with the picker, a
  * "Draw profile line" button, and a Plotly chart of up to 3 terrains + 3
  * water surfaces vs distance along the drawn line.
  *
@@ -22,8 +22,8 @@
  *   ALSO guards server-side, so the panel never queries with no terrain.
  *
  * Chart: the MapStore PlotlyChart primitive (the same plotly the
- * LongitudinalProfile dock uses), with a transparent dark-glass layout
- * (transparent paper/plot, light text + grid).
+ * LongitudinalProfile dock uses), with a white layout (white paper/plot, dark
+ * text + light grid, axis unit titles) — TASK-2270.
  *
  * Mounted at the container level (like TerrainBboxPanel) so closing the Inputs
  * menu can't unmount it mid-draw; self-gates on profilePanelVisible.
@@ -237,17 +237,24 @@ export function buildCrossSectionData(samples, traces, opts) {
     // the terrain trace is the finer input DEM, so at shallow pond MARGINS the
     // flat stage can dip a few cm below the finer ground — a pure resolution
     // artefact that reads as "water below the terrain" (operator UAT 2026-07-14).
-    // Each water is compared against ITS OWN scenario's terrain column (fallback:
-    // slot-1 terrain); the point is dropped where stage < terrain. Strict `<`
-    // keeps the depth-0 shoreline (stage == terrain, which coincides with the
-    // ground line and is harmless). This never derives a stage from bed+depth
-    // (LOCKED decision #3) — it only HIDES a published value that cannot
-    // legitimately be shown below ground.
+    // Each water is compared ONLY against ITS OWN scenario's terrain column; the
+    // point is dropped where stage < terrain. Strict `<` keeps the depth-0
+    // shoreline (stage == terrain, which coincides with the ground line and is
+    // harmless). This never derives a stage from bed+depth (LOCKED decision #3) —
+    // it only HIDES a published value that cannot legitimately be shown below its
+    // own ground.
+    // NO fallback to slot-1 terrain: if the water's own terrain isn't among the
+    // sampled dem traces (e.g. a proposed-design scenario whose terrain isn't
+    // checked), we CANNOT tell this resolution artefact from a legitimate
+    // below-a-DIFFERENT-terrain water (which the W3 fill rule already treats as
+    // plausible), so we leave the raw stage unmasked rather than silently delete
+    // a whole trace. The artefact only exists relative to the scenario's OWN
+    // terrain. (W5 review fix.)
     const demByTerrainId = {};
     demTraces.forEach((d) => { if (d && d.terrainId != null) demByTerrainId[d.terrainId] = d; });
     const maskedWaterYFor = (stageTrace) => {
         const raw = yFor(stageTrace);
-        const refTerrain = demByTerrainId[scenarioTerrainById[stageTrace.scenarioId]] || demTraces[0];
+        const refTerrain = demByTerrainId[scenarioTerrainById[stageTrace.scenarioId]];
         if (!refTerrain) return raw;
         const terrainY = yFor(refTerrain);
         return raw.map((v, idx) => {
