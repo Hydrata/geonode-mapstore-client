@@ -17,6 +17,7 @@ import {
     TerrainProfilePanelClass,
     buildCrossSectionData,
     buildCheckedSlotMap,
+    buildChartSlotMap,
     computeYRange,
     CROSS_SECTION_LAYOUT,
     CROSS_SECTION_FILL_ENABLED,
@@ -505,5 +506,123 @@ describe('TerrainProfilePanel — buildCheckedSlotMap (TASK-2262)', () => {
         expect(() => buildCheckedSlotMap(rows, null)).toNotThrow();
         expect(buildCheckedSlotMap(null, [1])).toEqual({});
         expect(buildCheckedSlotMap(rows, null)).toEqual({});
+    });
+});
+
+describe('TerrainProfilePanel — buildChartSlotMap (TASK-2261 W-followup)', () => {
+    // While a chart is displayed the picker legend mirrors it: a swatch reads
+    // its colour from the STORED traces (the array buildCrossSectionData
+    // renders), keyed by terrainId / scenarioId -> index within its role
+    // subset — the exact i/j buildCrossSectionData feeds terrainColor(i) /
+    // waterColor(j), so swatch === plotted line even when live selection has
+    // diverged from what was drawn.
+    const traces = [
+        { key: 'ele_1', role: 'dem', terrainId: 1 },
+        { key: 'ele_2', role: 'dem', terrainId: 2 },
+        { key: 'stage_a', role: 'stage', scenarioId: 10 },
+        { key: 'stage_b', role: 'stage', scenarioId: 13 }
+    ];
+
+    it('keys terrain rows by terrainId -> index within the dem subset', () => {
+        expect(buildChartSlotMap(traces, 'terrain')).toEqual({ 1: 0, 2: 1 });
+    });
+
+    it('keys water rows by scenarioId -> index within the stage subset', () => {
+        expect(buildChartSlotMap(traces, 'water')).toEqual({ 10: 0, 13: 1 });
+    });
+
+    it('is empty for null/absent traces and never throws', () => {
+        expect(() => buildChartSlotMap(null, 'terrain')).toNotThrow();
+        expect(buildChartSlotMap(null, 'water')).toEqual({});
+        expect(buildChartSlotMap([], 'terrain')).toEqual({});
+    });
+});
+
+describe('TerrainProfilePanel — picker legend mirrors the displayed chart (TASK-2261 W-followup)', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); });
+
+    const terrainRows = [
+        { id: 1, status: 'ready', gn_layer_name: 'ele_1', title: 'Terrain One' },
+        { id: 2, status: 'ready', gn_layer_name: 'ele_2', title: 'Terrain Two' }
+    ];
+    const scenarioRows = [
+        { id: 10, status: 'ready', scenario: { id: 10, name: 'Scenario Ready', terrain: 1, latest_complete_run: { real_world_end: '2026-06-01T00:00:00Z' } } },
+        { id: 12, status: 'no-stage', scenario: { id: 12, name: 'Scenario NoStage', latest_complete_run: { real_world_end: null } } },
+        { id: 13, status: 'ready', scenario: { id: 13, name: 'Scenario Stale', terrain: 1, latest_run_is_valid: false, latest_complete_run: { real_world_end: '2026-05-01T00:00:00Z' } } }
+    ];
+    // Water surface (stage) sits AT or ABOVE its own terrain where wet, so the
+    // lines actually draw (the TASK-2273 mask only nulls stage < own terrain).
+    const samples = [
+        { distance_m: 0, ele_1: 10, stage_a: 10.5, stage_b: 10.3, stage_12: 10.5, stage_13: 10.3 },
+        { distance_m: 1, ele_1: 11, stage_a: 11.5, stage_b: 11.3, stage_12: 11.5, stage_13: 11.3 }
+    ];
+    const noop = () => {};
+
+    const render = (props) => {
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady
+                terrainRows={terrainRows}
+                scenarioRows={scenarioRows}
+                checkedTerrainIds={[1]}
+                checkedScenarioIds={[10, 13]}
+                samples={samples}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+                toggleCheckedTerrain={noop} toggleCheckedScenario={noop}
+                {...props}
+            />,
+            container
+        );
+    };
+
+    it('swatch colour comes from the STORED chart trace, not the live selection', () => {
+        // Chart plots dem(terrain 1) + stage(scenario 10, slot 0) + stage
+        // (scenario 13, slot 1). Each swatch matches its plotted line colour;
+        // a row NOT on the chart (terrain 2, scenario 11-absent) has no swatch.
+        render({
+            traces: [
+                { key: 'ele_1', role: 'dem', terrainId: 1, label: 'Terrain One' },
+                { key: 'stage_a', role: 'stage', scenarioId: 10, label: 'Scenario Ready' },
+                { key: 'stage_b', role: 'stage', scenarioId: 13, label: 'Scenario Stale' }
+            ]
+        });
+        expect(container.querySelector('[data-testid="picker-swatch-terrain-1"]').style.backgroundColor).toBe('rgb(184, 153, 104)');
+        expect(container.querySelector('[data-testid="picker-swatch-terrain-2"]').style.backgroundColor).toBe('transparent');
+        expect(container.querySelector('[data-testid="picker-swatch-water-10"]').style.backgroundColor).toBe('rgb(91, 192, 255)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(56, 178, 163)');
+    });
+
+    it('a scenario un-published AFTER it was drawn keeps its plotted-line swatch, and the surviving row keeps ITS chart colour (no phantom trace, no slot-shift)', () => {
+        // The stored chart still draws scenario 12 (drawn while ready) at stage
+        // slot 0 and scenario 13 at slot 1. Scenario 12's live status has since
+        // flipped to 'no-stage' (disabled row). Because the picker legend
+        // mirrors the DISPLAYED chart: 12's row is disabled BUT still shows its
+        // plotted line's colour (waterColor(0)) — no visible trace without a
+        // legend entry — and 13 keeps waterColor(1), matching its own line
+        // rather than shifting to slot 0.
+        render({
+            checkedScenarioIds: [13],
+            traces: [
+                { key: 'ele_1', role: 'dem', terrainId: 1, label: 'Terrain One' },
+                { key: 'stage_12', role: 'stage', scenarioId: 12, label: 'Scenario NoStage' },
+                { key: 'stage_13', role: 'stage', scenarioId: 13, label: 'Scenario Stale' }
+            ]
+        });
+        const row12 = container.querySelector('[data-testid="picker-row-water-12"]');
+        expect(row12.className).toContain('sv-picker-row-disabled');
+        expect(container.querySelector('[data-testid="picker-swatch-water-12"]').style.backgroundColor).toBe('rgb(91, 192, 255)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(56, 178, 163)');
+    });
+
+    it('before the first draw (no chart) the swatch still PREVIEWS the live selection', () => {
+        // samples null -> no chart -> preview mode -> buildCheckedSlotMap: the
+        // two checked ready scenarios take slots 0 and 1 by list order.
+        render({ samples: null, traces: null });
+        expect(container.querySelector('[data-testid="picker-swatch-water-10"]').style.backgroundColor).toBe('rgb(91, 192, 255)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(56, 178, 163)');
+        // A disabled (no-stage) row shows no preview swatch.
+        expect(container.querySelector('[data-testid="picker-swatch-water-12"]').style.backgroundColor).toBe('transparent');
     });
 });

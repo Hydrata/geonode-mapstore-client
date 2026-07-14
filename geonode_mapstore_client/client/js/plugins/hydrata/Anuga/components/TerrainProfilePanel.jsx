@@ -174,6 +174,31 @@ export function buildCheckedSlotMap(rows, checkedIds) {
     return map;
 }
 
+/**
+ * TASK-2261 (W-followup independent review) — the colour slot of every row
+ * whose trace is ON the currently DISPLAYED chart, read from the STORED profile
+ * traces (the exact array buildCrossSectionData renders). The picker rows ARE
+ * the chart's legend (LOCKED decision #5), so while a chart is up the swatch
+ * must match the plotted line, NOT the live selection: a trace's index within
+ * its role subset IS the colour slot buildCrossSectionData assigns
+ * (terrainColor(i) / waterColor(j)), so a swatch keyed here is pixel-identical
+ * to its line even when live checkability or the selection has since diverged
+ * from what was drawn (an external stage un-publish, or a toggle not yet
+ * applied via Redraw). `{rowId: slot}` keyed by terrainId (terrain) /
+ * scenarioId (water); a row not plotted is absent (transparent swatch). The
+ * live-selection preview (buildCheckedSlotMap) is used instead BEFORE the first
+ * draw, when there is no chart to be the legend for.
+ */
+export function buildChartSlotMap(traces, kind) {
+    const role = kind === 'terrain' ? 'dem' : 'stage';
+    const idKey = kind === 'terrain' ? 'terrainId' : 'scenarioId';
+    const map = {};
+    (traces || [])
+        .filter(t => t && t.role === role)
+        .forEach((t, idx) => { if (t[idKey] != null) map[t[idKey]] = idx; });
+    return map;
+}
+
 // Slot is the 0-based index within the CHECKED subset of a role, in stable
 // picker-list order (see getColorSlot). Clamped to the last palette entry so
 // a 4th+ trace (should never happen — the 3+3 cap enforces this upstream)
@@ -431,7 +456,7 @@ export class TerrainProfilePanelClass extends React.Component {
     // assignment — TASK-2262: renderPickerGroup now computes this ONCE per
     // group (buildCheckedSlotMap) and passes the resulting `slotMap` in,
     // rather than this method calling getColorSlot itself per row.
-    renderPickerRow(kind, slotMap, checkedIds, row, colorFn) {
+    renderPickerRow(kind, slotMap, chartMode, checkedIds, row, colorFn) {
         const isTerrain = kind === 'terrain';
         const checkable = isTerrain ? true : row.status === 'ready';
         const checked = checkedIds.includes(row.id);
@@ -439,16 +464,19 @@ export class TerrainProfilePanelClass extends React.Component {
         const capBlocked = checkable && !checked && atCap;
         const disabled = !checkable || capBlocked;
         const slot = Object.prototype.hasOwnProperty.call(slotMap, row.id) ? slotMap[row.id] : -1;
-        // TASK-2261: a row's checkability can flip to disabled (e.g. a
-        // scenario's stage gets un-published) while its id is STILL in
-        // checkedIds — pickerSeedEpic only reseeds on panel OPEN (TASK-2254),
-        // so a slot keyed only on checked-membership would otherwise keep
-        // colouring a row the chart has already stopped drawing
-        // (getProfileTraces filters on status==='ready'). Gate the swatch on
-        // `checkable` too so it renders unassigned/transparent like any
-        // other disabled row, matching the chart rather than the stale
-        // checked-id.
-        const swatchColor = (checkable && slot >= 0) ? colorFn(slot) : null;
+        // TASK-2261 (W-followup review): the picker rows ARE the chart's legend
+        // (LOCKED decision #5), so the swatch must match what is on screen.
+        //  - chartMode (a chart is displayed): `slotMap` is buildChartSlotMap —
+        //    the swatch is coloured iff this row's trace is plotted (present in
+        //    the stored traces), in that trace's EXACT colour, even if the row's
+        //    live checkability has since flipped (external stage un-publish) or
+        //    the selection changed without a Redraw. No `checkable` gate: a
+        //    still-plotted-but-now-disabled row keeps its line's colour until
+        //    the next Redraw drops the line.
+        //  - preview (no chart yet): `slotMap` is buildCheckedSlotMap — the
+        //    swatch previews the current SELECTION's colour, gated on live
+        //    checkability so a disabled row shows no preview swatch.
+        const swatchColor = slot >= 0 && (chartMode || checkable) ? colorFn(slot) : null;
         const label = isTerrain
             ? (row.title || row.name || row.gn_layer_name)
             : (row.scenario.name || `Scenario ${row.scenario.id}`);
@@ -508,18 +536,23 @@ export class TerrainProfilePanelClass extends React.Component {
         const rows = isTerrain ? this.props.terrainRows : this.props.scenarioRows;
         const checkedIds = isTerrain ? this.props.checkedTerrainIds : this.props.checkedScenarioIds;
         const colorFn = isTerrain ? terrainColor : waterColor;
-        // TASK-2262: computed ONCE per group render (not once per row inside
-        // the .map() below) — see buildCheckedSlotMap. Water rows must be
-        // ready-filtered FIRST: the chart assigns trace colours by index
-        // within the ready-only checked subset (profileEpic filters
-        // status==='ready'), so a checked-but-no-longer-ready row must not
-        // consume a slot or every later ready row's swatch shifts off its
-        // trace colour after the next redraw. (Terrain rows are already
-        // ready-filtered at the selector — LOCKED decision #10.)
-        const slotMap = buildCheckedSlotMap(
-            isTerrain ? rows : rows.filter(r => r && r.status === 'ready'),
-            checkedIds
-        );
+        // TASK-2261/2262: pick the swatch colour source. While a chart is
+        // displayed the picker legend MIRRORS it (buildChartSlotMap, keyed on
+        // the stored traces buildCrossSectionData renders) so swatch === plotted
+        // line regardless of live-selection drift; before the first draw it
+        // PREVIEWS the live selection (buildCheckedSlotMap). Either map is
+        // computed ONCE per group render, not once per row inside the .map()
+        // below (TASK-2262 O(N) not O(N^2)). buildCheckedSlotMap ready-filters
+        // water rows so a checked-but-no-longer-ready row never consumes a
+        // preview slot (terrain rows are ready-filtered at the selector).
+        const chartMode = Array.isArray(this.props.samples) && this.props.samples.length > 0
+            && Array.isArray(this.props.traces) && this.props.traces.some(t => t && t.role === 'dem');
+        const slotMap = chartMode
+            ? buildChartSlotMap(this.props.traces, kind)
+            : buildCheckedSlotMap(
+                isTerrain ? rows : rows.filter(r => r && r.status === 'ready'),
+                checkedIds
+            );
         return (
             <div className="sv-picker-group" data-testid={`picker-group-${kind}`}>
                 <div className="sv-picker-group-header">
@@ -530,7 +563,7 @@ export class TerrainProfilePanelClass extends React.Component {
                         {checkedIds.length}/3
                     </span>
                 </div>
-                {rows.map((row) => this.renderPickerRow(kind, slotMap, checkedIds, row, colorFn))}
+                {rows.map((row) => this.renderPickerRow(kind, slotMap, chartMode, checkedIds, row, colorFn))}
             </div>
         );
     }
