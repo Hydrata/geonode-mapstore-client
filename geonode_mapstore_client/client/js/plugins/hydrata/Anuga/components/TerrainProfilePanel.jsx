@@ -666,8 +666,19 @@ export class TerrainProfilePanelClass extends React.Component {
         if (!this.props.visible) return null;
         return (
             <div className={'simple-view-panel sv-profile-panel'} data-testid="profile-panel">
+                {/* TASK-2274 (live-verified 2026-07-14): extraClassName was
+                    "h4 sv-legend-heading" — the "h4" Bootstrap heading class
+                    contributes ONLY its default margin:8px 0 here (the title's
+                    font-size/weight are already set by PanelHeader's own inline
+                    titleStyle, which always wins over a class), and that
+                    margin pushes the WHOLE header (the close chip's
+                    position:relative containing block) down 8px — the DEM
+                    legend's PanelHeader usage (MovablePanel, extraClassName
+                    "sv-movable-panel-header", no "h4") carries no such margin,
+                    which is why the close chip sat visibly further from the
+                    panel's top edge here. Dropping "h4" equalises the two. */}
                 <PanelHeader
-                    extraClassName="h4 sv-legend-heading"
+                    extraClassName="sv-legend-heading"
                     title={<Message msgId="hydrata.anuga.crossSectionPanelTitle" />}
                     onClose={this.handleClose}
                 />

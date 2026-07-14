@@ -2359,7 +2359,20 @@ div that holds the feature-grid */
 }
 
 /* ── TASK-1861 (W4.4) — depth/result line-profile tool panel ──────────────── */
-.sv-profile-panel {
+/* TASK-2274 (W-followup, live-verified 2026-07-14): a COMPOUND selector
+   (both classes, no descendant combinator) — not just `.sv-profile-panel`.
+   The plugin CSS build namespaces every top-level selector under `.msgapi`
+   (see movablePanel.css's "css-namespace-guard" note), so a bare
+   `.sv-profile-panel` rule compiles to `.msgapi .sv-profile-panel`
+   (specificity 0,2,0) — EQUAL specificity to the base rule's own namespaced
+   form `.msgapi .simple-view-panel` (also 0,2,0). That's a tie, and a tie is
+   decided by STYLESHEET LOAD ORDER, which this repo does not otherwise
+   guarantee between the anuga/SimpleView bundles — live-verified on
+   localhost: the override silently lost the tie (panel rendered full-width,
+   NOT right-docked; padding stayed 5px 10px, not 0). `.simple-view-panel.
+   sv-profile-panel` compiles to `.msgapi .simple-view-panel.sv-profile-panel`
+   (0,3,0) — strictly higher, wins regardless of load order. */
+.simple-view-panel.sv-profile-panel {
     /* Left-align the help/body + chart (the base .simple-view-panel centres). */
     text-align: left;
     /* FINDING 4 (UAT 2026-06-23): dock on the RIGHT so the profile tool clears

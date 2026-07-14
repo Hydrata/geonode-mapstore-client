@@ -249,6 +249,17 @@ describe('TerrainProfilePanel — responsive body + close-button margin parity w
         expect(cs.overflowY).toBe('auto');
         expect(cs.minHeight).toBe('0px');
     });
+
+    it('the header carries NO "h4" class — live-verified (2026-07-14): Bootstrap\'s .h4 margin:8px 0 pushed the close chip 8px further down than the DEM legend\'s (MovablePanel PanelHeader carries no "h4")', () => {
+        ReactDOM.render(
+            <TerrainProfilePanelClass visible demReady setProfilePanelVisible={noop} startProfileDraw={noop} />,
+            container
+        );
+        const header = container.querySelector('[data-testid="profile-panel"] .sv-panel-header');
+        expect(header).toExist();
+        expect(header.className.split(' ')).toNotContain('h4');
+        expect(window.getComputedStyle(header).marginTop).toBe('0px');
+    });
 });
 
 describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
