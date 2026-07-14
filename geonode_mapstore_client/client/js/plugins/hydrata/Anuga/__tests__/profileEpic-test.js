@@ -42,14 +42,16 @@ import axios from '@mapstore/framework/libs/ajax';
 import {
     profileStartDrawEpic,
     profileEndDrawingEpic,
+    clearProfileLineEpic,
     coordsToWkt,
     extractLineFromDrawAction,
     getProfileLayers,
     getProfileTraces,
-    applyDryMask
+    applyDryMask,
+    PROFILE_DRAW_OWNER
 } from '../epics/profileEpic';
 import { END_DRAWING, CHANGE_DRAWING_STATUS } from '../../../../../MapStore2/web/client/actions/draw';
-import { clearProfile } from '../actionsAnuga';
+import { clearProfile, clearProfileLine } from '../actionsAnuga';
 
 // ── State helpers ──────────────────────────────────────────────────────────
 // A WGS84 project so reprojection is a pass-through and we can assert the WKT
@@ -448,6 +450,50 @@ describe('profileEndDrawingEpic — single call, multi-terrain/multi-scenario (T
         runEpic(profileEndDrawingEpic, action$, makeState(), done, (emitted) => {
             const err = emitted.find(a => a.type === 'ANUGA:SET_PROFILE_ERROR');
             expect(err).toExist('expected SET_PROFILE_ERROR on a 500');
+        });
+    });
+});
+
+// ── clearProfileLineEpic — owner-guarded Clear (TASK-2276) ─────────────────
+// The Clear button dispatches CLEAR_PROFILE_LINE (a plain UI action) instead
+// of changeDrawingStatus('clean', ...) directly — DrawSupport's 'clean' case
+// honours NO owner (it wipes ANY tool's in-progress draw + sketch layer), so
+// the actual changeDrawingStatus dispatch is gated here on state.draw.drawOwner
+// being idle (falsy) or already this tool's own (PROFILE_DRAW_OWNER). Mirrors
+// profileEndDrawingEpic's own 'stop' dispatch, which is inherently safe
+// because it only ever fires from an END_DRAWING this tool's own draw ended —
+// Clear has no such natural gate (the user can click it any time), hence the
+// explicit owner check.
+describe('clearProfileLineEpic — guard changeDrawingStatus(clean) to the profile draw owner (TASK-2276)', () => {
+    it('dispatches clean(PROFILE_DRAW_OWNER) when no tool currently owns the draw (idle)', function(done) {
+        this.timeout(3000);
+        const action$ = mockActions([clearProfileLine()]);
+        const state = { draw: { drawOwner: null } };
+        runEpic(clearProfileLineEpic, action$, state, done, (emitted) => {
+            expect(emitted.length).toBe(1);
+            expect(emitted[0].type).toBe(CHANGE_DRAWING_STATUS);
+            expect(emitted[0].status).toBe('clean');
+            expect(emitted[0].owner).toBe(PROFILE_DRAW_OWNER);
+        });
+    });
+
+    it('dispatches clean(PROFILE_DRAW_OWNER) when the profile tool already owns the draw', function(done) {
+        this.timeout(3000);
+        const action$ = mockActions([clearProfileLine()]);
+        const state = { draw: { drawOwner: PROFILE_DRAW_OWNER } };
+        runEpic(clearProfileLineEpic, action$, state, done, (emitted) => {
+            expect(emitted.length).toBe(1);
+            expect(emitted[0].status).toBe('clean');
+            expect(emitted[0].owner).toBe(PROFILE_DRAW_OWNER);
+        });
+    });
+
+    it('does NOT dispatch clean while ANOTHER tool (e.g. terrain-bbox) owns an active draw', function(done) {
+        this.timeout(3000);
+        const action$ = mockActions([clearProfileLine()]);
+        const state = { draw: { drawOwner: 'terrain-bbox' } };
+        runEpic(clearProfileLineEpic, action$, state, done, (emitted) => {
+            expect(emitted.length).toBe(0, 'must NOT clobber another tool\'s active draw');
         });
     });
 });

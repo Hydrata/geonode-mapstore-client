@@ -36,20 +36,24 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import PlotlyChart from '@mapstore/framework/components/charts/PlotlyChart';
 import { colorToRgbaStr } from '../../../../../MapStore2/web/client/utils/ColorUtils';
-import { changeDrawingStatus } from '../../../../../MapStore2/web/client/actions/draw';
 import { PanelHeader } from '../../SimpleView/components/primitives';
 import {
     setProfilePanelVisible,
     startProfileDraw,
     clearProfile,
+    // TASK-2276: dispatch the plain CLEAR_PROFILE_LINE action rather than
+    // changeDrawingStatus('clean', ...) directly — clearProfileLineEpic
+    // (profileEpic.js) is the one that decides whether it is safe to fire,
+    // aliased here so it doesn't collide with the `clearProfileLine` PROP
+    // this component already exposes (mapDispatchToProps below).
+    clearProfileLine as clearProfileLineAction,
     toggleCheckedTerrain,
     toggleCheckedScenario
 } from '../actionsAnuga';
 import { hasDemReady } from '../epics/cursorElevationEpic';
 import {
     getTerrainPickerRows,
-    getScenarioPickerRows,
-    PROFILE_DRAW_OWNER
+    getScenarioPickerRows
 } from '../epics/profileEpic';
 import { trackEvent } from '@js/utils/analytics';
 import '../../SimpleView/simpleView.css';
@@ -709,7 +713,11 @@ const mapDispatchToProps = (dispatch) => ({
     clearProfile: () => dispatch(clearProfile()),
     // TASK-2272 — remove the drawn LineString from the map (clean stops
     // DrawSupport and clears its feature layer for this tool's owner).
-    clearProfileLine: () => dispatch(changeDrawingStatus('clean', '', PROFILE_DRAW_OWNER, [], {})),
+    // TASK-2276 — routed through CLEAR_PROFILE_LINE + clearProfileLineEpic
+    // rather than dispatching changeDrawingStatus('clean', ...) directly, so
+    // the epic can gate it on this tool actually owning (or nobody owning)
+    // the current map draw before wiping anything.
+    clearProfileLine: () => dispatch(clearProfileLineAction()),
     toggleCheckedTerrain: (id) => dispatch(toggleCheckedTerrain(id)),
     toggleCheckedScenario: (id) => dispatch(toggleCheckedScenario(id))
 });

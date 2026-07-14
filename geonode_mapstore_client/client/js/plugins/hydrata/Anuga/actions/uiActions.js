@@ -38,6 +38,13 @@ const SET_PROFILE_LOADING = 'ANUGA:SET_PROFILE_LOADING';
 const SET_PROFILE_SAMPLES = 'ANUGA:SET_PROFILE_SAMPLES';
 const SET_PROFILE_ERROR = 'ANUGA:SET_PROFILE_ERROR';
 const CLEAR_PROFILE = 'ANUGA:CLEAR_PROFILE';
+// TASK-2276 (epic 2249 W-followup) — request removing the drawn cross-section
+// LineString from the map. Routed through clearProfileLineEpic (profileEpic.js)
+// rather than the panel dispatching changeDrawingStatus('clean', ...) directly:
+// DrawSupport's 'clean' case honours NO owner (it wipes ANY tool's in-progress
+// draw + sketch layer), so the epic gates the actual changeDrawingStatus
+// dispatch on state.draw.drawOwner being idle or already this tool's own.
+const CLEAR_PROFILE_LINE = 'ANUGA:CLEAR_PROFILE_LINE';
 // TASK-2253 (epic 2249 W2) — SET_PROFILE_MODE DELETED: Profile mode is gone,
 // Cross-section is the tool's only chart now (git history keeps the action).
 // TASK-2254 (epic 2249 W2) — Cross-section PICKER checked-id state. Up to 3
@@ -199,6 +206,12 @@ function setProfileError(error) {
 function clearProfile() {
     return { type: CLEAR_PROFILE };
 }
+// TASK-2276 — "Clear" button: request the drawn LineString be removed from
+// the map. See CLEAR_PROFILE_LINE above for why this is a separate plain
+// action rather than the panel dispatching changeDrawingStatus directly.
+function clearProfileLine() {
+    return { type: CLEAR_PROFILE_LINE };
+}
 // TASK-2254 — bulk-replace the checked-id set (pickerSeedEpic on panel open).
 // `ids` is capped to 3 defensively even though callers already cap it.
 function setCheckedTerrains(ids) {
@@ -283,6 +296,7 @@ module.exports = {
     SET_PROFILE_SAMPLES, setProfileSamples,
     SET_PROFILE_ERROR, setProfileError,
     CLEAR_PROFILE, clearProfile,
+    CLEAR_PROFILE_LINE, clearProfileLine,
     // TASK-2254 (epic 2249 W2) — Cross-section picker checked-id state.
     SET_CHECKED_TERRAINS, setCheckedTerrains,
     SET_CHECKED_SCENARIOS, setCheckedScenarios,

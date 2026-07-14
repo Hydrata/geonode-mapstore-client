@@ -51,6 +51,7 @@ import {
     START_PROFILE_DRAW,
     SET_PROFILE_PANEL_VISIBLE,
     CLEAR_PROFILE,
+    CLEAR_PROFILE_LINE,
     setProfileDrawing,
     setProfileLoading,
     setProfileSamples,
@@ -419,6 +420,31 @@ export function profileStartDrawEpic(action$) {
             setProfileDrawing(true),
             changeDrawingStatus('start', 'LineString', PROFILE_DRAW_OWNER, [], {})
         ));
+}
+
+/**
+ * clearProfileLineEpic — CLEAR_PROFILE_LINE (the "Clear" button) -> remove
+ * the drawn LineString from the map, but ONLY when it is safe to do so.
+ *
+ * TASK-2276 (W5 independent review): the panel used to dispatch
+ * changeDrawingStatus('clean', '', PROFILE_DRAW_OWNER, [], {}) directly, but
+ * MapStore's DrawSupport 'clean' case (this.clean()) honours NO owner — it
+ * wipes ANY tool's in-progress draw + sketch layer, not just this one's.
+ * profileEndDrawingEpic's own 'stop' dispatch has the same unguarded shape,
+ * but it is inherently safe: it only ever fires from an END_DRAWING this
+ * tool's OWN draw just produced. Clear has no such natural gate — the user
+ * can click it at any time, including while another tool (e.g. terrain-bbox)
+ * has an active draw — so the guard lives here instead: only dispatch the
+ * actual 'clean' when state.draw.drawOwner is this tool's own
+ * (PROFILE_DRAW_OWNER) or idle (falsy, no tool currently drawing).
+ */
+export function clearProfileLineEpic(action$, store) {
+    return action$.ofType(CLEAR_PROFILE_LINE)
+        .filter(() => {
+            const owner = store.getState()?.draw?.drawOwner;
+            return !owner || owner === PROFILE_DRAW_OWNER;
+        })
+        .map(() => changeDrawingStatus('clean', '', PROFILE_DRAW_OWNER, [], {}));
 }
 
 /**
