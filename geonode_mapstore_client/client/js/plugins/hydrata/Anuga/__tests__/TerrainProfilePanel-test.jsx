@@ -316,6 +316,20 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         expect(disabledSwatch.style.backgroundColor).toBe('transparent');
     });
 
+    it('a CHECKED row whose checkability flips to disabled never keeps a stale swatch colour (TASK-2261)', () => {
+        // Row 12 is checked (as if it had been 'ready' at the last panel-open
+        // seed) but its CURRENT status is 'no-stage' — simulates the picker
+        // staying open across a live state update that un-published the
+        // scenario's stage AFTER the id was checked (pickerSeedEpic only
+        // seeds checkedScenarioIds on panel OPEN, TASK-2254 — there is no
+        // reseed while the panel stays open). The chart already excludes
+        // this row (getProfileTraces filters status==='ready'); the swatch
+        // must not disagree by staying coloured.
+        render({ checkedScenarioIds: [12] });
+        const staleSwatch = container.querySelector('[data-testid="picker-swatch-water-12"]');
+        expect(staleSwatch.style.backgroundColor).toBe('transparent');
+    });
+
     it('a ready water row shows its run date', () => {
         render();
         const rundate = container.querySelector('[data-testid="picker-rundate-10"]');

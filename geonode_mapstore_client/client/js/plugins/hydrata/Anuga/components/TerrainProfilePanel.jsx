@@ -412,7 +412,15 @@ export class TerrainProfilePanelClass extends React.Component {
         const capBlocked = checkable && !checked && atCap;
         const disabled = !checkable || capBlocked;
         const slot = getColorSlot(rows, checkedIds, row.id);
-        const swatchColor = slot >= 0 ? colorFn(slot) : null;
+        // TASK-2261: a row's checkability can flip to disabled (e.g. a
+        // scenario's stage gets un-published) while its id is STILL in
+        // checkedIds — pickerSeedEpic only reseeds on panel OPEN (TASK-2254),
+        // so getColorSlot (membership-only) would otherwise keep colouring
+        // a row the chart has already stopped drawing (getProfileTraces
+        // filters on status==='ready'). Gate the swatch on `checkable` too
+        // so it renders unassigned/transparent like any other disabled row,
+        // matching the chart rather than the stale checked-id.
+        const swatchColor = (checkable && slot >= 0) ? colorFn(slot) : null;
         const label = isTerrain
             ? (row.title || row.name || row.gn_layer_name)
             : (row.scenario.name || `Scenario ${row.scenario.id}`);
