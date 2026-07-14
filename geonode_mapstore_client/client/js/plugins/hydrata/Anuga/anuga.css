@@ -2450,6 +2450,17 @@ div that holds the feature-grid */
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
     cursor: pointer;
 }
+/* TASK-2275 (operator UAT 2026-07-14 — tickbox/label justification +
+   spacing): the checkbox is a native <input type="checkbox"> carrying its
+   own browser-default margin, which STACKS ON TOP of the row's flex
+   `gap: 6px` — the checkbox->swatch gap read visibly wider/uneven than the
+   swatch->label gap (plain <span>s, no native margin to stack with).
+   Zeroing it makes the row's `gap` the ONLY spacing between every item,
+   evenly, in BOTH the terrain and water groups (same row markup). */
+.sv-picker-row input[type="checkbox"] {
+    flex-shrink: 0;
+    margin: 0;
+}
 .sv-picker-row-disabled {
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.4));
     cursor: not-allowed;

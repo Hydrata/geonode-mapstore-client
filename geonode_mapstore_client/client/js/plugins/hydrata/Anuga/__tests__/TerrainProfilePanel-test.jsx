@@ -422,6 +422,28 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         const hint = container.querySelector('[data-testid="picker-hint-terrain-4"]');
         expect(hint.textContent).toNotBe('');
     });
+
+    // TASK-2275 (operator UAT 2026-07-14: "clean up later" — tickbox/label
+    // justification + spacing). Root cause: the checkbox is a native
+    // <input type="checkbox"> with its own browser-default margin (Chrome UA
+    // stylesheet ~margin:3px 3px 3px 4px), which STACKS ON TOP of
+    // .sv-picker-row's flex `gap:6px` — so the checkbox->swatch gap read
+    // visibly wider/uneven than the swatch->label gap (which has no such
+    // native margin to stack with). Zeroing the checkbox's own margin makes
+    // the row's flex `gap` the ONLY spacing between every item, evenly, in
+    // BOTH the terrain and water groups (same renderPickerRow markup).
+    it('the row checkbox has its native browser margin zeroed, so flex `gap` is the ONLY spacing (even, not doubled)', () => {
+        render();
+        const terrainCheckbox = container.querySelector('[data-testid="picker-checkbox-terrain-1"]');
+        const waterCheckbox = container.querySelector('[data-testid="picker-checkbox-water-10"]');
+        [terrainCheckbox, waterCheckbox].forEach((cb) => {
+            const cs = window.getComputedStyle(cb);
+            expect(cs.marginTop).toBe('0px');
+            expect(cs.marginRight).toBe('0px');
+            expect(cs.marginBottom).toBe('0px');
+            expect(cs.marginLeft).toBe('0px');
+        });
+    });
 });
 
 describe('TerrainProfilePanel — buildCheckedSlotMap (TASK-2262)', () => {
