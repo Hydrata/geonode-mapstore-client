@@ -49,7 +49,6 @@ import { hasDemReady } from '../epics/cursorElevationEpic';
 import {
     getTerrainPickerRows,
     getScenarioPickerRows,
-    getColorSlot,
     PROFILE_DRAW_OWNER
 } from '../epics/profileEpic';
 import { trackEvent } from '@js/utils/analytics';
@@ -149,6 +148,27 @@ const WATER_FILL_ALPHA = 0.25;
 // logic in buildCrossSectionData is preserved intact and re-enables by flipping
 // this flag; the TASK-2273 water<terrain mask makes re-enabling artefact-free.
 export const CROSS_SECTION_FILL_ENABLED = false;
+
+/**
+ * TASK-2262 — the checked-in-picker-list-order slot for EVERY row in `rows`,
+ * computed ONCE (a single filter+map pass) rather than once PER ROW.
+ * renderPickerGroup previously called getColorSlot(rows, checkedIds, row.id)
+ * inside its rows.map() — getColorSlot itself does a fresh
+ * filter+map+indexOf on every call, so a group of N rows did O(N^2) work
+ * just to render its swatches. Returns a {id: slot} map (only checked ids
+ * are present — same as getColorSlot returning -1 for an unchecked id, a
+ * caller here should treat a missing key as "not checked"). getColorSlot's
+ * own exported (rows, checkedIds, id) signature/contract is untouched — this
+ * is a CALL-SITE optimisation in the picker component only.
+ */
+export function buildCheckedSlotMap(rows, checkedIds) {
+    const map = {};
+    if (!Array.isArray(checkedIds)) return map;
+    (rows || [])
+        .filter(r => r && checkedIds.includes(r.id))
+        .forEach((r, idx) => { map[r.id] = idx; });
+    return map;
+}
 
 // Slot is the 0-based index within the CHECKED subset of a role, in stable
 // picker-list order (see getColorSlot). Clamped to the last palette entry so
@@ -403,23 +423,27 @@ export class TerrainProfilePanelClass extends React.Component {
     // rows — a checkability reason / run date / staleness flag. `kind` is
     // 'terrain' | 'water'; `colorFn` is the matching palette lookup so the
     // swatch colour is PIXEL-IDENTICAL to the chart trace colour (AC1) —
-    // both derive from the exact same getColorSlot(rows, checkedIds, id).
-    renderPickerRow(kind, rows, checkedIds, row, colorFn) {
+    // both derive from the exact same getColorSlot(rows, checkedIds, id)
+    // assignment — TASK-2262: renderPickerGroup now computes this ONCE per
+    // group (buildCheckedSlotMap) and passes the resulting `slotMap` in,
+    // rather than this method calling getColorSlot itself per row.
+    renderPickerRow(kind, slotMap, checkedIds, row, colorFn) {
         const isTerrain = kind === 'terrain';
         const checkable = isTerrain ? true : row.status === 'ready';
         const checked = checkedIds.includes(row.id);
         const atCap = checkedIds.length >= 3;
         const capBlocked = checkable && !checked && atCap;
         const disabled = !checkable || capBlocked;
-        const slot = getColorSlot(rows, checkedIds, row.id);
+        const slot = Object.prototype.hasOwnProperty.call(slotMap, row.id) ? slotMap[row.id] : -1;
         // TASK-2261: a row's checkability can flip to disabled (e.g. a
         // scenario's stage gets un-published) while its id is STILL in
         // checkedIds — pickerSeedEpic only reseeds on panel OPEN (TASK-2254),
-        // so getColorSlot (membership-only) would otherwise keep colouring
-        // a row the chart has already stopped drawing (getProfileTraces
-        // filters on status==='ready'). Gate the swatch on `checkable` too
-        // so it renders unassigned/transparent like any other disabled row,
-        // matching the chart rather than the stale checked-id.
+        // so a slot keyed only on checked-membership would otherwise keep
+        // colouring a row the chart has already stopped drawing
+        // (getProfileTraces filters on status==='ready'). Gate the swatch on
+        // `checkable` too so it renders unassigned/transparent like any
+        // other disabled row, matching the chart rather than the stale
+        // checked-id.
         const swatchColor = (checkable && slot >= 0) ? colorFn(slot) : null;
         const label = isTerrain
             ? (row.title || row.name || row.gn_layer_name)
@@ -480,6 +504,9 @@ export class TerrainProfilePanelClass extends React.Component {
         const rows = isTerrain ? this.props.terrainRows : this.props.scenarioRows;
         const checkedIds = isTerrain ? this.props.checkedTerrainIds : this.props.checkedScenarioIds;
         const colorFn = isTerrain ? terrainColor : waterColor;
+        // TASK-2262: computed ONCE per group render (not once per row inside
+        // the .map() below) — see buildCheckedSlotMap.
+        const slotMap = buildCheckedSlotMap(rows, checkedIds);
         return (
             <div className="sv-picker-group" data-testid={`picker-group-${kind}`}>
                 <div className="sv-picker-group-header">
@@ -490,7 +517,7 @@ export class TerrainProfilePanelClass extends React.Component {
                         {checkedIds.length}/3
                     </span>
                 </div>
-                {rows.map((row) => this.renderPickerRow(kind, rows, checkedIds, row, colorFn))}
+                {rows.map((row) => this.renderPickerRow(kind, slotMap, checkedIds, row, colorFn))}
             </div>
         );
     }

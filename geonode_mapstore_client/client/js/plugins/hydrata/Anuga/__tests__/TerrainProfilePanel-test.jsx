@@ -16,12 +16,14 @@ import expect from 'expect';
 import {
     TerrainProfilePanelClass,
     buildCrossSectionData,
+    buildCheckedSlotMap,
     computeYRange,
     CROSS_SECTION_LAYOUT,
     CROSS_SECTION_FILL_ENABLED,
     TERRAIN_PALETTE,
     WATER_PALETTE
 } from '../components/TerrainProfilePanel';
+import { getColorSlot } from '../epics/profileEpic';
 
 describe('TerrainProfilePanel — computeYRange (W4 UAT, TASK-1861/1862)', () => {
     it('frames high-elevation terrain so the range EXCLUDES 0 (no zero baseline)', () => {
@@ -330,6 +332,23 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         expect(staleSwatch.style.backgroundColor).toBe('transparent');
     });
 
+    it('the checked-in-list-order colour slot renders correctly for every row, integration-wise', () => {
+        // 3 checked terrains (1,2,3) out of 4 rows — exercises the FULL group
+        // (renderPickerGroup maps every row), not just a single checked row.
+        render({ checkedTerrainIds: [3, 1, 2] });
+        // Stable picker-LIST order (not check order): row 1 -> slot 0, row 2
+        // -> slot 1, row 3 -> slot 2 — same guarantee getColorSlot documents.
+        // TERRAIN_PALETTE = ['#B89968', '#D08770', '#A3BE8C']; jsdom
+        // normalises inline hex styles to rgb() on read-back (see the AC1
+        // swatch test above).
+        const swatch1 = container.querySelector('[data-testid="picker-swatch-terrain-1"]');
+        const swatch2 = container.querySelector('[data-testid="picker-swatch-terrain-2"]');
+        const swatch3 = container.querySelector('[data-testid="picker-swatch-terrain-3"]');
+        expect(swatch1.style.backgroundColor).toBe('rgb(184, 153, 104)');
+        expect(swatch2.style.backgroundColor).toBe('rgb(208, 135, 112)');
+        expect(swatch3.style.backgroundColor).toBe('rgb(163, 190, 140)');
+    });
+
     it('a ready water row shows its run date', () => {
         render();
         const rundate = container.querySelector('[data-testid="picker-rundate-10"]');
@@ -359,5 +378,41 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         // status at all).
         const hint = container.querySelector('[data-testid="picker-hint-terrain-4"]');
         expect(hint.textContent).toNotBe('');
+    });
+});
+
+describe('TerrainProfilePanel — buildCheckedSlotMap (TASK-2262)', () => {
+    // TASK-2262: renderPickerGroup previously called getColorSlot(rows,
+    // checkedIds, row.id) ONCE PER ROW — getColorSlot itself does a fresh
+    // filter+map+indexOf every call, so a group of N rows did O(N^2) work to
+    // render its swatches. buildCheckedSlotMap computes the SAME
+    // checked-in-picker-list-order assignment ONCE per group render, as a
+    // {id: slot} map for O(1) per-row lookup. getColorSlot's own exported
+    // signature/contract (picker-test.js) is untouched — this is a
+    // CALL-SITE-only optimisation in the picker component.
+    const rows = [{ id: 10 }, { id: 20 }, { id: 30 }, { id: 40 }];
+
+    it('assigns every row EXACTLY the slot getColorSlot(rows, checkedIds, id) would', () => {
+        const checkedIds = [30, 10];
+        const slotMap = buildCheckedSlotMap(rows, checkedIds);
+        rows.forEach((r) => {
+            const expected = getColorSlot(rows, checkedIds, r.id);
+            const actual = Object.prototype.hasOwnProperty.call(slotMap, r.id) ? slotMap[r.id] : -1;
+            expect(actual).toBe(expected);
+        });
+    });
+
+    it('omits ids that are not checked, and ids not present among rows', () => {
+        const slotMap = buildCheckedSlotMap(rows, [10, 999]);
+        expect(slotMap[10]).toBe(0);
+        expect(slotMap[20]).toBe(undefined);
+        expect(slotMap[999]).toBe(undefined);
+    });
+
+    it('handles a null/undefined rows or checkedIds without throwing', () => {
+        expect(() => buildCheckedSlotMap(null, [1])).toNotThrow();
+        expect(() => buildCheckedSlotMap(rows, null)).toNotThrow();
+        expect(buildCheckedSlotMap(null, [1])).toEqual({});
+        expect(buildCheckedSlotMap(rows, null)).toEqual({});
     });
 });
