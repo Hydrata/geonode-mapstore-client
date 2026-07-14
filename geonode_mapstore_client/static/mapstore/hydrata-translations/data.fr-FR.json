@@ -406,6 +406,7 @@
         "stoppedAfter": "Arrêté après",
         "runFailedHead": "Échec de l'exécution",
         "archiveErrorHead": "Archivage impossible",
+        "buildAlreadyInProgress": "Une construction est déjà en cours pour ce scénario.",
         "errorCausePrefix": "Cause :",
         "errorClassOom": "Mémoire insuffisante",
         "errorClassEntrypointFailure": "Échec du point d'entrée Batch",

@@ -406,6 +406,7 @@
         "stoppedAfter": "Stopped after",
         "runFailedHead": "Run failed",
         "archiveErrorHead": "Cannot archive",
+        "buildAlreadyInProgress": "A build is already in progress for this scenario.",
         "errorCausePrefix": "Cause:",
         "errorClassOom": "Out of memory",
         "errorClassEntrypointFailure": "Batch entrypoint failure",

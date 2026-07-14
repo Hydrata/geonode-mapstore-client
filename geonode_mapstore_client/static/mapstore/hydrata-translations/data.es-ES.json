@@ -406,6 +406,7 @@
         "stoppedAfter": "Detenido después de",
         "runFailedHead": "Ejecución fallida",
         "archiveErrorHead": "No se puede archivar",
+        "buildAlreadyInProgress": "Ya hay una compilación en curso para este escenario.",
         "errorCausePrefix": "Causa:",
         "errorClassOom": "Memoria agotada",
         "errorClassEntrypointFailure": "Fallo del punto de entrada de Batch",

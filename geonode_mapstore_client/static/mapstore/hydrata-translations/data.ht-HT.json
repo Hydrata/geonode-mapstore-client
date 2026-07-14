@@ -406,6 +406,7 @@
         "stoppedAfter": "Estope apre",
         "runFailedHead": "Echèk ekzekisyon",
         "archiveErrorHead": "Pa ka achive",
+        "buildAlreadyInProgress": "Gen yon konstriksyon k ap fèt deja pou senaryo sa a.",
         "errorCausePrefix": "Kòz:",
         "errorClassOom": "Manke memwa",
         "errorClassEntrypointFailure": "Echèk pwen antre Batch",
