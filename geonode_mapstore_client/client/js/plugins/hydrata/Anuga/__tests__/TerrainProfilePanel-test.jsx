@@ -386,6 +386,21 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         expect(staleSwatch.style.backgroundColor).toBe('transparent');
     });
 
+    it('a checked-but-no-longer-ready row does not consume a colour slot — later ready rows keep the colour the chart gives their trace (TASK-2261)', () => {
+        // Rows 12 (no-stage, list index 2) and 13 (ready, list index 3) are
+        // BOTH checked — as if 12 was ready at seed time and its stage was
+        // un-published while the panel stayed open. The chart colours traces
+        // by index within the READY-only checked subset, so row 13 is its
+        // first (and only) water trace — WATER_PALETTE[0]. If the slot map
+        // counted the non-ready row 12, row 13 would render the slot-1
+        // swatch and permanently disagree with its trace after a redraw.
+        render({ checkedScenarioIds: [12, 13] });
+        const readySwatch = container.querySelector('[data-testid="picker-swatch-water-13"]');
+        expect(readySwatch.style.backgroundColor).toBe('rgb(91, 192, 255)');
+        const goneSwatch = container.querySelector('[data-testid="picker-swatch-water-12"]');
+        expect(goneSwatch.style.backgroundColor).toBe('transparent');
+    });
+
     it('the checked-in-list-order colour slot renders correctly for every row, integration-wise', () => {
         // 3 checked terrains (1,2,3) out of 4 rows — exercises the FULL group
         // (renderPickerGroup maps every row), not just a single checked row.

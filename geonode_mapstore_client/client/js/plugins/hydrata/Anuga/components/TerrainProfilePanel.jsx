@@ -509,8 +509,17 @@ export class TerrainProfilePanelClass extends React.Component {
         const checkedIds = isTerrain ? this.props.checkedTerrainIds : this.props.checkedScenarioIds;
         const colorFn = isTerrain ? terrainColor : waterColor;
         // TASK-2262: computed ONCE per group render (not once per row inside
-        // the .map() below) — see buildCheckedSlotMap.
-        const slotMap = buildCheckedSlotMap(rows, checkedIds);
+        // the .map() below) — see buildCheckedSlotMap. Water rows must be
+        // ready-filtered FIRST: the chart assigns trace colours by index
+        // within the ready-only checked subset (profileEpic filters
+        // status==='ready'), so a checked-but-no-longer-ready row must not
+        // consume a slot or every later ready row's swatch shifts off its
+        // trace colour after the next redraw. (Terrain rows are already
+        // ready-filtered at the selector — LOCKED decision #10.)
+        const slotMap = buildCheckedSlotMap(
+            isTerrain ? rows : rows.filter(r => r && r.status === 'ready'),
+            checkedIds
+        );
         return (
             <div className="sv-picker-group" data-testid={`picker-group-${kind}`}>
                 <div className="sv-picker-group-header">
