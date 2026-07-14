@@ -2465,13 +2465,26 @@ div that holds the feature-grid */
 /* ── W4 UAT — depth/elevation profile button inside the Results tab ───────────
    The profile entry moved out of the toolbar and into the Results miller panel
    (portaled by anugaContainer). Dark-glass action button sitting above the
-   result-layer rows; lit accent when the profile panel is open. */
+   result-layer rows; lit accent when the profile panel is open.
+   TASK-2277 (operator UAT 2026-07-14): the button must sit at the TOP of the
+   panel (above the Depth/Velocity/etc rows) and be fixed-width to its label,
+   not full panel width. createPortal (anugaContainer render()) always appends
+   this as the LAST DOM child of .simple-view-panel--miller, which sits
+   alongside <MenuRows/> (the result-type rows) as the panel's only other
+   child — .simple-view-panel is a flex column, so `order: -1` sorts this
+   action before MenuRows' default order:0 without touching
+   simpleViewContainer.js's render order. `align-self: flex-start` opts this
+   item OUT of the flex column's default cross-axis stretch so it shrinks to
+   its content width instead of spanning the panel. */
 .sv-results-profile-action {
     padding: 8px 10px 4px;
+    order: -1;
+    align-self: flex-start;
 }
 .sv-results-profile-action .sv-glass-button {
-    display: block;
-    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
     border: 1px solid rgba(255, 255, 255, 0.18);
     color: var(--sv-text, rgba(255, 255, 255, 0.85));

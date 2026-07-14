@@ -270,6 +270,14 @@ export class AnugaContainer extends React.Component {
     // (hydrata.anuga.crossSectionPanelTitle, TASK-2253) rather than keeping a
     // second near-duplicate "Cross-section" string — the button and the panel
     // it opens should always say the exact same thing.
+    // TASK-2277 (operator UAT 2026-07-14 headline polish item): clicking this
+    // button ALSO closes the Results panel — setOpenMenuGroupId(null) is the
+    // SAME action the Results toolbar button uses to open it (see
+    // renderToolbarButtons' setOpenMenuGroupId('Results') above). The button
+    // itself unmounts once Results closes (this.props.openMenuGroupId is no
+    // longer 'Results', so render()'s resultsPanelTarget goes null) — that's
+    // fine, its job is done; the Cross-section panel it just opened is a
+    // SEPARATE profilePanelVisible-gated portal that stays mounted regardless.
     renderResultsProfileButton() {
         return (
             <div className="sv-results-profile-action" data-testid="anuga-results-profile-action">
@@ -279,6 +287,7 @@ export class AnugaContainer extends React.Component {
                     className={`btn sv-glass-button ${this.props.showProfilePanel ? 'active' : ''}`}
                     onClick={() => {
                         this.props.setProfilePanelVisible(!this.props.showProfilePanel);
+                        this.props.setOpenMenuGroupId(null);
                         this.closeHydrologyIfOpen();
                         trackEvent('button', 'click', 'anuga-results-profile-toggle');
                     }}

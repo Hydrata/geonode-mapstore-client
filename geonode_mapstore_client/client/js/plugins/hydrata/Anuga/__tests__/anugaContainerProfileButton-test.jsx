@@ -122,4 +122,48 @@ describe('AnugaContainer — profile entry moved to Results tab (W4 UAT)', () =>
         btn.click();
         expect(toggled).toBe(true);
     });
+
+    // TASK-2277 (operator UAT 2026-07-14 headline polish item).
+    describe('launcher rework — fixed-width, top of panel, closes Results (TASK-2277)', () => {
+        it('clicking the button ALSO closes the Results panel (openMenuGroupId -> null)', () => {
+            let toggled = null;
+            let closedGroupId = 'never-called';
+            renderContainer(baseProps({
+                openMenuGroupId: 'Results',
+                showProfilePanel: false,
+                setProfilePanelVisible: (v) => { toggled = v; },
+                setOpenMenuGroupId: (id) => { closedGroupId = id; }
+            }), host);
+            const btn = resultsPanel.querySelector('[data-testid="anuga-profile-button"]');
+            btn.click();
+            // AC3: opens the Cross-section panel...
+            expect(toggled).toBe(true);
+            // ...AND closes Results (the SAME action the Results toolbar button
+            // uses to open it — see renderToolbarButtons' setOpenMenuGroupId('Results')).
+            expect(closedGroupId).toBe(null);
+        });
+
+        it('the wrapper does not stretch to the panel width (fixed-width, not full-width)', () => {
+            renderContainer(baseProps({ openMenuGroupId: 'Results' }), host);
+            const wrapper = resultsPanel.querySelector('[data-testid="anuga-results-profile-action"]');
+            const btn = resultsPanel.querySelector('[data-testid="anuga-profile-button"]');
+            expect(wrapper).toExist();
+            // .simple-view-panel is a flex column (align-items defaults to
+            // 'stretch') — the wrapper must opt OUT of that stretch so it
+            // shrinks to its content instead of spanning the panel's width.
+            expect(window.getComputedStyle(wrapper).alignSelf).toBe('flex-start');
+            // The button itself shrink-wraps its label (was display:block;
+            // width:100% before this fix).
+            expect(window.getComputedStyle(btn).display).toBe('inline-flex');
+        });
+
+        it('the button is ordered ABOVE the result-type rows (flex `order`, since createPortal always appends LAST)', () => {
+            renderContainer(baseProps({ openMenuGroupId: 'Results' }), host);
+            const wrapper = resultsPanel.querySelector('[data-testid="anuga-results-profile-action"]');
+            // .simple-view-panel--miller renders <MenuRows/> (the Depth/Velocity/
+            // etc result-type rows) as its only OTHER flex child, at the default
+            // order (0); a negative order here sorts this action before it.
+            expect(window.getComputedStyle(wrapper).order).toBe('-1');
+        });
+    });
 });
