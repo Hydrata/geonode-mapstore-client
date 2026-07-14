@@ -1,22 +1,29 @@
 /**
  * TASK-1861 (epic 1814 W4.4) — TerrainProfilePanel
+ * TASK-2253 (epic 2249 W2) — Profile mode DELETED; the panel is Cross-section
+ * only now (git history keeps the removed dual-y/velocity/momentum code).
+ * TASK-2256 (epic 2249 W3) — picker-as-legend: a grouped TERRAIN / WATER
+ * SURFACE picker (swatch + name + checkbox + n/3 counter + cap grey-out +
+ * disabled reasons) renders ABOVE the Plotly chart and IS the chart's legend
+ * (the Plotly legend is removed, LOCKED decision #5). Palettes + the
+ * conditional fill rule live alongside buildCrossSectionData below (LOCKED
+ * decisions #6/#7).
  *
- * Depth/result line-profile tool. A dark-glass SimpleView side panel with a
- * "Draw profile line" button and a Plotly multi-trace chart of value vs
- * distance along the drawn line.
+ * Cross-section tool. A SimpleView side panel with the picker, a
+ * "Draw profile line" button, and a Plotly chart of up to 3 terrains + 3
+ * water surfaces vs distance along the drawn line.
  *
  * - "Draw profile line" dispatches startProfileDraw -> profileStartDrawEpic
  *   starts a MapStore LineString DrawSupport interaction.  On draw-complete
- *   profileEndDrawingEpic samples the active terrain DEM + the selected
- *   scenario's result rasters (depth/velocity) via the W4.3 endpoint and
- *   stores the series; this panel then renders it.
+ *   profileEndDrawingEpic samples the checked terrains/scenarios via the
+ *   profile endpoint and stores the series; this panel then renders it.
  * - Gated on a terrain/result being present: when no DEM is ready the draw
  *   button shows a "no terrain" hint instead of crashing (AC-5).  The epic
  *   ALSO guards server-side, so the panel never queries with no terrain.
  *
  * Chart: the MapStore PlotlyChart primitive (the same plotly the
- * LongitudinalProfile dock uses), with a transparent dark-glass layout
- * (transparent paper/plot, light text + grid, one trace per sampled raster).
+ * LongitudinalProfile dock uses), with a white layout (white paper/plot, dark
+ * text + light grid, axis unit titles) — TASK-2270.
  *
  * Mounted at the container level (like TerrainBboxPanel) so closing the Inputs
  * menu can't unmount it mid-draw; self-gates on profilePanelVisible.
@@ -28,97 +35,56 @@ import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import PlotlyChart from '@mapstore/framework/components/charts/PlotlyChart';
+import { colorToRgbaStr } from '../../../../../MapStore2/web/client/utils/ColorUtils';
 import { PanelHeader } from '../../SimpleView/components/primitives';
 import {
     setProfilePanelVisible,
     startProfileDraw,
-    setProfileMode
+    clearProfile,
+    // TASK-2276: dispatch the plain CLEAR_PROFILE_LINE action rather than
+    // changeDrawingStatus('clean', ...) directly — clearProfileLineEpic
+    // (profileEpic.js) is the one that decides whether it is safe to fire,
+    // aliased here so it doesn't collide with the `clearProfileLine` PROP
+    // this component already exposes (mapDispatchToProps below).
+    clearProfileLine as clearProfileLineAction,
+    toggleCheckedTerrain,
+    toggleCheckedScenario
 } from '../actionsAnuga';
 import { hasDemReady } from '../epics/cursorElevationEpic';
+import {
+    getTerrainPickerRows,
+    getScenarioPickerRows
+} from '../epics/profileEpic';
 import { trackEvent } from '@js/utils/analytics';
 import '../../SimpleView/simpleView.css';
 import '../anuga.css';
 
-// Dark-glass plotly layout: transparent surfaces so the SimpleView panel glass
-// shows through, light text + grid lines.
-const DARK_GLASS_LAYOUT = {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { color: 'rgba(255,255,255,0.85)', family: 'Montserrat, sans-serif', size: 11 },
-    margin: { l: 48, r: 12, t: 8, b: 40 },
-    showlegend: true,
-    legend: { orientation: 'h', y: -0.25, font: { color: 'rgba(255,255,255,0.85)' } },
+// TASK-2270 (epic 2249 W5) — WHITE chart background (operator UAT 2026-07-14:
+// "should have a white background to maximise contrast"). Was a transparent
+// dark-glass layout; now an opaque white plot with dark text + light-grey grid
+// so the terrain/water lines read at maximum contrast. The axis TITLES (units)
+// are injected at render time in renderChart() via this.tr() — a static layout
+// object can't localize.
+// TASK-2256 (epic 2249 W3) — LOCKED decision #5: the picker rows ARE the
+// legend (swatch + name + checkbox); the Plotly legend is REMOVED
+// (showlegend:false) so a chart with up to 6 series never doubles up its key.
+export const CROSS_SECTION_LAYOUT = {
+    paper_bgcolor: '#ffffff',
+    plot_bgcolor: '#ffffff',
+    font: { color: 'rgba(0,0,0,0.85)', family: 'Montserrat, sans-serif', size: 11 },
+    margin: { l: 56, r: 12, t: 8, b: 48 },
+    showlegend: false,
     xaxis: {
-        gridcolor: 'rgba(255,255,255,0.18)',
-        zerolinecolor: 'rgba(255,255,255,0.35)',
-        tickcolor: 'rgba(255,255,255,0.6)'
+        gridcolor: 'rgba(0,0,0,0.12)',
+        zerolinecolor: 'rgba(0,0,0,0.25)',
+        tickcolor: 'rgba(0,0,0,0.6)'
     },
     yaxis: {
-        gridcolor: 'rgba(255,255,255,0.18)',
-        zerolinecolor: 'rgba(255,255,255,0.35)',
-        tickcolor: 'rgba(255,255,255,0.6)'
+        gridcolor: 'rgba(0,0,0,0.12)',
+        zerolinecolor: 'rgba(0,0,0,0.25)',
+        tickcolor: 'rgba(0,0,0,0.6)'
     }
 };
-
-// W4 UAT (TASK-1861/1862) — secondary (right) y-axis for the small result
-// quantities (depth/velocity/momentum) in profile mode, overlaying the primary
-// elevation axis. Same dark-glass styling; showgrid:false so it doesn't double
-// the gridlines on top of the elevation axis's.
-const DARK_GLASS_Y2 = {
-    overlaying: 'y',
-    side: 'right',
-    showgrid: false,
-    gridcolor: 'rgba(255,255,255,0.18)',
-    zerolinecolor: 'rgba(255,255,255,0.35)',
-    tickcolor: 'rgba(255,255,255,0.6)',
-    tickfont: { color: 'rgba(255,255,255,0.85)' }
-};
-
-const TRACE_COLORS = ['#9ad0f5', '#7fe3a0', '#ffce6b', '#ff9aa2', '#c9a0ff'];
-
-/**
- * Map the stored samples ([{distance_m, dem|<layer>: value}]) + traces
- * ([{key,label,role}]) into Plotly data ([{x, y, name, type:'scatter',
- * mode:'lines'}]). One trace per present raster key; a key whose every value
- * is null is dropped.
- *
- * W4 UAT (TASK-1861/1862) — DUAL y-axis in profile mode: the ELEVATION trace
- * (role==='dem', ~800..985 m) and the small result quantities (depth/velocity/
- * momentum, ~0..20) cannot share ONE linear axis without the results dragging
- * the range toward 0 and squashing the terrain relief into the top of the
- * chart. So tag elevation traces onto the primary axis 'y' (framed to its own
- * relief) and result traces onto the secondary right axis 'y2' (which starts at
- * 0 — 0 depth = dry IS meaningful). renderChart wires the y2 axis + ranges.
- * `role` is preserved on each emitted trace so renderChart can split the range
- * computation. Falls back to 'y' for any trace without a role (degrades to a
- * single axis when role isn't threaded through).
- */
-export function buildPlotlyData(samples, traces) {
-    if (!Array.isArray(samples) || samples.length === 0 || !Array.isArray(traces)) return [];
-    const x = samples.map(s => s && s.distance_m);
-    return traces.reduce((acc, trace, idx) => {
-        const y = samples.map(s => {
-            const v = s && s[trace.key];
-            return (typeof v === 'number') ? v : null;
-        });
-        // Drop a trace that is entirely null (the run didn't produce that raster).
-        if (y.every(v => v === null)) return acc;
-        // Elevation (role 'dem') -> primary left axis 'y'; results -> right 'y2'.
-        const isElevation = trace.role === 'dem' || !trace.role;
-        acc.push({
-            x,
-            y,
-            name: trace.label || trace.key,
-            type: 'scatter',
-            mode: 'lines',
-            connectgaps: false,
-            role: trace.role,
-            yaxis: isElevation ? 'y' : 'y2',
-            line: { color: TRACE_COLORS[idx % TRACE_COLORS.length], width: 2 }
-        });
-        return acc;
-    }, []);
-}
 
 /**
  * W4 UAT (TASK-1861/1862) — frame the y-axis to the data's vertical relief.
@@ -167,133 +133,253 @@ export function computeYRange(dataTraces, opts) {
     return [lo, max + pad];
 }
 
+// ── TASK-2256 (epic 2249 W3) — earthy/watery palettes (LOCKED decision #6) ──
+// Colour slots are keyed by STABLE picker-list position (id order), NOT check
+// order — getColorSlot (profileEpic.js, TASK-2254) already guarantees this
+// for the picker rows; getProfileTraces (TASK-2255) emits dem/stage traces in
+// that SAME stable-checked-order, so a trace's index within its own role
+// subset (computed below in buildCrossSectionData) IS its colour slot — no
+// second lookup needed to keep swatch-colour === trace-colour (AC1).
+export const TERRAIN_PALETTE = ['#B89968', '#D08770', '#A3BE8C'];
+export const WATER_PALETTE = ['#5BC0FF', '#38B2A3', '#8C9BFF'];
+const TERRAIN_FILL_ALPHA = 0.30;
+const WATER_FILL_ALPHA = 0.25;
+
+// TASK-2269 (epic 2249 W5) — the terrain/water area FILL is disabled for now
+// (operator UAT 2026-07-14: "the shading is not working properly, it extended
+// off the graph — drop it for now until the rest is sorted"; the 'tozeroy'
+// terrain fill spilled below the relief-clamped y-axis). The fill-SELECTION
+// logic in buildCrossSectionData is preserved intact and re-enables by flipping
+// this flag; the TASK-2273 water<terrain mask makes re-enabling artefact-free.
+export const CROSS_SECTION_FILL_ENABLED = false;
+
 /**
- * W4 UAT (TASK-1861/1862) — build the PROFILE-mode Plotly layout from the
- * already-built data array (output of buildPlotlyData). Profile mode plots
- * ELEVATION (role 'dem', ~800..985 m) alongside small result quantities
- * (depth/velocity/momentum, ~0..20). On ONE linear axis the results drag the
- * range to 0 and squash the terrain relief — so split onto DUAL y-axes:
- *
- *   - Primary 'y' (left): elevation trace(s) (yaxis 'y'), framed to their own
- *     relief ([min-pad, max+pad], excludes 0) with the "Elevation (m)" title.
- *   - Secondary 'y2' (right): result trace(s) (yaxis 'y2'), starting at 0 (0
- *     depth = dry IS meaningful), [0, max+pad].
- *
- * Degenerate cases keep a SINGLE axis (no empty y2):
- *   - elevation-only -> one axis framed to relief (no y2).
- *   - results-only (no dem) -> one axis framed [0, max].
- *
- * Falls back to autorange (omit range) for an axis with nothing finite to frame.
+ * TASK-2262 — the checked-in-picker-list-order slot for EVERY row in `rows`,
+ * computed ONCE (a single filter+map pass) rather than once PER ROW.
+ * renderPickerGroup previously called getColorSlot(rows, checkedIds, row.id)
+ * inside its rows.map() — getColorSlot itself does a fresh
+ * filter+map+indexOf on every call, so a group of N rows did O(N^2) work
+ * just to render its swatches. Returns a {id: slot} map (only checked ids
+ * are present — same as getColorSlot returning -1 for an unchecked id, a
+ * caller here should treat a missing key as "not checked"). getColorSlot's
+ * own exported (rows, checkedIds, id) signature/contract is untouched — this
+ * is a CALL-SITE optimisation in the picker component only.
  */
-export function buildProfileLayout(data) {
-    const isElevation = (t) => t && t.yaxis !== 'y2';
-    const isResult = (t) => t && t.yaxis === 'y2';
-    const hasElevation = Array.isArray(data) && data.some(isElevation);
-    const hasResults = Array.isArray(data) && data.some(isResult);
-
-    // Results-only (no elevation): single axis framed from 0.
-    if (hasResults && !hasElevation) {
-        const range = computeYRange(data, { filter: isResult, zeroBased: true });
-        const yaxis = range
-            ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false }
-            : DARK_GLASS_LAYOUT.yaxis;
-        return { ...DARK_GLASS_LAYOUT, yaxis };
-    }
-
-    // Elevation-only (the common DEM-only profile): single axis framed to relief.
-    if (hasElevation && !hasResults) {
-        const range = computeYRange(data, { filter: isElevation });
-        const yaxis = range
-            ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false, title: 'Elevation (m)' }
-            : { ...DARK_GLASS_LAYOUT.yaxis, title: 'Elevation (m)' };
-        return { ...DARK_GLASS_LAYOUT, yaxis };
-    }
-
-    // Both present -> DUAL axis. Left = elevation relief; right = results from 0.
-    const elevRange = computeYRange(data, { filter: isElevation });
-    const resultRange = computeYRange(data, { filter: isResult, zeroBased: true });
-    const yaxis = elevRange
-        ? { ...DARK_GLASS_LAYOUT.yaxis, range: elevRange, autorange: false, title: 'Elevation (m)' }
-        : { ...DARK_GLASS_LAYOUT.yaxis, title: 'Elevation (m)' };
-    const yaxis2 = resultRange
-        ? { ...DARK_GLASS_Y2, range: resultRange, autorange: false }
-        : { ...DARK_GLASS_Y2 };
-    return { ...DARK_GLASS_LAYOUT, yaxis, yaxis2 };
+export function buildCheckedSlotMap(rows, checkedIds) {
+    const map = {};
+    if (!Array.isArray(checkedIds)) return map;
+    (rows || [])
+        .filter(r => r && checkedIds.includes(r.id))
+        .forEach((r, idx) => { map[r.id] = idx; });
+    return map;
 }
 
-// Cross-section colours: terrain is an earthy fill, the water body a translucent
-// blue with its surface picked out as a line on top.
-const TERRAIN_COLOR = '#b89968';
-const TERRAIN_FILL = 'rgba(184, 153, 104, 0.45)';
-const WATER_LINE = '#5bc0ff';
-const WATER_FILL = 'rgba(91, 192, 255, 0.30)';
+/**
+ * TASK-2261 (W-followup independent review) — the colour slot of every row
+ * whose trace is ON the currently DISPLAYED chart, read from the STORED profile
+ * traces (the exact array buildCrossSectionData renders). The picker rows ARE
+ * the chart's legend (LOCKED decision #5), so while a chart is up the swatch
+ * must match the plotted line, NOT the live selection: a trace's index within
+ * its role subset IS the colour slot buildCrossSectionData assigns
+ * (terrainColor(i) / waterColor(j)), so a swatch keyed here is pixel-identical
+ * to its line even when live checkability or the selection has since diverged
+ * from what was drawn (an external stage un-publish, or a toggle not yet
+ * applied via Redraw). `{rowId: slot}` keyed by terrainId (terrain) /
+ * scenarioId (water); a row not plotted is absent (transparent swatch). The
+ * live-selection preview (buildCheckedSlotMap) is used instead BEFORE the first
+ * draw, when there is no chart to be the legend for.
+ */
+export function buildChartSlotMap(traces, kind) {
+    const role = kind === 'terrain' ? 'dem' : 'stage';
+    const idKey = kind === 'terrain' ? 'terrainId' : 'scenarioId';
+    const map = {};
+    (traces || [])
+        .filter(t => t && t.role === role)
+        .forEach((t, idx) => { if (t[idKey] != null) map[t[idKey]] = idx; });
+    return map;
+}
+
+// Slot is the 0-based index within the CHECKED subset of a role, in stable
+// picker-list order (see getColorSlot). Clamped to the last palette entry so
+// a 4th+ trace (should never happen — the 3+3 cap enforces this upstream)
+// degrades rather than returning undefined.
+export function terrainColor(slot) {
+    return TERRAIN_PALETTE[slot] || TERRAIN_PALETTE[TERRAIN_PALETTE.length - 1];
+}
+// hex -> rgba(...) at a fixed alpha via MapStore's own colorToRgbaStr
+// (ColorUtils.js, tinycolor-backed) — reuse the framework's colour-parsing
+// rather than hand-rolling a #rrggbb regex.
+export function terrainFillColor(slot) {
+    return colorToRgbaStr(terrainColor(slot), TERRAIN_FILL_ALPHA);
+}
+export function waterColor(slot) {
+    return WATER_PALETTE[slot] || WATER_PALETTE[WATER_PALETTE.length - 1];
+}
+export function waterFillColor(slot) {
+    return colorToRgbaStr(waterColor(slot), WATER_FILL_ALPHA);
+}
 
 /**
  * TASK-1862 (W4.5) — combined terrain + water-surface cross-section.
+ * TASK-2255 (epic 2249 W2) — the water surface is the PUBLISHED stage_max
+ * value, SAMPLED DIRECTLY (role='stage') — never derived from terrain+depth.
+ * (DEM+depth_max=stage derivation was explicitly rejected: raster-level max
+ * identity fails, and there is no run->terrain pairing record. LOCKED
+ * decision #3 / AC4.)
+ * TASK-2256 (epic 2249 W3) — multi-series + fill rules (LOCKED decision #7):
+ *   - Up to 3 terrain traces (role='dem') and 3 water traces (role='stage'),
+ *     one per CHECKED row, in STABLE picker-list order (the order
+ *     getProfileTraces already emits them in — TASK-2255).
+ *   - Terrain SLOT-1 (the first dem trace) is a FILLED area ('tozeroy');
+ *     slots 2-3 are lines only — multiple terrain fills would double-shade
+ *     and obscure each other on a shared y-axis.
+ *   - A SINGLE checked water fills DOWN TO slot-1 terrain ('tonexty') ONLY
+ *     when that terrain is its scenario's CURRENT terrain (`opts.
+ *     scenarioTerrainById[stageTrace.scenarioId] === slot-1's terrainId`) —
+ *     otherwise (0/2/3 waters checked, or a terrain mismatch) every water is
+ *     a plain LINE. This is the "no inverted water-underground fill" guard:
+ *     a stage sampled against a DIFFERENT (finer/coarser) terrain than the
+ *     one it was run against can legitimately dip below that OTHER terrain's
+ *     line at mesh-smoothing artefacts, which would fill as if the ground
+ *     were submerged from below — never plausible hydraulically.
+ *   - The DEFAULT SEED (active terrain + selected scenario) is exactly the
+ *     single-terrain/single-water case with a real terrain match (a
+ *     scenario's own terrain IS the terrain it was built against) — AC3's
+ *     pixel-parity guard.
  *
- * The hydraulic cross-section overlays the channel/terrain shape and the flood
- * water level along the transect. Two Plotly traces:
- *   1. Terrain — the DEM as a FILLED area (fill to zero) so the ground body
- *      reads as the channel cross-section (x = distance along the line).
- *   2. Water surface — stage = terrain + DEPTH per sample, filled DOWN TO the
- *      terrain trace ('tonexty') so the water column between bed and surface is
- *      shaded. A null/absent depth -> null stage (a gap, NOT a false water line)
- *      so dry reaches don't paint water.
+ * `opts.scenarioTerrainById` is a { [scenarioId]: terrainId } lookup built by
+ * the caller from the scenario picker rows (TerrainProfilePanelClass) — kept
+ * OUT of this pure function so it stays trivially testable without redux.
  *
- * Uses the trace `role` (TASK-1862 getProfileTraces tag) to find the terrain
- * (role='dem') and depth (role='depth') rasters unambiguously — never name
- * sniffing. With no depth raster present it degrades to terrain-only (a plain
- * filled cross-section, still useful). With no DEM trace it returns [] (cannot
- * build a cross-section without the bed).
+ * Uses the trace `role` (getProfileTraces tag) to find terrain (role='dem')
+ * and water (role='stage') series unambiguously — never name sniffing. With
+ * no DEM trace at all it returns [] (cannot build a cross-section without a
+ * bed to anchor the x/y frame).
  *
- * Trace ORDER matters: terrain MUST precede the water trace because the water
- * fills 'tonexty' (down to the previous trace = terrain).
+ * Trace ORDER in the returned array matters: the FILLING water (if any) is
+ * placed immediately after slot-1 terrain so Plotly's 'tonexty' fills against
+ * the correct baseline (fill semantics key off array ADJACENCY, not role) —
+ * every other line-only trace can safely follow in any order.
  */
-export function buildCrossSectionData(samples, traces) {
+export function buildCrossSectionData(samples, traces, opts) {
     if (!Array.isArray(samples) || samples.length === 0 || !Array.isArray(traces)) return [];
-    const demTrace = traces.find(t => t && t.role === 'dem');
-    if (!demTrace) return [];
+    const demTraces = traces.filter(t => t && t.role === 'dem');
+    if (demTraces.length === 0) return [];
+    const stageTraces = traces.filter(t => t && t.role === 'stage');
+    const scenarioTerrainById = (opts && opts.scenarioTerrainById) || {};
+    // TASK-2269 — the fill is disabled by default (module constant); an explicit
+    // opts.enableFill overrides it so the preserved fill-selection logic stays
+    // unit-testable for a safe future re-enable.
+    const fillEnabled = (opts && Object.prototype.hasOwnProperty.call(opts, 'enableFill'))
+        ? !!opts.enableFill
+        : CROSS_SECTION_FILL_ENABLED;
+
     const x = samples.map(s => s && s.distance_m);
-    const demY = samples.map(s => {
-        const v = s && s[demTrace.key];
+    const yFor = (trace) => samples.map((s) => {
+        const v = s && s[trace.key];
         return (typeof v === 'number') ? v : null;
     });
-    const data = [{
-        x,
-        y: demY,
-        name: demTrace.label || demTrace.key,
-        type: 'scatter',
-        mode: 'lines',
-        fill: 'tozeroy',
-        fillcolor: TERRAIN_FILL,
-        connectgaps: false,
-        line: { color: TERRAIN_COLOR, width: 2 }
-    }];
-    // Water surface (stage = terrain + depth) — only when a depth raster sampled.
-    const depthTrace = traces.find(t => t && t.role === 'depth');
-    if (depthTrace) {
-        const stageY = samples.map((s) => {
-            const d = s && s[depthTrace.key];
-            const bed = s && s[demTrace.key];
-            // No depth (null/NaN) or no bed -> null stage (dry, a gap not water).
-            if (typeof d !== 'number' || typeof bed !== 'number') return null;
-            return bed + d;
+
+    // TASK-2273 (epic 2249 W5) — mask a water sample to a GAP wherever the
+    // published stage sits STRICTLY BELOW the ground it is drawn against.
+    // stage_max is rasterized at the coarse mesh/output resolution (~8 m) while
+    // the terrain trace is the finer input DEM, so at shallow pond MARGINS the
+    // flat stage can dip a few cm below the finer ground — a pure resolution
+    // artefact that reads as "water below the terrain" (operator UAT 2026-07-14).
+    // Each water is compared ONLY against ITS OWN scenario's terrain column; the
+    // point is dropped where stage < terrain. Strict `<` keeps the depth-0
+    // shoreline (stage == terrain, which coincides with the ground line and is
+    // harmless). This never derives a stage from bed+depth (LOCKED decision #3) —
+    // it only HIDES a published value that cannot legitimately be shown below its
+    // own ground.
+    // NO fallback to slot-1 terrain: if the water's own terrain isn't among the
+    // sampled dem traces (e.g. a proposed-design scenario whose terrain isn't
+    // checked), we CANNOT tell this resolution artefact from a legitimate
+    // below-a-DIFFERENT-terrain water (which the W3 fill rule already treats as
+    // plausible), so we leave the raw stage unmasked rather than silently delete
+    // a whole trace. The artefact only exists relative to the scenario's OWN
+    // terrain. (W5 review fix.)
+    const demByTerrainId = {};
+    demTraces.forEach((d) => { if (d && d.terrainId != null) demByTerrainId[d.terrainId] = d; });
+    const maskedWaterYFor = (stageTrace) => {
+        const raw = yFor(stageTrace);
+        const refTerrain = demByTerrainId[scenarioTerrainById[stageTrace.scenarioId]];
+        if (!refTerrain) return raw;
+        const terrainY = yFor(refTerrain);
+        return raw.map((v, idx) => {
+            if (v === null) return null;
+            const g = terrainY[idx];
+            return (typeof g === 'number' && v < g) ? null : v;
         });
-        // Only add the water trace if it has at least one real stage value.
-        if (stageY.some(v => v !== null)) {
-            data.push({
-                x,
-                y: stageY,
-                name: depthTrace.waterLabel || 'Water surface',
-                type: 'scatter',
-                mode: 'lines',
-                fill: 'tonexty',
-                fillcolor: WATER_FILL,
-                connectgaps: false,
-                line: { color: WATER_LINE, width: 2 }
-            });
+    };
+
+    const slot1Terrain = demTraces[0];
+    // The single-water-fills-to-terrain rule: exactly one checked water, AND
+    // its scenario's current terrain (per the caller-supplied lookup) is
+    // slot-1's own terrain. A missing lookup entry / missing terrainId never
+    // coerces to a false match beyond the deliberate undefined===undefined
+    // case a caller that omits both ids altogether gets (documented on the
+    // exported palette helpers above; real getProfileTraces output always
+    // carries both ids, so this only matters for minimal test fixtures).
+    const fillingStage = (stageTraces.length === 1 && slot1Terrain
+        && scenarioTerrainById[stageTraces[0].scenarioId] === slot1Terrain.terrainId)
+        ? stageTraces[0]
+        : null;
+
+    const data = [];
+    demTraces.forEach((t, i) => {
+        data.push({
+            x,
+            y: yFor(t),
+            name: t.label || t.key,
+            type: 'scatter',
+            mode: 'lines',
+            connectgaps: false,
+            line: { color: terrainColor(i), width: 2 },
+            // Only slot-1 (i===0) is a filled area — slots 2-3 are lines.
+            // TASK-2269: the fill is gated OFF for now (lines only) but the
+            // selection logic stays so it re-enables by flipping the flag.
+            ...(i === 0 && fillEnabled ? { fill: 'tozeroy', fillcolor: terrainFillColor(i) } : {})
+        });
+        // Immediately after slot-1, splice in the filling water (if any) so
+        // 'tonexty' fills against THIS terrain regardless of how many other
+        // line-only terrain/water traces exist in the full set.
+        if (i === 0 && fillingStage) {
+            const stageY = maskedWaterYFor(fillingStage);
+            if (stageY.some(v => v !== null)) {
+                data.push({
+                    x,
+                    y: stageY,
+                    name: fillingStage.waterLabel || fillingStage.label || 'Water surface',
+                    type: 'scatter',
+                    mode: 'lines',
+                    // TASK-2269: fill gated OFF for now; TASK-2273 mask keeps the
+                    // water from ever sitting below terrain so re-enabling 'tonexty'
+                    // stays artefact-free.
+                    ...(fillEnabled ? { fill: 'tonexty', fillcolor: waterFillColor(0) } : {}),
+                    connectgaps: false,
+                    line: { color: waterColor(0), width: 2 }
+                });
+            }
         }
-    }
+    });
+    // Every other checked water (i.e. NOT the single filling one above) is a
+    // plain line, keyed by its own stable slot within the stage subset so
+    // its colour always matches its picker-row swatch (AC1).
+    stageTraces.forEach((t, j) => {
+        if (t === fillingStage) return;
+        const stageY = maskedWaterYFor(t);
+        if (!stageY.some(v => v !== null)) return;
+        data.push({
+            x,
+            y: stageY,
+            name: t.waterLabel || t.label || 'Water surface',
+            type: 'scatter',
+            mode: 'lines',
+            connectgaps: false,
+            line: { color: waterColor(j), width: 2 }
+        });
+    });
     return data;
 }
 
@@ -306,15 +392,28 @@ export class TerrainProfilePanelClass extends React.Component {
         traces: PropTypes.array,
         error: PropTypes.string,
         demReady: PropTypes.bool,
-        // TASK-1862 (W4.5) — 'profile' | 'crosssection'.
-        mode: PropTypes.string,
         setProfilePanelVisible: PropTypes.func,
         startProfileDraw: PropTypes.func,
-        setProfileMode: PropTypes.func
+        clearProfile: PropTypes.func,
+        clearProfileLine: PropTypes.func,
+        // TASK-2256 (epic 2249 W3) — picker-as-legend rows + checked-id state.
+        terrainRows: PropTypes.array,
+        scenarioRows: PropTypes.array,
+        checkedTerrainIds: PropTypes.array,
+        checkedScenarioIds: PropTypes.array,
+        toggleCheckedTerrain: PropTypes.func,
+        toggleCheckedScenario: PropTypes.func
     };
 
     static defaultProps = {
-        mode: 'profile'
+        terrainRows: [],
+        scenarioRows: [],
+        checkedTerrainIds: [],
+        checkedScenarioIds: [],
+        clearProfile: () => {},
+        clearProfileLine: () => {},
+        toggleCheckedTerrain: () => {},
+        toggleCheckedScenario: () => {}
     };
 
     handleClose = () => {
@@ -327,83 +426,206 @@ export class TerrainProfilePanelClass extends React.Component {
         trackEvent('button', 'click', 'anuga-profile-draw-start');
     };
 
-    handleMode = (mode) => {
-        if (mode === this.props.mode) return;
-        this.props.setProfileMode(mode);
-        trackEvent('button', 'click', `anuga-profile-mode-${mode}`);
+    // TASK-2272 (epic 2249 W5) — the "Clear" button: wipe ALL transient profile
+    // state (samples/traces/error/loading/drawing, via clearProfile) AND remove
+    // the drawn LineString from the map (changeDrawingStatus('clean')) so the
+    // panel returns to the empty "Draw profile line" state for a fresh line.
+    handleClear = () => {
+        this.props.clearProfile();
+        this.props.clearProfileLine();
+        trackEvent('button', 'click', 'anuga-profile-clear');
     };
 
-    isCrossSection() {
-        return this.props.mode === 'crosssection';
+    // Resolve a msgId off legacy context, falling back to plain English when
+    // the messages dictionary isn't populated yet (initial render / locale
+    // boot) — same helper precedent as anugaScenarioMenu.js's `tr`.
+    // getMessageById returns the msgId itself on a lookup miss.
+    tr = (msgId, fallback) => {
+        const messages = (this.context && this.context.messages) || {};
+        const resolved = getMessageById(messages, msgId);
+        return (!resolved || resolved === msgId) ? fallback : resolved;
+    };
+
+    // ── TASK-2256 (epic 2249 W3) — picker-as-legend rows ───────────────────
+    // The picker rows ARE the legend (LOCKED decision #5): swatch + name +
+    // checkbox, a live n/3 counter, cap grey-out with a hint, and — for water
+    // rows — a checkability reason / run date / staleness flag. `kind` is
+    // 'terrain' | 'water'; `colorFn` is the matching palette lookup so the
+    // swatch colour is PIXEL-IDENTICAL to the chart trace colour (AC1) —
+    // both derive from the exact same getColorSlot(rows, checkedIds, id)
+    // assignment — TASK-2262: renderPickerGroup now computes this ONCE per
+    // group (buildCheckedSlotMap) and passes the resulting `slotMap` in,
+    // rather than this method calling getColorSlot itself per row.
+    renderPickerRow(kind, slotMap, chartMode, checkedIds, row, colorFn) {
+        const isTerrain = kind === 'terrain';
+        const checkable = isTerrain ? true : row.status === 'ready';
+        const checked = checkedIds.includes(row.id);
+        const atCap = checkedIds.length >= 3;
+        const capBlocked = checkable && !checked && atCap;
+        const disabled = !checkable || capBlocked;
+        const slot = Object.prototype.hasOwnProperty.call(slotMap, row.id) ? slotMap[row.id] : -1;
+        // TASK-2261 (W-followup review): the picker rows ARE the chart's legend
+        // (LOCKED decision #5), so the swatch must match what is on screen.
+        //  - chartMode (a chart is displayed): `slotMap` is buildChartSlotMap —
+        //    the swatch is coloured iff this row's trace is plotted (present in
+        //    the stored traces), in that trace's EXACT colour, even if the row's
+        //    live checkability has since flipped (external stage un-publish) or
+        //    the selection changed without a Redraw. No `checkable` gate: a
+        //    still-plotted-but-now-disabled row keeps its line's colour until
+        //    the next Redraw drops the line.
+        //  - preview (no chart yet): `slotMap` is buildCheckedSlotMap — the
+        //    swatch previews the current SELECTION's colour, gated on live
+        //    checkability so a disabled row shows no preview swatch.
+        const swatchColor = slot >= 0 && (chartMode || checkable) ? colorFn(slot) : null;
+        const label = isTerrain
+            ? (row.title || row.name || row.gn_layer_name)
+            : (row.scenario.name || `Scenario ${row.scenario.id}`);
+        const run = !isTerrain ? row.scenario.latest_complete_run : null;
+        const runDate = run && run.real_world_end ? new Date(run.real_world_end).toLocaleDateString() : null;
+        const stale = !isTerrain && row.scenario.latest_run_is_valid === false;
+
+        let hint = null;
+        if (!isTerrain && row.status === 'no-run') {
+            hint = this.tr('hydrata.anuga.crossSectionNoRunHint', 'No completed run yet');
+        } else if (!isTerrain && row.status === 'no-stage') {
+            hint = this.tr('hydrata.anuga.crossSectionNoStageHint', 'Re-run to get a water surface');
+        } else if (capBlocked) {
+            hint = this.tr('hydrata.anuga.crossSectionCapReachedHint', 'Uncheck another row first (max 3)');
+        }
+
+        return (
+            <label
+                key={row.id}
+                className={`sv-picker-row${disabled ? ' sv-picker-row-disabled' : ''}`}
+                data-testid={`picker-row-${kind}-${row.id}`}
+                title={hint || undefined}
+            >
+                <input
+                    type="checkbox"
+                    data-testid={`picker-checkbox-${kind}-${row.id}`}
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => {
+                        if (isTerrain) this.props.toggleCheckedTerrain(row.id);
+                        else this.props.toggleCheckedScenario(row.id);
+                    }}
+                />
+                <span
+                    className="sv-picker-swatch"
+                    data-testid={`picker-swatch-${kind}-${row.id}`}
+                    style={{ backgroundColor: swatchColor || 'transparent' }}
+                />
+                <span className="sv-picker-label">{label}</span>
+                {runDate ?
+                    <span className="sv-picker-rundate" data-testid={`picker-rundate-${row.id}`}>{runDate}</span>
+                    : null}
+                {stale ?
+                    <span className="sv-picker-stale" data-testid={`picker-stale-${row.id}`}>
+                        {this.tr('hydrata.anuga.crossSectionStaleHint', 'Results may be stale — scenario edited since this run')}
+                    </span>
+                    : null}
+                {hint ?
+                    <span className="sv-picker-hint" data-testid={`picker-hint-${kind}-${row.id}`}>{hint}</span>
+                    : null}
+            </label>
+        );
     }
 
-    // TASK-1862 (W4.5) — mode toggle (Profile | Cross-section). Same drawn line +
-    // samples; only the chart rendering switches, so flipping is free.
-    renderModeToggle() {
-        const cs = this.isCrossSection();
+    renderPickerGroup(kind) {
+        const isTerrain = kind === 'terrain';
+        const rows = isTerrain ? this.props.terrainRows : this.props.scenarioRows;
+        const checkedIds = isTerrain ? this.props.checkedTerrainIds : this.props.checkedScenarioIds;
+        const colorFn = isTerrain ? terrainColor : waterColor;
+        // TASK-2261/2262: pick the swatch colour source. While a chart is
+        // displayed the picker legend MIRRORS it (buildChartSlotMap, keyed on
+        // the stored traces buildCrossSectionData renders) so swatch === plotted
+        // line regardless of live-selection drift; before the first draw it
+        // PREVIEWS the live selection (buildCheckedSlotMap). Either map is
+        // computed ONCE per group render, not once per row inside the .map()
+        // below (TASK-2262 O(N) not O(N^2)). buildCheckedSlotMap ready-filters
+        // water rows so a checked-but-no-longer-ready row never consumes a
+        // preview slot (terrain rows are ready-filtered at the selector).
+        const chartMode = Array.isArray(this.props.samples) && this.props.samples.length > 0
+            && Array.isArray(this.props.traces) && this.props.traces.some(t => t && t.role === 'dem');
+        const slotMap = chartMode
+            ? buildChartSlotMap(this.props.traces, kind)
+            : buildCheckedSlotMap(
+                isTerrain ? rows : rows.filter(r => r && r.status === 'ready'),
+                checkedIds
+            );
         return (
-            <div className="sv-profile-mode-toggle" data-testid="profile-mode-toggle" style={{ marginBottom: 10 }}>
-                <div className="btn-group" role="group">
-                    <Button
-                        data-testid="profile-mode-profile"
-                        bsSize="small"
-                        bsStyle={!cs ? 'primary' : 'default'}
-                        active={!cs}
-                        onClick={() => this.handleMode('profile')}
-                    >
-                        <Message msgId="hydrata.anuga.profileModeProfile" />
-                    </Button>
-                    <Button
-                        data-testid="profile-mode-crosssection"
-                        bsSize="small"
-                        bsStyle={cs ? 'primary' : 'default'}
-                        active={cs}
-                        onClick={() => this.handleMode('crosssection')}
-                    >
-                        <Message msgId="hydrata.anuga.profileModeCrossSection" />
-                    </Button>
+            <div className="sv-picker-group" data-testid={`picker-group-${kind}`}>
+                <div className="sv-picker-group-header">
+                    <span className="sv-picker-group-title">
+                        <Message msgId={isTerrain ? 'hydrata.anuga.crossSectionTerrainGroup' : 'hydrata.anuga.crossSectionWaterGroup'} />
+                    </span>
+                    <span className="sv-picker-counter" data-testid={`picker-counter-${kind}`}>
+                        {checkedIds.length}/3
+                    </span>
                 </div>
+                {rows.map((row) => this.renderPickerRow(kind, slotMap, chartMode, checkedIds, row, colorFn))}
             </div>
         );
     }
 
+    renderPicker() {
+        return (
+            <div className="sv-picker" data-testid="cross-section-picker">
+                {this.renderPickerGroup('terrain')}
+                {this.renderPickerGroup('water')}
+            </div>
+        );
+    }
+
+    // TASK-2253 — Cross-section is the ONLY mode now: build the combined
+    // terrain + water-surface chart. TASK-2255 — the water-surface trace is
+    // the PUBLISHED stage sampled directly (role='stage'). TASK-2256 — the
+    // panel now carries a "current terrain" lookup per scenario (built from
+    // the scenario picker rows, which already ride `scenario.terrain`) so
+    // buildCrossSectionData can apply the conditional single-water fill rule
+    // (LOCKED decision #7) without redux state leaking into that pure function.
     renderChart() {
-        // TASK-1862: in cross-section mode build the combined terrain + water
-        // surface chart; otherwise the W4.4 raw value-vs-distance traces. The
-        // water-surface trace is a DERIVED quantity (terrain+depth=stage), so it
-        // gets the localized "Water surface" label (resolved off legacy context),
-        // NOT the depth raster's label.
-        let data;
-        let layout;
-        if (this.isCrossSection()) {
-            const messages = this.context && this.context.messages;
-            const fallback = 'Water surface';
-            const resolved = messages ? getMessageById(messages, 'hydrata.anuga.profileWaterSurface') : fallback;
-            // getMessageById returns the msgId itself on a lookup miss.
-            const waterLabel = (!resolved || resolved === 'hydrata.anuga.profileWaterSurface') ? fallback : resolved;
-            const traces = (this.props.traces || []).map(t => (
-                t && t.role === 'depth' ? { ...t, waterLabel } : t
-            ));
-            data = buildCrossSectionData(this.props.samples, traces);
-            if (data.length === 0) return null;
-            // Cross-section is UNCHANGED: terrain + stage are both elevation
-            // magnitude, framed to relief on a SINGLE axis (W4.5, already correct).
-            const range = computeYRange(data);
-            const yaxis = range
-                ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false }
-                : DARK_GLASS_LAYOUT.yaxis;
-            layout = { ...DARK_GLASS_LAYOUT, yaxis };
-        } else {
-            data = buildPlotlyData(this.props.samples, this.props.traces);
-            if (data.length === 0) return null;
-            layout = buildProfileLayout(data);
-        }
+        const fallback = 'Water surface';
+        const waterLabel = this.tr('hydrata.anuga.profileWaterSurface', fallback);
+        const traces = (this.props.traces || []).map(t => (
+            t && t.role === 'stage' ? { ...t, waterLabel } : t
+        ));
+        const scenarioTerrainById = {};
+        (this.props.scenarioRows || []).forEach((r) => {
+            scenarioTerrainById[r.id] = r.scenario && r.scenario.terrain;
+        });
+        const data = buildCrossSectionData(this.props.samples, traces, { scenarioTerrainById });
+        if (data.length === 0) return null;
+        // Terrain + stage are both elevation magnitude, framed to relief on a
+        // SINGLE axis (W4.5).
+        const range = computeYRange(data);
+        // TASK-2270 — axis UNIT titles injected here (a static layout can't
+        // localize): x = distance along the transect, y = elevation.
+        const xaxis = {
+            ...CROSS_SECTION_LAYOUT.xaxis,
+            title: { text: this.tr('hydrata.anuga.crossSectionXAxis', 'Distance (m)') }
+        };
+        const yaxis = {
+            ...CROSS_SECTION_LAYOUT.yaxis,
+            title: { text: this.tr('hydrata.anuga.crossSectionYAxis', 'Elevation (m)') },
+            ...(range ? { range, autorange: false } : {})
+        };
+        const layout = { ...CROSS_SECTION_LAYOUT, xaxis, yaxis };
         return (
             <div className="sv-profile-chart" data-testid="profile-chart" style={{ width: '100%', height: 240 }}>
                 <PlotlyChart
                     data={data}
                     layout={layout}
-                    config={{ displayModeBar: false, responsive: true }}
+                    // TASK-2271 — trimmed Plotly mode bar so the user gets
+                    // zoom-in / zoom-out / reset (+ scroll-zoom). Zoom-in already
+                    // worked via drag-select; zoom-out + reset were missing.
+                    config={{
+                        displayModeBar: true,
+                        displaylogo: false,
+                        responsive: true,
+                        scrollZoom: true,
+                        modeBarButtons: [['zoomIn2d', 'zoomOut2d', 'resetScale2d']]
+                    }}
                     style={{ width: '100%', height: '100%' }}
                     useResizeHandler
                 />
@@ -421,15 +643,12 @@ export class TerrainProfilePanelClass extends React.Component {
             );
         }
         const hasSamples = Array.isArray(this.props.samples) && this.props.samples.length > 0;
-        const helpMsg = this.isCrossSection()
-            ? 'hydrata.anuga.crossSectionHelp'
-            : 'hydrata.anuga.profileHelp';
         return (
             <React.Fragment>
-                {this.renderModeToggle()}
                 <div className="sv-profile-help" data-testid="profile-help" style={{ marginBottom: 10 }}>
-                    <Message msgId={helpMsg} />
+                    <Message msgId="hydrata.anuga.crossSectionHelp" />
                 </div>
+                {this.renderPicker()}
                 <div style={{ marginBottom: 10 }}>
                     <Button
                         data-testid="profile-draw-button"
@@ -439,6 +658,22 @@ export class TerrainProfilePanelClass extends React.Component {
                     >
                         <Message msgId={hasSamples ? 'hydrata.anuga.profileRedrawButton' : 'hydrata.anuga.profileDrawButton'} />
                     </Button>
+                    {/* TASK-2272 — Clear: reset all state + remove the drawn line,
+                        shown once there is something to clear (samples, an error,
+                        or an in-flight sample). Same react-bootstrap Button as the
+                        other panel buttons (no SimpleView Button primitive — the
+                        primitives barrel deliberately omits one). */}
+                    {hasSamples || this.props.error || this.props.loading ?
+                        <Button
+                            data-testid="profile-clear-button"
+                            bsSize="small"
+                            bsStyle="default"
+                            style={{ marginLeft: 10 }}
+                            onClick={this.handleClear}
+                        >
+                            <Message msgId="hydrata.anuga.crossSectionClear" />
+                        </Button> : null
+                    }
                     {this.props.drawingActive ?
                         <span style={{ marginLeft: 10 }} data-testid="profile-drawing-hint">
                             <Message msgId="hydrata.anuga.profileDrawing" />
@@ -473,12 +708,29 @@ export class TerrainProfilePanelClass extends React.Component {
         if (!this.props.visible) return null;
         return (
             <div className={'simple-view-panel sv-profile-panel'} data-testid="profile-panel">
+                {/* TASK-2274 (live-verified 2026-07-14): extraClassName was
+                    "h4 sv-legend-heading" — the "h4" Bootstrap heading class
+                    contributes ONLY its default margin:8px 0 here (the title's
+                    font-size/weight are already set by PanelHeader's own inline
+                    titleStyle, which always wins over a class), and that
+                    margin pushes the WHOLE header (the close chip's
+                    position:relative containing block) down 8px — the DEM
+                    legend's PanelHeader usage (MovablePanel, extraClassName
+                    "sv-movable-panel-header", no "h4") carries no such margin,
+                    which is why the close chip sat visibly further from the
+                    panel's top edge here. Dropping "h4" equalises the two. */}
                 <PanelHeader
-                    extraClassName="h4 sv-legend-heading"
-                    title={<Message msgId={this.isCrossSection() ? 'hydrata.anuga.crossSectionPanelTitle' : 'hydrata.anuga.profilePanelTitle'} />}
+                    extraClassName="sv-legend-heading"
+                    title={<Message msgId="hydrata.anuga.crossSectionPanelTitle" />}
                     onClose={this.handleClose}
                 />
-                <div style={{ padding: '10px' }}>
+                {/* TASK-2274 — sv-profile-body (anuga.css) owns its own
+                    padding + the flex/overflow rules that make it scroll
+                    independently within the panel's max-height, now that
+                    the outer .sv-profile-panel padding is neutralised
+                    (matches the DEM legend MovablePanel's zero-outer-padding
+                    treatment — see movablePanel.css). */}
+                <div className="sv-profile-body">
                     {this.renderBody()}
                 </div>
                 <div className={'simple-view-panel-footer'}>
@@ -505,14 +757,28 @@ const mapStateToProps = (state) => ({
     traces: state?.anuga?.ui?.profileTraces || null,
     error: state?.anuga?.ui?.profileError || null,
     demReady: hasDemReady(state),
-    // TASK-1862 (W4.5) — cross-section / transect mode.
-    mode: state?.anuga?.ui?.profileMode || 'profile'
+    // TASK-2256 (epic 2249 W3) — picker-as-legend rows + checked-id state.
+    // The series model + seeding/cap live in profileEpic.js (TASK-2254); this
+    // panel only renders them.
+    terrainRows: getTerrainPickerRows(state),
+    scenarioRows: getScenarioPickerRows(state),
+    checkedTerrainIds: state?.anuga?.ui?.checkedTerrainIds || [],
+    checkedScenarioIds: state?.anuga?.ui?.checkedScenarioIds || []
 });
 
 const mapDispatchToProps = (dispatch) => ({
     setProfilePanelVisible: (visible) => dispatch(setProfilePanelVisible(visible)),
     startProfileDraw: () => dispatch(startProfileDraw()),
-    setProfileMode: (mode) => dispatch(setProfileMode(mode))
+    clearProfile: () => dispatch(clearProfile()),
+    // TASK-2272 — remove the drawn LineString from the map (clean stops
+    // DrawSupport and clears its feature layer for this tool's owner).
+    // TASK-2276 — routed through CLEAR_PROFILE_LINE + clearProfileLineEpic
+    // rather than dispatching changeDrawingStatus('clean', ...) directly, so
+    // the epic can gate it on this tool actually owning (or nobody owning)
+    // the current map draw before wiping anything.
+    clearProfileLine: () => dispatch(clearProfileLineAction()),
+    toggleCheckedTerrain: (id) => dispatch(toggleCheckedTerrain(id)),
+    toggleCheckedScenario: (id) => dispatch(toggleCheckedScenario(id))
 });
 
 export const TerrainProfilePanel = connect(mapStateToProps, mapDispatchToProps)(TerrainProfilePanelClass);

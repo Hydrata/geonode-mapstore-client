@@ -38,11 +38,24 @@ const SET_PROFILE_LOADING = 'ANUGA:SET_PROFILE_LOADING';
 const SET_PROFILE_SAMPLES = 'ANUGA:SET_PROFILE_SAMPLES';
 const SET_PROFILE_ERROR = 'ANUGA:SET_PROFILE_ERROR';
 const CLEAR_PROFILE = 'ANUGA:CLEAR_PROFILE';
-// TASK-1862 (epic 1814 W4.5) — cross-section / transect MODE of the profile
-// tool. 'profile' = raw value-vs-distance traces (W4.4); 'crosssection' = the
-// combined terrain (filled area) + water-surface (terrain+depth=stage) chart.
-// Same draw interaction / endpoint / samples — only the chart rendering differs.
-const SET_PROFILE_MODE = 'ANUGA:SET_PROFILE_MODE';
+// TASK-2276 (epic 2249 W-followup) — request removing the drawn cross-section
+// LineString from the map. Routed through clearProfileLineEpic (profileEpic.js)
+// rather than the panel dispatching changeDrawingStatus('clean', ...) directly:
+// DrawSupport's 'clean' case honours NO owner (it wipes ANY tool's in-progress
+// draw + sketch layer), so the epic gates the actual changeDrawingStatus
+// dispatch on state.draw.drawOwner being idle or already this tool's own.
+const CLEAR_PROFILE_LINE = 'ANUGA:CLEAR_PROFILE_LINE';
+// TASK-2253 (epic 2249 W2) — SET_PROFILE_MODE DELETED: Profile mode is gone,
+// Cross-section is the tool's only chart now (git history keeps the action).
+// TASK-2254 (epic 2249 W2) — Cross-section PICKER checked-id state. Up to 3
+// terrains + 3 scenario water surfaces can be checked at once (independent
+// caps). SET_* bulk-replaces the whole list (pickerSeedEpic seeding on panel
+// open); TOGGLE_* is the per-row checkbox click (hard-capped — a click past
+// the cap is a no-op, enforced in the reducer, not just the UI).
+const SET_CHECKED_TERRAINS = 'ANUGA:SET_CHECKED_TERRAINS';
+const SET_CHECKED_SCENARIOS = 'ANUGA:SET_CHECKED_SCENARIOS';
+const TOGGLE_CHECKED_TERRAIN = 'ANUGA:TOGGLE_CHECKED_TERRAIN';
+const TOGGLE_CHECKED_SCENARIO = 'ANUGA:TOGGLE_CHECKED_SCENARIO';
 // TASK-1880 (epic 1884 W2 — THE HEADLINE) — in-app terrain-upload CRS picker.
 // The upload glyph / starter CTA no longer fire the byte transfer directly; they
 // OPEN this panel carrying the picked File + an auto-title, so a CRS-less DEM can
@@ -193,11 +206,27 @@ function setProfileError(error) {
 function clearProfile() {
     return { type: CLEAR_PROFILE };
 }
-// TASK-1862 (W4.5) — switch the profile tool between 'profile' (raw traces) and
-// 'crosssection' (combined terrain + water-surface chart). Same samples; only
-// the chart rendering differs, so switching mode is free (no re-sample).
-function setProfileMode(mode) {
-    return { type: SET_PROFILE_MODE, mode };
+// TASK-2276 — "Clear" button: request the drawn LineString be removed from
+// the map. See CLEAR_PROFILE_LINE above for why this is a separate plain
+// action rather than the panel dispatching changeDrawingStatus directly.
+function clearProfileLine() {
+    return { type: CLEAR_PROFILE_LINE };
+}
+// TASK-2254 — bulk-replace the checked-id set (pickerSeedEpic on panel open).
+// `ids` is capped to 3 defensively even though callers already cap it.
+function setCheckedTerrains(ids) {
+    return { type: SET_CHECKED_TERRAINS, ids };
+}
+function setCheckedScenarios(ids) {
+    return { type: SET_CHECKED_SCENARIOS, ids };
+}
+// TASK-2254 — user checkbox click: unchecks an already-checked id, else adds
+// it (a no-op past the 3-cap, enforced in the reducer).
+function toggleCheckedTerrain(id) {
+    return { type: TOGGLE_CHECKED_TERRAIN, id };
+}
+function toggleCheckedScenario(id) {
+    return { type: TOGGLE_CHECKED_SCENARIO, id };
 }
 
 // TASK-1880 (W2) — open/close the terrain-upload CRS picker. On open carry the
@@ -267,8 +296,12 @@ module.exports = {
     SET_PROFILE_SAMPLES, setProfileSamples,
     SET_PROFILE_ERROR, setProfileError,
     CLEAR_PROFILE, clearProfile,
-    // TASK-1862 (epic 1814 W4.5) — cross-section / transect mode.
-    SET_PROFILE_MODE, setProfileMode,
+    CLEAR_PROFILE_LINE, clearProfileLine,
+    // TASK-2254 (epic 2249 W2) — Cross-section picker checked-id state.
+    SET_CHECKED_TERRAINS, setCheckedTerrains,
+    SET_CHECKED_SCENARIOS, setCheckedScenarios,
+    TOGGLE_CHECKED_TERRAIN, toggleCheckedTerrain,
+    TOGGLE_CHECKED_SCENARIO, toggleCheckedScenario,
     // TASK-2194 (epic 2190 W2) — staff compute-target selector site config.
     SET_ANUGA_COMPUTE_CONFIG, setAnugaComputeConfig,
     // TASK-2194 (review fix) — per-scenario session compute-target choice.

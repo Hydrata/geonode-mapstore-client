@@ -75,4 +75,15 @@ describe('uiReducer — profile slice (TASK-1861)', () => {
         expect(s.profileError).toBe(null);
         expect(s.profilePanelVisible).toBe(true);
     });
+
+    // TASK-2272 (epic 2249 W5) — the "Clear" button leans on CLEAR_PROFILE for a
+    // FULL reset: drawing + loading flags also drop so the panel returns to the
+    // empty "Draw profile line" state. Picker checked-ids are intentionally kept.
+    it('CLEAR_PROFILE also resets drawing + loading flags (full reset for Clear)', () => {
+        let s = uiReducer(undefined, setProfileLoading(true));
+        s = uiReducer(s, setProfileDrawing(true));
+        s = uiReducer(s, clearProfile());
+        expect(s.profileDrawingActive).toBe(false);
+        expect(s.profileLoading).toBe(false);
+    });
 });

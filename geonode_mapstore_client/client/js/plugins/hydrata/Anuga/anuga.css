@@ -2359,7 +2359,20 @@ div that holds the feature-grid */
 }
 
 /* ── TASK-1861 (W4.4) — depth/result line-profile tool panel ──────────────── */
-.sv-profile-panel {
+/* TASK-2274 (W-followup, live-verified 2026-07-14): a COMPOUND selector
+   (both classes, no descendant combinator) — not just `.sv-profile-panel`.
+   The plugin CSS build namespaces every top-level selector under `.msgapi`
+   (see movablePanel.css's "css-namespace-guard" note), so a bare
+   `.sv-profile-panel` rule compiles to `.msgapi .sv-profile-panel`
+   (specificity 0,2,0) — EQUAL specificity to the base rule's own namespaced
+   form `.msgapi .simple-view-panel` (also 0,2,0). That's a tie, and a tie is
+   decided by STYLESHEET LOAD ORDER, which this repo does not otherwise
+   guarantee between the anuga/SimpleView bundles — live-verified on
+   localhost: the override silently lost the tie (panel rendered full-width,
+   NOT right-docked; padding stayed 5px 10px, not 0). `.simple-view-panel.
+   sv-profile-panel` compiles to `.msgapi .simple-view-panel.sv-profile-panel`
+   (0,3,0) — strictly higher, wins regardless of load order. */
+.simple-view-panel.sv-profile-panel {
     /* Left-align the help/body + chart (the base .simple-view-panel centres). */
     text-align: left;
     /* FINDING 4 (UAT 2026-06-23): dock on the RIGHT so the profile tool clears
@@ -2368,6 +2381,29 @@ div that holds the feature-grid */
        the panel stretches full-width instead of right-docking. */
     left: auto;
     right: 20px;
+    /* TASK-2274 (operator UAT 2026-07-14): neutralise the base
+       .simple-view-panel padding:5px 10px — mirrors movablePanel.css's
+       .sv-movable-panel treatment for the SAME shared PanelHeader primitive,
+       so its close chip (inline position:absolute; top:2px; right:2px)
+       sits the SAME 2px from the outer edge in both the DEM legend
+       (MovablePanel) and this docked panel, instead of the base padding
+       pushing it further in. Every section here already self-pads (the
+       header's own inline padding, .sv-profile-body below, and
+       .simple-view-panel-footer's own CSS padding), so nothing loses its
+       spacing. */
+    padding: 0;
+}
+/* TASK-2274 — the body's own padding + an independently-scrolling flex
+   region: the panel's max-height (base .simple-view-panel rule) previously
+   had no overflow handling below it, so tall content (many picker rows +
+   the chart) could spill past the panel's own bottom edge rather than
+   scrolling. flex:1 1 auto + min-height:0 is the SAME idiom
+   .simple-view-panel-body already uses elsewhere in this sheet. */
+.sv-profile-body {
+    padding: 10px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
 .sv-profile-help,
 .sv-profile-empty {
@@ -2386,38 +2422,116 @@ div that holds the feature-grid */
 }
 .sv-profile-chart {
     margin-top: 8px;
-    /* The plotly SVG paints its own surface; the panel glass shows through via
-       the transparent paper/plot bg set in DARK_GLASS_LAYOUT. */
+    /* The plotly SVG paints its own white surface (paper/plot bg in
+       CROSS_SECTION_LAYOUT, TASK-2270) for maximum line contrast. */
 }
 
-/* ── TASK-1862 (W4.5) — cross-section / transect mode toggle ──────────────── */
-.sv-profile-mode-toggle .btn-group {
-    display: inline-flex;
+/* ── TASK-2256 (epic 2249 W3) — picker-as-legend ───────────────────────────
+   The grouped TERRAIN / WATER SURFACE picker rows ARE the chart legend
+   (LOCKED decision #5) — swatch + name + checkbox, a live n/3 counter, and
+   cap grey-out / disabled-reason states. Sits between the help text and the
+   "Draw profile line" button. */
+.sv-picker {
+    margin-bottom: 10px;
 }
-.sv-profile-mode-toggle .btn {
-    /* Dark-glass segmented control: translucent default, lit accent for the
-       active segment. */
-    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
-    border-color: rgba(255, 255, 255, 0.18);
+.sv-picker-group {
+    margin-bottom: 8px;
+}
+.sv-picker-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 0 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.6));
+}
+.sv-picker-counter {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.5));
+}
+.sv-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 2px;
+    font-size: 12px;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    cursor: pointer;
 }
-.sv-profile-mode-toggle .btn.active,
-.sv-profile-mode-toggle .btn-primary {
-    background: var(--sv-accent-blue, #5bc0ff);
-    border-color: var(--sv-accent-blue, #5bc0ff);
-    color: #0b1a26;
+/* TASK-2275 (operator UAT 2026-07-14 — tickbox/label justification +
+   spacing): the checkbox is a native <input type="checkbox"> carrying its
+   own browser-default margin, which STACKS ON TOP of the row's flex
+   `gap: 6px` — the checkbox->swatch gap read visibly wider/uneven than the
+   swatch->label gap (plain <span>s, no native margin to stack with).
+   Zeroing it makes the row's `gap` the ONLY spacing between every item,
+   evenly, in BOTH the terrain and water groups (same row markup). */
+.sv-picker-row input[type="checkbox"] {
+    flex-shrink: 0;
+    margin: 0;
+}
+.sv-picker-row-disabled {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.4));
+    cursor: not-allowed;
+}
+.sv-picker-swatch {
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.sv-picker-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sv-picker-rundate {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.5));
+}
+.sv-picker-stale {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: #f0ad4e;
+}
+.sv-picker-hint {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.45));
+    font-style: italic;
 }
 
 /* ── W4 UAT — depth/elevation profile button inside the Results tab ───────────
    The profile entry moved out of the toolbar and into the Results miller panel
    (portaled by anugaContainer). Dark-glass action button sitting above the
-   result-layer rows; lit accent when the profile panel is open. */
+   result-layer rows; lit accent when the profile panel is open.
+   TASK-2277 (operator UAT 2026-07-14): the button must sit at the TOP of the
+   panel (above the Depth/Velocity/etc rows) and be fixed-width to its label,
+   not full panel width. createPortal (anugaContainer render()) always appends
+   this as the LAST DOM child of .simple-view-panel--miller, which sits
+   alongside <MenuRows/> (the result-type rows) as the panel's only other
+   child — .simple-view-panel is a flex column, so `order: -1` sorts this
+   action before MenuRows' default order:0 without touching
+   simpleViewContainer.js's render order. `align-self: flex-start` opts this
+   item OUT of the flex column's default cross-axis stretch so it shrinks to
+   its content width instead of spanning the panel. */
 .sv-results-profile-action {
     padding: 8px 10px 4px;
+    order: -1;
+    align-self: flex-start;
 }
 .sv-results-profile-action .sv-glass-button {
-    display: block;
-    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
     border: 1px solid rgba(255, 255, 255, 0.18);
     color: var(--sv-text, rgba(255, 255, 255, 0.85));

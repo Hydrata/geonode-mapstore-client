@@ -17,8 +17,6 @@ import {
 } from '../actionsAnuga';
 import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
-import {LAUNCH_GATES} from '../../shared/launchGates';
-import ComingSoonBadge from '../../shared/ComingSoonBadge';
 import {AnugaInputMenu} from './anugaInputMenu';
 // BUG (UAT, TASK-1648 regression): the GLO-30 bbox panel must be mounted at the
 // CONTAINER level, NOT inside AnugaInputMenu. 'Define import area' dispatches
@@ -260,31 +258,41 @@ export class AnugaContainer extends React.Component {
         );
     }
 
-    // W4 UAT — the depth/elevation profile entry is now a BUTTON inside the
-    // Results tab rather than a standalone toolbar tab. It dispatches the SAME
-    // action the old tab used (setProfilePanelVisible), so both 'profile' and
-    // 'cross-section' modes stay reachable (the mode toggle lives in the panel).
-    // Gated on canViewAnugaMap + hasEPSGset (same as the result layers it
-    // profiles) and only mounted when the Results tab is the open group.
+    // W4 UAT — the Cross-section entry is a BUTTON inside the Results tab
+    // rather than a standalone toolbar tab. It dispatches the SAME action the
+    // old tab used (setProfilePanelVisible). Gated on canViewAnugaMap +
+    // hasEPSGset (same as the result layers it profiles) and only mounted when
+    // the Results tab is the open group.
+    // TASK-2253 — the resultsProfile LAUNCH_GATES entry is DELETED: the button
+    // is live (no ComingSoonBadge branch).
+    // TASK-2257 (epic 2249 W3) — renamed "Depth / elevation profile" ->
+    // "Cross-section". Reuses the SAME msgId the panel header already uses
+    // (hydrata.anuga.crossSectionPanelTitle, TASK-2253) rather than keeping a
+    // second near-duplicate "Cross-section" string — the button and the panel
+    // it opens should always say the exact same thing.
+    // TASK-2277 (operator UAT 2026-07-14 headline polish item): clicking this
+    // button ALSO closes the Results panel — setOpenMenuGroupId(null) is the
+    // SAME action the Results toolbar button uses to open it (see
+    // renderToolbarButtons' setOpenMenuGroupId('Results') above). The button
+    // itself unmounts once Results closes (this.props.openMenuGroupId is no
+    // longer 'Results', so render()'s resultsPanelTarget goes null) — that's
+    // fine, its job is done; the Cross-section panel it just opened is a
+    // SEPARATE profilePanelVisible-gated portal that stays mounted regardless.
     renderResultsProfileButton() {
-        // TASK-2126 — "Depth / elevation profile" gated ("Coming soon") for the
-        // bundled launch: the button is disabled and cannot open the panel.
-        const gated = !LAUNCH_GATES.resultsProfile;
         return (
             <div className="sv-results-profile-action" data-testid="anuga-results-profile-action">
                 <button
                     key="anuga-results-profile-button"
                     data-testid="anuga-profile-button"
                     className={`btn sv-glass-button ${this.props.showProfilePanel ? 'active' : ''}`}
-                    disabled={gated}
-                    onClick={gated ? undefined : () => {
+                    onClick={() => {
                         this.props.setProfilePanelVisible(!this.props.showProfilePanel);
+                        this.props.setOpenMenuGroupId(null);
                         this.closeHydrologyIfOpen();
                         trackEvent('button', 'click', 'anuga-results-profile-toggle');
                     }}
                 >
-                    <Message msgId="hydrata.anuga.profilePanelTitle" />
-                    {gated ? <ComingSoonBadge /> : null}
+                    <Message msgId="hydrata.anuga.crossSectionPanelTitle" />
                 </button>
             </div>
         );
