@@ -35,7 +35,7 @@ import { DEM_CONTOUR_STYLE_NAME } from '../../gwcTileRouting';
 
 const layersReducer = require('../../../../../../MapStore2/web/client/reducers/layers').default;
 const LayersUtils = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
-const { getNode, getLayersByGroup } = LayersUtils;
+const { getNode } = LayersUtils;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ const makeActions$ = (actions) => {
 };
 
 /** Build a store pre-loaded with layers in a given group order. */
-const makeStore = ({ groupOrder = null, role = 'editor' } = {}) => {
+const _makeStore = ({ groupOrder = null, role = 'editor' } = {}) => {
     // Default: Input Data children in NON-canonical order (Boundaries first, not Structures)
     const inputDataChildren = groupOrder || [
         'Boundaries', 'Inflows', 'Rainfalls', 'Structures', 'Catchments',
@@ -160,7 +160,7 @@ describe('TASK-1901 canonical ANUGA_GROUPS order (FE/BE divergence guard)', () =
     });
 
     it('Results canonical order: Depth, Momentum, Velocity, then Comparison groups', () => {
-        const results = ANUGA_GROUPS['Results'];
+        const results = ANUGA_GROUPS.Results;
         expect(results[0]).toBe('Depth');
         expect(results[1]).toBe('Momentum');
         expect(results[2]).toBe('Velocity');
@@ -287,7 +287,7 @@ describe('TASK-1901 layerOrderReconcilerEpic (real reducer)', () => {
                 const state = reduxStore.getState().layers;
                 const inputDataNode = getNode(state.groups, 'Input Data');
                 const newChildOrder = inputDataNode.nodes.map(n => n.name || n.id);
-                const canonical = ANUGA_GROUPS['Input Data'];
+                const _canonical = ANUGA_GROUPS['Input Data'];
 
                 // Structures must come before Boundaries
                 const idxStructures = newChildOrder.indexOf('Structures');

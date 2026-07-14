@@ -176,7 +176,6 @@ describe('TASK-743 ProcessRow DOM', () => {
 // ============================================================================
 
 describe('TASK-1887 ProcessRow staleness', () => {
-    const noop = () => {};
     // Stale timestamp: older than STALE_MS so isStale() returns true.
     const staleUpdated = new Date(Date.now() - STALE_MS - 60000).toISOString();
     // Fresh timestamp: well within STALE_MS.
@@ -261,7 +260,7 @@ describe('TASK-1887 ProcessRow staleness', () => {
         const { container } = mountWithProviders(
             <ProcessRow
                 process={{ id: 12, name: 'Upload', process_type: 'terrain_create', status: 'error', error_message: 'oops', updated: freshUpdated }}
-                expanded={true}
+                expanded
                 onClick={noop}
             />
         );

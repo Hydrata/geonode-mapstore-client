@@ -85,7 +85,7 @@ export const computeReorderFor = (groups, parentId, canonicalChildren) => {
     const knownSet = new Set(canonicalIds);
 
     const unknowns = currentNodes
-        .filter(n => n != null && !knownSet.has(n.id || n))
+        .filter(n => n !== null && n !== undefined && !knownSet.has(n.id || n))
         .map(n => n.id || n);
 
     const desiredIdOrder = [
@@ -471,7 +471,7 @@ export const resultsLayerOrderEpic = (action$, store) =>
             const actions = [];
 
             // Iterate over all Results.* sub-groups
-            (ANUGA_GROUPS['Results'] || []).forEach(childName => {
+            (ANUGA_GROUPS.Results || []).forEach(childName => {
                 const groupId = `Results.${childName}`;
                 const groupNode = getNode(groups, groupId);
                 if (!groupNode || !groupNode.nodes || groupNode.nodes.length < 2) return;

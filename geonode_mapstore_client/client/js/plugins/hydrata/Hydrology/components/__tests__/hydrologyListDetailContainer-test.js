@@ -382,7 +382,7 @@ describe('TASK-1986 — Hydrographs CRUD panel', () => {
                     saveHydrologyItem={noop}
                     createHydrologyForm={(page) => { createFormCalledWith = page; }}
                     deleteHydrologyItem={noop}
-                    canManageHydrology={true}
+                    canManageHydrology
                 />,
                 container
             );

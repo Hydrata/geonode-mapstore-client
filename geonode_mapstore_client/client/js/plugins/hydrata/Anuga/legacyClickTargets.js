@@ -51,13 +51,13 @@ export const LEGACY_PREFIXES = [
 ];
 
 const LEGACY_LABEL_TITLE = {
-    'terrain_':   'Terrain',
-    'ele_':       'Elevation',
-    'cat_':       'Category',
-    'nod_':       'Node',
-    'lin_':       'Link',
+    'terrain_': 'Terrain',
+    'ele_': 'Elevation',
+    'cat_': 'Category',
+    'nod_': 'Node',
+    'lin_': 'Link',
     'full_mesh_': 'Mesh',
-    'network_':   'Network'
+    'network_': 'Network'
 };
 
 /**

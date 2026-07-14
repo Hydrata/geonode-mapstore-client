@@ -88,68 +88,68 @@ const CpuVsGpuShowcase = () => {
 
             <h5>Full comparison corpus</h5>
             <div className="ard-table-scroll">
-            <table className="anuga-benchmark-table" data-testid="anuga-benchmark-comparison-table">
-                <thead>
-                    <tr>
-                        <th>Scenario</th>
-                        <th>Config</th>
-                        <th>Hardware</th>
-                        <th>Triangles</th>
-                        <th>Solve wall (s)</th>
-                        <th>$/run (on-demand)</th>
-                        <th>Speedup vs np32</th>
-                        <th>Cost ratio vs np32</th>
-                        <th>Evidence</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {(comparison || []).map((r) => (
-                        <tr key={`${r.scenario}-${r.config}`} data-testid="anuga-benchmark-row">
-                            <td>{r.scenario}</td>
-                            <td>{CONFIG_LABELS[r.config] || r.config}</td>
-                            <td>{r.hardware}</td>
-                            <td>{r.tri_count !== null ? Number(r.tri_count).toLocaleString() : '—'}</td>
-                            <td>{r.solve_wall_s !== null && r.solve_wall_s !== undefined ? r.solve_wall_s : '—'}</td>
-                            <td>{r.usd_per_run_ondemand !== null ? `$${Number(r.usd_per_run_ondemand).toFixed(2)}` : '—'}</td>
-                            <td>{r.speedup_vs_cpu_np32 !== null && r.speedup_vs_cpu_np32 !== undefined ? `${r.speedup_vs_cpu_np32}×` : '—'}</td>
-                            <td>{r.cost_ratio_vs_cpu_np32 !== null && r.cost_ratio_vs_cpu_np32 !== undefined ? `${r.cost_ratio_vs_cpu_np32}×` : '—'}</td>
-                            <td className="anuga-benchmark-evidence">{r.evidence}</td>
+                <table className="anuga-benchmark-table" data-testid="anuga-benchmark-comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Scenario</th>
+                            <th>Config</th>
+                            <th>Hardware</th>
+                            <th>Triangles</th>
+                            <th>Solve wall (s)</th>
+                            <th>$/run (on-demand)</th>
+                            <th>Speedup vs np32</th>
+                            <th>Cost ratio vs np32</th>
+                            <th>Evidence</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {(comparison || []).map((r) => (
+                            <tr key={`${r.scenario}-${r.config}`} data-testid="anuga-benchmark-row">
+                                <td>{r.scenario}</td>
+                                <td>{CONFIG_LABELS[r.config] || r.config}</td>
+                                <td>{r.hardware}</td>
+                                <td>{r.tri_count !== null ? Number(r.tri_count).toLocaleString() : '—'}</td>
+                                <td>{r.solve_wall_s !== null && r.solve_wall_s !== undefined ? r.solve_wall_s : '—'}</td>
+                                <td>{r.usd_per_run_ondemand !== null ? `$${Number(r.usd_per_run_ondemand).toFixed(2)}` : '—'}</td>
+                                <td>{r.speedup_vs_cpu_np32 !== null && r.speedup_vs_cpu_np32 !== undefined ? `${r.speedup_vs_cpu_np32}×` : '—'}</td>
+                                <td>{r.cost_ratio_vs_cpu_np32 !== null && r.cost_ratio_vs_cpu_np32 !== undefined ? `${r.cost_ratio_vs_cpu_np32}×` : '—'}</td>
+                                <td className="anuga-benchmark-evidence">{r.evidence}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
 
             <h5>GPU VRAM / mesh-size ceiling (scaling.csv)</h5>
             <div className="ard-table-scroll">
-            <table className="anuga-benchmark-table" data-testid="anuga-benchmark-scaling-table">
-                <thead>
-                    <tr>
-                        <th>Card</th>
-                        <th>VRAM (GB)</th>
-                        <th>Triangles tested</th>
-                        <th>Peak VRAM (MB)</th>
-                        <th>GB / M-tri</th>
-                        <th>Solve wall (s)</th>
-                        <th>Mean GPU util %</th>
-                        <th>Est. ceiling (M-tri)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {(scaling || []).map((r, i) => (
-                        <tr key={`${r.card}-${r.triangle_count}-${i}`} data-testid="anuga-benchmark-scaling-row">
-                            <td>{r.card}</td>
-                            <td>{r.vram_capacity_gb}</td>
-                            <td>{Number(r.triangle_count).toLocaleString()}</td>
-                            <td>{r.peak_vram_mb}</td>
-                            <td>{r.gb_per_mtri}</td>
-                            <td>{r.solve_wall_s}</td>
-                            <td>{r.mean_gpu_util_pct !== null && r.mean_gpu_util_pct !== undefined ? r.mean_gpu_util_pct : '—'}</td>
-                            <td>{r.ceiling_est_mtri}</td>
+                <table className="anuga-benchmark-table" data-testid="anuga-benchmark-scaling-table">
+                    <thead>
+                        <tr>
+                            <th>Card</th>
+                            <th>VRAM (GB)</th>
+                            <th>Triangles tested</th>
+                            <th>Peak VRAM (MB)</th>
+                            <th>GB / M-tri</th>
+                            <th>Solve wall (s)</th>
+                            <th>Mean GPU util %</th>
+                            <th>Est. ceiling (M-tri)</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {(scaling || []).map((r, i) => (
+                            <tr key={`${r.card}-${r.triangle_count}-${i}`} data-testid="anuga-benchmark-scaling-row">
+                                <td>{r.card}</td>
+                                <td>{r.vram_capacity_gb}</td>
+                                <td>{Number(r.triangle_count).toLocaleString()}</td>
+                                <td>{r.peak_vram_mb}</td>
+                                <td>{r.gb_per_mtri}</td>
+                                <td>{r.solve_wall_s}</td>
+                                <td>{r.mean_gpu_util_pct !== null && r.mean_gpu_util_pct !== undefined ? r.mean_gpu_util_pct : '—'}</td>
+                                <td>{r.ceiling_est_mtri}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

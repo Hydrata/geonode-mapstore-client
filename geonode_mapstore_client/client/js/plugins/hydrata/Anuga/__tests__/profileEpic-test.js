@@ -392,9 +392,9 @@ describe('profileEndDrawingEpic — single call, multi-terrain/multi-scenario (T
     // cancels deterministically — no SET_PROFILE_SAMPLES is ever emitted.
     it('CLEAR_PROFILE mid-sample cancels the request (no late SET_PROFILE_SAMPLES)', function(done) {
         this.timeout(3000);
-        let called = false;
+        let _called = false;
         mock.onGet(/profile/).reply(() => {
-            called = true;
+            _called = true;
             return [200, { samples: [{ distance_m: 0, ele_7_blue_mountains: 100 }], crs: 'EPSG:4326' }];
         });
         const action$ = mockActions([

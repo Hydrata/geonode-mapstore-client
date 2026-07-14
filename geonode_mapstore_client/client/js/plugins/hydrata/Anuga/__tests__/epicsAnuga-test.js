@@ -1743,7 +1743,7 @@ describe('ANUGA Epics', () => {
             __setPollIntervalForTests,
             __setRedirectForTests
         } = require('../epics/paywallEpics');
-        const {INIT_ANUGA, FETCH_MY_PERMS} = require('../actionsAnuga');
+        const {FETCH_MY_PERMS} = require('../actionsAnuga');
         const {SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING} = require('../../Paywall/actions');
         const {FETCH_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
 

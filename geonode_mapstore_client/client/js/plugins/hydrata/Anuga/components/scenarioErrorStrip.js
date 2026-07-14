@@ -98,6 +98,9 @@ class ScenarioErrorStrip extends React.Component {
         const prevIdentity = ScenarioErrorStrip.runIdentity(prevProps.scenario);
         const nextIdentity = ScenarioErrorStrip.runIdentity(this.props.scenario);
         if (prevIdentity !== nextIdentity && this.state.logTailOpen) {
+            // Guarded: fires only on run-identity change while the tail is open;
+            // sets logTailOpen->false which ends the guard, so it cannot loop.
+            // eslint-disable-next-line react/no-did-update-set-state
             this.setState({logTailOpen: false});
         }
     }

@@ -769,7 +769,7 @@ describe('Hydrology Plugin', () => {
         });
 
         it('CATEGORY_TO_PAGE maps hydrographs category id to hydrographs page id', () => {
-            expect(CATEGORY_TO_PAGE && CATEGORY_TO_PAGE['hydrographs']).toBe('hydrographs');
+            expect(CATEGORY_TO_PAGE && CATEGORY_TO_PAGE.hydrographs).toBe('hydrographs');
         });
 
         it('pageToCategory round-trips the hydrographs activeHydrologyPage', () => {
@@ -812,7 +812,7 @@ describe('Hydrology Plugin', () => {
             const tintSpans = container.querySelectorAll('.glyphicon-tint');
             expect(tintSpans.length).toBe(0);
             // Exactly one svg element exists (the HydrographIcon)
-            const svgs = container.querySelectorAll('svg');
+            const _svgs = container.querySelectorAll('svg');
             // Networks also has an svg — but when hydrographs is active, total >= 1
             // We need the hydrographs item's glyph span to contain an svg
             const items = container.querySelectorAll('.sv-hydrology-category-item');

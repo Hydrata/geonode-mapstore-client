@@ -525,13 +525,13 @@ describe('TASK-825 DiscriminatorPicker', () => {
         // Local double: wires onFocus -> onRefetchOptions, mirroring
         // FormField.js's real TimeSeriesSelect.handleFocus, so Simulate.focus
         // exercises the same refetchKind() path the production bug lived in.
-        const TimeSeriesRenderWithFocus = ({ value, onChange, options, loading, onRefetchOptions }) => (
+        const TimeSeriesRenderWithFocus = ({ value, onChange: onSelect, options, loading, onRefetchOptions }) => (
             <select
                 className="test-timeseries-focus"
                 value={value?.timeseries_id ?? ''}
                 disabled={loading}
                 onFocus={() => { if (typeof onRefetchOptions === 'function') onRefetchOptions(); }}
-                onChange={(e) => onChange({
+                onChange={(e) => onSelect({
                     kind: 'timeseries',
                     timeseries_id: e.target.value === '' ? null : parseInt(e.target.value, 10)
                 })}

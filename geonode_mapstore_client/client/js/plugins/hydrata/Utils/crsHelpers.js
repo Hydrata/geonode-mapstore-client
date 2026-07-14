@@ -111,7 +111,7 @@ export const listUtmWgs84CRS = () => {
  *   injectable so callers/tests can supply a stub without mocking the module.
  * @returns {Promise<{hasCrs:(boolean|null), epsg:(number|null), label:(string|null)}>}
  */
-export const detectGeotiffCrs = async (file, parseTiff = geotiff.fromBlob) => {
+export const detectGeotiffCrs = async(file, parseTiff = geotiff.fromBlob) => {
     try {
         const tiff = await parseTiff(file);
         const image = await tiff.getImage();

@@ -195,7 +195,7 @@ export function buildChartSlotMap(traces, kind) {
     const map = {};
     (traces || [])
         .filter(t => t && t.role === role)
-        .forEach((t, idx) => { if (t[idKey] != null) map[t[idKey]] = idx; });
+        .forEach((t, idx) => { if (t[idKey] !== null && t[idKey] !== undefined) map[t[idKey]] = idx; });
     return map;
 }
 
@@ -300,7 +300,7 @@ export function buildCrossSectionData(samples, traces, opts) {
     // a whole trace. The artefact only exists relative to the scenario's OWN
     // terrain. (W5 review fix.)
     const demByTerrainId = {};
-    demTraces.forEach((d) => { if (d && d.terrainId != null) demByTerrainId[d.terrainId] = d; });
+    demTraces.forEach((d) => { if (d && d.terrainId !== null && d.terrainId !== undefined) demByTerrainId[d.terrainId] = d; });
     const maskedWaterYFor = (stageTrace) => {
         const raw = yFor(stageTrace);
         const refTerrain = demByTerrainId[scenarioTerrainById[stageTrace.scenarioId]];

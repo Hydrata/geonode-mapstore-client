@@ -78,7 +78,6 @@ const AnugaRunsDashboard = ({ user }) => {
         fetchRuns(serverFilters);
         // Only re-fetch when the server-driven filters change (client-only
         // filters are applied in-memory below, no re-fetch needed).
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [denied, serverFilters]);
 
     if (denied) {

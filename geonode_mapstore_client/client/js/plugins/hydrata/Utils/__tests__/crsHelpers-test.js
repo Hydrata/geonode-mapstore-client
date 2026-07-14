@@ -58,7 +58,7 @@ describe('crsHelpers', () => {
         });
         it('reprojects a non-4326 bbox to 4326 first then zones it', () => {
             // Web-Mercator extent around (56.4, 24.3) in EPSG:3857.
-            const spy = expect.spyOn(CoordinatesUtils, 'reproject').andCall((point, source, dest) => {
+            const spy = expect.spyOn(CoordinatesUtils, 'reproject').andCall((_point, _source, _dest) => {
                 // Trivially map the projected centroid back to the lon/lat we expect.
                 return { x: 56.4, y: 24.3 };
             });

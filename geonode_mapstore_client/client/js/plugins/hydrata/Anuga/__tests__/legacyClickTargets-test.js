@@ -11,7 +11,6 @@
  */
 import expect from 'expect';
 import {
-    registerClickTarget,
     getClickTarget,
     cleanClickTargets
 } from '../../shared/clickTargetRegistry';

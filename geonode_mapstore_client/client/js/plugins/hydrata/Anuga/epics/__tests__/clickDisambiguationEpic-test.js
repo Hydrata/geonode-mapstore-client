@@ -813,7 +813,7 @@ describe('clickDisambiguationEpic (TASK-1991 W1.2)', () => {
                 // filterEditableCandidates only processes edit targets — it should NOT
                 // drop the readOnly candidate (it is not in its input set).
                 // Directly verify: filterEditableCandidates receives ONLY non-readOnly candidates
-                const editOnly = candidates.filter((c) => !store.getState && true);  // all
+                const _editOnly = candidates.filter((_c) => !store.getState && true);  // all
                 // Simulate the partition: readOnly candidates bypass the filter entirely
                 const editCandidates = filterEditableCandidates(
                     candidates.filter((c) => c.kind !== 'ro_'),  // no edit candidates
@@ -1217,11 +1217,11 @@ describe('W4 integration — bdy_ + inf_ overlap → panel → select boundary �
     it('burst of bdy_+inf_ LOAD_FEATURE_INFO → SHOW panel with 2 candidates', (done) => {
         const action$ = makeActions$([
             { type: LOAD_FEATURE_INFO,
-              data: fc(feature('bdy_1_boundary.3', { description: 'My Boundary' })),
-              layer: { name: 'geonode:bdy_1_boundary' } },
+                data: fc(feature('bdy_1_boundary.3', { description: 'My Boundary' })),
+                layer: { name: 'geonode:bdy_1_boundary' } },
             { type: LOAD_FEATURE_INFO,
-              data: fc(feature('inf_1_inflow.7', { description: 'My Inflow' })),
-              layer: { name: 'geonode:inf_1_inflow' } }
+                data: fc(feature('inf_1_inflow.7', { description: 'My Inflow' })),
+                layer: { name: 'geonode:inf_1_inflow' } }
         ]);
         const out = [];
         clickDisambiguationEpic(action$, integStore).subscribe(
@@ -1245,11 +1245,11 @@ describe('W4 integration — bdy_ + inf_ overlap → panel → select boundary �
     it('selecting the boundary candidate resolves startVectorDraw EDIT with correct params', (done) => {
         const action$ = makeActions$([
             { type: LOAD_FEATURE_INFO,
-              data: fc(feature('bdy_1_boundary.3', { description: 'My Boundary' })),
-              layer: { name: 'geonode:bdy_1_boundary' } },
+                data: fc(feature('bdy_1_boundary.3', { description: 'My Boundary' })),
+                layer: { name: 'geonode:bdy_1_boundary' } },
             { type: LOAD_FEATURE_INFO,
-              data: fc(feature('inf_1_inflow.7', { description: 'My Inflow' })),
-              layer: { name: 'geonode:inf_1_inflow' } }
+                data: fc(feature('inf_1_inflow.7', { description: 'My Inflow' })),
+                layer: { name: 'geonode:inf_1_inflow' } }
         ]);
         const out = [];
         clickDisambiguationEpic(action$, integStore).subscribe(
@@ -1277,7 +1277,7 @@ describe('W4 integration — bdy_ + inf_ overlap → panel → select boundary �
                 expect(openAction.config.layerName).toBe('geonode:bdy_1_boundary');
                 expect(openAction.config.featureId).toBe('bdy_1_boundary.3');
                 expect(openAction.config.allowPick).toBe(false);
-                expect(openAction.config.formConfig).toBe(ANUGA_FEATURE_CONFIG['bdy_'].formConfig);
+                expect(openAction.config.formConfig).toBe(ANUGA_FEATURE_CONFIG.bdy_.formConfig);
                 expect(openAction.config.owner).toBe('anuga');
 
                 // D6: the resolved open action must also be function-free

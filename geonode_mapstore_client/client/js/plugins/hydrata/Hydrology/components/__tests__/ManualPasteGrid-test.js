@@ -35,6 +35,7 @@ function withMockedNonUtcTimezone(offsetMinutes, fn) {
         constructor(...args) {
             if (args.length >= 3) {
                 const [y, m, d, h = 0, mi = 0, s = 0, ms = 0] = args;
+                // eslint-disable-next-line new-cap
                 super(RealDate.UTC(y, m, d, h, mi, s, ms) + offsetMinutes * 60000);
             } else {
                 super(...args);
@@ -47,12 +48,12 @@ function withMockedNonUtcTimezone(offsetMinutes, fn) {
             return offsetMinutes;
         }
     }
-    // eslint-disable-next-line no-global-assign
+    // eslint-disable-next-line no-native-reassign
     Date = MockDate;
     try {
         return fn();
     } finally {
-        // eslint-disable-next-line no-global-assign
+        // eslint-disable-next-line no-native-reassign
         Date = RealDate;
     }
 }
