@@ -671,7 +671,13 @@ export class TerrainProfilePanelClass extends React.Component {
                     title={<Message msgId="hydrata.anuga.crossSectionPanelTitle" />}
                     onClose={this.handleClose}
                 />
-                <div style={{ padding: '10px' }}>
+                {/* TASK-2274 — sv-profile-body (anuga.css) owns its own
+                    padding + the flex/overflow rules that make it scroll
+                    independently within the panel's max-height, now that
+                    the outer .sv-profile-panel padding is neutralised
+                    (matches the DEM legend MovablePanel's zero-outer-padding
+                    treatment — see movablePanel.css). */}
+                <div className="sv-profile-body">
                     {this.renderBody()}
                 </div>
                 <div className={'simple-view-panel-footer'}>

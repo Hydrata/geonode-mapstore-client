@@ -208,6 +208,49 @@ describe('TerrainProfilePanel — Clear button (TASK-2272)', () => {
     });
 });
 
+// TASK-2274 (operator UAT 2026-07-14) — responsive body + close-button margin
+// parity with the DEM legend. CORRECTED PREMISE (grooming): the DEM legend
+// (DemRampLegend's FloatingDemLegendPanel) IS a MovablePanel, whose CSS
+// (movablePanel.css) neutralises the base .simple-view-panel's own
+// padding:5px 10px to padding:0 — so the SHARED PanelHeader primitive's close
+// chip (inline position:absolute; top:2px; right:2px — pixel-identical in
+// BOTH panels already, same component) ends up exactly 2px from the panel's
+// OUTER edge. .sv-profile-panel never neutralised that outer padding, so its
+// (otherwise-identical) close chip sat visibly further in — the base panel
+// padding PLUS the header's own 2px inset. Every section here already
+// self-pads (PanelHeader's own inline padding; the body's own class below;
+// .simple-view-panel-footer's own CSS padding), so zeroing the outer padding
+// loses no spacing — it only equalises the close-chip offset with the DEM
+// legend's.
+describe('TerrainProfilePanel — responsive body + close-button margin parity with the DEM legend (TASK-2274)', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); });
+    const noop = () => {};
+
+    it('the outer panel has ZERO outer padding, like the DEM legend MovablePanel neutralisation (movablePanel.css .sv-movable-panel)', () => {
+        ReactDOM.render(
+            <TerrainProfilePanelClass visible demReady setProfilePanelVisible={noop} startProfileDraw={noop} />,
+            container
+        );
+        const panel = container.querySelector('[data-testid="profile-panel"]');
+        expect(panel).toExist();
+        expect(window.getComputedStyle(panel).padding).toBe('0px');
+    });
+
+    it('the body content area is an independently-scrolling flex region (min-height:0 + overflow-y:auto), not a fixed-overflow block', () => {
+        ReactDOM.render(
+            <TerrainProfilePanelClass visible demReady setProfilePanelVisible={noop} startProfileDraw={noop} />,
+            container
+        );
+        const body = container.querySelector('.sv-profile-body');
+        expect(body).toExist('expected the body wrapper to carry the sv-profile-body class');
+        const cs = window.getComputedStyle(body);
+        expect(cs.overflowY).toBe('auto');
+        expect(cs.minHeight).toBe('0px');
+    });
+});
+
 describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
     let container;
     beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });

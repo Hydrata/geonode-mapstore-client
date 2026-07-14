@@ -2368,6 +2368,29 @@ div that holds the feature-grid */
        the panel stretches full-width instead of right-docking. */
     left: auto;
     right: 20px;
+    /* TASK-2274 (operator UAT 2026-07-14): neutralise the base
+       .simple-view-panel padding:5px 10px — mirrors movablePanel.css's
+       .sv-movable-panel treatment for the SAME shared PanelHeader primitive,
+       so its close chip (inline position:absolute; top:2px; right:2px)
+       sits the SAME 2px from the outer edge in both the DEM legend
+       (MovablePanel) and this docked panel, instead of the base padding
+       pushing it further in. Every section here already self-pads (the
+       header's own inline padding, .sv-profile-body below, and
+       .simple-view-panel-footer's own CSS padding), so nothing loses its
+       spacing. */
+    padding: 0;
+}
+/* TASK-2274 — the body's own padding + an independently-scrolling flex
+   region: the panel's max-height (base .simple-view-panel rule) previously
+   had no overflow handling below it, so tall content (many picker rows +
+   the chart) could spill past the panel's own bottom edge rather than
+   scrolling. flex:1 1 auto + min-height:0 is the SAME idiom
+   .simple-view-panel-body already uses elsewhere in this sheet. */
+.sv-profile-body {
+    padding: 10px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
 .sv-profile-help,
 .sv-profile-empty {
