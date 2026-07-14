@@ -417,7 +417,10 @@
         "crossSectionCapReachedHint": "Uncheck another row first (max 3)",
         "crossSectionNoRunHint": "No completed run yet",
         "crossSectionNoStageHint": "Re-run to get a water surface",
-        "crossSectionStaleHint": "Results may be stale — scenario edited since this run"
+        "crossSectionStaleHint": "Results may be stale — scenario edited since this run",
+        "crossSectionClear": "Clear",
+        "crossSectionXAxis": "Distance (m)",
+        "crossSectionYAxis": "Elevation (m)"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

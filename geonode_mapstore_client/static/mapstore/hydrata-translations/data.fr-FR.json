@@ -417,7 +417,10 @@
         "crossSectionCapReachedHint": "Décochez une autre ligne d'abord (max 3)",
         "crossSectionNoRunHint": "Aucune simulation terminée pour l’instant",
         "crossSectionNoStageHint": "Relancez la simulation pour obtenir une surface d'eau",
-        "crossSectionStaleHint": "Les résultats sont peut-être obsolètes — le scénario a été modifié depuis cette simulation"
+        "crossSectionStaleHint": "Les résultats sont peut-être obsolètes — le scénario a été modifié depuis cette simulation",
+        "crossSectionClear": "Effacer",
+        "crossSectionXAxis": "Distance (m)",
+        "crossSectionYAxis": "Élévation (m)"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

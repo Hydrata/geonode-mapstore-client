@@ -17,7 +17,8 @@ import {
     TerrainProfilePanelClass,
     buildCrossSectionData,
     computeYRange,
-    DARK_GLASS_LAYOUT,
+    CROSS_SECTION_LAYOUT,
+    CROSS_SECTION_FILL_ENABLED,
     TERRAIN_PALETTE,
     WATER_PALETTE
 } from '../components/TerrainProfilePanel';
@@ -76,7 +77,9 @@ describe('TerrainProfilePanel — cross-section (W4.5; TASK-2255 reworked stage 
     ];
 
     it('builds terrain (tozeroy) + water-surface (tonexty) on a SINGLE axis', () => {
-        const data = buildCrossSectionData(samples, traces);
+        // TASK-2269: the area fill is disabled by default now; pass enableFill so
+        // this pre-existing fill-shape assertion still exercises the fill logic.
+        const data = buildCrossSectionData(samples, traces, { enableFill: true });
         expect(data.length).toBe(2);
         expect(data[0].fill).toBe('tozeroy');
         expect(data[1].fill).toBe('tonexty');
@@ -146,8 +149,60 @@ describe('TerrainProfilePanel — render gating (TASK-1861)', () => {
 // ── TASK-2256 (epic 2249 W3) — picker-as-legend component ───────────────────
 
 describe('TerrainProfilePanel — Plotly legend removed (TASK-2256, LOCKED decision #5)', () => {
-    it('DARK_GLASS_LAYOUT disables the Plotly legend — the picker rows ARE the legend', () => {
-        expect(DARK_GLASS_LAYOUT.showlegend).toBe(false);
+    it('CROSS_SECTION_LAYOUT disables the Plotly legend — the picker rows ARE the legend', () => {
+        expect(CROSS_SECTION_LAYOUT.showlegend).toBe(false);
+    });
+});
+
+// ── TASK-2270 (epic 2249 W5) — white chart background ───────────────────────
+describe('TerrainProfilePanel — white chart background (TASK-2270)', () => {
+    it('uses a white paper + plot background (was transparent dark-glass)', () => {
+        expect(CROSS_SECTION_LAYOUT.paper_bgcolor).toBe('#ffffff');
+        expect(CROSS_SECTION_LAYOUT.plot_bgcolor).toBe('#ffffff');
+    });
+});
+
+// ── TASK-2269 (epic 2249 W5) — area fill disabled by default ────────────────
+describe('TerrainProfilePanel — fill disabled flag (TASK-2269)', () => {
+    it('CROSS_SECTION_FILL_ENABLED is false (production charts are lines-only for now)', () => {
+        expect(CROSS_SECTION_FILL_ENABLED).toBe(false);
+    });
+});
+
+// ── TASK-2272 (epic 2249 W5) — Clear button resets state + removes the line ──
+describe('TerrainProfilePanel — Clear button (TASK-2272)', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); });
+    const noop = () => {};
+    const samples = [{ distance_m: 0, dem: 100, stage: 101 }, { distance_m: 10, dem: 98, stage: 100 }];
+    const traces = [{ key: 'dem', label: 'Elevation', role: 'dem' }, { key: 'stage', label: 'Water surface', role: 'stage' }];
+
+    it('is HIDDEN when there is nothing to clear (no samples / error / loading)', () => {
+        ReactDOM.render(
+            <TerrainProfilePanelClass visible demReady setProfilePanelVisible={noop} startProfileDraw={noop} />,
+            container
+        );
+        expect(container.querySelector('[data-testid="profile-clear-button"]')).toBe(null);
+    });
+
+    it('appears once a line is sampled and calls clearProfile + clearProfileLine on click', () => {
+        let cleared = 0;
+        let lineCleared = 0;
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady samples={samples} traces={traces}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+                clearProfile={() => { cleared++; }}
+                clearProfileLine={() => { lineCleared++; }}
+            />,
+            container
+        );
+        const btn = container.querySelector('[data-testid="profile-clear-button"]');
+        expect(btn).toExist();
+        fireEvent.click(btn);
+        expect(cleared).toBe(1);
+        expect(lineCleared).toBe(1);
     });
 });
 

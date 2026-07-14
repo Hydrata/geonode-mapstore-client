@@ -36,10 +36,12 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import PlotlyChart from '@mapstore/framework/components/charts/PlotlyChart';
 import { colorToRgbaStr } from '../../../../../MapStore2/web/client/utils/ColorUtils';
+import { changeDrawingStatus } from '../../../../../MapStore2/web/client/actions/draw';
 import { PanelHeader } from '../../SimpleView/components/primitives';
 import {
     setProfilePanelVisible,
     startProfileDraw,
+    clearProfile,
     toggleCheckedTerrain,
     toggleCheckedScenario
 } from '../actionsAnuga';
@@ -47,32 +49,37 @@ import { hasDemReady } from '../epics/cursorElevationEpic';
 import {
     getTerrainPickerRows,
     getScenarioPickerRows,
-    getColorSlot
+    getColorSlot,
+    PROFILE_DRAW_OWNER
 } from '../epics/profileEpic';
 import { trackEvent } from '@js/utils/analytics';
 import '../../SimpleView/simpleView.css';
 import '../anuga.css';
 
-// Dark-glass plotly layout: transparent surfaces so the SimpleView panel glass
-// shows through, light text + grid lines.
+// TASK-2270 (epic 2249 W5) — WHITE chart background (operator UAT 2026-07-14:
+// "should have a white background to maximise contrast"). Was a transparent
+// dark-glass layout; now an opaque white plot with dark text + light-grey grid
+// so the terrain/water lines read at maximum contrast. The axis TITLES (units)
+// are injected at render time in renderChart() via this.tr() — a static layout
+// object can't localize.
 // TASK-2256 (epic 2249 W3) — LOCKED decision #5: the picker rows ARE the
-// legend (swatch + name + checkbox); the Plotly legend is REMOVED so a
-// dark-glass chart with up to 6 series never doubles up its own key.
-export const DARK_GLASS_LAYOUT = {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { color: 'rgba(255,255,255,0.85)', family: 'Montserrat, sans-serif', size: 11 },
-    margin: { l: 48, r: 12, t: 8, b: 40 },
+// legend (swatch + name + checkbox); the Plotly legend is REMOVED
+// (showlegend:false) so a chart with up to 6 series never doubles up its key.
+export const CROSS_SECTION_LAYOUT = {
+    paper_bgcolor: '#ffffff',
+    plot_bgcolor: '#ffffff',
+    font: { color: 'rgba(0,0,0,0.85)', family: 'Montserrat, sans-serif', size: 11 },
+    margin: { l: 56, r: 12, t: 8, b: 48 },
     showlegend: false,
     xaxis: {
-        gridcolor: 'rgba(255,255,255,0.18)',
-        zerolinecolor: 'rgba(255,255,255,0.35)',
-        tickcolor: 'rgba(255,255,255,0.6)'
+        gridcolor: 'rgba(0,0,0,0.12)',
+        zerolinecolor: 'rgba(0,0,0,0.25)',
+        tickcolor: 'rgba(0,0,0,0.6)'
     },
     yaxis: {
-        gridcolor: 'rgba(255,255,255,0.18)',
-        zerolinecolor: 'rgba(255,255,255,0.35)',
-        tickcolor: 'rgba(255,255,255,0.6)'
+        gridcolor: 'rgba(0,0,0,0.12)',
+        zerolinecolor: 'rgba(0,0,0,0.25)',
+        tickcolor: 'rgba(0,0,0,0.6)'
     }
 };
 
@@ -134,6 +141,14 @@ export const TERRAIN_PALETTE = ['#B89968', '#D08770', '#A3BE8C'];
 export const WATER_PALETTE = ['#5BC0FF', '#38B2A3', '#8C9BFF'];
 const TERRAIN_FILL_ALPHA = 0.30;
 const WATER_FILL_ALPHA = 0.25;
+
+// TASK-2269 (epic 2249 W5) — the terrain/water area FILL is disabled for now
+// (operator UAT 2026-07-14: "the shading is not working properly, it extended
+// off the graph — drop it for now until the rest is sorted"; the 'tozeroy'
+// terrain fill spilled below the relief-clamped y-axis). The fill-SELECTION
+// logic in buildCrossSectionData is preserved intact and re-enables by flipping
+// this flag; the TASK-2273 water<terrain mask makes re-enabling artefact-free.
+export const CROSS_SECTION_FILL_ENABLED = false;
 
 // Slot is the 0-based index within the CHECKED subset of a role, in stable
 // picker-list order (see getColorSlot). Clamped to the last palette entry so
@@ -203,12 +218,44 @@ export function buildCrossSectionData(samples, traces, opts) {
     if (demTraces.length === 0) return [];
     const stageTraces = traces.filter(t => t && t.role === 'stage');
     const scenarioTerrainById = (opts && opts.scenarioTerrainById) || {};
+    // TASK-2269 — the fill is disabled by default (module constant); an explicit
+    // opts.enableFill overrides it so the preserved fill-selection logic stays
+    // unit-testable for a safe future re-enable.
+    const fillEnabled = (opts && Object.prototype.hasOwnProperty.call(opts, 'enableFill'))
+        ? !!opts.enableFill
+        : CROSS_SECTION_FILL_ENABLED;
 
     const x = samples.map(s => s && s.distance_m);
     const yFor = (trace) => samples.map((s) => {
         const v = s && s[trace.key];
         return (typeof v === 'number') ? v : null;
     });
+
+    // TASK-2273 (epic 2249 W5) — mask a water sample to a GAP wherever the
+    // published stage sits STRICTLY BELOW the ground it is drawn against.
+    // stage_max is rasterized at the coarse mesh/output resolution (~8 m) while
+    // the terrain trace is the finer input DEM, so at shallow pond MARGINS the
+    // flat stage can dip a few cm below the finer ground — a pure resolution
+    // artefact that reads as "water below the terrain" (operator UAT 2026-07-14).
+    // Each water is compared against ITS OWN scenario's terrain column (fallback:
+    // slot-1 terrain); the point is dropped where stage < terrain. Strict `<`
+    // keeps the depth-0 shoreline (stage == terrain, which coincides with the
+    // ground line and is harmless). This never derives a stage from bed+depth
+    // (LOCKED decision #3) — it only HIDES a published value that cannot
+    // legitimately be shown below ground.
+    const demByTerrainId = {};
+    demTraces.forEach((d) => { if (d && d.terrainId != null) demByTerrainId[d.terrainId] = d; });
+    const maskedWaterYFor = (stageTrace) => {
+        const raw = yFor(stageTrace);
+        const refTerrain = demByTerrainId[scenarioTerrainById[stageTrace.scenarioId]] || demTraces[0];
+        if (!refTerrain) return raw;
+        const terrainY = yFor(refTerrain);
+        return raw.map((v, idx) => {
+            if (v === null) return null;
+            const g = terrainY[idx];
+            return (typeof g === 'number' && v < g) ? null : v;
+        });
+    };
 
     const slot1Terrain = demTraces[0];
     // The single-water-fills-to-terrain rule: exactly one checked water, AND
@@ -234,13 +281,15 @@ export function buildCrossSectionData(samples, traces, opts) {
             connectgaps: false,
             line: { color: terrainColor(i), width: 2 },
             // Only slot-1 (i===0) is a filled area — slots 2-3 are lines.
-            ...(i === 0 ? { fill: 'tozeroy', fillcolor: terrainFillColor(i) } : {})
+            // TASK-2269: the fill is gated OFF for now (lines only) but the
+            // selection logic stays so it re-enables by flipping the flag.
+            ...(i === 0 && fillEnabled ? { fill: 'tozeroy', fillcolor: terrainFillColor(i) } : {})
         });
         // Immediately after slot-1, splice in the filling water (if any) so
         // 'tonexty' fills against THIS terrain regardless of how many other
         // line-only terrain/water traces exist in the full set.
         if (i === 0 && fillingStage) {
-            const stageY = yFor(fillingStage);
+            const stageY = maskedWaterYFor(fillingStage);
             if (stageY.some(v => v !== null)) {
                 data.push({
                     x,
@@ -248,8 +297,10 @@ export function buildCrossSectionData(samples, traces, opts) {
                     name: fillingStage.waterLabel || fillingStage.label || 'Water surface',
                     type: 'scatter',
                     mode: 'lines',
-                    fill: 'tonexty',
-                    fillcolor: waterFillColor(0),
+                    // TASK-2269: fill gated OFF for now; TASK-2273 mask keeps the
+                    // water from ever sitting below terrain so re-enabling 'tonexty'
+                    // stays artefact-free.
+                    ...(fillEnabled ? { fill: 'tonexty', fillcolor: waterFillColor(0) } : {}),
                     connectgaps: false,
                     line: { color: waterColor(0), width: 2 }
                 });
@@ -261,7 +312,7 @@ export function buildCrossSectionData(samples, traces, opts) {
     // its colour always matches its picker-row swatch (AC1).
     stageTraces.forEach((t, j) => {
         if (t === fillingStage) return;
-        const stageY = yFor(t);
+        const stageY = maskedWaterYFor(t);
         if (!stageY.some(v => v !== null)) return;
         data.push({
             x,
@@ -287,6 +338,8 @@ export class TerrainProfilePanelClass extends React.Component {
         demReady: PropTypes.bool,
         setProfilePanelVisible: PropTypes.func,
         startProfileDraw: PropTypes.func,
+        clearProfile: PropTypes.func,
+        clearProfileLine: PropTypes.func,
         // TASK-2256 (epic 2249 W3) — picker-as-legend rows + checked-id state.
         terrainRows: PropTypes.array,
         scenarioRows: PropTypes.array,
@@ -301,6 +354,8 @@ export class TerrainProfilePanelClass extends React.Component {
         scenarioRows: [],
         checkedTerrainIds: [],
         checkedScenarioIds: [],
+        clearProfile: () => {},
+        clearProfileLine: () => {},
         toggleCheckedTerrain: () => {},
         toggleCheckedScenario: () => {}
     };
@@ -313,6 +368,16 @@ export class TerrainProfilePanelClass extends React.Component {
     handleDraw = () => {
         this.props.startProfileDraw();
         trackEvent('button', 'click', 'anuga-profile-draw-start');
+    };
+
+    // TASK-2272 (epic 2249 W5) — the "Clear" button: wipe ALL transient profile
+    // state (samples/traces/error/loading/drawing, via clearProfile) AND remove
+    // the drawn LineString from the map (changeDrawingStatus('clean')) so the
+    // panel returns to the empty "Draw profile line" state for a fresh line.
+    handleClear = () => {
+        this.props.clearProfile();
+        this.props.clearProfileLine();
+        trackEvent('button', 'click', 'anuga-profile-clear');
     };
 
     // Resolve a msgId off legacy context, falling back to plain English when
@@ -446,16 +511,33 @@ export class TerrainProfilePanelClass extends React.Component {
         // Terrain + stage are both elevation magnitude, framed to relief on a
         // SINGLE axis (W4.5).
         const range = computeYRange(data);
-        const yaxis = range
-            ? { ...DARK_GLASS_LAYOUT.yaxis, range, autorange: false }
-            : DARK_GLASS_LAYOUT.yaxis;
-        const layout = { ...DARK_GLASS_LAYOUT, yaxis };
+        // TASK-2270 — axis UNIT titles injected here (a static layout can't
+        // localize): x = distance along the transect, y = elevation.
+        const xaxis = {
+            ...CROSS_SECTION_LAYOUT.xaxis,
+            title: { text: this.tr('hydrata.anuga.crossSectionXAxis', 'Distance (m)') }
+        };
+        const yaxis = {
+            ...CROSS_SECTION_LAYOUT.yaxis,
+            title: { text: this.tr('hydrata.anuga.crossSectionYAxis', 'Elevation (m)') },
+            ...(range ? { range, autorange: false } : {})
+        };
+        const layout = { ...CROSS_SECTION_LAYOUT, xaxis, yaxis };
         return (
             <div className="sv-profile-chart" data-testid="profile-chart" style={{ width: '100%', height: 240 }}>
                 <PlotlyChart
                     data={data}
                     layout={layout}
-                    config={{ displayModeBar: false, responsive: true }}
+                    // TASK-2271 — trimmed Plotly mode bar so the user gets
+                    // zoom-in / zoom-out / reset (+ scroll-zoom). Zoom-in already
+                    // worked via drag-select; zoom-out + reset were missing.
+                    config={{
+                        displayModeBar: true,
+                        displaylogo: false,
+                        responsive: true,
+                        scrollZoom: true,
+                        modeBarButtons: [['zoomIn2d', 'zoomOut2d', 'resetScale2d']]
+                    }}
                     style={{ width: '100%', height: '100%' }}
                     useResizeHandler
                 />
@@ -488,6 +570,22 @@ export class TerrainProfilePanelClass extends React.Component {
                     >
                         <Message msgId={hasSamples ? 'hydrata.anuga.profileRedrawButton' : 'hydrata.anuga.profileDrawButton'} />
                     </Button>
+                    {/* TASK-2272 — Clear: reset all state + remove the drawn line,
+                        shown once there is something to clear (samples, an error,
+                        or an in-flight sample). Same react-bootstrap Button as the
+                        other panel buttons (no SimpleView Button primitive — the
+                        primitives barrel deliberately omits one). */}
+                    {hasSamples || this.props.error || this.props.loading ?
+                        <Button
+                            data-testid="profile-clear-button"
+                            bsSize="small"
+                            bsStyle="default"
+                            style={{ marginLeft: 10 }}
+                            onClick={this.handleClear}
+                        >
+                            <Message msgId="hydrata.anuga.crossSectionClear" />
+                        </Button> : null
+                    }
                     {this.props.drawingActive ?
                         <span style={{ marginLeft: 10 }} data-testid="profile-drawing-hint">
                             <Message msgId="hydrata.anuga.profileDrawing" />
@@ -566,6 +664,10 @@ const mapStateToProps = (state) => ({
 const mapDispatchToProps = (dispatch) => ({
     setProfilePanelVisible: (visible) => dispatch(setProfilePanelVisible(visible)),
     startProfileDraw: () => dispatch(startProfileDraw()),
+    clearProfile: () => dispatch(clearProfile()),
+    // TASK-2272 — remove the drawn LineString from the map (clean stops
+    // DrawSupport and clears its feature layer for this tool's owner).
+    clearProfileLine: () => dispatch(changeDrawingStatus('clean', '', PROFILE_DRAW_OWNER, [], {})),
     toggleCheckedTerrain: (id) => dispatch(toggleCheckedTerrain(id)),
     toggleCheckedScenario: (id) => dispatch(toggleCheckedScenario(id))
 });

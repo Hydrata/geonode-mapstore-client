@@ -96,11 +96,13 @@ describe('cross-section — buildCrossSectionData (TASK-1862, reworked TASK-2255
         const water = data.find(d => d.name !== 'Elevation');
         expect(terrain).toExist('expected a terrain trace');
         expect(water).toExist('expected a water-surface trace');
-        // Terrain is a filled area following the DEM.
+        // Terrain follows the DEM. TASK-2269: the area fill is disabled for now
+        // (lines only), so no `fill` property is emitted by default.
         expect(terrain.x).toEqual([0, 25, 50]);
         expect(terrain.y).toEqual([100, 98, 96]);
-        expect(terrain.fill).toExist();
-        // Water surface = the raw sampled stage value, unmodified.
+        expect(terrain.fill).toBe(undefined);
+        // Water surface = the raw sampled stage value, unmodified (all above the
+        // DEM here, so the TASK-2273 below-terrain mask keeps every point).
         expect(water.y).toEqual([100.5, 99.0, 98.0]);
     });
 
@@ -121,7 +123,8 @@ describe('cross-section — buildCrossSectionData (TASK-1862, reworked TASK-2255
         const data = buildCrossSectionData(samples, demOnly);
         expect(data.length).toBe(1);
         expect(data[0].name).toBe('Elevation');
-        expect(data[0].fill).toExist();
+        // TASK-2269: area fill disabled by default (lines only).
+        expect(data[0].fill).toBe(undefined);
     });
 
     it('returns [] for empty/invalid input', () => {
@@ -141,7 +144,7 @@ describe('cross-section — buildCrossSectionData (TASK-1862, reworked TASK-2255
     // AC4 (TASK-2255) — no code path computes terrain+depth: the water trace
     // is the RAW sampled stage value even when it does NOT equal bed+anything.
     it('AC4: water trace equals the raw stage sample, never derived from bed+depth', () => {
-        const samples = [{ distance_m: 0, dem: 100, stage: 42 }]; // nonsensical bed+depth relationship
+        const samples = [{ distance_m: 0, dem: 40, stage: 42 }]; // stage kept above DEM so the TASK-2273 mask doesn't drop it; still raw passthrough, not bed+depth
         const data = buildCrossSectionData(samples, traces);
         const water = data.find(d => d.name !== 'Elevation');
         expect(water.y).toEqual([42]);
@@ -161,8 +164,10 @@ describe('buildCrossSectionData — multi-terrain fill rules (TASK-2256)', () =>
         { key: 'dem3', label: 'Terrain C', role: 'dem', terrainId: 3 }
     ];
 
+    // TASK-2269: the fill is disabled by default; pass enableFill so the
+    // preserved fill-SELECTION logic (which trace fills) stays under test.
     it('only slot-1 (the first dem trace) is a FILLED area — slots 2/3 are plain lines', () => {
-        const data = buildCrossSectionData(samples, multiDemTraces);
+        const data = buildCrossSectionData(samples, multiDemTraces, { enableFill: true });
         expect(data.length).toBe(3);
         expect(data[0].fill).toBe('tozeroy');
         expect(data[1].fill).toBe(undefined);
@@ -187,8 +192,10 @@ describe('buildCrossSectionData — single-water conditional fill (TASK-2256, LO
         { key: 'stageA', label: 'Scenario 1', role: 'stage', scenarioId: 3 }
     ];
 
+    // TASK-2269: enableFill so the conditional single-water fill logic is tested
+    // (the fill is disabled by default in production for now).
     it('fills when the single water\'s scenario CURRENT terrain === slot-1 terrain', () => {
-        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: 7 } });
+        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: 7 }, enableFill: true });
         const water = data.find(d => d.name !== 'Terrain A');
         expect(water.fill).toBe('tonexty');
     });
@@ -197,13 +204,13 @@ describe('buildCrossSectionData — single-water conditional fill (TASK-2256, LO
         // Scenario 3's current terrain is 99, not 7 (slot-1) — a mismatch, e.g.
         // the scenario was re-pointed at a different terrain since this stage
         // was sampled against terrain 7.
-        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: 99 } });
+        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: 99 }, enableFill: true });
         const water = data.find(d => d.name !== 'Terrain A');
         expect(water.fill).toBe(undefined);
     });
 
     it('is a LINE when the scenario has no known current terrain at all (null/missing)', () => {
-        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: null } });
+        const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: null }, enableFill: true });
         const water = data.find(d => d.name !== 'Terrain A');
         expect(water.fill).toBe(undefined);
     });
@@ -221,8 +228,10 @@ describe('buildCrossSectionData — multi-water: waters are ALWAYS lines when 2+
     ];
 
     it('neither water fills, even when BOTH scenarios currently point at slot-1 terrain', () => {
+        // enableFill so the "2+ waters => always lines" rule is tested for real
+        // (not just because the global fill flag is off — TASK-2269).
         const data = buildCrossSectionData(samples, oneDemTwoStages, {
-            scenarioTerrainById: { 3: 7, 4: 7 }
+            scenarioTerrainById: { 3: 7, 4: 7 }, enableFill: true
         });
         expect(data.length).toBe(3);
         const waters = data.filter(d => d.name !== 'Terrain A');
@@ -251,12 +260,79 @@ describe('buildCrossSectionData — default seed reproduces pre-rework single-te
             { key: 'dem', label: 'Active terrain', role: 'dem', terrainId: 1 },
             { key: 'stage', label: 'Selected scenario', role: 'stage', scenarioId: 1 }
         ];
-        const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 } });
+        // enableFill so the default-seed fill shape is asserted (fill is disabled
+        // by default in production for now — TASK-2269).
+        const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 }, enableFill: true });
         expect(data.length).toBe(2);
         expect(data[0].fill).toBe('tozeroy');
         expect(data[0].line.color).toBe('#B89968');
         expect(data[1].fill).toBe('tonexty');
         expect(data[1].line.color).toBe('#5BC0FF');
+    });
+});
+
+// ── TASK-2269 (epic 2249 W5) — area fill disabled by default (lines only) ────
+describe('buildCrossSectionData — fill disabled by default (TASK-2269)', () => {
+    const traces = [
+        { key: 'dem', label: 'Elevation', role: 'dem', terrainId: 1 },
+        { key: 'stage', label: 'Water surface', role: 'stage', scenarioId: 1 }
+    ];
+    const samples = [
+        { distance_m: 0, dem: 100, stage: 101 },
+        { distance_m: 10, dem: 98, stage: 100 }
+    ];
+
+    it('emits NO fill on the terrain or water trace by default (production is lines-only)', () => {
+        const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 } });
+        expect(data.length).toBe(2);
+        data.forEach((d) => expect(d.fill).toBe(undefined));
+    });
+
+    it('the fill logic is preserved behind the flag: enableFill re-enables tozeroy/tonexty', () => {
+        const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 }, enableFill: true });
+        expect(data[0].fill).toBe('tozeroy');
+        expect(data[1].fill).toBe('tonexty');
+    });
+});
+
+// ── TASK-2273 (epic 2249 W5) — mask water where the published stage is below
+// the terrain (an 8 m stage vs finer-DEM resolution artefact at pond margins) ─
+describe('buildCrossSectionData — mask water below terrain (TASK-2273)', () => {
+    const traces = [
+        { key: 'dem', label: 'Elevation', role: 'dem', terrainId: 1 },
+        { key: 'stage', label: 'Water surface', role: 'stage', scenarioId: 1 }
+    ];
+    const opts = { scenarioTerrainById: { 1: 1 } };
+
+    it('drops (nulls) a water point where stage < terrain, keeps points above', () => {
+        const samples = [
+            { distance_m: 0, dem: 21.76, stage: 21.23 }, // stage 0.53 BELOW ground -> masked
+            { distance_m: 5, dem: 20.76, stage: 21.23 }, // stage 0.47 above ground -> kept
+            { distance_m: 10, dem: 30.0, stage: 29.5 }   // stage 0.5 below -> masked
+        ];
+        const data = buildCrossSectionData(samples, traces, opts);
+        const water = data.find(d => d.name !== 'Elevation');
+        expect(water.y).toEqual([null, 21.23, null]);
+    });
+
+    it('keeps the depth-0 shoreline (stage === terrain is NOT masked — strict <)', () => {
+        const samples = [
+            { distance_m: 0, dem: 20.0, stage: 20.0 }, // equal -> kept (shoreline)
+            { distance_m: 5, dem: 20.0, stage: 19.99 } // below -> masked
+        ];
+        const data = buildCrossSectionData(samples, traces, opts);
+        const water = data.find(d => d.name !== 'Elevation');
+        expect(water.y).toEqual([20.0, null]);
+    });
+
+    it('a null (already dry-masked) stage stays null through the below-terrain mask', () => {
+        const samples = [
+            { distance_m: 0, dem: 20.0, stage: null },
+            { distance_m: 5, dem: 20.0, stage: 22.0 }
+        ];
+        const data = buildCrossSectionData(samples, traces, opts);
+        const water = data.find(d => d.name !== 'Elevation');
+        expect(water.y).toEqual([null, 22.0]);
     });
 });
 

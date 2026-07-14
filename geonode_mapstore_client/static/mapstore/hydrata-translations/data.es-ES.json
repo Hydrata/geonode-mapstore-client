@@ -417,7 +417,10 @@
         "crossSectionCapReachedHint": "Desmarque otra fila primero (máx. 3)",
         "crossSectionNoRunHint": "Aún no hay una simulación completada",
         "crossSectionNoStageHint": "Vuelva a ejecutar para obtener una superficie de agua",
-        "crossSectionStaleHint": "Los resultados pueden estar desactualizados — el escenario se editó después de esta simulación"
+        "crossSectionStaleHint": "Los resultados pueden estar desactualizados — el escenario se editó después de esta simulación",
+        "crossSectionClear": "Limpiar",
+        "crossSectionXAxis": "Distancia (m)",
+        "crossSectionYAxis": "Elevación (m)"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

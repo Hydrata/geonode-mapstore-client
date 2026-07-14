@@ -299,7 +299,20 @@ export default (state = initialState, action) => {
     case SET_PROFILE_ERROR:
         return { ...state, profileError: action.error || null, profileLoading: false, profileDrawingActive: false };
     case CLEAR_PROFILE:
-        return { ...state, profileSamples: null, profileTraces: null, profileError: null };
+        // TASK-2272 (epic 2249 W5) — full reset for the "Clear" button: also
+        // drop the drawing/loading flags so the panel returns to the empty
+        // "Draw profile line" state. (Picker checked-ids are intentionally kept
+        // so a fresh line samples the same series.) Panel visibility is left
+        // untouched. When dispatched by profileStartDrawEpic before a redraw the
+        // subsequent setProfileDrawing(true) re-arms drawing, so this is safe.
+        return {
+            ...state,
+            profileSamples: null,
+            profileTraces: null,
+            profileError: null,
+            profileDrawingActive: false,
+            profileLoading: false
+        };
     // ── TASK-2254 (W2) — Cross-section picker checked-id state ─────────────
     // Bulk-replace (pickerSeedEpic on panel open). Defensively capped to 3
     // even though every caller already caps — never trust a bulk payload.
