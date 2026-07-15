@@ -435,6 +435,21 @@
 .ard-pill.is-warn { color: var(--ard-warn); background: var(--ard-warn-bg); }
 .ard-pill.is-err { color: var(--ard-err); background: var(--ard-err-bg); }
 
+/* TASK-2285 — per-component code-provenance GitHub deep-links. Stacked one
+   component per line so run_anuga / anuga_core / hydrata read as a compact
+   block in the ledger's Code column. */
+.ard-prov-links {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+}
+.ard-prov-link { color: var(--ard-navy); text-decoration: none; white-space: nowrap; }
+.ard-prov-link:hover { text-decoration: underline; }
+.ard-prov-link--missing { color: var(--ard-faint); font-style: italic; }
+
 /* ── CPU vs GPU showcase (the signature section) ─────────────────────── */
 .ard-section--showcase {
     max-width: 1440px;

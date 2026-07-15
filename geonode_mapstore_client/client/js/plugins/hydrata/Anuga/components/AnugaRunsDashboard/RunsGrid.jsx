@@ -27,10 +27,50 @@ const COLUMNS = [
     { key: 'cost_usd', label: '$/run' },
     { key: 'predicted_usd', label: 'Pred $/run' },
     { key: 'run_status', label: 'Status' },
+    // TASK-2285 (epic 2280 W2) — durable per-run code provenance. `code` renders
+    // the per-component GitHub deep-links (run_anuga / anuga_core / hydrata);
+    // `provenance` renders the 3-state honesty badge. Both are DERIVED from the
+    // AdminRunResourceRecordSerializer's code_provenance / provenance_complete
+    // fields — there is no record[key] for them, renderCell special-cases both.
+    { key: 'code', label: 'Code' },
+    { key: 'provenance', label: 'Provenance' },
     { key: 'date', label: 'Date' }
 ];
 
 const NUM_KEYS = ['triangle_count', 'wall_s', 'predicted_wall_s', 'cost_usd', 'predicted_usd'];
+
+// TASK-2285 — the three code components a run is pinned to. Order is the
+// dispatch → engine → app stack (run_anuga drives, anuga_core solves, hydrata
+// orchestrates). Each maps to code_provenance[comp] = {git_url, sha, github_url}.
+const PROVENANCE_COMPONENTS = ['run_anuga', 'anuga_core', 'hydrata'];
+
+// Short git sha for link text — the serializer already derived github_url
+// server-side (pure fn of git_url+sha); the FE only truncates for display.
+const shortSha = (sha) => (sha ? String(sha).slice(0, 8) : '');
+
+// 3-STATE provenance honesty badge (AC6 fail-loud + the W1 adversarial-review
+// refinement). Keyed on provenance_source so a green badge NEVER vouches for a
+// best-effort dispatch stamp — the dispatch fallback bakes fork-default git_urls
+// that are known-wrong for a GPU run until the container self-report lands, so
+// it is AMBER even when every sha is present. Precedence matters: dispatch is
+// checked before completeness so a "complete" dispatch row still reads amber.
+const provenanceBadge = (record) => {
+    const cp = record.code_provenance;
+    if (!cp) {
+        return { cls: 'is-err', label: 'none' };
+    }
+    if (cp.provenance_source === 'dispatch') {
+        return { cls: 'is-warn', label: 'best-effort' };
+    }
+    const authoritative = cp.provenance_source === 'container'
+        || cp.provenance_source === 'local'
+        || cp.provenance_source === 'backfill';
+    if (authoritative && record.provenance_complete === true) {
+        return { cls: 'is-ok', label: 'verified' };
+    }
+    // legacy source, provenance_complete=false, or any unknown source -> honest RED.
+    return { cls: 'is-err', label: 'incomplete' };
+};
 
 const formatCell = (key, value) => {
     if (value === null || value === undefined) {
@@ -70,14 +110,59 @@ const cellClassName = (key) => {
     return '';
 };
 
+// TASK-2285 — per-component GitHub deep-links. A present github_url renders as
+// an <a target="_blank" rel="noopener"> whose text is the component short-name +
+// truncated sha; a null github_url renders as a plain dash (never a broken
+// link). No code_provenance at all renders a single em-dash.
+const renderProvenanceLinks = (record) => {
+    const cp = record.code_provenance;
+    if (!cp) {
+        return '—';
+    }
+    return (
+        <span className="ard-prov-links" data-testid="ard-prov-links">
+            {PROVENANCE_COMPONENTS.map((comp) => {
+                const info = cp[comp] || {};
+                const text = info.sha ? `${comp} ${shortSha(info.sha)}` : comp;
+                return info.github_url
+                    ? (
+                        <a
+                            key={comp}
+                            className="ard-prov-link"
+                            href={info.github_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid={`ard-prov-link-${comp}`}
+                        >{text}</a>
+                    )
+                    : (
+                        <span
+                            key={comp}
+                            className="ard-prov-link ard-prov-link--missing"
+                            data-testid={`ard-prov-dash-${comp}`}
+                        >{comp} —</span>
+                    );
+            })}
+        </span>
+    );
+};
+
 // Mode → blue/green chip; status → coloured pill; run_id falls back to the
-// Batch job_id so a run without a resolved Run FK still shows an identifier.
+// Batch job_id so a run without a resolved Run FK still shows an identifier;
+// code/provenance are the TASK-2285 derived provenance columns.
 const renderCell = (key, value, record) => {
     if (key === 'mode' && value) {
         return <span className={`ard-chip ard-chip--${value === 'gpu' ? 'gpu' : 'cpu'}`}>{String(value).toUpperCase()}</span>;
     }
     if (key === 'run_status' && value) {
         return <span className={`ard-pill ${statusPillClass(value)}`}>{value}</span>;
+    }
+    if (key === 'code') {
+        return renderProvenanceLinks(record);
+    }
+    if (key === 'provenance') {
+        const badge = provenanceBadge(record);
+        return <span className={`ard-pill ${badge.cls}`} data-testid="ard-prov-badge">{badge.label}</span>;
     }
     if (key === 'run_id') {
         return value || record.job_id || '—';
