@@ -1,0 +1,42 @@
+# CODEOWNERS — TASK-2297 fleet CI enforcement.
+#
+# Every path below is on the fleet's protected-path list: a change here can
+# redefine what a "required check" tests, or silently no-op it, without the
+# PR looking suspicious. The org ruleset's "Require review from Code Owners"
+# toggle means a PR touching any of these paths cannot merge without an
+# approving review from the listed owner — deliberately the HUMAN account,
+# never hydrata-ci-bot. See docs/fleet-enforcement/OPERATOR-CHECKLIST.md in
+# the Hydrata/deploy repo for the full governance bundle.
+#
+# NO branch-wide minimum-approval count is set anywhere in the ruleset — a
+# green PR touching NONE of the paths below needs zero human approvals and
+# auto-merges. Only PRs touching a path below require the human.
+#
+# This repo has no root pyproject.toml/pytest.ini/conftest.py (it is a
+# Django app package wrapping the MapStore2 JS submodule) — the CI-critical
+# surface here is the JS test tooling + the submodule pointer, listed below.
+#
+# Self-guard (last line): this file is on its own protected list. An agent
+# PR cannot repoint CODEOWNERS away from the human to remove the guard.
+
+# Whole .github/ tree: workflows, composite actions, CODEOWNERS itself.
+/.github/**                                                              @davekennewell
+
+# Python packaging surface for the geonode_mapstore_client Django app.
+/requirements.txt                                                        @davekennewell
+/setup.cfg                                                               @davekennewell
+
+# JS test tooling — the biggest gmc side-door per the enforcement review:
+# package.json's "test" script IS the required Karma check's definition.
+/geonode_mapstore_client/client/package.json                             @davekennewell
+/geonode_mapstore_client/client/karma.conf*.js                           @davekennewell
+/geonode_mapstore_client/client/js/plugins/hydrata/SimpleView/css-namespace-guard.js  @davekennewell
+
+# The MapStore2 submodule gitlink pointer. A bump here changes which
+# upstream/fork commit the whole client compiles against; per
+# docs/orchestrate-branching / this epic's brief, no epic branch may bump
+# this gitlink without review.
+/geonode_mapstore_client/client/MapStore2                                @davekennewell
+
+# Self-guard — must stay the human, always, or the guard removes itself.
+/.github/CODEOWNERS                                                      @davekennewell
