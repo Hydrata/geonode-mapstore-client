@@ -8,10 +8,9 @@
 name: GeoNode Client 5.x CI (tests)
 
 on:
+  # No paths: filter on pull_request — required checks must always report on PRs; a path-filtered required check leaves non-matching PRs blocked forever (TASK-2297 review).
   pull_request:
     branches: [ 5.x ]
-    paths:
-      - "geonode_mapstore_client/client/**"
 
   push:
     branches: [ 5.x ]
