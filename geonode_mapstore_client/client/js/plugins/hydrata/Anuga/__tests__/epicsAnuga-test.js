@@ -266,6 +266,53 @@ describe('ANUGA Epics', () => {
                 );
         });
 
+        // TASK-1227 — happy-path 202 + 5xx coverage for the core dispatch flow.
+        describe('TASK-1227 happy-path 202 + 5xx', () => {
+            const MockAdapter = require('axios-mock-adapter');
+            const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+            const { RUN_ANUGA_SCENARIO_SUCCESS } = require('../actions/scenarioActions');
+            const { START_ACTIVE_RUN_POLLING } = require('../actions/pollingActions');
+
+            let mockAxios;
+            beforeEach(() => { mockAxios = new MockAdapter(axios); });
+            afterEach(() => { mockAxios.restore(); });
+
+            it('202 -> dispatches success thunk + startActiveRunPolling(runId)', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(202, {
+                    id: 501, status: 'created'
+                });
+
+                const action$ = mockActions([{ type: 'RUN_ANUGA_SCENARIO', scenario: { id: 7 } }]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, { getState: () => ({}) })
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(3);
+                        expect(typeof emitted[0]).toBe('function');
+                        const dispatched = [];
+                        emitted[0]((a) => dispatched.push(a));
+                        const successAction = dispatched.find(d => d.type === RUN_ANUGA_SCENARIO_SUCCESS);
+                        expect(successAction).toExist();
+                        expect(emitted[2].type).toBe(START_ACTIVE_RUN_POLLING);
+                        expect(emitted[2].runId).toBe(501);
+                        done();
+                    });
+            });
+
+            it('5xx -> silently swallowed (no emission)', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/8/run/').reply(500, { detail: 'boom' });
+
+                const action$ = mockActions([{ type: 'RUN_ANUGA_SCENARIO', scenario: { id: 8 } }]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, { getState: () => ({}) })
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    });
+            });
+        });
+
         // TASK-2100 (epic 2092 W4.2) — StartRunView's meter gate 402/429.
         describe('TASK-2100 meter-gate 402/429 interception', () => {
             const MockAdapter = require('axios-mock-adapter');
