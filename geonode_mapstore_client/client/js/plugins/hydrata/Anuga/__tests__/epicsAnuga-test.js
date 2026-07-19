@@ -1717,6 +1717,18 @@ describe('ANUGA Epics', () => {
                 });
         });
 
+        // TASK-1230 — unrelated-action guard for the membershipEpics module.
+        it('fetchInvitationsEpic only listens for FETCH_INVITATIONS action type', (done) => {
+            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION' }]);
+            const emitted = [];
+
+            fetchInvitationsEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    done();
+                });
+        });
+
         it('revokeInvitationEpic: empty project id -> emits nothing', (done) => {
             const store = {getState: () => ({anuga: {projects: {data: null}}})};
             const action$ = mockActions([{type: REVOKE_INVITATION_REQUEST, invitationId: 1}]);
