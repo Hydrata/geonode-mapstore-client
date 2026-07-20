@@ -118,14 +118,20 @@ class TerrainDatumBadge extends React.Component {
                             />
                         </div>
                         <div className="sv-anuga-terrain-datum-actions" style={{display: 'flex', flexWrap: 'wrap', gap: 4}}>
-                            <button
-                                type="button"
-                                className="btn btn-xs btn-primary sv-anuga-terrain-datum-convert"
-                                data-testid={`terrain-datum-convert-${terrainId}`}
-                                onClick={() => onConvert && onConvert(projectId, terrainId)}
-                            >
-                                <Message msgId="hydrata.anuga.terrainDatumConvert" />
-                            </button>
+                            {/* epic 2323 review fix (TASK-2326): only offer Convert for an
+                                ELLIPSOID guess. A low-confidence orthometric_egm2008 terrain
+                                is already on EGM2008 — converting it would double-apply the
+                                ~+27.6 m geoid raise — so it gets Keep / Correct only. */}
+                            {guess === 'ellipsoid' ? (
+                                <button
+                                    type="button"
+                                    className="btn btn-xs btn-primary sv-anuga-terrain-datum-convert"
+                                    data-testid={`terrain-datum-convert-${terrainId}`}
+                                    onClick={() => onConvert && onConvert(projectId, terrainId)}
+                                >
+                                    <Message msgId="hydrata.anuga.terrainDatumConvert" />
+                                </button>
+                            ) : null}
                             <button
                                 type="button"
                                 className="btn btn-xs btn-default sv-anuga-terrain-datum-keep"
