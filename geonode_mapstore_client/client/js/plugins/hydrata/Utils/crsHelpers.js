@@ -111,7 +111,22 @@ export const listUtmWgs84CRS = () => {
  *   injectable so callers/tests can supply a stub without mocking the module.
  * @returns {Promise<{hasCrs:(boolean|null), epsg:(number|null), label:(string|null)}>}
  */
+// epic 2323 / TASK-2327: map a known VERTICAL-CRS EPSG to our datum vocabulary
+// (matches gn_anuga.datum_infer.datum_guess). EGM2008 = EPSG:3855, EGM96 = 5773.
+// Ellipsoidal height carries no VerticalCSTypeGeoKey (it is implied by a 3D CRS),
+// so the common case is "no embedded vertical CRS" and the dialog asks the user.
+const VERTICAL_DATUM_BY_EPSG = { 3855: 'orthometric_egm2008', 5773: 'orthometric_egm96' };
+
 export const detectGeotiffCrs = async(file, parseTiff = geotiff.fromBlob) => {
+    // The embedded vertical CRS, when the GeoTIFF declares one. Independent of the
+    // horizontal result, so it rides both the detected and undetected returns.
+    const readVertical = (geoKeys) => {
+        const raw = geoKeys.VerticalCSTypeGeoKey;
+        if (raw && raw !== 32767) {
+            return { verticalEpsg: raw, verticalLabel: `EPSG:${raw}`, verticalDatumGuess: VERTICAL_DATUM_BY_EPSG[raw] || null };
+        }
+        return { verticalEpsg: null, verticalLabel: null, verticalDatumGuess: null };
+    };
     try {
         const tiff = await parseTiff(file);
         const image = await tiff.getImage();
@@ -122,14 +137,15 @@ export const detectGeotiffCrs = async(file, parseTiff = geotiff.fromBlob) => {
         const projected = geoKeys.ProjectedCSTypeGeoKey;
         const geographic = geoKeys.GeographicTypeGeoKey;
         const raw = projected || geographic;
+        const vertical = readVertical(geoKeys);
         if (raw && raw !== 32767) {
             const epsg = raw;
-            return { hasCrs: true, epsg, label: `EPSG:${epsg}` };
+            return { hasCrs: true, epsg, label: `EPSG:${epsg}`, ...vertical };
         }
-        return { hasCrs: false, epsg: null, label: null };
+        return { hasCrs: false, epsg: null, label: null, ...vertical };
     } catch (e) {
         // Parse failure / non-TIFF — never throw, so the picker degrades to an
         // optional field rather than blocking the upload.
-        return { hasCrs: null, epsg: null, label: null };
+        return { hasCrs: null, epsg: null, label: null, verticalEpsg: null, verticalLabel: null, verticalDatumGuess: null };
     }
 };

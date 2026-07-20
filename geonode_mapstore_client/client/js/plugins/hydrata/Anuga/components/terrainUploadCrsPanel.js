@@ -43,12 +43,14 @@ import { Button } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
-import { PanelShell, PanelHeader, ErrorStrip, FormRow } from '../../SimpleView/components/primitives';
+import { ErrorStrip, FormRow } from '../../SimpleView/components/primitives';
+import MovablePanel from '../../shared/components/MovablePanel';
 import {
     setTerrainUploadCrsPanel,
     setTerrainUploadCrsError,
     startAnugaModelCreationPolling
 } from '../actionsAnuga';
+import { setMovablePanelState } from '../actions/uiActions';
 import { updateProcess, toggleTaskMonitorPanel } from '../../TaskMonitor/actionsTaskMonitor';
 import { getProjectId } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
 import { uploadTerrainDirect } from '../api/anugaApi';
@@ -59,6 +61,18 @@ import '../anuga.css';
 
 // Free-text sentinel value for the "type an EPSG code" picker option.
 const FREEFORM = '__freeform__';
+
+// epic 2323 / TASK-2327 (re-aim): this dialog now rides MovablePanel (drag +
+// resize) with its OWN persistence key, and opens OFFSET from the top-left Inputs
+// panel so it reads as a distinct floating dialog rather than part of the panel
+// behind it.
+export const TERRAIN_UPLOAD_CRS_PANEL_ID = 'terrainUploadCrs';
+function defaultUploadCrsPosition() {
+    if (typeof window === 'undefined') { return { x: 40, y: 150 }; }
+    // Offset right of the left nav + down from the Inputs-panel header so the
+    // dialog is visually separated from the panel behind it.
+    return { x: Math.max(40, Math.round(window.innerWidth * 0.22)), y: 150 };
+}
 
 export class TerrainUploadCrsPanelClass extends React.Component {
     static propTypes = {
@@ -78,7 +92,10 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         onOpenTaskMonitor: PropTypes.func,
         startAnugaModelCreationPolling: PropTypes.func,
         // Injectable for tests (defaults to the real crsHelpers detector).
-        detectGeotiffCrs: PropTypes.func
+        detectGeotiffCrs: PropTypes.func,
+        // MovablePanel position/size persistence (TASK-2327 re-aim).
+        panelState: PropTypes.object,
+        setMovablePanelState: PropTypes.func
     };
 
     static defaultProps = {
@@ -97,6 +114,9 @@ export class TerrainUploadCrsPanelClass extends React.Component {
             // the typed EPSG when the FREEFORM option is chosen.
             selectedCrs: '',
             freeformCrs: '',
+            // epic 2323 / TASK-2327: the user's VERTICAL-datum declaration.
+            // '' = "Not sure — check after upload" (default; inference decides).
+            verticalDatumDeclared: '',
             uploading: false
         };
         // TASK-1881: beforeunload handler reference, held so we can remove it
@@ -155,6 +175,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                 detected: null,
                 selectedCrs: '',
                 freeformCrs: '',
+                verticalDatumDeclared: '',
                 uploading: false
             });
             if (this.props.file) this._runDetect(this.props.file);
@@ -193,6 +214,17 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         const picked = selectedCrs === FREEFORM ? (freeformCrs || '').trim() : selectedCrs;
         const code = detectedHasCrs ? '' : picked;
         return code || undefined;
+    }
+
+    // The vertical datum to record on the upload, or undefined to defer to the
+    // server-side DoD inference. An embedded vertical CRS (verticalDatumGuess)
+    // is authoritative and wins over a user declaration; otherwise the user's
+    // pick (or '' = "not sure") is forwarded (the BE only honours the two
+    // positive values and drops anything else).
+    _resolveVerticalDatum() {
+        const { detected, verticalDatumDeclared } = this.state;
+        const embedded = detected && detected.verticalDatumGuess;
+        return embedded || verticalDatumDeclared || undefined;
     }
 
     // The picker is REQUIRED only when the file definitively lacks a CRS
@@ -266,6 +298,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         if (!file || !projectId || this.state.uploading) return;
         const title = (this.state.title || '').trim() || (this.props.title || '');
         const crsOverride = this._resolveCrsOverride();
+        const verticalDatumDeclared = this._resolveVerticalDatum();
         const name = `Terrain upload: ${file.name}`;
         this.setState({ uploading: true });
         // TASK-1881: register the nav guard BEFORE the first async step so the
@@ -297,6 +330,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         uploadTerrainDirect(projectId, file, {
             title,
             crsOverride,
+            verticalDatumDeclared,
             onPresign: (data) => {
                 if (data && data.process_id) rowId = data.process_id;
                 emit(rowId, { name, status: 'running', progress_pct: 0, status_detail: 'Uploading' });
@@ -438,14 +472,77 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         );
     }
 
+    // epic 2323 / TASK-2327: engage the user about the terrain's VERTICAL datum as
+    // part of the upload path. An embedded vertical CRS is shown read-only; else
+    // (the common case — most DEMs tag only a horizontal CRS) the user declares it.
+    // Non-blocking: "Not sure" is the default; the server-side DoD inference decides
+    // + cross-checks after upload.
+    renderVerticalDatumRow() {
+        const { detected } = this.state;
+        if (this.state.detecting) return null;
+        if (detected && detected.verticalDatumGuess) {
+            return (
+                <div
+                    className="sv-crs-picker-vdatum-detected"
+                    data-testid="terrain-vdatum-detected"
+                    style={{ marginBottom: 8 }}
+                >
+                    <Message
+                        msgId="hydrata.anuga.terrainVDatumDetected"
+                        msgParams={{ datum: detected.verticalLabel || detected.verticalDatumGuess }}
+                    />
+                </div>
+            );
+        }
+        const options = [
+            { value: 'ellipsoid', msgId: 'hydrata.anuga.terrainVDatumEllipsoid' },
+            { value: 'orthometric_egm2008', msgId: 'hydrata.anuga.terrainVDatumEgm2008' },
+            { value: '', msgId: 'hydrata.anuga.terrainVDatumUnsure' }
+        ];
+        return (
+            <FormRow
+                label={<Message msgId="hydrata.anuga.terrainVDatumLabel" />}
+                layout="stacked"
+                extraClassName="sv-crs-picker-row"
+            >
+                <div className="sv-crs-picker-vdatum" data-testid="terrain-vdatum-picker" role="radiogroup">
+                    {options.map((o) => (
+                        <label
+                            key={o.value || 'unsure'}
+                            className="sv-crs-picker-vdatum-opt"
+                            style={{ display: 'block', marginBottom: 4, cursor: 'pointer' }}
+                        >
+                            <input
+                                type="radio"
+                                name="terrain-vertical-datum"
+                                data-testid={`terrain-vdatum-${o.value || 'unsure'}`}
+                                checked={this.state.verticalDatumDeclared === o.value}
+                                onChange={() => this.setState({ verticalDatumDeclared: o.value })}
+                                style={{ marginRight: 6 }}
+                            />
+                            <Message msgId={o.msgId} />
+                        </label>
+                    ))}
+                </div>
+            </FormRow>
+        );
+    }
+
     render() {
         if (!this.props.visible) return null;
+        const persist = this.props.setMovablePanelState || (() => {});
         return (
-            <PanelShell extraClassName="sv-uploader-panel sv-crs-picker-panel" minWidth="420px">
-                <PanelHeader
-                    title={<Message msgId="hydrata.anuga.terrainCrsPanelTitle" />}
-                    onClose={this.handleCancel}
-                />
+            <MovablePanel
+                panelId={TERRAIN_UPLOAD_CRS_PANEL_ID}
+                className="sv-uploader-panel sv-crs-picker-panel sv-crs-picker-movable"
+                title={<Message msgId="hydrata.anuga.terrainCrsPanelTitle" />}
+                onClose={this.handleCancel}
+                position={this.props.panelState?.position}
+                size={this.props.panelState?.size}
+                defaultPosition={defaultUploadCrsPosition()}
+                onMove={(position) => persist(TERRAIN_UPLOAD_CRS_PANEL_ID, { position })}
+                onResize={(size) => persist(TERRAIN_UPLOAD_CRS_PANEL_ID, { size })}
+            >
                 <div style={{ padding: '10px', textAlign: 'left' }} data-testid="terrain-crs-panel">
                     {/* Title input (auto-filled from the filename; editable). */}
                     <FormRow label={<Message msgId="hydrata.anuga.terrainCrsTitleLabel" />} layout="stacked" extraClassName="sv-crs-picker-row">
@@ -461,6 +558,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
 
                     {this.renderDetectionRow()}
                     {this.renderPicker()}
+                    {this.renderVerticalDatumRow()}
 
                     <ErrorStrip message={this.props.error} extraClassName="sv-crs-picker-error" />
                 </div>
@@ -484,7 +582,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                         <Message msgId="hydrata.anuga.terrainCrsConfirm" />
                     </Button>
                 </div>
-            </PanelShell>
+            </MovablePanel>
         );
     }
 }
@@ -518,7 +616,8 @@ const mapStateToProps = (state) => {
         projectId: getProjectId(state),
         projectProjection: state?.anuga?.projects?.data?.projection || null,
         terrainCrs,
-        projectExtentBbox: aoiLayer ? aoiLayer.bbox : null
+        projectExtentBbox: aoiLayer ? aoiLayer.bbox : null,
+        panelState: state?.anuga?.ui?.movablePanels?.[TERRAIN_UPLOAD_CRS_PANEL_ID]
     };
 };
 
@@ -527,7 +626,8 @@ const mapDispatchToProps = (dispatch) => ({
     setTerrainUploadCrsError: (error) => dispatch(setTerrainUploadCrsError(error)),
     onUpdateProcess: (process) => dispatch(updateProcess(process)),
     onOpenTaskMonitor: (open) => dispatch(toggleTaskMonitorPanel(open)),
-    startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling())
+    startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling()),
+    setMovablePanelState: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
 });
 
 export const TerrainUploadCrsPanel = connect(mapStateToProps, mapDispatchToProps)(TerrainUploadCrsPanelClass);

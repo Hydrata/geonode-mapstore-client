@@ -293,12 +293,17 @@ export const putFileToS3 = (uploadUrl, file, contentType, onProgress) =>
 // is the authority, returns 400 VALIDATION_ERROR with NO Terrain row on a bad
 // code). OMITTED when undefined so a DEM that already carries a CRS is finalized
 // unchanged (the BE only applies the override to a CRS-less raster).
-export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title, crsOverride } = {}) =>
+// epic 2323 / TASK-2327: `verticalDatumDeclared` ('ellipsoid' | 'orthometric_egm2008'),
+// the user's datum declaration from the upload Confirm dialog, forwarded as
+// `vertical_datum_declared` and stored on the Terrain row (the async DoD inference
+// then cross-checks it). OMITTED when undefined / "not sure" (inference decides).
+export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title, crsOverride, verticalDatumDeclared } = {}) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/terrain/upload/finalize/`, {
         ...(processId ? { process_id: processId } : {}),
         staging_key: stagingKey,
         ...(title ? { title } : {}),
-        ...(crsOverride ? { crs_override: crsOverride } : {})
+        ...(crsOverride ? { crs_override: crsOverride } : {}),
+        ...(verticalDatumDeclared ? { vertical_datum_declared: verticalDatumDeclared } : {})
     });
 
 // TASK-1881: classify whether a finalize error is worth retrying.
@@ -351,7 +356,7 @@ export const finalizeTerrainUploadWithRetry = (projectId, opts, _attempt) => {
 // finalize as `crs_override`; it does NOT touch presign or the S3 PUT (any extra
 // header on the signed PUT would 403 SignatureDoesNotMatch — putFileToS3 is left
 // untouched), and is OMITTED from finalize when undefined.
-export const uploadTerrainDirect = (projectId, file, { title, crsOverride, onProgress, onPresign } = {}) => {
+export const uploadTerrainDirect = (projectId, file, { title, crsOverride, verticalDatumDeclared, onProgress, onPresign } = {}) => {
     const filename = file && file.name;
     const contentType = (file && file.type) || 'application/octet-stream';
     const size = file && typeof file.size === 'number' ? file.size : undefined;
@@ -370,7 +375,8 @@ export const uploadTerrainDirect = (projectId, file, { title, crsOverride, onPro
                     processId: data.process_id,
                     stagingKey: data.staging_key,
                     title,
-                    crsOverride
+                    crsOverride,
+                    verticalDatumDeclared
                 }));
         });
 };
