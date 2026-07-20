@@ -289,6 +289,9 @@ describe('ANUGA Epics', () => {
                     .subscribe(a => emitted.push(a), done, () => {
                         expect(emitted.length).toBe(3);
                         expect(typeof emitted[0]).toBe('function');
+                        const { SET_ANUGA_SCENARIO_MENU } = require('../actions/uiActions');
+                        expect(emitted[1].type).toBe(SET_ANUGA_SCENARIO_MENU);
+                        expect(emitted[1].visible).toBe(true);
                         const dispatched = [];
                         emitted[0]((a) => dispatched.push(a));
                         const successAction = dispatched.find(d => d.type === RUN_ANUGA_SCENARIO_SUCCESS);
