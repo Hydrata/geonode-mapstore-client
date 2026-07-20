@@ -75,6 +75,8 @@ import {MergeTerrainsIcon} from "../../TerrainWorkbench/components/MergeTerrains
 
 import {canEditAnugaMap, getProjectId, getSelectedScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import {deleteTerrain} from "@js/plugins/hydrata/Anuga/actions/dataActions";
+// TASK-2327 (epic 2323): non-blocking vertical-datum badge on the terrain row.
+import TerrainDatumBadge from "@js/plugins/hydrata/Anuga/components/terrainDatumBadge";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
@@ -628,6 +630,11 @@ class TerrainHierarchyRow extends React.Component {
                         </React.Fragment>
                     )}
                 </div>
+                {/* TASK-2327 (epic 2323): non-blocking vertical-datum advisory for the
+                    real terrain model — loud only for an ellipsoid / low-confidence
+                    guess, a quiet confirmed tick for high-confidence EGM2008, silent
+                    otherwise. Offers Convert-to-EGM2008 (TASK-2326) / Keep / Correct. */}
+                {terrainModel ? <TerrainDatumBadge terrain={terrainModel} /> : null}
                 {/* Expanded zone (TASK-1587 grill 2026-06-15 + BUG-4 UAT 2026-06-16 +
                     decision 2026-06-16-q-4 REVISING ADR#9): the parent row above is DEM
                     IDENTITY ONLY. Inside the collapsible section the DEM now OWNS its two

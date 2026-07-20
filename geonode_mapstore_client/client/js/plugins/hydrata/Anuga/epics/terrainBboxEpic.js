@@ -30,6 +30,11 @@ import {
     CREATE_TERRAIN_FROM_BBOX_ERROR,
     createTerrainFromBboxSuccess,
     createTerrainFromBboxError,
+    // TASK-2327 (epic 2323) — convert an ellipsoid terrain to EGM2008.
+    CONVERT_TERRAIN_DATUM,
+    CONVERT_TERRAIN_DATUM_ERROR,
+    convertTerrainDatumSuccess,
+    convertTerrainDatumError,
     setTerrainBbox,
     setTerrainBboxError,
     setTerrainBboxConfirm
@@ -245,6 +250,61 @@ export const createTerrainFromBboxErrorEpic = (action$) =>
             return show({
                 title: 'hydrata.anuga.terrainBboxCreateErrorTitle',
                 message: 'hydrata.anuga.terrainBboxCreateErrorBody',
+                values: { detail },
+                position: 'tc',
+                autoDismiss: 10,
+                level: 'error'
+            });
+        });
+
+/**
+ * TASK-2327 (epic 2323) — POST the ellipsoid→EGM2008 datum conversion. Mirrors
+ * createTerrainFromBboxEpic: on 202 open the Tasks panel (the derived terrain
+ * arrives via taskCompleteLayerEpic) and toast a "conversion started" notice;
+ * on failure surface a visible error toast. mergeMap (not switchMap) so
+ * converting two different terrains in quick succession does not cancel the
+ * first POST.
+ */
+export const convertTerrainDatumEpic = (action$, store) =>
+    action$.ofType(CONVERT_TERRAIN_DATUM)
+        .mergeMap((action) => {
+            const projectId = getProjectId(store.getState());
+            const terrainId = action.terrainId;
+            if (!projectId || !terrainId) {
+                return Rx.Observable.of(convertTerrainDatumError('missing project or terrain'));
+            }
+            return Rx.Observable
+                .from(anugaApi.convertTerrainDatum(projectId, terrainId))
+                .switchMap((response) => Rx.Observable.from([
+                    toggleTaskMonitorPanel(true),
+                    show({
+                        title: 'hydrata.anuga.terrainDatumConvertStartedTitle',
+                        message: 'hydrata.anuga.terrainDatumConvertStartedBody',
+                        values: { title: (response && response.data && response.data.title) || '' },
+                        position: 'tc',
+                        autoDismiss: 8,
+                        level: 'success'
+                    }),
+                    convertTerrainDatumSuccess(response && response.data)
+                ]))
+                .catch((err) => Rx.Observable.of(
+                    convertTerrainDatumError(extractCreateErrorMessage(err))
+                ));
+        });
+
+/**
+ * Surface a CONVERT_TERRAIN_DATUM_ERROR as a visible error toast (same shape as
+ * createTerrainFromBboxErrorEpic).
+ */
+export const convertTerrainDatumErrorEpic = (action$) =>
+    action$.ofType(CONVERT_TERRAIN_DATUM_ERROR)
+        .map((action) => {
+            const detail = typeof action.error === 'string' && action.error
+                ? action.error
+                : 'conversion failed';
+            return show({
+                title: 'hydrata.anuga.terrainDatumConvertErrorTitle',
+                message: 'hydrata.anuga.terrainDatumConvertErrorBody',
                 values: { detail },
                 position: 'tc',
                 autoDismiss: 10,

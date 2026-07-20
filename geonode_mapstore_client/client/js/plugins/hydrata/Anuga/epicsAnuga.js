@@ -124,10 +124,13 @@ export {
 } from './epics/permsEpics';
 
 // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker.
+// TASK-2327 (epic 2323) — convert an ellipsoid terrain to EGM2008.
 export {
     terrainBboxEndDrawingEpic,
     createTerrainFromBboxEpic,
-    createTerrainFromBboxErrorEpic
+    createTerrainFromBboxErrorEpic,
+    convertTerrainDatumEpic,
+    convertTerrainDatumErrorEpic
 } from './epics/terrainBboxEpic';
 
 // TASK-96 — Live DEM ramp rescale on map pan/zoom via GeoServer env() WMS.

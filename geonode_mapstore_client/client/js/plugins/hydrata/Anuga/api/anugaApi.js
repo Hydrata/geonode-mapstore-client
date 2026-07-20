@@ -162,6 +162,12 @@ export const datasetExistsByPk = (pk) => {
 export const createTerrainFromBbox = (projectId, payload) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/terrain/create-from-bbox/`, payload);
 
+// TASK-2327 (epic 2323): convert an ellipsoid terrain to an EGM2008 derived
+// terrain. Non-destructive — the source terrain is byte-unchanged; the BE mints
+// a new 'datum_shift' Terrain (202) that arrives via the Tasks panel poll.
+export const convertTerrainDatum = (projectId, terrainId) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/convert-datum/`);
+
 // TASK-96 — GET windowed DEM stats for a bbox. Returns {elev_min, elev_max,
 // bbox, env_params: {elevMin, elevOne..elevNine, elevMax}} where env_params
 // is the full GeoServer env() mapping ready to forward verbatim as the WMS
