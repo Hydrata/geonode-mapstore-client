@@ -57,6 +57,10 @@ class TerrainDatumBadge extends React.Component {
     render() {
         const {terrain, projectId, onConvert} = this.props;
         const verticalDatum = terrain && terrain.vertical_datum;
+        // epic 2323 / TASK-2327: a datum-shift conversion is already requested/underway
+        // for this terrain — suppress the advisory (the converted EGM2008 terrain
+        // supersedes it shortly; offering Convert again would just be refused).
+        if (terrain && terrain.metadata && terrain.metadata.datum_shift_derived_id) return null;
         const severity = datumBadgeSeverity(verticalDatum);
         if (!severity || this.state.dismissed) return null;
 
