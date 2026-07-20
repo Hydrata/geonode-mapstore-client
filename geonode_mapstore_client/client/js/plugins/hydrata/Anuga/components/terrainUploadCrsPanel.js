@@ -577,10 +577,8 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                 title={<Message msgId="hydrata.anuga.terrainCrsPanelTitle" />}
                 onClose={this.handleCancel}
                 position={this.props.panelState?.position}
-                size={this.props.panelState?.size}
                 defaultPosition={defaultUploadCrsPosition()}
                 onMove={(position) => persist(TERRAIN_UPLOAD_CRS_PANEL_ID, { position })}
-                onResize={(size) => persist(TERRAIN_UPLOAD_CRS_PANEL_ID, { size })}
             >
                 <div style={{ padding: '10px', textAlign: 'left' }} data-testid="terrain-crs-panel">
                     {/* Title input (auto-filled from the filename; editable). */}
