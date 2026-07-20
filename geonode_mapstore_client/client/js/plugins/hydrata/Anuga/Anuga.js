@@ -72,6 +72,8 @@ import {
     // TASK-2327 (epic 2323) — convert an ellipsoid terrain to EGM2008.
     convertTerrainDatumEpic,
     convertTerrainDatumErrorEpic,
+    // TASK-2335 (epic 2323) — persist the datum-badge dismissal across reload.
+    ackTerrainDatumEpic,
     // TASK-96 — Live DEM ramp rescale on map pan/zoom via GeoServer env() WMS.
     demRescaleOnMoveEndEpic,
     // TASK-1856 (W3.2) — Debounced cursor-elevation point query.
@@ -242,6 +244,8 @@ export default createPlugin('Anuga', {
         // TASK-2327 (epic 2323) — convert an ellipsoid terrain to EGM2008.
         convertTerrainDatumEpic,
         convertTerrainDatumErrorEpic,
+        // TASK-2335 (epic 2323) — persist the datum-badge dismissal across reload.
+        ackTerrainDatumEpic,
         // TASK-96 — Live DEM ramp rescale on map pan/zoom via GeoServer env() WMS.
         demRescaleOnMoveEndEpic,
         // TASK-1856 (W3.2) — Debounced cursor-elevation point query.
