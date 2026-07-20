@@ -130,7 +130,8 @@ export {
     createTerrainFromBboxEpic,
     createTerrainFromBboxErrorEpic,
     convertTerrainDatumEpic,
-    convertTerrainDatumErrorEpic
+    convertTerrainDatumErrorEpic,
+    ackTerrainDatumEpic
 } from './epics/terrainBboxEpic';
 
 // TASK-96 — Live DEM ramp rescale on map pan/zoom via GeoServer env() WMS.

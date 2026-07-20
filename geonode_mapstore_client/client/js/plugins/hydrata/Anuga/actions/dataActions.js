@@ -147,6 +147,8 @@ const CREATE_TERRAIN_FROM_BBOX_ERROR = 'ANUGA:CREATE_TERRAIN_FROM_BBOX_ERROR';
 const CONVERT_TERRAIN_DATUM = 'ANUGA:CONVERT_TERRAIN_DATUM';
 const CONVERT_TERRAIN_DATUM_SUCCESS = 'ANUGA:CONVERT_TERRAIN_DATUM_SUCCESS';
 const CONVERT_TERRAIN_DATUM_ERROR = 'ANUGA:CONVERT_TERRAIN_DATUM_ERROR';
+// TASK-2335 (epic 2323): persist the datum-badge dismissal (fire-and-forget).
+const ACK_TERRAIN_DATUM = 'ANUGA:ACK_TERRAIN_DATUM';
 
 function setAnugaProjectData(data) {
     return { type: SET_ANUGA_PROJECT_DATA, data };
@@ -494,6 +496,9 @@ function convertTerrainDatumSuccess(data) {
 function convertTerrainDatumError(error) {
     return { type: CONVERT_TERRAIN_DATUM_ERROR, error };
 }
+function ackTerrainDatum(projectId, terrainId, ack) {
+    return { type: ACK_TERRAIN_DATUM, projectId, terrainId, ack };
+}
 
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
@@ -591,5 +596,7 @@ module.exports = {
     // TASK-2327 (epic 2323) — convert an ellipsoid terrain to EGM2008
     CONVERT_TERRAIN_DATUM, convertTerrainDatum,
     CONVERT_TERRAIN_DATUM_SUCCESS, convertTerrainDatumSuccess,
-    CONVERT_TERRAIN_DATUM_ERROR, convertTerrainDatumError
+    CONVERT_TERRAIN_DATUM_ERROR, convertTerrainDatumError,
+    // TASK-2335 (epic 2323) — persist datum-badge dismissal
+    ACK_TERRAIN_DATUM, ackTerrainDatum
 };

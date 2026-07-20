@@ -168,6 +168,11 @@ export const createTerrainFromBbox = (projectId, payload) =>
 export const convertTerrainDatum = (projectId, terrainId) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/convert-datum/`);
 
+// TASK-2335 (epic 2323): persist the datum-badge dismissal ('kept'|'correct')
+// so 'Keep as-is' / "It's already correct" survive a page reload.
+export const ackTerrainDatum = (projectId, terrainId, ack) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/datum-ack/`, { ack });
+
 // TASK-96 — GET windowed DEM stats for a bbox. Returns {elev_min, elev_max,
 // bbox, env_params: {elevMin, elevOne..elevNine, elevMax}} where env_params
 // is the full GeoServer env() mapping ready to forward verbatim as the WMS

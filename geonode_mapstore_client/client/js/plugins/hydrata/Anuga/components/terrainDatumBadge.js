@@ -22,7 +22,7 @@ import PropTypes from 'prop-types';
 import {connect} from 'react-redux';
 import Message from '@mapstore/framework/components/I18N/Message';
 import {getProjectId} from '@js/plugins/hydrata/Anuga/selectorsAnuga';
-import {convertTerrainDatum} from '@js/plugins/hydrata/Anuga/actions/dataActions';
+import {convertTerrainDatum, ackTerrainDatum} from '@js/plugins/hydrata/Anuga/actions/dataActions';
 
 // A known guess below this confidence is surfaced as "unverified" (WARN).
 export const DATUM_LOW_CONFIDENCE = 0.6;
@@ -43,7 +43,8 @@ class TerrainDatumBadge extends React.Component {
     static propTypes = {
         terrain: PropTypes.object,       // the terrain-model row (carries vertical_datum + id)
         projectId: PropTypes.number,
-        onConvert: PropTypes.func
+        onConvert: PropTypes.func,
+        onAck: PropTypes.func
     };
 
     constructor(props) {
@@ -55,12 +56,17 @@ class TerrainDatumBadge extends React.Component {
     }
 
     render() {
-        const {terrain, projectId, onConvert} = this.props;
+        const {terrain, projectId, onConvert, onAck} = this.props;
         const verticalDatum = terrain && terrain.vertical_datum;
         // epic 2323 / TASK-2327: a datum-shift conversion is already requested/underway
         // for this terrain — suppress the advisory (the converted EGM2008 terrain
         // supersedes it shortly; offering Convert again would just be refused).
         if (terrain && terrain.metadata && terrain.metadata.datum_shift_derived_id) return null;
+        // TASK-2335: a persisted dismissal ('kept'|'correct') from a prior session
+        // keeps the advisory suppressed across reloads (BE datum-ack endpoint, read
+        // back off metadata like datum_shift_derived_id above, or the dedicated
+        // datum_badge_ack serializer field).
+        if (terrain && ((terrain.metadata && terrain.metadata.datum_badge_ack) || terrain.datum_badge_ack)) return null;
         const severity = datumBadgeSeverity(verticalDatum);
         if (!severity || this.state.dismissed) return null;
 
@@ -140,7 +146,7 @@ class TerrainDatumBadge extends React.Component {
                                 type="button"
                                 className="btn btn-xs btn-default sv-anuga-terrain-datum-keep"
                                 data-testid={`terrain-datum-keep-${terrainId}`}
-                                onClick={() => this.setState({dismissed: true})}
+                                onClick={() => { this.setState({dismissed: true}); onAck && onAck(projectId, terrainId, 'kept'); }}
                             >
                                 <Message msgId="hydrata.anuga.terrainDatumKeep" />
                             </button>
@@ -148,7 +154,7 @@ class TerrainDatumBadge extends React.Component {
                                 type="button"
                                 className="btn btn-xs btn-default sv-anuga-terrain-datum-correct"
                                 data-testid={`terrain-datum-correct-${terrainId}`}
-                                onClick={() => this.setState({dismissed: true})}
+                                onClick={() => { this.setState({dismissed: true}); onAck && onAck(projectId, terrainId, 'correct'); }}
                             >
                                 <Message msgId="hydrata.anuga.terrainDatumCorrect" />
                             </button>
@@ -162,5 +168,8 @@ class TerrainDatumBadge extends React.Component {
 
 export default connect(
     (state) => ({projectId: getProjectId(state)}),
-    (dispatch) => ({onConvert: (projectId, terrainId) => dispatch(convertTerrainDatum(projectId, terrainId))})
+    (dispatch) => ({
+        onConvert: (projectId, terrainId) => dispatch(convertTerrainDatum(projectId, terrainId)),
+        onAck: (projectId, terrainId, ack) => dispatch(ackTerrainDatum(projectId, terrainId, ack))
+    })
 )(TerrainDatumBadge);

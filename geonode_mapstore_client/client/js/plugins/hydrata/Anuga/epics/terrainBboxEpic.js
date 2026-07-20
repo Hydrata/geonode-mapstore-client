@@ -35,6 +35,8 @@ import {
     CONVERT_TERRAIN_DATUM_ERROR,
     convertTerrainDatumSuccess,
     convertTerrainDatumError,
+    // TASK-2335 (epic 2323) — persist the datum-badge dismissal across reload.
+    ACK_TERRAIN_DATUM,
     setTerrainBbox,
     setTerrainBboxError,
     setTerrainBboxConfirm
@@ -290,6 +292,25 @@ export const convertTerrainDatumEpic = (action$, store) =>
                 .catch((err) => Rx.Observable.of(
                     convertTerrainDatumError(extractCreateErrorMessage(err))
                 ));
+        });
+
+/**
+ * TASK-2335 (epic 2323): persist the datum-badge dismissal ('kept'|'correct')
+ * so it survives a page reload. Fire-and-forget — the component's setState
+ * already hid the badge for the session; this stamps Terrain.metadata so the
+ * badge stays gone after a refetch. Low-stakes: a failed persist emits nothing
+ * (no error toast), the badge simply re-appears next reload.
+ */
+export const ackTerrainDatumEpic = (action$, store) =>
+    action$.ofType(ACK_TERRAIN_DATUM)
+        .mergeMap((action) => {
+            const projectId = action.projectId || getProjectId(store.getState());
+            const { terrainId, ack } = action;
+            if (!projectId || !terrainId || !ack) return Rx.Observable.empty();
+            return Rx.Observable
+                .from(anugaApi.ackTerrainDatum(projectId, terrainId, ack))
+                .mergeMap(() => Rx.Observable.empty())
+                .catch(() => Rx.Observable.empty());
         });
 
 /**
