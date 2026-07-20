@@ -352,6 +352,7 @@
         "terrainVDatumEgm2008": "EGM2008 (Mean Sea Level)",
         "terrainVDatumUnsure": "Not sure — check it after upload",
         "terrainVDatumDetected": "Detected vertical datum: {datum}",
+        "terrainVDatumConvertAfterUpload": "Convert to EGM2008 after upload",
         "profileDrawButton": "Dibujar línea de perfil",
         "profileRedrawButton": "Dibujar una nueva línea",
         "profileDrawing": "Dibujando — haga clic en puntos del mapa, doble clic para terminar",

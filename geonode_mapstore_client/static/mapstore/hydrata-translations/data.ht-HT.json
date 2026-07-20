@@ -352,6 +352,7 @@
         "terrainVDatumEgm2008": "EGM2008 (Mean Sea Level)",
         "terrainVDatumUnsure": "Not sure — check it after upload",
         "terrainVDatumDetected": "Detected vertical datum: {datum}",
+        "terrainVDatumConvertAfterUpload": "Convert to EGM2008 after upload",
         "profileDrawButton": "Trase liy pwofil",
         "profileRedrawButton": "Trase yon nouvo liy",
         "profileDrawing": "Trase — klike pwen sou kat la, double-klike pou fini",

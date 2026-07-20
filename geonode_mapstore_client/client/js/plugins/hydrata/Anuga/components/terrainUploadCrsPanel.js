@@ -117,6 +117,9 @@ export class TerrainUploadCrsPanelClass extends React.Component {
             // epic 2323 / TASK-2327: the user's VERTICAL-datum declaration.
             // '' = "Not sure — check after upload" (default; inference decides).
             verticalDatumDeclared: '',
+            // "Convert to EGM2008 after upload" — only meaningful (enabled) when the
+            // datum is ellipsoidal; the BE auto-runs the conversion once imported.
+            convertAfterUpload: false,
             uploading: false
         };
         // TASK-1881: beforeunload handler reference, held so we can remove it
@@ -176,6 +179,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                 selectedCrs: '',
                 freeformCrs: '',
                 verticalDatumDeclared: '',
+                convertAfterUpload: false,
                 uploading: false
             });
             if (this.props.file) this._runDetect(this.props.file);
@@ -299,6 +303,8 @@ export class TerrainUploadCrsPanelClass extends React.Component {
         const title = (this.state.title || '').trim() || (this.props.title || '');
         const crsOverride = this._resolveCrsOverride();
         const verticalDatumDeclared = this._resolveVerticalDatum();
+        // Only request the auto-convert for an ellipsoid terrain that the user ticked.
+        const convertToEgm2008 = verticalDatumDeclared === 'ellipsoid' && this.state.convertAfterUpload;
         const name = `Terrain upload: ${file.name}`;
         this.setState({ uploading: true });
         // TASK-1881: register the nav guard BEFORE the first async step so the
@@ -331,6 +337,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
             title,
             crsOverride,
             verticalDatumDeclared,
+            convertToEgm2008,
             onPresign: (data) => {
                 if (data && data.process_id) rowId = data.process_id;
                 emit(rowId, { name, status: 'running', progress_pct: 0, status_detail: 'Uploading' });
@@ -517,7 +524,11 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                                 name="terrain-vertical-datum"
                                 data-testid={`terrain-vdatum-${o.value || 'unsure'}`}
                                 checked={this.state.verticalDatumDeclared === o.value}
-                                onChange={() => this.setState({ verticalDatumDeclared: o.value })}
+                                onChange={() => this.setState((s) => ({
+                                    verticalDatumDeclared: o.value,
+                                    // "Convert" only applies to an ellipsoid terrain — clear it otherwise.
+                                    convertAfterUpload: o.value === 'ellipsoid' ? s.convertAfterUpload : false
+                                }))}
                                 style={{ marginRight: 6 }}
                             />
                             <Message msgId={o.msgId} />
@@ -525,6 +536,34 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                     ))}
                 </div>
             </FormRow>
+        );
+    }
+
+    // epic 2323 / TASK-2327: "Convert to EGM2008 after upload" — always visible so
+    // the option is discoverable, but ENABLED only when the (resolved) datum is
+    // ellipsoidal (converting an EGM2008 terrain would double-apply the geoid
+    // shift). When ticked the BE auto-runs the conversion once the terrain imports.
+    renderConvertCheckbox() {
+        if (this.state.detecting) return null;
+        const applicable = this._resolveVerticalDatum() === 'ellipsoid';
+        return (
+            <div
+                className="sv-crs-picker-convert"
+                data-testid="terrain-vdatum-convert-row"
+                style={{ marginBottom: 8, opacity: applicable ? 1 : 0.5 }}
+            >
+                <label style={{ cursor: applicable ? 'pointer' : 'default' }}>
+                    <input
+                        type="checkbox"
+                        data-testid="terrain-vdatum-convert-checkbox"
+                        disabled={!applicable}
+                        checked={applicable && this.state.convertAfterUpload}
+                        onChange={(e) => this.setState({ convertAfterUpload: e.target.checked })}
+                        style={{ marginRight: 6 }}
+                    />
+                    <Message msgId="hydrata.anuga.terrainVDatumConvertAfterUpload" />
+                </label>
+            </div>
         );
     }
 
@@ -559,6 +598,7 @@ export class TerrainUploadCrsPanelClass extends React.Component {
                     {this.renderDetectionRow()}
                     {this.renderPicker()}
                     {this.renderVerticalDatumRow()}
+                    {this.renderConvertCheckbox()}
 
                     <ErrorStrip message={this.props.error} extraClassName="sv-crs-picker-error" />
                 </div>

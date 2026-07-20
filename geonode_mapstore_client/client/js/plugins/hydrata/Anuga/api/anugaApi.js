@@ -297,13 +297,14 @@ export const putFileToS3 = (uploadUrl, file, contentType, onProgress) =>
 // the user's datum declaration from the upload Confirm dialog, forwarded as
 // `vertical_datum_declared` and stored on the Terrain row (the async DoD inference
 // then cross-checks it). OMITTED when undefined / "not sure" (inference decides).
-export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title, crsOverride, verticalDatumDeclared } = {}) =>
+export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title, crsOverride, verticalDatumDeclared, convertToEgm2008 } = {}) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/terrain/upload/finalize/`, {
         ...(processId ? { process_id: processId } : {}),
         staging_key: stagingKey,
         ...(title ? { title } : {}),
         ...(crsOverride ? { crs_override: crsOverride } : {}),
-        ...(verticalDatumDeclared ? { vertical_datum_declared: verticalDatumDeclared } : {})
+        ...(verticalDatumDeclared ? { vertical_datum_declared: verticalDatumDeclared } : {}),
+        ...(convertToEgm2008 ? { convert_to_egm2008: true } : {})
     });
 
 // TASK-1881: classify whether a finalize error is worth retrying.
@@ -356,7 +357,7 @@ export const finalizeTerrainUploadWithRetry = (projectId, opts, _attempt) => {
 // finalize as `crs_override`; it does NOT touch presign or the S3 PUT (any extra
 // header on the signed PUT would 403 SignatureDoesNotMatch — putFileToS3 is left
 // untouched), and is OMITTED from finalize when undefined.
-export const uploadTerrainDirect = (projectId, file, { title, crsOverride, verticalDatumDeclared, onProgress, onPresign } = {}) => {
+export const uploadTerrainDirect = (projectId, file, { title, crsOverride, verticalDatumDeclared, convertToEgm2008, onProgress, onPresign } = {}) => {
     const filename = file && file.name;
     const contentType = (file && file.type) || 'application/octet-stream';
     const size = file && typeof file.size === 'number' ? file.size : undefined;
@@ -376,7 +377,8 @@ export const uploadTerrainDirect = (projectId, file, { title, crsOverride, verti
                     stagingKey: data.staging_key,
                     title,
                     crsOverride,
-                    verticalDatumDeclared
+                    verticalDatumDeclared,
+                    convertToEgm2008
                 }));
         });
 };

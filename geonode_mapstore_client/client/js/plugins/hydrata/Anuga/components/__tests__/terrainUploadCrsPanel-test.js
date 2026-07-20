@@ -483,6 +483,28 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
         });
     });
 
+    it('convert checkbox: disabled until Ellipsoidal is chosen; ticking it threads convert_to_egm2008', () => {
+        presignOk('proc-vd4');
+        mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 33, status: 'creating' });
+        return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
+            const cb = container.querySelector('[data-testid="terrain-vdatum-convert-checkbox"]');
+            expect(cb).toExist();
+            expect(cb.disabled).toBe(true);          // default "not sure" → disabled
+            // Declare ellipsoid → the checkbox enables.
+            TestUtils.Simulate.change(container.querySelector('[data-testid="terrain-vdatum-ellipsoid"]'), { target: { checked: true } });
+            const cb2 = container.querySelector('[data-testid="terrain-vdatum-convert-checkbox"]');
+            expect(cb2.disabled).toBe(false);
+            // Tick it + confirm → finalize carries convert_to_egm2008.
+            TestUtils.Simulate.change(cb2, { target: { checked: true } });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="terrain-crs-confirm"]'));
+            return drivePutThenFinalize().then((fin) => {
+                const body = JSON.parse(fin.data);
+                expect(body.vertical_datum_declared).toBe('ellipsoid');
+                expect(body.convert_to_egm2008).toBe(true);
+            });
+        });
+    });
+
     // ── Cancel ────────────────────────────────────────────────────────────
     it('Cancel closes the panel (SET_TERRAIN_UPLOAD_CRS_PANEL false) without uploading', () => {
         return mount({ hasCrs: false }).then(({ store }) => {
