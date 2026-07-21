@@ -524,15 +524,22 @@ describe('TASK-1800 parent row master controls', () => {
 
     const TERRAIN = { id: 7, title: 'My Terrain' };
     function renderParent(demVis, hsVis, onChange) {
+        // TASK-2323: the parent terrain row now renders the connected
+        // <TerrainDatumBadge> (anugaInputMenu.js:637), so a Redux <Provider> is
+        // required even with expanded=false. createMockStore() supplies the
+        // projectId the badge connects to; TERRAIN carries no datum metadata so
+        // the badge renders null (severity falsy) and is otherwise inert here.
         ReactDOM.render(
-            <TerrainHierarchyRow
-                terrain={TERRAIN}
-                terrainModel={TERRAIN}
-                demLayer={{ id: 'dem1', title: 'DEM', visibility: demVis, opacity: 1 }}
-                hillshadeLayer={{ id: 'hs1', title: 'Hillshade', visibility: hsVis, opacity: 1 }}
-                expanded={false}
-                onChangeTerrainLayerProperties={onChange || (() => {})}
-            />,
+            <Provider store={createMockStore()}>
+                <TerrainHierarchyRow
+                    terrain={TERRAIN}
+                    terrainModel={TERRAIN}
+                    demLayer={{ id: 'dem1', title: 'DEM', visibility: demVis, opacity: 1 }}
+                    hillshadeLayer={{ id: 'hs1', title: 'Hillshade', visibility: hsVis, opacity: 1 }}
+                    expanded={false}
+                    onChangeTerrainLayerProperties={onChange || (() => {})}
+                />
+            </Provider>,
             container
         );
     }

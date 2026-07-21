@@ -95,10 +95,11 @@ describe('anugaApi', () => {
             // TASK-2099/2100 (epic 2092 W4) adds 2: createCheckoutSession +
             // getComputeBalance = 67.
             // TASK-2165 adds 1: recalcDatasetBbox = 68.
+            // TASK-2323 adds 2: convertTerrainDatum + ackTerrainDatum = 70.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(68);
+            expect(exportedFunctions.length).toBe(70);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
