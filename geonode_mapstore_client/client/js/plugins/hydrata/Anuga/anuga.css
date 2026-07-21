@@ -308,6 +308,26 @@
     padding-right: 28px;
 }
 
+/* epic 2323 / TASK-2327 (re-aim): the terrain-upload Confirm dialog now rides
+   MovablePanel (drag + resize). Keep a sensible width so the CRS + vertical-datum
+   controls don't collapse, but let the user resize wider. The 3-class selector
+   out-specifies MovablePanel's base `.simple-view-panel.sv-movable-panel`
+   min-width:160px rule (which would otherwise defeat this floor). */
+.simple-view-panel.sv-movable-panel.sv-crs-picker-movable {
+    min-width: 440px;
+    max-width: 640px;
+}
+.sv-crs-picker-vdatum-opt {
+    font-size: 13px;
+}
+.sv-crs-picker-vdatum-opt input {
+    vertical-align: middle;
+}
+.sv-crs-picker-vdatum-detected {
+    color: rgba(120, 210, 140, 0.9);
+    font-size: 13px;
+}
+
 .sv-add-data-input {
     font-size: 14px;
     white-space: nowrap;

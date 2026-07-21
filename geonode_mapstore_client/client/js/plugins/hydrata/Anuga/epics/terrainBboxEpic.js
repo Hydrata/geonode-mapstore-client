@@ -30,6 +30,13 @@ import {
     CREATE_TERRAIN_FROM_BBOX_ERROR,
     createTerrainFromBboxSuccess,
     createTerrainFromBboxError,
+    // TASK-2327 (epic 2323) — convert an ellipsoid terrain to EGM2008.
+    CONVERT_TERRAIN_DATUM,
+    CONVERT_TERRAIN_DATUM_ERROR,
+    convertTerrainDatumSuccess,
+    convertTerrainDatumError,
+    // TASK-2335 (epic 2323) — persist the datum-badge dismissal across reload.
+    ACK_TERRAIN_DATUM,
     setTerrainBbox,
     setTerrainBboxError,
     setTerrainBboxConfirm
@@ -245,6 +252,80 @@ export const createTerrainFromBboxErrorEpic = (action$) =>
             return show({
                 title: 'hydrata.anuga.terrainBboxCreateErrorTitle',
                 message: 'hydrata.anuga.terrainBboxCreateErrorBody',
+                values: { detail },
+                position: 'tc',
+                autoDismiss: 10,
+                level: 'error'
+            });
+        });
+
+/**
+ * TASK-2327 (epic 2323) — POST the ellipsoid→EGM2008 datum conversion. Mirrors
+ * createTerrainFromBboxEpic: on 202 open the Tasks panel (the derived terrain
+ * arrives via taskCompleteLayerEpic) and toast a "conversion started" notice;
+ * on failure surface a visible error toast. mergeMap (not switchMap) so
+ * converting two different terrains in quick succession does not cancel the
+ * first POST.
+ */
+export const convertTerrainDatumEpic = (action$, store) =>
+    action$.ofType(CONVERT_TERRAIN_DATUM)
+        .mergeMap((action) => {
+            const projectId = getProjectId(store.getState());
+            const terrainId = action.terrainId;
+            if (!projectId || !terrainId) {
+                return Rx.Observable.of(convertTerrainDatumError('missing project or terrain'));
+            }
+            return Rx.Observable
+                .from(anugaApi.convertTerrainDatum(projectId, terrainId))
+                .switchMap((response) => Rx.Observable.from([
+                    toggleTaskMonitorPanel(true),
+                    show({
+                        title: 'hydrata.anuga.terrainDatumConvertStartedTitle',
+                        message: 'hydrata.anuga.terrainDatumConvertStartedBody',
+                        values: { title: (response && response.data && response.data.title) || '' },
+                        position: 'tc',
+                        autoDismiss: 8,
+                        level: 'success'
+                    }),
+                    convertTerrainDatumSuccess(response && response.data)
+                ]))
+                .catch((err) => Rx.Observable.of(
+                    convertTerrainDatumError(extractCreateErrorMessage(err))
+                ));
+        });
+
+/**
+ * TASK-2335 (epic 2323): persist the datum-badge dismissal ('kept'|'correct')
+ * so it survives a page reload. Fire-and-forget — the component's setState
+ * already hid the badge for the session; this stamps Terrain.metadata so the
+ * badge stays gone after a refetch. Low-stakes: a failed persist emits nothing
+ * (no error toast), the badge simply re-appears next reload.
+ */
+export const ackTerrainDatumEpic = (action$, store) =>
+    action$.ofType(ACK_TERRAIN_DATUM)
+        .mergeMap((action) => {
+            const projectId = action.projectId || getProjectId(store.getState());
+            const { terrainId, ack } = action;
+            if (!projectId || !terrainId || !ack) return Rx.Observable.empty();
+            return Rx.Observable
+                .from(anugaApi.ackTerrainDatum(projectId, terrainId, ack))
+                .mergeMap(() => Rx.Observable.empty())
+                .catch(() => Rx.Observable.empty());
+        });
+
+/**
+ * Surface a CONVERT_TERRAIN_DATUM_ERROR as a visible error toast (same shape as
+ * createTerrainFromBboxErrorEpic).
+ */
+export const convertTerrainDatumErrorEpic = (action$) =>
+    action$.ofType(CONVERT_TERRAIN_DATUM_ERROR)
+        .map((action) => {
+            const detail = typeof action.error === 'string' && action.error
+                ? action.error
+                : 'conversion failed';
+            return show({
+                title: 'hydrata.anuga.terrainDatumConvertErrorTitle',
+                message: 'hydrata.anuga.terrainDatumConvertErrorBody',
                 values: { detail },
                 position: 'tc',
                 autoDismiss: 10,

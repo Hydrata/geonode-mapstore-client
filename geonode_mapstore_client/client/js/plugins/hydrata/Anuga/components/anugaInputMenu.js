@@ -75,6 +75,8 @@ import {MergeTerrainsIcon} from "../../TerrainWorkbench/components/MergeTerrains
 
 import {canEditAnugaMap, getProjectId, getSelectedScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import {deleteTerrain} from "@js/plugins/hydrata/Anuga/actions/dataActions";
+// TASK-2327 (epic 2323): non-blocking vertical-datum badge on the terrain row.
+import TerrainDatumBadge from "@js/plugins/hydrata/Anuga/components/terrainDatumBadge";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
@@ -628,6 +630,11 @@ class TerrainHierarchyRow extends React.Component {
                         </React.Fragment>
                     )}
                 </div>
+                {/* TASK-2327 (epic 2323): non-blocking vertical-datum advisory for the
+                    real terrain model — loud only for an ellipsoid / low-confidence
+                    guess, a quiet confirmed tick for high-confidence EGM2008, silent
+                    otherwise. Offers Convert-to-EGM2008 (TASK-2326) / Keep / Correct. */}
+                {terrainModel ? <TerrainDatumBadge terrain={terrainModel} /> : null}
                 {/* Expanded zone (TASK-1587 grill 2026-06-15 + BUG-4 UAT 2026-06-16 +
                     decision 2026-06-16-q-4 REVISING ADR#9): the parent row above is DEM
                     IDENTITY ONLY. Inside the collapsible section the DEM now OWNS its two
@@ -1324,7 +1331,21 @@ class AnugaInputMenuClass extends React.Component {
     // Analysis surface outputs (layers in Terrain group with no terrainModel match) = parent rows.
     _buildTerrainGroups() {
         const terrainLayers = this.props.terrainLayers || [];
-        const terrainModels = this.props.terrainModels || [];
+        // epic 2323 / TASK-2327: hide a terrain SUPERSEDED by a datum-shift conversion —
+        // the converted EGM2008 terrain replaces it, so the list shows ONE set (not the
+        // ellipsoid original + its conversion). Also keep the superseded model's now-orphan
+        // layers out of the stand-alone-row pickup further down.
+        const allTerrainModels = this.props.terrainModels || [];
+        const supersededLayerNames = new Set();
+        allTerrainModels.forEach(m => {
+            if (m && m.metadata && m.metadata.superseded_by) {
+                [m.gn_layer_name, m.gn_layer_hillshade_name].filter(Boolean).forEach(n => {
+                    supersededLayerNames.add(n);
+                    supersededLayerNames.add(`geonode:${n}`);
+                });
+            }
+        });
+        const terrainModels = allTerrainModels.filter(m => !(m && m.metadata && m.metadata.superseded_by));
 
         // BUG-5 (UAT) — name-matching parity with demRescaleEpic.js:153-154. The
         // serializer's gn_layer_name is the BARE GeoNode dataset name (e.g.
@@ -1360,7 +1381,7 @@ class AnugaInputMenuClass extends React.Component {
         // Remaining terrain layers not matched to a model (analysis surface outputs,
         // or model rows not yet fetched) become stand-alone parent rows.
         terrainLayers
-            .filter(l => !consumedNames.has(l.name) && !isKnownHillshade(l))
+            .filter(l => !consumedNames.has(l.name) && !isKnownHillshade(l) && !supersededLayerNames.has(l.name))
             .forEach(l => {
                 groups.push({ terrain: null, demLayer: l, hillshadeLayer: null });
             });

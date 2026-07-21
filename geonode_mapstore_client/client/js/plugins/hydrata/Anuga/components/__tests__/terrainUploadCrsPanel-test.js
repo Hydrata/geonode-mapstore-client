@@ -416,6 +416,95 @@ describe('TASK-1880 TerrainUploadCrsPanel', () => {
         });
     });
 
+    // ── epic 2323 / TASK-2327 (re-aim): vertical-datum declaration in the upload path ──
+    const presignOk = (pid) => mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+        process_id: pid, staging_key: 'k', upload_url: 'https://s3/u?sig=1', content_type: 'image/tiff'
+    });
+    const drivePutThenFinalize = () => {
+        const tick = () => {
+            if (lastXhr && lastXhr.onload) { lastXhr.status = 200; lastXhr.onload(); } else { setTimeout(tick, 5); }
+        };
+        setTimeout(tick, 5);
+        return new Promise((resolve) => {
+            const poll = () => {
+                const fin = mockAxios.history.post.find(r => /finalize/.test(r.url));
+                if (fin) resolve(fin); else setTimeout(poll, 5);
+            };
+            poll();
+        });
+    };
+
+    it('no embedded vertical CRS → shows the vertical-datum picker (3 options), default "not sure"', () => {
+        return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
+            expect(container.querySelector('[data-testid="terrain-vdatum-picker"]')).toExist();
+            expect(container.querySelector('[data-testid="terrain-vdatum-ellipsoid"]')).toExist();
+            expect(container.querySelector('[data-testid="terrain-vdatum-orthometric_egm2008"]')).toExist();
+            const unsure = container.querySelector('[data-testid="terrain-vdatum-unsure"]');
+            expect(unsure).toExist();
+            expect(unsure.checked).toBe(true);
+            expect(container.querySelector('[data-testid="terrain-vdatum-detected"]')).toBe(null);
+        });
+    });
+
+    it('declaring EGM2008 → finalize carries vertical_datum_declared', () => {
+        presignOk('proc-vd1');
+        mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 30, status: 'creating' });
+        return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
+            const egm = container.querySelector('[data-testid="terrain-vdatum-orthometric_egm2008"]');
+            TestUtils.Simulate.change(egm, { target: { checked: true } });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="terrain-crs-confirm"]'));
+            return drivePutThenFinalize().then((fin) => {
+                expect(JSON.parse(fin.data).vertical_datum_declared).toBe('orthometric_egm2008');
+            });
+        });
+    });
+
+    it('default "not sure" → finalize carries NO vertical_datum_declared', () => {
+        presignOk('proc-vd2');
+        mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 31, status: 'creating' });
+        return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
+            TestUtils.Simulate.click(container.querySelector('[data-testid="terrain-crs-confirm"]'));
+            return drivePutThenFinalize().then((fin) => {
+                expect('vertical_datum_declared' in JSON.parse(fin.data)).toBe(false);
+            });
+        });
+    });
+
+    it('embedded vertical CRS (EGM2008) → read-only detected row, NO picker, finalize carries the detected datum', () => {
+        presignOk('proc-vd3');
+        mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 32, status: 'creating' });
+        return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756', verticalEpsg: 3855, verticalLabel: 'EPSG:3855', verticalDatumGuess: 'orthometric_egm2008' }).then(() => {
+            expect(container.querySelector('[data-testid="terrain-vdatum-detected"]')).toExist();
+            expect(container.querySelector('[data-testid="terrain-vdatum-picker"]')).toBe(null);
+            TestUtils.Simulate.click(container.querySelector('[data-testid="terrain-crs-confirm"]'));
+            return drivePutThenFinalize().then((fin) => {
+                expect(JSON.parse(fin.data).vertical_datum_declared).toBe('orthometric_egm2008');
+            });
+        });
+    });
+
+    it('convert checkbox: disabled until Ellipsoidal is chosen; ticking it threads convert_to_egm2008', () => {
+        presignOk('proc-vd4');
+        mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 33, status: 'creating' });
+        return mount({ hasCrs: true, epsg: 32756, label: 'EPSG:32756' }).then(() => {
+            const cb = container.querySelector('[data-testid="terrain-vdatum-convert-checkbox"]');
+            expect(cb).toExist();
+            expect(cb.disabled).toBe(true);          // default "not sure" → disabled
+            // Declare ellipsoid → the checkbox enables.
+            TestUtils.Simulate.change(container.querySelector('[data-testid="terrain-vdatum-ellipsoid"]'), { target: { checked: true } });
+            const cb2 = container.querySelector('[data-testid="terrain-vdatum-convert-checkbox"]');
+            expect(cb2.disabled).toBe(false);
+            // Tick it + confirm → finalize carries convert_to_egm2008.
+            TestUtils.Simulate.change(cb2, { target: { checked: true } });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="terrain-crs-confirm"]'));
+            return drivePutThenFinalize().then((fin) => {
+                const body = JSON.parse(fin.data);
+                expect(body.vertical_datum_declared).toBe('ellipsoid');
+                expect(body.convert_to_egm2008).toBe(true);
+            });
+        });
+    });
+
     // ── Cancel ────────────────────────────────────────────────────────────
     it('Cancel closes the panel (SET_TERRAIN_UPLOAD_CRS_PANEL false) without uploading', () => {
         return mount({ hasCrs: false }).then(({ store }) => {
