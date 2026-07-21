@@ -339,8 +339,10 @@ describe('TASK-1008 (W4) SimpleView Redux action-log parity', () => {
         // JSDOM (no real mouse event sequence on the slider handle).
         // Driving the onChange prop via fiber inspection would be
         // brittle. Live replay covered by the orchestrator's localhost
-        // smoke step.
-        xit('Terrain.opacityDrag live click-drag replay — JSDOM no real mouse events; covered by localhost smoke', () => {});
+        // smoke step. TASK-2305: audited, permanent JSDOM environment
+        // limitation (not a flake) -- no sunset, this is the documented
+        // long-term carve-out for slider drag events under JSDOM.
+        xit('Terrain.opacityDrag live click-drag replay — JSDOM no real mouse events; covered by localhost smoke (TASK-2305)', () => {});
     });
 
     // ───────────────────────────────────────────────────────────────
