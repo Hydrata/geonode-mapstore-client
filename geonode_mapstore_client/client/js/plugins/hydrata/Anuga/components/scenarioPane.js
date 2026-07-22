@@ -4,7 +4,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
     getMeshComparison, getMeshCostDriverHint, findScenarioStatus, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES,
-    runSettingsMustStayOpen
+    runSettingsMustStayOpen, formatCostEstimate
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -793,27 +793,6 @@ function computeTargetLabel(target, defaultComputeTarget) {
     return target === defaultComputeTarget ? `${base} (site default)` : base;
 }
 
-// TASK-2400(b)/(c) (dogfood F1 #2a/#3) — the pre-build in-pane estimate
-// (scenario.compute_cost_estimate). Two truth-pass fixes vs. the pre-2400
-// bare `~$${toFixed(2)}`:
-//   (b) a $0 (free-band) run must never render as "$0.00" — that reads as
-//       "this costs zero dollars and zero cents" (a precise, billable-looking
-//       figure) rather than "this is free". scenarioHeaderActions.js's
-//       priceLabel already made this call for the POST-build exact price
-//       band; this mirrors it for the pre-build estimate.
-//   (c) a non-zero pre-build figure is deliberately hedged ("est.") — this
-//       number is dollar_estimate() rounded to 2dp, NOT the coarse
-//       customer-BILLED price_band (gn_anuga.estimate.band) that actually
-//       determines the charge. Presenting it with the same bare "$X.XX"
-//       precision as a real price invites the user to read it as the exact
-//       bill; the built line's price_band (scenarioHeaderActions.js
-//       priceLabel) is the one number that IS the actual charge.
-function formatCostEstimate(computeCostEstimate) {
-    if (computeCostEstimate === null || computeCostEstimate === undefined) return '';
-    if (Number(computeCostEstimate) === 0) return ' — Free';
-    return ` — ~$${Number(computeCostEstimate).toFixed(2)} est.`;
-}
-
 function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
@@ -1000,7 +979,9 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                         {scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined
                             ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
                             : ''}
-                        {formatCostEstimate(scenario.compute_cost_estimate)}
+                        {scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined
+                            ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
+                            : ''}
                     </span>
                     {/* TASK-2400(a) — when local edits are unsaved (scenario.unsaved,
                         set by UPDATE_ANUGA_SCENARIO and cleared by

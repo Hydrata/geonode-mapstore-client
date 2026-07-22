@@ -516,3 +516,21 @@ export const getMeshCostDriverHint = (breakdown) => {
     if (!bestKey || bestKey === 'base' || bestValue <= 0) return null;
     return {driver: bestKey, share: Math.round((bestValue / total) * 100)};
 };
+
+// TASK-2400 (dogfood F1 #2a/#3) — shared pre-build cost-estimate formatter,
+// used by BOTH the in-pane estimate section (scenarioPane.js) and the
+// Build/Build-and-Run tooltip echo (scenarioHeaderActions.js), which used to
+// each carry their own copy of this same $0-vs-hedge logic (mechanical
+// simplify — one formatter, one place to fix the wording again).
+//   (b) a $0 (free-band) run never renders as "$0.00" — reads "Free".
+//   (c) a non-zero figure is hedged ("est.") rather than bare precision — it
+//       is dollar_estimate() rounded to 2dp, NOT the coarse customer-BILLED
+//       price_band (gn_anuga.estimate.band) that actually determines the
+//       charge; the Built line's price_band is the one number that IS the
+//       actual charge (scenarioHeaderActions.js's priceLabel, TASK-2100).
+// Returns '' when computeCostEstimate is null/undefined (nothing to show).
+export const formatCostEstimate = (computeCostEstimate) => {
+    if (computeCostEstimate === null || computeCostEstimate === undefined) return '';
+    if (Number(computeCostEstimate) === 0) return 'Free';
+    return `~$${Number(computeCostEstimate).toFixed(2)} est.`;
+};
