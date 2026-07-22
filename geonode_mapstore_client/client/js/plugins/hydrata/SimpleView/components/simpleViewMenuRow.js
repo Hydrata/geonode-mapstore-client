@@ -1185,7 +1185,10 @@ const mapDispatchToProps = ( dispatch ) => {
         // ghost does not re-appear from the blob on the next map load.
         saveDirectContent: () => dispatch(saveDirectContent()),
         updateLayerTitle: (layer, title) => dispatch(changeLayerProperties(layer, {title: title})),
-        refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray)),
+        // TASK-2382 — explicit options are REQUIRED (bare dispatch killed the
+        // root epic via unguarded Object.keys in the core refresh epic);
+        // title: false so caps refresh never clobbers user-set titles.
+        refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray, { bbox: true, search: true, dimensions: true, title: false })),
         svDownloadLayer: (layer) => dispatch(svDownloadLayer(layer)),
         setVisibleUploaderPanel: (visible, importerConfigKey, importerTargetObjectId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId)),
         zoomToLayer: (extent, crs) => dispatch(zoomToExtent(extent, crs)),
