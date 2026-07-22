@@ -888,6 +888,46 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
+        // TASK-2400 (dogfood F1 #2a) — a free-band ($0) pre-build estimate
+        // must read 'Free', never a bare '$0.00'.
+        it('Build tooltip echo renders "Free" (never "$0.00") for a free-band ($0) estimate', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 200, compute_cost_estimate: 0}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-build', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-tooltip');
+                        expect(tooltip.textContent).toInclude('Free');
+                        expect(tooltip.textContent).toNotInclude('$0.00');
+                        done();
+                    });
+                }
+            );
+        });
+
+        // TASK-2400 (dogfood F1 #1) — when the scenario has unsaved local
+        // edits (scenario.unsaved), the tooltip echo must flag the estimate
+        // as stale rather than presenting the last-saved figure as current.
+        it('Build tooltip echo flags the estimate as outdated when scenario.unsaved is true', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 500, compute_cost_estimate: 0.5, unsaved: true}}
+                    canEdit canRunScenario
+                />,
+                container,
+                () => {
+                    hoverTooltipWrapOf('.sv-scenario-action-build', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-tooltip');
+                        expect(tooltip.textContent).toInclude('outdated');
+                        done();
+                    });
+                }
+            );
+        });
+
         it('the Build & Run tooltip still renders while the button is disabled mid-flight (in-flight status)', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions

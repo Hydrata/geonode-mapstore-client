@@ -1746,6 +1746,63 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
+        // TASK-2400 (dogfood F1 #2a) — a free-band ($0) pre-build estimate
+        // must render 'Free', never a bare '$0.00' (a precise-looking,
+        // billable-reading figure for what is actually a zero-cost run).
+        it('TASK-2400: renders "Free" (never "$0.00") for a free-band ($0) compute_cost_estimate', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 200, compute_cost_estimate: 0}}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const label = container.querySelector('.sv-anuga-scenario-estimate-label');
+                    expect(label).toBeTruthy();
+                    expect(label.textContent).toContain('Free');
+                    expect(label.textContent.includes('$0.00')).toBe(false);
+                    done();
+                }
+            );
+        });
+
+        // TASK-2400 (dogfood F1 #1) — while the user has unsaved local edits
+        // (scenario.unsaved), the estimate line must say so rather than let a
+        // stale pre-edit figure read as current.
+        it('TASK-2400: marks the estimate line "outdated" when scenario.unsaved is true', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 123456, compute_cost_estimate: 5237.42, unsaved: true}}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const stale = container.querySelector('[data-testid="sv-anuga-scenario-estimate-stale"]');
+                    expect(stale).toBeTruthy();
+                    expect(stale.textContent).toContain('outdated');
+                    done();
+                }
+            );
+        });
+
+        it('TASK-2400: does NOT mark the estimate line "outdated" when scenario has no unsaved edits', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 123456, compute_cost_estimate: 5237.42, unsaved: false}}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const stale = container.querySelector('[data-testid="sv-anuga-scenario-estimate-stale"]');
+                    expect(stale).toBe(null);
+                    done();
+                }
+            );
+        });
+
         // TASK-2093 (epic 2092 W1.1) — the "$5237" bug: compute_cost_estimate
         // used to be raw vCPU-hours mislabeled as a cost, printed as
         // '~$X.XX vCPU-h' (both units on one number). BE now returns a

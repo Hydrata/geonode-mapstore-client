@@ -57,6 +57,69 @@ describe('TASK-2078 scenariosReducer SET_ANUGA_POLLING_DATA merges latest_comple
     });
 });
 
+// TASK-2400 (dogfood F1/#1) — mirrors the TASK-2078 fix immediately above:
+// the 8s poll must ALSO refresh the pre-build estimate fields
+// (mesh_triangle_count_estimate / _breakdown, compute_cost_estimate,
+// vcpu_hours_estimate) on an already-loaded scenario. Before this fix the
+// merge whitelist dropped them entirely, so a server-side recompute never
+// reached the estimate line (scenarioPane.js) or the Build tooltip echo
+// (scenarioHeaderActions.js) until a full page reload or the next
+// SAVE_ANUGA_SCENARIO_SUCCESS (a full-object replace).
+describe('TASK-2400 scenariosReducer SET_ANUGA_POLLING_DATA merges estimate fields', () => {
+    const baseState = () => ({
+        byId: {3: {
+            id: 3,
+            name: 'S3',
+            selected: true,
+            latest_run: {id: 5},
+            mesh_triangle_count_estimate: 1000,
+            mesh_triangle_count_estimate_breakdown: {mesh_region: 0.5},
+            compute_cost_estimate: 1.23,
+            vcpu_hours_estimate: 7.28
+        }},
+        allIds: [3],
+        selectedId: 3,
+        archiveFilter: 'none'
+    });
+    it('refreshes all four estimate fields on an already-loaded scenario from a poll tick', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{
+                id: 3,
+                latest_run: {id: 5},
+                status: 'created',
+                mesh_triangle_count_estimate: 2500,
+                mesh_triangle_count_estimate_breakdown: {mesh_region: 0.9},
+                compute_cost_estimate: 2.58,
+                vcpu_hours_estimate: 15.25
+            }]
+        });
+        expect(state.byId[3].mesh_triangle_count_estimate).toBe(2500);
+        expect(state.byId[3].mesh_triangle_count_estimate_breakdown).toEqual({mesh_region: 0.9});
+        expect(state.byId[3].compute_cost_estimate).toBe(2.58);
+        expect(state.byId[3].vcpu_hours_estimate).toBe(15.25);
+    });
+    it('refreshes a free-band ($0) compute_cost_estimate rather than keeping the stale non-zero value', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 3, latest_run: {id: 5}, status: 'created', compute_cost_estimate: 0}]
+        });
+        // ?? preserves a real 0 (only null/undefined fall back) — the stale
+        // 1.23 must NOT survive.
+        expect(state.byId[3].compute_cost_estimate).toBe(0);
+    });
+    it('clears estimate fields to null when the backend reports none (mirrors latest_run/_complete_run)', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 3, latest_run: {id: 5}, status: 'created'}]
+        });
+        expect(state.byId[3].mesh_triangle_count_estimate).toBe(null);
+        expect(state.byId[3].mesh_triangle_count_estimate_breakdown).toBe(null);
+        expect(state.byId[3].compute_cost_estimate).toBe(null);
+        expect(state.byId[3].vcpu_hours_estimate).toBe(null);
+    });
+});
+
 // TASK-2079 — build-dedup: BUILD_SCENARIO_ERROR previously had NO reducer
 // (action-only). A benign 409 (conflict: true) now stashes `buildConflict`
 // on the scenario so scenarioHeaderActions.js can render it inline near the

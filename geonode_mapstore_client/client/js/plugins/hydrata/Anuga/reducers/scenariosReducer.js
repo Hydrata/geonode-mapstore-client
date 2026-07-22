@@ -76,7 +76,23 @@ export default (state = initialState, action) => {
                     latest_complete_run: backendScenario?.latest_complete_run ?? null,
                     status: backendScenario?.status || 'unsaved',
                     computed_status: backendScenario?.computed_status || backendScenario?.status,
-                    latest_run_is_valid: backendScenario?.latest_run_is_valid
+                    latest_run_is_valid: backendScenario?.latest_run_is_valid,
+                    // TASK-2400 (dogfood F1/#1) — the pre-build estimate fields
+                    // MUST be in this merge whitelist too, mirroring the exact
+                    // TASK-2078 latest_complete_run fix above. Without these
+                    // lines, a server-side estimate recompute (e.g. after a
+                    // mesh-affecting edit) is returned by every 8s poll tick
+                    // but silently dropped on merge — the in-pane estimate
+                    // line (scenarioPane.js) and the Build/Build-and-Run
+                    // tooltip echo (scenarioHeaderActions.js) both stay frozen
+                    // at whatever was last written by SAVE_ANUGA_SCENARIO_SUCCESS
+                    // (a full-object replace, unaffected by this whitelist),
+                    // reading a stale $0.00-or-any-other-stale-figure while the
+                    // user commits a run at the REAL, already-recomputed price.
+                    mesh_triangle_count_estimate: backendScenario?.mesh_triangle_count_estimate ?? null,
+                    mesh_triangle_count_estimate_breakdown: backendScenario?.mesh_triangle_count_estimate_breakdown ?? null,
+                    compute_cost_estimate: backendScenario?.compute_cost_estimate ?? null,
+                    vcpu_hours_estimate: backendScenario?.vcpu_hours_estimate ?? null
                 };
             } else {
                 // New backend-created scenario (e.g. copy)

@@ -139,6 +139,16 @@ const PANE_TOOLTIP_STYLE = {zIndex: 100000};
 // estimate scenarioPane.js's own in-pane section renders (mesh triangle
 // count + dollar cost), read-only, no new data plumbing (amendment A1).
 // Returns null (renders nothing) when the scenario carries neither value.
+//
+// TASK-2400 (dogfood F1 #1/#2a) — two truth-pass fixes mirroring
+// scenarioPane.js's in-pane estimate section:
+//   (b) a $0 (free-band) run reads "Free", never a bare "$0.00" — same call
+//       scenarioHeaderActions.js's own priceLabel already makes for the
+//       POST-build exact price band, below.
+//   (a) when the scenario carries unsaved local edits (scenario.unsaved),
+//       this echo is committing the user to a run priced off the LAST
+//       SAVED config, not what they're currently editing — flagged inline
+//       so the tooltip never reads as authoritative for an edit in flight.
 const estimateEcho = (scenario) => {
     const hasTriangles = scenario?.mesh_triangle_count_estimate !== null
         && scenario?.mesh_triangle_count_estimate !== undefined;
@@ -147,8 +157,9 @@ const estimateEcho = (scenario) => {
     if (!hasTriangles && !hasCost) return null;
     const parts = [];
     if (hasTriangles) parts.push(`~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`);
-    if (hasCost) parts.push(`~$${Number(scenario.compute_cost_estimate).toFixed(2)}`);
-    return ` (${parts.join(', ')})`;
+    if (hasCost) parts.push(Number(scenario.compute_cost_estimate) === 0 ? 'Free' : `~$${Number(scenario.compute_cost_estimate).toFixed(2)} est.`);
+    const stale = scenario?.unsaved ? ' — estimate outdated, rebuild to refresh' : '';
+    return ` (${parts.join(', ')}${stale})`;
 };
 
 // TASK-2242 — wraps an executable button in an OverlayTrigger + a plain
