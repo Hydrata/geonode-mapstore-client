@@ -83,6 +83,14 @@ import {TERMINAL_RUN_STATES} from "../anugaConstants";
 // first bootstrap — see initAnugaEpic's own "init in flight" comment. In-memory,
 // session-scoped (matches the TaskMonitor terminal-status-seen pattern).
 let _seenProjectInitIds = new Set();
+
+// TASK-2382 — NEVER dispatch REFRESH_LAYERS without explicit options: the
+// core refresh epic's getUpdates ran Object.keys(action.options) unguarded,
+// and one uncaught epic error terminates the ROOT epic under
+// redux-observable 0.19 (glossary: "Root-epic death"). title stays false so
+// a GetCapabilities refresh can never clobber Hydrata's user-set dataset
+// titles (updateDatasetTitle / updateLayerTitle).
+const REFRESH_LAYERS_OPTIONS = { bbox: true, search: true, dimensions: true, title: false };
 export const __resetProjectInitSeenForTests = () => { _seenProjectInitIds = new Set(); };
 
 // TASK-603: Page Visibility gate. When the catalogue tab is hidden the
@@ -545,7 +553,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                             Rx.Observable.of(addLayer(depthLayer)),
                                             Rx.Observable.of(addLayer(velocityLayer)),
                                             Rx.Observable.of(setAnugaScenarioResultsLoaded(scenarioToLoadResults?.id, true)),
-                                            Rx.Observable.of(refreshLayers(wmsLayers))
+                                            Rx.Observable.of(refreshLayers(wmsLayers, REFRESH_LAYERS_OPTIONS))
                                         );
                                 }
                                 return Rx.Observable.of(setAnugaPollingData(action.scenarios));
@@ -927,7 +935,7 @@ const buildTerrainAddSequence = (metadata, action$, store, currentNames) => {
     return Rx.Observable.concat(
         Rx.Observable.defer(() => {
             const wmsLayers = store.getState()?.layers?.flat?.filter(l => l?.type === 'wms' && l?.group !== 'background') || [];
-            return Rx.Observable.of(refreshLayers(wmsLayers));
+            return Rx.Observable.of(refreshLayers(wmsLayers, REFRESH_LAYERS_OPTIONS));
         }),
         ...stampedLayers.map(l => Rx.Observable.of(addLayer(l))),
         // TASK-1650 (W1.5): info toast removed — auto-added input layers are
@@ -948,7 +956,7 @@ const buildTerrainAddSequence = (metadata, action$, store, currentNames) => {
         Rx.Observable.of(startAnugaModelCreationPolling()),
         Rx.Observable.defer(() => {
             const wmsLayers = store.getState()?.layers?.flat?.filter(l => l?.type === 'wms' && l?.group !== 'background') || [];
-            return Rx.Observable.of(refreshLayers(wmsLayers));
+            return Rx.Observable.of(refreshLayers(wmsLayers, REFRESH_LAYERS_OPTIONS));
         })
     );
     // Note: legacy pollAnugaTerrainEpic dispatched moveNode here to push the
