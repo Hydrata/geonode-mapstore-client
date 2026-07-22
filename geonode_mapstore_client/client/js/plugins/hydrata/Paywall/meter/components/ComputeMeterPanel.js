@@ -55,6 +55,28 @@ function PackButtons({ availablePacks, testIdPrefix, onBuyPack }) {
     );
 }
 
+/**
+ * BillingPolicyLink — shared "Refund & billing policy" link (TASK-2367) used
+ * by BOTH the always-visible balance strip and the estimate_ceiling modal.
+ * `testIdPrefix` keeps each surface's data-testid distinct, mirroring the
+ * PackButtons pattern above.
+ */
+function BillingPolicyLink({ testIdPrefix }) {
+    return (
+        <a
+            data-testid={`${testIdPrefix}-billing-policy-link`}
+            className="compute-meter-billing-policy-link"
+            href="/billing-policy"
+        >
+            Refund &amp; billing policy
+        </a>
+    );
+}
+
+BillingPolicyLink.propTypes = {
+    testIdPrefix: PropTypes.string.isRequired
+};
+
 PackButtons.propTypes = {
     availablePacks: PropTypes.array,
     testIdPrefix: PropTypes.string.isRequired,
@@ -88,13 +110,7 @@ function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack }) {
                     ))}
                 </ul>
             ) : null}
-            <a
-                data-testid="compute-meter-billing-policy-link"
-                className="compute-meter-billing-policy-link"
-                href="/billing-policy"
-            >
-                Refund &amp; billing policy
-            </a>
+            <BillingPolicyLink testIdPrefix="compute-meter" />
         </div>
     );
 }
@@ -208,13 +224,7 @@ function EstimateCeilingModal({ detail, onDismiss }) {
                         OK
                     </button>
                 </div>
-                <a
-                    data-testid="meter-estimate-ceiling-billing-policy-link"
-                    className="compute-meter-billing-policy-link"
-                    href="/billing-policy"
-                >
-                    Refund &amp; billing policy
-                </a>
+                <BillingPolicyLink testIdPrefix="meter-estimate-ceiling" />
             </div>
         </div>
     );
