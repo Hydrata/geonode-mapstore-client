@@ -101,6 +101,13 @@ function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick }) {
                         Keep it public
                     </button>
                 </div>
+                <a
+                    data-testid="paywall-billing-policy-link"
+                    className="paywall-billing-policy-link"
+                    href="/billing-policy"
+                >
+                    Refund &amp; billing policy
+                </a>
             </div>
         </div>
     );

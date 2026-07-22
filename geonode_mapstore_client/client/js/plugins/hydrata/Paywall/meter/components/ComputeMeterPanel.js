@@ -88,6 +88,13 @@ function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack }) {
                     ))}
                 </ul>
             ) : null}
+            <a
+                data-testid="compute-meter-billing-policy-link"
+                className="compute-meter-billing-policy-link"
+                href="/billing-policy"
+            >
+                Refund &amp; billing policy
+            </a>
         </div>
     );
 }
@@ -201,6 +208,13 @@ function EstimateCeilingModal({ detail, onDismiss }) {
                         OK
                     </button>
                 </div>
+                <a
+                    data-testid="meter-estimate-ceiling-billing-policy-link"
+                    className="compute-meter-billing-policy-link"
+                    href="/billing-policy"
+                >
+                    Refund &amp; billing policy
+                </a>
             </div>
         </div>
     );
