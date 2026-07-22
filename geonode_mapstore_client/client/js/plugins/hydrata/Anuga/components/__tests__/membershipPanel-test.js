@@ -513,3 +513,85 @@ describe('TASK-2235 MembershipPanel — movable', () => {
         });
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK-2399 (dogfood F14) — sharing-dialog truth pass:
+//   (1) 'Public' copy names the real public-UNLISTED semantics instead of
+//       overstating bot-browsable exposure ("Anyone can view").
+//   (2) freemium context: the Private option shows its paid-tier status
+//       BEFORE interaction (paywallEnabled cfg, threaded from the Anuga
+//       plugin's localConfig cfg via anugaContainer), never only discovered
+//       via a bare 402.
+//   (3) the new-project default-visibility policy (Public) is stated
+//       explicitly in the dialog.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('TASK-2399 MembershipPanel — sharing-dialog truth pass', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function mountPanel(opts = {}, ownProps = {}) {
+        const { MembershipPanel } = require('../membershipPanel');
+        const store = createMockStore(opts);
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}><MembershipPanel {...ownProps} /></Provider>,
+                container,
+                () => resolve(container)
+            );
+        });
+    }
+
+    it('AC#1 — Public option copy names public-UNLISTED semantics, not bare "Anyone can view"', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }).then(() => {
+            const rows = container.querySelectorAll('.sv-membership-visibility-option-row');
+            const publicRow = Array.from(rows).find(r => r.textContent.includes('Public'));
+            expect(publicRow).toExist();
+            expect(publicRow.textContent).toInclude('not listed in the public project directory');
+            expect(publicRow.textContent).toNotInclude('Anyone can view');
+        });
+    });
+
+    it('AC#2a — Private option carries NO paid-tier badge when paywallEnabled is false (dark ship default)', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: false }).then(() => {
+            expect(container.querySelector('[data-testid="sv-membership-visibility-paid-badge"]')).toBe(null);
+        });
+    });
+
+    it('AC#2b — Private option shows a paid-tier badge BEFORE interaction when paywallEnabled is true', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: true }).then(() => {
+            const badge = container.querySelector('[data-testid="sv-membership-visibility-paid-badge"]');
+            expect(badge).toExist();
+            expect(badge.textContent).toInclude('paid feature');
+            // The badge sits under Private, not Public/Organization.
+            const privateRow = Array.from(container.querySelectorAll('.sv-membership-visibility-option-row'))
+                .find(r => r.textContent.includes('Private'));
+            expect(privateRow.contains(badge)).toBe(true);
+        });
+    });
+
+    it('AC#3 — the default-visibility policy note is present and mentions the paid upgrade only when paywallEnabled', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: true }).then(() => {
+            const note = container.querySelector('.sv-membership-visibility-default-note');
+            expect(note).toExist();
+            expect(note.textContent).toInclude('Public');
+            expect(note.textContent).toInclude('paid');
+        });
+    });
+
+    it('AC#3b — the default-visibility policy note renders without paid-upgrade mention when dark', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: false }).then(() => {
+            const note = container.querySelector('.sv-membership-visibility-default-note');
+            expect(note).toExist();
+            expect(note.textContent).toNotInclude('paid');
+        });
+    });
+});

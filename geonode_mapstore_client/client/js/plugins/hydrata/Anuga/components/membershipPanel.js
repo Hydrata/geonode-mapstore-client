@@ -49,10 +49,17 @@ const ROLES = [
     {value: 4, label: 'Manager'}
 ];
 
+// TASK-2399 (dogfood F14) — 'public' previously read "Anyone can view", which
+// overstates what actually happens: get_visible_projects (gn_anuga/sync.py)
+// deliberately SUPPRESSES public projects from the global project list for
+// strangers (G1/Phase-1 paywall, TASK-1364) — a public project is reachable
+// by direct link/id, never by browsing. "Anyone can view" reads as
+// bot-browsable-public; it is not. Copy corrected to name the real
+// public-UNLISTED semantics instead of the more alarming (and wrong) implication.
 const VISIBILITY_OPTIONS = [
     {value: 'private', label: 'Private', description: 'Only members can access'},
     {value: 'organization', label: 'Organization', description: 'Organization members can view'},
-    {value: 'public', label: 'Public', description: 'Anyone can view'}
+    {value: 'public', label: 'Public', description: 'Anyone with the link can view — not listed in the public project directory'}
 ];
 
 class MembershipPanelClass extends React.Component {
@@ -88,7 +95,18 @@ class MembershipPanelClass extends React.Component {
         resendInvitationRequest: PropTypes.func,
         // TASK-2235 — persisted MovablePanel position/size + its setter.
         panelState: PropTypes.object,
-        setMovablePanelState: PropTypes.func
+        setMovablePanelState: PropTypes.func,
+        // TASK-2399 — kill-switch mirroring Paywall.js's own `paywallEnabled`
+        // cfg (threaded here via anugaContainer, localConfig.json's Anuga
+        // plugin cfg). Drives the Private option's pre-interaction paid-tier
+        // badge — freemium context must be visible BEFORE the user clicks,
+        // not discovered only via a 402. Ships dark (false) until the
+        // operator's PAYWALL_ENABLED flip.
+        paywallEnabled: PropTypes.bool
+    };
+
+    static defaultProps = {
+        paywallEnabled: false
     };
 
     constructor(props) {
@@ -192,9 +210,42 @@ class MembershipPanelClass extends React.Component {
                             >
                                 {opt.label}
                             </Button>
-                            <span className="sv-membership-visibility-desc">{opt.description}</span>
+                            <span className="sv-membership-visibility-desc">
+                                {opt.description}
+                                {/* TASK-2399 — freemium context BEFORE the click: Private
+                                    is the paid tier (commerce/checkout_views.py,
+                                    api_v2.py's G2 entitlement gate). Shown unconditionally
+                                    once paywallEnabled (not gated on this user's own
+                                    entitlement — a user who already has one still just
+                                    sees this as a true fact about the Private tier).
+                                    Clicking it as a non-entitled user never dead-ends on a
+                                    bare 402: updateProjectVisibilityEpic (membershipEpics.js)
+                                    already routes the 402's upgrade_prompt contract shape
+                                    into the paywall overlay, which the always-mounted
+                                    PaywallPanel (Paywall.js) renders as the UpgradeModal
+                                    (reused, not re-implemented). */}
+                                {opt.value === 'private' && this.props.paywallEnabled ? (
+                                    <span
+                                        data-testid="sv-membership-visibility-paid-badge"
+                                        className="sv-membership-visibility-paid-badge"
+                                    >
+                                        {' — paid feature'}
+                                    </span>
+                                ) : null}
+                            </span>
                         </div>
                     ))}
+                </div>
+                {/* TASK-2399 (dogfood F14) — new-project default-visibility policy,
+                    stated explicitly rather than left implicit. Project.visibility
+                    defaults to PUBLIC (gn_anuga/models/project.py) — kept as the
+                    default deliberately under paid-private semantics: Public stays
+                    the free, zero-friction starting tier (public-UNLISTED, per the
+                    description above) and Private is the opt-in paid upgrade, not
+                    a default cost sprung on a new project. */}
+                <div className="sv-membership-visibility-default-note">
+                    New projects start Public (free, unlisted) by default
+                    {this.props.paywallEnabled ? ' — switch to Private any time (paid)' : ''}.
                 </div>
             </div>
         );
