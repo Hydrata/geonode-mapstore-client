@@ -2019,6 +2019,67 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             });
         });
 
+        // TASK-2421 (UAT-1 findings 2+3) — Estimate and Built are mutually
+        // exclusive: a built run's comparison must NOT also show the
+        // Estimate line, and a scenario edited since its last build must show
+        // ONLY the (stale-marked) Estimate line, never the now-superseded
+        // Built line from the prior build.
+        describe('TASK-2421 Estimate/Built ONE line at a time', () => {
+            it('built + not unsaved: renders Built only, never the Estimate line', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{
+                            ...baseScenario,
+                            unsaved: false,
+                            mesh_triangle_count_estimate: 49457,
+                            compute_cost_estimate: 0.17,
+                            latest_run: {
+                                mesh_provenance: {pre_build_triangle_estimate: 49457},
+                                mesh_triangle_count: 55368,
+                                mesh_actual_cost_estimate: 0.19
+                            }
+                        }}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toExist();
+                        expect(container.querySelector('.anuga-scenario-estimate-section')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('unsaved edit after a prior build: renders the (stale) Estimate line only, never the superseded Built line', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{
+                            ...baseScenario,
+                            unsaved: true,
+                            mesh_triangle_count_estimate: 49457,
+                            compute_cost_estimate: 0.17,
+                            latest_run: {
+                                mesh_provenance: {pre_build_triangle_estimate: 1000},
+                                mesh_triangle_count: 1200,
+                                mesh_actual_cost_estimate: 0.05
+                            }
+                        }}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.anuga-scenario-estimate-section')).toExist();
+                        expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toNotExist();
+                        const stale = container.querySelector('[data-testid="sv-anuga-scenario-estimate-stale"]');
+                        expect(stale).toBeTruthy();
+                        done();
+                    }
+                );
+            });
+        });
+
         it('changing resolution dispatches onUpdateScenario with parsed float', (done) => {
             let captured = null;
             ReactDOM.render(

@@ -62,9 +62,29 @@ export default (state = initialState, action) => {
         action.scenarios.forEach(backendScenario => {
             const existing = newById[backendScenario.id];
             if (existing) {
-                // Merge: keep local fields (unsaved, selected, tempTimeString), update backend fields
+                // TASK-2421 (UAT-1 findings 2+3) — the staleness flag
+                // (`unsaved`) was set on input edit (UPDATE_ANUGA_SCENARIO)
+                // but this merge previously preserved it unconditionally
+                // ("keep local fields") even once a poll tick delivers a
+                // GENUINELY refreshed estimate reflecting that edit — the
+                // '(estimate outdated — rebuild to refresh)' hint then
+                // outlived the very number it was warning about. A poll tick
+                // whose triangle/cost estimate DIFFERS from what's currently
+                // stored is itself proof a fresh recompute has landed, so it
+                // clears `unsaved`; a tick that brings the SAME estimate
+                // (nothing recomputed yet — e.g. the user's edit hasn't been
+                // saved/built at all) leaves it untouched, so the hint still
+                // holds while genuinely stale.
+                const nextTriangleEstimate = backendScenario?.mesh_triangle_count_estimate ?? null;
+                const nextCostEstimate = backendScenario?.compute_cost_estimate ?? null;
+                const estimateRefreshed = existing.unsaved && (
+                    nextTriangleEstimate !== (existing.mesh_triangle_count_estimate ?? null)
+                    || nextCostEstimate !== (existing.compute_cost_estimate ?? null)
+                );
+                // Merge: keep local fields (selected, tempTimeString), update backend fields
                 newById[backendScenario.id] = {
                     ...existing,
+                    unsaved: estimateRefreshed ? false : existing.unsaved,
                     latest_run: backendScenario?.latest_run ?? null,
                     // TASK-2078: latest_complete_run MUST be in this merge
                     // whitelist too — 2078 repointed the FE result consumers

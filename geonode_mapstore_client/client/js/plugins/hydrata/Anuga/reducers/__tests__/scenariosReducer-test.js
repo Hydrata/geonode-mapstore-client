@@ -120,6 +120,58 @@ describe('TASK-2400 scenariosReducer SET_ANUGA_POLLING_DATA merges estimate fiel
     });
 });
 
+// TASK-2421 (UAT-1 findings 2+3) — the staleness flag (`unsaved`) must clear
+// once a poll tick delivers a GENUINELY refreshed estimate (evidence the
+// backend has recomputed off the edit that set it), but must NOT clear on a
+// tick that brings the SAME (stale) estimate back — the edit genuinely
+// hasn't been reflected yet.
+describe('TASK-2421 scenariosReducer SET_ANUGA_POLLING_DATA clears unsaved on fresh estimate', () => {
+    const baseState = () => ({
+        byId: {9: {
+            id: 9,
+            name: 'S9',
+            selected: true,
+            unsaved: true,
+            latest_run: {id: 20},
+            mesh_triangle_count_estimate: 1000,
+            compute_cost_estimate: 0.05
+        }},
+        allIds: [9],
+        selectedId: 9,
+        archiveFilter: 'none'
+    });
+    it('clears unsaved when the poll brings a DIFFERENT triangle estimate', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 9, latest_run: {id: 20}, status: 'created', mesh_triangle_count_estimate: 49457, compute_cost_estimate: 0.17}]
+        });
+        expect(state.byId[9].unsaved).toBe(false);
+        expect(state.byId[9].mesh_triangle_count_estimate).toBe(49457);
+    });
+    it('clears unsaved when only the cost estimate changed (triangle count identical)', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 9, latest_run: {id: 20}, status: 'created', mesh_triangle_count_estimate: 1000, compute_cost_estimate: 0.09}]
+        });
+        expect(state.byId[9].unsaved).toBe(false);
+    });
+    it('leaves unsaved TRUE when the poll brings back the SAME stale estimate (edit not yet reflected)', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 9, latest_run: {id: 20}, status: 'created', mesh_triangle_count_estimate: 1000, compute_cost_estimate: 0.05}]
+        });
+        expect(state.byId[9].unsaved).toBe(true);
+    });
+    it('leaves an already-saved (unsaved:false) scenario untouched regardless of estimate movement', () => {
+        const saved = {...baseState(), byId: {9: {...baseState().byId[9], unsaved: false}}};
+        const state = scenariosReducer(saved, {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 9, latest_run: {id: 20}, status: 'created', mesh_triangle_count_estimate: 2000, compute_cost_estimate: 0.20}]
+        });
+        expect(state.byId[9].unsaved).toBe(false);
+    });
+});
+
 // TASK-2079 — build-dedup: BUILD_SCENARIO_ERROR previously had NO reducer
 // (action-only). A benign 409 (conflict: true) now stashes `buildConflict`
 // on the scenario so scenarioHeaderActions.js can render it inline near the

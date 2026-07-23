@@ -971,33 +971,63 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                 be raw vCPU-hours mislabeled as a cost and printed with a '$' AND a
                 'vCPU-h' suffix on the same number (the "$5237" bug) — the BE now
                 returns a genuine dollar figure (canonical model x the configured
-                $/vCPU-hour rate), so this renders ONE consistent dollar amount. */}
-            {((scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined) || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined)) && (
-                <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
-                    <span className="sv-anuga-scenario-estimate-label">
-                        {'Estimate: '}
-                        {scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined
-                            ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
-                            : ''}
-                        {scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined
-                            ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
-                            : ''}
-                    </span>
-                    {/* TASK-2400(a) — when local edits are unsaved (scenario.unsaved,
-                        set by UPDATE_ANUGA_SCENARIO and cleared by
-                        SAVE_ANUGA_SCENARIO_SUCCESS), the figure above still reflects
-                        the LAST SAVED config, not what the user is currently editing —
-                        surface that explicitly rather than let a stale number read as
-                        current. */}
-                    {scenario.unsaved ? (
-                        <span className="sv-anuga-scenario-estimate-stale" data-testid="sv-anuga-scenario-estimate-stale">
-                            {' (estimate outdated — rebuild to refresh)'}
-                        </span>
-                    ) : null}
-                </div>
-            )}
+                $/vCPU-hour rate), so this renders ONE consistent dollar amount.
+                TASK-2421 (UAT-1 findings 2+3) — Estimate and Built are now
+                MUTUALLY EXCLUSIVE (renderEstimateOrBuiltSection below): a
+                scenario with unsaved edits (or no build yet) shows Estimate
+                only; a built, non-stale scenario shows Built only. Before
+                this fix both blocks rendered independently and could appear
+                stacked together post-build. */}
+            {renderEstimateOrBuiltSection(scenario)}
             {renderMeshCostDriverHint(scenario)}
-            {renderMeshBuildComparison(scenario)}
+        </div>
+    );
+}
+
+/**
+ * TASK-2421 (UAT-1 findings 2+3) — ONE estimate/actual line at a time:
+ *   - `scenario.unsaved` (edited since the last build/save): Estimate line,
+ *     WITH the staleness hint — even if a prior build's comparison exists,
+ *     since the edit has invalidated it.
+ *   - otherwise, a completed build's mesh comparison exists (getMeshComparison):
+ *     Built line only.
+ *   - otherwise (pre-build, no edits pending): Estimate line, no stale hint.
+ */
+function renderEstimateOrBuiltSection(scenario) {
+    const hasEstimate = (scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined)
+        || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined);
+    const comparison = getMeshComparison(scenario?.latest_run);
+    const showBuilt = !scenario?.unsaved && !!comparison;
+
+    if (showBuilt) {
+        return renderMeshBuildComparison(scenario);
+    }
+    if (!hasEstimate) {
+        return null;
+    }
+    return (
+        <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
+            <span className="sv-anuga-scenario-estimate-label">
+                {'Estimate: '}
+                {scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined
+                    ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
+                    : ''}
+                {scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined
+                    ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
+                    : ''}
+            </span>
+            {/* TASK-2400(a)/2421 — when local edits are unsaved (scenario.unsaved,
+                set by UPDATE_ANUGA_SCENARIO, cleared by SAVE_ANUGA_SCENARIO_SUCCESS
+                or by a poll tick that delivers a genuinely refreshed estimate —
+                scenariosReducer.js SET_ANUGA_POLLING_DATA), the figure above may
+                still reflect the LAST SAVED config, not what the user is
+                currently editing — surface that explicitly rather than let a
+                stale number read as current. */}
+            {scenario.unsaved ? (
+                <span className="sv-anuga-scenario-estimate-stale" data-testid="sv-anuga-scenario-estimate-stale">
+                    {' (estimate outdated — rebuild to refresh)'}
+                </span>
+            ) : null}
         </div>
     );
 }
