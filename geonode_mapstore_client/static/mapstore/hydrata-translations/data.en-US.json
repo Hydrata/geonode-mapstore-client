@@ -228,6 +228,10 @@
         "accountPanelTitle": "Account",
         "accountTabSharing": "Sharing",
         "accountTabBilling": "Billing",
+        "accountFreeRunsHeading": "Free runs today",
+        "accountSubscriptionHeading": "Subscription",
+        "accountRecentActivityHeading": "Recent activity",
+        "accountRecentActivityEmpty": "No activity yet",
         "permsUnavailable": {
           "message": "Permissions could not be loaded. The member list is read-only until permissions are available again."
         },

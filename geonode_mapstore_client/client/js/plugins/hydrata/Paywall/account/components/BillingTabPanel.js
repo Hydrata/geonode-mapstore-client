@@ -15,6 +15,15 @@
 import React from 'react';
 const PropTypes = require('prop-types');
 import { BalanceStrip } from '../../meter/components/ComputeMeterPanel';
+// TASK-2424 (epic 2359 W4.5) — SimpleView Design System v1 primitives (chassis
+// Section for titled/divided sub-sections, EmptyState for the recent-activity
+// empty state) + Message for i18n'd headings. Reuses the catalogue rather than
+// hand-rolling parallel section-header CSS (SimpleView/DESIGN-SYSTEM-AUDIT.md
+// Part F). CSS: ../account.css (scoped to .sv-account-billing-tab; the
+// flags-off Permissions panel never mounts this component).
+import { Section, EmptyState } from '../../../SimpleView/components/primitives';
+import Message from '@mapstore/framework/components/I18N/Message';
+import '../account.css';
 
 function AccountHeader({ organisation, isPersonal, manager }) {
     return (
@@ -54,14 +63,16 @@ function FreeBandSection({ freeBand }) {
     const usedToday = freeBand?.usedToday ?? 0;
     const edge = freeBand?.edge ?? '0';
     return (
-        <div className="sv-account-free-band" data-testid="sv-account-free-band">
-            <span className="sv-account-free-band-count" data-testid="sv-account-free-band-count">
-                {`${usedToday} of ${cap} used`}
-            </span>
-            <span className="sv-account-free-band-explainer">
-                {`Runs estimated under $${edge} are free, up to ${cap} per day for your account.`}
-            </span>
-        </div>
+        <Section title={<Message msgId="hydrata.anuga.accountFreeRunsHeading" />}>
+            <div className="sv-account-free-band" data-testid="sv-account-free-band">
+                <span className="sv-account-free-band-count" data-testid="sv-account-free-band-count">
+                    {`${usedToday} of ${cap} used`}
+                </span>
+                <span className="sv-account-free-band-explainer">
+                    {`Runs estimated under $${edge} are free, up to ${cap} per day for your account.`}
+                </span>
+            </div>
+        </Section>
     );
 }
 
@@ -83,39 +94,41 @@ function SubscriptionSection({ subscription, isManager, manager, onSubscribe, on
     const active = !!subscription?.active;
     const since = subscription?.since;
     return (
-        <div className="sv-account-subscription" data-testid="sv-account-subscription">
-            <span className="sv-account-subscription-state" data-testid="sv-account-subscription-state">
-                {active
-                    ? `Private models: active${since ? ` (since ${since.slice(0, 10)})` : ''}`
-                    : 'Private models: not subscribed'}
-            </span>
-            {isManager ? (
-                active ? (
-                    <button
-                        type="button"
-                        data-testid="sv-account-manage-billing-btn"
-                        className="sv-account-btn-sm sv-account-manage-billing-btn"
-                        disabled={portalLoading}
-                        onClick={onManageBilling}
-                    >
-                        {portalLoading ? 'Opening…' : 'Manage billing'}
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        data-testid="sv-account-subscribe-btn"
-                        className="sv-account-btn-sm sv-account-subscribe-btn"
-                        onClick={onSubscribe}
-                    >
-                        Subscribe
-                    </button>
-                )
-            ) : (
-                <span className="sv-account-subscription-ask-manager" data-testid="sv-account-ask-manager">
-                    {`Ask ${manager || 'your account manager'} to ${active ? 'manage' : 'subscribe'}`}
+        <Section title={<Message msgId="hydrata.anuga.accountSubscriptionHeading" />}>
+            <div className="sv-account-subscription" data-testid="sv-account-subscription">
+                <span className="sv-account-subscription-state" data-testid="sv-account-subscription-state">
+                    {active
+                        ? `Private models: active${since ? ` (since ${since.slice(0, 10)})` : ''}`
+                        : 'Private models: not subscribed'}
                 </span>
-            )}
-        </div>
+                {isManager ? (
+                    active ? (
+                        <button
+                            type="button"
+                            data-testid="sv-account-manage-billing-btn"
+                            className="sv-account-btn-sm sv-account-manage-billing-btn"
+                            disabled={portalLoading}
+                            onClick={onManageBilling}
+                        >
+                            {portalLoading ? 'Opening…' : 'Manage billing'}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            data-testid="sv-account-subscribe-btn"
+                            className="sv-account-btn-sm sv-account-subscribe-btn"
+                            onClick={onSubscribe}
+                        >
+                            Subscribe
+                        </button>
+                    )
+                ) : (
+                    <span className="sv-account-subscription-ask-manager" data-testid="sv-account-ask-manager">
+                        {`Ask ${manager || 'your account manager'} to ${active ? 'manage' : 'subscribe'}`}
+                    </span>
+                )}
+            </div>
+        </Section>
     );
 }
 
@@ -167,30 +180,42 @@ function BillingTabPanel({
                 </div>
             ) : null}
             {recentEntries && recentEntries.length > 0 ? (
-                <div className="sv-account-recent-activity" data-testid="sv-account-recent-activity">
-                    <div className="sv-membership-section-title">Recent activity</div>
-                    <ul className="sv-account-recent-entries-list">
-                        {recentEntries.map((entry, idx) => (
-                            // index-as-key: read-only, server-ordered list, no reorder/insert
-                            // (mirrors BalanceStrip's own recentEntries.map precedent).
-                            <li key={idx} className="sv-account-recent-entry-row">
-                                <span className="sv-account-recent-entry-date">{(entry.date || '').slice(0, 10)}</span>
-                                <span className="sv-account-recent-entry-type">{entry.entry_type}</span>
-                                <span className="sv-account-recent-entry-amount">{`$${entry.amount}`}</span>
-                                {entry.run ? (
-                                    <a
-                                        className="sv-account-recent-entry-run-link"
-                                        href={`#/map/${entry.run.project_id}`}
-                                        data-testid="sv-account-recent-entry-run-link"
-                                    >
-                                        {entry.run.project_name || `Run ${entry.run.run_id}`}
-                                    </a>
-                                ) : null}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ) : null}
+                <Section title={<Message msgId="hydrata.anuga.accountRecentActivityHeading" />}>
+                    <div className="sv-account-recent-activity" data-testid="sv-account-recent-activity">
+                        <ul className="sv-account-recent-entries-list">
+                            {recentEntries.map((entry, idx) => (
+                                // index-as-key: read-only, server-ordered list, no reorder/insert
+                                // (mirrors BalanceStrip's own recentEntries.map precedent).
+                                <li key={idx} className="sv-account-recent-entry-row">
+                                    <span className="sv-account-recent-entry-date">{(entry.date || '').slice(0, 10)}</span>
+                                    <span className="sv-account-recent-entry-type">{entry.entry_type}</span>
+                                    <span className="sv-account-recent-entry-amount">{`$${entry.amount}`}</span>
+                                    {entry.run ? (
+                                        <a
+                                            className="sv-account-recent-entry-run-link"
+                                            href={`#/map/${entry.run.project_id}`}
+                                            data-testid="sv-account-recent-entry-run-link"
+                                        >
+                                            {entry.run.project_name || `Run ${entry.run.run_id}`}
+                                        </a>
+                                    ) : null}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </Section>
+            ) : (
+                // TASK-2424 — genuinely empty (no ledger rows for this user) still
+                // gets the section heading + the catalogue EmptyState primitive,
+                // rather than rendering nothing at all. Distinct data-testid from
+                // the populated branch's "sv-account-recent-activity" (TASK-2420
+                // karma still asserts THAT testid is absent when empty).
+                <Section title={<Message msgId="hydrata.anuga.accountRecentActivityHeading" />}>
+                    <div className="sv-account-recent-activity-empty" data-testid="sv-account-recent-activity-empty">
+                        <EmptyState heading={<Message msgId="hydrata.anuga.accountRecentActivityEmpty" />} />
+                    </div>
+                </Section>
+            )}
             <div className="sv-account-footer-links">
                 <a className="sv-account-plans-link" href="/plans" data-testid="sv-account-plans-link">Plans</a>
             </div>

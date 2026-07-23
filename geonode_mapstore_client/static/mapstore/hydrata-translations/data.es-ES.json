@@ -228,6 +228,10 @@
         "accountPanelTitle": "Cuenta",
         "accountTabSharing": "Compartir",
         "accountTabBilling": "Facturación",
+        "accountFreeRunsHeading": "Ejecuciones gratuitas hoy",
+        "accountSubscriptionHeading": "Suscripción",
+        "accountRecentActivityHeading": "Actividad reciente",
+        "accountRecentActivityEmpty": "Sin actividad todavía",
         "permsUnavailable": {
           "message": "No se pudieron cargar los permisos. La lista de miembros es de solo lectura hasta que los permisos esten disponibles."
         },

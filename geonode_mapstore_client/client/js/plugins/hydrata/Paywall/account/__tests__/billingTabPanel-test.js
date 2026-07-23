@@ -173,3 +173,35 @@ describe('BillingTabPanel — billing-portal error surfacing', () => {
         expect(c.querySelector('[data-testid="sv-account-portal-error"]').textContent).toBe('Only the manager can do that.');
     });
 });
+
+// TASK-2424 (epic 2359 W4.5) — SimpleView Design System v1 styling: the Free
+// runs / Subscription / Recent activity sub-sections now go through the
+// chassis Section primitive (title + divider), and an empty ledger renders a
+// distinct EmptyState rather than nothing at all. These evolve the 2420
+// specs above (none of which are deleted) rather than replacing them.
+describe('BillingTabPanel — section headings (TASK-2424 SimpleView Section chassis)', () => {
+    it('renders titled sections for free runs, subscription and recent activity', () => {
+        const c = render({
+            loaded: true,
+            freeBand: baseFreeBand,
+            recentEntries: [{ date: '2026-07-23T10:00:00Z', entry_type: 'debit', amount: '2.00', run: null }]
+        });
+        const titles = Array.from(c.querySelectorAll('.sv-section-title')).map((el) => el.textContent);
+        expect(titles).toInclude('hydrata.anuga.accountFreeRunsHeading');
+        expect(titles).toInclude('hydrata.anuga.accountSubscriptionHeading');
+        expect(titles).toInclude('hydrata.anuga.accountRecentActivityHeading');
+    });
+});
+
+describe('BillingTabPanel — recent activity empty state (TASK-2424)', () => {
+    it('renders the EmptyState primitive (not nothing) when there are no entries', () => {
+        const c = render({ loaded: true, freeBand: baseFreeBand, recentEntries: [] });
+        // The 2420 contract still holds: the POPULATED testid stays absent.
+        expect(c.querySelector('[data-testid="sv-account-recent-activity"]')).toBe(null);
+        // TASK-2424: a distinct empty-state testid now renders in its place.
+        const empty = c.querySelector('[data-testid="sv-account-recent-activity-empty"]');
+        expect(empty).toExist();
+        expect(empty.querySelector('.sv-empty-state')).toExist();
+        expect(empty.textContent).toInclude('hydrata.anuga.accountRecentActivityEmpty');
+    });
+});

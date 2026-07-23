@@ -1,0 +1,323 @@
+/*
+ * Account panel — tab strip + Billing tab styling (TASK-2424, epic 2359 W4.5).
+ *
+ * Ports the existing SimpleView Design System v1 (SimpleView/tokens.css +
+ * SimpleView/DESIGN-SYSTEM-AUDIT.md) onto the Billing tab content shipped
+ * dark by TASK-2420. Before this file, the tab strip + Billing tab had NO
+ * CSS at all — the operator's UAT-1 defect report ("white-ish text on white
+ * pills", "blue-on-blue links", "mashed inline text") is simply raw
+ * Bootstrap-default rendering. Every rule below consumes an --sv-* token;
+ * no new colour literal is introduced beyond the tokens.css palette.
+ *
+ * Scoping: all Billing-tab rules are scoped under .sv-account-billing-tab
+ * (rendered ONLY when paywallEnabled — membershipPanel.js's flags-off path
+ * never mounts BillingTabContainer) so the flags-off Permissions panel stays
+ * byte-identical, and so the compute-meter-* classes (shared with
+ * ComputeMeterPanel's refusal modals elsewhere) are only re-skinned INSIDE
+ * the Billing tab, not globally.
+ *
+ * Button chrome mirrors the established "opaque button chrome" pattern
+ * (simpleView.css .simple-view-menu-button / .simple-view-right-button):
+ * solid --sv-button-bg + white text + --sv-button-border, never a raw
+ * Bootstrap-default white pill.
+ *
+ * Links use --sv-text (the same near-white the panel already uses for body
+ * copy) + underline rather than a raw <a> blue — the panel background is
+ * itself a deep blue, so a blue link is the exact "blue-on-blue" defect the
+ * operator reported. --sv-accent-blue is reserved for the hover/focus
+ * affordance only (verified against 3:1 non-text-UI, not relied on for the
+ * resting-state 4.5:1 text contrast floor).
+ */
+
+/* ── Tab strip (Sharing | Billing) ──────────────────────────────────────── */
+
+.sv-account-tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 4px 4px 0;
+    margin-bottom: var(--sv-section-gap, 8px);
+    border-bottom: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
+    text-align: left;
+}
+
+.sv-account-tab-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: transparent;
+    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    font-family: inherit;
+    font-size: var(--sv-font-size-label, 14px);
+    font-weight: 600;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+
+.sv-account-tab-btn:hover {
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-account-tab-btn.active {
+    background-color: var(--sv-button-bg, rgb(0, 60, 136));
+    border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    color: #fff;
+}
+
+/* ── Billing tab shell ──────────────────────────────────────────────────── */
+
+.sv-account-billing-tab {
+    text-align: left;
+    padding: 2px 6px 8px;
+}
+
+.sv-account-billing-loading {
+    padding: 24px 12px;
+    text-align: center;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* Every top-level spec section gets the same bottom-divider rhythm; the
+   Section chassis primitive (Free runs / Subscription / Recent activity)
+   already carries its own title + divider, these plain rules cover the
+   sections that don't go through Section (account header, balance/packs,
+   footer). */
+.sv-account-header,
+.sv-account-billing-tab > .compute-meter-balance-strip {
+    padding: 6px 0 10px;
+    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+}
+
+/* 1. Account header (org name / personal, shared-by, manager) — was three
+   inline spans mashed onto one line; stacked as clearly separated lines. */
+.sv-account-header {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.sv-account-header-org {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-account-header-shared,
+.sv-account-header-manager {
+    display: block;
+    font-size: 11px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* 2. Compute balance (re-homed BalanceStrip) — balance made prominent per
+   spec item 2; 4. Credit packs — buttons opaque + legible, spaced clearly
+   below the balance line rather than crammed against it. */
+.sv-account-billing-tab .compute-meter-balance-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sv-account-billing-tab .compute-meter-balance {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-account-billing-tab .compute-meter-packs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sv-account-billing-tab .compute-meter-buy-pack-btn {
+    background-color: var(--sv-button-bg, rgb(0, 60, 136));
+    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    border-radius: 4px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.sv-account-billing-tab .compute-meter-buy-pack-btn:hover {
+    background-color: var(--sv-button-bg-hover, rgb(0, 80, 170));
+    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
+}
+
+.sv-account-billing-tab .compute-meter-buy-pack-btn:active {
+    background-color: var(--sv-button-bg-active, rgb(0, 100, 200));
+    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
+}
+
+.sv-account-billing-tab .compute-meter-billing-policy-link {
+    display: inline-block;
+    align-self: flex-start;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    text-decoration: underline;
+    font-size: 11px;
+}
+
+.sv-account-billing-tab .compute-meter-billing-policy-link:hover,
+.sv-account-billing-tab .compute-meter-billing-policy-link:focus-visible {
+    color: var(--sv-accent-blue, #5bc0ff);
+}
+
+/* 3. Free runs today */
+.sv-account-free-band {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.sv-account-free-band-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-account-free-band-explainer {
+    font-size: 11px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* 5. Private-models subscription */
+.sv-account-subscription {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.sv-account-subscription-state {
+    font-size: 12px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-account-subscription-ask-manager {
+    font-size: 11px;
+    font-style: italic;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+.sv-account-btn-sm {
+    background-color: var(--sv-button-bg, rgb(0, 60, 136));
+    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    border-radius: 4px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    cursor: pointer;
+}
+
+.sv-account-btn-sm:hover {
+    background-color: var(--sv-button-bg-hover, rgb(0, 80, 170));
+    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
+}
+
+.sv-account-btn-sm:active {
+    background-color: var(--sv-button-bg-active, rgb(0, 100, 200));
+    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
+}
+
+.sv-account-btn-sm:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.sv-account-portal-error {
+    padding: 6px 8px;
+    background-color: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
+    border: 1px solid var(--sv-delete-error-border, #dc3545);
+    border-radius: var(--sv-card-radius, 4px);
+    color: var(--sv-text-danger, #ffb3b3);
+    font-size: 11px;
+}
+
+/* 6. Recent activity — populated + empty states */
+.sv-account-recent-entries-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sv-account-recent-entry-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    padding: 3px 0;
+    border-bottom: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
+}
+
+.sv-account-recent-entry-date {
+    flex: 0 0 auto;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+.sv-account-recent-entry-type {
+    flex: 0 0 auto;
+    text-transform: capitalize;
+}
+
+.sv-account-recent-entry-amount {
+    margin-left: auto;
+    font-weight: 600;
+}
+
+.sv-account-recent-entry-run-link {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    text-decoration: underline;
+    font-size: 11px;
+}
+
+.sv-account-recent-entry-run-link:hover,
+.sv-account-recent-entry-run-link:focus-visible {
+    color: var(--sv-accent-blue, #5bc0ff);
+}
+
+.sv-account-recent-activity-empty .sv-empty-state {
+    padding: 8px 4px;
+}
+
+/* 7. Footer links (/plans here; /billing-policy rides the re-homed
+   BalanceStrip and is styled above). */
+.sv-account-footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding-top: 8px;
+}
+
+.sv-account-plans-link {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    text-decoration: underline;
+    font-size: 11px;
+}
+
+.sv-account-plans-link:hover,
+.sv-account-plans-link:focus-visible {
+    color: var(--sv-accent-blue, #5bc0ff);
+}
+
+/* ── Keyboard focus — every interactive element in the tab strip + Billing
+   tab, one shared rule rather than six duplicated per-selector blocks. ── */
+.sv-account-tab-btn:focus-visible,
+.sv-account-billing-tab .compute-meter-buy-pack-btn:focus-visible,
+.sv-account-billing-tab .compute-meter-billing-policy-link:focus-visible,
+.sv-account-btn-sm:focus-visible,
+.sv-account-recent-entry-run-link:focus-visible,
+.sv-account-plans-link:focus-visible {
+    outline: 2px solid var(--sv-accent-blue, #5bc0ff);
+    outline-offset: 1px;
+}
