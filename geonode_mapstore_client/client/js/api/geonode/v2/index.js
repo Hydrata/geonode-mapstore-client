@@ -493,9 +493,26 @@ export const getConfiguration = (configUrl = getGeoNodeLocalConfig('geoNodeSetti
                 });
 
             // change plugins config based on patches provided in settings.py
-            const plugins = pluginsConfigPatchRules.length > 0
-                ? mergeConfigsPatch(mergedLocalConfig.plugins, pluginsConfigPatchRules)
+            // "mergeCfg" is a Hydrata extension the @mapstore/patcher cannot
+            // express: a jsonpath "replace" on an entry's .cfg clobbers keys the
+            // rule value does not own (e.g. paywallEnabled) and silently no-ops
+            // when the entry ships without a cfg block. mergeCfg merges value
+            // over the entry's cfg (rule keys win; cfg created when absent).
+            const mergeCfgRules = pluginsConfigPatchRules.filter((rule) => rule.op === 'mergeCfg');
+            const patcherRules = pluginsConfigPatchRules.filter((rule) => rule.op !== 'mergeCfg');
+            let plugins = patcherRules.length > 0
+                ? mergeConfigsPatch(mergedLocalConfig.plugins, patcherRules)
                 : mergedLocalConfig.plugins;
+            if (mergeCfgRules.length > 0 && plugins) {
+                plugins = Object.keys(plugins).reduce((acc, section) => {
+                    const entries = plugins[section];
+                    acc[section] = !isArray(entries) ? entries : entries.map((entry) => {
+                        const rule = mergeCfgRules.find((r) => r.section === section && entry && entry.name === r.pluginName);
+                        return rule ? { ...entry, cfg: { ...(entry.cfg || {}), ...rule.value } } : entry;
+                    });
+                    return acc;
+                }, {});
+            }
 
             const localConfig = {
                 ...mergedLocalConfig,

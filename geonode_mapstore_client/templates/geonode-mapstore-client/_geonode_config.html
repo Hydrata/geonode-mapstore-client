@@ -287,10 +287,15 @@
     (function(){
         var siteSimpleViewDefaults = {{ site_simple_view_defaults|safe }};
         var svPatchSections = ['map_viewer', 'map_view'];
+        // mergeCfg (Hydrata extension, applied in api/geonode/v2 getConfiguration)
+        // merges the site defaults over the entry's cfg instead of replacing it —
+        // a jsonpath "replace" on .cfg clobbered cfg keys the DB does not own
+        // (e.g. paywallEnabled) and silently no-opped on entries with no cfg block.
         var svPatches = svPatchSections.map(function(section) {
             return {
-                "op": "replace",
-                "jsonpath": "$." + section + "..[?(@.name == 'SimpleView')].cfg",
+                "op": "mergeCfg",
+                "section": section,
+                "pluginName": "SimpleView",
                 "value": siteSimpleViewDefaults
             };
         });
