@@ -225,6 +225,9 @@
         "memberRole": "Role",
         "memberUser": "User",
         "members": "Permissions",
+        "accountPanelTitle": "Account",
+        "accountTabSharing": "Sharing",
+        "accountTabBilling": "Billing",
         "permsUnavailable": {
           "message": "Permissions could not be loaded. The member list is read-only until permissions are available again."
         },

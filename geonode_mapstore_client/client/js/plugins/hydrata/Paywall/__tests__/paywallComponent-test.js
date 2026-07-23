@@ -237,6 +237,21 @@ describe('PaywallPanel — state: upgrade_prompt', () => {
     it('does not show dunning banner', () => {
         expect(c.querySelector('[data-testid="dunning-banner"]')).toBe(null);
     });
+
+    // TASK-2420 (epic 2359 W4.5) — "View account" -> Account panel Billing tab.
+    it('modal contains a "View account" action that calls onViewAccount', () => {
+        let called = false;
+        const cWithHandler = renderPaywall({
+            paywallEnabled: true,
+            fixtureMode: true,
+            fixtureState: 'upgrade_prompt',
+            onViewAccount: () => { called = true; }
+        });
+        const viewAccount = cWithHandler.querySelector('[data-testid="paywall-view-account"]');
+        expect(viewAccount).toExist('"View account" action not found');
+        viewAccount.click();
+        expect(called).toBe(true);
+    });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

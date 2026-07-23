@@ -424,7 +424,11 @@ describe('TASK-860 W3 — email-invite gating, pending-invitations, throttle, i1
             'hydrata.anuga.memberUser',
             'hydrata.anuga.memberRole',
             'hydrata.anuga.projectVisibility',
-            'hydrata.anuga.permsUnavailable.message'
+            'hydrata.anuga.permsUnavailable.message',
+            // TASK-2420 (epic 2359 W4.5) — Account panel rename + tabs.
+            'hydrata.anuga.accountPanelTitle',
+            'hydrata.anuga.accountTabSharing',
+            'hydrata.anuga.accountTabBilling'
         ];
         panelKeys.forEach(key => {
             expect(enMessages[key]).toExist(`Missing i18n key: ${key}`);
@@ -592,6 +596,93 @@ describe('TASK-2399 MembershipPanel — sharing-dialog truth pass', () => {
             const note = container.querySelector('.sv-membership-visibility-default-note');
             expect(note).toExist();
             expect(note.textContent).toNotInclude('paid');
+        });
+    });
+});
+
+// TASK-2420 (epic 2359 W4.5) — Account panel rename + Billing tab + tab-bar
+// manager-gating.
+describe('TASK-2420 MembershipPanel — Account panel tabs', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function mountPanel(opts = {}, ownProps = {}) {
+        const { MembershipPanel } = require('../membershipPanel');
+        const store = createMockStore(opts);
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}><MembershipPanel {...ownProps} /></Provider>,
+                container,
+                () => resolve(container)
+            );
+        });
+    }
+
+    it('AC1 — flags-off: title is "Permissions", no tab bar at all', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: false }).then(() => {
+            // No <Localized> wrapper in this harness — <Message> renders the
+            // raw msgId, which the en-US bundle resolves to "Permissions"
+            // (see the AC(g) i18n-key-existence test above).
+            expect(container.querySelector('.sv-panel-header-title').textContent).toInclude('hydrata.anuga.members');
+            expect(container.querySelector('[data-testid="sv-account-tab-bar"]')).toBe(null);
+            expect(container.querySelector('#membership-panel')).toExist();
+        });
+    });
+
+    it('AC2 — flags-on, manager: title "Account", BOTH tabs shown, Sharing active by default', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: true }).then(() => {
+            expect(container.querySelector('.sv-panel-header-title').textContent).toInclude('hydrata.anuga.accountPanelTitle');
+            expect(container.querySelector('[data-testid="sv-account-tab-sharing"]')).toExist();
+            expect(container.querySelector('[data-testid="sv-account-tab-billing"]')).toExist();
+            expect(container.querySelector('#membership-panel')).toExist(); // Sharing content by default
+            expect(container.querySelector('[data-testid="sv-account-billing-tab"]')).toBe(null);
+        });
+    });
+
+    it('AC2 — flags-on, non-manager: NO Sharing tab at all, Billing renders directly', () => {
+        return mountPanel({ role: 'viewer', layerCount: 0 }, { paywallEnabled: true }).then(() => {
+            expect(container.querySelector('[data-testid="sv-account-tab-sharing"]')).toBe(null);
+            expect(container.querySelector('[data-testid="sv-account-tab-billing"]')).toExist();
+            expect(container.querySelector('#membership-panel')).toBe(null);
+            // Billing tab renders (loading state until the fetch resolves —
+            // no epic runs in this harness, so it stays in 'loading').
+            expect(container.querySelector('[data-testid="sv-account-billing-loading"]')).toExist();
+        });
+    });
+
+    it('clicking the Billing tab (manager) switches to Billing and dispatches SET_MEMBERSHIP_PANEL_TAB', () => {
+        const { MembershipPanel } = require('../membershipPanel');
+        const store = createMockStore({ role: 'owner', layerCount: 0 });
+        let currentTab = 'sharing';
+        const wrappedStore = {
+            getState: () => {
+                const s = store.getState();
+                return { ...s, anuga: { ...s.anuga, ui: { membershipPanelTab: currentTab } } };
+            },
+            subscribe: () => () => {},
+            dispatch: (a) => {
+                if (a.type === 'SET_MEMBERSHIP_PANEL_TAB') currentTab = a.tab;
+                return a;
+            }
+        };
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={wrappedStore}><MembershipPanel paywallEnabled /></Provider>,
+                container,
+                () => resolve()
+            );
+        }).then(() => {
+            container.querySelector('[data-testid="sv-account-tab-billing"]').click();
+            expect(currentTab).toBe('billing');
         });
     });
 });

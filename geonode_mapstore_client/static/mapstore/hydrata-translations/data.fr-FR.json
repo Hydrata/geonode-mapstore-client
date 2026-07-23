@@ -225,6 +225,9 @@
         "memberRole": "Rôle",
         "memberUser": "Utilisateur",
         "members": "Membres",
+        "accountPanelTitle": "Compte",
+        "accountTabSharing": "Partage",
+        "accountTabBilling": "Facturation",
         "permsUnavailable": {
           "message": "Les permissions n'ont pas pu etre chargees. La liste des membres est en lecture seule jusqu'a ce que les permissions soient de nouveau disponibles."
         },

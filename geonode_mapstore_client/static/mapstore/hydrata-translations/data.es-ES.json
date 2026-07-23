@@ -225,6 +225,9 @@
         "memberRole": "Rol",
         "memberUser": "Usuario",
         "members": "Miembros",
+        "accountPanelTitle": "Cuenta",
+        "accountTabSharing": "Compartir",
+        "accountTabBilling": "Facturación",
         "permsUnavailable": {
           "message": "No se pudieron cargar los permisos. La lista de miembros es de solo lectura hasta que los permisos esten disponibles."
         },

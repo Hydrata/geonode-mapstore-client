@@ -225,6 +225,9 @@
         "memberRole": "Wòl",
         "memberUser": "Itilizatè",
         "members": "Manm",
+        "accountPanelTitle": "Kont",
+        "accountTabSharing": "Pataje",
+        "accountTabBilling": "Fakti",
         "permsUnavailable": {
           "message": "Pa ka chaje pèmisyon yo. Lis manm nan an lekti sèlman jiskaske pèmisyon yo disponib ankò."
         },

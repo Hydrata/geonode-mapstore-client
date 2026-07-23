@@ -7,6 +7,11 @@ const SET_PUBLICATION_PANEL = 'SET_PUBLICATION_PANEL';
 const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 const FIX_ANUGA_GROUPS = 'FIX_ANUGA_GROUPS';
 const SET_MEMBERSHIP_PANEL = 'SET_MEMBERSHIP_PANEL';
+// TASK-2420 (epic 2359 W4.5) — which tab the (renamed) MembershipPanel shows:
+// 'sharing' (existing membership/visibility UI) or 'billing' (the Account
+// panel's new Billing tab). Only meaningful when paywallEnabled; flags-off
+// never dispatches this (the panel has no tabs at all).
+const SET_MEMBERSHIP_PANEL_TAB = 'SET_MEMBERSHIP_PANEL_TAB';
 // TASK-930 (W2-FE) — Global GLO-30 bbox picker UI state.
 const SET_VISIBLE_TERRAIN_BBOX_PANEL = 'SET_VISIBLE_TERRAIN_BBOX_PANEL';
 const SET_TERRAIN_BBOX_DRAWING = 'SET_TERRAIN_BBOX_DRAWING';
@@ -129,6 +134,11 @@ function setCreatingAnugaLayer(isCreatingAnugaLayer) {
 
 function setMembershipPanel(visible) {
     return { type: SET_MEMBERSHIP_PANEL, visible };
+}
+
+// TASK-2420 — `tab` is 'sharing' | 'billing'.
+function setMembershipPanelTab(tab) {
+    return { type: SET_MEMBERSHIP_PANEL_TAB, tab };
 }
 
 // TASK-930 (W2-FE) — Show/hide the Global GLO-30 bbox picker panel.
@@ -278,6 +288,7 @@ module.exports = {
     SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer,
     FIX_ANUGA_GROUPS, fixAnugaGroups,
     SET_MEMBERSHIP_PANEL, setMembershipPanel,
+    SET_MEMBERSHIP_PANEL_TAB, setMembershipPanelTab,
     // TASK-930 (W2-FE) — Global GLO-30 bbox picker UI state.
     SET_VISIBLE_TERRAIN_BBOX_PANEL, setVisibleTerrainBboxPanel,
     SET_TERRAIN_BBOX_DRAWING, setTerrainBboxDrawing,

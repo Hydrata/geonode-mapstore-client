@@ -1521,3 +1521,24 @@ span.sv-menu-row-glyph {
     border-radius: 50%;
     background: var(--sv-glyph-inactive, red);
 }
+
+/* TASK-2420 (epic 2359 W4.5, UAT-1 finding 12 — plain bug, NOT flag-gated):
+   the top navbar user-menu dropdown-toggle (GeoNode-mapstore-client's
+   #gn-brand-navbar .btn-default:hover rule, themes/geonode/less/
+   _brand-navbar.less) flips its OWN background/color to a light pill on
+   hover/focus, but the inner .gn-user-menu-username span keeps its own
+   (inherited-white) text color — that rule only changes the BUTTON
+   element's color, which the span's own explicit color does not inherit
+   from on state change. Net effect: hovering the user menu renders an
+   unreadable white-on-near-white username. Override with equal specificity
+   + the SAME --ms-button-color variable the button's own hover rule already
+   uses, so the two can never drift apart again. Lives in a hydrata-owned
+   stylesheet (loaded on every SimpleView/ANUGA map page) rather than
+   editing the shared gmc theme file directly. */
+#gn-brand-navbar .btn-default:hover .gn-user-menu-username,
+#gn-brand-navbar .btn-default:focus .gn-user-menu-username,
+#gn-brand-navbar .btn-default.focus .gn-user-menu-username,
+#gn-brand-navbar .btn-default:active .gn-user-menu-username,
+#gn-brand-navbar .open > .dropdown-toggle.btn-default .gn-user-menu-username {
+    color: var(--ms-button-color);
+}

@@ -38,7 +38,10 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // wrapper so the tests + CSS that target its descendants keep working.
 import {Table as ChassisTable} from '../../SimpleView/components/primitives';
 import MovablePanel from '../../shared/components/MovablePanel';
-import {setMovablePanelState} from '../actions/uiActions';
+import {setMovablePanelState, setMembershipPanelTab} from '../actions/uiActions';
+// TASK-2420 (epic 2359 W4.5) — the Billing tab content, re-homing the
+// existing dark ComputeMeterPanel/BalanceStrip rather than a second copy.
+import BillingTabContainer from '../../Paywall/account/containers/BillingTabContainer';
 
 export const MEMBERSHIP_PANEL_ID = 'membership';
 
@@ -102,11 +105,15 @@ class MembershipPanelClass extends React.Component {
         // badge — freemium context must be visible BEFORE the user clicks,
         // not discovered only via a 402. Ships dark (false) until the
         // operator's PAYWALL_ENABLED flip.
-        paywallEnabled: PropTypes.bool
+        paywallEnabled: PropTypes.bool,
+        // TASK-2420 — Account panel active tab ('sharing'|'billing') + setter.
+        activeTab: PropTypes.string,
+        setMembershipPanelTab: PropTypes.func
     };
 
     static defaultProps = {
-        paywallEnabled: false
+        paywallEnabled: false,
+        activeTab: 'sharing'
     };
 
     constructor(props) {
@@ -436,13 +443,136 @@ class MembershipPanelClass extends React.Component {
         trackEvent('button', 'click', 'membership-panel-close');
     };
 
+    // TASK-2420 — extracted verbatim from the pre-2420 render() so the
+    // flags-off path (renderSharingContent() called directly, no tab bar) is
+    // byte-identical to today, and the flags-on Sharing tab reuses the exact
+    // same markup rather than forking a second copy.
+    renderSharingContent() {
+        return (
+            <div id="membership-panel">
+                <div className="sv-menu-rows-container">
+                    {/*
+                  V2P-24 read-only fallback banner — when permsLoadFailed=true
+                  (V2P-20 /my-perms/ retry exhausted) the panel still renders
+                  the row list but suppresses Add/Change/Remove affordances.
+                  Owners must still SEE who's a member after a transient 5xx.
+                */}
+                    {this.props.permsLoadFailed ? (
+                        <div className="alert alert-warning sv-membership-perms-warning">
+                            <Message msgId="hydrata.anuga.permsUnavailable.message" />
+                        </div>
+                    ) : null}
+                    {/* TASK-1409 — inline confirm overlays replace window.confirm.
+                    removeMemberConfirm and visibilityConfirm are mutually
+                    exclusive in normal use; both are guarded separately. */}
+                    {this.state.removeMemberConfirm?.visible ? (
+                        <div className="sv-membership-confirm-overlay">
+                            <p>{`Remove ${this.state.removeMemberConfirm.username} from project?`}</p>
+                            <div className="sv-membership-confirm-buttons">
+                                <Button bsSize="small" onClick={this.cancelRemoveMember}>Cancel</Button>
+                                <Button bsStyle="danger" bsSize="small" className="membership-confirm-remove-btn" onClick={this.confirmRemoveMember}>Remove</Button>
+                            </div>
+                        </div>
+                    ) : null}
+                    {this.state.visibilityConfirm?.visible ? (
+                        <div className="sv-membership-confirm-overlay">
+                            <p>This will expose all project data to anonymous users. Continue?</p>
+                            <div className="sv-membership-confirm-buttons">
+                                <Button bsSize="small" onClick={this.cancelVisibilityChange}>Cancel</Button>
+                                <Button bsStyle="danger" bsSize="small" className="membership-confirm-visibility-btn" onClick={this.confirmVisibilityChange}>Make Public</Button>
+                            </div>
+                        </div>
+                    ) : null}
+                    {this.renderVisibilitySection()}
+                    <ChassisTable surface="dark" extraClassName="sv-scenario-table">
+                        <thead>
+                            <tr className="sv-scenario-table-header">
+                                <th><Message msgId="hydrata.anuga.memberUser" /></th>
+                                <th><Message msgId="hydrata.anuga.memberRole" /></th>
+                                <th/>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {this.renderOwnerRow()}
+                            {this.props.memberships?.map(m => this.renderMemberRow(m))}
+                        </tbody>
+                    </ChassisTable>
+                    {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
+                    {this.renderInviteSection()}
+                    {/* TASK-860 — pending invitations list */}
+                    {this.renderInvitationsSection()}
+                </div>
+            </div>
+        );
+    }
+
+    // TASK-2420 — Sharing tab is manager-gated per the SAME panel-level
+    // `canAdd` (project permission axis — myRole owner/manager, or the
+    // V2P-30 org-owner perms fallback) that already gates Add/visibility
+    // inside renderSharingContent(). A non-manager gets NO Sharing tab at
+    // all (hidden, not read-only) — only Billing (the entitlement axis).
+    handleTabClick = (tab) => {
+        this.props.setMembershipPanelTab(tab);
+        trackEvent('button', 'click', `membership-panel-tab-${tab}`);
+    };
+
+    renderTabBar(activeTab) {
+        return (
+            <div className="sv-account-tab-bar" data-testid="sv-account-tab-bar">
+                {this.props.canAdd ? (
+                    <button
+                        type="button"
+                        data-testid="sv-account-tab-sharing"
+                        className={`sv-account-tab-btn ${activeTab === 'sharing' ? 'active' : ''}`}
+                        onClick={() => this.handleTabClick('sharing')}
+                    >
+                        <Message msgId="hydrata.anuga.accountTabSharing" />
+                    </button>
+                ) : null}
+                <button
+                    type="button"
+                    data-testid="sv-account-tab-billing"
+                    className={`sv-account-tab-btn ${activeTab === 'billing' ? 'active' : ''}`}
+                    onClick={() => this.handleTabClick('billing')}
+                >
+                    <Message msgId="hydrata.anuga.accountTabBilling" />
+                </button>
+            </div>
+        );
+    }
+
     render() {
         const persist = this.props.setMovablePanelState || (() => {});
+        // flags-off (AC1): byte-identical to today — NO tabs, title
+        // "Permissions", Sharing content only, manager-only padlock (gated
+        // upstream in simpleViewContainer.js, not here).
+        if (!this.props.paywallEnabled) {
+            return (
+                <MovablePanel
+                    panelId={MEMBERSHIP_PANEL_ID}
+                    className="sv-membership-movable"
+                    title={<Message msgId="hydrata.anuga.members" />}
+                    onClose={this.handleClose}
+                    position={this.props.panelState?.position}
+                    size={this.props.panelState?.size}
+                    defaultPosition={{x: 20, y: 70}}
+                    onMove={(position) => persist(MEMBERSHIP_PANEL_ID, {position})}
+                    onResize={(size) => persist(MEMBERSHIP_PANEL_ID, {size})}
+                >
+                    {this.renderSharingContent()}
+                </MovablePanel>
+            );
+        }
+
+        // flags-on: renamed 'Account', two tabs (Sharing hidden for a
+        // non-manager — never just read-only), Billing is the viewing
+        // user's OWN Account (never the project owner's).
+        const activeTab = this.props.canAdd ? this.props.activeTab : 'billing';
         return (
             <MovablePanel
                 panelId={MEMBERSHIP_PANEL_ID}
-                className="sv-membership-movable"
-                title={<Message msgId="hydrata.anuga.members" />}
+                className="sv-membership-movable sv-account-movable"
+                title={<Message msgId="hydrata.anuga.accountPanelTitle" />}
                 onClose={this.handleClose}
                 position={this.props.panelState?.position}
                 size={this.props.panelState?.size}
@@ -450,60 +580,8 @@ class MembershipPanelClass extends React.Component {
                 onMove={(position) => persist(MEMBERSHIP_PANEL_ID, {position})}
                 onResize={(size) => persist(MEMBERSHIP_PANEL_ID, {size})}
             >
-                <div id="membership-panel">
-                    <div className="sv-menu-rows-container">
-                        {/*
-                      V2P-24 read-only fallback banner — when permsLoadFailed=true
-                      (V2P-20 /my-perms/ retry exhausted) the panel still renders
-                      the row list but suppresses Add/Change/Remove affordances.
-                      Owners must still SEE who's a member after a transient 5xx.
-                    */}
-                        {this.props.permsLoadFailed ? (
-                            <div className="alert alert-warning sv-membership-perms-warning">
-                                <Message msgId="hydrata.anuga.permsUnavailable.message" />
-                            </div>
-                        ) : null}
-                        {/* TASK-1409 — inline confirm overlays replace window.confirm.
-                        removeMemberConfirm and visibilityConfirm are mutually
-                        exclusive in normal use; both are guarded separately. */}
-                        {this.state.removeMemberConfirm?.visible ? (
-                            <div className="sv-membership-confirm-overlay">
-                                <p>{`Remove ${this.state.removeMemberConfirm.username} from project?`}</p>
-                                <div className="sv-membership-confirm-buttons">
-                                    <Button bsSize="small" onClick={this.cancelRemoveMember}>Cancel</Button>
-                                    <Button bsStyle="danger" bsSize="small" className="membership-confirm-remove-btn" onClick={this.confirmRemoveMember}>Remove</Button>
-                                </div>
-                            </div>
-                        ) : null}
-                        {this.state.visibilityConfirm?.visible ? (
-                            <div className="sv-membership-confirm-overlay">
-                                <p>This will expose all project data to anonymous users. Continue?</p>
-                                <div className="sv-membership-confirm-buttons">
-                                    <Button bsSize="small" onClick={this.cancelVisibilityChange}>Cancel</Button>
-                                    <Button bsStyle="danger" bsSize="small" className="membership-confirm-visibility-btn" onClick={this.confirmVisibilityChange}>Make Public</Button>
-                                </div>
-                            </div>
-                        ) : null}
-                        {this.renderVisibilitySection()}
-                        <ChassisTable surface="dark" extraClassName="sv-scenario-table">
-                            <thead>
-                                <tr className="sv-scenario-table-header">
-                                    <th><Message msgId="hydrata.anuga.memberUser" /></th>
-                                    <th><Message msgId="hydrata.anuga.memberRole" /></th>
-                                    <th/>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {this.renderOwnerRow()}
-                                {this.props.memberships?.map(m => this.renderMemberRow(m))}
-                            </tbody>
-                        </ChassisTable>
-                        {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
-                        {this.renderInviteSection()}
-                        {/* TASK-860 — pending invitations list */}
-                        {this.renderInvitationsSection()}
-                    </div>
-                </div>
+                {this.renderTabBar(activeTab)}
+                {activeTab === 'sharing' ? this.renderSharingContent() : <BillingTabContainer />}
             </MovablePanel>
         );
     }
@@ -558,7 +636,10 @@ const mapStateToProps = (state) => {
         currentUserId: state?.security?.user?.pk || null,
         ownerUsername: state?.anuga?.projects?.data?.owner_username || 'owner',
         // TASK-2235 — persisted MovablePanel position/size for this panelId.
-        panelState: state?.anuga?.ui?.movablePanels?.[MEMBERSHIP_PANEL_ID]
+        panelState: state?.anuga?.ui?.movablePanels?.[MEMBERSHIP_PANEL_ID],
+        // TASK-2420 — which tab is active (paywallEnabled only; flags-off
+        // never reads this).
+        activeTab: state?.anuga?.ui?.membershipPanelTab || 'sharing'
     };
 };
 
@@ -573,7 +654,9 @@ const mapDispatchToProps = (dispatch) => ({
     revokeInvitationRequest: (invitationId) => dispatch(revokeInvitationRequest(invitationId)),
     resendInvitationRequest: (invitationId) => dispatch(resendInvitationRequest(invitationId)),
     // TASK-2235 — persist the MovablePanel position/size per panelId.
-    setMovablePanelState: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
+    setMovablePanelState: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch)),
+    // TASK-2420 — switch the Account panel's active tab.
+    setMembershipPanelTab: (tab) => dispatch(setMembershipPanelTab(tab))
 });
 
 const MembershipPanel = connect(mapStateToProps, mapDispatchToProps)(MembershipPanelClass);

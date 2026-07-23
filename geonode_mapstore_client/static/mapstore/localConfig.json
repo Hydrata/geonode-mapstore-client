@@ -2031,7 +2031,10 @@
                 "name": "Hydrology"
             },
             {
-                "name": "SimpleView"
+                "name": "SimpleView",
+                "cfg": {
+                    "paywallEnabled": false
+                }
             }
         ],
         "geostory_viewer": [

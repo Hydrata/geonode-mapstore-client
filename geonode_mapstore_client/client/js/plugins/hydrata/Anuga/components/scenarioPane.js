@@ -4,7 +4,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
     getMeshComparison, getMeshCostDriverHint, findScenarioStatus, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES,
-    runSettingsMustStayOpen, formatCostEstimate
+    runSettingsMustStayOpen, formatCostEstimate, bandForEstimate
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -793,7 +793,7 @@ function computeTargetLabel(target, defaultComputeTarget) {
     return target === defaultComputeTarget ? `${base} (site default)` : base;
 }
 
-function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget}) {
+function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -978,7 +978,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                 only; a built, non-stale scenario shows Built only. Before
                 this fix both blocks rendered independently and could appear
                 stacked together post-build. */}
-            {renderEstimateOrBuiltSection(scenario)}
+            {renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling)}
             {renderMeshCostDriverHint(scenario)}
         </div>
     );
@@ -993,7 +993,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
  *     Built line only.
  *   - otherwise (pre-build, no edits pending): Estimate line, no stale hint.
  */
-function renderEstimateOrBuiltSection(scenario) {
+function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling) {
     const hasEstimate = (scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined)
         || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined);
     const comparison = getMeshComparison(scenario?.latest_run);
@@ -1005,6 +1005,18 @@ function renderEstimateOrBuiltSection(scenario) {
     if (!hasEstimate) {
         return null;
     }
+    // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge: highlight +
+    // link to the Billing tab when the estimate's BAND charge (never raw
+    // cents — bandForEstimate mirrors gn_anuga.estimate.band()'s bucketing)
+    // exceeds the account's balance. The free band ($0) never highlights —
+    // a $0 run is never blocked by balance. Dark behind paywallEnabled
+    // (AC1/AC3): flags-off renders nothing here regardless of balance data.
+    const band = paywallEnabled
+        ? bandForEstimate(scenario.compute_cost_estimate, freeBand?.edge, freeBand?.table)
+        : null;
+    const overBalance = paywallEnabled && band !== null && band > 0
+        && accountBalance !== null && accountBalance !== undefined
+        && band > Number(accountBalance);
     return (
         <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
             <span className="sv-anuga-scenario-estimate-label">
@@ -1016,6 +1028,16 @@ function renderEstimateOrBuiltSection(scenario) {
                     ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
                     : ''}
             </span>
+            {overBalance ? (
+                <button
+                    type="button"
+                    className="sv-anuga-scenario-estimate-over-balance-badge"
+                    data-testid="sv-anuga-scenario-estimate-over-balance-badge"
+                    onClick={() => { if (onOpenAccountBilling) onOpenAccountBilling(); }}
+                >
+                    {'Over balance — view account'}
+                </button>
+            ) : null}
             {/* TASK-2400(a)/2421 — when local edits are unsaved (scenario.unsaved,
                 set by UPDATE_ANUGA_SCENARIO, cleared by SAVE_ANUGA_SCENARIO_SUCCESS
                 or by a poll tick that delivers a genuinely refreshed estimate —
@@ -1050,12 +1072,13 @@ function renderRunPane(props) {
     const {
         scenario, canEdit, isStaff, onUpdateScenario,
         availableComputeTargets, defaultComputeTarget,
-        sessionComputeTarget, onSetSessionComputeTarget
+        sessionComputeTarget, onSetSessionComputeTarget,
+        paywallEnabled, accountBalance, freeBand, onOpenAccountBilling
     } = props;
     return (
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
             {/* Section (a): config fields */}
-            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
+            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling})}
             {/* Section (b): status feedback (ETA, progress). TASK-2244
                 (epic 2237 W2.2) — the standalone ScenarioErrorStrip render
                 that used to sit here is REMOVED: it's now embedded as the
@@ -1466,6 +1489,11 @@ ScenarioPane.propTypes = {
     // renderTerrainCoverageGapSuggestion). Same action anugaInputMenu.js's
     // header button dispatches (setTerrainWorkbenchVisible(true)).
     onOpenMergeTerrainsPanel: PropTypes.func,
+    // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge.
+    paywallEnabled: PropTypes.bool,
+    accountBalance: PropTypes.string,
+    freeBand: PropTypes.shape({cap: PropTypes.number, usedToday: PropTypes.number, edge: PropTypes.string, table: PropTypes.array}),
+    onOpenAccountBilling: PropTypes.func,
     terrain: PropTypes.array,
     boundaries: PropTypes.array,
     inflows: PropTypes.array,

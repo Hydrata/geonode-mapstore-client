@@ -1824,16 +1824,19 @@ describe('ANUGA Epics', () => {
         });
 
         describe('checkoutReturnEpic', () => {
-            it('?checkout=success -> emits SET_PAYWALL_PENDING + clears any stale meter modal (TASK-2100)', (done) => {
+            it('?checkout=success -> emits SET_PAYWALL_PENDING + clears any stale meter modal (TASK-2100) + opens the Account panel on Billing, refreshed (TASK-2420)', (done) => {
                 window.history.pushState({}, '', '?checkout=success');
                 const action$ = mockActions([{type: INIT_ANUGA}]);
                 const emitted = [];
 
                 checkoutReturnEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(2);
+                        expect(emitted.length).toBe(5);
                         expect(emitted.some(a => a.type === SET_PAYWALL_PENDING)).toBe(true);
                         expect(emitted.some(a => a.type === 'METER:DISMISS_MODAL')).toBe(true);
+                        expect(emitted.some(a => a.type === 'SET_MEMBERSHIP_PANEL' && a.visible === true)).toBe(true);
+                        expect(emitted.some(a => a.type === 'SET_MEMBERSHIP_PANEL_TAB' && a.tab === 'billing')).toBe(true);
+                        expect(emitted.some(a => a.type === 'ACCOUNT:FETCH_SUMMARY')).toBe(true);
                         done();
                     });
             });
@@ -1869,9 +1872,9 @@ describe('ANUGA Epics', () => {
 
                 checkoutReturnEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        // 2 actions from the ONE handled INIT_ANUGA (pending + modal
-                        // dismiss), not 4 — the second INIT_ANUGA is a full no-op.
-                        expect(emitted.length).toBe(2);
+                        // 5 actions from the ONE handled INIT_ANUGA, not 10 — the
+                        // second INIT_ANUGA is a full no-op.
+                        expect(emitted.length).toBe(5);
                         done();
                     });
             });

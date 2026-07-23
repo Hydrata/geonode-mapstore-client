@@ -150,6 +150,14 @@ import {
     triggerFetchBalanceOnInitEpic,
     fetchComputeBalanceEpic
 } from "./epics/computeMeterEpics";
+// TASK-2420 (epic 2359 W4.5) — Account panel Billing-tab fetch + Stripe
+// Customer Portal round-trip epics.
+import {
+    triggerFetchAccountSummaryOnInitEpic,
+    triggerFetchAccountSummaryOnBillingTabOpenEpic,
+    fetchAccountSummaryEpic,
+    requestBillingPortalEpic
+} from "./epics/accountEpics";
 
 export default createPlugin('Anuga', {
     component: anugaContainer,
@@ -216,6 +224,11 @@ export default createPlugin('Anuga', {
         // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
         triggerFetchBalanceOnInitEpic,
         fetchComputeBalanceEpic,
+        // TASK-2420 (epic 2359 W4.5) — Account panel Billing-tab fetch + portal.
+        triggerFetchAccountSummaryOnInitEpic,
+        triggerFetchAccountSummaryOnBillingTabOpenEpic,
+        fetchAccountSummaryEpic,
+        requestBillingPortalEpic,
         deleteTerrainEpic,
         deleteBoundaryEpic,
         deleteFrictionEpic,

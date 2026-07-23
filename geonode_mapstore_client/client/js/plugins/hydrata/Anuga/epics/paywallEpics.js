@@ -24,10 +24,11 @@
 import Rx from 'rxjs';
 import { show } from '../../../../../MapStore2/web/client/actions/notifications';
 import * as anugaApi from '../api/anugaApi';
-import { INIT_ANUGA, fetchMyPerms } from '../actionsAnuga';
+import { INIT_ANUGA, fetchMyPerms, setMembershipPanel, setMembershipPanelTab } from '../actionsAnuga';
 import { SUBSCRIBE_CHECKOUT_REQUEST, setPaywallPending } from '../../Paywall/actions';
 import { isPaywallPending } from '../../Paywall/reducer';
 import { fetchComputeBalance, dismissMeterModal } from '../../Paywall/meter/actions';
+import { fetchAccountSummary } from '../../Paywall/account/actions';
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
 
@@ -88,7 +89,13 @@ export const checkoutReturnEpic = (action$) => action$
         // subscribeCheckoutEpic), and the balance poll below will bring the
         // panel's numbers current; a leftover modal would otherwise block
         // the user from seeing that Run is dispatchable again.
-        ? Rx.Observable.of(setPaywallPending(), dismissMeterModal())
+        // TASK-2420 — ALSO open the Account panel on Billing with the
+        // balance refreshed, so the user watches the credit/subscription
+        // land rather than having to hunt for it afterwards.
+        ? Rx.Observable.of(
+            setPaywallPending(), dismissMeterModal(),
+            setMembershipPanel(true), setMembershipPanelTab('billing'), fetchAccountSummary()
+        )
         : Rx.Observable.of(show({
             title: 'hydrata.anuga.checkoutCancelled.title',
             message: 'hydrata.anuga.checkoutCancelled.message',

@@ -24,7 +24,8 @@ import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP,
     ERROR_CLASS_MESSAGE_IDS, tailLines, capChars, TAIL_MAX_CHARS, buildCloudWatchDeepLink,
     getMeshComparison, getMeshDivergence, getMeshCostDriverHint,
-    DEFAULT_MESH_DIVERGENCE_THRESHOLD, runSettingsMustStayOpen, IN_FLIGHT_STATUSES
+    DEFAULT_MESH_DIVERGENCE_THRESHOLD, runSettingsMustStayOpen, IN_FLIGHT_STATUSES,
+    bandForEstimate
 } from '../scenarioHelpers';
 
 function makeValidScenario(overrides) {
@@ -869,5 +870,44 @@ describe('TASK-2245 runSettingsMustStayOpen', () => {
     it('reads computed_status over status, like findScenarioStatus (DRY)', () => {
         expect(runSettingsMustStayOpen({status: 'built', computed_status: 'computing'})).toBe(true);
         expect(runSettingsMustStayOpen({status: 'computing', computed_status: 'built'})).toBe(false);
+    });
+});
+
+// TASK-2420 (epic 2359 W4.5) — mirrors gn_anuga.estimate.band()'s bucketing
+// EXACTLY (free threshold, then ascending table lookup) so the FE's
+// pre-build over-balance badge can never disagree with the gate's own price.
+describe('TASK-2420 bandForEstimate', () => {
+    // Shipped-default shape (settings.COMPUTE_PRICE_BAND_TABLE):
+    // [(2, 1), (5, 2), (None, 5)].
+    const table = [['2', '1'], ['5', '2'], [null, '5']];
+
+    it('returns 0 (free band) when the estimate is at or under the free threshold', () => {
+        expect(bandForEstimate(0.3, '0.5', table)).toBe(0);
+        expect(bandForEstimate(0.5, '0.5', table)).toBe(0); // boundary is free (<=)
+    });
+
+    it('buckets into the first band just above the free threshold', () => {
+        expect(bandForEstimate(1.5, '0.5', table)).toBe(1);
+        expect(bandForEstimate(2, '0.5', table)).toBe(1); // boundary belongs to the LOWER band
+    });
+
+    it('buckets into the second band', () => {
+        expect(bandForEstimate(3, '0.5', table)).toBe(2);
+        expect(bandForEstimate(5, '0.5', table)).toBe(2);
+    });
+
+    it('falls through to the catch-all (null upper) last band', () => {
+        expect(bandForEstimate(20, '0.5', table)).toBe(5);
+        expect(bandForEstimate(500, '0.5', table)).toBe(5);
+    });
+
+    it('returns null when dollars is null/undefined (nothing to price yet)', () => {
+        expect(bandForEstimate(null, '0.5', table)).toBe(null);
+        expect(bandForEstimate(undefined, '0.5', table)).toBe(null);
+    });
+
+    it('returns null when the table is missing/empty (defensive — never mis-band on bad data)', () => {
+        expect(bandForEstimate(3, '0.5', [])).toBe(null);
+        expect(bandForEstimate(3, '0.5', null)).toBe(null);
     });
 });

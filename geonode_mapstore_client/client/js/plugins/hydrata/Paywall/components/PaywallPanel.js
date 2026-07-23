@@ -72,7 +72,7 @@ MakePrivateCTA.defaultProps = {
  * Karma tests can still assert the checkout_url reached this component,
  * without making the element itself navigable.
  */
-function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick }) {
+function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick, onViewAccount }) {
     return (
         <div data-testid="upgrade-modal" className="paywall-upgrade-modal-overlay">
             <div className="paywall-upgrade-modal">
@@ -92,6 +92,15 @@ function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick }) {
                         onClick={() => onSubscribeClick(checkoutUrl)}
                     >
                         Subscribe &amp; make private
+                    </button>
+                    {/* TASK-2420 (epic 2359 W4.5) — "View account" -> Billing tab. */}
+                    <button
+                        type="button"
+                        data-testid="paywall-view-account"
+                        className="paywall-view-account-btn"
+                        onClick={onViewAccount}
+                    >
+                        View account
                     </button>
                     <button
                         data-testid="dismiss-upgrade"
@@ -116,13 +125,15 @@ function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick }) {
 UpgradeModal.propTypes = {
     checkoutUrl: PropTypes.string,
     onDismiss: PropTypes.func,
-    onSubscribeClick: PropTypes.func
+    onSubscribeClick: PropTypes.func,
+    onViewAccount: PropTypes.func
 };
 
 UpgradeModal.defaultProps = {
     checkoutUrl: '',
     onDismiss: () => {},
-    onSubscribeClick: () => {}
+    onSubscribeClick: () => {},
+    onViewAccount: () => {}
 };
 
 /**
@@ -262,7 +273,10 @@ class PaywallPanel extends React.Component {
         onSubscribeClick: PropTypes.func,
 
         /** Called with checkoutUrl when user clicks "Renew subscription" (past_due state). */
-        onRenewClick: PropTypes.func
+        onRenewClick: PropTypes.func,
+
+        /** TASK-2420 — "View account" on the upgrade_prompt modal -> Billing tab. */
+        onViewAccount: PropTypes.func
     };
 
     static defaultProps = {
@@ -273,7 +287,8 @@ class PaywallPanel extends React.Component {
         onMakePrivate: () => {},
         onDismissUpgrade: () => {},
         onSubscribeClick: () => {},
-        onRenewClick: () => {}
+        onRenewClick: () => {},
+        onViewAccount: () => {}
     };
 
     constructor(props) {
@@ -309,7 +324,7 @@ class PaywallPanel extends React.Component {
     }
 
     render() {
-        const { paywallEnabled, onMakePrivate, onDismissUpgrade, onSubscribeClick, onRenewClick } = this.props;
+        const { paywallEnabled, onMakePrivate, onDismissUpgrade, onSubscribeClick, onRenewClick, onViewAccount } = this.props;
         const { dunningDismissed } = this.state;
 
         // Kill-switch: render nothing when disabled (dark ship default).
@@ -341,6 +356,7 @@ class PaywallPanel extends React.Component {
                     checkoutUrl={checkoutUrl}
                     onDismiss={onDismissUpgrade}
                     onSubscribeClick={onSubscribeClick}
+                    onViewAccount={onViewAccount}
                 />
             );
             break;

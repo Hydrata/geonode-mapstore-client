@@ -534,3 +534,30 @@ export const formatCostEstimate = (computeCostEstimate) => {
     if (Number(computeCostEstimate) === 0) return 'Free';
     return `~$${Number(computeCostEstimate).toFixed(2)} est.`;
 };
+
+/**
+ * TASK-2420 (epic 2359 W4.5) — the coarse, customer-BILLED price band for a
+ * PRE-BUILD dollar estimate, mirroring gn_anuga.estimate.band()'s bucketing
+ * EXACTLY (free threshold, then ascending table lookup) so the Account
+ * panel's over-balance estimate badge can never disagree with what a build
+ * would actually be charged. band() itself needs a build-frozen Run and
+ * can't run pre-build — this is the same two-step bucketing applied to the
+ * scenario's own pre-build `compute_cost_estimate` instead.
+ *
+ * @param {number} dollars - the scenario's compute_cost_estimate.
+ * @param {string|number} freeThresholdStr - free_band.edge (account summary).
+ * @param {Array<[string|null, string]>} table - free_band.table (account summary):
+ *   [(upperBoundUsdOrNull, bandPriceUsd), ...] ascending, last entry's upper
+ *   is null (catch-all) in the shipped default.
+ * @returns {number|null} the band price, or null when inputs are missing/malformed.
+ */
+export const bandForEstimate = (dollars, freeThresholdStr, table) => {
+    if (dollars === null || dollars === undefined || !Array.isArray(table) || !table.length) return null;
+    const dollarsNum = Number(dollars);
+    const freeThreshold = Number(freeThresholdStr);
+    if (dollarsNum <= freeThreshold) return 0;
+    for (const [upper, price] of table) {
+        if (upper === null || dollarsNum <= Number(upper)) return Number(price);
+    }
+    return Number(table[table.length - 1][1]);
+};

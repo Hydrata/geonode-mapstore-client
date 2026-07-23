@@ -2080,6 +2080,108 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             });
         });
 
+        // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge: highlight
+        // + "View account" link when the estimate's BAND charge (never raw
+        // cents) exceeds the account balance. Free band ($0) never highlights.
+        describe('TASK-2420 over-balance estimate badge', () => {
+            const freeBand = { cap: 3, usedToday: 0, edge: '0.5', table: [['2', '1'], ['5', '2'], [null, '5']] };
+            const badgeSelector = '[data-testid="sv-anuga-scenario-estimate-over-balance-badge"]';
+
+            it('shows the badge when the band charge exceeds the balance (paywallEnabled)', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="1.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        // $3 estimate -> band $2 (table: (2,1),(5,2),(null,5)) > $1 balance.
+                        expect(container.querySelector(badgeSelector)).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('does NOT show the badge when the band charge is within balance', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="10.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector(badgeSelector)).toBe(null);
+                        done();
+                    }
+                );
+            });
+
+            it('never highlights a free-band ($0) estimate, even with zero balance', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 0.2, mesh_triangle_count_estimate: 100}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="0.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector(badgeSelector)).toBe(null);
+                        done();
+                    }
+                );
+            });
+
+            it('never shows the badge when paywallEnabled is false, regardless of balance', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled={false}
+                        accountBalance="0.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector(badgeSelector)).toBe(null);
+                        done();
+                    }
+                );
+            });
+
+            it('clicking the badge calls onOpenAccountBilling', (done) => {
+                let called = false;
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="1.00"
+                        freeBand={freeBand}
+                        onOpenAccountBilling={() => { called = true; }}
+                    />,
+                    container,
+                    () => {
+                        container.querySelector(badgeSelector).click();
+                        expect(called).toBe(true);
+                        done();
+                    }
+                );
+            });
+        });
+
         it('changing resolution dispatches onUpdateScenario with parsed float', (done) => {
             let captured = null;
             ReactDOM.render(

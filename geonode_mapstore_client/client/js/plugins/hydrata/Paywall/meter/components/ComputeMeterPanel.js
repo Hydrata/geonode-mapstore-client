@@ -129,8 +129,32 @@ BalanceStrip.defaultProps = {
     onBuyPack: () => {}
 };
 
+/**
+ * TASK-2420 (epic 2359 W4.5) — shared "View account" link, used by all three
+ * compute-meter refusal modals to route to the Account panel's Billing tab
+ * (the discoverable home for balance/free-run accounting UAT-1 found
+ * missing). `testIdPrefix` mirrors PackButtons/BillingPolicyLink's pattern.
+ */
+function ViewAccountLink({ testIdPrefix, onViewAccount }) {
+    return (
+        <button
+            type="button"
+            data-testid={`${testIdPrefix}-view-account`}
+            className="compute-meter-view-account-link"
+            onClick={onViewAccount}
+        >
+            View account
+        </button>
+    );
+}
+
+ViewAccountLink.propTypes = {
+    testIdPrefix: PropTypes.string.isRequired,
+    onViewAccount: PropTypes.func
+};
+
 /** Insufficient-balance 402 -> modal -> pack purchase CTAs (AC#2). */
-function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss }) {
+function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss, onViewAccount }) {
     return (
         <div data-testid="meter-insufficient-balance-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
@@ -140,6 +164,7 @@ function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss
                 </p>
                 <div className="compute-meter-modal-actions">
                     <PackButtons availablePacks={availablePacks} testIdPrefix="meter-buy-pack-cta" onBuyPack={onBuyPack} />
+                    <ViewAccountLink testIdPrefix="meter-insufficient-balance" onViewAccount={onViewAccount} />
                     <button
                         type="button"
                         data-testid="meter-dismiss-modal"
@@ -158,14 +183,15 @@ InsufficientBalanceModal.propTypes = {
     detail: PropTypes.string,
     availablePacks: PropTypes.array,
     onBuyPack: PropTypes.func,
-    onDismiss: PropTypes.func
+    onDismiss: PropTypes.func,
+    onViewAccount: PropTypes.func
 };
 
 /**
  * Cap-exceeded 429 -> its OWN distinct message (AC#3) — no pack CTA (a free
  * dispatch, not a paid one; buying a pack doesn't lift a per-day free cap).
  */
-function CapExceededModal({ detail, onDismiss }) {
+function CapExceededModal({ detail, onDismiss, onViewAccount }) {
     return (
         <div data-testid="meter-cap-exceeded-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
@@ -174,6 +200,7 @@ function CapExceededModal({ detail, onDismiss }) {
                     {detail}
                 </p>
                 <div className="compute-meter-modal-actions">
+                    <ViewAccountLink testIdPrefix="meter-cap-exceeded" onViewAccount={onViewAccount} />
                     <button
                         type="button"
                         data-testid="meter-dismiss-modal"
@@ -190,7 +217,8 @@ function CapExceededModal({ detail, onDismiss }) {
 
 CapExceededModal.propTypes = {
     detail: PropTypes.string,
-    onDismiss: PropTypes.func
+    onDismiss: PropTypes.func,
+    onViewAccount: PropTypes.func
 };
 
 /**
@@ -199,7 +227,7 @@ CapExceededModal.propTypes = {
  * insufficient_balance (no pack purchase fixes this) or cap_exceeded (a
  * different, free-band limit) — a contact-us path instead of a buy CTA.
  */
-function EstimateCeilingModal({ detail, onDismiss }) {
+function EstimateCeilingModal({ detail, onDismiss, onViewAccount }) {
     return (
         <div data-testid="meter-estimate-ceiling-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
@@ -215,6 +243,7 @@ function EstimateCeilingModal({ detail, onDismiss }) {
                     >
                         Contact us
                     </a>
+                    <ViewAccountLink testIdPrefix="meter-estimate-ceiling" onViewAccount={onViewAccount} />
                     <button
                         type="button"
                         data-testid="meter-dismiss-modal"
@@ -232,7 +261,8 @@ function EstimateCeilingModal({ detail, onDismiss }) {
 
 EstimateCeilingModal.propTypes = {
     detail: PropTypes.string,
-    onDismiss: PropTypes.func
+    onDismiss: PropTypes.func,
+    onViewAccount: PropTypes.func
 };
 
 class ComputeMeterPanel extends React.Component {
@@ -249,7 +279,10 @@ class ComputeMeterPanel extends React.Component {
             detail: PropTypes.string
         }),
         onBuyPack: PropTypes.func,
-        onDismissModal: PropTypes.func
+        onDismissModal: PropTypes.func,
+        // TASK-2420 (epic 2359 W4.5) — "View account" on all three refusal
+        // modals, opening the Account panel's Billing tab.
+        onViewAccount: PropTypes.func
     };
 
     static defaultProps = {
@@ -259,11 +292,12 @@ class ComputeMeterPanel extends React.Component {
         recentEntries: [],
         modal: null,
         onBuyPack: () => {},
-        onDismissModal: () => {}
+        onDismissModal: () => {},
+        onViewAccount: () => {}
     };
 
     render() {
-        const { enabled, balance, availablePacks, recentEntries, modal, onBuyPack, onDismissModal } = this.props;
+        const { enabled, balance, availablePacks, recentEntries, modal, onBuyPack, onDismissModal, onViewAccount } = this.props;
 
         // Kill-switch: render nothing when the backend reports no meter
         // (ships dark — see commerce.balance_views.AccountBalanceView).
@@ -285,13 +319,14 @@ class ComputeMeterPanel extends React.Component {
                         availablePacks={availablePacks}
                         onBuyPack={onBuyPack}
                         onDismiss={onDismissModal}
+                        onViewAccount={onViewAccount}
                     />
                 ) : null}
                 {modal && modal.type === 'cap_exceeded' ? (
-                    <CapExceededModal detail={modal.detail} onDismiss={onDismissModal} />
+                    <CapExceededModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />
                 ) : null}
                 {modal && modal.type === 'estimate_ceiling' ? (
-                    <EstimateCeilingModal detail={modal.detail} onDismiss={onDismissModal} />
+                    <EstimateCeilingModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />
                 ) : null}
             </div>
         );
@@ -299,4 +334,4 @@ class ComputeMeterPanel extends React.Component {
 }
 
 export default ComputeMeterPanel;
-export { BalanceStrip, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal };
+export { BalanceStrip, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal, ViewAccountLink };

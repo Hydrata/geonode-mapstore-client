@@ -615,6 +615,18 @@ export const createCheckoutSession = (projectId, purchaseType = 'subscription', 
 export const getComputeBalance = () =>
     axios.get('/commerce/balance/');
 
+// -- Account panel (TASK-2419/2420, epic 2359 W4.5) ------------------------
+//
+// GET /commerce/account/ — the viewing user's own Account summary (org/
+// manager, balance, free-band usage, subscription state, packs, ledger).
+// POST /commerce/billing-portal/ — manager-only Stripe Customer Portal
+// session (return_url is chosen server-side; see commerce.account_views).
+export const getAccountSummary = () =>
+    axios.get('/commerce/account/');
+
+export const createBillingPortalSession = () =>
+    axios.post('/commerce/billing-portal/');
+
 // -- Invitations (TASK-860 / TASK-855/856) ---------------------------------
 //
 // All endpoints are project-scoped and require MANAGER or OWNER role.
