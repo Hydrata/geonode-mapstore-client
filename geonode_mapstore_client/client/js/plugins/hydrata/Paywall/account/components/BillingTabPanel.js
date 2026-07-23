@@ -143,10 +143,13 @@ function BillingTabPanel({
     return (
         <div className="sv-account-billing-tab" data-testid="sv-account-billing-tab">
             <AccountHeader organisation={organisation} isPersonal={isPersonal} manager={manager} />
+            {/* recentEntries intentionally NOT passed here — this panel renders
+                its OWN richer "Recent activity" list below (with run->project
+                links, spec item 6), so BalanceStrip only contributes balance +
+                packs + the billing-policy link here. */}
             <BalanceStrip
                 balance={balance}
                 availablePacks={availablePacks}
-                recentEntries={[]}
                 onBuyPack={onBuyPack}
             />
             <FreeBandSection freeBand={freeBand} />
