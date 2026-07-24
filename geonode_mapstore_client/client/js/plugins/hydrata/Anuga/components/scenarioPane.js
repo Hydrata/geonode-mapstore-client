@@ -793,6 +793,81 @@ function computeTargetLabel(target, defaultComputeTarget) {
     return target === defaultComputeTarget ? `${base} (site default)` : base;
 }
 
+function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling) {
+    const hasEstimate = (scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined)
+        || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined);
+    const comparison = getMeshComparison(scenario?.latest_run);
+    const showBuilt = !scenario?.unsaved && !!comparison;
+
+    if (showBuilt) {
+        return renderMeshBuildComparison(scenario);
+    }
+    if (!hasEstimate) {
+        return null;
+    }
+    // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge: highlight +
+    // link to the Billing tab when the estimate's BAND charge (never raw
+    // cents — bandForEstimate mirrors gn_anuga.estimate.band()'s bucketing)
+    // exceeds the account's balance. The free band ($0) never highlights —
+    // a $0 run is never blocked by balance. Dark behind paywallEnabled
+    // (AC1/AC3): flags-off renders nothing here regardless of balance data.
+    const band = paywallEnabled
+        ? bandForEstimate(scenario.compute_cost_estimate, freeBand?.edge, freeBand?.table)
+        : null;
+    const overBalance = paywallEnabled && band !== null && band > 0
+        && accountBalance !== null && accountBalance !== undefined
+        && band > Number(accountBalance);
+    return (
+        <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
+            <span className="sv-anuga-scenario-estimate-label">
+                {'Estimate: '}
+                {scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined
+                    ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
+                    : ''}
+                {scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined
+                    ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
+                    : ''}
+            </span>
+            {overBalance ? (
+                <button
+                    type="button"
+                    className="sv-anuga-scenario-estimate-over-balance-badge"
+                    data-testid="sv-anuga-scenario-estimate-over-balance-badge"
+                    onClick={() => { if (onOpenAccountBilling) onOpenAccountBilling(); }}
+                >
+                    {'Over balance — view account'}
+                </button>
+            ) : null}
+            {/* TASK-2400(a)/2421 — when local edits are unsaved (scenario.unsaved,
+                set by UPDATE_ANUGA_SCENARIO, cleared by SAVE_ANUGA_SCENARIO_SUCCESS
+                or by a poll tick that delivers a genuinely refreshed estimate —
+                scenariosReducer.js SET_ANUGA_POLLING_DATA), the figure above may
+                still reflect the LAST SAVED config, not what the user is
+                currently editing — surface that explicitly rather than let a
+                stale number read as current. */}
+            {scenario.unsaved ? (
+                <span className="sv-anuga-scenario-estimate-stale" data-testid="sv-anuga-scenario-estimate-stale">
+                    {' (estimate outdated — rebuild to refresh)'}
+                </span>
+            ) : null}
+        </div>
+    );
+}
+
+/**
+ * TASK-1416 (ISSUE 20.7): Merged Run pane — replaces the two separate
+ * "Run config" and "Run" (statusActions) categories with a single "Run"
+ * panel laid out top-to-bottom:
+ *   (a) Resolution / Duration / Compute config fields
+ *   (b) Error strip (only when status=error) + Status card (ETA/progress)
+ *   (c) [moved] action buttons now live in the Scenarios heading
+ *       (ScenarioHeaderActions) — always visible, not gated on the Run tab (UAT #8)
+ *   (d) LOG output viewer
+ *
+ * The former separate feedback panel (ScenarioStatusCard + ScenarioErrorStrip)
+ * is preserved — it shows ETA, progress, and error messages which the user
+ * needs before deciding to retry or cancel. No data is dropped.
+ */
 function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
@@ -992,81 +1067,6 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
  *   - otherwise, a completed build's mesh comparison exists (getMeshComparison):
  *     Built line only.
  *   - otherwise (pre-build, no edits pending): Estimate line, no stale hint.
- */
-function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling) {
-    const hasEstimate = (scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined)
-        || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined);
-    const comparison = getMeshComparison(scenario?.latest_run);
-    const showBuilt = !scenario?.unsaved && !!comparison;
-
-    if (showBuilt) {
-        return renderMeshBuildComparison(scenario);
-    }
-    if (!hasEstimate) {
-        return null;
-    }
-    // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge: highlight +
-    // link to the Billing tab when the estimate's BAND charge (never raw
-    // cents — bandForEstimate mirrors gn_anuga.estimate.band()'s bucketing)
-    // exceeds the account's balance. The free band ($0) never highlights —
-    // a $0 run is never blocked by balance. Dark behind paywallEnabled
-    // (AC1/AC3): flags-off renders nothing here regardless of balance data.
-    const band = paywallEnabled
-        ? bandForEstimate(scenario.compute_cost_estimate, freeBand?.edge, freeBand?.table)
-        : null;
-    const overBalance = paywallEnabled && band !== null && band > 0
-        && accountBalance !== null && accountBalance !== undefined
-        && band > Number(accountBalance);
-    return (
-        <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
-            <span className="sv-anuga-scenario-estimate-label">
-                {'Estimate: '}
-                {scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined
-                    ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
-                    : ''}
-                {scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined
-                    ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
-                    : ''}
-            </span>
-            {overBalance ? (
-                <button
-                    type="button"
-                    className="sv-anuga-scenario-estimate-over-balance-badge"
-                    data-testid="sv-anuga-scenario-estimate-over-balance-badge"
-                    onClick={() => { if (onOpenAccountBilling) onOpenAccountBilling(); }}
-                >
-                    {'Over balance — view account'}
-                </button>
-            ) : null}
-            {/* TASK-2400(a)/2421 — when local edits are unsaved (scenario.unsaved,
-                set by UPDATE_ANUGA_SCENARIO, cleared by SAVE_ANUGA_SCENARIO_SUCCESS
-                or by a poll tick that delivers a genuinely refreshed estimate —
-                scenariosReducer.js SET_ANUGA_POLLING_DATA), the figure above may
-                still reflect the LAST SAVED config, not what the user is
-                currently editing — surface that explicitly rather than let a
-                stale number read as current. */}
-            {scenario.unsaved ? (
-                <span className="sv-anuga-scenario-estimate-stale" data-testid="sv-anuga-scenario-estimate-stale">
-                    {' (estimate outdated — rebuild to refresh)'}
-                </span>
-            ) : null}
-        </div>
-    );
-}
-
-/**
- * TASK-1416 (ISSUE 20.7): Merged Run pane — replaces the two separate
- * "Run config" and "Run" (statusActions) categories with a single "Run"
- * panel laid out top-to-bottom:
- *   (a) Resolution / Duration / Compute config fields
- *   (b) Error strip (only when status=error) + Status card (ETA/progress)
- *   (c) [moved] action buttons now live in the Scenarios heading
- *       (ScenarioHeaderActions) — always visible, not gated on the Run tab (UAT #8)
- *   (d) LOG output viewer
- *
- * The former separate feedback panel (ScenarioStatusCard + ScenarioErrorStrip)
- * is preserved — it shows ETA, progress, and error messages which the user
- * needs before deciding to retry or cancel. No data is dropped.
  */
 function renderRunPane(props) {
     const {
