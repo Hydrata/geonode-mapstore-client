@@ -661,6 +661,7 @@
         "filterAll": "All",
         "statusPending": "Pending",
         "statusRunning": "Running",
+        "statusStalled": "Stalled",
         "statusComplete": "Complete",
         "statusError": "Error",
         "statusCancelled": "Cancelled"

@@ -661,6 +661,7 @@
         "filterAll": "Tout",
         "statusPending": "Ap tann",
         "statusRunning": "Ap kouri",
+        "statusStalled": "Bloke",
         "statusComplete": "Fini",
         "statusError": "Erè",
         "statusCancelled": "Anile"
