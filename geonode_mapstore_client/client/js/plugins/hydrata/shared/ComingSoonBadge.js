@@ -8,14 +8,30 @@ import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 // as the hover title. Reads `messages` from the legacy i18n context;
 // getMessageById returns the msgId unchanged when the key is missing, so it
 // degrades gracefully before translations propagate to every locale.
-const ComingSoonBadge = (props, context) => {
+//
+// UAT-2 (epic 2359) — `variant="tooltip"`: same element and hook class, but
+// styled as a hover/focus-revealed bubble under the (position:relative)
+// parent control instead of an inline pill, for hosts the pill would
+// oversize (the IDF Derive segment button). CSS :hover still applies to a
+// :disabled button, so the reveal works on gated controls.
+const ComingSoonBadge = ({ variant }, context) => {
     const messages = (context && context.messages) || {};
     const label = getMessageById(messages, 'hydrata.comingSoon');
+    const tooltip = variant === 'tooltip';
     return (
-        <span className="sv-coming-soon-badge" title={label}>
+        <span
+            className={`sv-coming-soon-badge${tooltip ? ' sv-coming-soon-badge--tooltip' : ''}`}
+            role={tooltip ? 'tooltip' : undefined}
+            title={tooltip ? undefined : label}
+        >
             <Message msgId="hydrata.comingSoon" />
         </span>
     );
+};
+
+ComingSoonBadge.propTypes = {
+    /** 'inline' (default): pill in the flow. 'tooltip': hover/focus bubble. */
+    variant: PropTypes.oneOf(['inline', 'tooltip'])
 };
 
 ComingSoonBadge.contextTypes = {
