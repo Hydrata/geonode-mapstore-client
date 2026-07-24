@@ -141,7 +141,7 @@ describe('BillingTabPanel — recent activity (spec item 6)', () => {
         const c = render({
             loaded: true, freeBand: baseFreeBand,
             recentEntries: [
-                { date: '2026-07-23T10:00:00Z', entry_type: 'debit', amount: '2.00', run: { run_id: 99, project_id: 5, project_name: 'Merewether' } },
+                { date: '2026-07-23T10:00:00Z', entry_type: 'debit', amount: '2.00', run: { run_id: 99, project_id: 5, base_map_id: 1418, project_name: 'Merewether' } },
                 { date: '2026-07-22T10:00:00Z', entry_type: 'purchase', amount: '10.00', run: null }
             ]
         });
@@ -150,7 +150,7 @@ describe('BillingTabPanel — recent activity (spec item 6)', () => {
         const link = c.querySelector('[data-testid="sv-account-recent-entry-run-link"]');
         expect(link).toExist();
         expect(link.textContent).toBe('Merewether');
-        expect(link.getAttribute('href')).toBe('#/map/5');
+        expect(link.getAttribute('href')).toBe('#/map/1418'); // MAP pk, never Project pk (review A6)
     });
 
     it('renders nothing (no section) when there are no entries', () => {

@@ -222,14 +222,20 @@ function BillingTabPanel({
                                     <span className="sv-account-recent-entry-date">{(entry.date || '').slice(0, 10)}</span>
                                     <span className="sv-account-recent-entry-type">{entry.entry_type}</span>
                                     <span className="sv-account-recent-entry-amount">{`$${entry.amount}`}</span>
-                                    {entry.run ? (
+                                    {entry.run && entry.run.base_map_id ? (
+                                        // #/map/<pk> takes the MAP resource pk (the project's
+                                        // base map), never the ANUGA Project pk (review A6).
                                         <a
                                             className="sv-account-recent-entry-run-link"
-                                            href={`#/map/${entry.run.project_id}`}
+                                            href={`#/map/${entry.run.base_map_id}`}
                                             data-testid="sv-account-recent-entry-run-link"
                                         >
                                             {entry.run.project_name || `Run ${entry.run.run_id}`}
                                         </a>
+                                    ) : entry.run ? (
+                                        <span className="sv-account-recent-entry-run-link">
+                                            {entry.run.project_name || `Run ${entry.run.run_id}`}
+                                        </span>
                                     ) : null}
                                 </li>
                             ))}

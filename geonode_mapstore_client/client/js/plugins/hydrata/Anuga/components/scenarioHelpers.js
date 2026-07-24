@@ -559,5 +559,9 @@ export const bandForEstimate = (dollars, freeThresholdStr, table) => {
     for (const [upper, price] of table) {
         if (upper === null || dollarsNum <= Number(upper)) return Number(price);
     }
-    return Number(table[table.length - 1][1]);
+    // Finite last bound exceeded: the BE REFUSES dispatch above the ceiling
+    // (gn_anuga.estimate EstimateCeilingExceeded) — never price it into the
+    // last band (review A14). Infinity keeps the numeric contract while
+    // letting consumers render the ceiling state distinctly.
+    return Infinity;
 };

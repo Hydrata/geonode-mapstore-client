@@ -814,7 +814,11 @@ function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, 
     const band = paywallEnabled
         ? bandForEstimate(scenario.compute_cost_estimate, freeBand?.edge, freeBand?.table)
         : null;
-    const overBalance = paywallEnabled && band !== null && band > 0
+    // band === Infinity: estimate exceeds the finite dispatch ceiling — the
+    // BE refuses these outright (review A14), so say that, never a band price.
+    const overCeiling = paywallEnabled && band === Infinity;
+    const overBalance = paywallEnabled && band !== null && Number.isFinite(band)
+        && band > 0
         && accountBalance !== null && accountBalance !== undefined
         && band > Number(accountBalance);
     return (
@@ -828,6 +832,14 @@ function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, 
                     ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
                     : ''}
             </span>
+            {overCeiling ? (
+                <span
+                    className="sv-anuga-scenario-estimate-over-balance-badge"
+                    data-testid="sv-anuga-scenario-estimate-over-ceiling-badge"
+                >
+                    {'Above the automatic dispatch ceiling — contact us for a quote'}
+                </span>
+            ) : null}
             {overBalance ? (
                 <button
                     type="button"

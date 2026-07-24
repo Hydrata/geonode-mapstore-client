@@ -901,6 +901,13 @@ describe('TASK-2420 bandForEstimate', () => {
         expect(bandForEstimate(500, '0.5', table)).toBe(5);
     });
 
+    it('returns Infinity above a FINITE last bound — BE refuses dispatch there, never a band price (review A14)', () => {
+        const finiteTable = [[2, 1], [5, 2], [20, 5]];
+        expect(bandForEstimate(20, '0.5', finiteTable)).toBe(5); // boundary belongs to the band
+        expect(bandForEstimate(34.57, '0.5', finiteTable)).toBe(Infinity);
+        expect(Number.isFinite(bandForEstimate(34.57, '0.5', finiteTable))).toBe(false);
+    });
+
     it('returns null when dollars is null/undefined (nothing to price yet)', () => {
         expect(bandForEstimate(null, '0.5', table)).toBe(null);
         expect(bandForEstimate(undefined, '0.5', table)).toBe(null);
