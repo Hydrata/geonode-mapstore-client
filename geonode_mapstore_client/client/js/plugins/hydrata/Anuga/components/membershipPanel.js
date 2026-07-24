@@ -38,7 +38,10 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // wrapper so the tests + CSS that target its descendants keep working.
 import {Table as ChassisTable} from '../../SimpleView/components/primitives';
 import MovablePanel from '../../shared/components/MovablePanel';
-import {setMovablePanelState} from '../actions/uiActions';
+import {setMovablePanelState, setMembershipPanelTab} from '../actions/uiActions';
+// TASK-2420 (epic 2359 W4.5) — the Billing tab content, re-homing the
+// existing dark ComputeMeterPanel/BalanceStrip rather than a second copy.
+import BillingTabContainer from '../../Paywall/account/containers/BillingTabContainer';
 
 export const MEMBERSHIP_PANEL_ID = 'membership';
 
@@ -49,10 +52,17 @@ const ROLES = [
     {value: 4, label: 'Manager'}
 ];
 
+// TASK-2399 (dogfood F14) — 'public' previously read "Anyone can view", which
+// overstates what actually happens: get_visible_projects (gn_anuga/sync.py)
+// deliberately SUPPRESSES public projects from the global project list for
+// strangers (G1/Phase-1 paywall, TASK-1364) — a public project is reachable
+// by direct link/id, never by browsing. "Anyone can view" reads as
+// bot-browsable-public; it is not. Copy corrected to name the real
+// public-UNLISTED semantics instead of the more alarming (and wrong) implication.
 const VISIBILITY_OPTIONS = [
     {value: 'private', label: 'Private', description: 'Only members can access'},
     {value: 'organization', label: 'Organization', description: 'Organization members can view'},
-    {value: 'public', label: 'Public', description: 'Anyone can view'}
+    {value: 'public', label: 'Public', description: 'Anyone with the link can view — not listed in the public project directory'}
 ];
 
 class MembershipPanelClass extends React.Component {
@@ -76,6 +86,9 @@ class MembershipPanelClass extends React.Component {
         visibility: PropTypes.string,
         myRole: PropTypes.string,
         currentUserId: PropTypes.number,
+        // UAT-2 redesign — the viewing user's username, for the "(you)" marker
+        // on their own member row.
+        currentUsername: PropTypes.string,
         ownerUsername: PropTypes.string,
         setMembershipPanel: PropTypes.func,
         fetchMemberships: PropTypes.func,
@@ -88,7 +101,22 @@ class MembershipPanelClass extends React.Component {
         resendInvitationRequest: PropTypes.func,
         // TASK-2235 — persisted MovablePanel position/size + its setter.
         panelState: PropTypes.object,
-        setMovablePanelState: PropTypes.func
+        setMovablePanelState: PropTypes.func,
+        // TASK-2399 — kill-switch mirroring Paywall.js's own `paywallEnabled`
+        // cfg (threaded here via anugaContainer, localConfig.json's Anuga
+        // plugin cfg). Drives the Private option's pre-interaction paid-tier
+        // badge — freemium context must be visible BEFORE the user clicks,
+        // not discovered only via a 402. Ships dark (false) until the
+        // operator's PAYWALL_ENABLED flip.
+        paywallEnabled: PropTypes.bool,
+        // TASK-2420 — Account panel active tab ('sharing'|'billing') + setter.
+        activeTab: PropTypes.string,
+        setMembershipPanelTab: PropTypes.func
+    };
+
+    static defaultProps = {
+        paywallEnabled: false,
+        activeTab: 'sharing'
     };
 
     constructor(props) {
@@ -182,35 +210,97 @@ class MembershipPanelClass extends React.Component {
                 <div className="sv-membership-section-title">
                     <Message msgId="hydrata.anuga.projectVisibility" />
                 </div>
-                <div className="sv-membership-visibility-options">
-                    {VISIBILITY_OPTIONS.map(opt => (
-                        <div key={opt.value} className="sv-membership-visibility-option-row">
-                            <Button
-                                bsSize="xsmall"
-                                className={`sv-membership-btn-sm sv-membership-visibility-btn ${this.props.visibility === opt.value ? 'active' : ''}`}
+                {/* UAT-2 redesign — the label-button + trailing description row
+                    became a full-width radio option card (radio dot + title +
+                    pills + description); same handleVisibilityChange behavior,
+                    now on the whole card. */}
+                <div className="sv-membership-visibility-options" role="radiogroup" aria-label="Project visibility">
+                    {VISIBILITY_OPTIONS.map(opt => {
+                        const selected = this.props.visibility === opt.value;
+                        return (
+                            <button
+                                type="button"
+                                key={opt.value}
+                                role="radio"
+                                aria-checked={selected}
+                                className={`sv-membership-visibility-option-row sv-membership-visibility-btn ${selected ? 'active' : ''}`}
                                 onClick={() => this.handleVisibilityChange(opt.value)}
                             >
-                                {opt.label}
-                            </Button>
-                            <span className="sv-membership-visibility-desc">{opt.description}</span>
-                        </div>
-                    ))}
+                                <span className="sv-membership-visibility-radio-dot" aria-hidden="true" />
+                                <span className="sv-membership-visibility-option-main">
+                                    <span className="sv-membership-visibility-option-title">
+                                        {opt.label}
+                                        {/* TASK-2399 — freemium context BEFORE the click: Private
+                                            is the paid tier (commerce/checkout_views.py,
+                                            api_v2.py's G2 entitlement gate). Shown unconditionally
+                                            once paywallEnabled (not gated on this user's own
+                                            entitlement — a user who already has one still just
+                                            sees this as a true fact about the Private tier).
+                                            Clicking it as a non-entitled user never dead-ends on a
+                                            bare 402: updateProjectVisibilityEpic (membershipEpics.js)
+                                            already routes the 402's upgrade_prompt contract shape
+                                            into the paywall overlay, which the always-mounted
+                                            PaywallPanel (Paywall.js) renders as the UpgradeModal
+                                            (reused, not re-implemented). */}
+                                        {opt.value === 'private' && this.props.paywallEnabled ? (
+                                            <span
+                                                data-testid="sv-membership-visibility-paid-badge"
+                                                className="sv-membership-visibility-paid-badge sv-account-pill sv-account-pill--paid"
+                                            >
+                                                Paid
+                                            </span>
+                                        ) : null}
+                                        {selected ? (
+                                            <span className="sv-account-pill sv-account-pill--current">Current</span>
+                                        ) : null}
+                                    </span>
+                                    <span className="sv-membership-visibility-desc">
+                                        {opt.description}
+                                    </span>
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+                {/* TASK-2399 (dogfood F14) — new-project default-visibility policy,
+                    stated explicitly rather than left implicit. Project.visibility
+                    defaults to PUBLIC (gn_anuga/models/project.py) — kept as the
+                    default deliberately under paid-private semantics: Public stays
+                    the free, zero-friction starting tier (public-UNLISTED, per the
+                    description above) and Private is the opt-in paid upgrade, not
+                    a default cost sprung on a new project. */}
+                <div className="sv-membership-visibility-default-note">
+                    New projects start Public (unlisted). Switch to Private any time
+                    {this.props.paywallEnabled ? ' (paid)' : ''}.
                 </div>
             </div>
         );
     }
 
-    renderOwnerRow() {
+    // UAT-2 redesign — 28px initial-avatar circle for member rows; tint picked
+    // deterministically from the username so a given user keeps their colour
+    // across renders/sessions without any stored state.
+    renderAvatar(username) {
+        const tint = (username || '?').charCodeAt(0) % 4;
         return (
-            <tr className="membership-owner-row">
-                <td>{this.props.ownerUsername}</td>
-                <td>
-                    <span className="sv-badge-role sv-badge-owner">
-                        Owner
-                    </span>
-                </td>
-                <td/>
-            </tr>
+            <span className={`sv-membership-avatar sv-membership-avatar--${tint}`} aria-hidden="true">
+                {(username || '?').charAt(0).toUpperCase()}
+            </span>
+        );
+    }
+
+    renderOwnerRow() {
+        const isSelf = this.props.ownerUsername === this.props.currentUsername;
+        return (
+            <div className="membership-owner-row sv-membership-member-row">
+                {this.renderAvatar(this.props.ownerUsername)}
+                <span className="sv-membership-member-name">
+                    {this.props.ownerUsername}
+                    {isSelf ? <span className="sv-membership-member-you"> (you)</span> : null}
+                </span>
+                {/* Owner is immutable — plain static text, no role control. */}
+                <span className="sv-membership-member-role-static">Owner</span>
+            </div>
         );
     }
 
@@ -227,39 +317,41 @@ class MembershipPanelClass extends React.Component {
         const {permsLoadFailed, myRole, currentUserId} = this.props;
         const canChangeRole = !permsLoadFailed && canEditLayer(membership, undefined, myRole, currentUserId);
         const canRemove = !permsLoadFailed && canDeleteLayer(membership, undefined, myRole, currentUserId);
+        const isSelf = membership.username === this.props.currentUsername;
         return (
-            <tr key={membership.id} className="membership-member-row">
-                <td>{membership.username}</td>
-                <td>
-                    {canChangeRole ? (
-                        <select
-                            value={membership.role}
-                            className="sv-scenario-select sv-membership-role-select change-role-btn"
-                            onChange={(e) => this.handleRoleChange(membership.id, e.target.value)}
-                        >
-                            {ROLES.map(r => (
-                                <option key={r.value} value={r.value}>{r.label}</option>
-                            ))}
-                        </select>
-                    ) : (
-                        <span className={`sv-badge-role ${membership.role >= 4 ? 'sv-badge-manager' : membership.role >= 3 ? 'sv-badge-editor' : 'sv-badge-viewer'}`}>
-                            {membership.role_label}
-                        </span>
-                    )}
-                </td>
-                <td>
-                    {canRemove ? (
-                        <Button
-                            bsStyle="danger"
-                            bsSize="xsmall"
-                            className="sv-membership-btn-remove remove-member-btn"
-                            onClick={() => this.handleRemoveMember(membership.id, membership.username)}
-                        >
-                            <span className="glyphicon glyphicon-trash" aria-hidden="true" />
-                        </Button>
-                    ) : null}
-                </td>
-            </tr>
+            <div key={membership.id} className="membership-member-row sv-membership-member-row">
+                {this.renderAvatar(membership.username)}
+                <span className="sv-membership-member-name">
+                    {membership.username}
+                    {isSelf ? <span className="sv-membership-member-you"> (you)</span> : null}
+                </span>
+                {canChangeRole ? (
+                    <select
+                        value={membership.role}
+                        className="sv-scenario-select sv-membership-role-select change-role-btn"
+                        onChange={(e) => this.handleRoleChange(membership.id, e.target.value)}
+                    >
+                        {ROLES.map(r => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                    </select>
+                ) : (
+                    <span className={`sv-badge-role ${membership.role >= 4 ? 'sv-badge-manager' : membership.role >= 3 ? 'sv-badge-editor' : 'sv-badge-viewer'}`}>
+                        {membership.role_label}
+                    </span>
+                )}
+                {canRemove ? (
+                    <button
+                        type="button"
+                        className="sv-membership-btn-remove remove-member-btn"
+                        title={`Remove ${membership.username}`}
+                        aria-label={`Remove ${membership.username}`}
+                        onClick={() => this.handleRemoveMember(membership.id, membership.username)}
+                    >
+                        <span className="glyphicon glyphicon-remove" aria-hidden="true" />
+                    </button>
+                ) : null}
+            </div>
         );
     }
 
@@ -285,7 +377,7 @@ class MembershipPanelClass extends React.Component {
                     <input
                         type="email"
                         className="sv-data-title-input sv-membership-search-input invite-email-input"
-                        placeholder="Email address"
+                        placeholder="name@example.com"
                         value={this.state.inviteEmail}
                         disabled={formDisabled}
                         onChange={(e) => this.setState({inviteEmail: e.target.value})}
@@ -311,6 +403,13 @@ class MembershipPanelClass extends React.Component {
                         Send invite
                     </Button>
                 </div>
+                {/* UAT-2 redesign — say WHY the button is disabled instead of
+                    leaving a dead control unexplained. */}
+                {!formDisabled && !this.state.inviteEmail.trim() ? (
+                    <div className="sv-membership-invite-hint">
+                        Enter an email address to enable sending.
+                    </div>
+                ) : null}
             </div>
         );
     }
@@ -385,13 +484,139 @@ class MembershipPanelClass extends React.Component {
         trackEvent('button', 'click', 'membership-panel-close');
     };
 
+    // TASK-2420 — extracted verbatim from the pre-2420 render() so the
+    // flags-off path (renderSharingContent() called directly, no tab bar) is
+    // byte-identical to today, and the flags-on Sharing tab reuses the exact
+    // same markup rather than forking a second copy.
+    renderSharingContent() {
+        return (
+            <div id="membership-panel">
+                <div className="sv-menu-rows-container">
+                    {/*
+                  V2P-24 read-only fallback banner — when permsLoadFailed=true
+                  (V2P-20 /my-perms/ retry exhausted) the panel still renders
+                  the row list but suppresses Add/Change/Remove affordances.
+                  Owners must still SEE who's a member after a transient 5xx.
+                */}
+                    {this.props.permsLoadFailed ? (
+                        <div className="alert alert-warning sv-membership-perms-warning">
+                            <Message msgId="hydrata.anuga.permsUnavailable.message" />
+                        </div>
+                    ) : null}
+                    {/* TASK-1409 — inline confirm overlays replace window.confirm.
+                    removeMemberConfirm and visibilityConfirm are mutually
+                    exclusive in normal use; both are guarded separately. */}
+                    {this.state.removeMemberConfirm?.visible ? (
+                        <div className="sv-membership-confirm-overlay">
+                            <p>{`Remove ${this.state.removeMemberConfirm.username} from project?`}</p>
+                            <div className="sv-membership-confirm-buttons">
+                                <Button bsSize="small" onClick={this.cancelRemoveMember}>Cancel</Button>
+                                <Button bsStyle="danger" bsSize="small" className="membership-confirm-remove-btn" onClick={this.confirmRemoveMember}>Remove</Button>
+                            </div>
+                        </div>
+                    ) : null}
+                    {this.state.visibilityConfirm?.visible ? (
+                        <div className="sv-membership-confirm-overlay">
+                            <p>This will expose all project data to anonymous users. Continue?</p>
+                            <div className="sv-membership-confirm-buttons">
+                                <Button bsSize="small" onClick={this.cancelVisibilityChange}>Cancel</Button>
+                                <Button bsStyle="danger" bsSize="small" className="membership-confirm-visibility-btn" onClick={this.confirmVisibilityChange}>Make Public</Button>
+                            </div>
+                        </div>
+                    ) : null}
+                    {this.renderVisibilitySection()}
+                    {/* UAT-2 redesign — the User/Role table became a "Members (n)"
+                        avatar list; row classes (.membership-owner-row /
+                        .membership-member-row) and control hooks (.change-role-btn /
+                        .remove-member-btn) survive on the list rows. */}
+                    <div className="sv-membership-members">
+                        <div className="sv-membership-section-title">
+                            Members
+                            <span className="sv-membership-members-count">
+                                {1 + (this.props.memberships?.length || 0)}
+                            </span>
+                        </div>
+                        <div className="sv-membership-members-list">
+                            {this.renderOwnerRow()}
+                            {this.props.memberships?.map(m => this.renderMemberRow(m))}
+                        </div>
+                    </div>
+                    {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
+                    {this.renderInviteSection()}
+                    {/* TASK-860 — pending invitations list */}
+                    {this.renderInvitationsSection()}
+                </div>
+            </div>
+        );
+    }
+
+    // TASK-2420 — Sharing tab is manager-gated per the SAME panel-level
+    // `canAdd` (project permission axis — myRole owner/manager, or the
+    // V2P-30 org-owner perms fallback) that already gates Add/visibility
+    // inside renderSharingContent(). A non-manager gets NO Sharing tab at
+    // all (hidden, not read-only) — only Billing (the entitlement axis).
+    handleTabClick = (tab) => {
+        this.props.setMembershipPanelTab(tab);
+        trackEvent('button', 'click', `membership-panel-tab-${tab}`);
+    };
+
+    renderTabBar(activeTab) {
+        return (
+            <div className="sv-account-tab-bar" data-testid="sv-account-tab-bar">
+                {this.props.canAdd ? (
+                    <button
+                        type="button"
+                        data-testid="sv-account-tab-sharing"
+                        className={`sv-account-tab-btn ${activeTab === 'sharing' ? 'active' : ''}`}
+                        onClick={() => this.handleTabClick('sharing')}
+                    >
+                        <Message msgId="hydrata.anuga.accountTabSharing" />
+                    </button>
+                ) : null}
+                <button
+                    type="button"
+                    data-testid="sv-account-tab-billing"
+                    className={`sv-account-tab-btn ${activeTab === 'billing' ? 'active' : ''}`}
+                    onClick={() => this.handleTabClick('billing')}
+                >
+                    <Message msgId="hydrata.anuga.accountTabBilling" />
+                </button>
+            </div>
+        );
+    }
+
     render() {
         const persist = this.props.setMovablePanelState || (() => {});
+        // flags-off (AC1): byte-identical to today — NO tabs, title
+        // "Permissions", Sharing content only, manager-only padlock (gated
+        // upstream in simpleViewContainer.js, not here).
+        if (!this.props.paywallEnabled) {
+            return (
+                <MovablePanel
+                    panelId={MEMBERSHIP_PANEL_ID}
+                    className="sv-membership-movable"
+                    title={<Message msgId="hydrata.anuga.members" />}
+                    onClose={this.handleClose}
+                    position={this.props.panelState?.position}
+                    size={this.props.panelState?.size}
+                    defaultPosition={{x: 20, y: 70}}
+                    onMove={(position) => persist(MEMBERSHIP_PANEL_ID, {position})}
+                    onResize={(size) => persist(MEMBERSHIP_PANEL_ID, {size})}
+                >
+                    {this.renderSharingContent()}
+                </MovablePanel>
+            );
+        }
+
+        // flags-on: renamed 'Account', two tabs (Sharing hidden for a
+        // non-manager — never just read-only), Billing is the viewing
+        // user's OWN Account (never the project owner's).
+        const activeTab = this.props.canAdd ? this.props.activeTab : 'billing';
         return (
             <MovablePanel
                 panelId={MEMBERSHIP_PANEL_ID}
-                className="sv-membership-movable"
-                title={<Message msgId="hydrata.anuga.members" />}
+                className="sv-membership-movable sv-account-movable"
+                title={<Message msgId="hydrata.anuga.accountPanelTitle" />}
                 onClose={this.handleClose}
                 position={this.props.panelState?.position}
                 size={this.props.panelState?.size}
@@ -399,60 +624,8 @@ class MembershipPanelClass extends React.Component {
                 onMove={(position) => persist(MEMBERSHIP_PANEL_ID, {position})}
                 onResize={(size) => persist(MEMBERSHIP_PANEL_ID, {size})}
             >
-                <div id="membership-panel">
-                    <div className="sv-menu-rows-container">
-                        {/*
-                      V2P-24 read-only fallback banner — when permsLoadFailed=true
-                      (V2P-20 /my-perms/ retry exhausted) the panel still renders
-                      the row list but suppresses Add/Change/Remove affordances.
-                      Owners must still SEE who's a member after a transient 5xx.
-                    */}
-                        {this.props.permsLoadFailed ? (
-                            <div className="alert alert-warning sv-membership-perms-warning">
-                                <Message msgId="hydrata.anuga.permsUnavailable.message" />
-                            </div>
-                        ) : null}
-                        {/* TASK-1409 — inline confirm overlays replace window.confirm.
-                        removeMemberConfirm and visibilityConfirm are mutually
-                        exclusive in normal use; both are guarded separately. */}
-                        {this.state.removeMemberConfirm?.visible ? (
-                            <div className="sv-membership-confirm-overlay">
-                                <p>{`Remove ${this.state.removeMemberConfirm.username} from project?`}</p>
-                                <div className="sv-membership-confirm-buttons">
-                                    <Button bsSize="small" onClick={this.cancelRemoveMember}>Cancel</Button>
-                                    <Button bsStyle="danger" bsSize="small" className="membership-confirm-remove-btn" onClick={this.confirmRemoveMember}>Remove</Button>
-                                </div>
-                            </div>
-                        ) : null}
-                        {this.state.visibilityConfirm?.visible ? (
-                            <div className="sv-membership-confirm-overlay">
-                                <p>This will expose all project data to anonymous users. Continue?</p>
-                                <div className="sv-membership-confirm-buttons">
-                                    <Button bsSize="small" onClick={this.cancelVisibilityChange}>Cancel</Button>
-                                    <Button bsStyle="danger" bsSize="small" className="membership-confirm-visibility-btn" onClick={this.confirmVisibilityChange}>Make Public</Button>
-                                </div>
-                            </div>
-                        ) : null}
-                        {this.renderVisibilitySection()}
-                        <ChassisTable surface="dark" extraClassName="sv-scenario-table">
-                            <thead>
-                                <tr className="sv-scenario-table-header">
-                                    <th><Message msgId="hydrata.anuga.memberUser" /></th>
-                                    <th><Message msgId="hydrata.anuga.memberRole" /></th>
-                                    <th/>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {this.renderOwnerRow()}
-                                {this.props.memberships?.map(m => this.renderMemberRow(m))}
-                            </tbody>
-                        </ChassisTable>
-                        {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
-                        {this.renderInviteSection()}
-                        {/* TASK-860 — pending invitations list */}
-                        {this.renderInvitationsSection()}
-                    </div>
-                </div>
+                {this.renderTabBar(activeTab)}
+                {activeTab === 'sharing' ? this.renderSharingContent() : <BillingTabContainer />}
             </MovablePanel>
         );
     }
@@ -505,9 +678,16 @@ const mapStateToProps = (state) => {
         // ownership rule. Pulled from the same security slice the helpers'
         // state-shaped wrappers use (canEditLayerSelector et al).
         currentUserId: state?.security?.user?.pk || null,
+        // UAT-2 redesign — "(you)" marker source; same security slice as
+        // currentUserId (rows only carry usernames, not user pks). The live
+        // slice carries `username`; `name` kept as a fallback for mocks.
+        currentUsername: state?.security?.user?.username || state?.security?.user?.name || null,
         ownerUsername: state?.anuga?.projects?.data?.owner_username || 'owner',
         // TASK-2235 — persisted MovablePanel position/size for this panelId.
-        panelState: state?.anuga?.ui?.movablePanels?.[MEMBERSHIP_PANEL_ID]
+        panelState: state?.anuga?.ui?.movablePanels?.[MEMBERSHIP_PANEL_ID],
+        // TASK-2420 — which tab is active (paywallEnabled only; flags-off
+        // never reads this).
+        activeTab: state?.anuga?.ui?.membershipPanelTab || 'sharing'
     };
 };
 
@@ -522,7 +702,9 @@ const mapDispatchToProps = (dispatch) => ({
     revokeInvitationRequest: (invitationId) => dispatch(revokeInvitationRequest(invitationId)),
     resendInvitationRequest: (invitationId) => dispatch(resendInvitationRequest(invitationId)),
     // TASK-2235 — persist the MovablePanel position/size per panelId.
-    setMovablePanelState: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
+    setMovablePanelState: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch)),
+    // TASK-2420 — switch the Account panel's active tab.
+    setMembershipPanelTab: (tab) => dispatch(setMembershipPanelTab(tab))
 });
 
 const MembershipPanel = connect(mapStateToProps, mapDispatchToProps)(MembershipPanelClass);

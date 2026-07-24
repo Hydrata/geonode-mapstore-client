@@ -459,7 +459,9 @@ class HydrologyListDetailContainerClass extends React.Component {
                     onClick={LAUNCH_GATES.idfDerive ? () => this.props.setActiveHydrologyPage('idf-derive') : undefined}
                 >
                     <Message msgId="hydrata.hydrology.idfModeDerive" />
-                    {LAUNCH_GATES.idfDerive ? null : <ComingSoonBadge />}
+                    {/* UAT-2 — tooltip variant: the inline pill oversized this
+                        segment button vs its "Input" sibling. */}
+                    {LAUNCH_GATES.idfDerive ? null : <ComingSoonBadge variant="tooltip" />}
                 </button>
             </div>
         ) : null;

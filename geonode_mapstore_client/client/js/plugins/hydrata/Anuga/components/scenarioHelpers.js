@@ -516,3 +516,52 @@ export const getMeshCostDriverHint = (breakdown) => {
     if (!bestKey || bestKey === 'base' || bestValue <= 0) return null;
     return {driver: bestKey, share: Math.round((bestValue / total) * 100)};
 };
+
+// TASK-2400 (dogfood F1 #2a/#3) — shared pre-build cost-estimate formatter,
+// used by BOTH the in-pane estimate section (scenarioPane.js) and the
+// Build/Build-and-Run tooltip echo (scenarioHeaderActions.js), which used to
+// each carry their own copy of this same $0-vs-hedge logic (mechanical
+// simplify — one formatter, one place to fix the wording again).
+//   (b) a $0 (free-band) run never renders as "$0.00" — reads "Free".
+//   (c) a non-zero figure is hedged ("est.") rather than bare precision — it
+//       is dollar_estimate() rounded to 2dp, NOT the coarse customer-BILLED
+//       price_band (gn_anuga.estimate.band) that actually determines the
+//       charge; the Built line's price_band is the one number that IS the
+//       actual charge (scenarioHeaderActions.js's priceLabel, TASK-2100).
+// Returns '' when computeCostEstimate is null/undefined (nothing to show).
+export const formatCostEstimate = (computeCostEstimate) => {
+    if (computeCostEstimate === null || computeCostEstimate === undefined) return '';
+    if (Number(computeCostEstimate) === 0) return 'Free';
+    return `~$${Number(computeCostEstimate).toFixed(2)} est.`;
+};
+
+/**
+ * TASK-2420 (epic 2359 W4.5) — the coarse, customer-BILLED price band for a
+ * PRE-BUILD dollar estimate, mirroring gn_anuga.estimate.band()'s bucketing
+ * EXACTLY (free threshold, then ascending table lookup) so the Account
+ * panel's over-balance estimate badge can never disagree with what a build
+ * would actually be charged. band() itself needs a build-frozen Run and
+ * can't run pre-build — this is the same two-step bucketing applied to the
+ * scenario's own pre-build `compute_cost_estimate` instead.
+ *
+ * @param {number} dollars - the scenario's compute_cost_estimate.
+ * @param {string|number} freeThresholdStr - free_band.edge (account summary).
+ * @param {Array<[string|null, string]>} table - free_band.table (account summary):
+ *   [(upperBoundUsdOrNull, bandPriceUsd), ...] ascending, last entry's upper
+ *   is null (catch-all) in the shipped default.
+ * @returns {number|null} the band price, or null when inputs are missing/malformed.
+ */
+export const bandForEstimate = (dollars, freeThresholdStr, table) => {
+    if (dollars === null || dollars === undefined || !Array.isArray(table) || !table.length) return null;
+    const dollarsNum = Number(dollars);
+    const freeThreshold = Number(freeThresholdStr);
+    if (dollarsNum <= freeThreshold) return 0;
+    for (const [upper, price] of table) {
+        if (upper === null || dollarsNum <= Number(upper)) return Number(price);
+    }
+    // Finite last bound exceeded: the BE REFUSES dispatch above the ceiling
+    // (gn_anuga.estimate EstimateCeilingExceeded) — never price it into the
+    // last band (review A14). Infinity keeps the numeric contract while
+    // letting consumers render the ceiling state distinctly.
+    return Infinity;
+};

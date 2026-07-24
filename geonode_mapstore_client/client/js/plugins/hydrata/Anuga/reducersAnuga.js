@@ -15,7 +15,10 @@ import paywall from '../Paywall/reducer';
 // TASK-2100 (epic 2092 W4.2): compute-meter balance + insufficient-balance/
 // cap-exceeded modal -> state.anuga.computeMeter.
 import computeMeter from '../Paywall/meter/reducer';
+// TASK-2420 (epic 2359 W4.5): Account panel Billing tab summary
+// (org/manager/balance/free-band/subscription/ledger) -> state.anuga.accountSummary.
+import accountSummary from '../Paywall/account/reducer';
 
 export default combineReducers({
-    projects, scenarios, runs, ui, resources, memberships, clickDisambiguation, paywall, computeMeter
+    projects, scenarios, runs, ui, resources, memberships, clickDisambiguation, paywall, computeMeter, accountSummary
 });

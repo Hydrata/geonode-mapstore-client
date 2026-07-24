@@ -114,10 +114,19 @@ export class AnugaContainer extends React.Component {
         setHydrologyMainMenu: PropTypes.func,
         // TASK-1861 (W4.4) — depth/result line-profile tool toggle.
         showProfilePanel: PropTypes.bool,
-        setProfilePanelVisible: PropTypes.func
+        setProfilePanelVisible: PropTypes.func,
+        // TASK-2399 — plugin cfg kill-switch mirroring the Paywall plugin's own
+        // `paywallEnabled` (Paywall.js), threaded down to MembershipPanel so the
+        // sharing dialog's Private option can show its paid-tier status BEFORE
+        // the user clicks (rather than only discovering it via a 402). Ships
+        // dark (false) until localConfig.json's Anuga plugin cfg is flipped
+        // alongside the operator's PAYWALL_ENABLED flip.
+        paywallEnabled: PropTypes.bool
     };
 
     static defaultProps = {
+        // TASK-2399 — see the propTypes comment; dark by construction.
+        paywallEnabled: false
     };
 
     constructor(props) {
@@ -335,7 +344,7 @@ export class AnugaContainer extends React.Component {
                         <PublicationPanel/> : null
                     }
                     {this.props.showNetworkMenu ? <NetworkMenu/> : null}
-                    {this.props.showMembershipPanel ? <MembershipPanel/> : null}
+                    {this.props.showMembershipPanel ? <MembershipPanel paywallEnabled={this.props.paywallEnabled}/> : null}
                     {/* BUG (UAT, TASK-1648 regression): bbox panel mounted at the
                         container level so closing the Inputs menu (which 'Define
                         import area' does) does NOT unmount it mid-draw. It self-gates

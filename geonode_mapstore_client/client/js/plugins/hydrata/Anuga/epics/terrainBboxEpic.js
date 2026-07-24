@@ -254,9 +254,8 @@ export const createTerrainFromBboxErrorEpic = (action$) =>
                 message: 'hydrata.anuga.terrainBboxCreateErrorBody',
                 values: { detail },
                 position: 'tc',
-                autoDismiss: 10,
-                level: 'error'
-            });
+                autoDismiss: 10
+            }, 'error');
         });
 
 /**
@@ -284,9 +283,8 @@ export const convertTerrainDatumEpic = (action$, store) =>
                         message: 'hydrata.anuga.terrainDatumConvertStartedBody',
                         values: { title: (response && response.data && response.data.title) || '' },
                         position: 'tc',
-                        autoDismiss: 8,
-                        level: 'success'
-                    }),
+                        autoDismiss: 8
+                    }, 'success'),
                     convertTerrainDatumSuccess(response && response.data)
                 ]))
                 .catch((err) => Rx.Observable.of(
@@ -328,7 +326,6 @@ export const convertTerrainDatumErrorEpic = (action$) =>
                 message: 'hydrata.anuga.terrainDatumConvertErrorBody',
                 values: { detail },
                 position: 'tc',
-                autoDismiss: 10,
-                level: 'error'
-            });
+                autoDismiss: 10
+            }, 'error');
         });

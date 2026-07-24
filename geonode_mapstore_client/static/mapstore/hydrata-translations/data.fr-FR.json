@@ -225,6 +225,13 @@
         "memberRole": "Rôle",
         "memberUser": "Utilisateur",
         "members": "Membres",
+        "accountPanelTitle": "Compte",
+        "accountTabSharing": "Partage",
+        "accountTabBilling": "Facturation",
+        "accountFreeRunsHeading": "Exécutions gratuites aujourd'hui",
+        "accountSubscriptionHeading": "Abonnement",
+        "accountRecentActivityHeading": "Activité récente",
+        "accountRecentActivityEmpty": "Aucune activité pour l'instant",
         "permsUnavailable": {
           "message": "Les permissions n'ont pas pu etre chargees. La liste des membres est en lecture seule jusqu'a ce que les permissions soient de nouveau disponibles."
         },
@@ -654,6 +661,7 @@
         "filterAll": "Toutes",
         "statusPending": "En attente",
         "statusRunning": "En cours",
+        "statusStalled": "Bloqué",
         "statusComplete": "Terminé",
         "statusError": "Erreur",
         "statusCancelled": "Annulée"

@@ -67,3 +67,53 @@ describe('SimpleView RHS Permissions padlock', () => {
         expect(container.querySelector('button[title="Permissions"]')).toBe(null);
     });
 });
+
+// TASK-2420 (epic 2359 W4.5) — the padlock -> Account panel button. AC1:
+// flags-off is covered above (byte-identical, untouched by these new
+// tests). AC2: flags-on renders for ANY authenticated user (not just a
+// project manager), glyph 'user', title 'Account'.
+describe('SimpleView RHS Account button (TASK-2420, paywallEnabled=true)', () => {
+    // paywallEnabled is read off ownProps (mapStateToProps(state, ownProps)) —
+    // it arrives as a genuine ownProp via MapStore's createPlugin cfg-spread
+    // in the real app (localConfig.json's SimpleView plugin cfg, map_viewer
+    // block), so these tests pass it the same way: a JSX prop on the
+    // connected component, not via state.
+    const paywallOnState = (myRole, loggedIn = true) => ({
+        anuga: { projects: { data: { my_role: myRole } }, ui: { showMembershipPanel: false } },
+        security: { user: loggedIn ? { pk: 1 } : null },
+        simpleView: {},
+        layers: { groups: [] },
+        localConfig: { plugins: { map_viewer: [] } }
+    });
+
+    it('renders for a non-manager authenticated user (hidden under flags-off) as "Account" with the user glyph', () => {
+        const { store } = makeStore(paywallOnState('viewer'));
+        const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
+        expect(container.querySelector('button[title="Permissions"]')).toBe(null);
+        const btn = container.querySelector('button[title="Account"]');
+        expect(btn).toBeTruthy();
+        expect(btn.querySelector('.glyphicon-user')).toBeTruthy();
+    });
+
+    it('still renders for a manager too (title flips from Permissions to Account)', () => {
+        const { store } = makeStore(paywallOnState('manager'));
+        const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
+        expect(container.querySelector('button[title="Permissions"]')).toBe(null);
+        expect(container.querySelector('button[title="Account"]')).toBeTruthy();
+    });
+
+    it('renders nothing for an anonymous (logged-out) visitor', () => {
+        const { store } = makeStore(paywallOnState('viewer', false));
+        const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
+        expect(container.querySelector('button[title="Account"]')).toBe(null);
+    });
+
+    it('dispatches setMembershipPanel(true) on click, same as the flags-off padlock', () => {
+        const { store, dispatched } = makeStore(paywallOnState('viewer'));
+        const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
+        fireEvent.click(container.querySelector('button[title="Account"]'));
+        const membershipActions = dispatched.filter(a => a && a.type === 'SET_MEMBERSHIP_PANEL');
+        expect(membershipActions.length).toBe(1);
+        expect(membershipActions[0].visible).toBe(true);
+    });
+});

@@ -7,10 +7,15 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {setControlProperty} from '@mapstore/framework/actions/controls';
 import {saveDirectContent} from '@js/actions/gnsave';
 // The RHS padlock opens our custom ANUGA permissions panel (MembershipPanel),
-// toggled via setMembershipPanel and gated by canManageMembers (owner/manager on
-// the ANUGA project — the same audience as the old left-rail "Permissions" button).
-// The MembershipPanel is mounted by anugaContainer on ANUGA maps, so the padlock
-// only appears where that panel exists.
+// toggled via setMembershipPanel. flags-off (paywallEnabled=false, the
+// default): gated by canManageMembers (owner/manager on the ANUGA project —
+// the same audience as the old left-rail "Permissions" button), glyph
+// 'lock', title 'Permissions' — byte-identical to pre-2420 behaviour.
+// TASK-2420 (epic 2359 W4.5) flags-on: rendered for ANY logged-in user
+// (Billing is the viewer's own Account; Sharing stays manager-gated INSIDE
+// the panel), glyph 'user', title 'Account'. The MembershipPanel is mounted
+// by anugaContainer on ANUGA maps, so the button only appears where that
+// panel exists.
 import { setMembershipPanel } from '../../Anuga/actionsAnuga';
 import { canManageMembers } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
 import {canEditResource} from '@js/selectors/resource';
@@ -71,11 +76,17 @@ export class SimpleViewContainer extends React.Component {
         // RHS padlock opens the custom ANUGA permissions panel (MembershipPanel).
         canManageMembers: PropTypes.bool,
         permissionsEnabled: PropTypes.bool,
-        togglePermissions: PropTypes.func
+        togglePermissions: PropTypes.func,
+        // TASK-2420 (epic 2359 W4.5) — kill-switch mirroring the Anuga/Paywall
+        // plugins' own `paywallEnabled` cfg (threaded via localConfig.json's
+        // SimpleView plugin cfg, map_viewer block). Flips the padlock ->
+        // 'Account' button open to ANY authenticated user.
+        paywallEnabled: PropTypes.bool
     };
 
     static defaultProps = {
-        visibleIntroduction: false
+        visibleIntroduction: false,
+        paywallEnabled: false
     };
 
     constructor(props) {
@@ -222,17 +233,28 @@ export class SimpleViewContainer extends React.Component {
                             </button>
                         </>
                     ) : null}
-                    {/* Permissions padlock — opens the custom MembershipPanel (replaces
-                        the old left-rail "Permissions" button). Gated on canManageMembers
-                        so it only shows where the panel mounts (ANUGA owner/manager). */}
-                    {this.props.canManageMembers ?
-                        <button
-                            className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
-                            onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
-                            title="Permissions">
-                            <Glyphicon glyph="lock" />
-                        </button>
-                        : null
+                    {/* TASK-2420 (epic 2359 W4.5) — padlock -> Account panel button.
+                        flags-off (AC1, byte-identical to today): gated on canManageMembers,
+                        glyph 'lock', title 'Permissions'. flags-on: rendered for ANY
+                        authenticated user (Billing is the viewer's own Account; Sharing
+                        stays manager-gated INSIDE the panel), glyph 'user', title 'Account'. */}
+                    {this.props.paywallEnabled
+                        ? (this.props.loggedIn ? (
+                            <button
+                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
+                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
+                                title="Account">
+                                <Glyphicon glyph="user" />
+                            </button>
+                        ) : null)
+                        : (this.props.canManageMembers ? (
+                            <button
+                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
+                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
+                                title="Permissions">
+                                <Glyphicon glyph="lock" />
+                            </button>
+                        ) : null)
                     }
                 </div>
                 {this.state.saveConfirmVisible ?
@@ -322,7 +344,11 @@ const mapStateToProps = (state, ownProps) => {
         hgevalActive: !!(state?.hgeval?.step && state?.hgeval?.step !== 'idle'),
         // RHS padlock active-state tracks the custom MembershipPanel visibility.
         permissionsEnabled: !!state?.anuga?.ui?.showMembershipPanel,
-        canManageMembers: canManageMembers(state)
+        canManageMembers: canManageMembers(state),
+        // TASK-2420 — ownProps carries the SimpleView plugin's own cfg
+        // (localConfig.json map_viewer block), mirroring how anugaContainer
+        // reads the Anuga plugin's paywallEnabled cfg.
+        paywallEnabled: !!ownProps?.paywallEnabled
     };
 };
 

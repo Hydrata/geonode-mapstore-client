@@ -81,7 +81,7 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 68 API functions', () => {
+        it('should export exactly 72 API functions', () => {
             // Branch baseline (epic/1587) ships 55 exported functions (the
             // historical "53→54" comment chain undercounted by one; the live
             // module is 55). TASK-1729 adds 4: presignTerrainUpload +
@@ -96,10 +96,12 @@ describe('anugaApi', () => {
             // getComputeBalance = 67.
             // TASK-2165 adds 1: recalcDatasetBbox = 68.
             // TASK-2323 adds 2: convertTerrainDatum + ackTerrainDatum = 70.
+            // TASK-2419/2420 (epic 2359 W4.5) adds 2: getAccountSummary +
+            // createBillingPortalSession = 72.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(70);
+            expect(exportedFunctions.length).toBe(72);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
