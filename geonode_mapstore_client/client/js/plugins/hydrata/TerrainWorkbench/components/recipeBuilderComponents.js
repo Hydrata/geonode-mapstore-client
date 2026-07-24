@@ -20,12 +20,12 @@ import {ErrorStrip, StatusBadge} from "../../SimpleView/components/primitives";
 
 // ── TASK-1645 (W1.5) / TASK-1671 (W1.6): AnalysisSurface recipe builder ────
 
-// S1 param defaults.
+// S1 merge param defaults. Terrain conditioning (breach/fill, flow direction,
+// accumulation) is deferred to the terrain-delineation epic (epic B), so the
+// breach_* params were removed from the recipe.
 const TW_PARAM_DEFAULTS = {
     feather_width_m: 50,
-    target_resolution_m: 5,
-    breach_max_cost: 20,
-    breach_search_dist: 100
+    target_resolution_m: 5
 };
 
 // ── TASK-1671: Client-side output-size estimator ───────────────────────────
@@ -333,11 +333,8 @@ class TWRecipeBuilder extends React.Component {
         super(props);
         const s = props.surface;
         this.state = {
-            use_terrain_breaches: !!s.use_terrain_breaches,
             feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
             target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
-            breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
-            breach_search_dist: s.breach_search_dist ?? TW_PARAM_DEFAULTS.breach_search_dist,
             // TASK-1671: single ordered DEM stack (replaces designInputs + regional_terrain)
             inputs: TWRecipeBuilder._inputsFromSurface(s),
             // Confirm dialog state
@@ -352,11 +349,8 @@ class TWRecipeBuilder extends React.Component {
             const s = this.props.surface;
             // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({
-                use_terrain_breaches: !!s.use_terrain_breaches,
                 feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
                 target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
-                breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
-                breach_search_dist: s.breach_search_dist ?? TW_PARAM_DEFAULTS.breach_search_dist,
                 inputs: TWRecipeBuilder._inputsFromSurface(s),
                 confirmOpen: false,
                 sizeEstimate: null
@@ -381,20 +375,17 @@ class TWRecipeBuilder extends React.Component {
 
     handleConfirmDerive = () => {
         const { surface, onDerive } = this.props;
-        const { inputs, use_terrain_breaches, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist } = this.state;
+        const { inputs, feather_width_m, target_resolution_m } = this.state;
         this.setState({ confirmOpen: false });
-        // TASK-1671: dispatch atomic derive — body carries inputs + params.
+        // TASK-1671: dispatch atomic derive — body carries inputs + merge params.
         const body = {
             inputs: inputs.map(inp => ({
                 terrain_id: inp.terrain_id,
                 priority: inp.priority,
                 unmodified: !!inp.unmodified
             })),
-            use_terrain_breaches: !!use_terrain_breaches,
             feather_width_m: parseFloat(feather_width_m),
-            target_resolution_m: parseFloat(target_resolution_m),
-            breach_max_cost: parseFloat(breach_max_cost),
-            breach_search_dist: parseFloat(breach_search_dist)
+            target_resolution_m: parseFloat(target_resolution_m)
         };
         onDerive(surface.id, body);
     };
@@ -415,7 +406,7 @@ class TWRecipeBuilder extends React.Component {
 
     render() {
         const { surface, terrains, deriving, deriveError, saving, saveError } = this.props;
-        const { use_terrain_breaches, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist, inputs, confirmOpen, sizeEstimate } = this.state;
+        const { feather_width_m, target_resolution_m, inputs, confirmOpen, sizeEstimate } = this.state;
         const canDerive = this._canDerive();
         const allUnmodified = inputs.length > 0 && inputs.every(d => d.unmodified);
         return (
@@ -435,18 +426,17 @@ class TWRecipeBuilder extends React.Component {
                 {/* TASK-1671: Parameters section — NO Save parameters button.
                     #10 (re-UAT): the "PARAMETERS" sub-heading was redundant with the
                     collapsible panel title and is removed. */}
+                {/* Terrain conditioning (breach/fill, flow direction, accumulation)
+                    is deferred to the terrain-delineation epic (epic B). The merge
+                    dialog now exposes ONLY the two merge params (feather width +
+                    target resolution); the Terrain-breaches / Breach-max-cost /
+                    Breach-search-dist inputs were removed. */}
                 <div className="sv-tw-params-section tw-params-section">
                     <div className="sv-tw-param-grid">
-                        <label>Terrain breaches</label>
-                        <input type="checkbox" checked={!!use_terrain_breaches} onChange={(e) => this.handleParam('use_terrain_breaches', e.target.checked)} disabled={saving || deriving} data-testid="use-terrain-breaches-check"/>
                         <label>Feather width (m)</label>
                         <input type="number" className="sv-tw-number-input" value={feather_width_m} min="1" onChange={(e) => this.handleParam('feather_width_m', e.target.value)} disabled={saving || deriving} data-testid="feather-width-input"/>
                         <label>Target resolution (m)</label>
                         <input type="number" className="sv-tw-number-input" value={target_resolution_m} min="0.1" step="0.1" onChange={(e) => this.handleParam('target_resolution_m', e.target.value)} disabled={saving || deriving} data-testid="target-res-input"/>
-                        <label>Breach max cost</label>
-                        <input type="number" className="sv-tw-number-input" value={breach_max_cost} min="0" onChange={(e) => this.handleParam('breach_max_cost', e.target.value)} disabled={saving || deriving} data-testid="breach-max-cost-input"/>
-                        <label>Breach search dist</label>
-                        <input type="number" className="sv-tw-number-input" value={breach_search_dist} min="1" onChange={(e) => this.handleParam('breach_search_dist', e.target.value)} disabled={saving || deriving} data-testid="breach-search-dist-input"/>
                     </div>
                     {/* TASK-1671: Save parameters button REMOVED — params saved atomically on derive */}
                 </div>
