@@ -132,7 +132,7 @@ describe('TASK-2420 accountEpics', () => {
         beforeEach(() => { mockAxios = new MockAdapter(axios); });
         afterEach(() => { mockAxios.restore(); });
 
-        it('POST /commerce/billing-portal/ success -> redirects to the returned url, emits nothing', (done) => {
+        it('POST /commerce/billing-portal/ success -> opens the returned url (new tab) and clears portalLoading', (done) => {
             mockAxios.onPost('/commerce/billing-portal/').reply(200, { url: 'https://billing.stripe.com/p/session/test_x' });
             let redirectedTo = null;
             __setRedirectForTests((url) => { redirectedTo = url; });
@@ -141,7 +141,10 @@ describe('TASK-2420 accountEpics', () => {
             const emitted = [];
             requestBillingPortalEpic(action$)
                 .subscribe(a => emitted.push(a), done, () => {
-                    expect(emitted.length).toBe(0);
+                    // UAT-2: the portal opens in a NEW tab, so this page stays
+                    // alive and the epic must clear the button's Opening state.
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe('ACCOUNT:SET_BILLING_PORTAL_OPENED');
                     expect(redirectedTo).toBe('https://billing.stripe.com/p/session/test_x');
                     done();
                 });

@@ -1953,7 +1953,28 @@ describe('ANUGA Epics', () => {
                     });
             });
 
-            it('API error -> emits SHOW_NOTIFICATION (no crash, no redirect)', (done) => {
+            it('accountOnly (Billing tab Subscribe) POSTs create-session with NO project_id', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    // UAT-2: account-scoped subscription — no project rides the
+                    // session, so no post-payment visibility flip.
+                    expect(JSON.parse(config.data)).toEqual({purchase_type: 'subscription'});
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_acct'}];
+                });
+                let redirectedTo = null;
+                __setRedirectForTests((url) => { redirectedTo = url; });
+
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription', accountOnly: true}]);
+                const emitted = [];
+
+                subscribeCheckoutEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_acct');
+                        done();
+                    });
+            });
+
+            it('API error -> emits SHOW_NOTIFICATION at level error (no crash, no redirect)', (done) => {
                 mockAxios.onPost('/commerce/checkout/create-session/').reply(400, {error: 'boom'});
                 let redirectedTo = null;
                 __setRedirectForTests((url) => { redirectedTo = url; });
@@ -1965,6 +1986,10 @@ describe('ANUGA Epics', () => {
                     .subscribe(a => emitted.push(a), done, () => {
                         expect(emitted.length).toBe(1);
                         expect(emitted[0].type).toInclude('NOTIFICATION');
+                        // UAT-2 green-error-toast regression: show()'s level is
+                        // its SECOND ARG — a level key inside opts is silently
+                        // overwritten to 'success'.
+                        expect(emitted[0].level).toBe('error');
                         expect(redirectedTo).toBe(null);
                         done();
                     });

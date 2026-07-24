@@ -13,6 +13,7 @@ export const FETCH_ACCOUNT_SUMMARY = 'ACCOUNT:FETCH_SUMMARY';
 export const SET_ACCOUNT_SUMMARY = 'ACCOUNT:SET_SUMMARY';
 export const REQUEST_BILLING_PORTAL = 'ACCOUNT:REQUEST_BILLING_PORTAL';
 export const SET_BILLING_PORTAL_ERROR = 'ACCOUNT:SET_BILLING_PORTAL_ERROR';
+export const SET_BILLING_PORTAL_OPENED = 'ACCOUNT:SET_BILLING_PORTAL_OPENED';
 
 export function fetchAccountSummary() {
     return { type: FETCH_ACCOUNT_SUMMARY };
@@ -31,4 +32,13 @@ export function requestBillingPortal() {
 /** @param {string} detail — server error detail, or a generic client message. */
 export function setBillingPortalError(detail) {
     return { type: SET_BILLING_PORTAL_ERROR, detail };
+}
+
+/**
+ * UAT-2 (new-tab portal) — the portal now opens in a separate tab, so THIS
+ * page stays alive and the "Opening…" button state must be cleared on
+ * success (previously the same-tab navigation made that moot).
+ */
+export function setBillingPortalOpened() {
+    return { type: SET_BILLING_PORTAL_OPENED };
 }

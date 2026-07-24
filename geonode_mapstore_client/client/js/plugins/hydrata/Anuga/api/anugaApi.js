@@ -604,7 +604,10 @@ export const createCheckoutSession = (projectId, purchaseType = 'subscription', 
     const body = { purchase_type: purchaseType };
     if (purchaseType === 'credit_pack') {
         body.price_id = priceId;
-    } else {
+    } else if (projectId) {
+        // Omitted entirely for an account-scoped subscription (UAT-2 — the
+        // Billing tab's Subscribe carries no project; see checkout_views.py's
+        // optional-project contract).
         body.project_id = projectId;
     }
     return axios.post('/commerce/checkout/create-session/', body);

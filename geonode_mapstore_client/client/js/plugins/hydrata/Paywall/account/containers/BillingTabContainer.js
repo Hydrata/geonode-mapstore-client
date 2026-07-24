@@ -28,7 +28,9 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => ({
     onBuyPack: (priceId) => dispatch(subscribeCheckoutRequest('credit_pack', { priceId })),
-    onSubscribe: () => dispatch(subscribeCheckoutRequest('subscription')),
+    // UAT-2 — accountOnly: the Billing tab subscribes the ACCOUNT; no project
+    // rides the checkout session (see subscribeCheckoutEpic).
+    onSubscribe: () => dispatch(subscribeCheckoutRequest('subscription', { accountOnly: true })),
     onManageBilling: () => dispatch(requestBillingPortal())
 });
 

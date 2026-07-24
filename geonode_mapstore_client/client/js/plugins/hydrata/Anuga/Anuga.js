@@ -156,7 +156,8 @@ import {
     triggerFetchAccountSummaryOnInitEpic,
     triggerFetchAccountSummaryOnBillingTabOpenEpic,
     fetchAccountSummaryEpic,
-    requestBillingPortalEpic
+    requestBillingPortalEpic,
+    refreshAccountOnWindowFocusEpic
 } from "./epics/accountEpics";
 
 export default createPlugin('Anuga', {
@@ -229,6 +230,7 @@ export default createPlugin('Anuga', {
         triggerFetchAccountSummaryOnBillingTabOpenEpic,
         fetchAccountSummaryEpic,
         requestBillingPortalEpic,
+        refreshAccountOnWindowFocusEpic,
         deleteTerrainEpic,
         deleteBoundaryEpic,
         deleteFrictionEpic,

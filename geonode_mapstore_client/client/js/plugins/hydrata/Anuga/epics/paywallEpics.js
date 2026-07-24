@@ -43,17 +43,29 @@ export const PAYWALL_POLL_MAX_ATTEMPTS = 20;
 let _pollIntervalMs = PAYWALL_POLL_INTERVAL_MS;
 export const __setPollIntervalForTests = (ms) => { _pollIntervalMs = ms || PAYWALL_POLL_INTERVAL_MS; };
 
-// Test seam — subscribeCheckoutEpic's real behaviour is a full-page
-// navigation (window.location.href = url), which would hang/derail a Karma
-// run in a real browser. Tests inject a spy here instead of letting the
-// suite actually navigate away.
-let _redirectTo = (url) => {
-    if (typeof window !== 'undefined' && window.location) {
+// UAT-2 — Stripe checkout opens in a NEW tab so the map SPA (unsaved map
+// state, panel layout, in-flight polls) survives the round-trip; the
+// CheckoutReturnView redirect lands in that new tab, whose own
+// checkoutReturnEpic shows the Billing tab. Fallback-guarded: a popup
+// blocker makes window.open return null, in which case we same-tab navigate
+// so the purchase flow never dead-ends. `w.opener = null` severs the reverse
+// handle (passing 'noopener' as a window feature would ALSO force the return
+// value to null, breaking blocked-detection).
+const _openInNewTab = (url) => {
+    if (typeof window === 'undefined' || !window.location) return;
+    const w = window.open(url, '_blank');
+    if (w) {
+        w.opener = null;
+    } else {
         window.location.href = url;
     }
 };
+
+// Test seam — the real behaviour opens a browser tab, which would derail a
+// Karma run. Tests inject a spy here instead.
+let _redirectTo = _openInNewTab;
 export const __setRedirectForTests = (fn) => {
-    _redirectTo = fn || ((url) => { if (typeof window !== 'undefined' && window.location) window.location.href = url; });
+    _redirectTo = fn || _openInNewTab;
 };
 
 // Module-level "have we already parsed the return URL this session" guard —
@@ -96,13 +108,15 @@ export const checkoutReturnEpic = (action$) => action$
             setPaywallPending(), dismissMeterModal(),
             setMembershipPanel(true), setMembershipPanelTab('billing'), fetchAccountSummary()
         )
+        // NOTE the show(opts, level) signature: level is the SECOND ARG — a
+        // `level` key inside opts is overwritten by the arg's 'success'
+        // default (the UAT-2 green-error-toast bug).
         : Rx.Observable.of(show({
             title: 'hydrata.anuga.checkoutCancelled.title',
             message: 'hydrata.anuga.checkoutCancelled.message',
-            level: 'info',
             autoDismiss: 5,
             position: 'tc'
-        }))
+        }, 'info'))
     );
 
 export const pollMyPermsWhilePendingEpic = (action$, store) => action$
@@ -120,8 +134,13 @@ export const pollMyPermsWhilePendingEpic = (action$, store) => action$
 
 export const subscribeCheckoutEpic = (action$, store) => action$
     .ofType(SUBSCRIBE_CHECKOUT_REQUEST)
-    .switchMap(({ purchaseType, priceId }) => {
-        const projectId = getProjectId(store.getState());
+    .switchMap(({ purchaseType, priceId, accountOnly }) => {
+        // UAT-2 — `accountOnly` (Billing tab's Subscribe): the subscription is
+        // ACCOUNT-scoped, so no project rides the session — no post-payment
+        // visibility flip of whichever map the user happened to be viewing.
+        // The UpgradeModal path (privacy intent on THIS project) still sends
+        // the project so the webhook can flip it private.
+        const projectId = accountOnly ? null : getProjectId(store.getState());
         return Rx.Observable.from(anugaApi.createCheckoutSession(projectId, purchaseType, priceId))
             .mergeMap((response) => {
                 const url = response?.data?.checkout_url;
@@ -134,10 +153,9 @@ export const subscribeCheckoutEpic = (action$, store) => action$
                 show({
                     title: 'hydrata.anuga.checkoutFailed.title',
                     message: 'hydrata.anuga.checkoutFailed.message',
-                    level: 'error',
                     autoDismiss: 5,
                     position: 'tc'
-                })
+                }, 'error')
             ));
     });
 

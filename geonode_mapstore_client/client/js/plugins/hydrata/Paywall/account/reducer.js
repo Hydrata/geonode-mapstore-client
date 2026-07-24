@@ -10,6 +10,7 @@
 import {
     SET_ACCOUNT_SUMMARY,
     SET_BILLING_PORTAL_ERROR,
+    SET_BILLING_PORTAL_OPENED,
     REQUEST_BILLING_PORTAL
 } from './actions';
 
@@ -62,6 +63,8 @@ export default (state = initialState, action) => {
         return { ...state, portalLoading: true, portalError: null };
     case SET_BILLING_PORTAL_ERROR:
         return { ...state, portalLoading: false, portalError: action.detail || null };
+    case SET_BILLING_PORTAL_OPENED:
+        return { ...state, portalLoading: false };
     default:
         return state;
     }

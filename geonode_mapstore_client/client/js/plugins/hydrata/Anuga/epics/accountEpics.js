@@ -21,8 +21,11 @@ import {
     REQUEST_BILLING_PORTAL,
     fetchAccountSummary,
     setAccountSummary,
-    setBillingPortalError
+    setBillingPortalError,
+    setBillingPortalOpened
 } from '../../Paywall/account/actions';
+import { getAccountSummaryState } from '../../Paywall/account/reducer';
+import { fetchComputeBalance } from '../../Paywall/meter/actions';
 // TASK-2110-class error-shape gotcha (see apiErrorUtils.js doc comment):
 // MapStore2's libs/ajax.js response interceptor rewrites axios rejections
 // to the response blob directly (err.status/err.data), not err.response.*.
@@ -41,16 +44,24 @@ export const triggerFetchAccountSummaryOnInitEpic = (action$) => action$
         return fetchAccountSummary();
     });
 
-// Test seam — requestBillingPortalEpic's real behaviour is a full-page
-// navigation (window.location.href = url), which would hang/derail a Karma
-// run in a real browser. Mirrors paywallEpics.js's __setRedirectForTests.
-let _redirectTo = (url) => {
-    if (typeof window !== 'undefined' && window.location) {
+// UAT-2 — the Stripe Customer Portal opens in a NEW tab so the map SPA
+// survives the round-trip (same rationale + blocked-popup fallback as
+// paywallEpics.js's _openInNewTab).
+const _openInNewTab = (url) => {
+    if (typeof window === 'undefined' || !window.location) return;
+    const w = window.open(url, '_blank');
+    if (w) {
+        w.opener = null;
+    } else {
         window.location.href = url;
     }
 };
+
+// Test seam — the real behaviour opens a browser tab, which would derail a
+// Karma run. Mirrors paywallEpics.js's __setRedirectForTests.
+let _redirectTo = _openInNewTab;
 export const __setRedirectForTests = (fn) => {
-    _redirectTo = fn || ((url) => { if (typeof window !== 'undefined' && window.location) window.location.href = url; });
+    _redirectTo = fn || _openInNewTab;
 };
 
 export const triggerFetchAccountSummaryOnBillingTabOpenEpic = (action$) => action$
@@ -75,6 +86,9 @@ export const requestBillingPortalEpic = (action$) => action$
             const url = response?.data?.url;
             if (url) {
                 _redirectTo(url);
+                // New-tab open leaves THIS page alive — clear the button's
+                // "Opening…" state (same-tab nav previously made this moot).
+                return Rx.Observable.of(setBillingPortalOpened());
             }
             return Rx.Observable.empty();
         })
@@ -83,9 +97,26 @@ export const requestBillingPortalEpic = (action$) => action$
         ))
     );
 
+/**
+ * UAT-2 (new-tab checkout/portal) — the purchase now completes in ANOTHER
+ * tab, so this tab's balance/ledger go stale the moment the user pays.
+ * Refetch the account summary + meter balance whenever this window regains
+ * focus, once a summary has ever been loaded (a dark/flags-off session never
+ * loads one, so it never fires). Debounced so rapid focus flapping can't
+ * queue a fetch burst; both endpoints are cheap idempotent GETs.
+ */
+export const refreshAccountOnWindowFocusEpic = (action$, store) =>
+    (typeof window === 'undefined'
+        ? Rx.Observable.empty()
+        : Rx.Observable.fromEvent(window, 'focus'))
+        .debounceTime(500)
+        .filter(() => getAccountSummaryState(store.getState()).loaded)
+        .mergeMap(() => Rx.Observable.of(fetchAccountSummary(), fetchComputeBalance()));
+
 export default {
     triggerFetchAccountSummaryOnInitEpic,
     triggerFetchAccountSummaryOnBillingTabOpenEpic,
     fetchAccountSummaryEpic,
-    requestBillingPortalEpic
+    requestBillingPortalEpic,
+    refreshAccountOnWindowFocusEpic
 };
