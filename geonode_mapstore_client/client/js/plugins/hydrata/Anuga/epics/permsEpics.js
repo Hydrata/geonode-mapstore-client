@@ -110,9 +110,8 @@ export const fetchMyPermsEpic = (action$) => action$
                     title: 'hydrata.anuga.permsUnavailable.title',
                     message: 'hydrata.anuga.permsUnavailable.message',
                     autoDismiss: 5,
-                    position: 'tc',
-                    level: 'warning'
-                })
+                    position: 'tc'
+                }, 'warning')
             );
         };
 
