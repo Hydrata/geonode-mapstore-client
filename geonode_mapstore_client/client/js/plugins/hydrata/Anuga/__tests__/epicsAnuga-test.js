@@ -1974,6 +1974,31 @@ describe('ANUGA Epics', () => {
                     });
             });
 
+            it('sends return_map_id (the viewed map) so a project-less session returns to the map, not app home', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    expect(JSON.parse(config.data)).toEqual({purchase_type: 'subscription', return_map_id: '1418'});
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_rmid'}];
+                });
+                let redirectedTo = null;
+                __setRedirectForTests((url) => { redirectedTo = url; });
+
+                const store = {
+                    getState: () => ({
+                        anuga: { projects: { data: { id: null } } },
+                        gnresource: { id: '1418' }
+                    })
+                };
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription', accountOnly: true}]);
+                const emitted = [];
+
+                subscribeCheckoutEpic(action$, store)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_rmid');
+                        done();
+                    });
+            });
+
             it('API error -> emits SHOW_NOTIFICATION at level error (no crash, no redirect)', (done) => {
                 mockAxios.onPost('/commerce/checkout/create-session/').reply(400, {error: 'boom'});
                 let redirectedTo = null;

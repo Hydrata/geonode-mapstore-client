@@ -141,7 +141,10 @@ export const subscribeCheckoutEpic = (action$, store) => action$
         // The UpgradeModal path (privacy intent on THIS project) still sends
         // the project so the webhook can flip it private.
         const projectId = accountOnly ? null : getProjectId(store.getState());
-        return Rx.Observable.from(anugaApi.createCheckoutSession(projectId, purchaseType, priceId))
+        // The map being viewed — CheckoutReturnView's fallback return target
+        // for project-less sessions (see createCheckoutSession).
+        const returnMapId = store.getState()?.gnresource?.id || null;
+        return Rx.Observable.from(anugaApi.createCheckoutSession(projectId, purchaseType, priceId, returnMapId))
             .mergeMap((response) => {
                 const url = response?.data?.checkout_url;
                 if (url) {

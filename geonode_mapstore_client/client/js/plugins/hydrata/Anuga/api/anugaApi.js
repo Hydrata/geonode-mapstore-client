@@ -600,7 +600,7 @@ export const updateProjectVisibility = (projectId, visibility) =>
 // checkout epic POSTs here then redirects the browser to the returned
 // session.url. Shared by the subscription flow (2099) and the compute-meter
 // credit-pack flow (2100, purchaseType='credit_pack' + priceId).
-export const createCheckoutSession = (projectId, purchaseType = 'subscription', priceId) => {
+export const createCheckoutSession = (projectId, purchaseType = 'subscription', priceId, returnMapId) => {
     const body = { purchase_type: purchaseType };
     if (purchaseType === 'credit_pack') {
         body.price_id = priceId;
@@ -609,6 +609,12 @@ export const createCheckoutSession = (projectId, purchaseType = 'subscription', 
         // Billing tab's Subscribe carries no project; see checkout_views.py's
         // optional-project contract).
         body.project_id = projectId;
+    }
+    if (returnMapId) {
+        // UAT-2 — the map the user is on, so a project-less session (account
+        // subscription, credit pack) still returns to this map instead of the
+        // app home (where checkoutReturnEpic never fires).
+        body.return_map_id = returnMapId;
     }
     return axios.post('/commerce/checkout/create-session/', body);
 };
