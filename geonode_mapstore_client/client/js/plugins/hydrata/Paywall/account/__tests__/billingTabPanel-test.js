@@ -90,7 +90,7 @@ describe('BillingTabPanel — credit packs (spec item 4)', () => {
             ],
             onBuyPack: (id) => { clickedWith = id; }
         });
-        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_10"]').textContent).toBe('Buy $10 pack');
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_10"]').textContent).toBe('+ $10');
         c.querySelector('[data-testid="compute-meter-buy-pack-price_25"]').click();
         expect(clickedWith).toBe('price_25');
     });
@@ -103,7 +103,7 @@ describe('BillingTabPanel — subscription section (spec item 5, manager-only)',
             loaded: true, freeBand: baseFreeBand, isManager: true, manager: 'me',
             subscription: { active: false, since: null }, onSubscribe: () => { subscribed = true; }
         });
-        expect(c.querySelector('[data-testid="sv-account-subscription-state"]').textContent).toInclude('not subscribed');
+        expect(c.querySelector('[data-testid="sv-account-subscription-state"]').textContent).toInclude('Not subscribed');
         const btn = c.querySelector('[data-testid="sv-account-subscribe-btn"]');
         expect(btn).toExist();
         btn.click();
@@ -117,7 +117,7 @@ describe('BillingTabPanel — subscription section (spec item 5, manager-only)',
             loaded: true, freeBand: baseFreeBand, isManager: true, manager: 'me',
             subscription: { active: true, since: '2026-01-15T00:00:00Z' }, onManageBilling: () => { managed = true; }
         });
-        expect(c.querySelector('[data-testid="sv-account-subscription-state"]').textContent).toInclude('active');
+        expect(c.querySelector('[data-testid="sv-account-subscription-state"]').textContent).toInclude('Active');
         expect(c.querySelector('[data-testid="sv-account-subscription-state"]').textContent).toInclude('2026-01-15');
         const btn = c.querySelector('[data-testid="sv-account-manage-billing-btn"]');
         expect(btn).toExist();

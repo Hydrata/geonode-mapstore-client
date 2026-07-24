@@ -1,42 +1,58 @@
 /*
- * Account panel — tab strip + Billing tab styling (TASK-2424, epic 2359 W4.5).
+ * Account panel — tab strip + Sharing/Billing tab styling.
  *
- * Ports the existing SimpleView Design System v1 (SimpleView/tokens.css +
- * SimpleView/DESIGN-SYSTEM-AUDIT.md) onto the Billing tab content shipped
- * dark by TASK-2420. Before this file, the tab strip + Billing tab had NO
- * CSS at all — the operator's UAT-1 defect report ("white-ish text on white
- * pills", "blue-on-blue links", "mashed inline text") is simply raw
- * Bootstrap-default rendering. Every rule below consumes an --sv-* token;
- * no new colour literal is introduced beyond the tokens.css palette.
+ * TASK-2424 ported the SimpleView Design System v1 (SimpleView/tokens.css +
+ * DESIGN-SYSTEM-AUDIT.md) onto the Billing tab; the UAT-2 design pass
+ * (2026-07-23 operator-approved mockups) reworks both tabs onto a card-based
+ * layout: underline tabs, ghost close, white-tint section cards
+ * (--sv-card-bg/--sv-card-border), radio option cards for visibility, an
+ * avatar member list, a segmented free-runs meter, and pills for
+ * Current/Paid/subscription state. Every colour comes from tokens.css; the
+ * only literals below are neutral white-alpha lines the token set does not
+ * carve finer (border tints between --sv-divider 0.08 and --sv-panel-border
+ * 0.6) and the panel-local radii (cards 8px / controls 6px / pills 99px).
  *
- * Scoping: all Billing-tab rules are scoped under .sv-account-billing-tab
- * (rendered ONLY when paywallEnabled — membershipPanel.js's flags-off path
- * never mounts BillingTabContainer) so the flags-off Permissions panel stays
- * byte-identical, and so the compute-meter-* classes (shared with
- * ComputeMeterPanel's refusal modals elsewhere) are only re-skinned INSIDE
- * the Billing tab, not globally.
+ * Scoping:
+ *   .sv-membership-movable  — BOTH flag states (the Sharing markup is shared,
+ *                             so the flags-off Permissions panel gets the same
+ *                             improved Sharing look).
+ *   .sv-account-movable     — flags-on Account panel only (underline tab bar,
+ *                             ghost close, panel title size).
+ *   .sv-account-billing-tab — Billing tab only (never mounted flags-off).
  *
- * Button chrome mirrors the established "opaque button chrome" pattern
- * (simpleView.css .simple-view-menu-button / .simple-view-right-button):
- * solid --sv-button-bg + white text + --sv-button-border, never a raw
- * Bootstrap-default white pill.
- *
- * Links use --sv-text (the same near-white the panel already uses for body
- * copy) + underline rather than a raw <a> blue — the panel background is
- * itself a deep blue, so a blue link is the exact "blue-on-blue" defect the
- * operator reported. --sv-accent-blue is reserved for the hover/focus
- * affordance only (verified against 3:1 non-text-UI, not relied on for the
- * resting-state 4.5:1 text contrast floor).
+ * Buttons: the two pack buttons in the balance card are the modal's ONLY
+ * primary (solid white / navy text) buttons; Subscribe/Manage-billing and
+ * Send-invite are outlined secondaries; remove/revoke are ghost icon buttons.
  */
 
-/* ── Tab strip (Sharing | Billing) ──────────────────────────────────────── */
+/* ── Panel chrome (flags-on Account panel) ─────────────────────────────── */
+
+.sv-account-movable .sv-panel-header-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Ghost close — overrides PanelHeader's inline red-chip convention for THIS
+   panel only, hence the !important (inline style + JS hover handlers). */
+.sv-account-movable .sv-panel-header-close {
+    background-color: transparent !important;
+    color: rgba(255, 255, 255, 0.75);
+    border-radius: 6px;
+}
+
+.sv-account-movable .sv-panel-header-close:hover {
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10)) !important;
+    color: #fff;
+}
+
+/* ── Tab strip (Sharing | Billing) — underline tabs ─────────────────────── */
 
 .sv-account-tab-bar {
     display: flex;
-    gap: 4px;
-    padding: 4px 4px 0;
+    gap: 18px;
+    padding: 0 6px;
     margin-bottom: var(--sv-section-gap, 8px);
-    border-bottom: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
+    border-bottom: 1px solid var(--sv-card-border, rgba(255, 255, 255, 0.12));
     text-align: left;
 }
 
@@ -44,26 +60,77 @@
     appearance: none;
     -webkit-appearance: none;
     background-color: transparent;
-    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
-    border-bottom: none;
-    border-radius: 4px 4px 0 0;
+    border: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     font-family: inherit;
     font-size: var(--sv-font-size-label, 14px);
-    font-weight: 600;
-    padding: 6px 14px;
+    font-weight: 500;
+    padding: 8px 2px 6px;
     cursor: pointer;
 }
 
 .sv-account-tab-btn:hover {
-    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
-    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    background-color: transparent;
+    color: #fff;
 }
 
 .sv-account-tab-btn.active {
-    background-color: var(--sv-button-bg, rgb(0, 60, 136));
-    border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    background-color: transparent;
+    border-bottom-color: var(--sv-accent-blue, #5bc0ff);
     color: #fff;
+    font-weight: 600;
+}
+
+/* ── Shared bits: pills, section labels, card surfaces ──────────────────── */
+
+.sv-account-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.sv-account-pill--current,
+.sv-account-pill--ok {
+    background-color: var(--sv-row-bg-success, rgba(80, 200, 120, 0.25));
+    color: var(--sv-text-ok, #7ee787);
+}
+
+.sv-account-pill--paid {
+    background-color: var(--sv-warning-bg, rgba(252, 248, 227, 0.12));
+    color: var(--sv-status-warn, #f0e08a);
+}
+
+.sv-account-pill--dim {
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* Uppercase eyebrow treatment for section labels in both tabs. */
+.sv-membership-movable .sv-membership-section-title,
+.sv-account-billing-tab .sv-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    border-bottom: none !important; /* chassis Section title sets an inline hairline */
+    margin-bottom: 6px;
+    padding-bottom: 0 !important;
+}
+
+/* Billing tab: chassis Sections become raised cards. */
+.sv-account-billing-tab .sv-section {
+    background-color: var(--sv-card-bg, rgba(255, 255, 255, 0.07));
+    border: 1px solid var(--sv-card-border, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    padding: 12px 14px;
 }
 
 /* ── Billing tab shell ──────────────────────────────────────────────────── */
@@ -71,6 +138,10 @@
 .sv-account-billing-tab {
     text-align: left;
     padding: 2px 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 13px;
 }
 
 .sv-account-billing-loading {
@@ -79,52 +150,75 @@
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
-/* Every top-level spec section gets the same bottom-divider rhythm; the
-   Section chassis primitive (Free runs / Subscription / Recent activity)
-   already carries its own title + divider, these plain rules cover the
-   sections that don't go through Section (account header, balance/packs,
-   footer). */
-.sv-account-header,
-.sv-account-billing-tab > .compute-meter-balance-strip {
-    padding: 6px 0 10px;
-    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
-}
-
-/* 1. Account header (org name / personal, shared-by, manager) — was three
-   inline spans mashed onto one line; stacked as clearly separated lines. */
+/* 1. Account header — one compressed line, '·' separators from CSS so the
+   span texts stay test-stable. */
 .sv-account-header {
     display: flex;
-    flex-direction: column;
-    gap: 3px;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 6px;
+    row-gap: 2px;
+    padding: 2px 2px 0;
 }
 
 .sv-account-header-org {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
-    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    color: #fff;
 }
 
 .sv-account-header-shared,
 .sv-account-header-manager {
-    display: block;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
-/* 2. Compute balance (re-homed BalanceStrip) — balance made prominent per
-   spec item 2; 4. Credit packs — buttons opaque + legible, spaced clearly
-   below the balance line rather than crammed against it. */
-.sv-account-billing-tab .compute-meter-balance-strip {
+.sv-account-header-shared::before,
+.sv-account-header-manager::before {
+    content: "· ";
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* 2. Balance card — uppercase label over the big figure; the two primary
+   (solid white) pack buttons sit right of it; policy link below. */
+.sv-account-billing-tab .compute-meter-balance-strip--card {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    background-color: var(--sv-card-bg, rgba(255, 255, 255, 0.07));
+    border: 1px solid var(--sv-card-border, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.sv-account-billing-tab .compute-meter-balance-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.sv-account-billing-tab .compute-meter-balance-labelled {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sv-account-billing-tab .compute-meter-balance-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 .sv-account-billing-tab .compute-meter-balance {
     display: block;
-    font-size: 20px;
+    font-size: 28px;
     font-weight: 700;
-    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    line-height: 1.15;
+    color: #fff;
 }
 
 .sv-account-billing-tab .compute-meter-packs {
@@ -133,25 +227,24 @@
     gap: 8px;
 }
 
+/* The modal's ONLY primary buttons: solid white, navy text. */
 .sv-account-billing-tab .compute-meter-buy-pack-btn {
-    background-color: var(--sv-button-bg, rgb(0, 60, 136));
-    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
-    border-radius: 4px;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 6px 12px;
+    background-color: #fff;
+    border: none;
+    border-radius: 6px;
+    color: var(--sv-button-bg, rgb(0, 60, 136));
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
     cursor: pointer;
 }
 
 .sv-account-billing-tab .compute-meter-buy-pack-btn:hover {
-    background-color: var(--sv-button-bg-hover, rgb(0, 80, 170));
-    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
+    background-color: rgba(255, 255, 255, 0.88);
 }
 
 .sv-account-billing-tab .compute-meter-buy-pack-btn:active {
-    background-color: var(--sv-button-bg-active, rgb(0, 100, 200));
-    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
+    background-color: rgba(255, 255, 255, 0.78);
 }
 
 .sv-account-billing-tab .compute-meter-billing-policy-link {
@@ -159,7 +252,7 @@
     align-self: flex-start;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
     text-decoration: underline;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .sv-account-billing-tab .compute-meter-billing-policy-link:hover,
@@ -167,11 +260,11 @@
     color: var(--sv-accent-blue, #5bc0ff);
 }
 
-/* 3. Free runs today */
+/* 3. Free runs today — count right of the (card) title, segment meter, caption. */
 .sv-account-free-band {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 7px;
 }
 
 .sv-account-free-band-count {
@@ -180,73 +273,124 @@
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.sv-account-free-band-explainer {
-    font-size: 11px;
-    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+/* Pull the count up beside the section title inside the card. */
+.sv-account-billing-tab .sv-section .sv-account-free-band-count {
+    position: absolute;
+    top: 12px;
+    right: 14px;
 }
 
-/* 5. Private-models subscription */
-.sv-account-subscription {
+.sv-account-billing-tab .sv-section {
+    position: relative;
+}
+
+.sv-account-free-band-meter {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
     gap: 6px;
 }
 
-.sv-account-subscription-state {
-    font-size: 12px;
-    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+.sv-account-free-band-meter-seg {
+    flex: 1;
+    height: 6px;
+    border-radius: 99px;
+    background-color: var(--sv-accent-green-dim, rgba(39, 202, 59, 0.6));
 }
 
-.sv-account-subscription-ask-manager {
-    font-size: 11px;
-    font-style: italic;
+.sv-account-free-band-meter-seg--used {
+    background-color: var(--sv-row-hover-bg-strong, rgba(255, 255, 255, 0.20));
+}
+
+.sv-account-free-band-explainer {
+    font-size: 12px;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
-.sv-account-btn-sm {
-    background-color: var(--sv-button-bg, rgb(0, 60, 136));
-    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
-    border-radius: 4px;
-    color: #fff;
-    font-size: 12px;
+/* 5. Private-models subscription — label + state pill + right-aligned
+   outlined action on one line, caption (with the folded See-plans link) below. */
+.sv-account-subscription {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.sv-account-subscription-topline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.sv-account-subscription-label {
+    font-size: 13px;
     font-weight: 600;
-    padding: 5px 12px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-account-subscription-topline .sv-account-btn-sm {
+    margin-left: auto;
+}
+
+.sv-account-subscription-caption,
+.sv-account-subscription-ask-manager {
+    font-size: 12px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* Outlined secondary buttons (Subscribe / Manage billing). */
+.sv-account-btn-sm {
+    background-color: transparent;
+    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 16px;
     cursor: pointer;
 }
 
 .sv-account-btn-sm:hover {
-    background-color: var(--sv-button-bg-hover, rgb(0, 80, 170));
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
     border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
 }
 
 .sv-account-btn-sm:active {
-    background-color: var(--sv-button-bg-active, rgb(0, 100, 200));
-    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
+    background-color: var(--sv-row-hover-bg-strong, rgba(255, 255, 255, 0.20));
 }
 
 .sv-account-btn-sm:disabled {
-    opacity: 0.6;
-    cursor: default;
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
+    border-color: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: not-allowed;
+}
+
+.sv-account-plans-link {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    text-decoration: underline;
+}
+
+.sv-account-plans-link:hover,
+.sv-account-plans-link:focus-visible {
+    color: var(--sv-accent-blue, #5bc0ff);
 }
 
 .sv-account-portal-error {
     padding: 6px 8px;
     background-color: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
     border: 1px solid var(--sv-delete-error-border, #dc3545);
-    border-radius: var(--sv-card-radius, 4px);
+    border-radius: 6px;
     color: var(--sv-text-danger, #ffb3b3);
-    font-size: 11px;
+    font-size: 12px;
 }
 
-/* 6. Recent activity — populated + empty states */
+/* 6. Recent activity — populated rows, or a dashed-border empty state. */
 .sv-account-recent-entries-list {
     list-style: none;
     margin: 4px 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
 }
 
 .sv-account-recent-entry-row {
@@ -254,10 +398,14 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
-    padding: 3px 0;
+    padding: 5px 0;
     border-bottom: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
+}
+
+.sv-account-recent-entry-row:last-child {
+    border-bottom: none;
 }
 
 .sv-account-recent-entry-date {
@@ -278,7 +426,7 @@
 .sv-account-recent-entry-run-link {
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
     text-decoration: underline;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .sv-account-recent-entry-run-link:hover,
@@ -286,38 +434,308 @@
     color: var(--sv-accent-blue, #5bc0ff);
 }
 
-.sv-account-recent-activity-empty .sv-empty-state {
-    padding: 8px 4px;
+.sv-account-recent-activity-empty {
+    border: 1px dashed var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    border-radius: 8px;
 }
 
-/* 7. Footer links (/plans here; /billing-policy rides the re-homed
-   BalanceStrip and is styled above). */
-.sv-account-footer-links {
+.sv-account-recent-activity-empty .sv-empty-state {
+    padding: 14px 10px;
+}
+
+/* ── Sharing tab (both flag states — shared markup) ─────────────────────── */
+
+#membership-panel {
+    font-size: 13px;
+}
+
+/* Visibility radio option cards. */
+.sv-membership-movable .sv-membership-visibility {
+    border-bottom: none;
+    padding: 4px 0 2px;
+}
+
+.sv-membership-movable .sv-membership-visibility-option-row {
     display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    max-width: none;
+    flex: initial;
+    box-sizing: border-box;
+    text-align: left;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.sv-membership-movable .sv-membership-visibility-option-row:hover {
+    background-color: transparent;
+    border-color: rgba(255, 255, 255, 0.38);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-membership-movable .sv-membership-visibility-option-row.active,
+.sv-membership-movable .sv-membership-visibility-option-row.active:hover,
+.sv-membership-movable .sv-membership-visibility-option-row.active:focus,
+.sv-membership-movable .sv-membership-visibility-option-row.active:active {
+    background-color: var(--sv-row-bg-success, rgba(80, 200, 120, 0.25));
+    border: 1px solid var(--sv-accent-green, rgba(39, 202, 59, 1));
+    box-shadow: inset 0 0 0 1px var(--sv-accent-green, rgba(39, 202, 59, 1));
+    color: #fff;
+}
+
+.sv-membership-visibility-radio-dot {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    position: relative;
+}
+
+.sv-membership-movable .sv-membership-visibility-option-row.active .sv-membership-visibility-radio-dot {
+    border-color: var(--sv-text-ok, #7ee787);
+}
+
+.sv-membership-movable .sv-membership-visibility-option-row.active .sv-membership-visibility-radio-dot::after {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border-radius: 50%;
+    background-color: var(--sv-text-ok, #7ee787);
+}
+
+.sv-membership-visibility-option-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.sv-membership-visibility-option-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.sv-membership-movable .sv-membership-visibility-desc {
+    font-size: 12px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+.sv-membership-movable .sv-membership-visibility-default-note {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* Members list (replaces the User/Role table). */
+.sv-membership-members {
+    padding: 8px 0 2px;
+}
+
+.sv-membership-members-count {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    gap: 12px;
+    min-width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    padding: 0 5px;
+    border-radius: 99px;
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-size: 11px;
+    letter-spacing: 0;
+}
+
+.sv-membership-members-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.sv-membership-member-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 2px;
+    border-bottom: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
+}
+
+.sv-membership-member-row:last-child {
+    border-bottom: none;
+}
+
+.sv-membership-avatar {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--sv-on-accent, #1f3a1f);
+}
+
+/* Deterministic tints (charCode % 4) from the token palette's status hues. */
+.sv-membership-avatar--0 { background-color: var(--sv-glyph-zoom, #4dabf7); }
+.sv-membership-avatar--1 { background-color: var(--sv-status-warn, #f0e08a); }
+.sv-membership-avatar--2 { background-color: var(--sv-status-ok, #a8e6a8); }
+.sv-membership-avatar--3 { background-color: var(--sv-status-info, #7cd3ec); }
+
+.sv-membership-member-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-membership-member-you {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+.sv-membership-member-role-static {
+    font-size: 12px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* Role select — bordered select-style dropdown. */
+.sv-membership-movable .sv-membership-role-select {
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    padding: 4px 8px;
+    width: auto;
+    min-width: 90px;
+}
+
+.sv-membership-movable .sv-membership-role-select option {
+    color: #1a1a2e;
+}
+
+/* Ghost remove/revoke ✕ — red-tinted hover, no solid red box. */
+.sv-membership-movable .sv-membership-btn-remove {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    border-radius: 6px;
+    box-shadow: none;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 12px;
+    padding: 5px 7px;
+    cursor: pointer;
+}
+
+.sv-membership-movable .sv-membership-btn-remove:hover,
+.sv-membership-movable .sv-membership-btn-remove:focus {
+    background-color: var(--sv-disabled-bg, rgba(220, 53, 69, 0.18));
+    color: var(--sv-text-danger, #ffb3b3);
+}
+
+/* Invite row — input + role dropdown + outlined send button + hint. */
+.sv-membership-movable .sv-membership-add-form-row {
+    align-items: center;
+    gap: 8px;
+}
+
+.sv-membership-movable .sv-membership-search-input {
+    flex: 1;
+    width: auto;
+    min-width: 140px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 10px;
+}
+
+.sv-membership-movable .sv-membership-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.sv-membership-movable .sv-membership-search-input:focus {
+    border-color: var(--sv-accent-blue, #5bc0ff);
+    outline: none;
+}
+
+.sv-membership-movable .sv-membership-btn-sm {
+    background-color: transparent;
+    background-image: none;
+    border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    border-radius: 6px;
+    box-shadow: none;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    margin-top: 0;
+    text-shadow: none;
+}
+
+.sv-membership-movable .sv-membership-btn-sm:hover:not(:disabled) {
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
+    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
+    color: #fff;
+}
+
+.sv-membership-movable .sv-membership-btn-sm:disabled,
+.sv-membership-movable .sv-membership-btn-sm.disabled {
+    background-color: var(--sv-row-hover-bg, rgba(255, 255, 255, 0.10));
+    border-color: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: not-allowed;
+    opacity: 1;
+}
+
+.sv-membership-invite-hint {
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+.sv-membership-movable .membership-invite-form {
     padding-top: 8px;
 }
 
-.sv-account-plans-link {
-    color: var(--sv-text, rgba(255, 255, 255, 0.85));
-    text-decoration: underline;
-    font-size: 11px;
+/* Section rhythm between the sharing groups. */
+.sv-membership-movable .sv-membership-visibility,
+.sv-membership-movable .sv-membership-members {
+    border-bottom: 1px solid var(--sv-card-border, rgba(255, 255, 255, 0.12));
+    padding-bottom: 12px;
+    margin-bottom: 10px;
 }
 
-.sv-account-plans-link:hover,
-.sv-account-plans-link:focus-visible {
-    color: var(--sv-accent-blue, #5bc0ff);
-}
-
-/* ── Keyboard focus — every interactive element in the tab strip + Billing
-   tab, one shared rule rather than six duplicated per-selector blocks. ── */
+/* ── Keyboard focus — shared rule for every interactive element added or
+   restyled by this sheet. ── */
 .sv-account-tab-btn:focus-visible,
 .sv-account-billing-tab .compute-meter-buy-pack-btn:focus-visible,
 .sv-account-billing-tab .compute-meter-billing-policy-link:focus-visible,
 .sv-account-btn-sm:focus-visible,
 .sv-account-recent-entry-run-link:focus-visible,
-.sv-account-plans-link:focus-visible {
+.sv-account-plans-link:focus-visible,
+.sv-membership-movable .sv-membership-visibility-option-row:focus-visible,
+.sv-membership-movable .sv-membership-btn-remove:focus-visible,
+.sv-membership-movable .sv-membership-btn-sm:focus-visible,
+.sv-membership-movable .sv-membership-role-select:focus-visible,
+.sv-membership-movable .sv-membership-search-input:focus-visible,
+.sv-account-movable .sv-panel-header-close:focus-visible {
     outline: 2px solid var(--sv-accent-blue, #5bc0ff);
     outline-offset: 1px;
 }

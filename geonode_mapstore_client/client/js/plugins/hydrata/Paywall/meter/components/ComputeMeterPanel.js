@@ -34,10 +34,12 @@ const PropTypes = require('prop-types');
  * sites, or a failed lookup) — NEVER a hardcoded price->dollar map here.
  * A null amount renders the pre-2124 generic label so checkout still works.
  */
-function PackButtons({ availablePacks, testIdPrefix, onBuyPack }) {
+function PackButtons({ availablePacks, testIdPrefix, onBuyPack, compact }) {
     if (!availablePacks || availablePacks.length === 0) {
         return null;
     }
+    // UAT-2 redesign — `compact` (Account panel balance card only) renders the
+    // primary "+ $10" form; the refusal-modal CTAs keep the verbose label.
     return (
         <React.Fragment>
             {availablePacks.map(({ price_id: priceId, amount }) => (
@@ -48,7 +50,9 @@ function PackButtons({ availablePacks, testIdPrefix, onBuyPack }) {
                     className="compute-meter-buy-pack-btn"
                     onClick={() => onBuyPack(priceId)}
                 >
-                    {amount ? `Buy $${amount} pack` : 'Buy credit pack'}
+                    {compact
+                        ? (amount ? `+ $${amount}` : 'Buy credits')
+                        : (amount ? `Buy $${amount} pack` : 'Buy credit pack')}
                 </button>
             ))}
         </React.Fragment>
@@ -88,18 +92,46 @@ PackButtons.defaultProps = {
     onBuyPack: () => {}
 };
 
-function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack }) {
+function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, variant }) {
+    // UAT-2 redesign — `variant="card"` (Account panel Billing tab only):
+    // uppercase-labelled balance card, 2dp value, compact primary pack
+    // buttons right of the figure. The default inline strip (refusal-modal
+    // host surface) is byte-identical to before.
+    const isCard = variant === 'card';
+    const noAccount = balance === null || balance === undefined;
+    const cardValue = () => {
+        const n = parseFloat(balance);
+        return Number.isFinite(n) ? `$${n.toFixed(2)}` : `$${balance}`;
+    };
     return (
-        <div data-testid="compute-meter-balance-strip" className="compute-meter-balance-strip">
-            <span data-testid="compute-meter-balance" className="compute-meter-balance">
-                {'Compute balance: '}
-                {balance === null || balance === undefined ? 'No billing account yet' : `$${balance}`}
-            </span>
-            {availablePacks && availablePacks.length > 0 ? (
-                <span className="compute-meter-packs">
-                    <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} />
-                </span>
-            ) : null}
+        <div data-testid="compute-meter-balance-strip" className={`compute-meter-balance-strip${isCard ? ' compute-meter-balance-strip--card' : ''}`}>
+            {isCard ? (
+                <div className="compute-meter-balance-row">
+                    <span className="compute-meter-balance-labelled">
+                        <span className="compute-meter-balance-label">Compute balance</span>
+                        <span data-testid="compute-meter-balance" className="compute-meter-balance">
+                            {noAccount ? 'No billing account yet' : cardValue()}
+                        </span>
+                    </span>
+                    {availablePacks && availablePacks.length > 0 ? (
+                        <span className="compute-meter-packs">
+                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} compact />
+                        </span>
+                    ) : null}
+                </div>
+            ) : (
+                <React.Fragment>
+                    <span data-testid="compute-meter-balance" className="compute-meter-balance">
+                        {'Compute balance: '}
+                        {noAccount ? 'No billing account yet' : `$${balance}`}
+                    </span>
+                    {availablePacks && availablePacks.length > 0 ? (
+                        <span className="compute-meter-packs">
+                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} />
+                        </span>
+                    ) : null}
+                </React.Fragment>
+            )}
             {recentEntries && recentEntries.length > 0 ? (
                 <ul data-testid="compute-meter-recent-entries" className="compute-meter-recent-entries">
                     {/* index-as-key: read-only, server-ordered list, no reorder/insert */}
@@ -119,7 +151,8 @@ BalanceStrip.propTypes = {
     balance: PropTypes.string,
     availablePacks: PropTypes.array,
     recentEntries: PropTypes.array,
-    onBuyPack: PropTypes.func
+    onBuyPack: PropTypes.func,
+    variant: PropTypes.oneOf(['inline', 'card'])
 };
 
 BalanceStrip.defaultProps = {

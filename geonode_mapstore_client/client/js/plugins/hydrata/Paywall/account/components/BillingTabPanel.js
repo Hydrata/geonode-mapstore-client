@@ -26,6 +26,9 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import '../account.css';
 
 function AccountHeader({ organisation, isPersonal, manager }) {
+    // UAT-2 redesign — one compressed line ("Personal account · managed by
+    // testuser") instead of three stacked spans; the '·' separators come from
+    // CSS so the span texts (and their testids) stay assertion-stable.
     return (
         <div className="sv-account-header" data-testid="sv-account-header">
             <span className="sv-account-header-org" data-testid="sv-account-header-org">
@@ -38,7 +41,7 @@ function AccountHeader({ organisation, isPersonal, manager }) {
             ) : null}
             {manager ? (
                 <span className="sv-account-header-manager" data-testid="sv-account-header-manager">
-                    {`Manager: ${manager}`}
+                    {`managed by ${manager}`}
                 </span>
             ) : null}
         </div>
@@ -62,14 +65,28 @@ function FreeBandSection({ freeBand }) {
     const cap = freeBand?.cap ?? 0;
     const usedToday = freeBand?.usedToday ?? 0;
     const edge = freeBand?.edge ?? '0';
+    // UAT-2 redesign — segment meter (used = dim, remaining = green). Capped
+    // at 12 segments so a config change to a large cap degrades to text-only
+    // rather than a wall of slivers.
+    const segments = cap > 0 && cap <= 12 ? Array.from({ length: cap }, (_, i) => i < usedToday) : null;
     return (
         <Section title={<Message msgId="hydrata.anuga.accountFreeRunsHeading" />}>
             <div className="sv-account-free-band" data-testid="sv-account-free-band">
                 <span className="sv-account-free-band-count" data-testid="sv-account-free-band-count">
                     {`${usedToday} of ${cap} used`}
                 </span>
+                {segments ? (
+                    <div className="sv-account-free-band-meter" aria-hidden="true">
+                        {segments.map((used, i) => (
+                            <span
+                                key={i}
+                                className={`sv-account-free-band-meter-seg${used ? ' sv-account-free-band-meter-seg--used' : ''}`}
+                            />
+                        ))}
+                    </div>
+                ) : null}
                 <span className="sv-account-free-band-explainer">
-                    {`Runs estimated under $${edge} are free, up to ${cap} per day for your account.`}
+                    {`Runs estimated under $${edge} are free — up to ${cap} per day for your account.`}
                 </span>
             </div>
         </Section>
@@ -93,40 +110,54 @@ FreeBandSection.propTypes = {
 function SubscriptionSection({ subscription, isManager, manager, onSubscribe, onManageBilling, portalLoading }) {
     const active = !!subscription?.active;
     const since = subscription?.since;
+    // UAT-2 redesign — "Private models" label + state pill on one line with
+    // the (outlined) manager action right-aligned; the /plans link folds into
+    // the caption here (the modal footer's orphan "Plans" link is gone).
     return (
         <Section title={<Message msgId="hydrata.anuga.accountSubscriptionHeading" />}>
             <div className="sv-account-subscription" data-testid="sv-account-subscription">
-                <span className="sv-account-subscription-state" data-testid="sv-account-subscription-state">
-                    {active
-                        ? `Private models: active${since ? ` (since ${since.slice(0, 10)})` : ''}`
-                        : 'Private models: not subscribed'}
+                <div className="sv-account-subscription-topline">
+                    <span className="sv-account-subscription-label">Private models</span>
+                    <span
+                        className={`sv-account-subscription-state sv-account-pill ${active ? 'sv-account-pill--ok' : 'sv-account-pill--dim'}`}
+                        data-testid="sv-account-subscription-state"
+                    >
+                        {active
+                            ? `Active${since ? ` since ${since.slice(0, 10)}` : ''}`
+                            : 'Not subscribed'}
+                    </span>
+                    {isManager ? (
+                        active ? (
+                            <button
+                                type="button"
+                                data-testid="sv-account-manage-billing-btn"
+                                className="sv-account-btn-sm sv-account-manage-billing-btn"
+                                disabled={portalLoading}
+                                onClick={onManageBilling}
+                            >
+                                {portalLoading ? 'Opening…' : 'Manage billing'}
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                data-testid="sv-account-subscribe-btn"
+                                className="sv-account-btn-sm sv-account-subscribe-btn"
+                                onClick={onSubscribe}
+                            >
+                                Subscribe
+                            </button>
+                        )
+                    ) : null}
+                </div>
+                <span className="sv-account-subscription-caption">
+                    {'Subscribe to collaborate on private models. '}
+                    <a className="sv-account-plans-link" href="/plans" data-testid="sv-account-plans-link">See plans</a>
                 </span>
-                {isManager ? (
-                    active ? (
-                        <button
-                            type="button"
-                            data-testid="sv-account-manage-billing-btn"
-                            className="sv-account-btn-sm sv-account-manage-billing-btn"
-                            disabled={portalLoading}
-                            onClick={onManageBilling}
-                        >
-                            {portalLoading ? 'Opening…' : 'Manage billing'}
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            data-testid="sv-account-subscribe-btn"
-                            className="sv-account-btn-sm sv-account-subscribe-btn"
-                            onClick={onSubscribe}
-                        >
-                            Subscribe
-                        </button>
-                    )
-                ) : (
+                {!isManager ? (
                     <span className="sv-account-subscription-ask-manager" data-testid="sv-account-ask-manager">
                         {`Ask ${manager || 'your account manager'} to ${active ? 'manage' : 'subscribe'}`}
                     </span>
-                )}
+                ) : null}
             </div>
         </Section>
     );
@@ -164,6 +195,7 @@ function BillingTabPanel({
                 balance={balance}
                 availablePacks={availablePacks}
                 onBuyPack={onBuyPack}
+                variant="card"
             />
             <FreeBandSection freeBand={freeBand} />
             <SubscriptionSection
@@ -212,13 +244,14 @@ function BillingTabPanel({
                 // karma still asserts THAT testid is absent when empty).
                 <Section title={<Message msgId="hydrata.anuga.accountRecentActivityHeading" />}>
                     <div className="sv-account-recent-activity-empty" data-testid="sv-account-recent-activity-empty">
-                        <EmptyState heading={<Message msgId="hydrata.anuga.accountRecentActivityEmpty" />} />
+                        <EmptyState heading={<Message msgId="hydrata.anuga.accountRecentActivityEmpty" />}>
+                            Purchases and runs will appear here.
+                        </EmptyState>
                     </div>
                 </Section>
             )}
-            <div className="sv-account-footer-links">
-                <a className="sv-account-plans-link" href="/plans" data-testid="sv-account-plans-link">Plans</a>
-            </div>
+            {/* UAT-2 redesign — the orphan footer "Plans" link folded into the
+                subscription caption above ("See plans"); no footer block. */}
         </div>
     );
 }

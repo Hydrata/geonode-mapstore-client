@@ -574,7 +574,7 @@ describe('TASK-2399 MembershipPanel — sharing-dialog truth pass', () => {
         return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: true }).then(() => {
             const badge = container.querySelector('[data-testid="sv-membership-visibility-paid-badge"]');
             expect(badge).toExist();
-            expect(badge.textContent).toInclude('paid feature');
+            expect(badge.textContent).toInclude('Paid');
             // The badge sits under Private, not Public/Organization.
             const privateRow = Array.from(container.querySelectorAll('.sv-membership-visibility-option-row'))
                 .find(r => r.textContent.includes('Private'));
