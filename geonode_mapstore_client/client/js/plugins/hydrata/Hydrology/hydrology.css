@@ -1640,6 +1640,42 @@
     vertical-align: middle;
     white-space: nowrap;
 }
+/* UAT-2 (epic 2359) — tooltip variant: revealed under the host control on
+   :hover/:focus-visible instead of inflating it inline (IDF Derive segment).
+   CSS :hover applies to :disabled buttons (only JS mouse events are
+   suppressed), so the reveal works on gated controls. opacity (not
+   visibility) keeps the label readable to screen readers. */
+.sv-coming-soon-badge--tooltip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    margin-left: 0;
+    background: rgba(0, 20, 50, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease-in;
+    /* tooltip occlusion floor — matches the ANUGA tooltip zIndex convention */
+    z-index: 100000;
+}
+
+/* Anchor for the bubble (harmless on the enabled sibling). */
+.sv-hydrology-idf-segment {
+    position: relative;
+}
+
+.sv-hydrology-idf-segment:hover .sv-coming-soon-badge--tooltip,
+.sv-hydrology-idf-segment:focus-visible .sv-coming-soon-badge--tooltip {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sv-coming-soon-badge--tooltip {
+        transition: none;
+    }
+}
+
 /* Disabled entry points: greyed + not-allowed cursor. The rail item is a
    <div role="tab"> (no native :disabled), so it keys off .is-disabled; the IDF
    segment and the glass profile button are native <button disabled>. */

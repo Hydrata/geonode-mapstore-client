@@ -62,9 +62,29 @@ export default (state = initialState, action) => {
         action.scenarios.forEach(backendScenario => {
             const existing = newById[backendScenario.id];
             if (existing) {
-                // Merge: keep local fields (unsaved, selected, tempTimeString), update backend fields
+                // TASK-2421 (UAT-1 findings 2+3) — the staleness flag
+                // (`unsaved`) was set on input edit (UPDATE_ANUGA_SCENARIO)
+                // but this merge previously preserved it unconditionally
+                // ("keep local fields") even once a poll tick delivers a
+                // GENUINELY refreshed estimate reflecting that edit — the
+                // '(estimate outdated — rebuild to refresh)' hint then
+                // outlived the very number it was warning about. A poll tick
+                // whose triangle/cost estimate DIFFERS from what's currently
+                // stored is itself proof a fresh recompute has landed, so it
+                // clears `unsaved`; a tick that brings the SAME estimate
+                // (nothing recomputed yet — e.g. the user's edit hasn't been
+                // saved/built at all) leaves it untouched, so the hint still
+                // holds while genuinely stale.
+                const nextTriangleEstimate = backendScenario?.mesh_triangle_count_estimate ?? null;
+                const nextCostEstimate = backendScenario?.compute_cost_estimate ?? null;
+                const estimateRefreshed = existing.unsaved && (
+                    nextTriangleEstimate !== (existing.mesh_triangle_count_estimate ?? null)
+                    || nextCostEstimate !== (existing.compute_cost_estimate ?? null)
+                );
+                // Merge: keep local fields (selected, tempTimeString), update backend fields
                 newById[backendScenario.id] = {
                     ...existing,
+                    unsaved: estimateRefreshed ? false : existing.unsaved,
                     latest_run: backendScenario?.latest_run ?? null,
                     // TASK-2078: latest_complete_run MUST be in this merge
                     // whitelist too — 2078 repointed the FE result consumers
@@ -76,7 +96,23 @@ export default (state = initialState, action) => {
                     latest_complete_run: backendScenario?.latest_complete_run ?? null,
                     status: backendScenario?.status || 'unsaved',
                     computed_status: backendScenario?.computed_status || backendScenario?.status,
-                    latest_run_is_valid: backendScenario?.latest_run_is_valid
+                    latest_run_is_valid: backendScenario?.latest_run_is_valid,
+                    // TASK-2400 (dogfood F1/#1) — the pre-build estimate fields
+                    // MUST be in this merge whitelist too, mirroring the exact
+                    // TASK-2078 latest_complete_run fix above. Without these
+                    // lines, a server-side estimate recompute (e.g. after a
+                    // mesh-affecting edit) is returned by every 8s poll tick
+                    // but silently dropped on merge — the in-pane estimate
+                    // line (scenarioPane.js) and the Build/Build-and-Run
+                    // tooltip echo (scenarioHeaderActions.js) both stay frozen
+                    // at whatever was last written by SAVE_ANUGA_SCENARIO_SUCCESS
+                    // (a full-object replace, unaffected by this whitelist),
+                    // reading a stale $0.00-or-any-other-stale-figure while the
+                    // user commits a run at the REAL, already-recomputed price.
+                    mesh_triangle_count_estimate: backendScenario?.mesh_triangle_count_estimate ?? null,
+                    mesh_triangle_count_estimate_breakdown: backendScenario?.mesh_triangle_count_estimate_breakdown ?? null,
+                    compute_cost_estimate: backendScenario?.compute_cost_estimate ?? null,
+                    vcpu_hours_estimate: backendScenario?.vcpu_hours_estimate ?? null
                 };
             } else {
                 // New backend-created scenario (e.g. copy)

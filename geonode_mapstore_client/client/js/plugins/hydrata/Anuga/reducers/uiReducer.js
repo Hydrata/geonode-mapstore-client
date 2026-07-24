@@ -6,6 +6,8 @@ import {
     SET_PUBLICATION_PANEL,
     SET_CREATING_ANUGA_LAYER,
     SET_MEMBERSHIP_PANEL,
+    // TASK-2420 (epic 2359 W4.5) — Account panel active tab ('sharing'|'billing').
+    SET_MEMBERSHIP_PANEL_TAB,
     // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel.
     SET_VISIBLE_TERRAIN_BBOX_PANEL,
     SET_TERRAIN_BBOX_DRAWING,
@@ -54,6 +56,10 @@ const initialState = {
     isCreatingAnugaLayer: false,
     showAddAnugaTerrainData: false,
     showMembershipPanel: false,
+    // TASK-2420 (epic 2359 W4.5) — Account panel active tab. Only meaningful
+    // when paywallEnabled; flags-off never dispatches SET_MEMBERSHIP_PANEL_TAB
+    // (the panel has no tabs at all), so this default is inert dark-side.
+    membershipPanelTab: 'sharing',
     // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel state.
     // The 4 fields cluster (visible/drawing-active/bbox/error) live on the
     // existing `ui` slice rather than on a new reducer; matches how
@@ -193,8 +199,14 @@ export default (state = initialState, action) => {
             showAnugaResultMenu: false,
             showNetworkMenu: false,
             showPublicationPanel: false,
-            showMembershipPanel: action.visible
+            showMembershipPanel: action.visible,
+            // TASK-2420 — re-opening always lands back on Sharing; a caller
+            // that wants Billing (checkout-return, refusal-modal "View
+            // account") dispatches setMembershipPanelTab right after.
+            membershipPanelTab: action.visible ? 'sharing' : state.membershipPanelTab
         };
+    case SET_MEMBERSHIP_PANEL_TAB:
+        return { ...state, membershipPanelTab: action.tab === 'billing' ? 'billing' : 'sharing' };
     case SET_VISIBLE_TERRAIN_BBOX_PANEL:
         // Closing the panel resets transient draw state so re-opening is clean.
         return action.visible

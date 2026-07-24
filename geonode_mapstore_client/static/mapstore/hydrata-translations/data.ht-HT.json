@@ -225,6 +225,13 @@
         "memberRole": "Wòl",
         "memberUser": "Itilizatè",
         "members": "Manm",
+        "accountPanelTitle": "Kont",
+        "accountTabSharing": "Pataje",
+        "accountTabBilling": "Fakti",
+        "accountFreeRunsHeading": "Egzekisyon gratis jodi a",
+        "accountSubscriptionHeading": "Abònman",
+        "accountRecentActivityHeading": "Aktivite resan",
+        "accountRecentActivityEmpty": "Pa gen aktivite ankò",
         "permsUnavailable": {
           "message": "Pa ka chaje pèmisyon yo. Lis manm nan an lekti sèlman jiskaske pèmisyon yo disponib ankò."
         },
@@ -654,6 +661,7 @@
         "filterAll": "Tout",
         "statusPending": "Ap tann",
         "statusRunning": "Ap kouri",
+        "statusStalled": "Bloke",
         "statusComplete": "Fini",
         "statusError": "Erè",
         "statusCancelled": "Anile"

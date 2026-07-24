@@ -14,6 +14,26 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-right">
                 <li><a href="{{ request.user.get_absolute_url }}">{% trans "Profile" %}</a></li>
+                {% if paywall_enabled %}
+                    {% comment %}
+                        TASK-2423 (epic 2359 W4.5) — Account panel spec entry point 2.
+                        Map pages only (v1): rendered hidden here (server can't tell
+                        page type — catalogue.html is one SPA shell for every
+                        resource type), then js/utils/AccountNavbarUtils.js shows it
+                        only on #/map/ hash routes and bridges the click into the
+                        MapStore2 Redux store via window.MapStoreAPI.triggerAction,
+                        dispatching the same SET_MEMBERSHIP_PANEL /
+                        SET_MEMBERSHIP_PANEL_TAB('billing') actions the RHS toolbar
+                        button and refusal-modal "View account" links use (TASK-2420).
+                        FE/BE flag-parity assumption: paywall_enabled (BE,
+                        settings.PAYWALL_ENABLED) mirrors localConfig.json's
+                        paywallEnabled (FE); TASK-2101 flips both together at the W5
+                        flip.
+                    {% endcomment %}
+                    <li id="gn-navbar-account-item-wrapper" style="display:none;">
+                        <a href="#" id="gn-navbar-account-item">{% trans "Account" %}</a>
+                    </li>
+                {% endif %}
                 {% if request.user_agent.is_mobile %}
                     <li role="separator" class="divider"></li>
                 {% else %}

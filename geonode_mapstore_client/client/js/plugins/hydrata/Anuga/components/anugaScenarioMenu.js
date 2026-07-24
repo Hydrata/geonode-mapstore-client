@@ -31,7 +31,11 @@ import {
     stopAnugaScenarioPolling,
     setAnugaScenarioArchiveFilter,
     compareScenarios,
-    setSessionComputeTarget
+    setSessionComputeTarget,
+    // TASK-2420 (epic 2359 W4.5) — the over-balance estimate badge opens the
+    // Account panel on Billing.
+    setMembershipPanel,
+    setMembershipPanelTab
 } from "../actionsAnuga";
 import {
     canCreateScenario,
@@ -56,6 +60,8 @@ import {ScenarioHeaderActions} from './scenarioHeaderActions';
 import {AnugaScenarioOverflowMenu} from './anugaScenarioOverflowMenu';
 // TASK-2194 (epic 2190 W2) — the FE staff-gate precedent (is_staff OR is_superuser).
 import {isStaffUser} from './AnugaRunsDashboard/runsDashboardUtils';
+// TASK-2420 (epic 2359 W4.5) — over-balance estimate badge data source.
+import {getAccountSummaryState} from '../../Paywall/account/reducer';
 import {SectionHeader} from "../../SimpleView/components/primitives";
 
 /**
@@ -213,6 +219,10 @@ class AnugaScenarioMenuClass extends React.Component {
       meshDivergenceThreshold: PropTypes.number,
       canCreateScenario: PropTypes.bool,
       canRunScenario: PropTypes.bool,
+      // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge.
+      paywallEnabled: PropTypes.bool,
+      accountBalance: PropTypes.string,
+      freeBand: PropTypes.shape({cap: PropTypes.number, usedToday: PropTypes.number, edge: PropTypes.string, table: PropTypes.array}),
       myRole: PropTypes.string,
       currentUserId: PropTypes.number,
       selectedScenarios: PropTypes.array,
@@ -960,6 +970,10 @@ class AnugaScenarioMenuClass extends React.Component {
               onOptionalInputsExpanded={this.handleOptionalInputsExpanded}
               requiredExpandToken={this.state.requiredExpandToken}
               onRequiredExpanded={this.handleRequiredExpanded}
+              paywallEnabled={this.props.paywallEnabled}
+              accountBalance={this.props.accountBalance}
+              freeBand={this.props.freeBand}
+              onOpenAccountBilling={this.props.onOpenAccountBilling}
           />
       );
   }
@@ -1351,7 +1365,16 @@ const mapStateToProps = (state) => {
         selectedScenarios: selected,
         readyToCompare: selected.length === 2,
         // ISSUE 32 (TASK-1429): flat layer list for view-results visibility toggling.
-        flatLayers: state?.layers?.flat || []
+        flatLayers: state?.layers?.flat || [],
+        // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge. Kill-switch
+        // mirrors the Anuga plugin's own cfg (same localConfig.json block
+        // MembershipPanel's paywallEnabled reads, via ownProps there — this
+        // component is rendered bare (<AnugaScenarioMenu/>) so it reads the
+        // plugin cfg directly off state instead).
+        paywallEnabled: !!(state?.localConfig?.plugins?.map_viewer || [])
+            .find((p) => p.name === 'Anuga')?.cfg?.paywallEnabled,
+        accountBalance: getAccountSummaryState(state).balance,
+        freeBand: getAccountSummaryState(state).freeBand
     };
 };
 
@@ -1399,6 +1422,11 @@ const mapDispatchToProps = (dispatch) => ({
             const shouldBeVisible = !!layer.name && thisRunLayerNames.includes(layer.name);
             dispatch(changeLayerProperties(layer.id, {visibility: shouldBeVisible}));
         });
+    },
+    // TASK-2420 — over-balance estimate badge -> Account panel, Billing tab.
+    onOpenAccountBilling: () => {
+        dispatch(setMembershipPanel(true));
+        dispatch(setMembershipPanelTab('billing'));
     }
 });
 

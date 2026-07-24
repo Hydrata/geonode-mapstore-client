@@ -225,6 +225,13 @@
         "memberRole": "Role",
         "memberUser": "User",
         "members": "Permissions",
+        "accountPanelTitle": "Account",
+        "accountTabSharing": "Sharing",
+        "accountTabBilling": "Billing",
+        "accountFreeRunsHeading": "Free runs today",
+        "accountSubscriptionHeading": "Subscription",
+        "accountRecentActivityHeading": "Recent activity",
+        "accountRecentActivityEmpty": "No activity yet",
         "permsUnavailable": {
           "message": "Permissions could not be loaded. The member list is read-only until permissions are available again."
         },
@@ -654,6 +661,7 @@
         "filterAll": "All",
         "statusPending": "Pending",
         "statusRunning": "Running",
+        "statusStalled": "Stalled",
         "statusComplete": "Complete",
         "statusError": "Error",
         "statusCancelled": "Cancelled"

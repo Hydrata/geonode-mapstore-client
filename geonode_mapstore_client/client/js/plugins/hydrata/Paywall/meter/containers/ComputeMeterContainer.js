@@ -7,6 +7,8 @@ import ComputeMeterPanel from '../components/ComputeMeterPanel';
 import { getComputeMeterState } from '../reducer';
 import { dismissMeterModal } from '../actions';
 import { subscribeCheckoutRequest } from '../../actions';
+// TASK-2420 (epic 2359 W4.5) — "View account" on the refusal modals.
+import { setMembershipPanel, setMembershipPanelTab } from '../../../Anuga/actionsAnuga';
 
 const mapStateToProps = (state) => {
     const meter = getComputeMeterState(state);
@@ -21,7 +23,11 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => ({
     onBuyPack: (priceId) => dispatch(subscribeCheckoutRequest('credit_pack', { priceId })),
-    onDismissModal: () => dispatch(dismissMeterModal())
+    onDismissModal: () => dispatch(dismissMeterModal()),
+    onViewAccount: () => {
+        dispatch(setMembershipPanel(true));
+        dispatch(setMembershipPanelTab('billing'));
+    }
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(ComputeMeterPanel);

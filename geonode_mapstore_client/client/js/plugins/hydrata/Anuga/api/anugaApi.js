@@ -600,12 +600,21 @@ export const updateProjectVisibility = (projectId, visibility) =>
 // checkout epic POSTs here then redirects the browser to the returned
 // session.url. Shared by the subscription flow (2099) and the compute-meter
 // credit-pack flow (2100, purchaseType='credit_pack' + priceId).
-export const createCheckoutSession = (projectId, purchaseType = 'subscription', priceId) => {
+export const createCheckoutSession = (projectId, purchaseType = 'subscription', priceId, returnMapId) => {
     const body = { purchase_type: purchaseType };
     if (purchaseType === 'credit_pack') {
         body.price_id = priceId;
-    } else {
+    } else if (projectId) {
+        // Omitted entirely for an account-scoped subscription (UAT-2 — the
+        // Billing tab's Subscribe carries no project; see checkout_views.py's
+        // optional-project contract).
         body.project_id = projectId;
+    }
+    if (returnMapId) {
+        // UAT-2 — the map the user is on, so a project-less session (account
+        // subscription, credit pack) still returns to this map instead of the
+        // app home (where checkoutReturnEpic never fires).
+        body.return_map_id = returnMapId;
     }
     return axios.post('/commerce/checkout/create-session/', body);
 };
@@ -614,6 +623,18 @@ export const createCheckoutSession = (projectId, purchaseType = 'subscription', 
 
 export const getComputeBalance = () =>
     axios.get('/commerce/balance/');
+
+// -- Account panel (TASK-2419/2420, epic 2359 W4.5) ------------------------
+//
+// GET /commerce/account/ — the viewing user's own Account summary (org/
+// manager, balance, free-band usage, subscription state, packs, ledger).
+// POST /commerce/billing-portal/ — manager-only Stripe Customer Portal
+// session (return_url is chosen server-side; see commerce.account_views).
+export const getAccountSummary = () =>
+    axios.get('/commerce/account/');
+
+export const createBillingPortalSession = () =>
+    axios.post('/commerce/billing-portal/');
 
 // -- Invitations (TASK-860 / TASK-855/856) ---------------------------------
 //

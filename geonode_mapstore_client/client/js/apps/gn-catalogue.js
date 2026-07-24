@@ -93,6 +93,7 @@ registerMediaAPI('geonode', geoNodeMediaApi);
 
 import '@js/observables/persistence';
 import { getGeoNodeLocalConfig } from '@js/utils/APIUtils';
+import { initAccountNavbarItem } from '@js/utils/AccountNavbarUtils';
 
 const requires = {
     ReactSwipe,
@@ -121,6 +122,11 @@ const getViewer = (component) => {
 const routes = CATALOGUE_ROUTES.map(({ component, ...config }) => ({ ...config, component: getViewer(component) }));
 
 initializeApp();
+// TASK-2423 (epic 2359 W4.5) — wire the server-rendered navbar 'Account' item
+// (see js/utils/AccountNavbarUtils.js). Safe to call here: the header's HTML
+// (including this item, when the Django template rendered it) already
+// precedes this <script> tag in catalogue.html's DOM source order.
+initAccountNavbarItem();
 
 getEndpoints()
     .then(()=> Promise.all([

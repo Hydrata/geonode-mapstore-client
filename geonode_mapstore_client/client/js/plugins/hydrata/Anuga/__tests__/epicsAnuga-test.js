@@ -1824,16 +1824,19 @@ describe('ANUGA Epics', () => {
         });
 
         describe('checkoutReturnEpic', () => {
-            it('?checkout=success -> emits SET_PAYWALL_PENDING + clears any stale meter modal (TASK-2100)', (done) => {
+            it('?checkout=success -> emits SET_PAYWALL_PENDING + clears any stale meter modal (TASK-2100) + opens the Account panel on Billing, refreshed (TASK-2420)', (done) => {
                 window.history.pushState({}, '', '?checkout=success');
                 const action$ = mockActions([{type: INIT_ANUGA}]);
                 const emitted = [];
 
                 checkoutReturnEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(2);
+                        expect(emitted.length).toBe(5);
                         expect(emitted.some(a => a.type === SET_PAYWALL_PENDING)).toBe(true);
                         expect(emitted.some(a => a.type === 'METER:DISMISS_MODAL')).toBe(true);
+                        expect(emitted.some(a => a.type === 'SET_MEMBERSHIP_PANEL' && a.visible === true)).toBe(true);
+                        expect(emitted.some(a => a.type === 'SET_MEMBERSHIP_PANEL_TAB' && a.tab === 'billing')).toBe(true);
+                        expect(emitted.some(a => a.type === 'ACCOUNT:FETCH_SUMMARY')).toBe(true);
                         done();
                     });
             });
@@ -1869,9 +1872,9 @@ describe('ANUGA Epics', () => {
 
                 checkoutReturnEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        // 2 actions from the ONE handled INIT_ANUGA (pending + modal
-                        // dismiss), not 4 — the second INIT_ANUGA is a full no-op.
-                        expect(emitted.length).toBe(2);
+                        // 5 actions from the ONE handled INIT_ANUGA, not 10 — the
+                        // second INIT_ANUGA is a full no-op.
+                        expect(emitted.length).toBe(5);
                         done();
                     });
             });
@@ -1950,7 +1953,53 @@ describe('ANUGA Epics', () => {
                     });
             });
 
-            it('API error -> emits SHOW_NOTIFICATION (no crash, no redirect)', (done) => {
+            it('accountOnly (Billing tab Subscribe) POSTs create-session with NO project_id', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    // UAT-2: account-scoped subscription — no project rides the
+                    // session, so no post-payment visibility flip.
+                    expect(JSON.parse(config.data)).toEqual({purchase_type: 'subscription'});
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_acct'}];
+                });
+                let redirectedTo = null;
+                __setRedirectForTests((url) => { redirectedTo = url; });
+
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription', accountOnly: true}]);
+                const emitted = [];
+
+                subscribeCheckoutEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_acct');
+                        done();
+                    });
+            });
+
+            it('sends return_map_id (the viewed map) so a project-less session returns to the map, not app home', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    expect(JSON.parse(config.data)).toEqual({purchase_type: 'subscription', return_map_id: '1418'});
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_rmid'}];
+                });
+                let redirectedTo = null;
+                __setRedirectForTests((url) => { redirectedTo = url; });
+
+                const store = {
+                    getState: () => ({
+                        anuga: { projects: { data: { id: null } } },
+                        gnresource: { id: '1418' }
+                    })
+                };
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription', accountOnly: true}]);
+                const emitted = [];
+
+                subscribeCheckoutEpic(action$, store)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
+                        expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_rmid');
+                        done();
+                    });
+            });
+
+            it('API error -> emits SHOW_NOTIFICATION at level error (no crash, no redirect)', (done) => {
                 mockAxios.onPost('/commerce/checkout/create-session/').reply(400, {error: 'boom'});
                 let redirectedTo = null;
                 __setRedirectForTests((url) => { redirectedTo = url; });
@@ -1962,6 +2011,10 @@ describe('ANUGA Epics', () => {
                     .subscribe(a => emitted.push(a), done, () => {
                         expect(emitted.length).toBe(1);
                         expect(emitted[0].type).toInclude('NOTIFICATION');
+                        // UAT-2 green-error-toast regression: show()'s level is
+                        // its SECOND ARG — a level key inside opts is silently
+                        // overwritten to 'success'.
+                        expect(emitted[0].level).toBe('error');
                         expect(redirectedTo).toBe(null);
                         done();
                     });

@@ -117,6 +117,11 @@
     /* Card border-radius — also used by Table */
     --sv-card-radius:     4px;
 
+    /* Raised card surface on dark glass (Account panel UAT-2 redesign) —
+       a white-tint card + hairline, distinct from the recessed --sv-inset-bg. */
+    --sv-card-bg:         rgba(255, 255, 255, 0.07);
+    --sv-card-border:     rgba(255, 255, 255, 0.12);
+
     /* Gap between label and control in a FormRow (inline layout) */
     --sv-form-row-gap:    8px;
 

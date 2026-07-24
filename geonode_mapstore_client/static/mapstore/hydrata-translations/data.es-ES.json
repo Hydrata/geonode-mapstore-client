@@ -225,6 +225,13 @@
         "memberRole": "Rol",
         "memberUser": "Usuario",
         "members": "Miembros",
+        "accountPanelTitle": "Cuenta",
+        "accountTabSharing": "Compartir",
+        "accountTabBilling": "Facturación",
+        "accountFreeRunsHeading": "Ejecuciones gratuitas hoy",
+        "accountSubscriptionHeading": "Suscripción",
+        "accountRecentActivityHeading": "Actividad reciente",
+        "accountRecentActivityEmpty": "Sin actividad todavía",
         "permsUnavailable": {
           "message": "No se pudieron cargar los permisos. La lista de miembros es de solo lectura hasta que los permisos esten disponibles."
         },
@@ -654,6 +661,7 @@
         "filterAll": "Todas",
         "statusPending": "Pendiente",
         "statusRunning": "En ejecución",
+        "statusStalled": "Estancado",
         "statusComplete": "Completo",
         "statusError": "Error",
         "statusCancelled": "Cancelada"

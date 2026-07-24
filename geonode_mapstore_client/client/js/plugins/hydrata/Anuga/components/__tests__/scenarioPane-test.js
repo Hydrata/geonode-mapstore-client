@@ -1746,6 +1746,63 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
+        // TASK-2400 (dogfood F1 #2a) — a free-band ($0) pre-build estimate
+        // must render 'Free', never a bare '$0.00' (a precise-looking,
+        // billable-reading figure for what is actually a zero-cost run).
+        it('TASK-2400: renders "Free" (never "$0.00") for a free-band ($0) compute_cost_estimate', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 200, compute_cost_estimate: 0}}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const label = container.querySelector('.sv-anuga-scenario-estimate-label');
+                    expect(label).toBeTruthy();
+                    expect(label.textContent).toContain('Free');
+                    expect(label.textContent.includes('$0.00')).toBe(false);
+                    done();
+                }
+            );
+        });
+
+        // TASK-2400 (dogfood F1 #1) — while the user has unsaved local edits
+        // (scenario.unsaved), the estimate line must say so rather than let a
+        // stale pre-edit figure read as current.
+        it('TASK-2400: marks the estimate line "outdated" when scenario.unsaved is true', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 123456, compute_cost_estimate: 5237.42, unsaved: true}}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const stale = container.querySelector('[data-testid="sv-anuga-scenario-estimate-stale"]');
+                    expect(stale).toBeTruthy();
+                    expect(stale.textContent).toContain('outdated');
+                    done();
+                }
+            );
+        });
+
+        it('TASK-2400: does NOT mark the estimate line "outdated" when scenario has no unsaved edits', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: 123456, compute_cost_estimate: 5237.42, unsaved: false}}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    const stale = container.querySelector('[data-testid="sv-anuga-scenario-estimate-stale"]');
+                    expect(stale).toBe(null);
+                    done();
+                }
+            );
+        });
+
         // TASK-2093 (epic 2092 W1.1) — the "$5237" bug: compute_cost_estimate
         // used to be raw vCPU-hours mislabeled as a cost, printed as
         // '~$X.XX vCPU-h' (both units on one number). BE now returns a
@@ -1956,6 +2013,169 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     container,
                     () => {
                         expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toNotExist();
+                        done();
+                    }
+                );
+            });
+        });
+
+        // TASK-2421 (UAT-1 findings 2+3) — Estimate and Built are mutually
+        // exclusive: a built run's comparison must NOT also show the
+        // Estimate line, and a scenario edited since its last build must show
+        // ONLY the (stale-marked) Estimate line, never the now-superseded
+        // Built line from the prior build.
+        describe('TASK-2421 Estimate/Built ONE line at a time', () => {
+            it('built + not unsaved: renders Built only, never the Estimate line', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{
+                            ...baseScenario,
+                            unsaved: false,
+                            mesh_triangle_count_estimate: 49457,
+                            compute_cost_estimate: 0.17,
+                            latest_run: {
+                                mesh_provenance: {pre_build_triangle_estimate: 49457},
+                                mesh_triangle_count: 55368,
+                                mesh_actual_cost_estimate: 0.19
+                            }
+                        }}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toExist();
+                        expect(container.querySelector('.anuga-scenario-estimate-section')).toNotExist();
+                        done();
+                    }
+                );
+            });
+
+            it('unsaved edit after a prior build: renders the (stale) Estimate line only, never the superseded Built line', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{
+                            ...baseScenario,
+                            unsaved: true,
+                            mesh_triangle_count_estimate: 49457,
+                            compute_cost_estimate: 0.17,
+                            latest_run: {
+                                mesh_provenance: {pre_build_triangle_estimate: 1000},
+                                mesh_triangle_count: 1200,
+                                mesh_actual_cost_estimate: 0.05
+                            }
+                        }}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector('.anuga-scenario-estimate-section')).toExist();
+                        expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toNotExist();
+                        const stale = container.querySelector('[data-testid="sv-anuga-scenario-estimate-stale"]');
+                        expect(stale).toBeTruthy();
+                        done();
+                    }
+                );
+            });
+        });
+
+        // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge: highlight
+        // + "View account" link when the estimate's BAND charge (never raw
+        // cents) exceeds the account balance. Free band ($0) never highlights.
+        describe('TASK-2420 over-balance estimate badge', () => {
+            const freeBand = { cap: 3, usedToday: 0, edge: '0.5', table: [['2', '1'], ['5', '2'], [null, '5']] };
+            const badgeSelector = '[data-testid="sv-anuga-scenario-estimate-over-balance-badge"]';
+
+            it('shows the badge when the band charge exceeds the balance (paywallEnabled)', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="1.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        // $3 estimate -> band $2 (table: (2,1),(5,2),(null,5)) > $1 balance.
+                        expect(container.querySelector(badgeSelector)).toExist();
+                        done();
+                    }
+                );
+            });
+
+            it('does NOT show the badge when the band charge is within balance', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="10.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector(badgeSelector)).toBe(null);
+                        done();
+                    }
+                );
+            });
+
+            it('never highlights a free-band ($0) estimate, even with zero balance', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 0.2, mesh_triangle_count_estimate: 100}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="0.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector(badgeSelector)).toBe(null);
+                        done();
+                    }
+                );
+            });
+
+            it('never shows the badge when paywallEnabled is false, regardless of balance', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled={false}
+                        accountBalance="0.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        expect(container.querySelector(badgeSelector)).toBe(null);
+                        done();
+                    }
+                );
+            });
+
+            it('clicking the badge calls onOpenAccountBilling', (done) => {
+                let called = false;
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="1.00"
+                        freeBand={freeBand}
+                        onOpenAccountBilling={() => { called = true; }}
+                    />,
+                    container,
+                    () => {
+                        container.querySelector(badgeSelector).click();
+                        expect(called).toBe(true);
                         done();
                     }
                 );

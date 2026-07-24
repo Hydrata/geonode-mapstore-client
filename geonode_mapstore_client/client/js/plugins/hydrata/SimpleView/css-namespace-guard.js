@@ -93,6 +93,9 @@ const ALLOWED_PREFIXES = new Set([
     'text',
     'ol',
     'time',
+    'dropdown',    // Bootstrap .dropdown-toggle — navbar user-menu hover-contrast
+    // override (#gn-brand-navbar .open > .dropdown-toggle, TASK-2420 finding-12);
+    // upstream GeoNode markup generates the class, no sv-* rename possible
     'alert',       // Bootstrap .alert-info/-warning/-danger — re-skinned dark-glass in place
     // via compound selectors (.membership-perms-warning.alert-warning,
     // .terrain-bbox-error.alert-danger) during the W3 conform (TASK-1758).

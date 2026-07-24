@@ -57,6 +57,121 @@ describe('TASK-2078 scenariosReducer SET_ANUGA_POLLING_DATA merges latest_comple
     });
 });
 
+// TASK-2400 (dogfood F1/#1) — mirrors the TASK-2078 fix immediately above:
+// the 8s poll must ALSO refresh the pre-build estimate fields
+// (mesh_triangle_count_estimate / _breakdown, compute_cost_estimate,
+// vcpu_hours_estimate) on an already-loaded scenario. Before this fix the
+// merge whitelist dropped them entirely, so a server-side recompute never
+// reached the estimate line (scenarioPane.js) or the Build tooltip echo
+// (scenarioHeaderActions.js) until a full page reload or the next
+// SAVE_ANUGA_SCENARIO_SUCCESS (a full-object replace).
+describe('TASK-2400 scenariosReducer SET_ANUGA_POLLING_DATA merges estimate fields', () => {
+    const baseState = () => ({
+        byId: {3: {
+            id: 3,
+            name: 'S3',
+            selected: true,
+            latest_run: {id: 5},
+            mesh_triangle_count_estimate: 1000,
+            mesh_triangle_count_estimate_breakdown: {mesh_region: 0.5},
+            compute_cost_estimate: 1.23,
+            vcpu_hours_estimate: 7.28
+        }},
+        allIds: [3],
+        selectedId: 3,
+        archiveFilter: 'none'
+    });
+    it('refreshes all four estimate fields on an already-loaded scenario from a poll tick', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{
+                id: 3,
+                latest_run: {id: 5},
+                status: 'created',
+                mesh_triangle_count_estimate: 2500,
+                mesh_triangle_count_estimate_breakdown: {mesh_region: 0.9},
+                compute_cost_estimate: 2.58,
+                vcpu_hours_estimate: 15.25
+            }]
+        });
+        expect(state.byId[3].mesh_triangle_count_estimate).toBe(2500);
+        expect(state.byId[3].mesh_triangle_count_estimate_breakdown).toEqual({mesh_region: 0.9});
+        expect(state.byId[3].compute_cost_estimate).toBe(2.58);
+        expect(state.byId[3].vcpu_hours_estimate).toBe(15.25);
+    });
+    it('refreshes a free-band ($0) compute_cost_estimate rather than keeping the stale non-zero value', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 3, latest_run: {id: 5}, status: 'created', compute_cost_estimate: 0}]
+        });
+        // ?? preserves a real 0 (only null/undefined fall back) — the stale
+        // 1.23 must NOT survive.
+        expect(state.byId[3].compute_cost_estimate).toBe(0);
+    });
+    it('clears estimate fields to null when the backend reports none (mirrors latest_run/_complete_run)', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 3, latest_run: {id: 5}, status: 'created'}]
+        });
+        expect(state.byId[3].mesh_triangle_count_estimate).toBe(null);
+        expect(state.byId[3].mesh_triangle_count_estimate_breakdown).toBe(null);
+        expect(state.byId[3].compute_cost_estimate).toBe(null);
+        expect(state.byId[3].vcpu_hours_estimate).toBe(null);
+    });
+});
+
+// TASK-2421 (UAT-1 findings 2+3) — the staleness flag (`unsaved`) must clear
+// once a poll tick delivers a GENUINELY refreshed estimate (evidence the
+// backend has recomputed off the edit that set it), but must NOT clear on a
+// tick that brings the SAME (stale) estimate back — the edit genuinely
+// hasn't been reflected yet.
+describe('TASK-2421 scenariosReducer SET_ANUGA_POLLING_DATA clears unsaved on fresh estimate', () => {
+    const baseState = () => ({
+        byId: {9: {
+            id: 9,
+            name: 'S9',
+            selected: true,
+            unsaved: true,
+            latest_run: {id: 20},
+            mesh_triangle_count_estimate: 1000,
+            compute_cost_estimate: 0.05
+        }},
+        allIds: [9],
+        selectedId: 9,
+        archiveFilter: 'none'
+    });
+    it('clears unsaved when the poll brings a DIFFERENT triangle estimate', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 9, latest_run: {id: 20}, status: 'created', mesh_triangle_count_estimate: 49457, compute_cost_estimate: 0.17}]
+        });
+        expect(state.byId[9].unsaved).toBe(false);
+        expect(state.byId[9].mesh_triangle_count_estimate).toBe(49457);
+    });
+    it('clears unsaved when only the cost estimate changed (triangle count identical)', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 9, latest_run: {id: 20}, status: 'created', mesh_triangle_count_estimate: 1000, compute_cost_estimate: 0.09}]
+        });
+        expect(state.byId[9].unsaved).toBe(false);
+    });
+    it('leaves unsaved TRUE when the poll brings back the SAME stale estimate (edit not yet reflected)', () => {
+        const state = scenariosReducer(baseState(), {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 9, latest_run: {id: 20}, status: 'created', mesh_triangle_count_estimate: 1000, compute_cost_estimate: 0.05}]
+        });
+        expect(state.byId[9].unsaved).toBe(true);
+    });
+    it('leaves an already-saved (unsaved:false) scenario untouched regardless of estimate movement', () => {
+        const saved = {...baseState(), byId: {9: {...baseState().byId[9], unsaved: false}}};
+        const state = scenariosReducer(saved, {
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 9, latest_run: {id: 20}, status: 'created', mesh_triangle_count_estimate: 2000, compute_cost_estimate: 0.20}]
+        });
+        expect(state.byId[9].unsaved).toBe(false);
+    });
+});
+
 // TASK-2079 — build-dedup: BUILD_SCENARIO_ERROR previously had NO reducer
 // (action-only). A benign 409 (conflict: true) now stashes `buildConflict`
 // on the scenario so scenarioHeaderActions.js can render it inline near the

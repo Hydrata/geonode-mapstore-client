@@ -189,3 +189,41 @@ describe('ComputeMeterPanel — estimate_ceiling modal (TASK-2123, distinct mess
         expect(dismissed).toBe(true);
     });
 });
+
+// TASK-2420 (epic 2359 W4.5) — "View account" on all three refusal modals,
+// routing to the Account panel's Billing tab (UAT-1 findings 4+13: the
+// discoverable home for balance/free-run accounting).
+describe('ComputeMeterPanel — "View account" on all three refusal modals (TASK-2420)', () => {
+    it('insufficient_balance modal calls onViewAccount', () => {
+        let called = false;
+        const c = render({
+            enabled: true,
+            modal: {type: 'insufficient_balance', detail: 'x'},
+            onViewAccount: () => { called = true; }
+        });
+        c.querySelector('[data-testid="meter-insufficient-balance-view-account"]').click();
+        expect(called).toBe(true);
+    });
+
+    it('cap_exceeded modal calls onViewAccount', () => {
+        let called = false;
+        const c = render({
+            enabled: true,
+            modal: {type: 'cap_exceeded', detail: 'x'},
+            onViewAccount: () => { called = true; }
+        });
+        c.querySelector('[data-testid="meter-cap-exceeded-view-account"]').click();
+        expect(called).toBe(true);
+    });
+
+    it('estimate_ceiling modal calls onViewAccount', () => {
+        let called = false;
+        const c = render({
+            enabled: true,
+            modal: {type: 'estimate_ceiling', detail: 'x'},
+            onViewAccount: () => { called = true; }
+        });
+        c.querySelector('[data-testid="meter-estimate-ceiling-view-account"]').click();
+        expect(called).toBe(true);
+    });
+});
