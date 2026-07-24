@@ -277,10 +277,7 @@ describe('TerrainWorkbench action creators', () => {
                 { terrain_id: 7, priority: 1, unmodified: false }
             ],
             feather_width_m: 50,
-            target_resolution_m: 5,
-            breach_max_cost: 20,
-            breach_search_dist: 100,
-            use_terrain_breaches: false
+            target_resolution_m: 5
         };
         const action = twDerive(11, body);
         expect(action.type).toEqual(TW_DERIVE);
@@ -425,10 +422,7 @@ describe('TASK-1800 twDeriveEpic lazy create-then-derive', () => {
     const deriveBody = {
         inputs: [{ terrain_id: 5, priority: 0, unmodified: true }],
         feather_width_m: 50,
-        target_resolution_m: 5,
-        breach_max_cost: 20,
-        breach_search_dist: 100,
-        use_terrain_breaches: false
+        target_resolution_m: 5
     };
 
     it('registers the created surface on create-success even when the derive FAILS', (done) => {

@@ -28,11 +28,8 @@ const SURFACE = {
     id: 7,
     title: 'Surface A',
     inputs_ordered: [],
-    use_terrain_breaches: false,
     feather_width_m: 10,
-    target_resolution_m: 1,
-    breach_max_cost: 100,
-    breach_search_dist: 50
+    target_resolution_m: 1
 };
 
 describe('TASK-1800 MergeTerrainsPanel (unconnected)', () => {

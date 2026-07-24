@@ -938,11 +938,8 @@ describe('TASK-1674 terrain recipe builder conformed onto SimpleView primitives'
         id: 7,
         title: 'Surface A',
         inputs_ordered: [],
-        use_terrain_breaches: false,
         feather_width_m: 10,
-        target_resolution_m: 1,
-        breach_max_cost: 100,
-        breach_search_dist: 50
+        target_resolution_m: 1
     };
 
     it('TWStaleBadge renders the shared StatusBadge (amber pending) when stale, nothing when fresh', () => {
@@ -1032,8 +1029,7 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
             { id: 2, terrain: 12, priority: 1, unmodified: false },
             { id: 3, terrain: 13, priority: 2, unmodified: false }
         ],
-        use_terrain_breaches: false, feather_width_m: 10, target_resolution_m: 1,
-        breach_max_cost: 100, breach_search_dist: 50
+        feather_width_m: 10, target_resolution_m: 1
     };
 
     function renderRecipe(props) {
