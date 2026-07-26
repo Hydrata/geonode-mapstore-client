@@ -50,11 +50,21 @@
  *   would show a paid-tier indicator to people who cannot act on it.
  *
  * CONSISTENCY WITH THE W1 DESTINATION GATE (TASK-2431): now EXACT rather than
- * merely safe. The write gate is owner/manager and so is this, so nobody is
- * shown a paid-tier state they cannot act on, and nobody who can act on it (and
- * be billed for it) is left without the signal. The indicator is still only an
- * indicator: this wave adds no second make-private CTA, the action stays in
- * Account > Sharing, itself canManageMembers-gated to the same owner/manager.
+ * merely safe. The backend WRITE gate is owner/manager and so is this, so nobody
+ * is shown a paid-tier state they cannot act on, and nobody who can act on it
+ * (and be billed for it) is left without the signal. This wave adds no second
+ * make-private CTA; the action stays in Account > Sharing.
+ *
+ * THAT SHARING SECTION IS GATED MORE LOOSELY THAN EITHER OF THEM, and this gate
+ * deliberately does NOT copy it. membershipPanel.js's renderVisibilitySection
+ * (:219) gates on `canAdd` = _deriveCanAdd (:676), which is owner/manager OR any
+ * membership row carrying `change_resourcebase_permissions` — so an editor with
+ * that perm sees the visibility radios and is then refused 403 by
+ * check_project_role's min_role=MANAGER. Pre-existing, not introduced here, and
+ * filed as TASK-2485 rather than quietly matched: the INDICATOR must track the
+ * write gate, because a padlock is a statement about billing, whereas an
+ * affordance being too generous is a separate (real) bug in the other direction.
+ * Matching _deriveCanAdd here would have propagated it instead of exposing it.
  */
 import { canManageAnugaMap } from '../Anuga/selectorsAnuga';
 import { getPaywallSteady } from './reducer';
@@ -63,10 +73,12 @@ import { getPaywallSteady } from './reducer';
  * TASK-2462 gate (widened to MANAGER+ by TASK-2484): may this viewer see the
  * project's visibility indicator?
  *
- * Reads the EXISTING owner/manager selector rather than re-listing the roles,
- * so "manager+" has one definition shared with canManageMembers and with the
- * Sharing panel's own gate. Re-inlining `['owner', 'manager'].includes(...)`
- * here would be a second copy that can drift from the backend's min_role.
+ * Reads the EXISTING canManageAnugaMap rather than re-listing the roles, so this
+ * adds no new copy of the owner/manager list that could drift from the backend's
+ * min_role. To be precise about what that does and does not achieve:
+ * selectorsAnuga.js ALREADY carries two identical copies of that list
+ * (canManageAnugaMap and canManageMembers), which is pre-existing and untouched
+ * here — this reuse avoids making it three, it does not collapse the two.
  *
  * Widen this — and ONLY this — when the backend ships the owning-organisation
  * signal (TASK-2471); every consumer reads through here.
