@@ -3,24 +3,21 @@
  * merge that feeds PaywallPanelContainer's connected `paywallPayload` prop.
  */
 import expect from 'expect';
-import paywallReducer, {
-    getEffectivePaywallPayload, getPaywallSteady, isPaywallPending, getPaywallConfirming
-} from '../reducer';
+import paywallReducer, {getEffectivePaywallPayload, getPaywallSteady, isPaywallPending} from '../reducer';
 import {getPaywallSteadyState, isPaywallPastDue} from '../selectors';
 import {SET_ANUGA_RESOURCE_PERMS} from '../../Anuga/actionsAnuga';
 import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
     SET_PAYWALL_PENDING,
-    STALL_PAYWALL_PENDING,
     CLEAR_PAYWALL_PENDING
 } from '../actions';
-import {SET_ACCOUNT_SUMMARY} from '../account/actions';
 
-// TASK-2463 (W2.8) added `stalled` to the pending overlay. Spelled out once here
-// so the exact-shape assertions below keep asserting the WHOLE object (a
-// toEqual with a field quietly dropped is how a new field escapes review).
-const PENDING_OVERLAY = {state: 'pending', stalled: false, checkout_url: null, read_only: false};
+// The pending overlay's exact shape, spelled out once so the toEqual assertions
+// below keep asserting the WHOLE object (a field quietly added or dropped is how
+// a change to it escapes review). W2.8's `stalled` sub-state was removed by the
+// W2.10 revert — see the reducer's CLEAR_PAYWALL_PENDING case.
+const PENDING_OVERLAY = {state: 'pending', checkout_url: null, read_only: false};
 
 describe('TASK-2099 Paywall reducer', () => {
     it('initial state has no steady/overlay', () => {
@@ -58,10 +55,9 @@ describe('TASK-2099 Paywall reducer', () => {
         expect(state.overlay).toEqual(PENDING_OVERLAY);
     });
 
-    it('SET_PAYWALL_PENDING arms the pending overlay, NOT stalled', () => {
+    it('SET_PAYWALL_PENDING arms the pending overlay', () => {
         const state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
         expect(state.overlay).toEqual(PENDING_OVERLAY);
-        expect(getPaywallConfirming({anuga: {paywall: state}})).toEqual({stalled: false});
     });
 
     it('a steady paid_private clears a pending overlay (webhook flip observed via poll)', () => {
@@ -121,149 +117,52 @@ describe('TASK-2099 Paywall reducer', () => {
         expect(state.overlay.state).toBe('pending');
     });
 
-    // TASK-2463 (epic 2425 W2.8) — the give-up path. TASK-2457 made the poll
-    // CLEAR the overlay here; the same wave deleted PendingSpinner, so from then
-    // on clearing it revealed nothing at all and a customer who had paid got no
-    // acknowledgement of any kind. The overlay now STAYS and is marked stalled.
-    it('STALL_PAYWALL_PENDING keeps the overlay and marks it stalled — it does NOT reveal a pre-payment steady', () => {
+    // TASK-2457 second half — the poll giving up must be able to disarm the
+    // overlay, or a lost/slow webhook is an un-dismissable state.
+    //
+    // W2.10 (operator decision 2026-07-26) restored this trio after W2.8 replaced
+    // the clear with a STALL marker and W2.9 added a SET_ACCOUNT_SUMMARY channel
+    // beside it. Clearing reveals `steady` — that is all it does, and all it is
+    // claimed to do. Acknowledging a webhook slower than the poll is TASK-2489.
+    it('CLEAR_PAYWALL_PENDING disarms a pending overlay, revealing steady', () => {
         let state = paywallReducer(undefined, {
             type: SET_ANUGA_RESOURCE_PERMS,
             payload: {paywall: {state: 'free_public', checkout_url: null, read_only: false}}
         });
         state = paywallReducer(state, {type: SET_PAYWALL_PENDING});
         expect(getEffectivePaywallPayload({anuga: {paywall: state}}).state).toBe('pending');
-        state = paywallReducer(state, {type: STALL_PAYWALL_PENDING});
-        expect(state.overlay).toNotBe(
-            null,
-            'the customer who paid is back to seeing the pre-payment state with no signal'
-        );
-        expect(getPaywallConfirming({anuga: {paywall: state}})).toEqual({stalled: true});
-        // The steady state is still there and still readable — nothing was
-        // destroyed, it is simply not what the panel leads with.
-        expect(state.steady.state).toBe('free_public');
+        state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING});
+        expect(state.overlay).toBe(null);
+        expect(getEffectivePaywallPayload({anuga: {paywall: state}}).state).toBe('free_public');
     });
 
-    it('STALL_PAYWALL_PENDING never eats an upgrade_prompt refusal', () => {
-        // A 402 can arm while the poll is still running. The give-up path must
-        // not silently discard a refusal the customer has to see.
+    it('CLEAR_PAYWALL_PENDING never eats an upgrade_prompt refusal', () => {
+        // A 402 can arm while the poll is still running. Clearing "pending"
+        // must not silently discard a refusal the customer has to see.
         let state = paywallReducer(undefined, {type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl: 'https://x/'});
-        state = paywallReducer(state, {type: STALL_PAYWALL_PENDING});
+        state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING});
         expect(state.overlay.state).toBe('upgrade_prompt');
     });
 
-    it('STALL_PAYWALL_PENDING is a no-op (same reference) when nothing is armed, and idempotent when already stalled', () => {
+    it('CLEAR_PAYWALL_PENDING is a no-op (same reference) when nothing is armed', () => {
         const before = paywallReducer(undefined, {type: '@@INIT'});
-        expect(paywallReducer(before, {type: STALL_PAYWALL_PENDING})).toBe(before);
-        const stalled = paywallReducer(
-            paywallReducer(undefined, {type: SET_PAYWALL_PENDING}), {type: STALL_PAYWALL_PENDING}
-        );
-        expect(paywallReducer(stalled, {type: STALL_PAYWALL_PENDING})).toBe(stalled);
+        expect(paywallReducer(before, {type: CLEAR_PAYWALL_PENDING})).toBe(before);
     });
 
-    it('getPaywallConfirming is null when no purchase is in flight, whatever the steady state', () => {
-        const state = paywallReducer(undefined, {
-            type: SET_ANUGA_RESOURCE_PERMS,
-            payload: {paywall: {state: 'past_due', checkout_url: 'https://x/', read_only: true}}
+    // W2.10 REGRESSION GUARD. W2.9 made the account summary a confirmation
+    // channel in this slice: an ACTIVE subscription cleared a pending overlay.
+    // It is gone, and it must not come back here — the summary is
+    // account-scoped, `subscription.active` is a subscription flag rather than a
+    // "money arrived" flag, and a credit-pack buyer never sets it, so this
+    // reducer cannot tell "not landed" from "landed unobserved". TASK-2489 owns
+    // the server-side read that can.
+    it('the account summary is INERT in this slice — it is not a confirmation channel', () => {
+        const state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
+        const after = paywallReducer(state, {
+            type: 'ACCOUNT:SET_SUMMARY', data: {subscription: {active: true, since: '2026-07-26'}}
         });
-        expect(getPaywallConfirming({anuga: {paywall: state}})).toBe(null);
-        expect(getPaywallConfirming({})).toBe(null);
-    });
-
-    // TASK-2463 (W2.8) — the SECOND confirmation channel, and the reason the
-    // honest-stall change is not itself a new permanent lie. An ACCOUNT-scoped
-    // subscription (Billing tab "Subscribe" -> accountOnly, no project on the
-    // session) leaves the project public forever, so my_perms answers free_public
-    // for good and no paid PROJECT state ever arrives. Before this rule the
-    // customer's subscription would land perfectly and the app would sit on
-    // "still confirming" until they reloaded.
-    describe('confirmation via the account summary (W2.8)', () => {
-        it('an ACTIVE subscription clears a pending overlay', () => {
-            let state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
-            state = paywallReducer(state, {
-                type: SET_ACCOUNT_SUMMARY, data: {subscription: {active: true, since: '2026-07-26'}}
-            });
-            expect(state.overlay).toBe(
-                null,
-                'an account-scoped subscription that landed left the app claiming it was '
-                + 'still confirming — the only channel that can confirm it was ignored'
-            );
-        });
-
-        it('clears a STALLED overlay too — a late confirmation must still resolve it', () => {
-            let state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
-            state = paywallReducer(state, {type: STALL_PAYWALL_PENDING});
-            state = paywallReducer(state, {
-                type: SET_ACCOUNT_SUMMARY, data: {subscription: {active: true}}
-            });
-            expect(state.overlay).toBe(null);
-        });
-
-        it('an INACTIVE subscription changes nothing (the poll must keep waiting)', () => {
-            let state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
-            const after = paywallReducer(state, {
-                type: SET_ACCOUNT_SUMMARY, data: {subscription: {active: false}}
-            });
-            expect(after).toBe(state, 'an unchanged summary must not even produce a new object');
-            expect(isPaywallPending({anuga: {paywall: after}})).toBe(true);
-        });
-
-        it('does not touch an upgrade_prompt refusal', () => {
-            let state = paywallReducer(undefined, {type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl: 'https://x/'});
-            state = paywallReducer(state, {
-                type: SET_ACCOUNT_SUMMARY, data: {subscription: {active: true}}
-            });
-            expect(state.overlay.state).toBe('upgrade_prompt');
-        });
-
-        it('a malformed/absent summary body is inert', () => {
-            const state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
-            expect(paywallReducer(state, {type: SET_ACCOUNT_SUMMARY})).toBe(state);
-            expect(paywallReducer(state, {type: SET_ACCOUNT_SUMMARY, data: {}})).toBe(state);
-        });
-    });
-
-    // TASK-2486 (epic 2425 W2.9) — the THIRD confirmation channel, the credit
-    // pack's. Its signal is the compute balance, which this slice cannot see, so
-    // the comparison is made in clearPendingOnBalanceIncreaseEpic and only its
-    // verdict arrives here. Backend-verified: the credit-pack webhook branch
-    // (commerce/checkout_views.py _handle_credit_pack_checkout_completed) writes
-    // a ComputeLedgerEntry and touches neither has_paid_private_entitlement (the
-    // field `subscription.active` reports) nor Project.visibility, so NEITHER of
-    // the two clears above can ever fire for an unsubscribed pack buyer.
-    describe('confirmation via the compute balance (W2.9)', () => {
-        it('clears a pending overlay', () => {
-            let state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
-            state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING, reason: 'balance'});
-            expect(state.overlay).toBe(
-                null,
-                'the pack landed, the balance went up, and the app still claimed it had '
-                + 'confirmed nothing'
-            );
-        });
-
-        it('clears a STALLED overlay too — the balance can arrive after the poll gave up', () => {
-            let state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
-            state = paywallReducer(state, {type: STALL_PAYWALL_PENDING});
-            state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING, reason: 'balance'});
-            expect(state.overlay).toBe(null);
-            expect(getPaywallConfirming({anuga: {paywall: state}})).toBe(null);
-        });
-
-        it('does not touch an upgrade_prompt refusal', () => {
-            let state = paywallReducer(undefined, {
-                type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl: 'https://x/'
-            });
-            state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING, reason: 'balance'});
-            expect(state.overlay.state).toBe(
-                'upgrade_prompt',
-                'a balance change dismissed the refusal the user was reading'
-            );
-        });
-
-        it('is inert with no overlay at all', () => {
-            const state = paywallReducer(undefined, {type: 'INIT'});
-            expect(paywallReducer(state, {type: CLEAR_PAYWALL_PENDING})).toBe(state);
-        });
+        expect(after).toBe(state, 'the account summary disarmed the pending overlay');
+        expect(isPaywallPending({anuga: {paywall: after}})).toBe(true);
     });
 
     describe('getEffectivePaywallPayload', () => {

@@ -143,12 +143,9 @@ import {
 import {
     checkoutReturnEpic,
     pollMyPermsWhilePendingEpic,
-    // TASK-2486 (epic 2425 W2.9) — the credit pack's confirmation channel: the
-    // compute balance going up. The other two clears live in Paywall/reducer.js.
-    clearPendingOnBalanceIncreaseEpic,
-    // TASK-2463 (epic 2425 W2.8) — "Check again" on the stalled confirming
-    // notice, and the tab-visible my_perms re-read.
-    recheckPaymentEpic,
+    // TASK-2483 (epic 2425 W2.8) — the tab-visible my_perms re-read. The tab the
+    // customer STARTED checkout from never sees ?checkout=success and so never
+    // polls; this is what makes its padlock fresh when they look at it again.
     refreshMyPermsOnTabVisibleEpic,
     subscribeCheckoutEpic
 } from "./epics/paywallEpics";
@@ -228,8 +225,6 @@ export default createPlugin('Anuga', {
         // TASK-2099 (epic 2092 W4.1) — Paywall checkout round-trip epics.
         checkoutReturnEpic,
         pollMyPermsWhilePendingEpic,
-        clearPendingOnBalanceIncreaseEpic,
-        recheckPaymentEpic,
         refreshMyPermsOnTabVisibleEpic,
         subscribeCheckoutEpic,
         // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.

@@ -7,15 +7,15 @@
  *   steady  — the last `paywall` block from my_perms (free_public /
  *             paid_private / past_due). Written by SET_ANUGA_RESOURCE_PERMS.
  *   overlay — FE-only ephemeral state my_perms never emits (upgrade_prompt,
- *             pending). Takes precedence over `steady` while set. A `pending`
- *             overlay also carries `stalled` (TASK-2463, W2.8): the poll has run
- *             its full budget without OBSERVING the purchase land, so the Billing
- *             tab swaps "Confirming your purchase…" for a re-check plus a line
- *             saying when the figures below were last read. `stalled` names the
- *             POLL's outcome, not the customer's money — the app cannot tell a
- *             missing webhook from one it simply had no channel to see, so
- *             neither the flag nor the copy claims anything is outstanding
- *             (TASK-2486, W2.9). It is NOT cleared into nothing — see actions.js.
+ *             pending). Takes precedence over `steady` while set. `pending` is
+ *             armed by a ?checkout=success return and disarmed either by a PAID
+ *             steady arriving (below) or by the poll giving up after 60s. It
+ *             renders NO surface of its own — W2.5 deleted PendingSpinner — so
+ *             it is a mask on `steady`, nothing more. W2.8/W2.9 added a
+ *             `stalled` sub-state and two extra confirmation channels here; the
+ *             operator reverted all of it on 2026-07-26 (W2.10) and the problem
+ *             it was aimed at — acknowledging a webhook slower than the poll —
+ *             is TASK-2489. Do not re-add a detector to this slice.
  *
  * getEffectivePaywallPayload resolves the two into the single payload shape
  * PaywallPanel expects ({state, checkout_url, read_only}).
@@ -27,15 +27,10 @@
  * corrupts into resources.paywall = []). See _NON_RESOURCE_KEYS there.
  */
 import { SET_ANUGA_RESOURCE_PERMS } from '../Anuga/actionsAnuga';
-// TASK-2463 (W2.8) — the account summary is the ONLY channel that can confirm an
-// ACCOUNT-scoped purchase (Billing tab "Subscribe", `accountOnly`), which never
-// produces a paid PROJECT steady state. See the pending-clear below.
-import { SET_ACCOUNT_SUMMARY } from './account/actions';
 import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
     SET_PAYWALL_PENDING,
-    STALL_PAYWALL_PENDING,
     CLEAR_PAYWALL_PENDING
 } from './actions';
 
@@ -98,85 +93,28 @@ export default (state = initialState, action) => {
             ? { ...state, overlay: null }
             : state;
     case SET_PAYWALL_PENDING:
-        // `stalled` is FE-only sub-state of the FE-only `pending` state, NOT a new
-        // contract literal: paywall_contract.json is frozen at 7 states with a
-        // pinned hash (paywallContractHash-test.js), and "the poll gave up" is not
-        // something the backend has any view on. Keeping `state: 'pending'` means
-        // every existing consumer — PaywallPanel's switch, isPaywallPending, the
-        // PAID clear above — keeps working unchanged.
-        return { ...state, overlay: { state: 'pending', stalled: false, checkout_url: null, read_only: false } };
-    // TASK-2463 (W2.8) — the poll ran its full budget without seeing the purchase
-    // land. Marks the overlay stalled rather than clearing it: see
-    // STALL_PAYWALL_PENDING in actions.js for why TASK-2457's clear became the
-    // wrong answer once W2.5 deleted the thing that rendered `pending`.
+        return { ...state, overlay: { state: 'pending', checkout_url: null, read_only: false } };
+    // TASK-2457 — the poll gave up. Clear ONLY a pending overlay, so this can
+    // never eat an upgrade_prompt refusal that armed while the poll was
+    // running (same narrowness as DISMISS_PAYWALL_UPGRADE above).
     //
-    // Acts ONLY on a pending overlay, so it can never touch an upgrade_prompt
-    // refusal that armed while the poll was running (same narrowness as
-    // DISMISS_PAYWALL_UPGRADE above), and it is idempotent.
-    case STALL_PAYWALL_PENDING:
-        return (state.overlay && state.overlay.state === 'pending' && !state.overlay.stalled)
-            ? { ...state, overlay: { ...state.overlay, stalled: true } }
-            : state;
-    // TASK-2486 (W2.9) — the THIRD confirmation channel, and the one that
-    // covers the credit pack: the compute balance went up. Dispatched by
-    // clearPendingOnBalanceIncreaseEpic, which is where the previous balance is
-    // observable (see actions.js's CLEAR_PAYWALL_PENDING).
-    //
-    // Narrow, like the two clears above it: acts only on a pending overlay, so a
-    // balance increase during an unrelated upgrade_prompt cannot dismiss the
-    // refusal the user is looking at.
+    // THE ONLY OTHER WAY OUT is the PAID clear in SET_ANUGA_RESOURCE_PERMS
+    // above. W2.8 added a `stalled` marker here and W2.9 a SET_ACCOUNT_SUMMARY
+    // channel beside it; the operator reverted both on 2026-07-26 (W2.10). The
+    // asymmetry those were reaching for is real and is written down in
+    // TASK-2489: an ACCOUNT-scoped subscription (Billing tab "Subscribe" passes
+    // accountOnly, so no project rides the session) grants the entitlement
+    // without flipping any project, and a credit pack writes only a
+    // ComputeLedgerEntry — so neither ever produces a paid PROJECT steady state
+    // and the poll runs to exhaustion for both. What no rule in this file can
+    // do is tell "the purchase has not landed" from "it landed by a channel
+    // this slice cannot observe", which is why every client-side attempt so far
+    // has rendered a claim the customer's own screen refutes. TASK-2489 closes
+    // it server-side.
     case CLEAR_PAYWALL_PENDING:
         return (state.overlay && state.overlay.state === 'pending')
             ? { ...state, overlay: null }
             : state;
-    // TASK-2463 (W2.8) — the SECOND way a purchase can be confirmed, and without
-    // it the honest-stall change above would have created a new permanent lie.
-    //
-    // The pending overlay is armed by ANY `?checkout=success` return, and it
-    // covers three purchase kinds. Each now has exactly one detector, and the
-    // three are checked here in one place because their asymmetry is the thing
-    // that keeps being got wrong:
-    //   * privacy subscription WITH a project on the session -> the webhook sets
-    //     the entitlement AND flips visibility (commerce/checkout_views.py
-    //     _grant_entitlement_and_flip_project), so my_perms answers
-    //     paid_private/paid_organization. Cleared by SET_ANUGA_RESOURCE_PERMS
-    //     above — and also by the rule below, whichever arrives first.
-    //   * ACCOUNT-scoped subscription (Billing tab "Subscribe" passes
-    //     accountOnly, so no project rides the session — see subscribeCheckoutEpic)
-    //     -> the same webhook grants the entitlement but flips nothing, because
-    //     there is no project on the session. my_perms keeps answering
-    //     free_public for good. THIS case is what the rule below closes.
-    //   * credit pack -> `purchase_type=credit_pack` is discriminated BEFORE the
-    //     subscription path (checkout_views.py stripe_webhook) and routed to
-    //     _handle_credit_pack_checkout_completed, which writes ONE
-    //     ComputeLedgerEntry and touches has_paid_private_entitlement nowhere.
-    //     So `subscription.active` below can NEVER go true for it, and neither
-    //     can a paid project state. Its only signal is the BALANCE, which this
-    //     reducer cannot see: cleared by CLEAR_PAYWALL_PENDING above (TASK-2486,
-    //     W2.9). Before that clear existed, an UNSUBSCRIBED pack buyer — the
-    //     default shape of the production estate — could not be confirmed by any
-    //     rule in this file and always ran the poll to exhaustion.
-    //
-    // `subscription.active` IS `Account.has_paid_private_entitlement`
-    // (commerce/account_views.py AccountSummaryView) — the same field the
-    // subscription webhook writes and `customer.subscription.deleted` revokes.
-    // It is a SUBSCRIPTION flag, not a "money arrived" flag; reading it as the
-    // latter is what left the pack buyer with no detector.
-    //
-    // NOT A TRANSITION CHECK, deliberately: this clears on `active` being true,
-    // not on it going false -> true. When the webhook BEATS the return — the
-    // common case — the first summary already reads active and no transition is
-    // ever observable, so a transition check would strand a subscription that
-    // landed perfectly. The cost that used to carry (an already-subscribed
-    // customer buying a pack cleared at tick 1 and stopped the poll's balance
-    // refresh with it) is gone: pollMyPermsWhilePendingEpic now runs a minimum
-    // floor of PAYWALL_POLL_MAX_ATTEMPTS ticks regardless of this clear.
-    case SET_ACCOUNT_SUMMARY: {
-        const active = !!(action.data && action.data.subscription && action.data.subscription.active);
-        return (active && state.overlay && state.overlay.state === 'pending')
-            ? { ...state, overlay: null }
-            : state;
-    }
     default:
         return state;
     }
@@ -234,19 +172,4 @@ export const getEffectivePaywallPayload = (state) => {
 export const isPaywallPending = (state) => {
     const slice = state && state.anuga && state.anuga.paywall;
     return !!(slice && slice.overlay && slice.overlay.state === 'pending');
-};
-
-/**
- * TASK-2463 (W2.8) — what the Billing tab should say about a purchase in flight:
- * `null` (nothing in flight), `{stalled: false}` (polling), `{stalled: true}`
- * (the poll's budget is spent and we still have not seen it land).
- *
- * Deliberately NOT two booleans. A caller holding `pending` and `stalled`
- * separately can render both messages, or neither, and both mistakes are silent.
- */
-export const getPaywallConfirming = (state) => {
-    const slice = state && state.anuga && state.anuga.paywall;
-    const overlay = slice && slice.overlay;
-    if (!overlay || overlay.state !== 'pending') return null;
-    return { stalled: !!overlay.stalled };
 };

@@ -14,7 +14,11 @@
  *      (paywallContract.js _meta.note_on_pending: the backend has no
  *      in-flight marker, so polling my_perms is the only way to observe it),
  *      or until it gives up, at which point it CLEARS the overlay rather than
- *      stranding the customer on a permanent spinner.
+ *      leaving it armed forever (the overlay masks `steady`, so "pending
+ *      forever" means the app never shows the answer the server already gave).
+ *      Clearing reveals `steady` and nothing else — W2.5 deleted PendingSpinner,
+ *      so `pending` renders no surface of its own. Acknowledging a purchase
+ *      whose webhook outlived the budget is TASK-2489, NOT this epic.
  *      TASK-2100: the SAME return URL/marker covers a credit-pack purchase
  *      (shared checkout session machinery, see subscribeCheckoutEpic below),
  *      so each poll tick ALSO re-fetches the compute balance — cheap
@@ -29,48 +33,36 @@ import Rx from 'rxjs';
 import { show } from '../../../../../MapStore2/web/client/actions/notifications';
 import * as anugaApi from '../api/anugaApi';
 import { INIT_ANUGA, fetchMyPerms, setMembershipPanel, setMembershipPanelTab } from '../actionsAnuga';
-import {
-    SUBSCRIBE_CHECKOUT_REQUEST, RECHECK_PAYMENT, SET_PAYWALL_PENDING,
-    setPaywallPending, stallPaywallPending, clearPaywallPending
-} from '../../Paywall/actions';
+import { SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING, setPaywallPending, clearPaywallPending } from '../../Paywall/actions';
 import { isPaywallPending } from '../../Paywall/reducer';
-import {
-    fetchComputeBalance, dismissMeterModal, SET_COMPUTE_BALANCE
-} from '../../Paywall/meter/actions';
-import { fetchAccountSummary, SET_ACCOUNT_SUMMARY } from '../../Paywall/account/actions';
+import { fetchComputeBalance, dismissMeterModal } from '../../Paywall/meter/actions';
+import { fetchAccountSummary } from '../../Paywall/account/actions';
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
 
-// TWO-PHASE POLL (TASK-2463, epic 2425 W2.8). Was a single fixed 20 x 3s = 60s
-// phase, described in this comment as "comfortably longer than a normal webhook
-// round trip" — which is true of a NORMAL one and was the whole problem. Stripe
-// retries a failed webhook delivery on a backoff measured in minutes, and the
-// budget was set to the length of the happy path, so the only customers it
-// covered were the ones who never needed a poll.
+// Fixed-interval poll, capped — a "no polish" MVP: no backoff, just a hard
+// ceiling so an abandoned tab (webhook lost, user never returns) can't poll
+// forever. 20 * 3s = 60s, comfortably longer than a normal webhook round trip.
 //
-// Phase 1 keeps the responsive 3s cadence for the first minute (the overwhelming
-// majority of deliveries), then phase 2 drops to 15s for four more minutes. Five
-// minutes total, 36 requests. Still HARD-CAPPED, for the reason the original
-// comment gave and which has not changed: an abandoned tab (webhook lost, user
-// gone) must not poll forever. What HAS changed is what happens at the cap —
-// see the stall tail below; running out of attempts is no longer silence, so the
-// cap no longer has to be generous enough to cover every possible delay.
+// TASK-2489 (epic 2425 W2.10) OWNS WHAT THIS DOES NOT COVER, and it is written
+// down here so the next reader does not rediscover it as a surprise. A Stripe
+// webhook RETRY is measured in minutes, so a delivery slower than 60s runs the
+// budget out and the poll terminates silently (see the clear tail below). On the
+// credit-pack path that is harmless — the balance the panel already shows is
+// correct — but a subscription that lands late leaves the customer
+// unacknowledged until they reload. Three attempts to fix that in-epic (W2.8,
+// W2.9 and their remediation) each shipped a claim the customer's own screen
+// could refute, so the operator reverted the surface on 2026-07-26 and moved the
+// genuine problem to TASK-2489, which carries the correct mechanism (a
+// server-side "was THIS checkout session processed" read) and all three
+// post-mortems. Do NOT re-add a client-side detector here.
 export const PAYWALL_POLL_INTERVAL_MS = 3000;
 export const PAYWALL_POLL_MAX_ATTEMPTS = 20;
-export const PAYWALL_POLL_SLOW_INTERVAL_MS = 15000;
-export const PAYWALL_POLL_SLOW_ATTEMPTS = 16;
 
 // Test seam — lets tests shrink the poll interval so a Karma run doesn't
-// have to wait out the real cadence (mirrors permsEpics.js's __setNowForTests).
-// One argument shrinks BOTH phases: a seam that silently left phase 2 at 15s
-// would make any exhaustion test wait four real minutes or, more likely, be
-// written to assert something short of exhaustion.
+// have to wait out the real 3s cadence (mirrors permsEpics.js's __setNowForTests).
 let _pollIntervalMs = PAYWALL_POLL_INTERVAL_MS;
-let _pollSlowIntervalMs = PAYWALL_POLL_SLOW_INTERVAL_MS;
-export const __setPollIntervalForTests = (ms, slowMs) => {
-    _pollIntervalMs = ms || PAYWALL_POLL_INTERVAL_MS;
-    _pollSlowIntervalMs = slowMs || ms || PAYWALL_POLL_SLOW_INTERVAL_MS;
-};
+export const __setPollIntervalForTests = (ms) => { _pollIntervalMs = ms || PAYWALL_POLL_INTERVAL_MS; };
 
 // Test seam — the real probe reads document.visibilityState, which a test cannot
 // set. Injecting the probe keeps refreshMyPermsOnTabVisibleEpic's own logic under
@@ -123,15 +115,16 @@ const _readCheckoutMarker = () => {
 
 /**
  * Drop `?checkout=...` from the address bar once it has been acted on
- * (TASK-2486, epic 2425 W2.9).
+ * (TASK-2486, epic 2425 W2.9; KEPT through the W2.10 revert).
  *
  * The module-level `_checkoutReturnHandled` guard only covers repeat INIT_ANUGA
  * within ONE page life. A RELOAD — or the customer bookmarking/sharing the URL
  * they landed on — re-reads the same marker and re-arms the whole flow on a
- * checkout that was settled minutes ago. That was survivable while the tail
- * merely marked state; it was not once the tail also raised an autoDismiss:0
- * toast, since each reload stacked another permanent one with no way to retract
- * any of them. The toast is gone (see the poll's tail), and so is the re-arm.
+ * checkout that was settled minutes ago: a fresh 60s poll, a fresh burst of
+ * forced my_perms/balance fetches, and a `pending` overlay masking `steady` for
+ * a purchase that finished long ago. That is wrong independently of anything the
+ * poll's tail does, which is why this survived the W2.10 revert of the
+ * confirmation UX around it.
  *
  * `replaceState`, not `pushState`: the return redirect is not a place the
  * customer should be able to navigate BACK to. The hash is preserved explicitly
@@ -200,29 +193,29 @@ export const checkoutReturnEpic = (action$) => action$
  * of the first 10 ticks were returning Observable.empty() with no HTTP call
  * and no log. The poll looked like it was working and was mostly not.
  *
- * TASK-2457 (adversarial R2) — the poll must not just STOP when it gives up.
- * It previously ran out of attempts and stopped silently, leaving the customer in
- * `pending` until they reloaded. That wave's answer was to CLEAR the overlay.
+ * TASK-2457 (adversarial R2) — the poll must CLEAR the pending overlay when it
+ * gives up. It previously ran out of attempts and stopped silently, and since
+ * the overlay masks `steady` in getEffectivePaywallPayload, a customer whose
+ * webhook was slow or lost was left in `pending` until they reloaded the page.
+ * An un-dismissable state is a trap (ModalHost.js's own standard).
  *
- * TASK-2463 (epic 2425 W2.8) — clearing it turned out to be the wrong terminal
- * state, because the SAME wave deleted PendingSpinner. After that, a webhook
- * slower than 60s produced: no padlock (visibility never flipped), no spinner
- * (deleted), no toast, no retry affordance, and a re-stamped
- * `_lastFetchByProjectId` so even reopening the panel inside the next 30s
- * fetched nothing. A customer who had paid saw free_public and no
- * acknowledgement whatsoever. A money-path terminal state must never be silence.
+ * TASK-2489 (epic 2425 W2.10) — WHAT THE CLEAR STILL DOES NOT SOLVE, recorded
+ * rather than papered over. W2.5 deleted PendingSpinner, so `pending` renders
+ * nothing; clearing it therefore reveals whatever `steady` the server last
+ * reported and nothing more. On the credit-pack path that is right — the balance
+ * beside it is already correct. On a SUBSCRIPTION whose webhook lands later than
+ * 60s it leaves the customer unacknowledged until they reload: a real but rare
+ * defect, and the whole of TASK-2489. W2.8 and W2.9 each tried to close it from
+ * the client and each shipped a claim the customer's own screen could refute
+ * (the app cannot distinguish "not landed" from "landed by a channel this poll
+ * cannot observe"), so the operator reverted the surface on 2026-07-26. The
+ * mechanism that CAN close it is a server-side read of whether this checkout
+ * session was processed; it belongs in TASK-2489, not here.
  *
- * So the tail marks the overlay instead of clearing it, and the Billing tab
- * gains a re-check. TASK-2486 (W2.9) removed the sticky toast W2.8 paired with
- * it (see the tail below) and reworded the notice, because "we are still
- * confirming your purchase" is contradicted by an already-correct balance on the
- * commonest path. See Paywall/reducer.js's SET_ACCOUNT_SUMMARY case for the full
- * three-channel map of which purchase kind each clear covers.
- *
- * The tail is a `concat(defer(...))`, NOT a `finally`: it must run only
+ * The clear is a `concat(defer(...))` tail, NOT a `finally`: it must run only
  * when the inner stream COMPLETES (attempts exhausted, or takeWhile went
  * false), never when switchMap unsubscribes it because a second SET_PENDING
- * arrived — a finally would fire on unsubscribe too and stall the overlay the
+ * arrived — a finally would fire on unsubscribe too and disarm the overlay the
  * new poll had just armed. `defer` re-reads the store at that moment, so the
  * normal success path (steady went paid_*, overlay already null) emits
  * nothing.
@@ -241,148 +234,21 @@ export const checkoutReturnEpic = (action$) => action$
 export const pollMyPermsWhilePendingEpic = (action$, store) => action$
     .ofType(SET_PAYWALL_PENDING)
     .switchMap(() => {
-        // takeWhile AFTER the concat so it ends BOTH phases, not just the fast one.
-        const ticks = Rx.Observable.concat(
-            Rx.Observable.interval(_pollIntervalMs).take(PAYWALL_POLL_MAX_ATTEMPTS),
-            Rx.Observable.interval(_pollSlowIntervalMs).take(PAYWALL_POLL_SLOW_ATTEMPTS)
-        );
-        // MINIMUM FLOOR (TASK-2486, epic 2425 W2.9). The poll's lifetime used to
-        // be exactly the overlay's, so ANY clear also stopped the balance refresh.
-        // That made one shape strictly worse than it had been before W2.8: a
-        // customer who was ALREADY subscribed and bought a credit pack has
-        // `subscription.active` true in the very first summary, so the overlay
-        // cleared at tick 1 and the refresh stopped ~3s in — where the 20 x 3s
-        // poll that predates W2.8 would have kept reading the balance for a
-        // minute and picked the pack up. The floor restores exactly that minute
-        // and no more: ticks 1..PAYWALL_POLL_MAX_ATTEMPTS always run, after which
-        // the overlay decides as before. It buys no extra requests on any path
-        // that pre-W2.8 was not already paying for.
-        //
-        // Counted in a closure rather than read off the tick value because
-        // `concat` restarts phase 2's interval index at 0, so the emitted value
-        // is not a running count.
-        let tick = 0;
-        return ticks
-            .takeWhile(() => {
-                tick += 1;
-                return tick <= PAYWALL_POLL_MAX_ATTEMPTS || isPaywallPending(store.getState());
-            })
+        return Rx.Observable.interval(_pollIntervalMs)
+            .take(PAYWALL_POLL_MAX_ATTEMPTS)
+            .takeWhile(() => isPaywallPending(store.getState()))
             .mergeMap(() => {
                 const projectId = getProjectId(store.getState());
                 return Rx.Observable.of(
                     fetchComputeBalance(),
-                    // TASK-2463 (W2.8) — the summary is re-asked on every tick, not
-                    // once at return. It is the only channel that confirms an
-                    // account-scoped subscription (see reducer.js's
-                    // SET_ACCOUNT_SUMMARY case), so asking once at t=0 — before the
-                    // webhook — could only ever observe the pre-purchase state.
-                    fetchAccountSummary(),
                     ...(projectId ? [fetchMyPerms(projectId, true)] : [])
                 );
             })
-            // NO TOAST HERE (TASK-2486, epic 2425 W2.9). W2.8 paired this marker
-            // with a `show({autoDismiss: 0}, 'warning')`. There is no
-            // notification-retraction path in this codebase — `grep -rn "hide("
-            // js/plugins/hydrata` returns one hit, SimpleView/components/
-            // primitives/Tooltip.js, unrelated — so an autoDismiss:0 toast is a
-            // claim that CANNOT be taken back. On the subscription path it
-            // outlived its own refutation: the webhook lands a minute later, the
-            // padlock goes private, and the toast sits on screen contradicting
-            // it. The marker below is state-driven and therefore self-retracting:
-            // any of the three clears removes the notice with it.
             .concat(Rx.Observable.defer(() => (
                 isPaywallPending(store.getState())
-                    ? Rx.Observable.of(stallPaywallPending())
+                    ? Rx.Observable.of(clearPaywallPending())
                     : Rx.Observable.empty()
             )));
-    });
-
-/**
- * Clear the pending overlay when the COMPUTE BALANCE goes up (TASK-2486, epic
- * 2425 W2.9) — the credit pack's only confirmation signal.
- *
- * WHY THE PACK HAD NO DETECTOR UNTIL NOW, verified in the backend rather than
- * assumed. `stripe_webhook` (apps/commerce/checkout_views.py) discriminates on
- * `metadata.purchase_type` BEFORE the subscription path and routes a
- * `credit_pack` session to `_handle_credit_pack_checkout_completed`, which
- * writes exactly one `ComputeLedgerEntry` and never touches
- * `has_paid_private_entitlement` or `Project.visibility`. The two clears that
- * existed both key on those fields — `subscription.active` in
- * AccountSummaryView IS `has_paid_private_entitlement` — so for an UNSUBSCRIBED
- * pack buyer neither could ever fire, and that is the default shape of the
- * production estate (84 owners, no Account rows, no subscriptions).
- *
- * BASELINE, and why it is adopted lazily. Checkout opens in a NEW tab (UAT-2),
- * so the tab that handles `?checkout=success` is usually a cold SPA whose
- * balance is still null when SET_PENDING fires. Treating null as zero would read
- * any existing balance as an increase and clear instantly. So: the first
- * numeric balance seen after arming becomes the baseline, and only a LATER,
- * higher reading confirms. A reading LOWER than the baseline re-baselines (a
- * debit landed mid-poll — a run dispatched from another tab), so a subsequent
- * credit is still seen as an increase rather than being masked by the dip.
- *
- * WHAT THIS CANNOT DO, stated rather than papered over: if the webhook lands
- * before the first balance read, the credit is already inside the baseline and
- * no increase is ever observable. That case falls through to the poll's terminal
- * marker, whose copy is written to be true in exactly that situation (it claims
- * only that the figures below were just re-read — never that anything is
- * missing). Distinguishing it needs a server-side "was THIS checkout session
- * processed" read, which is TASK-2486's follow-on, not this epic.
- *
- * Both SET_COMPUTE_BALANCE and SET_ACCOUNT_SUMMARY carry `data.balance` (the
- * balance and account endpoints both serialize `str(account.balance)`), and the
- * poll asks for both every tick, so watching both makes the detector fire on
- * whichever answer returns first rather than preferring one endpoint.
- */
-const _numericBalance = (raw) => {
-    if (raw === null || raw === undefined || raw === '') return null;
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : null;
-};
-
-export const clearPendingOnBalanceIncreaseEpic = (action$, store) => action$
-    .ofType(SET_PAYWALL_PENDING)
-    .switchMap(() => {
-        let baseline = _numericBalance(store.getState()?.anuga?.computeMeter?.balance);
-        return action$
-            .ofType(SET_COMPUTE_BALANCE, SET_ACCOUNT_SUMMARY)
-            // The overlay may be cleared by either of the other two channels
-            // first; once it is, there is nothing left to confirm and this
-            // stream must not outlive it and disarm a LATER pending overlay.
-            .takeWhile(() => isPaywallPending(store.getState()))
-            .map((action) => _numericBalance(action?.data?.balance))
-            .filter((observed) => observed !== null)
-            .mergeMap((observed) => {
-                if (baseline === null || observed < baseline) {
-                    baseline = observed;
-                    return Rx.Observable.empty();
-                }
-                if (observed > baseline) {
-                    return Rx.Observable.of(clearPaywallPending('balance'));
-                }
-                return Rx.Observable.empty();
-            })
-            // One confirmation per armed overlay. A second increase would be a
-            // different purchase, and the switchMap above re-arms for that.
-            .take(1);
-    });
-
-/**
- * "Check again" on the stalled notice — re-ask every endpoint that could carry
- * the news. Forced, because permsEpics' 30s dedupe would otherwise swallow a
- * button press made within 30s of the last poll tick, which is exactly when an
- * impatient customer presses it: a re-check that silently does nothing is worse
- * than no button.
- */
-export const recheckPaymentEpic = (action$, store) => action$
-    .ofType(RECHECK_PAYMENT)
-    .mergeMap(() => {
-        const projectId = getProjectId(store.getState());
-        return Rx.Observable.of(
-            fetchComputeBalance(),
-            fetchAccountSummary(),
-            ...(projectId ? [fetchMyPerms(projectId, true)] : [])
-        );
     });
 
 /**
@@ -461,8 +327,6 @@ export const subscribeCheckoutEpic = (action$, store) => action$
 export default {
     checkoutReturnEpic,
     pollMyPermsWhilePendingEpic,
-    clearPendingOnBalanceIncreaseEpic,
-    recheckPaymentEpic,
     refreshMyPermsOnTabVisibleEpic,
     subscribeCheckoutEpic
 };

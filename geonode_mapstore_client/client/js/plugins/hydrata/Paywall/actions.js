@@ -15,54 +15,24 @@
 export const SET_PAYWALL_UPGRADE_PROMPT = 'PAYWALL:SET_UPGRADE_PROMPT';
 export const DISMISS_PAYWALL_UPGRADE = 'PAYWALL:DISMISS_UPGRADE';
 export const SET_PAYWALL_PENDING = 'PAYWALL:SET_PENDING';
-/**
- * TASK-2463 (epic 2425 W2.8) — the post-checkout poll has run its full budget
- * without observing the purchase land. REPLACES `CLEAR_PAYWALL_PENDING`.
- *
- * WHY THE CLEAR HAD TO GO. TASK-2457 (W2.5) added CLEAR_PENDING for a real
- * reason: a poll that stopped silently left the customer in `pending` forever,
- * and the overlay MASKS `steady`, so the app kept insisting it was confirming
- * something the server had already answered about. That reasoning was sound
- * WHEN `pending` still rendered a spinner. The same wave then deleted
- * PendingSpinner, and from that moment clearing the overlay revealed NOTHING:
- * a webhook slower than 60s produced no padlock, no spinner, no toast and no
- * retry, with every surface reading the pre-payment state. The customer had
- * paid and the product said nothing at all. Trading a stuck spinner for total
- * silence is not a fix on the money path.
- *
- * So the terminal state is now HONEST rather than empty: the overlay stays,
- * marked `stalled`, and the Billing tab says we are still confirming and offers
- * a re-check. Nothing about it is un-dismissable in the ModalHost sense — it
- * blocks no input and portals nothing; it is a line of text in a panel.
- */
-export const STALL_PAYWALL_PENDING = 'PAYWALL:STALL_PENDING';
-/**
- * TASK-2486 (epic 2425 W2.9) — a purchase HAS been observed to land, by a
- * channel this slice cannot see for itself. Reinstated after W2.8 removed it.
- *
- * W2.8 removed CLEAR_PENDING because its only caller was the poll's give-up
- * tail, where clearing revealed nothing (W2.5 had deleted PendingSpinner). That
- * remains true of the GIVE-UP path and the give-up path still does not clear.
- * This action is the opposite case and always was a different thing: positive
- * confirmation, dispatched only when a signal has actually been observed.
- *
- * WHY IT IS AN ACTION AND NOT ANOTHER REDUCER CASE. The credit-pack signal is
- * the compute BALANCE going up, and "up" is a comparison against the value at
- * the moment the overlay was armed. The paywall slice is mounted through
- * combineReducers (Anuga/reducersAnuga.js), so it can see neither the meter
- * slice nor any earlier value of it. The comparison is therefore made where the
- * store is readable — clearPendingOnBalanceIncreaseEpic in
- * Anuga/epics/paywallEpics.js — and its RESULT is what reaches the reducer.
- * TASK-2486 AC2 forbids mirroring the balance into this slice; a transient
- * baseline held by an epic is not a mirror of it.
- */
+// TASK-2457 (adversarial R2, epic 2425 W2.5) — disarms the pending overlay
+// when the poll gives up. Without it a lost/slow webhook stranded the customer
+// in `pending` until they reloaded: the overlay MASKS `steady` in
+// getEffectivePaywallPayload, so the app kept insisting it was "confirming
+// your subscription" while the server had long since answered. An
+// un-dismissable state is a trap (ModalHost.js's own standard).
+//
+// W2.10 REVERT (operator decision 2026-07-26). W2.8 replaced this with
+// STALL_PAYWALL_PENDING plus a Billing-tab notice, and W2.9 reinstated it as a
+// third "confirmed by the balance" channel. Both are gone. Clearing on give-up
+// reveals `steady` and nothing more — W2.5 deleted PendingSpinner — which is
+// correct on the credit-pack path (the balance beside it is already right) and
+// silent on a subscription webhook slower than 60s. That silence is a real
+// defect and it is TASK-2489's, whose mechanism is a server-side read of
+// whether this checkout session was processed. Do not add another client-side
+// detector to this slice: three attempts each shipped a claim the customer's
+// own screen could refute.
 export const CLEAR_PAYWALL_PENDING = 'PAYWALL:CLEAR_PENDING';
-/**
- * TASK-2463 (W2.8) — the customer pressed "Check again" on the stalled notice.
- * Handled by recheckPaymentEpic, which re-asks every endpoint that could carry
- * the news (my_perms forced, compute balance, account summary).
- */
-export const RECHECK_PAYMENT = 'PAYWALL:RECHECK_PAYMENT';
 // Requests a Checkout Session (POST /commerce/checkout/create-session/) and
 // redirects the browser to the returned session.url. Used by both the
 // upgrade_prompt "Subscribe" CTA and the past_due "Renew" CTA (2099), and by
@@ -87,28 +57,12 @@ export function setPaywallPending() {
 }
 
 /**
- * Marks the pending overlay STALLED — the poll is over and the purchase has not
- * been observed to land. Idempotent and narrow: it acts ONLY on a pending
- * overlay, so it can never touch an upgrade_prompt refusal that armed in the
- * meantime (same narrowness as dismissPaywallUpgrade above).
+ * Disarms the pending overlay, revealing whatever `steady` the server last
+ * reported. Idempotent and narrow: it clears ONLY a pending overlay, so it can
+ * never eat an upgrade_prompt refusal that armed in the meantime.
  */
-export function stallPaywallPending() {
-    return { type: STALL_PAYWALL_PENDING };
-}
-
-/**
- * Disarms the pending overlay because a purchase was OBSERVED to land.
- *
- * @param {string} reason — which channel saw it ('balance' today). Carried for
- *   the log/devtools only; the reducer does not branch on it.
- */
-export function clearPaywallPending(reason) {
-    return { type: CLEAR_PAYWALL_PENDING, reason };
-}
-
-/** "Check again" on the stalled notice. */
-export function recheckPayment() {
-    return { type: RECHECK_PAYMENT };
+export function clearPaywallPending() {
+    return { type: CLEAR_PAYWALL_PENDING };
 }
 
 /**

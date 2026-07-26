@@ -2097,23 +2097,16 @@ describe('ANUGA Epics', () => {
         const {
             checkoutReturnEpic,
             pollMyPermsWhilePendingEpic,
-            clearPendingOnBalanceIncreaseEpic,
-            recheckPaymentEpic,
             refreshMyPermsOnTabVisibleEpic,
             subscribeCheckoutEpic,
-            PAYWALL_POLL_MAX_ATTEMPTS,
-            PAYWALL_POLL_SLOW_ATTEMPTS,
             __resetCheckoutReturnForTests,
             __setPollIntervalForTests,
             __setDocumentVisibleForTests,
             __setRedirectForTests
         } = require('../epics/paywallEpics');
         const {FETCH_MY_PERMS} = require('../actionsAnuga');
-        const {
-            SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING, CLEAR_PAYWALL_PENDING
-        } = require('../../Paywall/actions');
-        const {FETCH_COMPUTE_BALANCE, SET_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
-        const {SET_ACCOUNT_SUMMARY} = require('../../Paywall/account/actions');
+        const {SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING} = require('../../Paywall/actions');
+        const {FETCH_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
 
         let mockAxios;
         const originalPath = window.location.pathname;
@@ -2218,8 +2211,8 @@ describe('ANUGA Epics', () => {
         });
 
         describe('pollMyPermsWhilePendingEpic', () => {
-            it('polls FETCH_MY_PERMS + FETCH_COMPUTE_BALANCE on the interval while pending, and stops after the clear', (done) => {
-                __setPollIntervalForTests(1);
+            it('polls FETCH_MY_PERMS + FETCH_COMPUTE_BALANCE on the interval while pending, stops once resolved', (done) => {
+                __setPollIntervalForTests(10); // fast interval for the test
                 let pending = true;
                 const store = {
                     getState: () => ({
@@ -2232,68 +2225,25 @@ describe('ANUGA Epics', () => {
                 const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
                 const emitted = [];
 
-                pollMyPermsWhilePendingEpic(action$, store).subscribe(
-                    a => emitted.push(a), done, () => {
-                        try {
-                            // TASK-2100: each tick emits BOTH the balance refresh (shared
-                            // checkout-return machinery) and, when a project is known,
-                            // the my_perms fetch.
-                            expect(emitted.some(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
-                            expect(emitted.some(a => a.type === FETCH_MY_PERMS)).toBe(true);
-                            // The clear happens at tick ~2, but the poll does NOT stop
-                            // there: TASK-2486 (W2.9) gives it a floor of the whole fast
-                            // phase. It DOES stop at the floor rather than running the
-                            // slow phase out.
-                            const ticks = emitted.filter(a => a.type === FETCH_MY_PERMS).length;
-                            expect(ticks).toBe(
-                                PAYWALL_POLL_MAX_ATTEMPTS,
-                                'the poll ran past its floor after the overlay cleared — the '
-                                + 'terminal marker is what ends it, not the clear'
-                            );
-                            done();
-                        } catch (err) { done(err); }
-                    }
-                );
-                setTimeout(() => { pending = false; }, 3);
-            });
+                const sub = pollMyPermsWhilePendingEpic(action$, store).subscribe(a => emitted.push(a));
 
-            // TASK-2486 (epic 2425 W2.9) — THE MINIMUM FLOOR, and the regression it
-            // repairs. The poll's lifetime used to be exactly the overlay's, so any
-            // clear stopped the balance refresh with it. A customer who was ALREADY
-            // subscribed and bought a credit pack has `subscription.active` true in
-            // the very first summary, so Paywall/reducer.js cleared at tick 1 and the
-            // refresh died ~3s in — while the 20 x 3s poll that predates W2.8 would
-            // have kept reading for a minute and picked the pack up. That is a shape
-            // made strictly WORSE by W2.8 than by the code before it.
-            it('keeps refreshing the balance for the whole fast phase after an early clear (W2.9)', (done) => {
-                __setPollIntervalForTests(1);
-                let pending = true;
-                const store = {
-                    getState: () => ({
-                        anuga: {
-                            projects: {data: {id: 42}},
-                            paywall: {overlay: pending ? {state: 'pending'} : null, steady: null}
-                        }
-                    })
-                };
-                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
-                const emitted = [];
-                pollMyPermsWhilePendingEpic(action$, store).subscribe(
-                    a => emitted.push(a), done, () => {
-                        try {
-                            const balances = emitted.filter(a => a.type === FETCH_COMPUTE_BALANCE).length;
-                            expect(balances).toBe(
-                                PAYWALL_POLL_MAX_ATTEMPTS,
-                                'the overlay cleared at the first tick and took the balance '
-                                + 'refresh with it — an already-subscribed customer who just '
-                                + 'bought a credit pack is left with a stale balance and no notice'
-                            );
-                            done();
-                        } catch (err) { done(err); }
-                    }
-                );
-                // Clear immediately — the already-subscribed-buys-a-pack shape.
-                setTimeout(() => { pending = false; }, 0);
+                setTimeout(() => {
+                    expect(emitted.length).toBeGreaterThan(0);
+                    // TASK-2100: each tick emits BOTH the balance refresh (shared
+                    // checkout-return machinery) and, when a project is known,
+                    // the my_perms fetch.
+                    expect(emitted.some(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
+                    expect(emitted.some(a => a.type === FETCH_MY_PERMS)).toBe(true);
+                    pending = false; // simulate the webhook flip clearing the overlay
+                    const countAtClear = emitted.length;
+                    setTimeout(() => {
+                        // takeWhile stops emitting once isPaywallPending() goes false —
+                        // the count should not keep growing unbounded.
+                        expect(emitted.length).toBeLessThanOrEqualTo(countAtClear + 2);
+                        sub.unsubscribe();
+                        done();
+                    }, 50);
+                }, 35);
             });
 
             // TASK-2464 — every tick must be FORCED. The poll runs at 3s against
@@ -2324,89 +2274,25 @@ describe('ANUGA Epics', () => {
                 }, 35);
             });
 
-            // TASK-2457 (W2.5) required the poll to stop stranding the customer in
-            // `pending`, and it did that by CLEARING the overlay. TASK-2463 (W2.8)
-            // is the other half: W2.5 also deleted PendingSpinner, so from that
-            // point clearing the overlay revealed NOTHING — a webhook slower than
-            // 60s left no padlock, no spinner, no toast and no retry, with every
-            // surface reading the pre-payment state. Silence is not an acceptable
-            // terminal state on the money path.
+            // TASK-2457 (adversarial R2) second half — an abandoned poll must not
+            // strand the customer. The overlay MASKS steady in
+            // getEffectivePaywallPayload, so "pending forever" means the app keeps
+            // insisting it is confirming a subscription the server already
+            // answered about. An un-dismissable state is a trap.
             //
-            // This test drives the epic to exhaustion and then reduces what it
-            // emitted through the REAL paywall reducer, because "did the customer
-            // end up with a signal" is a question about resulting STATE, not about
-            // which action name was last.
-            it('EXHAUSTION -> the customer is NOT left silent (W2.8)', (done) => {
+            // W2.10 (operator decision 2026-07-26) restored this after W2.8 replaced
+            // it with a STALL marker + a Billing-tab notice and W2.9 rewrote that
+            // notice. The clear reveals `steady` and nothing more; ACKNOWLEDGING a
+            // purchase whose webhook outlived the 60s budget is TASK-2489, and it
+            // needs a server-side "was this session processed" read that no test
+            // here can stand in for.
+            it('EXHAUSTION -> emits CLEAR_PENDING rather than stopping silently', (done) => {
                 __setPollIntervalForTests(1);
                 const store = {
                     getState: () => ({
                         anuga: {
                             projects: {data: {id: 42}},
-                            // never resolves — the lost/slow-webhook case. `steady`
-                            // is the pre-payment answer the server keeps giving.
-                            paywall: {overlay: {state: 'pending'}, steady: {state: 'free_public'}}
-                        }
-                    })
-                };
-                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
-                const emitted = [];
-                pollMyPermsWhilePendingEpic(action$, store).subscribe(
-                    a => emitted.push(a), done, () => {
-                        // try/catch, not a bare assertion: a throw from inside a
-                        // subscribe COMPLETE handler never reaches mocha, which
-                        // reports "Timeout of 2000ms exceeded" with no message —
-                        // and a red assertion that looks like a flaky timeout is a
-                        // red assertion that gets re-run until it is ignored.
-                        try {
-                            expect(emitted.length).toBeGreaterThan(0);
-                            const paywallReducer = require('../../Paywall/reducer').default;
-                            let st = paywallReducer(undefined, {type: 'PAYWALL:SET_PENDING'});
-                            emitted.forEach(a => { st = paywallReducer(st, a); });
-                            expect(st.overlay).toNotBe(
-                                null,
-                                'the poll gave up and disarmed the overlay, and W2.5 deleted the '
-                                + 'only thing that rendered it — the customer has PAID and every '
-                                + 'surface now reads the pre-payment state with no acknowledgement '
-                                + 'of any kind'
-                            );
-                            expect(st.overlay.stalled).toBe(
-                                true,
-                                'the overlay survived but nothing marked it, so the Billing tab '
-                                + 'still shows the bare spinner copy with no way to re-check'
-                            );
-                            // TASK-2486 (W2.9). W2.8 ALSO raised a warning toast here
-                            // with autoDismiss: 0. There is no notification-retraction
-                            // path in this codebase (`grep -rn "hide(" js/plugins/hydrata`
-                            // finds one unrelated hit in SimpleView Tooltip.js), so that
-                            // toast outlived its own refutation: on the subscription path
-                            // the webhook lands a minute later, the padlock goes private,
-                            // and a permanent toast sits on screen contradicting it. The
-                            // marker above is state-driven and retracts with the state.
-                            expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(
-                                false,
-                                'the give-up tail raised a toast that nothing in this codebase '
-                                + 'can ever take back'
-                            );
-                            done();
-                        } catch (err) {
-                            done(err);
-                        }
-                    }
-                );
-            });
-
-            // TASK-2463 (W2.8) — the budget itself. The old poll was 20 x 3s = 60s,
-            // described in its own comment as "comfortably longer than a normal
-            // webhook round trip" — which covered only the customers who never
-            // needed a poll. A second, slower phase runs after it. Asserted by
-            // COUNTING ticks rather than by reading the constants back, so shrinking
-            // phase 2 to nothing goes red.
-            it('runs BOTH phases before giving up, not just the fast one', (done) => {
-                __setPollIntervalForTests(1);
-                const store = {
-                    getState: () => ({
-                        anuga: {
-                            projects: {data: {id: 42}},
+                            // never resolves — the lost/slow-webhook case
                             paywall: {overlay: {state: 'pending'}, steady: null}
                         }
                     })
@@ -2416,22 +2302,26 @@ describe('ANUGA Epics', () => {
                 pollMyPermsWhilePendingEpic(action$, store).subscribe(
                     a => emitted.push(a), done, () => {
                         try {
-                            const ticks = emitted.filter(a => a.type === FETCH_MY_PERMS).length;
-                            expect(PAYWALL_POLL_SLOW_ATTEMPTS).toBeGreaterThan(0);
-                            expect(ticks).toBe(
-                                PAYWALL_POLL_MAX_ATTEMPTS + PAYWALL_POLL_SLOW_ATTEMPTS,
-                                'the poll gave up after the fast phase alone — a webhook retry '
-                                + 'measured in minutes is exactly the case the budget exists for'
+                            expect(emitted.length).toBeGreaterThan(0);
+                            const last = emitted[emitted.length - 1];
+                            expect(last.type).toBe(
+                                'PAYWALL:CLEAR_PENDING',
+                                'the poll ran out of attempts and left the overlay armed'
+                            );
+                            // No toast either. W2.8 raised an autoDismiss:0 warning
+                            // here; there is no notification-retraction path in this
+                            // codebase, so it could not be taken back when the webhook
+                            // landed a minute later and refuted it.
+                            expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(
+                                false, 'the give-up tail raised a toast nothing can take back'
                             );
                             done();
-                        } catch (err) {
-                            done(err);
-                        }
+                        } catch (err) { done(err); }
                     }
                 );
             });
 
-            it('RESOLVED -> completes WITHOUT stalling the overlay (nothing to confirm)', (done) => {
+            it('RESOLVED -> completes WITHOUT a CLEAR_PENDING (nothing left to clear)', (done) => {
                 __setPollIntervalForTests(1);
                 let pending = true;
                 const store = {
@@ -2446,10 +2336,6 @@ describe('ANUGA Epics', () => {
                 const emitted = [];
                 pollMyPermsWhilePendingEpic(action$, store).subscribe(
                     a => emitted.push(a), done, () => {
-                        // Neither the give-up marker nor a toast: the happy path must
-                        // stay completely quiet. Both names are asserted so that
-                        // renaming the give-up action cannot make this vacuous.
-                        expect(emitted.some(a => a.type === 'PAYWALL:STALL_PENDING')).toBe(false);
                         expect(emitted.some(a => a.type === 'PAYWALL:CLEAR_PENDING')).toBe(false);
                         expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(false);
                         done();
@@ -2458,7 +2344,7 @@ describe('ANUGA Epics', () => {
                 setTimeout(() => { pending = false; }, 5);
             });
 
-            it('no project id -> still refreshes the ACCOUNT-scoped endpoints, but never emits FETCH_MY_PERMS', (done) => {
+            it('no project id -> still refreshes the balance (account-scoped, not project-scoped), but never emits FETCH_MY_PERMS', (done) => {
                 __setPollIntervalForTests(10);
                 const store = {getState: () => ({anuga: {projects: {data: null}, paywall: {overlay: {state: 'pending'}}}})};
                 const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
@@ -2467,205 +2353,11 @@ describe('ANUGA Epics', () => {
                 const sub = pollMyPermsWhilePendingEpic(action$, store).subscribe(a => emitted.push(a));
 
                 setTimeout(() => {
-                    try {
-                        expect(emitted.length).toBeGreaterThan(0);
-                        // Both account-scoped fetches are legitimate without a project;
-                        // a project-scoped my_perms fetch is not (it would 404 on
-                        // `undefined`). W2.8 added the summary refetch — the balance
-                        // alone cannot confirm an account-scoped subscription.
-                        expect(emitted.some(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
-                        expect(emitted.some(a => a.type === 'ACCOUNT:FETCH_SUMMARY')).toBe(true);
-                        expect(emitted.some(a => a.type === FETCH_MY_PERMS)).toBe(false);
-                        sub.unsubscribe();
-                        done();
-                    } catch (err) {
-                        sub.unsubscribe();
-                        done(err);
-                    }
+                    expect(emitted.length).toBeGreaterThan(0);
+                    expect(emitted.every(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
+                    sub.unsubscribe();
+                    done();
                 }, 35);
-            });
-        });
-
-        // TASK-2486 (epic 2425 W2.9) — the CREDIT PACK's confirmation channel.
-        //
-        // Verified in the backend before this was written, because W2.8 wired its
-        // clear to a field the pack never touches: commerce/checkout_views.py's
-        // stripe_webhook routes `metadata.purchase_type == 'credit_pack'` to
-        // _handle_credit_pack_checkout_completed, which writes ONE
-        // ComputeLedgerEntry and never sets has_paid_private_entitlement (the
-        // field AccountSummaryView serialises as `subscription.active`) and never
-        // flips Project.visibility. So for an UNSUBSCRIBED pack buyer — 84 of 84
-        // prod owners have no subscription — neither of W2.8's two clears could
-        // EVER fire, and the poll always ran its full 5-minute budget before
-        // telling a customer whose balance was already correct that it was "still
-        // confirming" their purchase.
-        describe('clearPendingOnBalanceIncreaseEpic (W2.9)', () => {
-            const meterStore = (balance, pendingRef) => ({
-                getState: () => ({
-                    anuga: {
-                        computeMeter: {balance},
-                        paywall: {overlay: pendingRef.pending ? {state: 'pending'} : null, steady: null}
-                    }
-                })
-            });
-
-            it('a credit pack landing mid-poll clears the overlay — the balance is its ONLY signal', (done) => {
-                const pendingRef = {pending: true};
-                const action$ = mockActions([
-                    {type: SET_PAYWALL_PENDING},
-                    // Cold tab: the SPA has no balance yet when the overlay arms,
-                    // so the first reading is the BASELINE, not a confirmation.
-                    {type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '4.00'}},
-                    {type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '4.00'}},
-                    // The webhook credits the ledger.
-                    {type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '54.00'}}
-                ]);
-                const emitted = [];
-                clearPendingOnBalanceIncreaseEpic(action$, meterStore(null, pendingRef))
-                    .subscribe(a => emitted.push(a), done, () => {
-                        try {
-                            expect(emitted.length).toBe(
-                                1,
-                                'the compute balance went up by the price of a pack and nothing '
-                                + 'disarmed the confirming notice — for an unsubscribed pack buyer '
-                                + 'no other channel can'
-                            );
-                            expect(emitted[0].type).toBe(CLEAR_PAYWALL_PENDING);
-                            expect(emitted[0].reason).toBe('balance');
-                            done();
-                        } catch (err) { done(err); }
-                    });
-            });
-
-            it('a balance re-read UNCHANGED on every tick never clears (2486 AC1/AC4)', (done) => {
-                const pendingRef = {pending: true};
-                const ticks = [{type: SET_PAYWALL_PENDING}];
-                for (let i = 0; i < 12; i++) {
-                    ticks.push({type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '4.00'}});
-                }
-                const action$ = mockActions(ticks);
-                const emitted = [];
-                clearPendingOnBalanceIncreaseEpic(action$, meterStore(null, pendingRef))
-                    .subscribe(a => emitted.push(a), done, () => {
-                        try {
-                            expect(emitted.length).toBe(
-                                0,
-                                'the overlay was disarmed merely because a balance ACTION arrived; '
-                                + 'the poll emits one every tick whether or not anything landed'
-                            );
-                            done();
-                        } catch (err) { done(err); }
-                    });
-            });
-
-            it('a DEBIT mid-poll re-baselines, so the credit that follows is still seen', (done) => {
-                const pendingRef = {pending: true};
-                const action$ = mockActions([
-                    {type: SET_PAYWALL_PENDING},
-                    {type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '50.00'}},
-                    // A run dispatched from another tab debits more than the pack
-                    // is worth. Without a re-baseline the credit below stays under
-                    // the original 50.00 and is never observed.
-                    {type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '20.00'}},
-                    {type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '30.00'}}
-                ]);
-                const emitted = [];
-                clearPendingOnBalanceIncreaseEpic(action$, meterStore('50.00', pendingRef))
-                    .subscribe(a => emitted.push(a), done, () => {
-                        try {
-                            expect(emitted.length).toBe(
-                                1, 'a debit during the poll permanently masked the credit after it'
-                            );
-                            expect(emitted[0].type).toBe(CLEAR_PAYWALL_PENDING);
-                            done();
-                        } catch (err) { done(err); }
-                    });
-            });
-
-            it('the ACCOUNT SUMMARY carries the balance too, so either endpoint can confirm', (done) => {
-                const pendingRef = {pending: true};
-                const action$ = mockActions([
-                    {type: SET_PAYWALL_PENDING},
-                    {type: SET_ACCOUNT_SUMMARY, data: {balance: '0.00', subscription: {active: false}}},
-                    {type: SET_ACCOUNT_SUMMARY, data: {balance: '25.00', subscription: {active: false}}}
-                ]);
-                const emitted = [];
-                clearPendingOnBalanceIncreaseEpic(action$, meterStore(null, pendingRef))
-                    .subscribe(a => emitted.push(a), done, () => {
-                        try {
-                            expect(emitted.length).toBe(1);
-                            expect(emitted[0].type).toBe(CLEAR_PAYWALL_PENDING);
-                            done();
-                        } catch (err) { done(err); }
-                    });
-            });
-
-            it('stops watching once the overlay is no longer pending', (done) => {
-                const pendingRef = {pending: true};
-                const action$ = mockActions([
-                    {type: SET_PAYWALL_PENDING},
-                    {type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '4.00'}},
-                    // The subscription clear (Paywall/reducer.js SET_ACCOUNT_SUMMARY)
-                    // has already disarmed the overlay by this point.
-                    {type: 'MARK_RESOLVED'},
-                    {type: SET_COMPUTE_BALANCE, data: {enabled: true, balance: '99.00'}}
-                ]);
-                const emitted = [];
-                // Flip the store's answer as the marker action goes past.
-                action$.filter(a => a.type === 'MARK_RESOLVED')
-                    .subscribe(() => { pendingRef.pending = false; });
-                clearPendingOnBalanceIncreaseEpic(action$, meterStore(null, pendingRef))
-                    .subscribe(a => emitted.push(a), done, () => {
-                        try {
-                            expect(emitted.length).toBe(
-                                0,
-                                'a balance increase after the overlay was already cleared still '
-                                + 'emitted a clear — it would disarm the NEXT purchase notice'
-                            );
-                            done();
-                        } catch (err) { done(err); }
-                    });
-            });
-        });
-
-        // TASK-2463 (epic 2425 W2.8) — the two extra ways a customer can get an
-        // answer once the poll is no longer the only mechanism.
-        describe('recheckPaymentEpic ("Check again")', () => {
-            it('re-asks all three channels, and my_perms FORCED', (done) => {
-                const action$ = mockActions([{type: 'PAYWALL:RECHECK_PAYMENT'}]);
-                const emitted = [];
-                recheckPaymentEpic(action$, storeWithProjectId(42))
-                    .subscribe(a => emitted.push(a), done, () => {
-                        try {
-                            expect(emitted.some(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
-                            expect(emitted.some(a => a.type === 'ACCOUNT:FETCH_SUMMARY')).toBe(true);
-                            const perms = emitted.filter(a => a.type === FETCH_MY_PERMS);
-                            expect(perms.length).toBe(1);
-                            // Unforced, a press made within 30s of the last poll tick
-                            // would be swallowed by permsEpics' dedupe and the button
-                            // would silently do nothing — which is when an impatient
-                            // customer presses it.
-                            expect(perms[0].force).toBe(true, 'the re-check is swallowed by the 30s dedupe');
-                            done();
-                        } catch (err) {
-                            done(err);
-                        }
-                    });
-            });
-
-            it('with no project loaded it still re-asks the account-scoped channels', (done) => {
-                const action$ = mockActions([{type: 'PAYWALL:RECHECK_PAYMENT'}]);
-                const emitted = [];
-                recheckPaymentEpic(action$, {getState: () => ({anuga: {projects: {data: null}}})})
-                    .subscribe(a => emitted.push(a), done, () => {
-                        try {
-                            expect(emitted.length).toBe(2);
-                            expect(emitted.some(a => a.type === FETCH_MY_PERMS)).toBe(false);
-                            done();
-                        } catch (err) {
-                            done(err);
-                        }
-                    });
             });
         });
 

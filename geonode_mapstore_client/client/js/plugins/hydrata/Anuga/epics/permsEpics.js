@@ -164,8 +164,9 @@ export const triggerFetchMyPermsOnInitEpic = (action$, store) => action$
  *      indicator stayed stale (this task).
  *   2. pollMyPermsWhilePendingEpic polled every 3s against a 30s window, so 9 of
  *      the first 10 ticks were no-ops. The poll looked like it was working and
- *      was mostly not. (Its budget has since grown a second, slower phase —
- *      PAYWALL_POLL_SLOW_* in paywallEpics.js — which does not change the point.)
+ *      was mostly not. (W2.8 gave it a second, slower phase; the W2.10 revert
+ *      took that back out, so it is 20 x 3s = 60s again — which does not change
+ *      the point either way.)
  *
  * `force` still WRITES the timestamp, so a forced fetch re-arms the window for
  * ordinary triggers rather than disabling the dedupe from then on.
