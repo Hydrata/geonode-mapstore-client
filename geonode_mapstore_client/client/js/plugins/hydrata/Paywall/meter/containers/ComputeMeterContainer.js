@@ -10,13 +10,15 @@ import { subscribeCheckoutRequest } from '../../actions';
 // TASK-2420 (epic 2359 W4.5) — "View account" on the refusal modals.
 import { setMembershipPanel, setMembershipPanelTab } from '../../../Anuga/actionsAnuga';
 
+// TASK-2435 (epic 2425 W2) — the map mount is a refusal-modal host, not a
+// balance dashboard, so `balance` and `recentEntries` are no longer mapped:
+// nothing on this surface reads them. They remain in the meter reducer and
+// are consumed by the Billing tab (BillingTabPanel -> BalanceStrip card).
 const mapStateToProps = (state) => {
     const meter = getComputeMeterState(state);
     return {
         enabled: meter.enabled,
-        balance: meter.balance,
         availablePacks: meter.availablePacks,
-        recentEntries: meter.recentEntries,
         modal: meter.modal
     };
 };

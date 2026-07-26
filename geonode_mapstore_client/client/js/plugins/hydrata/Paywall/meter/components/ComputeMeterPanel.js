@@ -5,19 +5,41 @@
  * commerce.balance_views.AccountBalanceView) — renders null when false.
  * Ships DARK by construction: flag-off's fixed response IS `enabled: false`.
  *
- * Two states, same component (mirrors PaywallPanel's single-component,
- * multi-state design):
- *   - Minimal balance strip (AC#4): balance + available packs + recent
- *     ledger entries. No polish — a compact read-only summary, not a full
- *     wallet page.
- *   - Modal overlay (AC#2/AC#3), shown ON TOP of the strip when `modal` is
- *     set: insufficient_balance -> pack purchase CTAs; cap_exceeded -> its
- *     OWN distinct message (never conflated with insufficient_balance).
- *     TASK-2123 adds a THIRD, equally distinct state: estimate_ceiling -> a
- *     contact-us path (no CTA fixes an over-ceiling run — never conflated
- *     with either of the other two).
+ * TASK-2435 (epic 2425 W2) — THE MAP MOUNT IS A MODAL HOST, NOT A DASHBOARD.
+ * ------------------------------------------------------------------------
+ * This component used to render an always-on balance strip in normal flow,
+ * with the refusal modal as a sibling underneath it. Because every
+ * compute-meter-* rule in the bundle was scoped `.msgapi
+ * .sv-account-billing-tab .compute-meter-*` (account.css — the Billing-tab
+ * embedding), the map mount got position:static/z-index:auto and landed in
+ * normal flow AFTER a map that fills 100% of .gn-viewer-layout-center, in a
+ * document that cannot scroll. Measured: every modal rendered at exactly
+ * viewportHeight + 55px, at both 1408x683 and 1305x1327. All three refusal
+ * modals were invisible for that one reason.
+ *
+ * position:fixed alone does NOT fix it. On the map route
+ * `.msgapi .page-map-viewer .gn-viewer-layout-body { transform: translate(0) }`
+ * makes that element the containing block for fixed descendants, AND
+ * `.gn-page-wrapper` carries z-index:99999. So the overlay must leave the
+ * viewer layout entirely — hence createPortal to document.body, following
+ * hydrologyDetailIdfTable.js's IdfCurveModal (the overlay shell) and
+ * anugaScenarioOverflowMenu.js (Escape + focus handling). `.msgapi` is on
+ * <body> itself, so themePrefix-ed rules still match a body-level portal.
+ *
+ * Decision 6: balance and price belong where the spend decision is made
+ * (beside Run, W3) and the Billing tab remains the top-up surface — so the
+ * standalone on-map balance strip is GONE. The panel now renders nothing at
+ * all until a refusal arrives, then portals exactly one modal:
+ * insufficient_balance -> pack purchase CTAs; cap_exceeded -> its OWN
+ * distinct message (never conflated); estimate_ceiling (TASK-2123) -> a
+ * contact-us path (no CTA fixes an over-ceiling run).
+ *
+ * BalanceStrip itself is NOT deleted — it is still the Billing tab's balance
+ * card (variant="card", BillingTabPanel.js) and its default inline variant
+ * stays exported and directly covered by computeMeterPanel-test.js.
  */
-import React from 'react';
+import React, { useCallback, useLayoutEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 const PropTypes = require('prop-types');
 
 /**
@@ -186,12 +208,137 @@ ViewAccountLink.propTypes = {
     onViewAccount: PropTypes.func
 };
 
+/**
+ * The one id every refusal modal's <h2> carries, so MeterModalHost can point
+ * aria-labelledby at it without knowing which modal it is hosting. Safe as a
+ * single shared id because the three modals are mutually exclusive — exactly
+ * one is ever mounted (see ComputeMeterPanel.render).
+ */
+const MODAL_TITLE_ID = 'compute-meter-modal-title';
+
+/** Tab-cycle candidates inside an open modal. */
+const FOCUSABLE = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+].join(',');
+
+/**
+ * MeterModalHost — TASK-2435. Portals its child overlay to document.body so
+ * the refusal modal escapes .gn-viewer-layout-body's transform containing
+ * block and .gn-page-wrapper's stacking context (see the module docstring),
+ * and gives it dialog semantics: Escape closes, Tab cycles within, focus
+ * enters on open and returns to the invoking control on close.
+ *
+ * Deliberately NO backdrop-click-to-dismiss (unlike IdfCurveModal, which is
+ * an informational chart): these are refusals the customer has to read and
+ * act on, and each already carries an explicit Cancel/OK. A stray click on
+ * the backdrop silently discarding "you have no balance" is exactly the
+ * failure mode this epic exists to remove.
+ */
+function MeterModalHost({ children, onDismiss }) {
+    const hostRef = useRef(null);
+    // Captured synchronously at mount, restored at unmount — this is the
+    // "returns to the invoking control" half of AC#2. There is no in-DOM
+    // trigger for these modals (they arrive as Redux actions from a refused
+    // Run dispatch), so the invoking control is whatever had focus when the
+    // refusal landed — normally the Run button the customer just pressed.
+    const previouslyFocusedRef = useRef(null);
+
+    const focusable = useCallback(() => {
+        if (!hostRef.current) {
+            return [];
+        }
+        return Array.prototype.slice.call(hostRef.current.querySelectorAll(FOCUSABLE));
+    }, []);
+
+    // useLayoutEffect, not useEffect, for the same synchronous-attach reason
+    // anugaScenarioOverflowMenu.js documents: the handler must be live before
+    // the browser can deliver an Escape to the newly painted dialog.
+    useLayoutEffect(() => {
+        previouslyFocusedRef.current = document.activeElement;
+        const items = focusable();
+        if (items.length > 0) {
+            items[0].focus();
+        } else if (hostRef.current) {
+            hostRef.current.focus();
+        }
+        return () => {
+            const previous = previouslyFocusedRef.current;
+            // Only restore if the invoking control is still in the document
+            // and still focusable — otherwise leave focus where the browser
+            // put it rather than throwing it to <body>.
+            if (previous && typeof previous.focus === 'function' && document.contains(previous)) {
+                previous.focus();
+            }
+        };
+    }, [focusable]);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape' || e.keyCode === 27) {
+            e.stopPropagation();
+            onDismiss();
+            return;
+        }
+        if (e.key !== 'Tab' && e.keyCode !== 9) {
+            return;
+        }
+        const items = focusable();
+        if (items.length === 0) {
+            e.preventDefault();
+            return;
+        }
+        const first = items[0];
+        const last = items[items.length - 1];
+        // Wrap at both ends so Tab can never walk out into the map behind.
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    };
+
+    if (typeof document === 'undefined') {
+        return null;
+    }
+
+    return ReactDOM.createPortal(
+        <div
+            ref={hostRef}
+            data-testid="compute-meter-panel"
+            className="compute-meter-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={MODAL_TITLE_ID}
+            tabIndex={-1}
+            onKeyDown={handleKeyDown}
+        >
+            {children}
+        </div>,
+        document.body
+    );
+}
+
+MeterModalHost.propTypes = {
+    children: PropTypes.node,
+    onDismiss: PropTypes.func
+};
+
+MeterModalHost.defaultProps = {
+    onDismiss: () => {}
+};
+
 /** Insufficient-balance 402 -> modal -> pack purchase CTAs (AC#2). */
 function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss, onViewAccount }) {
     return (
         <div data-testid="meter-insufficient-balance-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
-                <h2 className="compute-meter-modal-title">Insufficient compute balance</h2>
+                <h2 id={MODAL_TITLE_ID} className="compute-meter-modal-title">Insufficient compute balance</h2>
                 <p data-testid="meter-insufficient-balance-detail" className="compute-meter-modal-body">
                     {detail}
                 </p>
@@ -228,7 +375,7 @@ function CapExceededModal({ detail, onDismiss, onViewAccount }) {
     return (
         <div data-testid="meter-cap-exceeded-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
-                <h2 className="compute-meter-modal-title">Daily free-run limit reached</h2>
+                <h2 id={MODAL_TITLE_ID} className="compute-meter-modal-title">Daily free-run limit reached</h2>
                 <p data-testid="meter-cap-exceeded-detail" className="compute-meter-modal-body">
                     {detail}
                 </p>
@@ -264,7 +411,7 @@ function EstimateCeilingModal({ detail, onDismiss, onViewAccount }) {
     return (
         <div data-testid="meter-estimate-ceiling-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
-                <h2 className="compute-meter-modal-title">This run is too large to dispatch automatically</h2>
+                <h2 id={MODAL_TITLE_ID} className="compute-meter-modal-title">This run is too large to dispatch automatically</h2>
                 <p data-testid="meter-estimate-ceiling-detail" className="compute-meter-modal-body">
                     {detail}
                 </p>
@@ -302,9 +449,12 @@ class ComputeMeterPanel extends React.Component {
     static propTypes = {
         /** Kill-switch — from the balance endpoint's `enabled` field. Default false (dark). */
         enabled: PropTypes.bool,
-        balance: PropTypes.string,
+        /**
+         * Only needed by the insufficient_balance modal's buy-pack CTAs.
+         * `balance` / `recentEntries` were dropped with the standalone strip
+         * (TASK-2435) — BalanceStrip still takes them, on the Billing tab.
+         */
         availablePacks: PropTypes.array,
-        recentEntries: PropTypes.array,
         /** {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling', checkoutUrl, detail} | null */
         modal: PropTypes.shape({
             type: PropTypes.string,
@@ -320,9 +470,7 @@ class ComputeMeterPanel extends React.Component {
 
     static defaultProps = {
         enabled: false,
-        balance: null,
         availablePacks: [],
-        recentEntries: [],
         modal: null,
         onBuyPack: () => {},
         onDismissModal: () => {},
@@ -330,7 +478,7 @@ class ComputeMeterPanel extends React.Component {
     };
 
     render() {
-        const { enabled, balance, availablePacks, recentEntries, modal, onBuyPack, onDismissModal, onViewAccount } = this.props;
+        const { enabled, availablePacks, modal, onBuyPack, onDismissModal, onViewAccount } = this.props;
 
         // Kill-switch: render nothing when the backend reports no meter
         // (ships dark — see commerce.balance_views.AccountBalanceView).
@@ -338,33 +486,46 @@ class ComputeMeterPanel extends React.Component {
             return null;
         }
 
-        return (
-            <div data-testid="compute-meter-panel" className="compute-meter-panel">
-                <BalanceStrip
-                    balance={balance}
+        // TASK-2435 — modal HOST, not a dashboard. With no refusal in flight
+        // there is nothing to show on the map; the balance lives in the
+        // Billing tab and (W3) beside Run.
+        if (!modal) {
+            return null;
+        }
+
+        // Exactly one modal, ever — the three refusal reasons are mutually
+        // exclusive and are never conflated. Selecting here (rather than
+        // three independent && branches) makes that exclusivity structural.
+        let content = null;
+        if (modal.type === 'insufficient_balance') {
+            content = (
+                <InsufficientBalanceModal
+                    detail={modal.detail}
                     availablePacks={availablePacks}
-                    recentEntries={recentEntries}
                     onBuyPack={onBuyPack}
+                    onDismiss={onDismissModal}
+                    onViewAccount={onViewAccount}
                 />
-                {modal && modal.type === 'insufficient_balance' ? (
-                    <InsufficientBalanceModal
-                        detail={modal.detail}
-                        availablePacks={availablePacks}
-                        onBuyPack={onBuyPack}
-                        onDismiss={onDismissModal}
-                        onViewAccount={onViewAccount}
-                    />
-                ) : null}
-                {modal && modal.type === 'cap_exceeded' ? (
-                    <CapExceededModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />
-                ) : null}
-                {modal && modal.type === 'estimate_ceiling' ? (
-                    <EstimateCeilingModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />
-                ) : null}
-            </div>
+            );
+        } else if (modal.type === 'cap_exceeded') {
+            content = (<CapExceededModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />);
+        } else if (modal.type === 'estimate_ceiling') {
+            content = (<EstimateCeilingModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />);
+        }
+
+        // An unrecognised modal.type is a contract break, not a reason to
+        // paint an empty dialog over the customer's map.
+        if (!content) {
+            return null;
+        }
+
+        return (
+            <MeterModalHost onDismiss={onDismissModal}>
+                {content}
+            </MeterModalHost>
         );
     }
 }
 
 export default ComputeMeterPanel;
-export { BalanceStrip, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal, ViewAccountLink };
+export { BalanceStrip, MeterModalHost, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal, ViewAccountLink };
