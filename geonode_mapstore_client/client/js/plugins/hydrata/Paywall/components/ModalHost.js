@@ -79,7 +79,13 @@ const FOCUSABLE = [
  * (the scoped run, whose window did have focus, passed and hid the problem).
  * Input events have no such dependency: mousedown fires before the click
  * handler can disable the button, and keydown covers Space/Enter activation
- * for keyboard users. One passive listener each, one retained reference.
+ * for keyboard users. One CAPTURE listener each (the `true` third argument),
+ * one retained reference — capture so the record is taken before any handler
+ * downstream can stopPropagation. They are NOT passive: an earlier version of
+ * this comment said "passive listener", which is a different flag entirely
+ * (`{passive: true}`, a promise not to preventDefault) and was never set here.
+ * Neither listener calls preventDefault, so passive would in fact be
+ * harmless — but the comment described an option that was not in the code.
  */
 let lastInteractedElement = null;
 function rememberInteraction(e) {
@@ -114,15 +120,16 @@ function invokingControl() {
  * (for the run cluster: Build-and-Run / Build beside a debounced Run) rather
  * than being dumped on <body>, which is where a keyboard user loses their
  * place entirely.
+ *
+ * Returns null for a DETACHED invoker: everything around it is detached too,
+ * and .focus() on a detached node is a silent no-op, so walking a dead subtree
+ * would only find targets that cannot work. `firstFocusableInDocument` below
+ * is the fallback for that case.
  */
 function nearestFocusable(el) {
     if (!el || !el.parentElement || typeof document === 'undefined') {
         return null;
     }
-    // If the invoker itself has been detached, so has everything around it, and
-    // .focus() on a detached node is a silent no-op. Reachable: a stale
-    // lastInteractedElement pointing into a previously-unmounted dialog. Bail
-    // rather than walk a dead subtree looking for a target that cannot work.
     if (!document.contains(el)) {
         return null;
     }
@@ -137,6 +144,31 @@ function nearestFocusable(el) {
     return null;
 }
 
+/**
+ * Last-resort target: the first focusable element in document order.
+ *
+ * W2 adversarial finding P1, and an HONEST correction to W2's claim that its
+ * MAJOR#5 focus-restore fix was complete. It was complete only for the
+ * DISABLED-invoker shape (the meter/Run path, where the button survives in the
+ * DOM). For a REMOVED invoker — React swapping a portal out and deleting the
+ * control that opened the dialog — invokingControl() returns a detached node,
+ * restoreFocus skips it (document.contains is false), nearestFocusable bails,
+ * and focus lands on <body>: precisely the outcome the fallback exists to
+ * prevent.
+ *
+ * This is deliberately a "top of document" landing, not a guess at where the
+ * customer was — once the invoker is gone there is nothing left to infer from.
+ * It is still strictly better than <body>: a real element takes visible focus,
+ * assistive tech announces something, and Tab resumes from a known place
+ * rather than from nothing.
+ */
+function firstFocusableInDocument() {
+    if (typeof document === 'undefined' || !document.body) {
+        return null;
+    }
+    return document.body.querySelector(FOCUSABLE);
+}
+
 function restoreFocus(previous) {
     if (typeof document === 'undefined') {
         return;
@@ -149,11 +181,34 @@ function restoreFocus(previous) {
             return;
         }
     }
-    const fallback = nearestFocusable(previous);
+    const fallback = nearestFocusable(previous) || firstFocusableInDocument();
     if (fallback && typeof fallback.focus === 'function') {
         fallback.focus();
     }
 }
+
+/**
+ * OPEN-HOST STACK (W2 adversarial finding R3, epic 2425 W2.5).
+ *
+ * PaywallAndMeterRoot renders PaywallPanelContainer and ComputeMeterContainer
+ * as SIBLINGS, and `paywall.overlay === 'upgrade_prompt'` and
+ * `computeMeter.modal !== null` are independent Redux slices — so two hosts
+ * can be live at once. Each installed its own document-level keydown listener,
+ * and on Tab BOTH fired: each preventDefault()ed and pulled focus to its own
+ * first item, so every Tab press reset focus and the user could not cycle at
+ * all. (Escape was unaffected — it exited both, which is fine.)
+ *
+ * Mount order, last === topmost. Only the topmost host handles Tab.
+ *
+ * ESCAPE IS DELIBERATELY LEFT UNGATED: with two dialogs open, one Escape
+ * dismissing both is the safe direction — the failure mode this epic exists to
+ * remove is a customer trapped behind a dialog, not one that closes too
+ * eagerly. Gate Tab, which is broken; do not "fix" Escape, which is not.
+ */
+const openHosts = [];
+
+/** Test seam — lets a test assert the stack does not leak across mounts. */
+export const __openHostCount = () => openHosts.length;
 
 /**
  * @param {node}   children   the dialog content (its own overlay/backdrop)
@@ -192,6 +247,13 @@ function ModalHost({ children, onDismiss, testId, className, titleId }) {
     // dialog un-closable by keyboard.
     useLayoutEffect(() => {
         previouslyFocusedRef.current = invokingControl();
+        // R3 — identity token for this mount. An object rather than the DOM
+        // node or the ref: hostRef.current is null at this point on some paths,
+        // and a token cannot be confused with another host's node.
+        const token = {};
+        openHosts.push(token);
+        const isTopmost = () => openHosts[openHosts.length - 1] === token;
+
         const items = focusable();
         if (items.length > 0) {
             items[0].focus();
@@ -201,11 +263,20 @@ function ModalHost({ children, onDismiss, testId, className, titleId }) {
 
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' || e.keyCode === 27) {
+                // Intentionally NOT gated on isTopmost — see the openHosts
+                // docstring. Escape closing every open dialog is the safe
+                // direction; a trapped customer is the failure mode that matters.
                 e.stopPropagation();
                 onDismissRef.current();
                 return;
             }
             if (e.key !== 'Tab' && e.keyCode !== 9) {
+                return;
+            }
+            // R3 — only the topmost dialog cycles. Without this, two live hosts
+            // each preventDefault and each pull focus to their own first item,
+            // so Tab resets forever instead of cycling.
+            if (!isTopmost()) {
                 return;
             }
             const focusables = focusable();
@@ -236,6 +307,10 @@ function ModalHost({ children, onDismiss, testId, className, titleId }) {
         document.addEventListener('keydown', handleKeyDown);
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
+            const at = openHosts.indexOf(token);
+            if (at !== -1) {
+                openHosts.splice(at, 1);
+            }
             restoreFocus(previouslyFocusedRef.current);
             previouslyFocusedRef.current = null;
         };

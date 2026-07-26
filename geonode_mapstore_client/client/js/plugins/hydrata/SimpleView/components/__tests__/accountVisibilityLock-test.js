@@ -65,6 +65,14 @@ describe('visibilityLockLabel (TASK-2463)', () => {
         expect(visibilityLockLabel('nonsense', false)).toBe(null);
     });
 
+    it('is not fooled by Object.prototype keys arriving off the wire', () => {
+        // A bare LOCKED_VISIBILITIES[visibility] returns a truthy prototype
+        // member for these, which would render a padlock whose accessible name
+        // is a stringified function.
+        ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']
+            .forEach((key) => expect(visibilityLockLabel(key, false)).toBe(null, key));
+    });
+
     it('says the subscription lapsed WITHOUT implying the model went public', () => {
         // HARD CONTRACT RULE: lapse never auto-publishes. The wording must not
         // suggest otherwise, and it must still name the real visibility.

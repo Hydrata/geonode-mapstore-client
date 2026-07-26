@@ -86,9 +86,13 @@ jobs:
     #      if every rule covering it sits under, say, .sv-account-billing-tab,
     #      the guard fails until that is declared in ANCESTOR_SCOPED with the
     #      ancestor named and a reason. Check 2 exists because check 1 alone
-    #      was proven bypassable — re-scoping all 23 meter.css rules to
+    #      was proven bypassable — re-scoping EVERY meter.css rule to
     #      ".sv-account-billing-tab .compute-meter-*", byte-for-byte the
     #      production defect shape, still exited 0.
+    #      (An earlier version of this comment said "all 23 meter.css rules".
+    #      There are 16 rule blocks / 21 selectors. The count was wrong, the
+    #      experiment was real; stating a precise number that nobody had
+    #      counted is how a guard's reputation outgrows what it checks.)
     #
     # TWO BOUNDARIES — do not overstate this job:
     #   (a) IT IS NOT A MERGE BLOCKER. It is not in ruleset 19084444's required

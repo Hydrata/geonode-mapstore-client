@@ -169,6 +169,9 @@ export class SimpleViewContainer extends React.Component {
     }
 
     render() {
+        // TASK-2463 — computed once: it feeds BOTH the padlock and the host
+        // button's accessible name, and the two must not be able to disagree.
+        const lockLabel = visibilityLockLabel(this.props.lockVisibility, this.props.lockLapsed);
         return (
             <div id="simple-view-container">
                 <div className="simple-view-left-toolbar">
@@ -236,11 +239,7 @@ export class SimpleViewContainer extends React.Component {
                                 className={`simple-view-right-button sv-visibility-lock-host ${this.props.permissionsEnabled ? 'active' : ''}`}
                                 onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
                                 title="Account"
-                                aria-label={
-                                    visibilityLockLabel(this.props.lockVisibility, this.props.lockLapsed)
-                                        ? `Account — ${visibilityLockLabel(this.props.lockVisibility, this.props.lockLapsed)}`
-                                        : 'Account'
-                                }>
+                                aria-label={lockLabel ? `Account — ${lockLabel}` : 'Account'}>
                                 <Glyphicon glyph="user" />
                                 <AccountVisibilityLock
                                     visibility={this.props.lockVisibility}

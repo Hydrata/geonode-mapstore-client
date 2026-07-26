@@ -617,6 +617,7 @@ class MembershipPanelClass extends React.Component {
                     className="sv-membership-movable"
                     title={<Message msgId="hydrata.anuga.members" />}
                     onClose={this.handleClose}
+                    autoFocus
                     position={this.props.panelState?.position}
                     size={this.props.panelState?.size}
                     defaultPosition={{x: 20, y: 70}}
@@ -638,6 +639,14 @@ class MembershipPanelClass extends React.Component {
                 className="sv-membership-movable sv-account-movable"
                 title={<Message msgId="hydrata.anuga.accountPanelTitle" />}
                 onClose={this.handleClose}
+                /* W2 adversarial R4 — this panel is always the DESTINATION of
+                   a user action (the Account button, or "View account" out of
+                   a refusal modal), never a side effect, so it takes keyboard
+                   focus on open. Without it the "View account" route left a
+                   keyboard user on the map behind the panel they just asked
+                   for: the containers dismiss + open in ONE commit, and
+                   ModalHost's cleanup runs restoreFocus first. */
+                autoFocus
                 position={this.props.panelState?.position}
                 size={this.props.panelState?.size}
                 defaultPosition={{x: 20, y: 70}}

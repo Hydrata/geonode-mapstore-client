@@ -63,10 +63,14 @@ const LOCKED_VISIBILITIES = {
  * therefore never imply the model has become public.
  */
 export function visibilityLockLabel(visibility, lapsed) {
-    const tier = LOCKED_VISIBILITIES[visibility];
-    if (!tier) {
+    // hasOwnProperty, not a bare lookup: `visibility` arrives from the wire, and
+    // a bare LOCKED_VISIBILITIES[visibility] returns a truthy Object.prototype
+    // member for 'constructor'/'toString'/'valueOf' — which would render a
+    // padlock whose accessible name is a stringified function.
+    if (!Object.prototype.hasOwnProperty.call(LOCKED_VISIBILITIES, visibility)) {
         return null;
     }
+    const tier = LOCKED_VISIBILITIES[visibility];
     return lapsed
         ? `Project visibility: ${tier} (subscription lapsed)`
         : `Project visibility: ${tier}`;

@@ -35,6 +35,20 @@ const MIN_VISIBLE_X = 48;
 // drag handle itself can never be lost above/below the viewport.
 const HEADER_SAFE_H = 40;
 
+// Focus-entry candidates (W2 adversarial finding R4). Same list ModalHost
+// uses, kept as its own copy rather than shared: importing a paywall-plugin
+// constant into a shared primitive would invert the dependency direction, and
+// the two lists are allowed to diverge (a trap needs Tab-cycle candidates; this
+// only needs somewhere sensible to land).
+const FOCUSABLE_IN_PANEL = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+].join(',');
+
 /**
  * Clamp a {x, y} panel position so the header strip stays inside the
  * viewport: y in [0, viewportH - HEADER_SAFE_H], x leaves at least
@@ -76,17 +90,65 @@ export class MovablePanel extends React.Component {
         onResize: PropTypes.func,
         zIndex: PropTypes.number,
         className: PropTypes.string,
-        children: PropTypes.node
+        children: PropTypes.node,
+        /**
+         * Move keyboard focus into the panel on mount (W2 adversarial R4).
+         * Default OFF — see enterFocus()'s docstring for why a blanket
+         * focus-on-mount would be a regression for the legend/disambiguation
+         * consumers. Set it where the panel is the DESTINATION of a user
+         * action, not where it appears as a side effect.
+         */
+        autoFocus: PropTypes.bool
     };
 
     static defaultProps = {
-        zIndex: MOVABLE_PANEL_Z_INDEX
+        zIndex: MOVABLE_PANEL_Z_INDEX,
+        autoFocus: false
     };
 
     componentDidMount() {
         this._lastSize = this.measure();
         if (typeof document !== 'undefined') {
             document.addEventListener('mouseup', this.onDocumentMouseUp);
+        }
+        if (this.props.autoFocus) {
+            this.enterFocus();
+        }
+    }
+
+    /**
+     * FOCUS ENTRY (W2 adversarial finding R4, epic 2425 W2.5).
+     *
+     * The "View account" route out of a refusal modal dismisses the dialog and
+     * opens this panel IN ONE COMMIT. ModalHost's cleanup runs restoreFocus
+     * first, and this panel had no focus entry at all, so a keyboard user
+     * ended up with focus back on the map behind a panel they had just asked
+     * for — they had to Tab through the whole page to reach it.
+     *
+     * OPT-IN (`autoFocus`), NOT the default, and that is deliberate. Seven
+     * components use this primitive, and several mount as a SIDE EFFECT rather
+     * than as the destination of a user action: DemRampLegend is a legend that
+     * appears with a DEM layer, ClickDisambiguationPanel appears on any
+     * ambiguous map click. A blanket focus-on-mount would let a legend yank the
+     * caret out of whatever the customer was typing — a worse bug than the one
+     * R4 describes, introduced while fixing it. Turn it on only where the panel
+     * IS the thing the user just asked for.
+     *
+     * Focuses the first focusable control inside the panel, falling back to the
+     * panel itself (hence tabIndex={-1} on the container, which makes an
+     * otherwise non-focusable div a valid programmatic target without adding it
+     * to the tab order).
+     *
+     * NOT a focus TRAP, deliberately: this is a non-modal, draggable panel the
+     * customer is meant to work alongside. Tab must be able to leave it. That
+     * is the whole difference between this and ModalHost.
+     */
+    enterFocus() {
+        if (typeof document === 'undefined' || !this.panelEl) return;
+        const first = this.panelEl.querySelector(FOCUSABLE_IN_PANEL);
+        const target = first || this.panelEl;
+        if (typeof target.focus === 'function') {
+            target.focus();
         }
     }
 
@@ -170,6 +232,11 @@ export class MovablePanel extends React.Component {
                     className={'simple-view-panel sv-movable-panel' + (className ? ' ' + className : '')}
                     style={style}
                     data-testid={`movable-panel-${panelId}`}
+                    // R4 — a programmatic focus target for enterFocus()'s
+                    // fallback when the panel has no focusable content yet
+                    // (e.g. an async tab still loading). -1 keeps it OUT of the
+                    // tab order, so this adds no stop for mouse users.
+                    tabIndex={-1}
                 >
                     <PanelHeader
                         title={title}
