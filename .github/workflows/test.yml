@@ -76,14 +76,35 @@ jobs:
 
   paywall-css-coverage-guard:
     name: Paywall CSS coverage guard
-    # TASK-2437 (epic 2425 W2). Fails when a paywall or compute-meter component
-    # emits a className with no matching rule in any stylesheet source — the
-    # defect that put an invisible refusal modal in front of a paying customer.
-    # Karma cannot catch it (jsdom has no layout engine and no cascade), and
-    # the W0 browser tests catch it only at runtime; this catches it at build
-    # time. Separate job for the same reason as the guard above: it must stay
-    # required independently of ESLint, and it runs in ~1s on Node built-ins
-    # with no npm install.
+    # TASK-2437 (epic 2425 W2), extended by the W2 remediation pass.
+    #
+    # WHAT IT ACTUALLY CHECKS — two static checks over the stylesheet SOURCES:
+    #   1. Every paywall-/compute-meter-/sv-anuga-scenario-estimate- className
+    #      emitted by those components has SOME matching rule somewhere
+    #      (or a justified ALLOWLIST entry).
+    #   2. No such className is reachable ONLY through an ancestor selector:
+    #      if every rule covering it sits under, say, .sv-account-billing-tab,
+    #      the guard fails until that is declared in ANCESTOR_SCOPED with the
+    #      ancestor named and a reason. Check 2 exists because check 1 alone
+    #      was proven bypassable — re-scoping all 23 meter.css rules to
+    #      ".sv-account-billing-tab .compute-meter-*", byte-for-byte the
+    #      production defect shape, still exited 0.
+    #
+    # TWO BOUNDARIES — do not overstate this job:
+    #   (a) IT IS NOT A MERGE BLOCKER. It is not in ruleset 19084444's required
+    #       status checks, so a PR that (for example) deletes meter.css turns
+    #       this job red and stays MERGEABLE. Making it required is an
+    #       operator-gated ruleset change, tracked separately.
+    #   (b) IT CANNOT SEE THE RUNTIME CASCADE. Both checks read source text.
+    #       "A rule exists, and is not ancestor-locked" is not "this rule
+    #       applies at this component's mount point" — that needs a real render
+    #       tree and a layout engine. Karma cannot answer it either (jsdom has
+    #       neither). Only tests/e2e/test_paywall_money_path.py in the deploy
+    #       repo can, and it is the authority whenever the two disagree.
+    #
+    # Separate job for the same reason as the guard above: it must stay
+    # independent of ESLint, and it runs in ~1s on Node built-ins with no
+    # npm install.
     runs-on: ubuntu-latest
     steps:
       - name: "Checking out"
