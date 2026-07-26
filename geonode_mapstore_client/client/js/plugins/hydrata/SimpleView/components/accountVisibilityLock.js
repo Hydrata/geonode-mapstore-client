@@ -52,9 +52,20 @@ const LOCKED_VISIBILITIES = {
  * The accessible name for a given visibility, or null when no lock renders.
  * Exported so the host button's aria-label and the badge cannot drift apart.
  *
- * `lapsed` is the paywall's past_due steady state. It is surfaced here rather
- * than dropped because past_due is the day-one default at flip (84 of 84
- * non-public prod owners are unentitled) and deleting the dunning banner
+ * `lapsed` is NOT simply "the paywall steady state is past_due" — TASK-2463
+ * (W2.8) narrowed it. past_due is derived from the READER's own account
+ * (gn_anuga/api_v2.py::_derive_paywall_state resolves _get_acting_account(user),
+ * never project.account), while the string below is a claim about the PROJECT.
+ * Those coincide only for the project's own owner, so the caller supplies
+ * `lapsed` from Paywall/selectors.js's showsVisibilityLapse, which requires
+ * owner_username === the viewing user. An invited manager on a private project
+ * paid for by its owner used to read "(subscription lapsed)" here; that was
+ * false about the project. See that selector for the open question this is
+ * deliberately NOT settling.
+ *
+ * It is surfaced for the owner rather than dropped because past_due is the
+ * day-one default at flip (84 of 84 non-public prod owners are unentitled, and
+ * every one of them owns their own projects) and deleting the dunning banner
  * removed its only other proactive surface. The RENEW ACTION still lives in
  * Account > Billing (BillingTabPanel SubscriptionSection) — this is the
  * notice, not the affordance.
@@ -97,7 +108,10 @@ function AccountVisibilityLock({ visibility, lapsed }) {
 AccountVisibilityLock.propTypes = {
     /** Project visibility from the server: 'public' | 'private' | 'organization'. */
     visibility: PropTypes.string,
-    /** True when the paywall steady state is past_due. */
+    /**
+     * True when the lapse is ATTRIBUTABLE to this project — i.e. past_due AND the
+     * viewer owns it (Paywall/selectors.js showsVisibilityLapse). Not "past_due".
+     */
     lapsed: PropTypes.bool
 };
 

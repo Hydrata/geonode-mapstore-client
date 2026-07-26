@@ -106,5 +106,68 @@ export const getPaywallSteadyState = (state) => {
     return (steady && steady.state) || null;
 };
 
-/** True when the account's subscription has lapsed (server steady state). */
+/**
+ * True when the VIEWING USER'S OWN account has no paid private entitlement
+ * (server steady state past_due).
+ *
+ * The name is a compromise inherited from TASK-2099 and the docstring is the
+ * correction: `past_due` is derived from `_get_acting_account(request.user)`
+ * (gn_anuga/api_v2.py::_derive_paywall_state), so it is a statement about the
+ * READER, not about the project or its owner. Anything that phrases it as a fact
+ * about the project must go through showsVisibilityLapse below.
+ */
 export const isPaywallPastDue = (state) => getPaywallSteadyState(state) === 'past_due';
+
+/**
+ * Is the viewer the project's ACTUAL owner? Not the same question as
+ * `my_role === 'owner'`: get_user_role maps is_superuser -> 'owner' (sync.py
+ * steps 2-3), so every superuser reads as owner on every project.
+ *
+ * `owner_username` is on ProjectSerializerV2 and already in this slice (the
+ * Sharing panel's "(you)" marker uses the same pair). Comparing usernames rather
+ * than pks because the project payload carries no owner pk.
+ */
+const _viewerOwnsProject = (state) => {
+    const ownerUsername = state?.anuga?.projects?.data?.owner_username;
+    const viewer = state?.security?.user?.username || state?.security?.user?.name;
+    return Boolean(ownerUsername && viewer && ownerUsername === viewer);
+};
+
+/**
+ * May the visibility indicator say that THIS PROJECT'S paid standing has lapsed?
+ *
+ * TASK-2463 (epic 2425 W2.8) — the padlock's aria-label was
+ * "Project visibility: Private (subscription lapsed)" for anyone the W2.7 gate
+ * admits. That sentence is about the project. `past_due` is not.
+ *
+ * WHAT past_due ACTUALLY ESTABLISHES. `_derive_paywall_state(project, user)`
+ * resolves `_get_acting_account(user)` and never `project.account` — verified in
+ * source, and its docstring says the acting-account resolution is intentional FOR
+ * THE ENTITLEMENT CHECK. So past_due means "the reader's own account is
+ * unentitled" and nothing more. An invited MANAGER on a private project fully
+ * paid for by its owner reads past_due, and was told the project had lapsed.
+ * False. W2.7's (correct) widening from owner-only to MANAGER+ is what made it
+ * reachable for non-superusers.
+ *
+ * WHAT THE FRONTEND CAN AND CANNOT DETERMINE. It cannot determine the project's
+ * own entitlement at all: `Project.account` is not serialized anywhere
+ * (serializers_v2.py), and on production it is NULL for all 166 projects
+ * (verified read-only 2026-07-26), so even reading it would answer nothing for
+ * the live estate. What it CAN determine is whether the reader is the project's
+ * owner — and for the owner, past_due is a true, actionable statement about the
+ * only account that can be charged for this project today.
+ *
+ * SO: the owner keeps the lapse notice (it is also the day-one default at flip
+ * for 84 of 84 non-public prod owners, and W2.5 deleted the dunning banner that
+ * used to carry it). Everyone else gets the visibility and no claim about
+ * billing. Say nothing rather than something false.
+ *
+ * ⚠ OPEN QUESTION, NOT SETTLED HERE. Which account governs a project's paid
+ * standing, and whether Project.account should be populated at creation, is being
+ * grilled with the operator (epic 2425 decision W2.7-D4; forks include rewording
+ * the label to be user-scoped, and deriving the indicator from project.account
+ * while leaving the entitlement check on the acting account). This selector is
+ * deliberately the narrow, fork-agnostic move: it removes the false claim without
+ * choosing between them. Revisit it when that decision lands.
+ */
+export const showsVisibilityLapse = (state) => isPaywallPastDue(state) && _viewerOwnsProject(state);

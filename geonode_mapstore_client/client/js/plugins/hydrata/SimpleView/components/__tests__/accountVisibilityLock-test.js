@@ -37,18 +37,32 @@ function makeStore(state) {
  *                    to match the backend's MANAGER+ visibility-write gate)
  * @param visibility  the project's server-side visibility
  * @param paywallSteady  the paywall steady-state literal, or null
+ *
+ * The viewer is the project's ACTUAL OWNER by default (owner_username ===
+ * security.user.username). TASK-2463 (W2.8) made that distinction load-bearing
+ * for the lapse wording — see stateForNonOwner below — and it is NOT the same
+ * question as my_role: get_user_role returns 'owner' for any superuser
+ * (sync.py steps 2-3), so a superuser browsing someone else's project arrives
+ * here with my_role 'owner' and is not the owner of anything.
  */
 const stateFor = (myRole, visibility, paywallSteady = null) => ({
     anuga: {
-        projects: { data: { my_role: myRole, visibility } },
+        projects: { data: { my_role: myRole, visibility, owner_username: 'the_viewer' } },
         ui: { showMembershipPanel: false },
         paywall: { steady: paywallSteady ? { state: paywallSteady } : null, overlay: null }
     },
-    security: { user: { pk: 1 } },
+    security: { user: { pk: 1, username: 'the_viewer' } },
     simpleView: {},
     layers: { groups: [] },
     localConfig: { plugins: { map_viewer: [] } }
 });
+
+/** Same, but the project belongs to somebody else. */
+const stateForNonOwner = (myRole, visibility, paywallSteady = null) => {
+    const state = stateFor(myRole, visibility, paywallSteady);
+    state.anuga.projects.data.owner_username = 'somebody_else';
+    return state;
+};
 
 const lockIn = (container) => container.querySelector('[data-testid="sv-visibility-lock"]');
 const accountBtn = (container) => container.querySelector('button[title="Account"]');
@@ -283,18 +297,117 @@ describe('Account button visibility padlock — the TASK-2462 gate', () => {
         expect(accountBtn(container).getAttribute('aria-label')).toBe('Account');
     });
 
-    it('a MANAGER does see the past_due lapse — the account being charged may be theirs (TASK-2484)', () => {
-        // The counterpart to the assertion above, and the reason the widening
-        // matters: _check_private_entitlement_response charges request.user's
-        // account, so a manager who privatised the project is the one holding a
-        // lapsed subscription. Deleting the on-map dunning banner in W2.5 left
-        // the padlock as the only proactive lapse surface.
+    // TASK-2484 (W2.7) added a test here pinning the aria-label
+    // 'Project visibility: Private (subscription lapsed)' for a MANAGER. That
+    // string is a claim about the PROJECT, and the manager case is exactly where
+    // it is false — so the test is replaced rather than preserved. See the
+    // describe below for the full reasoning; the manager keeps the padlock (the
+    // W2.7 gate widening is intact), it just stops asserting something the app
+    // cannot know.
+    it('a MANAGER of a private project sees the padlock at past_due too — the GATE is unchanged', () => {
         const { container } = mountWithProviders(
             <ConnectedSimpleView paywallEnabled />,
-            { store: makeStore(stateFor('manager', 'private', 'past_due')) }
+            { store: makeStore(stateForNonOwner('manager', 'private', 'past_due')) }
         );
-        expect(lockIn(container)).toExist();
+        expect(lockIn(container)).toExist(
+            'the W2.7 MANAGER+ gate was narrowed — a manager can flip visibility and be billed for it'
+        );
+    });
+});
+
+// ── TASK-2463 (epic 2425 W2.8): whose lapse is it? ───────────────────────────
+//
+// THE FALSE CLAIM THIS REMOVES. `_derive_paywall_state` (gn_anuga/api_v2.py)
+// resolves `_get_acting_account(user)` and never `project.account` — read
+// directly, and its own docstring says the acting-account resolution is
+// deliberate FOR THE ENTITLEMENT CHECK. So `past_due` means exactly one thing:
+// "the VIEWING user's account has no paid private entitlement". It says nothing
+// whatever about the project's standing.
+//
+// W2.7 widened the padlock from owner-only to MANAGER+, which was right, and in
+// doing so made this reachable: an invited manager whose own account is
+// unentitled, looking at a private project fully paid for by its owner, was told
+// "Project visibility: Private (subscription lapsed)" — false about the project.
+// Before W2.7 only superusers (my_role -> 'owner') could reach it.
+//
+// WHY SUPPRESSION AND NOT REWORDING. Which account GOVERNS a project — and
+// whether Project.account should be populated at creation, given that it is NULL
+// on all 166 production projects (verified read-only 2026-07-26;
+// ProjectViewSet.perform_create saves only created_by and owner, and the sole
+// writer is commerce/checkout_views.py's legacy-adoption bind) — is being grilled
+// with the operator and is not settled here. Rewording the label is one of the
+// forks on the table (W2.7-D4 (i)); picking it would pre-empt that decision. So
+// this change does the one thing that is safe under EVERY fork: where the claim
+// cannot be attributed, the UI says nothing rather than something false.
+//
+// THE OWNER CASE IS KEPT DELIBERATELY. For the project's actual owner the acting
+// account is the only account that can be charged for this project today, so
+// past_due is a true and actionable statement about their own standing — and
+// past_due is the day-one default at flip for 84 of 84 non-public prod owners,
+// all of whom own their projects. Withdrawing it from them would delete the only
+// proactive lapse surface left after W2.5 removed the dunning banner.
+describe('Account button visibility padlock — the lapse must be attributable (TASK-2463 W2.8)', () => {
+    it('the project OWNER still sees the lapse, in full', () => {
+        const { container } = mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />,
+            { store: makeStore(stateFor('owner', 'private', 'past_due')) }
+        );
+        expect(lockIn(container).className).toInclude('sv-visibility-lock--lapsed');
         expect(lockIn(container).getAttribute('aria-label'))
             .toBe('Project visibility: Private (subscription lapsed)');
+    });
+
+    it('an invited MANAGER is told the visibility and NOTHING about a lapse', () => {
+        const { container } = mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />,
+            { store: makeStore(stateForNonOwner('manager', 'private', 'past_due')) }
+        );
+        const lock = lockIn(container);
+        expect(lock).toExist();
+        expect(lock.getAttribute('aria-label')).toBe(
+            'Project visibility: Private',
+            'the manager is being told this project\'s subscription has lapsed. The '
+            + 'backend never checked the project\'s account — only the manager\'s own.'
+        );
+        expect(lock.className).toNotInclude(
+            'sv-visibility-lock--lapsed',
+            'the amber lapse styling makes the same unattributable claim in colour'
+        );
+    });
+
+    it('a SUPERUSER browsing someone else\'s project gets no lapse claim either', () => {
+        // get_user_role maps is_superuser -> 'owner', so my_role cannot tell a
+        // superuser apart from the real owner; owner_username can. This is the
+        // path that was reachable BEFORE W2.7 and was never noticed.
+        const { container } = mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />,
+            { store: makeStore(stateForNonOwner('owner', 'private', 'past_due')) }
+        );
+        expect(lockIn(container).getAttribute('aria-label')).toBe('Project visibility: Private');
+    });
+
+    it('says nothing about a lapse when it cannot tell who the owner is', () => {
+        // Fail-safe, not fail-quiet-and-hope: an absent owner_username (an older
+        // serializer, a partial project payload) must suppress the claim, not
+        // default to making it.
+        const missing = stateFor('owner', 'private', 'past_due');
+        delete missing.anuga.projects.data.owner_username;
+        expect(lockIn(mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />, { store: makeStore(missing) }
+        ).container).getAttribute('aria-label')).toBe('Project visibility: Private');
+
+        const anonish = stateFor('owner', 'private', 'past_due');
+        anonish.security = { user: { pk: 1 } };
+        expect(lockIn(mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />, { store: makeStore(anonish) }
+        ).container).getAttribute('aria-label')).toBe('Project visibility: Private');
+    });
+
+    it('the OWNER of a paid_private project is not marked lapsed (no false positive)', () => {
+        const { container } = mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />,
+            { store: makeStore(stateFor('owner', 'private', 'paid_private')) }
+        );
+        expect(lockIn(container).className).toNotInclude('sv-visibility-lock--lapsed');
     });
 });

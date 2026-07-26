@@ -24,7 +24,7 @@ import { canManageMembers, getProjectVisibility } from '@js/plugins/hydrata/Anug
 // only half-implementable on the FE today — read Paywall/selectors.js before
 // widening it); SimpleView only renders the pixels.
 import AccountVisibilityLock, { visibilityLockLabel } from './accountVisibilityLock';
-import { canSeeVisibilityIndicator, isPaywallPastDue } from '../../Paywall/selectors';
+import { canSeeVisibilityIndicator, showsVisibilityLapse } from '../../Paywall/selectors';
 import {canEditResource} from '@js/selectors/resource';
 import {isLoggedIn, userSelector} from '@mapstore/framework/selectors/security';
 import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
@@ -417,7 +417,11 @@ const mapStateToProps = (state, ownProps) => {
         // The gate is applied HERE rather than inside the component so a
         // non-owner's visibility never even reaches the render tree.
         lockVisibility: canSeeVisibilityIndicator(state) ? getProjectVisibility(state) : null,
-        lockLapsed: isPaywallPastDue(state)
+        // TASK-2463 (W2.8) — showsVisibilityLapse, NOT isPaywallPastDue. past_due
+        // describes the READER's account, and the label describes the PROJECT;
+        // only the project's owner makes those the same statement. See the
+        // selector for what the FE can and cannot determine here.
+        lockLapsed: showsVisibilityLapse(state)
     };
 };
 
