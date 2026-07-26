@@ -1923,6 +1923,115 @@ describe('ANUGA Epics', () => {
         });
     });
 
+    // TASK-2463 (epic 2425 W2.8) — the race `force: true` opened and W2.7 left
+    // open. W2.7 turned 20 byte-identical browser-cache hits into 20 real
+    // network reads; fetchMyPermsEpic answers them with mergeMap and no
+    // ordering guard, so a slow tick-1 response carrying the PRE-webhook body
+    // can land AFTER a later tick already delivered the post-webhook one —
+    // overwriting a correct padlock with a stale "public", after takeWhile has
+    // killed the poll so nothing will ever correct it again. Silent, and on the
+    // money path.
+    describe('TASK-2463 (W2.8) fetchMyPermsEpic — a stale response cannot win', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            fetchMyPermsEpic, __resetPermsCacheForTests, __setNowForTests
+        } = require('../epics/permsEpics');
+        const {fetchMyPerms} = require('../actionsAnuga');
+
+        const body = (visibility, state) => ({
+            my_role: 'owner', visibility,
+            paywall: {state, checkout_url: null, read_only: false}
+        });
+
+        /**
+         * Assert after `ms`, reporting a failed expectation as a FAILED TEST.
+         * A bare `setTimeout(() => expect(...))` throws asynchronously, mocha
+         * never sees it, and the run reports "Timeout of 2000ms exceeded" with
+         * no message — which is how a genuinely red assertion can be mistaken
+         * for a flaky test and re-run until it is ignored.
+         */
+        const assertAfter = (ms, done, fn) => setTimeout(() => {
+            try {
+                fn();
+                done();
+            } catch (err) {
+                done(err);
+            }
+        }, ms);
+
+        let mockAxios;
+        beforeEach(() => {
+            mockAxios = new MockAdapter(axios);
+            __resetPermsCacheForTests();
+            __setNowForTests(() => 2000000);
+        });
+        afterEach(() => {
+            mockAxios.restore();
+            __resetPermsCacheForTests();
+            __setNowForTests(null);
+        });
+
+        it('a tick-1 response that arrives LAST does not overwrite the newer state', (done) => {
+            // Tick 1 asks first and answers second (the pre-webhook body); tick 2
+            // asks second and answers first (the post-webhook body). Exactly the
+            // shape of a slow first request on a 3s poll.
+            let call = 0;
+            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(() => {
+                call += 1;
+                return call === 1
+                    ? new Promise((resolve) => setTimeout(
+                        () => resolve([200, body('public', 'free_public')]), 40))
+                    : [200, body('private', 'paid_private')];
+            });
+
+            const action$ = mockActions([fetchMyPerms(42, true), fetchMyPerms(42, true)]);
+            const emitted = [];
+            fetchMyPermsEpic(action$).subscribe(a => emitted.push(a), done);
+
+            assertAfter(120, done, () => {
+                const perms = emitted.filter(a => a.type === 'ANUGA:SET_ANUGA_RESOURCE_PERMS');
+                expect(call).toBe(2, 'both forced fetches must have reached the server');
+                expect(perms.length).toBeGreaterThan(0, 'no perms action was emitted at all');
+                const last = perms[perms.length - 1];
+                expect(last.payload.visibility).toBe(
+                    'private',
+                    'the LAST write to the slice was the stale tick-1 body — the padlock '
+                    + 'has just been overwritten with the pre-webhook state and the poll is dead'
+                );
+                expect(last.payload.paywall.state).toBe('paid_private');
+                // Stronger than "the last one wins": the stale response must be
+                // DROPPED, not merely re-overwritten. Re-overwriting depends on a
+                // third response arriving, and after takeWhile there is none.
+                expect(perms.length).toBe(
+                    1,
+                    'the superseded response was still applied to the store; '
+                    + `emitted visibilities: ${perms.map(p => p.payload.visibility).join(',')}`
+                );
+            });
+        });
+
+        it('two fetches for DIFFERENT projects do not cancel or drop each other', (done) => {
+            // The guard must be per-project. A global "newest wins" would make an
+            // SPA nav A -> B drop B's answer whenever A's landed second.
+            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(
+                () => new Promise((resolve) => setTimeout(
+                    () => resolve([200, body('private', 'paid_private')]), 30)));
+            mockAxios.onGet('/api/v2/anuga/projects/43/my-perms/').reply(
+                200, body('organization', 'paid_organization'));
+
+            const action$ = mockActions([fetchMyPerms(42, true), fetchMyPerms(43, true)]);
+            const emitted = [];
+            fetchMyPermsEpic(action$).subscribe(a => emitted.push(a), done);
+
+            assertAfter(120, done, () => {
+                const perms = emitted.filter(a => a.type === 'ANUGA:SET_ANUGA_RESOURCE_PERMS');
+                expect(perms.length).toBe(2, 'a per-project guard must not drop the other project');
+                expect(perms.map(p => p.projectId).sort()).toEqual([42, 43]);
+            });
+        });
+    });
+
     describe('TASK-2099 paywallEpics', () => {
         const MockAdapter = require('axios-mock-adapter');
         const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
