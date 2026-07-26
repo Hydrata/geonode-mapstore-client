@@ -173,7 +173,7 @@ function PendingSpinner() {
  * Includes the optional manage-billing link when checkout_url is available.
  * NOTE: _derive_paywall_state (gn_anuga/api_v2.py) currently hardcodes
  * checkout_url=None for BOTH paid states, so that link is unreachable today
- * for either tier — see TASK-2455.
+ * for either tier — see TASK-2456.
  */
 function PrivateBadge({ manageBillingUrl, variant }) {
     const isOrganization = variant === 'organization';
