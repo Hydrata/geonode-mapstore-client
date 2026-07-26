@@ -248,103 +248,28 @@ describe('BillingTabPanel — TASK-2436 scoping guard', () => {
     });
 });
 
-// ── TASK-2463 (epic 2425 W2.8): the post-checkout confirmation notice ────────
+// ── W2.10 REVERT RATCHET (operator decision 2026-07-26) ─────────────────────
 //
-// WHY THIS SURFACE EXISTS. The post-checkout poll used to give up after 60s and
-// CLEAR the FE-only `pending` state. W2.5 had already deleted PendingSpinner, so
-// after that clear there was nothing left: a customer whose Stripe webhook took
-// longer than a minute — which real webhook retries routinely do — saw no
-// padlock, no spinner, no toast and no way to re-check, with every surface
-// reading the pre-payment state. A money-path terminal state must never be
-// silence.
-//
-// The Billing tab is the home for it because the checkout return OPENS this tab
-// (checkoutReturnEpic dispatches setMembershipPanelTab('billing')), and because
-// the two things that confirm a purchase — the balance and the subscription
-// state — are already on it.
-describe('BillingTabPanel — post-checkout confirmation notice (W2.8)', () => {
-    const loaded = { loaded: true, isPersonal: true, freeBand: baseFreeBand };
-
-    it('says nothing at all when no purchase is in flight', () => {
-        const c = render({ ...loaded, confirming: null });
+// W2.8 put a ConfirmingPurchaseSection here — "Confirming your purchase…", then
+// a stalled variant with a Check again button — and W2.9 rewrote its copy and
+// its clearing rules. The whole surface is removed. It is asserted ABSENT rather
+// than merely deleted for the reason W2.9 itself gave about the orphan --lapsed
+// CSS rule: a surface with nothing pinning its absence is a surface that comes
+// back. The app cannot tell "the purchase has not landed" from "it landed by a
+// channel this panel cannot observe", so any notice here is a claim it cannot
+// support. TASK-2489 owns the server-side read that could.
+describe('BillingTabPanel — no post-checkout confirmation notice (W2.10 revert)', () => {
+    it('renders no confirming notice and no re-check, whatever props it is handed', () => {
+        const c = render({
+            loaded: true, isPersonal: true, freeBand: baseFreeBand,
+            // A stray prop from an un-updated caller must be inert, not revive it.
+            confirming: { stalled: true }, isManager: true, balance: '10.00'
+        });
         expect(c.querySelector('[data-testid="sv-account-confirming"]')).toBe(null);
         expect(c.querySelector('[data-testid="sv-account-confirming-recheck"]')).toBe(null);
-    });
-
-    it('while the poll is running: acknowledges the purchase, with no retry button yet', () => {
-        const c = render({ ...loaded, confirming: { stalled: false } });
-        const notice = c.querySelector('[data-testid="sv-account-confirming"]');
-        expect(notice).toExist(
-            'the customer just paid and the panel that opened for them says nothing about it'
-        );
-        expect(notice.textContent.toLowerCase()).toInclude('confirming');
-        // Nothing to retry while the poll is still asking on their behalf.
-        expect(c.querySelector('[data-testid="sv-account-confirming-recheck"]')).toBe(null);
-    });
-
-    it('once stalled: keeps the acknowledgement AND offers an explicit re-check', () => {
-        const calls = [];
-        const c = render({ ...loaded, confirming: { stalled: true }, onRecheck: () => calls.push(1) });
-        const notice = c.querySelector('[data-testid="sv-account-confirming"]');
-        expect(notice).toExist('the poll gave up and the customer was told nothing');
-        const btn = c.querySelector('[data-testid="sv-account-confirming-recheck"]');
-        expect(btn).toExist('a stalled confirmation with no way to re-check is a dead end');
-        act(() => { btn.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
-        expect(calls.length).toBe(1, 'the re-check button is wired to nothing');
-    });
-
-    it('is announced to assistive tech rather than only being visible', () => {
-        const notice = render({ ...loaded, confirming: { stalled: true } })
-            .querySelector('[data-testid="sv-account-confirming"]');
-        // role="status" carries an implicit aria-live=polite: the notice appears
-        // without any user action, so a screen-reader user would otherwise never
-        // learn it had arrived.
-        expect(notice.getAttribute('role')).toBe('status');
-    });
-
-    it('never claims the payment failed or was lost — it claims only what the app knows', () => {
-        // THE WORDING IS LOAD-BEARING. The app cannot tell "the webhook has not
-        // arrived" from "the webhook arrived for a purchase kind this poll does
-        // not watch" (a credit pack is confirmed by the BALANCE, which this
-        // notice cannot see — Paywall/reducer.js's SET_ACCOUNT_SUMMARY case).
-        // So the copy must describe OUR state, never the customer's money.
-        const text = render({ ...loaded, confirming: { stalled: true } })
-            .querySelector('[data-testid="sv-account-confirming"]').textContent.toLowerCase();
-        ['failed', 'lost', 'not received', 'no payment', 'unsuccessful', 'declined']
-            .forEach((banned) => expect(text).toNotInclude(banned, `notice claims "${banned}"`));
-    });
-
-    // TASK-2486 (epic 2425 W2.9). THE OTHER HALF OF THE SAME RULE, and the one
-    // W2.8 broke while writing the rule down. Its stalled copy opened "We are
-    // still confirming your purchase with our payment provider." The shape that
-    // reaches this state most often is an UNSUBSCRIBED customer who bought a
-    // credit pack (84 of 84 prod owners have no subscription) and whose webhook
-    // landed before the poll's first balance read — for them that sentence sits
-    // two lines above an ALREADY-CORRECT balance, and Check again cannot clear
-    // it, because the endpoints it re-asks are structurally incapable of
-    // confirming a pack. A claim the customer's own screen refutes is the defect
-    // class this epic exists to remove; "we have not confirmed it" is such a
-    // claim just as much as "it failed" is.
-    it('never asserts that anything is still outstanding — the app cannot know that either', () => {
-        const text = render({ ...loaded, confirming: { stalled: true } })
-            .querySelector('[data-testid="sv-account-confirming"]').textContent.toLowerCase();
-        ['still confirming', 'we are confirming', 'has not', 'have not', 'waiting for']
-            .forEach((banned) => expect(text).toNotInclude(
-                banned,
-                `stalled notice claims "${banned}" — false for a purchase that has landed by a `
-                + 'channel this notice cannot see, which is the commonest way to reach it'
-            ));
-        // What it MUST still do: say when the figures below were read, and give a
-        // way to read them again. Removing the claim must not remove the answer.
-        expect(text).toInclude('check again');
-    });
-
-    it('does not displace the balance or the subscription state — they are the real confirmation', () => {
-        const c = render({
-            ...loaded, confirming: { stalled: true }, balance: '10.00',
-            subscription: { active: false }, isManager: true
-        });
-        expect(c.querySelector('[data-testid="sv-account-confirming"]')).toExist();
+        expect(c.innerHTML).toNotInclude('sv-account-confirming');
+        // The real confirmation — the balance and the subscription state — is
+        // still there. Removing the claim must not remove the answer.
         expect(c.querySelector('[data-testid="sv-account-subscription-state"]')).toExist();
         expect(c.querySelector('.compute-meter-balance')).toExist();
     });
