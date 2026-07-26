@@ -7,7 +7,11 @@
  *   steady  — the last `paywall` block from my_perms (free_public /
  *             paid_private / past_due). Written by SET_ANUGA_RESOURCE_PERMS.
  *   overlay — FE-only ephemeral state my_perms never emits (upgrade_prompt,
- *             pending). Takes precedence over `steady` while set.
+ *             pending). Takes precedence over `steady` while set. A `pending`
+ *             overlay also carries `stalled` (TASK-2463, W2.8): the poll has run
+ *             its full budget without seeing the purchase land, so the Billing
+ *             tab switches from "confirming" to an honest "still confirming"
+ *             plus a re-check. It is NOT cleared into nothing — see actions.js.
  *
  * getEffectivePaywallPayload resolves the two into the single payload shape
  * PaywallPanel expects ({state, checkout_url, read_only}).
@@ -19,11 +23,15 @@
  * corrupts into resources.paywall = []). See _NON_RESOURCE_KEYS there.
  */
 import { SET_ANUGA_RESOURCE_PERMS } from '../Anuga/actionsAnuga';
+// TASK-2463 (W2.8) — the account summary is the ONLY channel that can confirm an
+// ACCOUNT-scoped purchase (Billing tab "Subscribe", `accountOnly`), which never
+// produces a paid PROJECT steady state. See the pending-clear below.
+import { SET_ACCOUNT_SUMMARY } from './account/actions';
 import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
     SET_PAYWALL_PENDING,
-    CLEAR_PAYWALL_PENDING
+    STALL_PAYWALL_PENDING
 } from './actions';
 
 /**
@@ -85,14 +93,50 @@ export default (state = initialState, action) => {
             ? { ...state, overlay: null }
             : state;
     case SET_PAYWALL_PENDING:
-        return { ...state, overlay: { state: 'pending', checkout_url: null, read_only: false } };
-    // TASK-2457 — the poll gave up. Clear ONLY a pending overlay, so this can
-    // never eat an upgrade_prompt refusal that armed while the poll was
-    // running (same narrowness as DISMISS_PAYWALL_UPGRADE above).
-    case CLEAR_PAYWALL_PENDING:
-        return (state.overlay && state.overlay.state === 'pending')
+        // `stalled` is FE-only sub-state of the FE-only `pending` state, NOT a new
+        // contract literal: paywall_contract.json is frozen at 7 states with a
+        // pinned hash (paywallContractHash-test.js), and "the poll gave up" is not
+        // something the backend has any view on. Keeping `state: 'pending'` means
+        // every existing consumer — PaywallPanel's switch, isPaywallPending, the
+        // PAID clear above — keeps working unchanged.
+        return { ...state, overlay: { state: 'pending', stalled: false, checkout_url: null, read_only: false } };
+    // TASK-2463 (W2.8) — the poll ran its full budget without seeing the purchase
+    // land. Marks the overlay stalled rather than clearing it: see
+    // STALL_PAYWALL_PENDING in actions.js for why TASK-2457's clear became the
+    // wrong answer once W2.5 deleted the thing that rendered `pending`.
+    //
+    // Acts ONLY on a pending overlay, so it can never touch an upgrade_prompt
+    // refusal that armed while the poll was running (same narrowness as
+    // DISMISS_PAYWALL_UPGRADE above), and it is idempotent.
+    case STALL_PAYWALL_PENDING:
+        return (state.overlay && state.overlay.state === 'pending' && !state.overlay.stalled)
+            ? { ...state, overlay: { ...state.overlay, stalled: true } }
+            : state;
+    // TASK-2463 (W2.8) — the SECOND way a purchase can be confirmed, and without
+    // it the honest-stall change above would have created a new permanent lie.
+    //
+    // The pending overlay is armed by ANY `?checkout=success` return. Only ONE of
+    // the three purchase kinds it covers ends in a paid PROJECT steady state:
+    //   * privacy subscription with a project on the session -> paid_private,
+    //     cleared by SET_ANUGA_RESOURCE_PERMS above;
+    //   * ACCOUNT-scoped subscription (Billing tab "Subscribe" passes
+    //     accountOnly, so no project rides the session — see subscribeCheckoutEpic)
+    //     -> my_perms keeps answering free_public forever, because the project
+    //     genuinely is still public. Nothing would ever have cleared it, so the
+    //     customer would sit on "still confirming" after a subscription that had
+    //     landed perfectly. THIS case is what the rule below closes.
+    //   * credit pack -> confirmed by the BALANCE, which this reducer cannot see.
+    //     Deliberately NOT adjudicated here, and stated rather than fudged: a
+    //     credit-pack buyer whose subscription is inactive can still reach the
+    //     stalled notice with a balance that has already gone up two lines below
+    //     it. The notice's wording therefore claims only that WE have not
+    //     confirmed anything — never that no money arrived. Filed as TASK-2486.
+    case SET_ACCOUNT_SUMMARY: {
+        const active = !!(action.data && action.data.subscription && action.data.subscription.active);
+        return (active && state.overlay && state.overlay.state === 'pending')
             ? { ...state, overlay: null }
             : state;
+    }
     default:
         return state;
     }
@@ -150,4 +194,19 @@ export const getEffectivePaywallPayload = (state) => {
 export const isPaywallPending = (state) => {
     const slice = state && state.anuga && state.anuga.paywall;
     return !!(slice && slice.overlay && slice.overlay.state === 'pending');
+};
+
+/**
+ * TASK-2463 (W2.8) — what the Billing tab should say about a purchase in flight:
+ * `null` (nothing in flight), `{stalled: false}` (polling), `{stalled: true}`
+ * (the poll's budget is spent and we still have not seen it land).
+ *
+ * Deliberately NOT two booleans. A caller holding `pending` and `stalled`
+ * separately can render both messages, or neither, and both mistakes are silent.
+ */
+export const getPaywallConfirming = (state) => {
+    const slice = state && state.anuga && state.anuga.paywall;
+    const overlay = slice && slice.overlay;
+    if (!overlay || overlay.state !== 'pending') return null;
+    return { stalled: !!overlay.stalled };
 };

@@ -172,10 +172,80 @@ SubscriptionSection.propTypes = {
     portalLoading: PropTypes.bool
 };
 
+/**
+ * ConfirmingPurchaseSection (TASK-2463, epic 2425 W2.8) — the post-checkout
+ * acknowledgement, and the only place a customer can re-check by hand.
+ *
+ * WHY IT IS HERE AND NOT ON THE MAP. checkoutReturnEpic opens the Account panel
+ * on THIS tab when Stripe returns (setMembershipPanelTab('billing')), so this is
+ * where the customer already is; and the two facts that actually confirm a
+ * purchase — the balance and the subscription state — are the sections directly
+ * below. The map remains a modal host, not a status board (PaywallPanel.js).
+ *
+ * WHY THE WORDING SAYS SO LITTLE. `confirming` means the FE-only `pending`
+ * overlay is armed, i.e. we returned from a Stripe checkout and have not yet
+ * OBSERVED it land. That is a fact about this app's knowledge, not about the
+ * customer's money, and the two differ: a credit-pack purchase is confirmed by
+ * the balance, which this notice cannot see (Paywall/reducer.js's
+ * SET_ACCOUNT_SUMMARY case explains what each purchase kind resolves through).
+ * So the copy never says the payment failed, was lost, or did not arrive — only
+ * that WE are still confirming, and where the truth is. A karma test pins the
+ * banned words, because "just tighten the copy" is how a claim like that gets
+ * added by someone who does not know it is load-bearing.
+ *
+ * `stalled` = the poll has spent its full 5-minute budget. The notice does not
+ * disappear: it gains the re-check. If it vanished, the customer would be back to
+ * the silence this whole change exists to remove.
+ */
+function ConfirmingPurchaseSection({ confirming, onRecheck }) {
+    if (!confirming) {
+        return null;
+    }
+    return (
+        <div
+            className={`sv-account-confirming${confirming.stalled ? ' sv-account-confirming--stalled' : ''}`}
+            data-testid="sv-account-confirming"
+            // role="status" carries an implicit aria-live="polite". The notice
+            // appears with no user action, so without it a screen-reader user
+            // would never learn it had arrived.
+            role="status"
+        >
+            <span className="sv-account-confirming-text" data-testid="sv-account-confirming-text">
+                {confirming.stalled
+                    ? 'We are still confirming your purchase with our payment provider. '
+                      + 'Your checkout is recorded with Stripe. Your compute balance and '
+                      + 'subscription below are re-read every time you check.'
+                    : 'Confirming your purchase…'}
+            </span>
+            {confirming.stalled ? (
+                <button
+                    type="button"
+                    data-testid="sv-account-confirming-recheck"
+                    className="sv-account-btn-sm sv-account-confirming-recheck-btn"
+                    onClick={onRecheck}
+                >
+                    Check again
+                </button>
+            ) : null}
+        </div>
+    );
+}
+
+ConfirmingPurchaseSection.propTypes = {
+    /** null when nothing is in flight; {stalled} otherwise (getPaywallConfirming). */
+    confirming: PropTypes.shape({ stalled: PropTypes.bool }),
+    onRecheck: PropTypes.func
+};
+
+ConfirmingPurchaseSection.defaultProps = {
+    confirming: null,
+    onRecheck: () => {}
+};
+
 function BillingTabPanel({
     loaded, organisation, isPersonal, manager, isManager, balance, freeBand, subscription,
-    availablePacks, recentEntries, portalLoading, portalError,
-    onBuyPack, onSubscribe, onManageBilling
+    availablePacks, recentEntries, portalLoading, portalError, confirming,
+    onBuyPack, onSubscribe, onManageBilling, onRecheck
 }) {
     if (!loaded) {
         return (
@@ -187,6 +257,12 @@ function BillingTabPanel({
     return (
         <div className="sv-account-billing-tab" data-testid="sv-account-billing-tab">
             <AccountHeader organisation={organisation} isPersonal={isPersonal} manager={manager} />
+            {/* TASK-2463 (W2.8) — directly under the header, ABOVE the balance and
+                the subscription state, because it is the answer to the question
+                the customer arrived with. It never replaces either of them: they
+                are the real confirmation and this is only a statement about what
+                the app has managed to observe. */}
+            <ConfirmingPurchaseSection confirming={confirming} onRecheck={onRecheck} />
             {/* recentEntries intentionally NOT passed here — this panel renders
                 its OWN richer "Recent activity" list below (with run->project
                 links, spec item 6), so BalanceStrip only contributes balance +
@@ -277,9 +353,12 @@ BillingTabPanel.propTypes = {
     recentEntries: PropTypes.array,
     portalLoading: PropTypes.bool,
     portalError: PropTypes.string,
+    /** TASK-2463 (W2.8) — getPaywallConfirming(state): null | {stalled}. */
+    confirming: PropTypes.shape({ stalled: PropTypes.bool }),
     onBuyPack: PropTypes.func,
     onSubscribe: PropTypes.func,
-    onManageBilling: PropTypes.func
+    onManageBilling: PropTypes.func,
+    onRecheck: PropTypes.func
 };
 
 BillingTabPanel.defaultProps = {
@@ -287,10 +366,12 @@ BillingTabPanel.defaultProps = {
     isPersonal: true,
     availablePacks: [],
     recentEntries: [],
+    confirming: null,
     onBuyPack: () => {},
     onSubscribe: () => {},
-    onManageBilling: () => {}
+    onManageBilling: () => {},
+    onRecheck: () => {}
 };
 
 export default BillingTabPanel;
-export { AccountHeader, FreeBandSection, SubscriptionSection };
+export { AccountHeader, FreeBandSection, SubscriptionSection, ConfirmingPurchaseSection };

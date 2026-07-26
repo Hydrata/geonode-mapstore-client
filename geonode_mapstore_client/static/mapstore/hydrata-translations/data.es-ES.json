@@ -243,6 +243,10 @@
           "title": "Error en el pago",
           "message": "No se pudo iniciar el pago. Por favor, intentelo de nuevo."
         },
+        "checkoutStalled": {
+          "title": "Confirmando tu compra",
+          "message": "Tu pago esta registrado en Stripe. Abre Cuenta › Facturacion para volver a comprobar."
+        },
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "El Mesh aparecerá aquí cuando se construya un escenario.",

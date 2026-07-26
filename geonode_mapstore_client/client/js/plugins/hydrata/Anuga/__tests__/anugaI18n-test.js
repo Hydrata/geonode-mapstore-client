@@ -106,6 +106,38 @@ describe('Anuga i18n', () => {
         expect(enMessages['hydrata.anuga.terrainCrsDetected']).toMatch(/\{crs\}/);
     });
 
+    // TASK-2463 (epic 2425 W2.8) — the stalled-confirmation toast is the FIRST
+    // thing a customer sees when a webhook is slow, and it is raised from an epic
+    // by msgId. A missing key renders the raw msgId, so a paying customer would
+    // read "hydrata.anuga.checkoutStalled.title" — which is worse than the
+    // silence this toast replaces. Asserted in every locale that carries the
+    // sibling checkout keys, not just en-US.
+    it('the money-path checkout toast keys exist in every locale that has the others', () => {
+        const {esMessages, htMessages} = require('../../../../__tests__/fixtures/translations');
+        const keys = [
+            'hydrata.anuga.checkoutStalled.title',
+            'hydrata.anuga.checkoutStalled.message',
+            // Its siblings, so this test also pins that they never regress.
+            'hydrata.anuga.checkoutCancelled.title',
+            'hydrata.anuga.checkoutFailed.title'
+        ];
+        [['en', enMessages], ['fr', frMessages], ['es', esMessages], ['ht', htMessages]]
+            .forEach(([locale, messages]) => {
+                keys.forEach((key) => {
+                    expect(messages[key]).toExist(`Missing ${locale} translation for: ${key}`);
+                    expect(messages[key].length).toBeGreaterThan(0, `Empty ${locale} value for: ${key}`);
+                });
+                // The wording is load-bearing on the money path: the toast must
+                // never claim the payment failed. Only the app's own uncertainty
+                // is knowable (see BillingTabPanel's ConfirmingPurchaseSection).
+                const msg = (messages['hydrata.anuga.checkoutStalled.message'] || '').toLowerCase();
+                ['failed', 'lost', 'echwe', 'error en el pago']
+                    .forEach((banned) => expect(msg).toNotInclude(
+                        banned, `${locale} stalled-toast copy claims "${banned}"`
+                    ));
+            });
+    });
+
     it('core navigation keys exist', () => {
         const requiredKeys = [
             'hydrata.anuga.inputs',

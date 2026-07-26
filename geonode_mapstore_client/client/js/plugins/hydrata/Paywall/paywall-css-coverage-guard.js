@@ -108,7 +108,15 @@ const WATCHED_PREFIXES = [
     // indicator built by this epic, in the epic's own failure mode's blast
     // radius (a badge with no rule renders as bare text on a 40px button), so
     // it belongs here even though it lives in SimpleView rather than Paywall.
-    'sv-visibility-lock'
+    'sv-visibility-lock',
+    // TASK-2463 (epic 2425 W2.8). The post-checkout confirmation notice is the
+    // acknowledgement a paying customer gets when the webhook is slow, and the
+    // only hand re-check in the product — if it renders unstyled the customer is
+    // back to not knowing what happened, which is the exact failure it exists to
+    // fix. `sv-account-` as a whole is deliberately NOT watched (it is the
+    // pre-existing Account-panel namespace and belongs to no epic); only this
+    // surface is, on the same grounds as sv-visibility-lock above.
+    'sv-account-confirming'
 ];
 
 /** Files whose markup is checked, relative to the client root. */
@@ -206,6 +214,26 @@ const ANCESTOR_SCOPED = {
     'compute-meter-balance-strip--card': {
         ancestors: ['sv-account-billing-tab'],
         reason: 'Emitted only for variant="card", whose sole app caller is BillingTabPanel inside the Billing tab.'
+    },
+    // TASK-2463 (W2.8) — the confirmation notice. Emitted by
+    // ConfirmingPurchaseSection, which BillingTabPanel renders and nothing else
+    // does (`grep -rn "<ConfirmingPurchaseSection" js/` returns one non-test hit),
+    // and BillingTabPanel's own root is .sv-account-billing-tab.
+    'sv-account-confirming': {
+        ancestors: ['sv-account-billing-tab'],
+        reason: 'Emitted only by BillingTabPanel\'s ConfirmingPurchaseSection, whose root IS the Billing tab.'
+    },
+    'sv-account-confirming--stalled': {
+        ancestors: ['sv-account-billing-tab'],
+        reason: 'Stalled modifier on the same single mount as above.'
+    },
+    'sv-account-confirming-text': {
+        ancestors: ['sv-account-billing-tab'],
+        reason: 'Notice body copy — same single mount as above.'
+    },
+    'sv-account-confirming-recheck-btn': {
+        ancestors: ['sv-account-billing-tab'],
+        reason: '"Check again" button — same single mount as above; the outlined look comes from .sv-account-btn-sm.'
     }
 };
 

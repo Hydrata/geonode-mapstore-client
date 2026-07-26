@@ -143,6 +143,10 @@ import {
 import {
     checkoutReturnEpic,
     pollMyPermsWhilePendingEpic,
+    // TASK-2463 (epic 2425 W2.8) — "Check again" on the stalled confirming
+    // notice, and the tab-visible my_perms re-read.
+    recheckPaymentEpic,
+    refreshMyPermsOnTabVisibleEpic,
     subscribeCheckoutEpic
 } from "./epics/paywallEpics";
 // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
@@ -221,6 +225,8 @@ export default createPlugin('Anuga', {
         // TASK-2099 (epic 2092 W4.1) — Paywall checkout round-trip epics.
         checkoutReturnEpic,
         pollMyPermsWhilePendingEpic,
+        recheckPaymentEpic,
+        refreshMyPermsOnTabVisibleEpic,
         subscribeCheckoutEpic,
         // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
         triggerFetchBalanceOnInitEpic,

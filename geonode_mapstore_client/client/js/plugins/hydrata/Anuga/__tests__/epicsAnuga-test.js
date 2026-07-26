@@ -2038,9 +2038,14 @@ describe('ANUGA Epics', () => {
         const {
             checkoutReturnEpic,
             pollMyPermsWhilePendingEpic,
+            recheckPaymentEpic,
+            refreshMyPermsOnTabVisibleEpic,
             subscribeCheckoutEpic,
+            PAYWALL_POLL_MAX_ATTEMPTS,
+            PAYWALL_POLL_SLOW_ATTEMPTS,
             __resetCheckoutReturnForTests,
             __setPollIntervalForTests,
+            __setDocumentVisibleForTests,
             __setRedirectForTests
         } = require('../epics/paywallEpics');
         const {FETCH_MY_PERMS} = require('../actionsAnuga');
@@ -2057,6 +2062,7 @@ describe('ANUGA Epics', () => {
         afterEach(() => {
             mockAxios.restore();
             __setPollIntervalForTests(null); // restore real interval
+            __setDocumentVisibleForTests(null); // restore the real visibility probe
             __setRedirectForTests(null); // restore real redirect
             window.history.pushState({}, '', originalPath);
         });
@@ -2182,18 +2188,75 @@ describe('ANUGA Epics', () => {
                 }, 35);
             });
 
-            // TASK-2457 (adversarial R2) second half — an abandoned poll must not
-            // strand the customer. The overlay MASKS steady in
-            // getEffectivePaywallPayload, so "pending forever" means the app keeps
-            // insisting it is confirming a subscription the server already
-            // answered about. An un-dismissable state is a trap.
-            it('EXHAUSTION -> emits CLEAR_PENDING rather than stopping silently', (done) => {
+            // TASK-2457 (W2.5) required the poll to stop stranding the customer in
+            // `pending`, and it did that by CLEARING the overlay. TASK-2463 (W2.8)
+            // is the other half: W2.5 also deleted PendingSpinner, so from that
+            // point clearing the overlay revealed NOTHING — a webhook slower than
+            // 60s left no padlock, no spinner, no toast and no retry, with every
+            // surface reading the pre-payment state. Silence is not an acceptable
+            // terminal state on the money path.
+            //
+            // This test drives the epic to exhaustion and then reduces what it
+            // emitted through the REAL paywall reducer, because "did the customer
+            // end up with a signal" is a question about resulting STATE, not about
+            // which action name was last.
+            it('EXHAUSTION -> the customer is NOT left silent (W2.8)', (done) => {
                 __setPollIntervalForTests(1);
                 const store = {
                     getState: () => ({
                         anuga: {
                             projects: {data: {id: 42}},
-                            // never resolves — the lost/slow-webhook case
+                            // never resolves — the lost/slow-webhook case. `steady`
+                            // is the pre-payment answer the server keeps giving.
+                            paywall: {overlay: {state: 'pending'}, steady: {state: 'free_public'}}
+                        }
+                    })
+                };
+                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
+                const emitted = [];
+                pollMyPermsWhilePendingEpic(action$, store).subscribe(
+                    a => emitted.push(a), done, () => {
+                        // try/catch, not a bare assertion: a throw from inside a
+                        // subscribe COMPLETE handler never reaches mocha, which
+                        // reports "Timeout of 2000ms exceeded" with no message —
+                        // and a red assertion that looks like a flaky timeout is a
+                        // red assertion that gets re-run until it is ignored.
+                        try {
+                            expect(emitted.length).toBeGreaterThan(0);
+                            const paywallReducer = require('../../Paywall/reducer').default;
+                            let st = paywallReducer(undefined, {type: 'PAYWALL:SET_PENDING'});
+                            emitted.forEach(a => { st = paywallReducer(st, a); });
+                            expect(st.overlay).toNotBe(
+                                null,
+                                'the poll gave up and disarmed the overlay, and W2.5 deleted the '
+                                + 'only thing that rendered it — the customer has PAID and every '
+                                + 'surface now reads the pre-payment state with no acknowledgement '
+                                + 'of any kind'
+                            );
+                            expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(
+                                true,
+                                'the poll gave up without telling the customer anything'
+                            );
+                            done();
+                        } catch (err) {
+                            done(err);
+                        }
+                    }
+                );
+            });
+
+            // TASK-2463 (W2.8) — the budget itself. The old poll was 20 x 3s = 60s,
+            // described in its own comment as "comfortably longer than a normal
+            // webhook round trip" — which covered only the customers who never
+            // needed a poll. A second, slower phase runs after it. Asserted by
+            // COUNTING ticks rather than by reading the constants back, so shrinking
+            // phase 2 to nothing goes red.
+            it('runs BOTH phases before giving up, not just the fast one', (done) => {
+                __setPollIntervalForTests(1);
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
                             paywall: {overlay: {state: 'pending'}, steady: null}
                         }
                     })
@@ -2202,18 +2265,23 @@ describe('ANUGA Epics', () => {
                 const emitted = [];
                 pollMyPermsWhilePendingEpic(action$, store).subscribe(
                     a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBeGreaterThan(0);
-                        const last = emitted[emitted.length - 1];
-                        expect(last.type).toBe(
-                            'PAYWALL:CLEAR_PENDING',
-                            'the poll ran out of attempts and left the overlay armed'
-                        );
-                        done();
+                        try {
+                            const ticks = emitted.filter(a => a.type === FETCH_MY_PERMS).length;
+                            expect(PAYWALL_POLL_SLOW_ATTEMPTS).toBeGreaterThan(0);
+                            expect(ticks).toBe(
+                                PAYWALL_POLL_MAX_ATTEMPTS + PAYWALL_POLL_SLOW_ATTEMPTS,
+                                'the poll gave up after the fast phase alone — a webhook retry '
+                                + 'measured in minutes is exactly the case the budget exists for'
+                            );
+                            done();
+                        } catch (err) {
+                            done(err);
+                        }
                     }
                 );
             });
 
-            it('RESOLVED -> completes WITHOUT a CLEAR_PENDING (nothing left to clear)', (done) => {
+            it('RESOLVED -> completes WITHOUT stalling the overlay (nothing to confirm)', (done) => {
                 __setPollIntervalForTests(1);
                 let pending = true;
                 const store = {
@@ -2228,14 +2296,19 @@ describe('ANUGA Epics', () => {
                 const emitted = [];
                 pollMyPermsWhilePendingEpic(action$, store).subscribe(
                     a => emitted.push(a), done, () => {
+                        // Neither the give-up marker nor a toast: the happy path must
+                        // stay completely quiet. Both names are asserted so that
+                        // renaming the give-up action cannot make this vacuous.
+                        expect(emitted.some(a => a.type === 'PAYWALL:STALL_PENDING')).toBe(false);
                         expect(emitted.some(a => a.type === 'PAYWALL:CLEAR_PENDING')).toBe(false);
+                        expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(false);
                         done();
                     }
                 );
                 setTimeout(() => { pending = false; }, 5);
             });
 
-            it('no project id -> still refreshes the balance (account-scoped, not project-scoped), but never emits FETCH_MY_PERMS', (done) => {
+            it('no project id -> still refreshes the ACCOUNT-scoped endpoints, but never emits FETCH_MY_PERMS', (done) => {
                 __setPollIntervalForTests(10);
                 const store = {getState: () => ({anuga: {projects: {data: null}, paywall: {overlay: {state: 'pending'}}}})};
                 const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
@@ -2244,11 +2317,149 @@ describe('ANUGA Epics', () => {
                 const sub = pollMyPermsWhilePendingEpic(action$, store).subscribe(a => emitted.push(a));
 
                 setTimeout(() => {
-                    expect(emitted.length).toBeGreaterThan(0);
-                    expect(emitted.every(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
-                    sub.unsubscribe();
-                    done();
+                    try {
+                        expect(emitted.length).toBeGreaterThan(0);
+                        // Both account-scoped fetches are legitimate without a project;
+                        // a project-scoped my_perms fetch is not (it would 404 on
+                        // `undefined`). W2.8 added the summary refetch — the balance
+                        // alone cannot confirm an account-scoped subscription.
+                        expect(emitted.some(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
+                        expect(emitted.some(a => a.type === 'ACCOUNT:FETCH_SUMMARY')).toBe(true);
+                        expect(emitted.some(a => a.type === FETCH_MY_PERMS)).toBe(false);
+                        sub.unsubscribe();
+                        done();
+                    } catch (err) {
+                        sub.unsubscribe();
+                        done(err);
+                    }
                 }, 35);
+            });
+        });
+
+        // TASK-2463 (epic 2425 W2.8) — the two extra ways a customer can get an
+        // answer once the poll is no longer the only mechanism.
+        describe('recheckPaymentEpic ("Check again")', () => {
+            it('re-asks all three channels, and my_perms FORCED', (done) => {
+                const action$ = mockActions([{type: 'PAYWALL:RECHECK_PAYMENT'}]);
+                const emitted = [];
+                recheckPaymentEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            expect(emitted.some(a => a.type === FETCH_COMPUTE_BALANCE)).toBe(true);
+                            expect(emitted.some(a => a.type === 'ACCOUNT:FETCH_SUMMARY')).toBe(true);
+                            const perms = emitted.filter(a => a.type === FETCH_MY_PERMS);
+                            expect(perms.length).toBe(1);
+                            // Unforced, a press made within 30s of the last poll tick
+                            // would be swallowed by permsEpics' dedupe and the button
+                            // would silently do nothing — which is when an impatient
+                            // customer presses it.
+                            expect(perms[0].force).toBe(true, 'the re-check is swallowed by the 30s dedupe');
+                            done();
+                        } catch (err) {
+                            done(err);
+                        }
+                    });
+            });
+
+            it('with no project loaded it still re-asks the account-scoped channels', (done) => {
+                const action$ = mockActions([{type: 'PAYWALL:RECHECK_PAYMENT'}]);
+                const emitted = [];
+                recheckPaymentEpic(action$, {getState: () => ({anuga: {projects: {data: null}}})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            expect(emitted.length).toBe(2);
+                            expect(emitted.some(a => a.type === FETCH_MY_PERMS)).toBe(false);
+                            done();
+                        } catch (err) {
+                            done(err);
+                        }
+                    });
+            });
+        });
+
+        describe('refreshMyPermsOnTabVisibleEpic', () => {
+            const fireVisibilityChange = () => {
+                document.dispatchEvent(new Event('visibilitychange'));
+            };
+            const stateWith = (pending) => ({
+                anuga: {
+                    projects: {data: {id: 42}},
+                    paywall: {overlay: pending ? {state: 'pending'} : null, steady: null}
+                }
+            });
+
+            it('a tab becoming visible re-reads my_perms — FORCED while a purchase is being confirmed', (done) => {
+                __setDocumentVisibleForTests(() => true);
+                const emitted = [];
+                const sub = refreshMyPermsOnTabVisibleEpic(
+                    mockActions([]), {getState: () => stateWith(true)}
+                ).subscribe(a => emitted.push(a));
+                fireVisibilityChange();
+                setTimeout(() => {
+                    try {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(FETCH_MY_PERMS);
+                        expect(emitted[0].projectId).toBe(42);
+                        expect(emitted[0].force).toBe(true);
+                        sub.unsubscribe();
+                        done();
+                    } catch (err) { sub.unsubscribe(); done(err); }
+                }, 400);
+            });
+
+            it('outside a confirmation it is UNFORCED, so tab-flipping cannot become a fetch per switch', (done) => {
+                __setDocumentVisibleForTests(() => true);
+                const emitted = [];
+                const sub = refreshMyPermsOnTabVisibleEpic(
+                    mockActions([]), {getState: () => stateWith(false)}
+                ).subscribe(a => emitted.push(a));
+                fireVisibilityChange();
+                setTimeout(() => {
+                    try {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].force).toBe(
+                            false, 'an unconditional forced refetch on every tab switch defeats the 30s dedupe'
+                        );
+                        sub.unsubscribe();
+                        done();
+                    } catch (err) { sub.unsubscribe(); done(err); }
+                }, 400);
+            });
+
+            // Two separate subscriptions, deliberately: both epics listen to the
+            // SAME document event, so a single test that flips the probe mid-way
+            // has the first subscription react to the second event too. That is
+            // how the first draft of this test reported a phantom emission.
+            it('emits NOTHING when the document is going HIDDEN', (done) => {
+                __setDocumentVisibleForTests(() => false);
+                const emitted = [];
+                const sub = refreshMyPermsOnTabVisibleEpic(
+                    mockActions([]), {getState: () => stateWith(true)}
+                ).subscribe(a => emitted.push(a));
+                fireVisibilityChange();
+                setTimeout(() => {
+                    try {
+                        expect(emitted.length).toBe(0);
+                        sub.unsubscribe();
+                        done();
+                    } catch (err) { sub.unsubscribe(); done(err); }
+                }, 400);
+            });
+
+            it('emits NOTHING when no project is loaded (my_perms is project-scoped)', (done) => {
+                __setDocumentVisibleForTests(() => true);
+                const emitted = [];
+                const sub = refreshMyPermsOnTabVisibleEpic(
+                    mockActions([]), {getState: () => ({anuga: {projects: {data: null}, paywall: {}}})}
+                ).subscribe(a => emitted.push(a));
+                fireVisibilityChange();
+                setTimeout(() => {
+                    try {
+                        expect(emitted.length).toBe(0);
+                        sub.unsubscribe();
+                        done();
+                    } catch (err) { sub.unsubscribe(); done(err); }
+                }, 400);
             });
         });
 

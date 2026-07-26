@@ -23,4 +23,9 @@ var visibility = require.context('./js/plugins/hydrata/Anuga/__tests__', false, 
 visibility.keys().forEach(visibility);
 var membership = require.context('./js/plugins/hydrata/Anuga/components/__tests__', false, /membershipPanel-test\.jsx?$/);
 membership.keys().forEach(membership);
+// The money-path toast msgIds are raised from paywallEpics.js by id — a missing
+// key renders the raw id to a paying customer, so the i18n coverage test belongs
+// in this subset too.
+var i18n = require.context('./js/plugins/hydrata/Anuga/__tests__', false, /anugaI18n-test\.jsx?$/);
+i18n.keys().forEach(i18n);
 module.exports = paywall;
