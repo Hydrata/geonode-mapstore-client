@@ -79,9 +79,18 @@ jobs:
     # TASK-2437 (epic 2425 W2), extended by the W2 remediation pass.
     #
     # WHAT IT ACTUALLY CHECKS — two static checks over the stylesheet SOURCES:
-    #   1. Every paywall-/compute-meter-/sv-anuga-scenario-estimate- className
-    #      emitted by those components has SOME matching rule somewhere
-    #      (or a justified ALLOWLIST entry).
+    #   1. Every paywall-/compute-meter-/sv-anuga-scenario-estimate-/
+    #      sv-visibility-lock className emitted by those components has SOME
+    #      matching rule somewhere (or a justified ALLOWLIST entry).
+    #      (sv-visibility-lock — the Account-button padlock — was added in
+    #      W2.6. It had shipped OUTSIDE this guard: it matched no prefix and
+    #      lived in no scanned directory, so the wave that reported
+    #      "guard:paywall-css PASS, 34 classNames" was saying nothing at all
+    #      about the epic's newest surface. Widening it also exposed that the
+    #      className extractor could not see a class written as
+    #      `${cond ? ' x' : ''}` inside a template literal, which is exactly
+    #      how the padlock's lapsed variant is written — that is fixed too, and
+    #      the count is now 38.)
     #   2. No such className is reachable ONLY through an ancestor selector:
     #      if every rule covering it sits under, say, .sv-account-billing-tab,
     #      the guard fails until that is declared in ANCESTOR_SCOPED with the

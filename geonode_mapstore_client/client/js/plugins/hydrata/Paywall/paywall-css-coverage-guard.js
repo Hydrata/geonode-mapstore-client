@@ -24,8 +24,8 @@
  * -----------------------------------------------------------
  * Watched prefixes, not whole files: a repo-wide check would drown in
  * MapStore2 upstream and dynamic classNames and be switched off within a
- * week. Only the three namespaces this epic owns are watched, and only in the
- * files that emit them.
+ * week. Only the four namespaces this epic owns are watched, and only in the
+ * directories that emit them.
  *
  * "NO RULE ANYWHERE" vs "A RULE I DID NOT PARSE"
  * ----------------------------------------------
@@ -100,13 +100,27 @@ const path = require('path');
 const WATCHED_PREFIXES = [
     'paywall-',
     'compute-meter-',
-    'sv-anuga-scenario-estimate-'
+    'sv-anuga-scenario-estimate-',
+    // TASK-2463 (epic 2425 W2.6). The visibility padlock is the epic's newest
+    // surface and it shipped OUTSIDE this guard: `sv-visibility-lock*` matched
+    // no prefix and lived in no scanned directory, so W2.5's "guard:paywall-css
+    // PASS, 34 classNames" said nothing whatever about it. It is a paywall
+    // indicator built by this epic, in the epic's own failure mode's blast
+    // radius (a badge with no rule renders as bare text on a 40px button), so
+    // it belongs here even though it lives in SimpleView rather than Paywall.
+    'sv-visibility-lock'
 ];
 
 /** Files whose markup is checked, relative to the client root. */
 const SOURCE_GLOBS = [
     { dir: 'js/plugins/hydrata/Paywall', recursive: true },
-    { file: 'js/plugins/hydrata/Anuga/components/scenarioPane.js' }
+    { file: 'js/plugins/hydrata/Anuga/components/scenarioPane.js' },
+    // Whole directory, not the two files that emit the padlock today
+    // (accountVisibilityLock.js + simpleViewContainer.js): the prefix filter
+    // already limits what is collected, and naming files means a future move
+    // silently un-watches the class. Everything else SimpleView emits is
+    // outside WATCHED_PREFIXES and therefore invisible to this guard.
+    { dir: 'js/plugins/hydrata/SimpleView', recursive: true }
 ];
 
 /**
@@ -182,6 +196,16 @@ const ANCESTOR_SCOPED = {
     'compute-meter-packs': {
         ancestors: ['sv-account-billing-tab'],
         reason: 'BalanceStrip pack-button wrapper; the refusal modals use their own meter-buy-pack-cta-* row, not this one.'
+    },
+    // Sixth BalanceStrip class, and the guard could not see it until W2.6 fixed
+    // extractClassNames' blindness to `${cond ? ' x' : ''}` branches. Same
+    // single mount as the five above, and stronger: the class is emitted ONLY
+    // when variant === 'card' (ComputeMeterPanel.js:135), and BillingTabPanel.js
+    // :194 is the only non-test caller passing variant="card" — so it cannot
+    // render outside .sv-account-billing-tab even in principle.
+    'compute-meter-balance-strip--card': {
+        ancestors: ['sv-account-billing-tab'],
+        reason: 'Emitted only for variant="card", whose sole app caller is BillingTabPanel inside the Billing tab.'
     }
 };
 
@@ -223,8 +247,53 @@ function walk(dir, exts, out) {
     return out;
 }
 
+/**
+ * Blank out block comments, KEEPING their newlines so the reported
+ * `file:line` still points at the line the className is really on.
+ *
+ * Collapsing them (the previous `-> ''`) shifted every line number after the
+ * first comment: the padlock work found the guard reporting
+ * `ComputeMeterPanel.js:78` for a className that lives on line 135. A guard
+ * whose evidence points at the wrong line is one nobody trusts twice.
+ */
 function stripComments(text) {
-    return text.replace(/\/\*[\s\S]*?\*\//g, '');
+    return text.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ''));
+}
+
+/**
+ * Every quoted / backticked string inside a className expression, INCLUDING
+ * the ones nested inside a template literal's `${...}` interpolations.
+ *
+ * That last part is the point. Before TASK-2463 (W2.6) this was one flat
+ * regex pass, so `` `a${x ? ' b' : ''}` `` matched the OUTER backtick first,
+ * consumed the whole expression, and the conditional branch `' b'` was then
+ * thrown away with the interpolation. The docstring above claimed both `a` and
+ * `b` were yielded; only `a` was. It mattered as soon as the guard was pointed
+ * at the visibility padlock, whose lapsed variant is written in exactly that
+ * form — the guard would have reported PASS while never once looking at
+ * `sv-visibility-lock--lapsed`, i.e. claiming coverage it did not have.
+ *
+ * Still fail-open, stated rather than implied: `[^}]*` does not match a nested
+ * `${}` inside an interpolation, so a doubly-nested conditional is skipped.
+ */
+function collectQuotedLiterals(expr, out) {
+    const litRe = /"([^"]*)"|'([^']*)'|`([^`]*)`/g;
+    for (;;) {
+        const lm = litRe.exec(expr);
+        if (lm === null) break;
+        if (lm[3] !== undefined) {
+            out.push(lm[3]);
+            const interpRe = /\$\{([^}]*)\}/g;
+            for (;;) {
+                const im = interpRe.exec(lm[3]);
+                if (im === null) break;
+                collectQuotedLiterals(im[1], out);
+            }
+        } else {
+            out.push(lm[1] !== undefined ? lm[1] : lm[2]);
+        }
+    }
+    return out;
 }
 
 /**
@@ -264,12 +333,7 @@ function extractClassNames(source) {
         if (!/["'`]/.test(expr)) {
             literals.push(expr);
         } else {
-            const litRe = /"([^"]*)"|'([^']*)'|`([^`]*)`/g;
-            for (;;) {
-                const lm = litRe.exec(expr);
-                if (lm === null) break;
-                literals.push(lm[1] !== undefined ? lm[1] : lm[2] !== undefined ? lm[2] : lm[3]);
-            }
+            collectQuotedLiterals(expr, literals);
         }
         const line = text.slice(0, m.index).split('\n').length;
         for (const lit of literals) {

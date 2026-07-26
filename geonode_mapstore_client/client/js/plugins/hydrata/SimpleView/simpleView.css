@@ -831,9 +831,11 @@ span.sv-menu-row-glyph {
     }
 
     /* TASK-2463 — 36x36 button (32x32 padding box): right:3px puts the 15px
-       padlock at x 16..31, inside the 34px inner edge. The default rule already
-       fits, so only the tablet step needs no override; kept here as the
-       explicit statement that the geometry was checked at this size too. */
+       padlock at x 16..31 from the button's own left edge, inside the 34px
+       inner edge. The default rule already fits, so this step needs no
+       override; kept here as the explicit statement that the geometry holds at
+       this size too — and since W2.6 that is browser-verified, not asserted:
+       the padlock e2e cases run at 880px (see the <=600px note below). */
 
     .sv-legend-panel {
         max-width: 250px;
@@ -885,8 +887,22 @@ span.sv-menu-row-glyph {
     }
 
     /* TASK-2463 — a 15px padlock on a 32px button reads as a blob; shrink it
-       with the button. 13px at top:3/right:2 -> x 13..26 / y 5..18 inside a
-       28x28 padding box, still overlapping the (13px) glyph's top-right. */
+       with the button. 32x32 border box, 2px border -> 28x28 padding box at
+       (2,2). right:2 puts the 13px badge's right edge at 28 and top:3 its top
+       at 5, i.e. x 15..28 / y 5..18 measured from the BUTTON'S OWN top-left,
+       overlapping the (13px) glyph's top-right corner and clear of all four
+       edges. (The x range previously stated here, 13..26, was padding-box
+       relative while the y range beside it was border-box relative — two
+       frames in one sentence, and the numbers disagreed with the <=900px
+       comment above, which is border-box. One frame only: the button's border
+       box, same as :833.)
+
+       NO LONGER ARITHMETIC ONLY: test_padlock_stays_hit_testable_while_a_toast_
+       is_on_screen and test_account_visibility_padlock_in_viewport_and_hit_
+       testable (deploy, tests/e2e/test_paywall_money_path.py) both run at 560px
+       and 880px as of W2.6, so a real browser now evaluates this @media block
+       and hit-tests the result. Karma never can: it evaluates no @media rule
+       and has no layout engine. */
     .sv-visibility-lock {
         width: 13px;
         height: 13px;

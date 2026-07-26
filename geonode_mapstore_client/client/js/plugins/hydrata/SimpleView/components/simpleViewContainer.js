@@ -210,10 +210,19 @@ export class SimpleViewContainer extends React.Component {
                 </div>
                 <div className="simple-view-right-toolbar">
                     {/* TASK-2420 (epic 2359 W4.5) — padlock -> Account panel button.
-                        flags-off (AC1, byte-identical to today): gated on canManageMembers,
-                        glyph 'lock', title 'Permissions'. flags-on: rendered for ANY
-                        authenticated user (Billing is the viewer's own Account; Sharing
-                        stays manager-gated INSIDE the panel), glyph 'user', title 'Account'.
+                        flags-off: gated on canManageMembers, glyph 'lock', title
+                        'Permissions'. flags-on: rendered for ANY authenticated user
+                        (Billing is the viewer's own Account; Sharing stays
+                        manager-gated INSIDE the panel), glyph 'user', title 'Account'.
+
+                        ⚠ THE FLAGS-OFF BRANCH IS NOT UNCHANGED FROM 2359. It used to
+                        be byte-identical to the pre-2420 markup and this comment said
+                        so; TASK-2465 then moved the whole block to the TOP of the
+                        column, and the paywall kill-switch does NOT gate position.
+                        So the four dark prod sites also get the Permissions button
+                        first in the RHS column, and turning the paywall off will not
+                        put it back. Deliberate, and pinned by
+                        simpleViewContainer-permissions-dom-test.js.
 
                         TASK-2465 (epic 2425 W2.5) — this button is FIRST in the column.
                         The column has no priority/order registry: it is a flex column
