@@ -7,12 +7,19 @@
  *
  * DO NOT modify the CONTRACT_FIXTURE shape here — edit the JSON source instead
  * and update paywall-contract.md accordingly.
+ *
+ * SYNC PROCEDURE (TASK-2446): this copy is manually mirrored. On any bump,
+ * copy the JSON verbatim here AND re-pin PINNED_CONTRACT_HASH in
+ * __tests__/paywallContractHash-test.js — the guard is the only thing that
+ * catches drift, since gmc CI has no hydrata checkout.
  */
 
 /**
- * Verbatim contract fixture.
- * Six states: free_public, upgrade_prompt, pending, paid_private, past_due, anon.
- * Hard rules: LAPSE NEVER AUTO-PUBLISHES; gate reads ENTITLEMENT not role.
+ * Verbatim contract fixture — v1.1 (TASK-2432 added `paid_organization`).
+ * Seven states: free_public, upgrade_prompt, pending, paid_private,
+ * paid_organization, past_due, anon.
+ * Hard rules: LAPSE NEVER AUTO-PUBLISHES; gate reads ENTITLEMENT not role;
+ * plus the TASK-2431/TASK-2432 rules added in v1.1.
  *
  * Note: `pending` is FE-only (see _meta.note_on_pending).
  * Note: `anon` has payload=null (paywall key is absent for anonymous callers).
@@ -21,7 +28,8 @@ export const CONTRACT_FIXTURE = {
     "_meta": {
         "authored_by": "TASK-1363/W3",
         "purpose": "Canonical paywall contract fixture — anti-drift source of truth for the my_perms `paywall` block. TASK-1356/1357/1350-Karma consume this file verbatim. Do not edit the shape without updating the derivation table in docs/strategy/paywall-contract.md and re-running the W3 gate tests.",
-        "version": "1.0",
+        "version": "1.1",
+        "note_on_v1.1": "TASK-2432 (W1.2, epic 2425) added the `paid_organization` state and widened `paid_private`/`past_due`'s backend_condition to organization where applicable. geonode-mapstore-client's Paywall/paywallContract.js is a manually-maintained VERBATIM copy of this file (not an import) and its PaywallPanel.js consumer does NOT yet have a case for `paid_organization` (falls through to its default/blank branch) — this is a KNOWN gmc gap flagged for operator decision, out of scope for the hydrata-repo wave that authored this bump (see epic TASK-2425 wave W1 novel_questions).",
         "note_on_pending": "The `pending` state is FE-only (client polled after returning from Stripe before webhook fires). The backend has no in-flight marker today — no DB field was invented this wave. The `pending` payload is included here for FE/Karma contract completeness; the backend never emits it from my_perms."
     },
     "states": [
@@ -66,9 +74,19 @@ export const CONTRACT_FIXTURE = {
             }
         },
         {
+            "state": "paid_organization",
+            "description": "TASK-2432 (W1.2) — Organization-visibility project with active entitlement. Full access, manage-billing CTA. A DISTINCT state from paid_private: reusing paid_private for an organization project would misdescribe it to the FE.",
+            "backend_condition": "project.visibility == 'organization' AND acting-user account entitled",
+            "payload": {
+                "state": "paid_organization",
+                "checkout_url": null,
+                "read_only": false
+            }
+        },
+        {
             "state": "past_due",
-            "description": "Private project with LAPSED/expired entitlement. Visibility STAYS private (lapse never auto-publishes — hard contract rule). read_only=true (dunning state). checkout_url points to renew/manage billing.",
-            "backend_condition": "project.visibility == 'private' AND acting-user account NOT entitled",
+            "description": "Private OR organization project (TASK-2432 widened this to organization) with LAPSED/expired entitlement. Visibility STAYS whatever it was (lapse never auto-publishes — hard contract rule). read_only=true (dunning state). checkout_url points to renew/manage billing. Shared literal for both non-public visibilities — the dunning UX is identical regardless of which one got cliffed.",
+            "backend_condition": "project.visibility in ('private', 'organization') AND acting-user account NOT entitled",
             "payload": {
                 "state": "past_due",
                 "checkout_url": "<checkout-or-manage-billing-url>",
@@ -84,8 +102,10 @@ export const CONTRACT_FIXTURE = {
         }
     ],
     "hard_contract_rules": [
-        "LAPSE NEVER AUTO-PUBLISHES: A lapsed/expired entitlement on a private project MUST leave visibility=private. Reverting to public is an explicit user action. See AC4.",
-        "Gate reads ENTITLEMENT not role: The public->private gate is an ORTHOGONAL entitlement check (account.has_paid_private_entitlement) added on top of the existing MANAGER+ role check. Do NOT conflate role and entitlement."
+        "LAPSE NEVER AUTO-PUBLISHES: A lapsed/expired entitlement on a private OR organization project MUST leave visibility unchanged. Reverting to public is an explicit user action. See AC4.",
+        "Gate reads ENTITLEMENT not role: the entitlement gate is an ORTHOGONAL entitlement check (account.has_paid_private_entitlement) added on top of the existing MANAGER+ role check. Do NOT conflate role and entitlement.",
+        "TASK-2431 (W1.1): the entry gate is DESTINATION-based — any visibility CHANGE into private OR organization is gated, not one hardcoded transition pair.",
+        "TASK-2432 (W1.2): the STEADY STATE gate mirrors the entry gate — organization is a paid state (paid_organization when entitled, past_due when not), not free_public. Entry-only gating would leave a one-month-deferred hole (subscribe, flip to organization, cancel, keep forever)."
     ]
 };
 
@@ -93,7 +113,8 @@ export const CONTRACT_FIXTURE = {
  * Look up a state entry from the contract fixture by state name.
  * Returns { state, description, backend_condition, payload } or throws if not found.
  *
- * @param {string} stateName — one of: free_public, upgrade_prompt, pending, paid_private, past_due, anon
+ * @param {string} stateName — one of: free_public, upgrade_prompt, pending,
+ *   paid_private, paid_organization, past_due, anon
  */
 export function getStatePayload(stateName) {
     const entry = CONTRACT_FIXTURE.states.find(s => s.state === stateName);

@@ -35,8 +35,16 @@ import expect from 'expect';
 import {CONTRACT_FIXTURE} from '../paywallContract';
 
 // Pinned canonical hash — see header. Re-derive on an intentional contract bump.
+//
+// v1.0 -> v1.1 re-pin (TASK-2446, epic 2425 W2): TASK-2432 added the
+// `paid_organization` state and widened past_due's backend_condition. The old
+// pin was 13aa7dd6600920ef318de8a926c5196eafdfc0dde6c449a2cb85a4b5f6017811.
+// NOTE when re-deriving offline: canonicalize() uses JS JSON.stringify, which
+// does NOT \u-escape non-ASCII. A Python re-derivation must pass
+// ensure_ascii=False or it will produce a different (wrong) digest — the
+// fixture is full of em-dashes.
 const PINNED_CONTRACT_HASH =
-    '13aa7dd6600920ef318de8a926c5196eafdfc0dde6c449a2cb85a4b5f6017811';
+    'ea5d4ac7a4831430a117583a7ef881283bb394869c2549d6589839cc4f7043cb';
 
 /**
  * Stable, sorted-key canonical serialization. Order-independent for object

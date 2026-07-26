@@ -65,18 +65,21 @@ function renderPaywall(props) {
 // If paywall_contract.json changes its shape, these fail before the UX tests do.
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PaywallPanel — contract fixture shape', () => {
-    it('fixture has _meta with version 1.0', () => {
+    // v1.1 (TASK-2432 -> mirrored by TASK-2446): `paid_organization` joined
+    // the paid steady state, taking the fixture from 6 states to 7.
+    it('fixture has _meta with version 1.1', () => {
         expect(CONTRACT_FIXTURE._meta).toExist();
-        expect(CONTRACT_FIXTURE._meta.version).toBe('1.0');
+        expect(CONTRACT_FIXTURE._meta.version).toBe('1.1');
     });
 
-    it('fixture has exactly 6 states', () => {
+    it('fixture has exactly 7 states', () => {
         expect(CONTRACT_FIXTURE.states).toExist();
-        expect(CONTRACT_FIXTURE.states.length).toBe(6);
+        expect(CONTRACT_FIXTURE.states.length).toBe(7);
     });
 
     const EXPECTED_STATES = [
-        'free_public', 'upgrade_prompt', 'pending', 'paid_private', 'past_due', 'anon'
+        'free_public', 'upgrade_prompt', 'pending', 'paid_private',
+        'paid_organization', 'past_due', 'anon'
     ];
 
     EXPECTED_STATES.forEach(stateName => {
@@ -327,6 +330,64 @@ describe('PaywallPanel — state: paid_private', () => {
 
     it('does not show "Make private" CTA (project already private)', () => {
         expect(c.querySelector('[data-testid="make-private-btn"]')).toBe(null);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State: paid_organization — TASK-2446 (epic 2425 W2).
+//
+// REGRESSION GUARD: before this case existed the switch fell through to
+// `default: content = null`, so the ENTIRE panel was suppressed — every
+// assertion below would have been null. This is the blank-render gap that
+// blocked the PAYWALL_ENABLED flip.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('PaywallPanel — state: paid_organization (TASK-2446)', () => {
+    let c;
+
+    beforeEach(() => {
+        c = renderPaywall({
+            paywallEnabled: true,
+            fixtureMode: true,
+            fixtureState: 'paid_organization'
+        });
+    });
+
+    it('renders the paywall panel (NOT a blank/null render)', () => {
+        expect(c.querySelector('[data-testid="paywall-panel"]')).toExist(
+            'paid_organization fell through to the default null branch'
+        );
+    });
+
+    it('shows an organization badge indicator', () => {
+        const badge = c.querySelector('[data-testid="organization-badge"]');
+        expect(badge).toExist('organization badge not found in paid_organization state');
+        expect(badge.textContent).toInclude('Organization');
+    });
+
+    it('carries a distinguishing modifier class so it can be styled apart from Private', () => {
+        const badge = c.querySelector('[data-testid="organization-badge"]');
+        expect(badge.className).toInclude('paywall-private-badge');
+        expect(badge.className).toInclude('paywall-private-badge--organization');
+    });
+
+    it('is DISTINCT from the paid_private badge (not conflated)', () => {
+        expect(c.querySelector('[data-testid="private-badge"]')).toBe(null);
+        expect(c.querySelector('[data-testid="organization-badge"]').textContent)
+            .toNotInclude('Private');
+    });
+
+    it('shows no upgrade modal, dunning banner, pending spinner or make-private CTA', () => {
+        expect(c.querySelector('[data-testid="upgrade-modal"]')).toBe(null);
+        expect(c.querySelector('[data-testid="dunning-banner"]')).toBe(null);
+        expect(c.querySelector('[data-testid="pending-spinner"]')).toBe(null);
+        expect(c.querySelector('[data-testid="make-private-btn"]')).toBe(null);
+    });
+
+    it('contract payload is read_only=false, checkout_url=null', () => {
+        const { payload } = getStatePayload('paid_organization');
+        expect(payload.state).toBe('paid_organization');
+        expect(payload.read_only).toBe(false);
+        expect(payload.checkout_url).toBe(null);
     });
 });
 

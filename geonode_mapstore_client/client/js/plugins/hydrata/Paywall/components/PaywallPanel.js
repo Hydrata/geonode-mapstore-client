@@ -8,6 +8,7 @@
  *   upgrade_prompt  → Upgrade modal with checkout_url
  *   pending         → Spinner (FE-only, Stripe-return window)
  *   paid_private    → Private badge + manage-billing link
+ *   paid_organization → Organization badge + manage-billing link (TASK-2446)
  *   past_due        → Non-blocking dunning banner + renew CTA
  *   anon            → Nothing (paywall key absent for anonymous callers)
  *
@@ -155,14 +156,37 @@ function PendingSpinner() {
 }
 
 /**
- * PrivateBadge — shown in paid_private state.
- * Includes optional manage-billing link when checkout_url is available.
+ * PrivateBadge — the paid steady-state indicator. One component, two
+ * visibility tiers (TASK-2446, epic 2425 W2):
+ *   - `variant="private"`      → paid_private      (🔒 "Private")
+ *   - `variant="organization"` → paid_organization (👥 "Organization")
+ *
+ * Parameterised rather than duplicated so the manage-billing affordance can
+ * never drift between the two tiers. "Organization" is the visibility tier
+ * from the glossary — "the explicit set of people invited to this project" —
+ * NOT the owner's commerce organisation, and NOT the retired org auto-fold.
+ *
+ * Includes the optional manage-billing link when checkout_url is available.
+ * NOTE: _derive_paywall_state (gn_anuga/api_v2.py) currently hardcodes
+ * checkout_url=None for BOTH paid states, so that link is unreachable today
+ * for either tier — see TASK-2455.
  */
-function PrivateBadge({ manageBillingUrl }) {
+function PrivateBadge({ manageBillingUrl, variant }) {
+    const isOrganization = variant === 'organization';
     return (
-        <div data-testid="private-badge" className="paywall-private-badge">
-            <span className="paywall-private-badge-icon" aria-label="Private model">&#128274;</span>
-            <span className="paywall-private-badge-label">Private</span>
+        <div
+            data-testid={isOrganization ? 'organization-badge' : 'private-badge'}
+            className={`paywall-private-badge${isOrganization ? ' paywall-private-badge--organization' : ''}`}
+        >
+            <span
+                className="paywall-private-badge-icon"
+                aria-label={isOrganization ? 'Organization-visibility model' : 'Private model'}
+            >
+                {isOrganization ? '\u{1F465}' : '\u{1F512}'}
+            </span>
+            <span className="paywall-private-badge-label">
+                {isOrganization ? 'Organization' : 'Private'}
+            </span>
             {manageBillingUrl ? (
                 <a
                     data-testid="manage-billing-link"
@@ -178,11 +202,13 @@ function PrivateBadge({ manageBillingUrl }) {
 }
 
 PrivateBadge.propTypes = {
-    manageBillingUrl: PropTypes.string
+    manageBillingUrl: PropTypes.string,
+    variant: PropTypes.oneOf(['private', 'organization'])
 };
 
 PrivateBadge.defaultProps = {
-    manageBillingUrl: null
+    manageBillingUrl: null,
+    variant: 'private'
 };
 
 /**
@@ -259,7 +285,8 @@ class PaywallPanel extends React.Component {
 
         /**
          * Which fixture state to render (fixture-mode only).
-         * One of: free_public, upgrade_prompt, pending, paid_private, past_due, anon.
+         * One of: free_public, upgrade_prompt, pending, paid_private,
+         * paid_organization, past_due, anon.
          */
         fixtureState: PropTypes.string,
 
@@ -367,7 +394,20 @@ class PaywallPanel extends React.Component {
 
         case 'paid_private':
             content = (
-                <PrivateBadge manageBillingUrl={checkoutUrl} />
+                <PrivateBadge manageBillingUrl={checkoutUrl} variant="private" />
+            );
+            break;
+
+        // TASK-2446 (epic 2425 W2) — contract v1.1 / TASK-2432's DISTINCT
+        // steady-state literal for an organization-visibility project held by
+        // an entitled account. Without this case it fell through to
+        // `default: content = null` and the whole panel silently vanished on
+        // the next my_perms read — reachable by an ordinary PATCH or by
+        // grandfathering, and reachable with PAYWALL_ENABLED=False too (the
+        // flag-off branch of _derive_paywall_state emits it as well).
+        case 'paid_organization':
+            content = (
+                <PrivateBadge manageBillingUrl={checkoutUrl} variant="organization" />
             );
             break;
 
