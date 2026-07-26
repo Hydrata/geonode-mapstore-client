@@ -8,9 +8,13 @@
  *      BEFORE the hash router's fragment per TASK-1375) and arms the FE-only
  *      `pending` overlay, or shows a toast on cancel.
  *   2. pollMyPermsWhilePendingEpic — while `pending` is armed, re-fetches
- *      my_perms on an interval until the webhook flips it to paid_private
+ *      my_perms on an interval until the webhook flips it to a PAID steady
+ *      state (paid_private OR paid_organization — see PAID_STEADY_STATES in
+ *      Paywall/reducer.js; matching only paid_private was TASK-2457's bug)
  *      (paywallContract.js _meta.note_on_pending: the backend has no
- *      in-flight marker, so polling my_perms is the only way to observe it).
+ *      in-flight marker, so polling my_perms is the only way to observe it),
+ *      or until it gives up, at which point it CLEARS the overlay rather than
+ *      stranding the customer on a permanent spinner.
  *      TASK-2100: the SAME return URL/marker covers a credit-pack purchase
  *      (shared checkout session machinery, see subscribeCheckoutEpic below),
  *      so each poll tick ALSO re-fetches the compute balance — cheap
@@ -25,7 +29,7 @@ import Rx from 'rxjs';
 import { show } from '../../../../../MapStore2/web/client/actions/notifications';
 import * as anugaApi from '../api/anugaApi';
 import { INIT_ANUGA, fetchMyPerms, setMembershipPanel, setMembershipPanelTab } from '../actionsAnuga';
-import { SUBSCRIBE_CHECKOUT_REQUEST, setPaywallPending } from '../../Paywall/actions';
+import { SUBSCRIBE_CHECKOUT_REQUEST, setPaywallPending, clearPaywallPending } from '../../Paywall/actions';
 import { isPaywallPending } from '../../Paywall/reducer';
 import { fetchComputeBalance, dismissMeterModal } from '../../Paywall/meter/actions';
 import { fetchAccountSummary } from '../../Paywall/account/actions';
@@ -119,6 +123,28 @@ export const checkoutReturnEpic = (action$) => action$
         }, 'info'))
     );
 
+/**
+ * Poll my_perms after a Stripe return until the webhook flips the entitlement.
+ *
+ * TASK-2464 — `fetchMyPerms(projectId, TRUE)`. The poll runs every 3s against
+ * permsEpics' 30s dedupe window, which is only invalidated on failure — so 9
+ * of the first 10 ticks were returning Observable.empty() with no HTTP call
+ * and no log. The poll looked like it was working and was mostly not.
+ *
+ * TASK-2457 (adversarial R2) — the poll must CLEAR the pending overlay when it
+ * gives up. It previously ran out of attempts and stopped silently, and since
+ * the overlay masks `steady` in getEffectivePaywallPayload, a customer whose
+ * webhook was slow or lost was left in `pending` until they reloaded the page.
+ * An un-dismissable state is a trap (ModalHost.js's own standard).
+ *
+ * The clear is a `concat(defer(...))` tail, NOT a `finally`: it must run only
+ * when the inner stream COMPLETES (attempts exhausted, or takeWhile went
+ * false), never when switchMap unsubscribes it because a second SET_PENDING
+ * arrived — a finally would fire on unsubscribe too and disarm the overlay the
+ * new poll had just armed. `defer` re-reads the store at that moment, so the
+ * normal success path (steady went paid_*, overlay already null) emits
+ * nothing.
+ */
 export const pollMyPermsWhilePendingEpic = (action$, store) => action$
     .ofType('PAYWALL:SET_PENDING')
     .switchMap(() => {
@@ -128,8 +154,13 @@ export const pollMyPermsWhilePendingEpic = (action$, store) => action$
             .takeWhile(() => isPaywallPending(store.getState()))
             .mergeMap(() => Rx.Observable.of(
                 fetchComputeBalance(),
-                ...(projectId ? [fetchMyPerms(projectId)] : [])
-            ));
+                ...(projectId ? [fetchMyPerms(projectId, true)] : [])
+            ))
+            .concat(Rx.Observable.defer(() => (
+                isPaywallPending(store.getState())
+                    ? Rx.Observable.of(clearPaywallPending())
+                    : Rx.Observable.empty()
+            )));
     });
 
 export const subscribeCheckoutEpic = (action$, store) => action$

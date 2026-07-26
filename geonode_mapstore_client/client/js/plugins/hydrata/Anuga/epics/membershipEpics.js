@@ -16,7 +16,10 @@ import {
     REVOKE_INVITATION_REQUEST,
     RESEND_INVITATION_REQUEST,
     setInvitations,
-    fetchInvitations
+    fetchInvitations,
+    // TASK-2464 (epic 2425 W2.5) — a successful visibility change must refresh
+    // the paywall steady state from the SERVER, not from local optimism.
+    fetchMyPerms
 } from "../actionsAnuga";
 // TASK-2099 (epic 2092 W4.1) — 402 on a public->private visibility PATCH
 // carries the upgrade_prompt contract shape (_check_private_entitlement_response,
@@ -103,8 +106,38 @@ export const updateProjectVisibilityEpic = (action$, store) =>
             return Rx.Observable.from(anugaApi.updateProjectVisibility(projectId, visibility))
                 .switchMap(response => Rx.Observable.from([
                     setAnugaProjectData(response.data),
+                    // TASK-2464 — REFETCH my_perms, on the SUCCESS branch only.
+                    //
+                    // Why it is needed at all: state.anuga.paywall.steady is
+                    // written by exactly one action (SET_ANUGA_RESOURCE_PERMS,
+                    // Paywall/reducer.js), emitted by exactly one thing (a
+                    // getMyPerms fetch). Nothing dispatched FETCH_MY_PERMS after
+                    // a visibility PATCH, so the paywall state stayed frozen at
+                    // whatever the panel-open fetch returned — the operator saw
+                    // "Public — Current" in this very panel while the indicator
+                    // still read Private.
+                    //
+                    // Why setAnugaProjectData above is NOT enough, even though
+                    // triggerFetchMyPermsOnInitEpic listens for it: that stream
+                    // maps to the project id and then hits distinctUntilChanged.
+                    // The id has not changed, so the emission is dropped and
+                    // FETCH_MY_PERMS is never even dispatched.
+                    //
+                    // Why `force`: permsEpics' 30s dedupe is only invalidated on
+                    // FAILURE, so a plain re-dispatch seconds after the
+                    // panel-open fetch returns Observable.empty() silently — no
+                    // HTTP call, no action, no log. See permsEpics.js.
+                    //
+                    // SERVER TRUTH, not optimism: this asks the server what the
+                    // state is now. A privacy indicator driven by what the user
+                    // clicked can be false in the dangerous direction.
+                    fetchMyPerms(projectId, true),
                     show({title: "Visibility updated", message: `Project is now ${visibility}`, level: "success"})
                 ]))
+                // The catch below is the REFUSAL path (402 upgrade_prompt from
+                // the W1 destination gate) and the error path. Neither reaches
+                // the block above, so neither moves the indicator — the server
+                // stored nothing, and the FE must claim nothing.
                 .catch(err => {
                     // TASK-2099 — 402 carries the upgrade_prompt contract shape
                     // ({state: 'upgrade_prompt', checkout_url, read_only}) from

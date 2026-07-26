@@ -80,16 +80,35 @@ export const triggerFetchMyPermsOnInitEpic = (action$, store) => action$
  * the 1st is still in flight does NOT cancel the in-flight request. The
  * dedupe gate above ensures the 2nd one short-circuits to Observable.empty()
  * without issuing a duplicate HTTP call, so mergeMap is safe.
+ *
+ * TASK-2464 (epic 2425 W2.5) — `action.force` BYPASSES the dedupe.
+ *
+ * The dedupe was written to protect the TASK-658 cold-start perf budget from
+ * repeated panel opens. It was ALSO, silently, suppressing every refetch after
+ * a write: the window is only invalidated on FAILURE (buildFailureBranch's
+ * `_lastFetchByProjectId.delete`), never on success, so for 30s after any
+ * successful fetch a re-dispatch returned Observable.empty() with no HTTP
+ * call, no action, and no log. Two live consequences, both fixed by `force`:
+ *   1. A visibility PATCH lands seconds after the panel-open fetch, squarely
+ *      inside the window — the paywall steady state never refreshed and the
+ *      indicator stayed stale (this task).
+ *   2. pollMyPermsWhilePendingEpic polls every 3s for up to 20 attempts against
+ *      a 30s window, so 9 of the first 10 ticks were no-ops. The poll looked
+ *      like it was working and was mostly not.
+ *
+ * `force` still WRITES the timestamp, so a forced fetch re-arms the window for
+ * ordinary triggers rather than disabling the dedupe from then on.
  */
 export const fetchMyPermsEpic = (action$) => action$
     .ofType(FETCH_MY_PERMS)
     .mergeMap((action) => {
-        const { projectId } = action;
+        const { projectId, force } = action;
 
-        // 30s dedupe gate. Skip if we fetched within the window.
+        // 30s dedupe gate. Skip if we fetched within the window — unless the
+        // caller knows the server-side answer just changed.
         const now = _now();
         const last = _lastFetchByProjectId.get(projectId);
-        if (last !== undefined && now - last < _DEDUPE_WINDOW_MS) {
+        if (!force && last !== undefined && now - last < _DEDUPE_WINDOW_MS) {
             return Rx.Observable.empty();
         }
         _lastFetchByProjectId.set(projectId, now);

@@ -15,6 +15,13 @@
 export const SET_PAYWALL_UPGRADE_PROMPT = 'PAYWALL:SET_UPGRADE_PROMPT';
 export const DISMISS_PAYWALL_UPGRADE = 'PAYWALL:DISMISS_UPGRADE';
 export const SET_PAYWALL_PENDING = 'PAYWALL:SET_PENDING';
+// TASK-2457 (adversarial R2, epic 2425 W2.5) — disarms the pending overlay
+// when the poll gives up. Without it a lost/slow webhook stranded the customer
+// in `pending` until they reloaded: the overlay MASKS `steady` in
+// getEffectivePaywallPayload, so the app kept insisting it was "confirming
+// your subscription" while the server had long since answered. An
+// un-dismissable state is a trap (ModalHost.js's own standard).
+export const CLEAR_PAYWALL_PENDING = 'PAYWALL:CLEAR_PENDING';
 // Requests a Checkout Session (POST /commerce/checkout/create-session/) and
 // redirects the browser to the returned session.url. Used by both the
 // upgrade_prompt "Subscribe" CTA and the past_due "Renew" CTA (2099), and by
@@ -36,6 +43,15 @@ export function dismissPaywallUpgrade() {
 /** Arms the FE-only pending overlay (checkout=success return, pre-webhook). */
 export function setPaywallPending() {
     return { type: SET_PAYWALL_PENDING };
+}
+
+/**
+ * Disarms the pending overlay, revealing whatever `steady` the server last
+ * reported. Idempotent and narrow: it clears ONLY a pending overlay, so it can
+ * never eat an upgrade_prompt refusal that armed in the meantime.
+ */
+export function clearPaywallPending() {
+    return { type: CLEAR_PAYWALL_PENDING };
 }
 
 /**

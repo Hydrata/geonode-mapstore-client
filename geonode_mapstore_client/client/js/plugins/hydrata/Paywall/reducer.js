@@ -22,8 +22,27 @@ import { SET_ANUGA_RESOURCE_PERMS } from '../Anuga/actionsAnuga';
 import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
-    SET_PAYWALL_PENDING
+    SET_PAYWALL_PENDING,
+    CLEAR_PAYWALL_PENDING
 } from './actions';
+
+/**
+ * The steady literals that mean "the subscription landed" — i.e. the pending
+ * overlay has done its job and must disarm.
+ *
+ * TASK-2457 (adversarial R2, epic 2425 W2.5): this was the bare string
+ * 'paid_private'. `paid_organization` — the state W2 itself added — never
+ * matched, so a customer WHO HAD PAID sat on a permanent, undismissable
+ * "Confirming your subscription…" until they reloaded.
+ *
+ * The contract doc had retracted this finding on the grounds that the webhook
+ * (commerce/checkout_views.py) hardcodes the flip to PRIVATE, so paid_private
+ * always matches. That is true for the checkout path and false as a general
+ * claim: this clear runs on EVERY my_perms read, not only post-checkout, and
+ * an already-organization project on an entitled account reads back
+ * paid_organization. Derive from the list, never re-inline a literal.
+ */
+const PAID_STEADY_STATES = ['paid_private', 'paid_organization'];
 
 const initialState = {
     steady: null,
@@ -37,9 +56,10 @@ export default (state = initialState, action) => {
         if (!paywall) return state;
         // The backend never emits `pending` (see paywallContract.js
         // _meta.note_on_pending) — the poll epic is watching for the webhook
-        // flip to show up as a steady `paid_private`, at which point the
-        // FE-only pending overlay has done its job and clears itself.
-        const overlay = (state.overlay && state.overlay.state === 'pending' && paywall.state === 'paid_private')
+        // flip to show up as a steady PAID state, at which point the FE-only
+        // pending overlay has done its job and clears itself.
+        const overlay = (state.overlay && state.overlay.state === 'pending'
+            && PAID_STEADY_STATES.includes(paywall.state))
             ? null
             : state.overlay;
         return { ...state, steady: paywall, overlay };
@@ -55,6 +75,13 @@ export default (state = initialState, action) => {
             : state;
     case SET_PAYWALL_PENDING:
         return { ...state, overlay: { state: 'pending', checkout_url: null, read_only: false } };
+    // TASK-2457 — the poll gave up. Clear ONLY a pending overlay, so this can
+    // never eat an upgrade_prompt refusal that armed while the poll was
+    // running (same narrowness as DISMISS_PAYWALL_UPGRADE above).
+    case CLEAR_PAYWALL_PENDING:
+        return (state.overlay && state.overlay.state === 'pending')
+            ? { ...state, overlay: null }
+            : state;
     default:
         return state;
     }

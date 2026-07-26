@@ -1792,6 +1792,135 @@ describe('ANUGA Epics', () => {
                     done();
                 });
         });
+
+        // TASK-2464 (epic 2425 W2.5) — the indicator went stale because NOTHING
+        // asked the server again after a visibility change. state.anuga.paywall
+        // .steady has exactly one writer (SET_ANUGA_RESOURCE_PERMS), emitted by
+        // exactly one thing (a getMyPerms fetch), and nothing dispatched
+        // FETCH_MY_PERMS after the PATCH. The operator saw "Public — Current"
+        // in the Sharing panel while the badge still read Private.
+        it('SUCCESS -> dispatches a FORCED FETCH_MY_PERMS (server truth, not optimism)', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(200, {
+                id: 42, visibility: 'public', my_role: 'owner'
+            });
+
+            const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'public'}]);
+            const emitted = [];
+
+            updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    const refetch = emitted.filter(a => a.type === 'ANUGA:FETCH_MY_PERMS');
+                    expect(refetch.length).toBe(1, 'no my_perms refetch after a successful visibility PATCH');
+                    expect(refetch[0].projectId).toBe(42);
+                    // `force` is the whole point: permsEpics' 30s dedupe is only
+                    // invalidated on FAILURE, and the panel-open fetch happened
+                    // seconds ago, so an unforced re-dispatch is swallowed
+                    // silently. See the dedupe test below.
+                    expect(refetch[0].force).toBe(true, 'the refetch is not forced — the dedupe will eat it');
+                    // Still writes the server's own response and still toasts.
+                    expect(emitted.some(a => a.type === 'SET_ANUGA_PROJECT_DATA')).toBe(true);
+                    expect(emitted.some(a => a.type.includes('NOTIFICATION'))).toBe(true);
+                    done();
+                });
+        });
+
+        // AC4 — a REFUSED change must not move the indicator.
+        it('402 REFUSAL -> NO refetch and NO project-data write (the server stored nothing)', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(402, {
+                state: 'upgrade_prompt', checkout_url: 'https://example.com/x', read_only: false
+            });
+
+            const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'private'}]);
+            const emitted = [];
+
+            updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.some(a => a.type === 'ANUGA:FETCH_MY_PERMS')).toBe(false);
+                    expect(emitted.some(a => a.type === 'SET_ANUGA_PROJECT_DATA')).toBe(false);
+                    expect(emitted[0].type).toBe(SET_PAYWALL_UPGRADE_PROMPT);
+                    done();
+                });
+        });
+
+        it('a 500 error also leaves the indicator alone', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(500, {detail: 'boom'});
+            const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'private'}]);
+            const emitted = [];
+            updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.some(a => a.type === 'ANUGA:FETCH_MY_PERMS')).toBe(false);
+                    expect(emitted.some(a => a.type === 'SET_ANUGA_PROJECT_DATA')).toBe(false);
+                    done();
+                });
+        });
+    });
+
+    // TASK-2464 AC3 — "two changes in a row and BOTH are reflected". The dedupe
+    // is the reason a naive one-line dispatch would not have been enough: it is
+    // invalidated only on FAILURE, so within 30s of any successful fetch a
+    // re-dispatch returns Observable.empty() with no HTTP call, no action and
+    // no log. These drive fetchMyPermsEpic directly (the unit under test) with
+    // a frozen clock, so "two in a row" means "inside the same dedupe window",
+    // which is the situation that actually bit.
+    describe('TASK-2464 fetchMyPermsEpic — force bypasses the dedupe', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            fetchMyPermsEpic, __resetPermsCacheForTests, __setNowForTests
+        } = require('../epics/permsEpics');
+        const {fetchMyPerms} = require('../actionsAnuga');
+
+        let mockAxios;
+        let calls;
+        beforeEach(() => {
+            mockAxios = new MockAdapter(axios);
+            __resetPermsCacheForTests();
+            __setNowForTests(() => 1000000); // frozen: every dispatch is "just now"
+            calls = 0;
+            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(() => {
+                calls += 1;
+                return [200, {my_role: 'owner', visibility: 'private',
+                    paywall: {state: 'paid_private', checkout_url: null, read_only: false}}];
+            });
+        });
+        afterEach(() => {
+            mockAxios.restore();
+            __resetPermsCacheForTests();
+            __setNowForTests(null);
+        });
+
+        it('UNFORCED: a second dispatch inside the window is swallowed — the bug', (done) => {
+            const action$ = mockActions([fetchMyPerms(42), fetchMyPerms(42)]);
+            const emitted = [];
+            fetchMyPermsEpic(action$).subscribe(a => emitted.push(a), done, () => {
+                expect(calls).toBe(1);
+                expect(emitted.length).toBe(1);
+                done();
+            });
+        });
+
+        it('FORCED: two changes in a row BOTH reach the server and BOTH update the slice', (done) => {
+            const action$ = mockActions([fetchMyPerms(42, true), fetchMyPerms(42, true)]);
+            const emitted = [];
+            fetchMyPermsEpic(action$).subscribe(a => emitted.push(a), done, () => {
+                expect(calls).toBe(2, 'the second forced refetch was swallowed by the dedupe');
+                const perms = emitted.filter(a => a.type === 'ANUGA:SET_ANUGA_RESOURCE_PERMS');
+                expect(perms.length).toBe(2);
+                done();
+            });
+        });
+
+        it('a forced fetch still RE-ARMS the window for ordinary triggers', (done) => {
+            // force must bypass the gate, not disable it: an unforced dispatch
+            // immediately after a forced one is still deduped.
+            const action$ = mockActions([fetchMyPerms(42, true), fetchMyPerms(42)]);
+            const emitted = [];
+            fetchMyPermsEpic(action$).subscribe(a => emitted.push(a), done, () => {
+                expect(calls).toBe(1);
+                expect(emitted.length).toBe(1);
+                done();
+            });
+        });
     });
 
     describe('TASK-2099 paywallEpics', () => {
@@ -1914,6 +2043,87 @@ describe('ANUGA Epics', () => {
                         done();
                     }, 50);
                 }, 35);
+            });
+
+            // TASK-2464 — every tick must be FORCED. The poll runs at 3s against
+            // permsEpics' 30s dedupe window (invalidated only on failure), so
+            // unforced ticks 2..10 were returning Observable.empty() with no HTTP
+            // call and no log. The poll looked like it was working and was not.
+            it('every FETCH_MY_PERMS tick is forced, or the dedupe eats 9 of the first 10', (done) => {
+                __setPollIntervalForTests(10);
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {overlay: {state: 'pending'}, steady: null}
+                        }
+                    })
+                };
+                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
+                const emitted = [];
+                const sub = pollMyPermsWhilePendingEpic(action$, store).subscribe(a => emitted.push(a));
+                setTimeout(() => {
+                    const fetches = emitted.filter(a => a.type === FETCH_MY_PERMS);
+                    expect(fetches.length).toBeGreaterThan(0);
+                    expect(fetches.every(a => a.force === true)).toBe(
+                        true, 'an unforced poll tick is a silent no-op inside the 30s dedupe window'
+                    );
+                    sub.unsubscribe();
+                    done();
+                }, 35);
+            });
+
+            // TASK-2457 (adversarial R2) second half — an abandoned poll must not
+            // strand the customer. The overlay MASKS steady in
+            // getEffectivePaywallPayload, so "pending forever" means the app keeps
+            // insisting it is confirming a subscription the server already
+            // answered about. An un-dismissable state is a trap.
+            it('EXHAUSTION -> emits CLEAR_PENDING rather than stopping silently', (done) => {
+                __setPollIntervalForTests(1);
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            // never resolves — the lost/slow-webhook case
+                            paywall: {overlay: {state: 'pending'}, steady: null}
+                        }
+                    })
+                };
+                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
+                const emitted = [];
+                pollMyPermsWhilePendingEpic(action$, store).subscribe(
+                    a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBeGreaterThan(0);
+                        const last = emitted[emitted.length - 1];
+                        expect(last.type).toBe(
+                            'PAYWALL:CLEAR_PENDING',
+                            'the poll ran out of attempts and left the overlay armed'
+                        );
+                        done();
+                    }
+                );
+            });
+
+            it('RESOLVED -> completes WITHOUT a CLEAR_PENDING (nothing left to clear)', (done) => {
+                __setPollIntervalForTests(1);
+                let pending = true;
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {overlay: pending ? {state: 'pending'} : null, steady: {state: 'paid_organization'}}
+                        }
+                    })
+                };
+                const action$ = mockActions([{type: 'PAYWALL:SET_PENDING'}]);
+                const emitted = [];
+                pollMyPermsWhilePendingEpic(action$, store).subscribe(
+                    a => emitted.push(a), done, () => {
+                        expect(emitted.some(a => a.type === 'PAYWALL:CLEAR_PENDING')).toBe(false);
+                        done();
+                    }
+                );
+                setTimeout(() => { pending = false; }, 5);
             });
 
             it('no project id -> still refreshes the balance (account-scoped, not project-scoped), but never emits FETCH_MY_PERMS', (done) => {

@@ -292,8 +292,17 @@ function resendInvitationRequest(invitationId) {
 }
 
 // V2P-21 action creators
-function fetchMyPerms(projectId) {
-    return { type: FETCH_MY_PERMS, projectId };
+/**
+ * @param {number}  projectId
+ * @param {boolean} force  TASK-2464 (epic 2425 W2.5) — bypass fetchMyPermsEpic's
+ *   30s per-project dedupe. Use ONLY when something just changed the answer
+ *   server-side (a visibility PATCH succeeded; a webhook poll is watching for
+ *   an entitlement flip). The dedupe exists to protect the TASK-658 cold-start
+ *   perf budget from repeated panel opens, not to suppress refetches after a
+ *   write — and it was silently doing the latter. See permsEpics.js.
+ */
+function fetchMyPerms(projectId, force = false) {
+    return { type: FETCH_MY_PERMS, projectId, force };
 }
 
 function setAnugaResourcePerms(payload) {
