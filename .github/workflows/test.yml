@@ -74,6 +74,30 @@ jobs:
         run: node js/plugins/hydrata/SimpleView/css-namespace-guard.js
         working-directory: ./geonode_mapstore_client/client
 
+  paywall-css-coverage-guard:
+    name: Paywall CSS coverage guard
+    # TASK-2437 (epic 2425 W2). Fails when a paywall or compute-meter component
+    # emits a className with no matching rule in any stylesheet source — the
+    # defect that put an invisible refusal modal in front of a paying customer.
+    # Karma cannot catch it (jsdom has no layout engine and no cascade), and
+    # the W0 browser tests catch it only at runtime; this catches it at build
+    # time. Separate job for the same reason as the guard above: it must stay
+    # required independently of ESLint, and it runs in ~1s on Node built-ins
+    # with no npm install.
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checking out"
+        uses: actions/checkout@v4
+
+      - name: "Setting up Node"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: "Run paywall CSS coverage guard"
+        run: node js/plugins/hydrata/Paywall/paywall-css-coverage-guard.js
+        working-directory: ./geonode_mapstore_client/client
+
   test:
     name: Karma unit tests
     runs-on: ubuntu-latest
