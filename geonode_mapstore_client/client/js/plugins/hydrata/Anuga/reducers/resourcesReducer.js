@@ -97,6 +97,18 @@ const _BE_TO_FE_KEY = {
 // Object.entries(paywall) yields keys 'state'/'checkout_url'/'read_only',
 // each fails parseInt(), and next.paywall ends up [] (the payload is
 // dropped). The paywall reducer (Paywall/reducer.js) owns this key instead.
+//
+// SKIPPED HERE IS NOT DISCARDED — each of these three has an owner, and the
+// owner is another reducer reading the SAME action:
+//   paywall    -> Paywall/reducer.js (state.anuga.paywall.steady)
+//   visibility -> Anuga/reducers/projectsReducer.js, which folds it into
+//                 state.anuga.projects.data (TASK-2463, epic 2425 W2.6). Do
+//                 NOT "fix" a stale padlock by writing visibility into this
+//                 slice as well: getProjectVisibility reads projects.data, and
+//                 a second copy here is a rival truth that can disagree with
+//                 the Sharing panel. Skipping it here is what keeps it single.
+//   my_role    -> genuinely dropped. It arrives from the project fetch
+//                 (ProjectSerializerV2) and nothing refreshes it from my_perms.
 const _NON_RESOURCE_KEYS = new Set(['my_role', 'visibility', 'paywall']);
 
 // Skip these resource_type keys — they don't map to the resources reducer

@@ -144,18 +144,31 @@ export const checkoutReturnEpic = (action$) => action$
  * new poll had just armed. `defer` re-reads the store at that moment, so the
  * normal success path (steady went paid_*, overlay already null) emits
  * nothing.
+ *
+ * TASK-2463 (epic 2425 W2.6) — the project id is resolved PER TICK, not once
+ * when the poll is armed. On the path that matters most it is not available
+ * when the poll is armed: checkoutReturnEpic maps INIT_ANUGA straight to
+ * SET_PENDING, and INIT_ANUGA fires BEFORE initAnugaEpic has resolved the
+ * project (permsEpics.js:57 documents the same ordering). So on a checkout
+ * RETURN — the one path where a webhook is racing us — `projectId` was
+ * undefined, the `projectId ? ... : []` branch emitted nothing, and the poll
+ * spent 60 seconds fetching only the compute balance. It looked like it was
+ * polling my_perms and it never once did. Reading the store inside the
+ * mergeMap costs nothing and is correct by the first tick, 3s in.
  */
 export const pollMyPermsWhilePendingEpic = (action$, store) => action$
     .ofType('PAYWALL:SET_PENDING')
     .switchMap(() => {
-        const projectId = getProjectId(store.getState());
         return Rx.Observable.interval(_pollIntervalMs)
             .take(PAYWALL_POLL_MAX_ATTEMPTS)
             .takeWhile(() => isPaywallPending(store.getState()))
-            .mergeMap(() => Rx.Observable.of(
-                fetchComputeBalance(),
-                ...(projectId ? [fetchMyPerms(projectId, true)] : [])
-            ))
+            .mergeMap(() => {
+                const projectId = getProjectId(store.getState());
+                return Rx.Observable.of(
+                    fetchComputeBalance(),
+                    ...(projectId ? [fetchMyPerms(projectId, true)] : [])
+                );
+            })
             .concat(Rx.Observable.defer(() => (
                 isPaywallPending(store.getState())
                     ? Rx.Observable.of(clearPaywallPending())

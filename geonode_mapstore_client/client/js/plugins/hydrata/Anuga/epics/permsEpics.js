@@ -135,7 +135,7 @@ export const fetchMyPermsEpic = (action$) => action$
         };
 
         return fetchOnce
-            .map((response) => setAnugaResourcePerms(response?.data || {}))
+            .map((response) => setAnugaResourcePerms(response?.data || {}, projectId))
             .catch((err) => {
                 // First failure. Retry once on 5xx or network error.
                 // 4xx (e.g. 404 anon-on-private) — bail to the failure branch
@@ -157,7 +157,7 @@ export const fetchMyPermsEpic = (action$) => action$
                 // attempt also fails, propagate to the failure branch.
                 return Rx.Observable.timer(1000).mergeMap(() =>
                     fetchOnce
-                        .map((response) => setAnugaResourcePerms(response?.data || {}))
+                        .map((response) => setAnugaResourcePerms(response?.data || {}, projectId))
                         .catch(() => buildFailureBranch())
                 );
             });
