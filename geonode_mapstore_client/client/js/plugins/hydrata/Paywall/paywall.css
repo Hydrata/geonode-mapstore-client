@@ -1,18 +1,26 @@
 /**
- * paywall.css — the privacy-paywall panel surface (TASK-2436, epic 2425 W2).
+ * paywall.css — the privacy-paywall UPGRADE MODAL surface.
+ * TASK-2436 (epic 2425 W2); scope cut to the modal alone by TASK-2463 (W2.5).
+ *
+ * SCOPE, as of TASK-2463: this file styles ONE thing — the blocking
+ * upgrade_prompt refusal modal and its body-level host. The five non-blocking
+ * steady states no longer render anywhere on the map (PaywallPanel.js), so
+ * their rules (anchored shell, make-private CTA, pending spinner, private /
+ * organization / past-due badges, dunning banner) are deleted rather than
+ * orphaned. `guard:paywall-css` only catches a className with NO rule, never
+ * a rule with no className, so dead rules here would have sat unflagged
+ * forever and read as live surface to the next person.
  *
  * WHY THIS FILE DID NOT EXIST
  * ---------------------------
- * PaywallPanel.js has shipped 28 distinct paywall-* classNames since epic 2359
+ * PaywallPanel.js had shipped 28 distinct paywall-* classNames since epic 2359
  * and NOT ONE of them had a rule anywhere in the repo — verified by grepping
  * every .css/.less in the client (minus node_modules) and the compiled
- * dist bundle, which contains the className strings but no matching selector.
- * The panel has been dark on every site ("paywallEnabled": false in both
- * localConfig entries), so nobody has seen it. Flipping PAYWALL_ENABLED — the
+ * dist bundle, which contained the className strings but no matching selector.
+ * The panel was dark on every site ("paywallEnabled": false in both
+ * localConfig entries), so nobody had seen it. Flipping PAYWALL_ENABLED — the
  * entire purpose of epic 2425 — would have revealed 28 browser-default
- * elements at once. That is the same defect that put an invisible refusal
- * modal in front of a paying customer, caught before shipping rather than
- * after.
+ * elements at once.
  *
  * Imported by PaywallPanel.js, the component that emits the markup, for the
  * same reason meter.css is imported by ComputeMeterPanel.js: a stylesheet that
@@ -21,17 +29,15 @@
  *
  * Selectors ship as `.msgapi <selector>` (package.json themePrefix).
  *
- * MEASURED CONTRAST (AC#3) — the panel surfaces are OPAQUE so these hold
+ * MEASURED CONTRAST (AC#3) — the modal surface is OPAQUE so these hold
  * regardless of the basemap underneath. AA body text needs 4.5:1:
- *   #ffffff on #003c88 -> 10.49:1   (modal title, badge label, button text)
- *   #dce6f7 on #003c88 ->  8.34:1   (modal body, hint text)
+ *   #ffffff on #003c88 -> 10.49:1   (modal title, button text)
+ *   #dce6f7 on #003c88 ->  8.34:1   (modal body)
  *   #5bc0ff on #003c88 ->  5.21:1   (links; --sv-accent-blue reused, not reinvented)
  *   #003c88 on #ffffff -> 10.49:1   (primary button)
- *   #2b1d00 on #ffc107 -> 10.08:1   (dunning / past-due amber)
- * W2 remediation added the anchored shell's own surface, #002a5e — strictly
- * darker than #003c88, so every light-ink pair above only improves on it:
- *   #ffffff on #002a5e -> 14.07:1   #dce6f7 on #002a5e -> 11.19:1
- *   #5bc0ff on #002a5e ->  6.99:1
+ * The padlock indicator that replaced the badges is styled in
+ * SimpleView/simpleView.css (`.sv-visibility-lock`), where its contrast pairs
+ * are recorded — it is emitted by SimpleView, not by this plugin.
  */
 
 /* ── Panel shell ─────────────────────────────────────────────────────────────
@@ -49,47 +55,28 @@
     color: #dce6f7;
 }
 
-/* ── Anchored shell (the five non-blocking states) ───────────────────────────
-   free_public / pending / paid_private / paid_organization / past_due are
-   advisory, so they are anchored over the map rather than hosted in a
-   blocking dialog — but they are PORTALED to document.body all the same
-   (PaywallPanel.render), because the plugin's in-flow mount point measured
-   at rect [0, 668, 1408, 16] in a 683px-tall document that cannot scroll.
+/* ── DELETED: .paywall-panel--anchored (TASK-2463, epic 2425 W2.5) ───────────
+   W2 anchored the five non-blocking states (free_public / pending /
+   paid_private / paid_organization / past_due) top-centre over the map —
+   `position: fixed; top: 60px`, centred, portaled to document.body. It made
+   them visible, which was the point, but the destination was wrong: it
+   contradicted grill decision 6 ("the map becomes a modal HOST, not a balance
+   dashboard") and the operator rejected it at the W2 UAT gate.
 
-   CONTENT-SIZED ON PURPOSE. `left: 0; right: 0` + `width: max-content` +
-   auto margins centres the box WITHOUT a transform (a transform would make it
-   a containing block for fixed descendants and reintroduce exactly the class
-   of bug above) and, critically, keeps the element's own box no bigger than
-   its content: a full-viewport wrapper here would be an invisible
-   click-absorbing layer over the customer's map. There is nothing to make
-   pointer-events-transparent because there is no scrim.
+   It also produced a concrete collision the adversarial pass caught: in
+   past_due the shell clamped to its 560px cap (the dunning banner's ~100-char
+   line inside `flex: 1 1 240px` overran max-content), occupying x 424..984 /
+   y 60..~134 at 1408px — swallowing the Account panel's close chip at
+   x≈474..498 / y≈72..96. MovablePanel's inline z-index:100000 is not portaled,
+   so it resolved inside .gn-page-wrapper's 99999 and lost. past_due is the
+   day-one default at flip (84 of 84 non-public prod owners are unentitled),
+   so that was the modal state, not the corner case.
 
-   top: 60px clears the 49px-tall .gn-main-header; the SimpleView left toolbar
-   occupies x 20..372 at that height and the scenario pane starts at y 119, so
-   a centred content-width box sits in free space at the sizes W0 measured.
-
-   z-index 100000: .gn-page-wrapper is a z-index 99999 stacking context and the
-   whole app UI lives inside it, so anything lower paints behind everything.
-   Same ceiling as meter.css / MOVABLE_PANEL_Z_INDEX — do not raise it. */
-.paywall-panel--anchored {
-    position: fixed;
-    top: 60px;
-    left: 0;
-    right: 0;
-    margin-left: auto;
-    margin-right: auto;
-    width: max-content;
-    max-width: min(560px, calc(100vw - 40px));
-    z-index: 100000;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px 12px;
-    background-color: #002a5e;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-}
+   The rule is GONE, not disabled, and PaywallPanel no longer emits the
+   className — the two must move together or guard:paywall-css fails (it
+   flags a className with no rule; an unused rule it would not catch).
+   Do not re-add an on-map shell here. See PaywallPanel.js's docstring for
+   where each state's information lives now. */
 
 /* ── Modal host (upgrade_prompt only) ────────────────────────────────────────
    The body-level layer ModalHost portals into. Identical contract to
@@ -105,29 +92,6 @@
     right: 0;
     bottom: 0;
     z-index: 100000;
-}
-
-/* ── free_public: the "make private" CTA ────────────────────────────────── */
-.paywall-make-private-btn {
-    background-color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    color: #003c88;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 8px 16px;
-    cursor: pointer;
-}
-
-.paywall-make-private-btn:hover {
-    background-color: rgba(255, 255, 255, 0.88);
-}
-
-.paywall-make-private-hint {
-    margin: 6px 0 0;
-    font-size: 12px;
-    line-height: 1.4;
-    color: #dce6f7;
 }
 
 /* ── upgrade_prompt: the blocking checkout modal ─────────────────────────────
@@ -240,163 +204,6 @@
     color: #5bc0ff;
 }
 
-/* ── pending: the post-Stripe confirmation window ────────────────────────── */
-.paywall-pending-spinner {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 10px 12px;
-    background-color: #003c88;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 8px;
-}
-
-/* Honest affordance: this genuinely is a wait, so it animates. Reduced-motion
-   users get a static ring rather than a spinner that never stops. */
-.paywall-spinner-icon {
-    width: 18px;
-    height: 18px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: #ffffff;
-    border-radius: 50%;
-    animation: paywall-spin 0.9s linear infinite;
-}
-
-@keyframes paywall-spin {
-    to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .paywall-spinner-icon {
-        animation: none;
-        border-top-color: rgba(255, 255, 255, 0.3);
-    }
-}
-
-.paywall-pending-text {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: #ffffff;
-}
-
-.paywall-pending-subtext {
-    margin: 0;
-    font-size: 12px;
-    color: #dce6f7;
-}
-
-/* ── paid_private / paid_organization: the steady-state badge ────────────────
-   TASK-2446 added the organization tier. The two share the chassis and differ
-   by fill, so "which visibility am I paying for?" is answerable at a glance
-   without reading the label. */
-.paywall-private-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    align-self: flex-start;
-    padding: 4px 10px;
-    border-radius: 12px;
-    background-color: #003c88;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    font-size: 12px;
-    color: #ffffff;
-}
-
-.paywall-private-badge--organization {
-    background-color: #0a4f6e;
-    border-color: rgba(155, 220, 255, 0.5);
-}
-
-/* past_due, dunning already dismissed: the badge persists but says so. Amber,
-   because a lapsed subscription is a warning the user must act on — and
-   never, ever a hint that the model has been made public (hard contract
-   rule: LAPSE NEVER AUTO-PUBLISHES). */
-.paywall-private-badge--past-due {
-    background-color: #ffc107;
-    border-color: #c69500;
-    color: #2b1d00;
-}
-
-.paywall-private-badge-icon {
-    font-size: 13px;
-    line-height: 1;
-}
-
-.paywall-private-badge-label {
-    font-weight: 600;
-}
-
-.paywall-manage-billing-link {
-    color: #5bc0ff;
-    font-size: 12px;
-    text-decoration: underline;
-}
-
-.paywall-private-badge--past-due .paywall-manage-billing-link {
-    color: #5a3d00;
-}
-
-/* ── past_due: the non-blocking dunning banner ───────────────────────────────
-   Advisory by contract — it must NOT hard-lock the project UI, so it is a
-   banner in flow, not an overlay. */
-.paywall-dunning-banner {
-    border-radius: 8px;
-    padding: 8px 12px;
-    background-color: #003c88;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-}
-
-.paywall-dunning-banner--warning {
-    background-color: #ffc107;
-    border-color: #c69500;
-    color: #2b1d00;
-}
-
-.paywall-dunning-banner-content {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.paywall-dunning-banner-icon {
-    font-size: 16px;
-    line-height: 1;
-}
-
-.paywall-dunning-banner-text {
-    flex: 1 1 240px;
-    font-size: 13px;
-    line-height: 1.4;
-}
-
-.paywall-renew-btn {
-    background-color: #2b1d00;
-    border: none;
-    border-radius: 6px;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 6px 14px;
-    cursor: pointer;
-}
-
-.paywall-renew-btn:hover {
-    background-color: #45300a;
-}
-
-.paywall-dunning-dismiss {
-    background: transparent;
-    border: none;
-    color: #2b1d00;
-    font-size: 18px;
-    line-height: 1;
-    padding: 0 4px;
-    cursor: pointer;
-}
-
 /* Every interactive control on this surface needs a visible focus ring —
    several of them are the only route to a paid action. */
 .paywall-panel a:focus-visible,
@@ -407,9 +214,3 @@
     outline-offset: 2px;
 }
 
-.paywall-dunning-banner--warning a:focus-visible,
-.paywall-dunning-banner--warning button:focus-visible,
-.paywall-private-badge--past-due a:focus-visible {
-    outline: 2px solid #2b1d00;
-    outline-offset: 2px;
-}

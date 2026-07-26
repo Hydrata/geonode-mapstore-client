@@ -1,9 +1,20 @@
 /**
  * TASK-1357 — Karma contract-assertion tests for the PaywallPanel component.
+ * Rescoped by TASK-2463 (epic 2425 W2.5).
  *
- * These tests load paywall_contract.json VERBATIM and drive the PaywallPanel
- * component through each of the six states defined there, asserting the rendered
- * UX matches docs/strategy/paywall-ux-design.md.
+ * These tests load paywall_contract.json VERBATIM and drive PaywallPanel
+ * through all seven states defined there. What they assert changed shape in
+ * W2.5: the component now renders exactly ONE state (the blocking
+ * upgrade_prompt modal) and NOTHING for the five non-blocking ones, because
+ * the map is a modal host, not a badge surface. See PaywallPanel.js's
+ * docstring for where each state's information went instead.
+ *
+ * WHAT THIS FILE CAN AND CANNOT PROVE. jsdom has no layout engine and no
+ * cascade, so nothing here is evidence about position, visibility, viewport
+ * containment or paint order — a rule EXISTING is not a rule APPLYING. It
+ * proves DOM facts only: which nodes exist, and (via assertPortaledToBody)
+ * where in the tree they landed. Every geometric claim in this epic is carried
+ * by tests/e2e/test_paywall_money_path.py.
  *
  * Kill-switch: when PAYWALL_ENABLED=false the component renders nothing.
  * Fixture-mode: PAYWALL_FIXTURE_MODE=true renders each state from the fixture
@@ -52,15 +63,20 @@ afterEach(() => {
 /**
  * Renders PaywallPanel and returns the DOCUMENT as the query root.
  *
- * W2 remediation — the panel's output no longer lands in the mount container.
- * Every rendered state is portaled to document.body: the blocking
- * upgrade_prompt through the shared ModalHost, the advisory states through the
- * anchored shell. Both had to leave the plugin's in-flow mount point, which
- * measured at rect [0, 668, 1408, 16] on a 683px-tall map route in a document
- * that cannot scroll (see PaywallPanel.render). Exactly the change
- * computeMeterPanel-test.js made for TASK-2435, for exactly the same reason:
- * without it every query below would silently return null and the suite would
- * go green by losing its coverage instead of by passing.
+ * WHY `document` AND NOT `container` — and why that is not a free pass.
+ * The one state this component still renders (upgrade_prompt) is portaled to
+ * document.body by ModalHost, so it never lands in the mount container;
+ * querying `container` would return null for everything and the suite would go
+ * green by losing its coverage instead of by passing. Exactly the change
+ * computeMeterPanel-test.js made for TASK-2435.
+ *
+ * The honest-scope caveat (raised against this file in the W2 adversarial
+ * pass): querying `document` makes an ABSENCE assertion strong (nothing
+ * anywhere in the page) but makes a PRESENCE assertion blind to *where* the
+ * node landed — it would pass for an in-flow render just as happily as for a
+ * portal. That is why `assertPortaledToBody` below exists and is called in the
+ * upgrade_prompt block: the mount point is the thing this epic keeps getting
+ * wrong, so it gets its own explicit assertion rather than being implied.
  *
  * The absence assertions stay honest because afterEach unmounts the container,
  * which tears the portal out of document.body too.
@@ -73,6 +89,25 @@ function renderPaywall(props) {
         );
     });
     return document;
+}
+
+/**
+ * Asserts the node is a DIRECT child of document.body — i.e. genuinely
+ * portaled out, not merely findable from `document`. Karma cannot prove
+ * geometry (jsdom has no layout engine and no cascade), so this proves the one
+ * structural half it can: the node escaped the plugin's in-flow mount point,
+ * which measured at rect [0, 668, 1408, 16] on a 683px-tall non-scrolling map
+ * route. The "is it actually visible / above every layer" half is the
+ * Playwright suite's job (tests/e2e/test_paywall_money_path.py).
+ */
+function assertPortaledToBody(node, what) {
+    expect(node).toExist(`${what} did not render at all`);
+    expect(node.parentNode).toBe(
+        document.body,
+        `${what} is in the page but NOT a direct child of document.body ` +
+        '(parent was ' + (node.parentNode && node.parentNode.nodeName) + ') — ' +
+        'it did not escape the in-flow mount point'
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -181,37 +216,69 @@ describe('PaywallPanel — kill-switch (PAYWALL_ENABLED=false)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// State: free_public — shows "Make private" CTA
+// TASK-2463 (epic 2425 W2.5) — THE FIVE NON-BLOCKING STATES RENDER NOTHING.
+//
+// This block REPLACES five per-state describes that asserted the opposite
+// (make-private CTA, pending spinner, private badge, organization badge,
+// dunning banner, each inside a `[data-testid="paywall-panel"]` shell anchored
+// top-centre over the map). Those tests were not wrong when written — they
+// encoded W2's anchored direction, which the operator rejected at the UAT
+// gate. They are replaced rather than deleted so the reversal is legible.
+//
+// The queries run against `document`, so this is the strongest form of the
+// claim available in karma: the state produces no node ANYWHERE in the page,
+// portaled or in-flow. What karma still cannot prove is the geometric half —
+// "nothing intersects the map canvas". That is asserted at the map-canvas
+// centre by test_paywall_map_is_clean_at_rest_for_every_steady_state in
+// tests/e2e/test_paywall_money_path.py, which is the only place it CAN be
+// proved. Do not read this block as a geometry guarantee.
 // ─────────────────────────────────────────────────────────────────────────────
-describe('PaywallPanel — state: free_public', () => {
-    let c;
-    beforeEach(() => {
-        c = renderPaywall({
-            paywallEnabled: true,
-            fixtureMode: true,
-            fixtureState: 'free_public'
+describe('PaywallPanel — the non-blocking states render nothing (TASK-2463)', () => {
+    const STEADY_STATES = ['free_public', 'pending', 'paid_private', 'paid_organization', 'past_due'];
+
+    // Every testid the deleted sub-components used to emit, plus the shell.
+    // Listed explicitly (not derived) so resurrecting any one of them by name
+    // fails here rather than silently re-appearing over someone's map.
+    const FORBIDDEN = [
+        'paywall-panel',
+        'make-private-cta', 'make-private-btn',
+        'pending-spinner',
+        'private-badge', 'organization-badge', 'manage-billing-link',
+        'dunning-banner', 'renew-cta', 'dismiss-dunning'
+    ];
+
+    STEADY_STATES.forEach(stateName => {
+        it(`${stateName}: emits no paywall node anywhere in the document`, () => {
+            const c = renderPaywall({
+                paywallEnabled: true,
+                fixtureMode: true,
+                fixtureState: stateName
+            });
+            FORBIDDEN.forEach(testid => {
+                expect(c.querySelector(`[data-testid="${testid}"]`)).toBe(
+                    null,
+                    `${stateName} rendered [data-testid="${testid}"] — the map is a modal host, not a badge surface`
+                );
+            });
         });
     });
 
-    it('renders the paywall panel', () => {
-        expect(c.querySelector('[data-testid="paywall-panel"]')).toExist();
+    it('past_due does not render a hard lockout (read_only is advisory only)', () => {
+        const c = renderPaywall({ paywallEnabled: true, fixtureMode: true, fixtureState: 'past_due' });
+        expect(c.querySelector('[data-testid="hard-lockout"]')).toBe(null);
     });
 
-    it('shows the "Make private" CTA button', () => {
-        const btn = c.querySelector('[data-testid="make-private-btn"]');
-        expect(btn).toExist('"Make private" button not found in free_public state');
-    });
-
-    it('does not show upgrade_prompt modal', () => {
-        expect(c.querySelector('[data-testid="upgrade-modal"]')).toBe(null);
-    });
-
-    it('does not show dunning banner', () => {
-        expect(c.querySelector('[data-testid="dunning-banner"]')).toBe(null);
-    });
-
-    it('does not show pending spinner', () => {
-        expect(c.querySelector('[data-testid="pending-spinner"]')).toBe(null);
+    it('the anchored shell className is gone from the markup, not just unstyled', () => {
+        // guard:paywall-css flags a className with NO rule but never a rule
+        // with no className, so the CSS side cannot catch a half-revert. This
+        // does: paywall.css deleted `.paywall-panel--anchored`, so emitting it
+        // again would ship an unstyled browser-default box.
+        STEADY_STATES.concat(['upgrade_prompt']).forEach(stateName => {
+            const c = renderPaywall({ paywallEnabled: true, fixtureMode: true, fixtureState: stateName });
+            expect(c.querySelector('.paywall-panel--anchored')).toBe(
+                null, `${stateName} re-emitted .paywall-panel--anchored`
+            );
+        });
     });
 });
 
@@ -232,6 +299,13 @@ describe('PaywallPanel — state: upgrade_prompt', () => {
 
     it('renders the paywall panel', () => {
         expect(c.querySelector('[data-testid="paywall-panel"]')).toExist();
+    });
+
+    // TASK-2463 — the one structural claim karma can make about the mount
+    // point. This file had ZERO assertion that anything portals, which is how
+    // an in-flow regression could have passed all 45 of its other assertions.
+    it('the modal host is a DIRECT child of document.body (portaled, not in flow)', () => {
+        assertPortaledToBody(c.querySelector('[data-testid="paywall-panel"]'), 'the upgrade modal host');
     });
 
     it('shows upgrade modal', () => {
@@ -273,190 +347,6 @@ describe('PaywallPanel — state: upgrade_prompt', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// State: pending — shows spinner (FE-only transient)
-// ─────────────────────────────────────────────────────────────────────────────
-describe('PaywallPanel — state: pending (FE-only transient)', () => {
-    let c;
-
-    beforeEach(() => {
-        c = renderPaywall({
-            paywallEnabled: true,
-            fixtureMode: true,
-            fixtureState: 'pending'
-        });
-    });
-
-    it('renders the paywall panel', () => {
-        expect(c.querySelector('[data-testid="paywall-panel"]')).toExist();
-    });
-
-    it('shows pending spinner', () => {
-        const spinner = c.querySelector('[data-testid="pending-spinner"]');
-        expect(spinner).toExist('pending spinner not found');
-    });
-
-    it('does not show upgrade modal', () => {
-        expect(c.querySelector('[data-testid="upgrade-modal"]')).toBe(null);
-    });
-
-    it('does not show dunning banner', () => {
-        expect(c.querySelector('[data-testid="dunning-banner"]')).toBe(null);
-    });
-
-    it('does not show "Make private" CTA (already in transition)', () => {
-        expect(c.querySelector('[data-testid="make-private-btn"]')).toBe(null);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// State: paid_private — normal view, manage-billing CTA
-// ─────────────────────────────────────────────────────────────────────────────
-describe('PaywallPanel — state: paid_private', () => {
-    let c;
-
-    beforeEach(() => {
-        c = renderPaywall({
-            paywallEnabled: true,
-            fixtureMode: true,
-            fixtureState: 'paid_private'
-        });
-    });
-
-    it('renders the paywall panel', () => {
-        expect(c.querySelector('[data-testid="paywall-panel"]')).toExist();
-    });
-
-    it('shows "private" badge indicator', () => {
-        const badge = c.querySelector('[data-testid="private-badge"]');
-        expect(badge).toExist('private badge not found in paid_private state');
-    });
-
-    it('does not show upgrade modal', () => {
-        expect(c.querySelector('[data-testid="upgrade-modal"]')).toBe(null);
-    });
-
-    it('does not show dunning banner', () => {
-        expect(c.querySelector('[data-testid="dunning-banner"]')).toBe(null);
-    });
-
-    it('does not show pending spinner', () => {
-        expect(c.querySelector('[data-testid="pending-spinner"]')).toBe(null);
-    });
-
-    it('does not show "Make private" CTA (project already private)', () => {
-        expect(c.querySelector('[data-testid="make-private-btn"]')).toBe(null);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// State: paid_organization — TASK-2446 (epic 2425 W2).
-//
-// REGRESSION GUARD: before this case existed the switch fell through to
-// `default: content = null`, so the ENTIRE panel was suppressed — every
-// assertion below would have been null. This is the blank-render gap that
-// blocked the PAYWALL_ENABLED flip.
-// ─────────────────────────────────────────────────────────────────────────────
-describe('PaywallPanel — state: paid_organization (TASK-2446)', () => {
-    let c;
-
-    beforeEach(() => {
-        c = renderPaywall({
-            paywallEnabled: true,
-            fixtureMode: true,
-            fixtureState: 'paid_organization'
-        });
-    });
-
-    it('renders the paywall panel (NOT a blank/null render)', () => {
-        expect(c.querySelector('[data-testid="paywall-panel"]')).toExist(
-            'paid_organization fell through to the default null branch'
-        );
-    });
-
-    it('shows an organization badge indicator', () => {
-        const badge = c.querySelector('[data-testid="organization-badge"]');
-        expect(badge).toExist('organization badge not found in paid_organization state');
-        expect(badge.textContent).toInclude('Organization');
-    });
-
-    it('carries a distinguishing modifier class so it can be styled apart from Private', () => {
-        const badge = c.querySelector('[data-testid="organization-badge"]');
-        expect(badge.className).toInclude('paywall-private-badge');
-        expect(badge.className).toInclude('paywall-private-badge--organization');
-    });
-
-    it('is DISTINCT from the paid_private badge (not conflated)', () => {
-        expect(c.querySelector('[data-testid="private-badge"]')).toBe(null);
-        expect(c.querySelector('[data-testid="organization-badge"]').textContent)
-            .toNotInclude('Private');
-    });
-
-    it('shows no upgrade modal, dunning banner, pending spinner or make-private CTA', () => {
-        expect(c.querySelector('[data-testid="upgrade-modal"]')).toBe(null);
-        expect(c.querySelector('[data-testid="dunning-banner"]')).toBe(null);
-        expect(c.querySelector('[data-testid="pending-spinner"]')).toBe(null);
-        expect(c.querySelector('[data-testid="make-private-btn"]')).toBe(null);
-    });
-
-    it('contract payload is read_only=false, checkout_url=null', () => {
-        const { payload } = getStatePayload('paid_organization');
-        expect(payload.state).toBe('paid_organization');
-        expect(payload.read_only).toBe(false);
-        expect(payload.checkout_url).toBe(null);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// State: past_due — non-blocking dunning banner, renew CTA
-// ─────────────────────────────────────────────────────────────────────────────
-describe('PaywallPanel — state: past_due', () => {
-    let c;
-    const renewUrl = getStatePayload('past_due').payload.checkout_url;
-
-    beforeEach(() => {
-        c = renderPaywall({
-            paywallEnabled: true,
-            fixtureMode: true,
-            fixtureState: 'past_due'
-        });
-    });
-
-    it('renders the paywall panel', () => {
-        expect(c.querySelector('[data-testid="paywall-panel"]')).toExist();
-    });
-
-    it('shows the dunning banner', () => {
-        const banner = c.querySelector('[data-testid="dunning-banner"]');
-        expect(banner).toExist('dunning banner not found in past_due state');
-    });
-
-    it('dunning banner contains renew CTA pointing to checkout_url', () => {
-        const cta = c.querySelector('[data-testid="renew-cta"]');
-        expect(cta).toExist('"Renew subscription" CTA not found');
-        const href = cta.getAttribute('href') || cta.getAttribute('data-href');
-        expect(href).toBe(renewUrl);
-    });
-
-    it('does NOT render a hard lockout (read_only is advisory only)', () => {
-        // The project UI must remain accessible — no hard-blocking overlay
-        expect(c.querySelector('[data-testid="hard-lockout"]')).toBe(null);
-    });
-
-    it('does not show upgrade modal', () => {
-        expect(c.querySelector('[data-testid="upgrade-modal"]')).toBe(null);
-    });
-
-    it('does not show "Make private" CTA (project already private)', () => {
-        expect(c.querySelector('[data-testid="make-private-btn"]')).toBe(null);
-    });
-
-    it('does not offer "revert to public due to lapse" affordance (contract rule)', () => {
-        // HARD CONTRACT RULE: lapse never auto-publishes
-        expect(c.querySelector('[data-testid="revert-to-public"]')).toBe(null);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 // State: anon — no paywall key in my_perms; component renders nothing
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PaywallPanel — state: anon (no paywall block)', () => {
@@ -484,6 +374,10 @@ describe('PaywallPanel — state: anon (no paywall block)', () => {
 // Hard contract rule: past_due NEVER offers auto-revert-to-public
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PaywallPanel — hard contract rule: lapse never auto-publishes', () => {
+    // Trivially true since TASK-2463 (past_due renders nothing here at all),
+    // and kept exactly for that reason: the rule outlives this component's
+    // current shape, and the day someone re-adds a past_due surface this is
+    // the assertion that must still hold.
     it('past_due state has no "revert to public" element', () => {
         const c = renderPaywall({
             paywallEnabled: true,

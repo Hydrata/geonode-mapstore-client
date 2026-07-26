@@ -1,16 +1,35 @@
 /**
- * PaywallPanel — flag-gated, state-driven paywall UX component.
+ * PaywallPanel — flag-gated paywall UX component. THE MAP IS NOT A BADGE
+ * SURFACE: this component renders exactly ONE thing, the blocking
+ * upgrade_prompt refusal modal. Every other contract state renders null here.
  *
- * TASK-1357 / Epic TASK-1350 (W3).
+ * TASK-1357 / Epic TASK-1350 (W3); rewritten by TASK-2463 (epic 2425 W2.5).
  *
- * Renders the six paywall states defined in paywall_contract.json:
- *   free_public     → "Make private" CTA
- *   upgrade_prompt  → Upgrade modal with checkout_url
- *   pending         → Spinner (FE-only, Stripe-return window)
- *   paid_private    → Private badge + manage-billing link
- *   paid_organization → Organization badge + manage-billing link (TASK-2446)
- *   past_due        → Non-blocking dunning banner + renew CTA
- *   anon            → Nothing (paywall key absent for anonymous callers)
+ * How the seven paywall_contract.json states are surfaced NOW:
+ *   upgrade_prompt    → Upgrade modal with checkout_url  ← THE ONLY ONE HERE
+ *   free_public       → nothing. Public is the happy path; TASK-2462 decided
+ *                       against a persistent "Make private" nag. The
+ *                       make-private ACTION lives in Account > Sharing.
+ *   paid_private      → padlock on the Account button (SimpleView
+ *   paid_organization   accountVisibilityLock.js), driven by the project's
+ *                       `visibility`, gated to the owner.
+ *   past_due          → the same padlock, amber (--lapsed). The renew/manage
+ *                       action lives in Account > Billing
+ *                       (BillingTabPanel SubscriptionSection).
+ *   pending           → nothing. FE-only Stripe-return window; the poll epic
+ *                       still runs, it just has no on-map surface.
+ *   anon              → nothing (paywall key absent for anonymous callers).
+ *
+ * WHY — grill decision 6 (2026-07-25): "the map becomes a modal HOST, not a
+ * balance dashboard." W2 fixed a real defect (these states rendered at
+ * viewportHeight+55px in a non-scrolling document, i.e. invisible) by
+ * ANCHORING them top-centre over the map, which contradicted that decision;
+ * the operator rejected it at the W2 UAT gate. The states were never the
+ * problem — the destination was. Ambient state belongs on the control that
+ * changes it, not in the middle of someone's flood model.
+ *
+ * DO NOT re-add an on-map surface here. If a state genuinely needs to
+ * interrupt the customer, that is what ModalHost is for, and it is a REFUSAL.
  *
  * Kill-switch: `paywallEnabled` prop (default false) — the whole component
  * is dormant (renders null) when false. Ships DARK until operator flip.
@@ -20,16 +39,15 @@
  * Used exclusively by Karma tests and development; never set in production.
  *
  * Hard contract rules enforced by this component:
- *   1. LAPSE NEVER AUTO-PUBLISHES — past_due never shows "revert to public" affordance.
- *   2. `read_only=true` on past_due is FE-advisory only — renders a non-blocking
- *      dunning banner, NOT a hard lockout (the backend does not enforce it in Phase-1).
+ *   1. LAPSE NEVER AUTO-PUBLISHES — past_due never shows "revert to public"
+ *      affordance. Trivially true now: past_due renders nothing here at all.
+ *   2. `read_only=true` on past_due is FE-advisory only — never a hard lockout
+ *      (the backend does not enforce it in Phase-1).
  */
 
 import React from 'react';
-import ReactDOM from 'react-dom';
 // TASK-2436 — imported by the component that EMITS the markup, so the panel
-// can never ship without its stylesheet again (28 paywall-* classNames had
-// no rule anywhere in the repo before this).
+// can never ship without its stylesheet again.
 import '../paywall.css';
 // W2 remediation — the same body-level dialog host the compute-meter refusal
 // modals use. See ModalHost.js for the measured evidence that this panel's own
@@ -46,36 +64,16 @@ import { getStatePayload } from '../paywallContract';
 const UPGRADE_MODAL_TITLE_ID = 'paywall-upgrade-modal-title';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
-
-/**
- * MakePrivateCTA — shown in free_public state.
- * Notifies parent when user clicks "Make private".
- */
-function MakePrivateCTA({ onMakePrivate }) {
-    return (
-        <div data-testid="make-private-cta">
-            <button
-                data-testid="make-private-btn"
-                className="paywall-make-private-btn"
-                onClick={onMakePrivate}
-                title="Make this model private"
-            >
-                Make private
-            </button>
-            <p className="paywall-make-private-hint">
-                Only you and your team will be able to see it.
-            </p>
-        </div>
-    );
-}
-
-MakePrivateCTA.propTypes = {
-    onMakePrivate: PropTypes.func
-};
-
-MakePrivateCTA.defaultProps = {
-    onMakePrivate: () => {}
-};
+//
+// TASK-2463 removed four of them — MakePrivateCTA (free_public), PendingSpinner
+// (pending), PrivateBadge (paid_private / paid_organization / dismissed
+// past_due) and DunningBanner (past_due) — along with the anchored shell that
+// portaled them over the map. They are deleted, not commented out or left
+// unreferenced: an unrendered component is an invitation to re-mount it
+// somewhere, and the whole point of this change is that these states have no
+// on-map surface. Their information now lives on the Account button padlock
+// and in Account > Billing. Recover them from git history (TASK-2436..2446) if
+// a future decision reverses this — do not resurrect them by accident.
 
 /**
  * UpgradeModal — shown when upgrade_prompt state is active (after 402 response).
@@ -159,131 +157,6 @@ UpgradeModal.defaultProps = {
     onViewAccount: () => {}
 };
 
-/**
- * PendingSpinner — shown after returning from Stripe, while polling my_perms.
- * FE-only transient: the backend never emits `pending`.
- */
-function PendingSpinner() {
-    return (
-        <div data-testid="pending-spinner" className="paywall-pending-spinner">
-            <div className="paywall-spinner-icon" aria-label="Loading" role="status" />
-            <p className="paywall-pending-text">
-                Confirming your subscription&hellip;
-            </p>
-            <p className="paywall-pending-subtext">
-                This usually takes a few seconds. Please wait.
-            </p>
-        </div>
-    );
-}
-
-/**
- * PrivateBadge — the paid steady-state indicator. One component, two
- * visibility tiers (TASK-2446, epic 2425 W2):
- *   - `variant="private"`      → paid_private      (🔒 "Private")
- *   - `variant="organization"` → paid_organization (👥 "Organization")
- *
- * Parameterised rather than duplicated so the manage-billing affordance can
- * never drift between the two tiers. "Organization" is the visibility tier
- * from the glossary — "the explicit set of people invited to this project" —
- * NOT the owner's commerce organisation, and NOT the retired org auto-fold.
- *
- * Includes the optional manage-billing link when checkout_url is available.
- * NOTE: _derive_paywall_state (gn_anuga/api_v2.py) currently hardcodes
- * checkout_url=None for BOTH paid states, so that link is unreachable today
- * for either tier — see TASK-2456.
- */
-function PrivateBadge({ manageBillingUrl, variant }) {
-    const isOrganization = variant === 'organization';
-    return (
-        <div
-            data-testid={isOrganization ? 'organization-badge' : 'private-badge'}
-            className={`paywall-private-badge${isOrganization ? ' paywall-private-badge--organization' : ''}`}
-        >
-            <span
-                className="paywall-private-badge-icon"
-                aria-label={isOrganization ? 'Organization-visibility model' : 'Private model'}
-            >
-                {isOrganization ? '\u{1F465}' : '\u{1F512}'}
-            </span>
-            <span className="paywall-private-badge-label">
-                {isOrganization ? 'Organization' : 'Private'}
-            </span>
-            {manageBillingUrl ? (
-                <a
-                    data-testid="manage-billing-link"
-                    className="paywall-manage-billing-link"
-                    href={manageBillingUrl}
-                    data-href={manageBillingUrl}
-                >
-                    Manage billing
-                </a>
-            ) : null}
-        </div>
-    );
-}
-
-PrivateBadge.propTypes = {
-    manageBillingUrl: PropTypes.string,
-    variant: PropTypes.oneOf(['private', 'organization'])
-};
-
-PrivateBadge.defaultProps = {
-    manageBillingUrl: null,
-    variant: 'private'
-};
-
-/**
- * DunningBanner — shown in past_due state.
- * Non-blocking (advisory only) — does NOT hard-lock the project UI.
- * HARD CONTRACT RULE: never shows "revert to public" affordance.
- *
- * TASK-2099: renewUrl is the SAME POST-only create-session endpoint as
- * UpgradeModal's checkoutUrl (_derive_paywall_state, api_v2.py) — the
- * `<a href>` 405 trap applies here too. Same button + onRenewClick fix.
- */
-function DunningBanner({ renewUrl, onDismiss, onRenewClick }) {
-    return (
-        <div data-testid="dunning-banner" className="paywall-dunning-banner paywall-dunning-banner--warning">
-            <div className="paywall-dunning-banner-content">
-                <span className="paywall-dunning-banner-icon" aria-hidden="true">&#9888;</span>
-                <span className="paywall-dunning-banner-text">
-                    Your subscription has lapsed — this model is still private, but renew to maintain your subscription.
-                </span>
-                <button
-                    type="button"
-                    data-testid="renew-cta"
-                    className="paywall-renew-btn"
-                    data-href={renewUrl}
-                    onClick={() => onRenewClick(renewUrl)}
-                >
-                    Renew subscription
-                </button>
-                <button
-                    data-testid="dismiss-dunning"
-                    className="paywall-dunning-dismiss"
-                    onClick={onDismiss}
-                    aria-label="Dismiss"
-                >
-                    &times;
-                </button>
-            </div>
-        </div>
-    );
-}
-
-DunningBanner.propTypes = {
-    renewUrl: PropTypes.string,
-    onDismiss: PropTypes.func,
-    onRenewClick: PropTypes.func
-};
-
-DunningBanner.defaultProps = {
-    renewUrl: '',
-    onDismiss: () => {},
-    onRenewClick: () => {}
-};
-
 // ─── Main component ──────────────────────────────────────────────────────────
 
 class PaywallPanel extends React.Component {
@@ -312,17 +185,11 @@ class PaywallPanel extends React.Component {
          */
         fixtureState: PropTypes.string,
 
-        /** Called when user clicks "Make private" in free_public state. */
-        onMakePrivate: PropTypes.func,
-
         /** Called when user dismisses the upgrade_prompt modal. */
         onDismissUpgrade: PropTypes.func,
 
         /** Called with checkoutUrl when user clicks "Subscribe" (upgrade_prompt state). */
         onSubscribeClick: PropTypes.func,
-
-        /** Called with checkoutUrl when user clicks "Renew subscription" (past_due state). */
-        onRenewClick: PropTypes.func,
 
         /** TASK-2420 — "View account" on the upgrade_prompt modal -> Billing tab. */
         onViewAccount: PropTypes.func
@@ -333,19 +200,10 @@ class PaywallPanel extends React.Component {
         paywallPayload: undefined,
         fixtureMode: false,
         fixtureState: null,
-        onMakePrivate: () => {},
         onDismissUpgrade: () => {},
         onSubscribeClick: () => {},
-        onRenewClick: () => {},
         onViewAccount: () => {}
     };
-
-    constructor(props) {
-        super(props);
-        this.state = {
-            dunningDismissed: false
-        };
-    }
 
     /**
      * Resolve the effective payload to render from.
@@ -373,8 +231,7 @@ class PaywallPanel extends React.Component {
     }
 
     render() {
-        const { paywallEnabled, onMakePrivate, onDismissUpgrade, onSubscribeClick, onRenewClick, onViewAccount } = this.props;
-        const { dunningDismissed } = this.state;
+        const { paywallEnabled, onDismissUpgrade, onSubscribeClick, onViewAccount } = this.props;
 
         // Kill-switch: render nothing when disabled (dark ship default).
         if (!paywallEnabled) {
@@ -390,11 +247,9 @@ class PaywallPanel extends React.Component {
 
         const { state: paywallState, checkout_url: checkoutUrl } = payload;
 
-        // upgrade_prompt is the one BLOCKING state, and it gets the shared
-        // body-level dialog host (portal + role/name/focus/Escape). Handled
-        // before the switch so it is structurally impossible to nest the
-        // overlay inside the anchored shell below — nesting it is precisely
-        // what capped it at rank 2 (ModalHost.js docstring).
+        // upgrade_prompt is the one BLOCKING state and the ONLY state this
+        // component renders. It gets the shared body-level dialog host (portal
+        // + role/name/focus/Escape).
         if (paywallState === 'upgrade_prompt') {
             return (
                 <ModalHost
@@ -413,97 +268,22 @@ class PaywallPanel extends React.Component {
             );
         }
 
-        // Render the appropriate UX for each state.
-        let content;
-        switch (paywallState) {
-        case 'free_public':
-            content = (
-                <MakePrivateCTA onMakePrivate={onMakePrivate} />
-            );
-            break;
-
-        case 'pending':
-            content = <PendingSpinner />;
-            break;
-
-        case 'paid_private':
-            content = (
-                <PrivateBadge manageBillingUrl={checkoutUrl} variant="private" />
-            );
-            break;
-
-        // TASK-2446 (epic 2425 W2) — contract v1.1 / TASK-2432's DISTINCT
-        // steady-state literal for an organization-visibility project held by
-        // an entitled account. Without this case it fell through to
-        // `default: content = null` and the whole panel silently vanished on
-        // the next my_perms read — reachable by an ordinary PATCH or by
-        // grandfathering, and reachable with PAYWALL_ENABLED=False too (the
-        // flag-off branch of _derive_paywall_state emits it as well).
-        case 'paid_organization':
-            content = (
-                <PrivateBadge manageBillingUrl={checkoutUrl} variant="organization" />
-            );
-            break;
-
-        case 'past_due':
-            if (dunningDismissed) {
-                // Dismissed: show a minimal private indicator.
-                content = (
-                    <div data-testid="private-badge" className="paywall-private-badge paywall-private-badge--past-due">
-                        <span className="paywall-private-badge-label">Private (subscription lapsed)</span>
-                    </div>
-                );
-            } else {
-                content = (
-                    <DunningBanner
-                        renewUrl={checkoutUrl}
-                        onDismiss={() => this.setState({ dunningDismissed: true })}
-                        onRenewClick={onRenewClick}
-                    />
-                );
-            }
-            break;
-
-        default:
-            // Unknown state — render nothing gracefully.
-            content = null;
-        }
-
-        if (!content) {
-            return null;
-        }
-
-        // W2 remediation — THE NON-BLOCKING STATES ARE ANCHORED, NOT IN FLOW.
+        // EVERY OTHER STATE RENDERS NOTHING ON THE MAP (TASK-2463).
         //
-        // Measured live on the map route at 1408x683, before this change:
-        //   [data-testid="paywall-panel"]  rect [0, 668, 1408, 16]
-        //   viewport height 668+16 = 684 > 683, document.scrollHeight === 683
-        //   document.elementFromPoint(centre) -> DIV.mapstore-map-footer
-        // i.e. the panel rendered ON the fold of a document that cannot
-        // scroll, and was not even the hit-test target of its own centre
-        // point. That is the epic's original defect, unchanged for the
-        // paywall half: TASK-2436 gave these five states 28 CSS rules, which
-        // converted "unstyled but visible" into "styled and invisible".
+        // Not "renders in flow" — nothing. The in-flow mount point measured at
+        // rect [0, 668, 1408, 16] on a 1408x683 map route whose document
+        // cannot scroll, with document.elementFromPoint(centre) returning
+        // DIV.mapstore-map-footer: invisible, and not even its own hit-test
+        // target. W2 escaped that by portaling an anchored shell to
+        // document.body at top:60px. The operator rejected the destination at
+        // the W2 UAT gate, so BOTH the shell and the in-flow fallback are gone
+        // and there is no third option left to regress into.
         //
-        // A portal to document.body (the same escape MeterModalHost makes) is
-        // the only way out: `.gn-viewer-layout-body` has transform:translate(0)
-        // so `fixed` alone does not leave it, and `.gn-page-wrapper` is a
-        // z-index 99999 stacking context.
-        //
-        // The anchored shell is CONTENT-SIZED, never full-viewport: it must
-        // not become an invisible click-absorbing layer over the map (see
-        // paywall.css). These states are advisory — the customer keeps
-        // working around them.
-        const anchored = (
-            <div data-testid="paywall-panel" className="paywall-panel paywall-panel--anchored">
-                {content}
-            </div>
-        );
-
-        if (typeof document === 'undefined') {
-            return anchored;
-        }
-        return ReactDOM.createPortal(anchored, document.body);
+        // Where the information went instead is listed in the file docstring.
+        // The one thing that must stay true: after this return, no paywall
+        // element exists over the map canvas in any steady state. The e2e
+        // suite asserts exactly that at the map-canvas centre for all five.
+        return null;
     }
 }
 

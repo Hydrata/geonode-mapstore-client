@@ -830,6 +830,11 @@ span.sv-menu-row-glyph {
         font-size: 14px;
     }
 
+    /* TASK-2463 — 36x36 button (32x32 padding box): right:3px puts the 15px
+       padlock at x 16..31, inside the 34px inner edge. The default rule already
+       fits, so only the tablet step needs no override; kept here as the
+       explicit statement that the geometry was checked at this size too. */
+
     .sv-legend-panel {
         max-width: 250px;
         max-height: calc(100vh - 31px);
@@ -877,6 +882,17 @@ span.sv-menu-row-glyph {
         width: 32px;
         height: 32px;
         font-size: 13px;
+    }
+
+    /* TASK-2463 — a 15px padlock on a 32px button reads as a blob; shrink it
+       with the button. 13px at top:3/right:2 -> x 13..26 / y 5..18 inside a
+       28x28 padding box, still overlapping the (13px) glyph's top-right. */
+    .sv-visibility-lock {
+        width: 13px;
+        height: 13px;
+        top: 3px;
+        right: 2px;
+        font-size: 8px;
     }
 
     .sv-legend-panel {
@@ -1520,6 +1536,82 @@ span.sv-menu-row-glyph {
     height: 8px;
     border-radius: 50%;
     background: var(--sv-glyph-inactive, red);
+}
+
+/* ── TASK-2463 (epic 2425 W2.5): project-visibility padlock on the Account button
+   Replaces the on-map paywall badge W2 anchored top-centre over the map and the
+   operator rejected: "the Private badge in the middle of the screen is way too
+   much. can we just move it so the padlock appears over the top right hand side
+   of the person icon in the account button."
+
+   Follows .sv-tm-button / .sv-tm-notification-dot on the Tasks button directly
+   below: a second class supplies the positioned host rather than editing the
+   shared .simple-view-right-button base, and NEITHER rule carries a z-index.
+
+   NO z-index HERE — DELIBERATE. `position: relative` with z-index AUTO does not
+   create a stacking context; it only makes the button a containing block for
+   absolutely positioned descendants, and the Account button has no others (the
+   Account panel is a MovablePanel mounted by anugaContainer, and every modal
+   portals to document.body, so none of them is a DOM descendant of this
+   button). Adding a z-index WOULD create a stacking context, which is exactly
+   the shape of both bites in this epic: `.paywall-panel`'s old
+   `position: relative; z-index: 2` capped its own "z-index: 100000" descendant.
+
+   GEOMETRY (checked against the real box, not guessed). Button 40x40 with a 2px
+   border, so the padding box abs offsets resolve against is 36x36 at (2,2). The
+   16px person glyph is centred, spanning roughly x 12..28 / y 12..28.
+     top: 4px  -> y  6..21
+     right: 3px -> x 20..35   (36 - 3 - 15 = 18 from the padding-box left)
+   That overlaps the glyph's top-right corner (x 20..28 / y 12..21) and stays
+   inside the 38px inner edge, so it neither clips nor overflows. Neither
+   .simple-view-right-toolbar nor .simple-view-right-button sets `overflow`, so
+   nothing upstream clips it either.
+
+   NOT pointer-events: none — the e2e gate hit-tests
+   document.elementFromPoint at the padlock's centre, and a click-through badge
+   would return the button and make that assertion vacuous. The badge is a DOM
+   child of the button, so a click on it still bubbles and still opens Account.
+
+   CONTRAST: #04234a on #ffffff -> 14.6:1; lapsed #2b1d00 on #ffc107 -> 10.08:1
+   (the same amber pair the deleted dunning banner used). The fill is opaque, so
+   both hold over any basemap. */
+.sv-visibility-lock-host {
+    position: relative;
+}
+
+.sv-visibility-lock {
+    position: absolute;
+    top: 4px;
+    right: 3px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    line-height: 1;
+    color: #04234a;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+/* Bootstrap's .glyphicon ships `position: relative; top: 1px`, which pushes the
+   padlock off-centre inside a box this small. Zero it rather than fighting the
+   1px with padding. (`position: relative` on the glyph is harmless — z-index
+   stays auto, so still no stacking context.) */
+.sv-visibility-lock .glyphicon {
+    top: 0;
+}
+
+/* past_due: the account's subscription has lapsed. Amber because it needs
+   action — and NEVER a hint that the model has been made public (hard contract
+   rule: LAPSE NEVER AUTO-PUBLISHES). The renew action lives in
+   Account > Billing; this is only the notice. */
+.sv-visibility-lock--lapsed {
+    color: #2b1d00;
+    background-color: #ffc107;
+    box-shadow: 0 0 0 1px #c69500;
 }
 
 /* TASK-2420 (epic 2359 W4.5, UAT-1 finding 12 — plain bug, NOT flag-gated):

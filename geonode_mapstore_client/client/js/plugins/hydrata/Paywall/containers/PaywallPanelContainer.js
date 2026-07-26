@@ -11,17 +11,22 @@ import { connect } from 'react-redux';
 import PaywallPanel from '../components/PaywallPanel';
 import { getEffectivePaywallPayload } from '../reducer';
 import { dismissPaywallUpgrade, subscribeCheckoutRequest } from '../actions';
-import { updateProjectVisibilityRequest, setMembershipPanel, setMembershipPanelTab } from '../../Anuga/actionsAnuga';
+import { setMembershipPanel, setMembershipPanelTab } from '../../Anuga/actionsAnuga';
 
 const mapStateToProps = (state) => ({
     paywallPayload: getEffectivePaywallPayload(state)
 });
 
+// TASK-2463 (epic 2425 W2.5) dropped two handlers with the components that
+// used them: `onMakePrivate` (MakePrivateCTA, free_public) and `onRenewClick`
+// (DunningBanner, past_due). Both are removed rather than left wired to a prop
+// nothing reads — a live dispatch bound to a deleted control is how a dead CTA
+// gets resurrected by someone who sees the plumbing and assumes a caller.
+// The make-private action lives in Account > Sharing; renew lives in
+// Account > Billing (BillingTabPanel's Subscribe/Manage billing).
 const mapDispatchToProps = (dispatch) => ({
-    onMakePrivate: () => dispatch(updateProjectVisibilityRequest('private')),
     onDismissUpgrade: () => dispatch(dismissPaywallUpgrade()),
     onSubscribeClick: () => dispatch(subscribeCheckoutRequest('subscription')),
-    onRenewClick: () => dispatch(subscribeCheckoutRequest('subscription')),
     // TASK-2420 (epic 2359 W4.5) — "View account" on the upgrade_prompt modal.
     //
     // W2 remediation: dismisses the upgrade prompt FIRST, for the same reason

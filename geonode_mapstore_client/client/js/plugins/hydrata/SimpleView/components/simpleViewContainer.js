@@ -17,7 +17,14 @@ import {saveDirectContent} from '@js/actions/gnsave';
 // by anugaContainer on ANUGA maps, so the button only appears where that
 // panel exists.
 import { setMembershipPanel } from '../../Anuga/actionsAnuga';
-import { canManageMembers } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
+import { canManageMembers, getProjectVisibility } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
+// TASK-2463 / TASK-2462 (epic 2425 W2.5) — the project-visibility padlock on
+// the Account button, and the owner gate that decides who sees it. The gate
+// lives in the Paywall plugin (it is a paywall product decision, and it is
+// only half-implementable on the FE today — read Paywall/selectors.js before
+// widening it); SimpleView only renders the pixels.
+import AccountVisibilityLock, { visibilityLockLabel } from './accountVisibilityLock';
+import { canSeeVisibilityIndicator, isPaywallPastDue } from '../../Paywall/selectors';
 import {canEditResource} from '@js/selectors/resource';
 import {isLoggedIn, userSelector} from '@mapstore/framework/selectors/security';
 import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
@@ -81,12 +88,20 @@ export class SimpleViewContainer extends React.Component {
         // plugins' own `paywallEnabled` cfg (threaded via localConfig.json's
         // SimpleView plugin cfg, map_viewer block). Flips the padlock ->
         // 'Account' button open to ANY authenticated user.
-        paywallEnabled: PropTypes.bool
+        paywallEnabled: PropTypes.bool,
+        // TASK-2463 (epic 2425 W2.5) — the visibility padlock on the Account
+        // button. `lockVisibility` is already gated in mapStateToProps: it is
+        // null for anyone the TASK-2462 owner gate excludes, so the component
+        // never has to know who may see it.
+        lockVisibility: PropTypes.string,
+        lockLapsed: PropTypes.bool
     };
 
     static defaultProps = {
         visibleIntroduction: false,
-        paywallEnabled: false
+        paywallEnabled: false,
+        lockVisibility: null,
+        lockLapsed: false
     };
 
     constructor(props) {
@@ -203,14 +218,34 @@ export class SimpleViewContainer extends React.Component {
                         any child, so visual order === DOM order === THIS source order.
                         That is the ordering mechanism; do not add a CSS `order` (it would
                         desync from tab order and break as buttons conditionally hide).
-                        Source order also keeps DOM/tab order in agreement for a11y. */}
+                        Source order also keeps DOM/tab order in agreement for a11y.
+
+                        TASK-2463 (W2.5) — the flags-on button also hosts the
+                        project-visibility padlock. `sv-visibility-lock-host` is
+                        applied UNCONDITIONALLY (the `.sv-tm-button` precedent on
+                        the Tasks button): a bare `position: relative` with no
+                        children is inert, and an anchor that only appears when
+                        the badge does is an anchor that can go missing.
+                        aria-label folds the visibility in because `button` has
+                        presentational children in ARIA — see
+                        accountVisibilityLock.js for why that is not redundant
+                        with the badge's own role=img/aria-label. */}
                     {this.props.paywallEnabled
                         ? (this.props.loggedIn ? (
                             <button
-                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
+                                className={`simple-view-right-button sv-visibility-lock-host ${this.props.permissionsEnabled ? 'active' : ''}`}
                                 onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
-                                title="Account">
+                                title="Account"
+                                aria-label={
+                                    visibilityLockLabel(this.props.lockVisibility, this.props.lockLapsed)
+                                        ? `Account — ${visibilityLockLabel(this.props.lockVisibility, this.props.lockLapsed)}`
+                                        : 'Account'
+                                }>
                                 <Glyphicon glyph="user" />
+                                <AccountVisibilityLock
+                                    visibility={this.props.lockVisibility}
+                                    lapsed={this.props.lockLapsed}
+                                />
                             </button>
                         ) : null)
                         : (this.props.canManageMembers ? (
@@ -356,7 +391,25 @@ const mapStateToProps = (state, ownProps) => {
         // TASK-2420 — ownProps carries the SimpleView plugin's own cfg
         // (localConfig.json map_viewer block), mirroring how anugaContainer
         // reads the Anuga plugin's paywallEnabled cfg.
-        paywallEnabled: !!ownProps?.paywallEnabled
+        paywallEnabled: !!ownProps?.paywallEnabled,
+        // TASK-2463 — the visibility padlock on the Account button.
+        //
+        // SERVER TRUTH, deliberately: `visibility` comes from
+        // ProjectSerializerV2 via state.anuga.projects.data, written by both
+        // the init fetch AND the visibility-PATCH response — never from the
+        // Sharing panel's local selection. A privacy indicator that reflects
+        // what the user clicked rather than what the server stored is worse
+        // than no indicator: it is an assurance that can be false in the
+        // dangerous direction ("Private" over a now-public model).
+        //
+        // Two scalars, not one object: connect() shallow-compares, so a fresh
+        // {visibility, lapsed} literal here would re-render this container on
+        // every store tick.
+        //
+        // The gate is applied HERE rather than inside the component so a
+        // non-owner's visibility never even reaches the render tree.
+        lockVisibility: canSeeVisibilityIndicator(state) ? getProjectVisibility(state) : null,
+        lockLapsed: isPaywallPastDue(state)
     };
 };
 
