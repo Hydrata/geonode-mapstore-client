@@ -38,11 +38,14 @@
  * card (variant="card", BillingTabPanel.js) and its default inline variant
  * stays exported and directly covered by computeMeterPanel-test.js.
  */
-import React, { useCallback, useLayoutEffect, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import React from 'react';
 // TASK-2436 — imported by the component that EMITS the markup, not by a
 // sibling panel, so the modal can never ship without its stylesheet again.
 import '../meter.css';
+// W2 remediation — the portal/dialog machinery TASK-2435 wrote here now lives
+// in ONE place, shared with the paywall upgrade modal (which had the same
+// stacking defect one layer up). See ModalHost.js's docstring.
+import ModalHost from '../../components/ModalHost';
 const PropTypes = require('prop-types');
 
 /**
@@ -219,135 +222,24 @@ ViewAccountLink.propTypes = {
  */
 const MODAL_TITLE_ID = 'compute-meter-modal-title';
 
-/** Tab-cycle candidates inside an open modal. */
-const FOCUSABLE = [
-    'a[href]',
-    'button:not([disabled])',
-    'input:not([disabled])',
-    'select:not([disabled])',
-    'textarea:not([disabled])',
-    '[tabindex]:not([tabindex="-1"])'
-].join(',');
-
 /**
- * MeterModalHost — TASK-2435. Portals its child overlay to document.body so
- * the refusal modal escapes .gn-viewer-layout-body's transform containing
- * block and .gn-page-wrapper's stacking context (see the module docstring),
- * and gives it dialog semantics: Escape closes, Tab cycles within, focus
- * enters on open and returns to the invoking control on close.
- *
- * Deliberately NO backdrop-click-to-dismiss (unlike IdfCurveModal, which is
- * an informational chart): these are refusals the customer has to read and
- * act on, and each already carries an explicit Cancel/OK. A stray click on
- * the backdrop silently discarding "you have no balance" is exactly the
- * failure mode this epic exists to remove.
+ * MeterModalHost — TASK-2435's body-level refusal-modal host, now a thin
+ * naming layer over the shared ModalHost (W2 remediation): same portal, same
+ * dialog semantics, same deliberate absence of backdrop-click-to-dismiss, but
+ * ONE implementation shared with the paywall upgrade modal. The
+ * `compute-meter-panel` testid/className are unchanged — meter.css supplies
+ * this host's fixed full-viewport layer and z-index 100000.
  */
 function MeterModalHost({ children, onDismiss }) {
-    const hostRef = useRef(null);
-    // Captured synchronously at mount, restored at unmount — this is the
-    // "returns to the invoking control" half of AC#2. There is no in-DOM
-    // trigger for these modals (they arrive as Redux actions from a refused
-    // Run dispatch), so the invoking control is whatever had focus when the
-    // refusal landed — normally the Run button the customer just pressed.
-    const previouslyFocusedRef = useRef(null);
-    // The keydown listener is attached ONCE (mount) and must not be re-bound on
-    // every render, but it still has to call the CURRENT onDismiss — hence a
-    // ref rather than putting onDismiss in the effect's dependency list, which
-    // would tear down and re-attach the listener (and re-run the focus-entry
-    // logic) on every parent render.
-    const onDismissRef = useRef(onDismiss);
-    onDismissRef.current = onDismiss;
-
-    const focusable = useCallback(() => {
-        if (!hostRef.current) {
-            return [];
-        }
-        return Array.prototype.slice.call(hostRef.current.querySelectorAll(FOCUSABLE));
-    }, []);
-
-    // useLayoutEffect, not useEffect, for the same synchronous-attach reason
-    // anugaScenarioOverflowMenu.js documents: the handlers must be live before
-    // the browser can deliver an Escape to the newly painted dialog.
-    //
-    // The listeners go on `document`, NOT on the host via onKeyDown, and that
-    // is load-bearing. The backdrop is deliberately not dismiss-on-click, so a
-    // customer who clicks it moves focus to <body> — outside the host. A
-    // host-bound onKeyDown would then never see Escape again, leaving the
-    // dialog un-closable by keyboard. Same precedent as
-    // anugaScenarioOverflowMenu.js, same reason.
-    useLayoutEffect(() => {
-        previouslyFocusedRef.current = document.activeElement;
-        const items = focusable();
-        if (items.length > 0) {
-            items[0].focus();
-        } else if (hostRef.current) {
-            hostRef.current.focus();
-        }
-
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape' || e.keyCode === 27) {
-                e.stopPropagation();
-                onDismissRef.current();
-                return;
-            }
-            if (e.key !== 'Tab' && e.keyCode !== 9) {
-                return;
-            }
-            const focusables = focusable();
-            if (focusables.length === 0) {
-                e.preventDefault();
-                return;
-            }
-            const first = focusables[0];
-            const last = focusables[focusables.length - 1];
-            const host = hostRef.current;
-            // Focus has escaped the dialog entirely (backdrop click) — pull it
-            // back in rather than letting Tab walk into the map behind.
-            if (host && !host.contains(document.activeElement)) {
-                e.preventDefault();
-                first.focus();
-                return;
-            }
-            // Wrap at both ends so Tab can never walk out into the map behind.
-            if (e.shiftKey && document.activeElement === first) {
-                e.preventDefault();
-                last.focus();
-            } else if (!e.shiftKey && document.activeElement === last) {
-                e.preventDefault();
-                first.focus();
-            }
-        };
-
-        document.addEventListener('keydown', handleKeyDown);
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-            const previous = previouslyFocusedRef.current;
-            // Only restore if the invoking control is still in the document
-            // and still focusable — otherwise leave focus where the browser
-            // put it rather than throwing it to <body>.
-            if (previous && typeof previous.focus === 'function' && document.contains(previous)) {
-                previous.focus();
-            }
-        };
-    }, [focusable]);
-
-    if (typeof document === 'undefined') {
-        return null;
-    }
-
-    return ReactDOM.createPortal(
-        <div
-            ref={hostRef}
-            data-testid="compute-meter-panel"
+    return (
+        <ModalHost
+            onDismiss={onDismiss}
+            testId="compute-meter-panel"
             className="compute-meter-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={MODAL_TITLE_ID}
-            tabIndex={-1}
+            titleId={MODAL_TITLE_ID}
         >
             {children}
-        </div>,
-        document.body
+        </ModalHost>
     );
 }
 

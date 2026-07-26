@@ -26,12 +26,24 @@
  */
 
 import React from 'react';
+import ReactDOM from 'react-dom';
 // TASK-2436 — imported by the component that EMITS the markup, so the panel
 // can never ship without its stylesheet again (28 paywall-* classNames had
 // no rule anywhere in the repo before this).
 import '../paywall.css';
+// W2 remediation — the same body-level dialog host the compute-meter refusal
+// modals use. See ModalHost.js for the measured evidence that this panel's own
+// `position: relative; z-index: 2` was capping its "z-index: 100000" overlay.
+import ModalHost from './ModalHost';
 const PropTypes = require('prop-types');
 import { getStatePayload } from '../paywallContract';
+
+/**
+ * The id UpgradeModal's <h2> carries so ModalHost can name the dialog
+ * (aria-labelledby) without knowing which modal it is hosting. Safe as a
+ * single constant: exactly one upgrade modal is ever mounted.
+ */
+const UPGRADE_MODAL_TITLE_ID = 'paywall-upgrade-modal-title';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -76,12 +88,18 @@ MakePrivateCTA.defaultProps = {
  * URL. `data-href` is kept (rather than a real `href`) purely so the fixture
  * Karma tests can still assert the checkout_url reached this component,
  * without making the element itself navigable.
+ *
+ * W2 remediation — this component emits ONLY the backdrop + card. It is always
+ * rendered inside a ModalHost (see PaywallPanel.render), which supplies the
+ * body-level portal and the dialog semantics (role, accessible name, focus
+ * entry/trap/restore, Escape). Before that it was a full-viewport
+ * click-absorbing scrim with none of them.
  */
 function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick, onViewAccount }) {
     return (
         <div data-testid="upgrade-modal" className="paywall-upgrade-modal-overlay">
             <div className="paywall-upgrade-modal">
-                <h2 className="paywall-upgrade-modal-title">
+                <h2 id={UPGRADE_MODAL_TITLE_ID} className="paywall-upgrade-modal-title">
                     Private models require a subscription
                 </h2>
                 <p className="paywall-upgrade-modal-body">
@@ -372,23 +390,35 @@ class PaywallPanel extends React.Component {
 
         const { state: paywallState, checkout_url: checkoutUrl } = payload;
 
+        // upgrade_prompt is the one BLOCKING state, and it gets the shared
+        // body-level dialog host (portal + role/name/focus/Escape). Handled
+        // before the switch so it is structurally impossible to nest the
+        // overlay inside the anchored shell below — nesting it is precisely
+        // what capped it at rank 2 (ModalHost.js docstring).
+        if (paywallState === 'upgrade_prompt') {
+            return (
+                <ModalHost
+                    onDismiss={onDismissUpgrade}
+                    testId="paywall-panel"
+                    className="paywall-panel paywall-panel--modal-host"
+                    titleId={UPGRADE_MODAL_TITLE_ID}
+                >
+                    <UpgradeModal
+                        checkoutUrl={checkoutUrl}
+                        onDismiss={onDismissUpgrade}
+                        onSubscribeClick={onSubscribeClick}
+                        onViewAccount={onViewAccount}
+                    />
+                </ModalHost>
+            );
+        }
+
         // Render the appropriate UX for each state.
         let content;
         switch (paywallState) {
         case 'free_public':
             content = (
                 <MakePrivateCTA onMakePrivate={onMakePrivate} />
-            );
-            break;
-
-        case 'upgrade_prompt':
-            content = (
-                <UpgradeModal
-                    checkoutUrl={checkoutUrl}
-                    onDismiss={onDismissUpgrade}
-                    onSubscribeClick={onSubscribeClick}
-                    onViewAccount={onViewAccount}
-                />
             );
             break;
 
@@ -443,11 +473,37 @@ class PaywallPanel extends React.Component {
             return null;
         }
 
-        return (
-            <div data-testid="paywall-panel" className="paywall-panel">
+        // W2 remediation — THE NON-BLOCKING STATES ARE ANCHORED, NOT IN FLOW.
+        //
+        // Measured live on the map route at 1408x683, before this change:
+        //   [data-testid="paywall-panel"]  rect [0, 668, 1408, 16]
+        //   viewport height 668+16 = 684 > 683, document.scrollHeight === 683
+        //   document.elementFromPoint(centre) -> DIV.mapstore-map-footer
+        // i.e. the panel rendered ON the fold of a document that cannot
+        // scroll, and was not even the hit-test target of its own centre
+        // point. That is the epic's original defect, unchanged for the
+        // paywall half: TASK-2436 gave these five states 28 CSS rules, which
+        // converted "unstyled but visible" into "styled and invisible".
+        //
+        // A portal to document.body (the same escape MeterModalHost makes) is
+        // the only way out: `.gn-viewer-layout-body` has transform:translate(0)
+        // so `fixed` alone does not leave it, and `.gn-page-wrapper` is a
+        // z-index 99999 stacking context.
+        //
+        // The anchored shell is CONTENT-SIZED, never full-viewport: it must
+        // not become an invisible click-absorbing layer over the map (see
+        // paywall.css). These states are advisory — the customer keeps
+        // working around them.
+        const anchored = (
+            <div data-testid="paywall-panel" className="paywall-panel paywall-panel--anchored">
                 {content}
             </div>
         );
+
+        if (typeof document === 'undefined') {
+            return anchored;
+        }
+        return ReactDOM.createPortal(anchored, document.body);
     }
 }
 

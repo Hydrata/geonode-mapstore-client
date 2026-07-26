@@ -28,22 +28,83 @@
  *   #5bc0ff on #003c88 ->  5.21:1   (links; --sv-accent-blue reused, not reinvented)
  *   #003c88 on #ffffff -> 10.49:1   (primary button)
  *   #2b1d00 on #ffc107 -> 10.08:1   (dunning / past-due amber)
+ * W2 remediation added the anchored shell's own surface, #002a5e — strictly
+ * darker than #003c88, so every light-ink pair above only improves on it:
+ *   #ffffff on #002a5e -> 14.07:1   #dce6f7 on #002a5e -> 11.19:1
+ *   #5bc0ff on #002a5e ->  6.99:1
  */
 
 /* ── Panel shell ─────────────────────────────────────────────────────────────
-   PaywallPanel renders inline in .gn-viewer-layout-center, NOT through a
-   portal — unlike the compute-meter refusal modals it is an advisory surface,
-   not a blocking dialog, so it stays in flow. The upgrade modal below is the
-   one blocking piece and carries its own fixed overlay. */
+   Type/ink tokens ONLY. This rule used to carry `position: relative;
+   z-index: 2`, which made it a STACKING CONTEXT and quietly capped its own
+   descendant `.paywall-upgrade-modal-overlay` — a "z-index: 100000" overlay
+   composited at rank 2, measured losing to the scenario pane (z 1025) on the
+   live map route. The overlay is now portaled out (--modal-host below) AND
+   the stacking context is gone, so neither half can regress alone.
+
+   Do NOT add position/z-index/transform/filter/opacity/contain here. Every one
+   of those creates a stacking context, and this class is on both variants. */
 .paywall-panel {
-    position: relative;
-    z-index: 2;
+    font-size: 13px;
+    color: #dce6f7;
+}
+
+/* ── Anchored shell (the five non-blocking states) ───────────────────────────
+   free_public / pending / paid_private / paid_organization / past_due are
+   advisory, so they are anchored over the map rather than hosted in a
+   blocking dialog — but they are PORTALED to document.body all the same
+   (PaywallPanel.render), because the plugin's in-flow mount point measured
+   at rect [0, 668, 1408, 16] in a 683px-tall document that cannot scroll.
+
+   CONTENT-SIZED ON PURPOSE. `left: 0; right: 0` + `width: max-content` +
+   auto margins centres the box WITHOUT a transform (a transform would make it
+   a containing block for fixed descendants and reintroduce exactly the class
+   of bug above) and, critically, keeps the element's own box no bigger than
+   its content: a full-viewport wrapper here would be an invisible
+   click-absorbing layer over the customer's map. There is nothing to make
+   pointer-events-transparent because there is no scrim.
+
+   top: 60px clears the 49px-tall .gn-main-header; the SimpleView left toolbar
+   occupies x 20..372 at that height and the scenario pane starts at y 119, so
+   a centred content-width box sits in free space at the sizes W0 measured.
+
+   z-index 100000: .gn-page-wrapper is a z-index 99999 stacking context and the
+   whole app UI lives inside it, so anything lower paints behind everything.
+   Same ceiling as meter.css / MOVABLE_PANEL_Z_INDEX — do not raise it. */
+.paywall-panel--anchored {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    width: max-content;
+    max-width: min(560px, calc(100vw - 40px));
+    z-index: 100000;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 8px 10px;
-    font-size: 13px;
-    color: #dce6f7;
+    padding: 10px 12px;
+    background-color: #002a5e;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Modal host (upgrade_prompt only) ────────────────────────────────────────
+   The body-level layer ModalHost portals into. Identical contract to
+   meter.css's .compute-meter-panel: it exists ONLY while the blocking state
+   is live (the panel returns the anchored shell or null otherwise), so a
+   full-viewport fixed layer here can never become an invisible click-blocker.
+   No padding/flex from the base class reaches it — the backdrop below is the
+   full-bleed child. */
+.paywall-panel--modal-host {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
 }
 
 /* ── free_public: the "make private" CTA ────────────────────────────────── */
@@ -70,21 +131,24 @@
 }
 
 /* ── upgrade_prompt: the blocking checkout modal ─────────────────────────────
-   z-index 100000 for the same reason meter.css documents: the app UI lives
-   inside .gn-page-wrapper's z-index:99999 stacking context, so anything lower
-   paints behind the entire application. Unlike the meter modal this one is
-   NOT portaled, so it is also subject to .gn-viewer-layout-body's
-   transform:translate(0) containing block on the map route — the overlay will
-   cover the viewer layout rather than the literal viewport. That is
-   acceptable for an advisory upgrade prompt but NOT for a refusal; if this
-   ever needs to be viewport-exact, portal it the way MeterModalHost does. */
+   The backdrop, ABSOLUTE inside .paywall-panel--modal-host (which is already
+   the fixed full-viewport layer, and carries the z-index) — mirroring
+   meter.css's .compute-meter-modal-overlay exactly. Nesting a second `fixed`
+   here would re-introduce a dependency on containing blocks for no benefit,
+   and a second z-index would re-introduce the rank confusion this remediation
+   removed: the overlay's OWN z-index was never the problem, its ancestor's
+   was.
+
+   Must NOT be pointer-events:none — the W0 gate hit-tests
+   document.elementFromPoint at the dialog's centre, and a click-through
+   backdrop would return the map CANVAS. It is also what stops a click aimed
+   at the map landing on the map while a paid-action prompt is open. */
 .paywall-upgrade-modal-overlay {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 100000;
     background-color: rgba(0, 0, 0, 0.55);
     display: flex;
     align-items: center;

@@ -49,7 +49,22 @@ afterEach(() => {
     }
 });
 
-// Helper: render PaywallPanel with given props and return the container
+/**
+ * Renders PaywallPanel and returns the DOCUMENT as the query root.
+ *
+ * W2 remediation — the panel's output no longer lands in the mount container.
+ * Every rendered state is portaled to document.body: the blocking
+ * upgrade_prompt through the shared ModalHost, the advisory states through the
+ * anchored shell. Both had to leave the plugin's in-flow mount point, which
+ * measured at rect [0, 668, 1408, 16] on a 683px-tall map route in a document
+ * that cannot scroll (see PaywallPanel.render). Exactly the change
+ * computeMeterPanel-test.js made for TASK-2435, for exactly the same reason:
+ * without it every query below would silently return null and the suite would
+ * go green by losing its coverage instead of by passing.
+ *
+ * The absence assertions stay honest because afterEach unmounts the container,
+ * which tears the portal out of document.body too.
+ */
 function renderPaywall(props) {
     act(() => {
         ReactDOM.render(
@@ -57,7 +72,7 @@ function renderPaywall(props) {
             container
         );
     });
-    return container;
+    return document;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
