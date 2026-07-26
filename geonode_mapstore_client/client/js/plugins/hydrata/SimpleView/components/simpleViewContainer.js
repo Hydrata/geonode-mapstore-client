@@ -191,6 +191,37 @@ export class SimpleViewContainer extends React.Component {
                     }
                 </div>
                 <div className="simple-view-right-toolbar">
+                    {/* TASK-2420 (epic 2359 W4.5) — padlock -> Account panel button.
+                        flags-off (AC1, byte-identical to today): gated on canManageMembers,
+                        glyph 'lock', title 'Permissions'. flags-on: rendered for ANY
+                        authenticated user (Billing is the viewer's own Account; Sharing
+                        stays manager-gated INSIDE the panel), glyph 'user', title 'Account'.
+
+                        TASK-2465 (epic 2425 W2.5) — this button is FIRST in the column.
+                        The column has no priority/order registry: it is a flex column
+                        (`.simple-view-right-toolbar`, simpleView.css) with no `order` on
+                        any child, so visual order === DOM order === THIS source order.
+                        That is the ordering mechanism; do not add a CSS `order` (it would
+                        desync from tab order and break as buttons conditionally hide).
+                        Source order also keeps DOM/tab order in agreement for a11y. */}
+                    {this.props.paywallEnabled
+                        ? (this.props.loggedIn ? (
+                            <button
+                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
+                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
+                                title="Account">
+                                <Glyphicon glyph="user" />
+                            </button>
+                        ) : null)
+                        : (this.props.canManageMembers ? (
+                            <button
+                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
+                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
+                                title="Permissions">
+                                <Glyphicon glyph="lock" />
+                            </button>
+                        ) : null)
+                    }
                     {this.props.searchPluginPresent ?
                         <button
                             className={`simple-view-right-button ${this.props.searchEnabled ? 'active' : ''}`}
@@ -233,29 +264,6 @@ export class SimpleViewContainer extends React.Component {
                             </button>
                         </>
                     ) : null}
-                    {/* TASK-2420 (epic 2359 W4.5) — padlock -> Account panel button.
-                        flags-off (AC1, byte-identical to today): gated on canManageMembers,
-                        glyph 'lock', title 'Permissions'. flags-on: rendered for ANY
-                        authenticated user (Billing is the viewer's own Account; Sharing
-                        stays manager-gated INSIDE the panel), glyph 'user', title 'Account'. */}
-                    {this.props.paywallEnabled
-                        ? (this.props.loggedIn ? (
-                            <button
-                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
-                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
-                                title="Account">
-                                <Glyphicon glyph="user" />
-                            </button>
-                        ) : null)
-                        : (this.props.canManageMembers ? (
-                            <button
-                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
-                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
-                                title="Permissions">
-                                <Glyphicon glyph="lock" />
-                            </button>
-                        ) : null)
-                    }
                 </div>
                 {this.state.saveConfirmVisible ?
                     <div className="sv-save-confirm-overlay">
