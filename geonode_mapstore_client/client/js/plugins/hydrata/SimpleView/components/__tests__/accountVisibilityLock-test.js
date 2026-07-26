@@ -39,11 +39,14 @@ function makeStore(state) {
  * @param paywallSteady  the paywall steady-state literal, or null
  *
  * The viewer is the project's ACTUAL OWNER by default (owner_username ===
- * security.user.username). TASK-2463 (W2.8) made that distinction load-bearing
- * for the lapse wording — see stateForNonOwner below — and it is NOT the same
- * question as my_role: get_user_role returns 'owner' for any superuser
- * (sync.py steps 2-3), so a superuser browsing someone else's project arrives
- * here with my_role 'owner' and is not the owner of anything.
+ * security.user.username), and NOT the same question as my_role: get_user_role
+ * returns 'owner' for any superuser (sync.py steps 2-3), so a superuser browsing
+ * someone else's project arrives here with my_role 'owner' and owns nothing.
+ *
+ * W2.8 made that distinction load-bearing for the lapse wording. W2.9 withdrew
+ * the lapse wording entirely (see the last describe in this file), so ownership
+ * no longer changes ANY rendered output — the pairs are kept because "these two
+ * viewers get the same label" is now the assertion, and it needs both to exist.
  */
 const stateFor = (myRole, visibility, paywallSteady = null) => ({
     anuga: {
@@ -89,12 +92,25 @@ describe('visibilityLockLabel (TASK-2463)', () => {
             .forEach((key) => expect(visibilityLockLabel(key, false)).toBe(null, key));
     });
 
-    it('says the subscription lapsed WITHOUT implying the model went public', () => {
-        // HARD CONTRACT RULE: lapse never auto-publishes. The wording must not
-        // suggest otherwise, and it must still name the real visibility.
-        const label = visibilityLockLabel('private', true);
-        expect(label).toBe('Project visibility: Private (subscription lapsed)');
-        expect(label.toLowerCase()).toNotInclude('public');
+    // TASK-2463 (epic 2425 W2.9) — the label is now a function of the visibility
+    // ALONE. It used to take a second `lapsed` argument and append
+    // "(subscription lapsed)", which is a statement about the PROJECT that
+    // nothing reachable from the frontend can establish. See the describe at the
+    // bottom of this file for the full argument.
+    it('names the visibility and makes no claim about billing, whatever else it is passed', () => {
+        expect(visibilityLockLabel('private')).toBe('Project visibility: Private');
+        // Extra arguments are inert: a caller left over from the old two-arg
+        // signature must not be able to resurrect the claim by passing true.
+        expect(visibilityLockLabel('private', true)).toBe('Project visibility: Private');
+        expect(visibilityLockLabel('organization', true)).toBe('Project visibility: Organization');
+        ['lapsed', 'subscription', 'due', 'expired', 'unpaid']
+            .forEach((word) => expect(visibilityLockLabel('private', true).toLowerCase())
+                .toNotInclude(word, `the padlock label still claims "${word}"`));
+    });
+
+    it('never implies the model went public — the HARD CONTRACT RULE, unchanged', () => {
+        expect(visibilityLockLabel('private', true).toLowerCase()).toNotInclude('public');
+        expect(visibilityLockLabel('organization', true).toLowerCase()).toNotInclude('public');
     });
 });
 
@@ -132,13 +148,19 @@ describe('AccountVisibilityLock component (TASK-2463)', () => {
             .toBe('organization');
     });
 
-    it('adds the --lapsed modifier ONLY when past_due', () => {
-        expect(render({ visibility: 'private', lapsed: false })
+    // TASK-2463 (W2.9) — the --lapsed modifier and the `lapsed` prop that drove
+    // it are gone from the component, and the rule is gone from simpleView.css.
+    // A stray `lapsed` from an un-updated caller must be inert, not revive it.
+    it('has no lapse modifier left, and a stray `lapsed` prop cannot bring one back', () => {
+        expect(render({ visibility: 'private' })
             .querySelector('[data-testid="sv-visibility-lock"]').className)
             .toNotInclude('sv-visibility-lock--lapsed');
         expect(render({ visibility: 'private', lapsed: true })
             .querySelector('[data-testid="sv-visibility-lock"]').className)
-            .toInclude('sv-visibility-lock--lapsed');
+            .toNotInclude('sv-visibility-lock--lapsed');
+        expect(render({ visibility: 'private', lapsed: true })
+            .querySelector('[data-testid="sv-visibility-lock"]').getAttribute('aria-label'))
+            .toBe('Project visibility: Private');
     });
 
     it('renders nothing at all for public', () => {
@@ -188,22 +210,27 @@ describe('Account button visibility padlock — wiring (TASK-2463)', () => {
         expect(accountBtn(container).className).toInclude('sv-visibility-lock-host');
     });
 
-    it('past_due turns the padlock amber and says so, still naming the real visibility', () => {
+    // TASK-2463 (W2.9) — past_due and paid_private now render the SAME padlock.
+    // They are not the same fact about the customer, but they are the same fact
+    // about the project, and the padlock speaks about the project. The
+    // billing-standing surface is Account > Billing.
+    it('past_due renders the plain padlock — no amber, no billing annotation', () => {
         const { container } = mountWithProviders(
             <ConnectedSimpleView paywallEnabled />,
             { store: makeStore(stateFor('owner', 'private', 'past_due')) }
         );
         const lock = lockIn(container);
-        expect(lock.className).toInclude('sv-visibility-lock--lapsed');
-        expect(lock.getAttribute('aria-label')).toBe('Project visibility: Private (subscription lapsed)');
+        expect(lock.className).toNotInclude('sv-visibility-lock--lapsed');
+        expect(lock.getAttribute('aria-label')).toBe('Project visibility: Private');
     });
 
-    it('paid_private does NOT mark it lapsed', () => {
+    it('paid_private renders identically — the padlock describes the project, not the bill', () => {
         const { container } = mountWithProviders(
             <ConnectedSimpleView paywallEnabled />,
             { store: makeStore(stateFor('owner', 'private', 'paid_private')) }
         );
         expect(lockIn(container).className).toNotInclude('sv-visibility-lock--lapsed');
+        expect(lockIn(container).getAttribute('aria-label')).toBe('Project visibility: Private');
     });
 
     it('the BUTTON accessible name carries the visibility too (ARIA presentational children)', () => {
@@ -315,59 +342,70 @@ describe('Account button visibility padlock — the TASK-2462 gate', () => {
     });
 });
 
-// ── TASK-2463 (epic 2425 W2.8): whose lapse is it? ───────────────────────────
+// ── TASK-2463 (epic 2425 W2.9): the lapse claim is withdrawn ────────────────
 //
-// THE FALSE CLAIM THIS REMOVES. `_derive_paywall_state` (gn_anuga/api_v2.py)
-// resolves `_get_acting_account(user)` and never `project.account` — read
-// directly, and its own docstring says the acting-account resolution is
-// deliberate FOR THE ENTITLEMENT CHECK. So `past_due` means exactly one thing:
-// "the VIEWING user's account has no paid private entitlement". It says nothing
-// whatever about the project's standing.
+// THE CLAIM. `visibilityLockLabel` used to append "(subscription lapsed)" to
+// the padlock's accessible name, and paint it amber, whenever the paywall steady
+// state was `past_due`. That sentence is about THE PROJECT.
 //
-// W2.7 widened the padlock from owner-only to MANAGER+, which was right, and in
-// doing so made this reachable: an invited manager whose own account is
-// unentitled, looking at a private project fully paid for by its owner, was told
-// "Project visibility: Private (subscription lapsed)" — false about the project.
-// Before W2.7 only superusers (my_role -> 'owner') could reach it.
+// WHAT past_due ESTABLISHES. `_derive_paywall_state` (gn_anuga/api_v2.py) does
+// `account = _get_acting_account(user)` and never touches `project.account` —
+// read directly, and its own docstring says the acting-account resolution is
+// deliberate FOR THE ENTITLEMENT CHECK. So past_due means exactly "the VIEWING
+// user's account holds no paid private entitlement". It establishes nothing at
+// all about who paid for the project.
 //
-// WHY SUPPRESSION AND NOT REWORDING. Which account GOVERNS a project — and
-// whether Project.account should be populated at creation, given that it is NULL
-// on all 166 production projects (verified read-only 2026-07-26;
-// ProjectViewSet.perform_create saves only created_by and owner, and the sole
-// writer is commerce/checkout_views.py's legacy-adoption bind) — is being grilled
-// with the operator and is not settled here. Rewording the label is one of the
-// forks on the table (W2.7-D4 (i)); picking it would pre-empt that decision. So
-// this change does the one thing that is safe under EVERY fork: where the claim
-// cannot be attributed, the UI says nothing rather than something false.
+// TWO MIRROR-IMAGE FAILURES, and why no predicate over this state can separate
+// them. W2.7 widened the padlock from owner-only to MANAGER+ (correctly — the
+// backend write gate is min_role=MANAGER and the entitlement is charged to the
+// ACTING account, so a manager can flip a project private and be billed for it).
+// That made the first failure reachable:
+//   (a) an invited MANAGER whose own account is unentitled, on a private project
+//       fully paid for by its owner, was told the project's subscription had
+//       lapsed. W2.8 fixed this by requiring owner_username === the viewer.
+//   (b) the exact mirror, which that fix left standing: an OWNER whose own
+//       account is unentitled, on a project a MANAGER privatised on the
+//       MANAGER's live subscription, is told the same thing. Also false.
+// The states (a) and (b) arrive in are INDISTINGUISHABLE here: `my_role`,
+// `visibility`, `owner_username` and `paywall.steady` are identical. Ownership
+// was never the attribution predicate — it just moved the falsehood to a
+// different viewer.
 //
-// THE OWNER CASE IS KEPT DELIBERATELY. For the project's actual owner the acting
-// account is the only account that can be charged for this project today, so
-// past_due is a true and actionable statement about their own standing — and
-// past_due is the day-one default at flip for 84 of 84 non-public prod owners,
-// all of whom own their projects. Withdrawing it from them would delete the only
-// proactive lapse surface left after W2.5 removed the dunning banner.
-describe('Account button visibility padlock — the lapse must be attributable (TASK-2463 W2.8)', () => {
-    it('the project OWNER still sees the lapse, in full', () => {
+// AND THE FRONTEND CANNOT REPAIR IT. `Project.account` is not serialized
+// anywhere (serializers_v2.py) and is NULL on all 166 production projects
+// (verified read-only 2026-07-26), so even shipping it would answer nothing for
+// the live estate. So the claim is withdrawn: the padlock states the visibility,
+// which it knows, and says nothing about billing, which it does not.
+//
+// WHAT THIS DOES NOT DECIDE. Which account GOVERNS a project's paid standing is
+// epic decision W2.7-D4, open with the operator, and the WORDING fork ("lapsed"
+// vs "never subscribed" — past_due collapses both, and on day one at flip the
+// second is the case for all 84 non-public prod owners) is TASK-2487. Neither is
+// pre-empted here: withdrawing an unattributable claim is what is safe under
+// every fork, and re-adding an attributable one is what those decide.
+//
+// WHAT IS LOST, stated plainly rather than buried: this was the last proactive
+// lapse surface after W2.5 deleted the dunning banner. The renew affordance is
+// unaffected — it has always lived in Account > Billing (BillingTabPanel's
+// SubscriptionSection, which reads the ACCOUNT's own subscription state and can
+// therefore say something true). Restoring a proactive notice is TASK-2487's job.
+describe('Account button visibility padlock — an unattributable lapse is not claimed (W2.9)', () => {
+    it('the project OWNER is told the visibility and NOTHING about a lapse', () => {
+        // THE MIRROR CASE. This state is also what an owner sees when a MANAGER
+        // privatised the project on the manager's own live subscription: the
+        // project's standing is fine and the owner's account is simply
+        // unsubscribed. Nothing in this payload can tell the two apart.
         const { container } = mountWithProviders(
             <ConnectedSimpleView paywallEnabled />,
             { store: makeStore(stateFor('owner', 'private', 'past_due')) }
         );
-        expect(lockIn(container).className).toInclude('sv-visibility-lock--lapsed');
-        expect(lockIn(container).getAttribute('aria-label'))
-            .toBe('Project visibility: Private (subscription lapsed)');
-    });
-
-    it('an invited MANAGER is told the visibility and NOTHING about a lapse', () => {
-        const { container } = mountWithProviders(
-            <ConnectedSimpleView paywallEnabled />,
-            { store: makeStore(stateForNonOwner('manager', 'private', 'past_due')) }
-        );
         const lock = lockIn(container);
-        expect(lock).toExist();
+        expect(lock).toExist('the padlock itself must survive — only the claim goes');
         expect(lock.getAttribute('aria-label')).toBe(
             'Project visibility: Private',
-            'the manager is being told this project\'s subscription has lapsed. The '
-            + 'backend never checked the project\'s account — only the manager\'s own.'
+            'the owner is being told THIS PROJECT\'s subscription has lapsed. past_due '
+            + 'was computed from the owner\'s own acting account and says nothing about '
+            + 'the project — a manager may have privatised it on a live subscription.'
         );
         expect(lock.className).toNotInclude(
             'sv-visibility-lock--lapsed',
@@ -375,10 +413,21 @@ describe('Account button visibility padlock — the lapse must be attributable (
         );
     });
 
+    it('an invited MANAGER is told the visibility and NOTHING about a lapse (W2.8, kept)', () => {
+        const { container } = mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />,
+            { store: makeStore(stateForNonOwner('manager', 'private', 'past_due')) }
+        );
+        const lock = lockIn(container);
+        expect(lock).toExist();
+        expect(lock.getAttribute('aria-label')).toBe('Project visibility: Private');
+        expect(lock.className).toNotInclude('sv-visibility-lock--lapsed');
+    });
+
     it('a SUPERUSER browsing someone else\'s project gets no lapse claim either', () => {
-        // get_user_role maps is_superuser -> 'owner', so my_role cannot tell a
-        // superuser apart from the real owner; owner_username can. This is the
-        // path that was reachable BEFORE W2.7 and was never noticed.
+        // get_user_role maps is_superuser -> 'owner' (sync.py steps 2-3), so
+        // my_role cannot tell a superuser apart from the real owner. This is the
+        // path that was reachable even BEFORE W2.7 and was never noticed.
         const { container } = mountWithProviders(
             <ConnectedSimpleView paywallEnabled />,
             { store: makeStore(stateForNonOwner('owner', 'private', 'past_due')) }
@@ -386,10 +435,12 @@ describe('Account button visibility padlock — the lapse must be attributable (
         expect(lockIn(container).getAttribute('aria-label')).toBe('Project visibility: Private');
     });
 
-    it('says nothing about a lapse when it cannot tell who the owner is', () => {
-        // Fail-safe, not fail-quiet-and-hope: an absent owner_username (an older
-        // serializer, a partial project payload) must suppress the claim, not
-        // default to making it.
+    it('says nothing about a lapse when the payload is partial either', () => {
+        // The old predicate read state.security.user.username, which
+        // AppUtils.js:327 only populates when an access_token is present — so its
+        // owner branch could silently never fire. It is gone, and these two
+        // degraded payloads now reach the SAME label as every other viewer
+        // rather than a different one.
         const missing = stateFor('owner', 'private', 'past_due');
         delete missing.anuga.projects.data.owner_username;
         expect(lockIn(mountWithProviders(
@@ -403,11 +454,33 @@ describe('Account button visibility padlock — the lapse must be attributable (
         ).container).getAttribute('aria-label')).toBe('Project visibility: Private');
     });
 
-    it('the OWNER of a paid_private project is not marked lapsed (no false positive)', () => {
-        const { container } = mountWithProviders(
-            <ConnectedSimpleView paywallEnabled />,
-            { store: makeStore(stateFor('owner', 'private', 'paid_private')) }
-        );
-        expect(lockIn(container).className).toNotInclude('sv-visibility-lock--lapsed');
+    it('the MANAGER+ gate itself is untouched — both roles still get a padlock', () => {
+        // The claim goes; the TASK-2484 widening stays. A manager who can flip
+        // visibility and be billed for it must still see the project's state.
+        [stateFor('owner', 'private', 'past_due'),
+            stateForNonOwner('manager', 'private', 'past_due'),
+            stateFor('owner', 'organization', 'past_due')]
+            .forEach((state) => expect(lockIn(mountWithProviders(
+                <ConnectedSimpleView paywallEnabled />, { store: makeStore(state) }
+            ).container)).toExist('the padlock was narrowed along with the claim'));
+    });
+
+    it('no viewer, no visibility and no steady state can resurrect the amber class', () => {
+        // The modifier is gone from the component AND from simpleView.css. This
+        // pins that: a future edit re-adding one without the other is how a
+        // padlock ends up styled by a rule nobody can find.
+        ['past_due', 'paid_private', 'paid_organization', 'free_public', null]
+            .forEach((steady) => {
+                [stateFor('owner', 'private', steady),
+                    stateForNonOwner('manager', 'organization', steady)]
+                    .forEach((state) => {
+                        const lock = lockIn(mountWithProviders(
+                            <ConnectedSimpleView paywallEnabled />, { store: makeStore(state) }
+                        ).container);
+                        if (lock) {
+                            expect(lock.className).toNotInclude('sv-visibility-lock--lapsed', `${steady}`);
+                        }
+                    });
+            });
     });
 });

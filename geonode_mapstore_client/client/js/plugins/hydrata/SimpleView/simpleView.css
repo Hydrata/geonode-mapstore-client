@@ -1588,9 +1588,9 @@ span.sv-menu-row-glyph {
    would return the button and make that assertion vacuous. The badge is a DOM
    child of the button, so a click on it still bubbles and still opens Account.
 
-   CONTRAST: #04234a on #ffffff -> 14.6:1; lapsed #2b1d00 on #ffc107 -> 10.08:1
-   (the same amber pair the deleted dunning banner used). The fill is opaque, so
-   both hold over any basemap. */
+   CONTRAST: #04234a on #ffffff -> 14.6:1. One pair only since W2.9 removed the
+   amber lapsed variant (see below). The fill is opaque, so it holds over any
+   basemap. */
 .sv-visibility-lock-host {
     position: relative;
 }
@@ -1620,15 +1620,13 @@ span.sv-menu-row-glyph {
     top: 0;
 }
 
-/* past_due: the account's subscription has lapsed. Amber because it needs
-   action — and NEVER a hint that the model has been made public (hard contract
-   rule: LAPSE NEVER AUTO-PUBLISHES). The renew action lives in
-   Account > Billing; this is only the notice. */
-.sv-visibility-lock--lapsed {
-    color: #2b1d00;
-    background-color: #ffc107;
-    box-shadow: 0 0 0 1px #c69500;
-}
+/* TASK-2463 (epic 2425 W2.9) — the `.sv-visibility-lock--lapsed` amber variant
+   that used to sit here is DELETED, with the claim it painted. past_due is
+   computed from the READING user's acting account, never from the project's, so
+   an amber padlock said something about the project that no payload establishes
+   (see accountVisibilityLock.js for the derivation and the mirror case that
+   defeated W2.8's ownership predicate). Deleted rather than left unreferenced:
+   an orphan rule is how the modifier gets silently re-added later. */
 
 /* TASK-2420 (epic 2359 W4.5, UAT-1 finding 12 — plain bug, NOT flag-gated):
    the top navbar user-menu dropdown-toggle (GeoNode-mapstore-client's

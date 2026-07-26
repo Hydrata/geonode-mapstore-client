@@ -52,28 +52,34 @@ const LOCKED_VISIBILITIES = {
  * The accessible name for a given visibility, or null when no lock renders.
  * Exported so the host button's aria-label and the badge cannot drift apart.
  *
- * `lapsed` is NOT simply "the paywall steady state is past_due" — TASK-2463
- * (W2.8) narrowed it. past_due is derived from the READER's own account
- * (gn_anuga/api_v2.py::_derive_paywall_state resolves _get_acting_account(user),
- * never project.account), while the string below is a claim about the PROJECT.
- * Those coincide only for the project's own owner, so the caller supplies
- * `lapsed` from Paywall/selectors.js's showsVisibilityLapse, which requires
- * owner_username === the viewing user. An invited manager on a private project
- * paid for by its owner used to read "(subscription lapsed)" here; that was
- * false about the project. See that selector for the open question this is
- * deliberately NOT settling.
+ * VISIBILITY ONLY — no billing annotation (TASK-2463, epic 2425 W2.9). This used
+ * to take a second `lapsed` argument and append "(subscription lapsed)". That
+ * sentence is a claim about THE PROJECT, and nothing reachable from the frontend
+ * establishes it:
  *
- * It is surfaced for the owner rather than dropped because past_due is the
- * day-one default at flip (84 of 84 non-public prod owners are unentitled, and
- * every one of them owns their own projects) and deleting the dunning banner
- * removed its only other proactive surface. The RENEW ACTION still lives in
- * Account > Billing (BillingTabPanel SubscriptionSection) — this is the
- * notice, not the affordance.
+ *   - `past_due` comes from `_derive_paywall_state(project, user)`
+ *     (gn_anuga/api_v2.py), which resolves `_get_acting_account(user)` and never
+ *     `project.account`. It means "the READING user's account holds no paid
+ *     private entitlement" — nothing about who paid for the project.
+ *   - W2.8 tried to make it attributable by requiring the reader to BE the owner.
+ *     That closes only one direction. The mirror is an OWNER whose own account is
+ *     unentitled, reading a project a MANAGER privatised on the MANAGER's live
+ *     subscription — the backend write gate is min_role=MANAGER and the
+ *     entitlement is charged to the ACTING account, so this is a real shape, and
+ *     it arrives here in a payload IDENTICAL to a genuinely lapsed owner's.
+ *   - `Project.account` is not serialized anywhere (serializers_v2.py) and is
+ *     NULL on all 166 production projects, so shipping it would not help either.
  *
- * HARD CONTRACT RULE: a lapse never auto-publishes. The lapsed wording must
- * therefore never imply the model has become public.
+ * So the padlock states the visibility, which it knows. The account's own
+ * standing is stated where it can be stated truthfully — Account > Billing
+ * (BillingTabPanel's SubscriptionSection), which is also where the renew action
+ * has always lived. Whether a proactive lapse notice returns, and in what words,
+ * is TASK-2487 / epic decision W2.7-D4, both open with the operator.
+ *
+ * HARD CONTRACT RULE, unchanged and now trivially satisfied: a lapse never
+ * auto-publishes, and this label never mentions `public` for a locked tier.
  */
-export function visibilityLockLabel(visibility, lapsed) {
+export function visibilityLockLabel(visibility) {
     // hasOwnProperty, not a bare lookup: `visibility` arrives from the wire, and
     // a bare LOCKED_VISIBILITIES[visibility] returns a truthy Object.prototype
     // member for 'constructor'/'toString'/'valueOf' — which would render a
@@ -81,14 +87,11 @@ export function visibilityLockLabel(visibility, lapsed) {
     if (!Object.prototype.hasOwnProperty.call(LOCKED_VISIBILITIES, visibility)) {
         return null;
     }
-    const tier = LOCKED_VISIBILITIES[visibility];
-    return lapsed
-        ? `Project visibility: ${tier} (subscription lapsed)`
-        : `Project visibility: ${tier}`;
+    return `Project visibility: ${LOCKED_VISIBILITIES[visibility]}`;
 }
 
-function AccountVisibilityLock({ visibility, lapsed }) {
-    const label = visibilityLockLabel(visibility, lapsed);
+function AccountVisibilityLock({ visibility }) {
+    const label = visibilityLockLabel(visibility);
     if (!label) {
         return null;
     }
@@ -96,7 +99,7 @@ function AccountVisibilityLock({ visibility, lapsed }) {
         <span
             data-testid="sv-visibility-lock"
             data-visibility={visibility}
-            className={`sv-visibility-lock${lapsed ? ' sv-visibility-lock--lapsed' : ''}`}
+            className="sv-visibility-lock"
             role="img"
             aria-label={label}
         >
@@ -107,17 +110,11 @@ function AccountVisibilityLock({ visibility, lapsed }) {
 
 AccountVisibilityLock.propTypes = {
     /** Project visibility from the server: 'public' | 'private' | 'organization'. */
-    visibility: PropTypes.string,
-    /**
-     * True when the lapse is ATTRIBUTABLE to this project — i.e. past_due AND the
-     * viewer owns it (Paywall/selectors.js showsVisibilityLapse). Not "past_due".
-     */
-    lapsed: PropTypes.bool
+    visibility: PropTypes.string
 };
 
 AccountVisibilityLock.defaultProps = {
-    visibility: null,
-    lapsed: false
+    visibility: null
 };
 
 export default AccountVisibilityLock;

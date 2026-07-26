@@ -24,7 +24,7 @@ import { canManageMembers, getProjectVisibility } from '@js/plugins/hydrata/Anug
 // only half-implementable on the FE today — read Paywall/selectors.js before
 // widening it); SimpleView only renders the pixels.
 import AccountVisibilityLock, { visibilityLockLabel } from './accountVisibilityLock';
-import { canSeeVisibilityIndicator, showsVisibilityLapse } from '../../Paywall/selectors';
+import { canSeeVisibilityIndicator } from '../../Paywall/selectors';
 import {canEditResource} from '@js/selectors/resource';
 import {isLoggedIn, userSelector} from '@mapstore/framework/selectors/security';
 import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
@@ -93,15 +93,13 @@ export class SimpleViewContainer extends React.Component {
         // button. `lockVisibility` is already gated in mapStateToProps: it is
         // null for anyone the TASK-2462 owner gate excludes, so the component
         // never has to know who may see it.
-        lockVisibility: PropTypes.string,
-        lockLapsed: PropTypes.bool
+        lockVisibility: PropTypes.string
     };
 
     static defaultProps = {
         visibleIntroduction: false,
         paywallEnabled: false,
-        lockVisibility: null,
-        lockLapsed: false
+        lockVisibility: null
     };
 
     constructor(props) {
@@ -171,7 +169,7 @@ export class SimpleViewContainer extends React.Component {
     render() {
         // TASK-2463 — computed once: it feeds BOTH the padlock and the host
         // button's accessible name, and the two must not be able to disagree.
-        const lockLabel = visibilityLockLabel(this.props.lockVisibility, this.props.lockLapsed);
+        const lockLabel = visibilityLockLabel(this.props.lockVisibility);
         return (
             <div id="simple-view-container">
                 <div className="simple-view-left-toolbar">
@@ -250,10 +248,7 @@ export class SimpleViewContainer extends React.Component {
                                 title="Account"
                                 aria-label={lockLabel ? `Account — ${lockLabel}` : 'Account'}>
                                 <Glyphicon glyph="user" />
-                                <AccountVisibilityLock
-                                    visibility={this.props.lockVisibility}
-                                    lapsed={this.props.lockLapsed}
-                                />
+                                <AccountVisibilityLock visibility={this.props.lockVisibility} />
                             </button>
                         ) : null)
                         : (this.props.canManageMembers ? (
@@ -410,18 +405,18 @@ const mapStateToProps = (state, ownProps) => {
         // than no indicator: it is an assurance that can be false in the
         // dangerous direction ("Private" over a now-public model).
         //
-        // Two scalars, not one object: connect() shallow-compares, so a fresh
-        // {visibility, lapsed} literal here would re-render this container on
-        // every store tick.
+        // A bare scalar, not an object: connect() shallow-compares, so a fresh
+        // {visibility, ...} literal here would re-render this container on every
+        // store tick.
         //
         // The gate is applied HERE rather than inside the component so a
         // non-owner's visibility never even reaches the render tree.
-        lockVisibility: canSeeVisibilityIndicator(state) ? getProjectVisibility(state) : null,
-        // TASK-2463 (W2.8) — showsVisibilityLapse, NOT isPaywallPastDue. past_due
-        // describes the READER's account, and the label describes the PROJECT;
-        // only the project's owner makes those the same statement. See the
-        // selector for what the FE can and cannot determine here.
-        lockLapsed: showsVisibilityLapse(state)
+        // TASK-2463 (W2.9) — there is no `lockLapsed` companion any more. The
+        // padlock used to be annotated "(subscription lapsed)" at past_due, which
+        // is a claim about the PROJECT that no payload reaching this file
+        // establishes; see accountVisibilityLock.js for the derivation and
+        // TASK-2487 for the open decision about what replaces it.
+        lockVisibility: canSeeVisibilityIndicator(state) ? getProjectVisibility(state) : null
     };
 };
 
