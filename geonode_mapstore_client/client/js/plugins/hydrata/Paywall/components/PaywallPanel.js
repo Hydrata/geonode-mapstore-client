@@ -13,16 +13,23 @@
  *   paid_private      → padlock on the Account button (SimpleView
  *   paid_organization   accountVisibilityLock.js), driven by the project's
  *                       `visibility`, gated to the owner.
- *   past_due          → the same padlock, amber (--lapsed). The renew/manage
- *                       action lives in Account > Billing
- *                       (BillingTabPanel SubscriptionSection).
- *   pending           → nothing HERE. FE-only Stripe-return window. Since
- *                       TASK-2463 (W2.8) it is not silent either: the
- *                       confirmation notice ("Confirming your purchase…", then
- *                       an honest "still confirming" plus a Check again once the
- *                       poll's budget is spent) lives in Account > Billing —
- *                       BillingTabPanel's ConfirmingPurchaseSection, the tab the
- *                       checkout return already opens. Still no on-map surface.
+ *   past_due          → the same padlock, UNANNOTATED. TASK-2463 (W2.9) deleted
+ *                       the amber `--lapsed` modifier and the "(subscription
+ *                       lapsed)" wording with it: past_due is computed from the
+ *                       READING user's acting account, never from the project's,
+ *                       so an amber padlock asserted something about the project
+ *                       that no payload establishes (SimpleView/components/
+ *                       accountVisibilityLock.js carries the derivation). Do not
+ *                       re-add it. The renew/manage action lives in
+ *                       Account > Billing (BillingTabPanel SubscriptionSection).
+ *   pending           → nothing HERE, and since the W2.10 revert (operator
+ *                       decision 2026-07-26) nothing ANYWHERE: the FE-only
+ *                       Stripe-return window renders no surface at all. It masks
+ *                       `steady` while the poll runs and is cleared after 60s.
+ *                       W2.8/W2.9's Billing-tab confirmation notice is removed;
+ *                       acknowledging a webhook slower than the poll is
+ *                       TASK-2489, which needs a server-side read this component
+ *                       has no access to.
  *   anon              → nothing (paywall key absent for anonymous callers).
  *
  * WHY — grill decision 6 (2026-07-25): "the map becomes a modal HOST, not a
