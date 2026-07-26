@@ -306,16 +306,31 @@ div.chart-color-class-modal {
 // any width. !important because the library sets `padding` inline.
 //
 // WHY var(--sv-widget-right) AND NOT A LITERAL 65 (TASK-2481 follow-up, W2.7).
-// simpleViewContainer.js:150 already publishes --sv-widget-right (15px toolbar
-// offset + 40px button + 10px gap = 65) on document.documentElement, and the
-// legend panel, measure container, uploader, TaskMonitor and search bar all read
-// it (simpleView.css:261,266,701,762). A literal here was a FOURTH copy of the
-// same number in a rule whose whole job is to stay clear of that column, and the
-// clearance margin is only 10px at the widest breakpoint — so a desync would not
-// have to be large to reintroduce the collision. It is on the ROOT element, not
-// on a SimpleView node, so this selector can read it. The 65px fallback matches
-// every other consumer's and applies on any page where SimpleView never mounted
-// (where the :has() guard below means this rule does not apply anyway).
+// simpleViewContainer.js's updateWidgetPositions() already publishes
+// --sv-widget-right (15px toolbar offset + 40px button + 10px gap = 65) on
+// document.documentElement.
+//
+// CORRECTION (TASK-2463, W2.8): W2.7 wrote here that "the legend panel, measure
+// container, uploader, TaskMonitor and search bar all read it". Two of those five
+// do not. The var() consumers are exactly four, all in simpleView.css:
+// .measure-container (:261), .sv-legend-panel (:266), .sv-save-confirm-overlay
+// (:701) and .sv-menu-row-delete-confirm.is-open (:762). There is NO uploader
+// rule; taskMonitor.css reads --sv-panel-top / --sv-tm-top and never this var;
+// and the search bar gets the number as a JS INLINE STYLE from the same method
+// that publishes the var, not through it. Naming a consumer that does not exist
+// is how a future reader concludes the var is load-bearing somewhere it is not —
+// or that it is safe to change because "the uploader looks fine".
+//
+// A hard-coded 65 here would have been one more independent statement of the
+// number — alongside the single arithmetic producer in updateWidgetPositions()
+// and the four documented var() fallbacks — in a rule whose whole job is to stay
+// clear of that column; and the clearance margin is only 10px at the widest
+// breakpoint, so a desync would not have to be large to reintroduce the
+// collision. (No ordinal count is given, because W2.7's was derived from a
+// consumer list that was wrong.) The var is on the ROOT element, not on a
+// SimpleView node, so this selector can read it. The 65px fallback matches every
+// other consumer's and applies on any page where SimpleView never mounted (where
+// the :has() guard below means this rule does not apply anyway).
 //
 // The var is a CONSTANT, not a measurement: it stays 65 at every breakpoint even
 // though the column narrows. That is deliberate over-clearance, and it is why

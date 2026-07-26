@@ -55,16 +55,29 @@
  * (and be billed for it) is left without the signal. This wave adds no second
  * make-private CTA; the action stays in Account > Sharing.
  *
- * THAT SHARING SECTION IS GATED MORE LOOSELY THAN EITHER OF THEM, and this gate
- * deliberately does NOT copy it. membershipPanel.js's renderVisibilitySection
- * (:219) gates on `canAdd` = _deriveCanAdd (:676), which is owner/manager OR any
- * membership row carrying `change_resourcebase_permissions` — so an editor with
- * that perm sees the visibility radios and is then refused 403 by
- * check_project_role's min_role=MANAGER. Pre-existing, not introduced here, and
- * filed as TASK-2485 rather than quietly matched: the INDICATOR must track the
- * write gate, because a padlock is a statement about billing, whereas an
- * affordance being too generous is a separate (real) bug in the other direction.
- * Matching _deriveCanAdd here would have propagated it instead of exposing it.
+ * A RETRACTION (TASK-2463, epic 2425 W2.8). W2.7 wrote here that the Sharing
+ * panel's visibility section is "gated MORE LOOSELY than either of them" because
+ * membershipPanel.js's _deriveCanAdd was owner/manager OR any membership row
+ * carrying `change_resourcebase_permissions`, so "an editor with that perm sees
+ * the visibility radios and is then refused 403". THAT DIVERGENCE DID NOT EXIST,
+ * and the claim spawned TASK-2485 on a non-existent bug (since archived).
+ *
+ * Why it was wrong: `m.perms` is not the row user's perms. MembershipSerializerV2
+ * gets them from _PermsFieldMixin.get_perms -> get_user_resource_perms_batch(
+ * project, REQUEST.USER), which derives ONE perm list from the REQUESTING user's
+ * role and stamps it on every row (sync.py). And
+ * `change_resourcebase_permissions` exists only in _ROLE_PERMS[MANAGER] and
+ * _OWNER_PERMS. So the second branch could only be true when the reader was
+ * already owner or manager: a strict subset of the first, never a widening.
+ * W2.8 deleted that branch as dead code, so the Sharing gate and this one are
+ * now visibly the same predicate.
+ *
+ * The reason for stating the retraction rather than just deleting the paragraph:
+ * a comment asserting the FE is the looser gate invites a future change to
+ * "tighten" it, and it already produced one backlog task. What survives from
+ * W2.7's reasoning is the principle, which is sound and still applies: an
+ * INDICATOR must track the WRITE gate, because a padlock is a statement about
+ * billing.
  */
 import { canManageAnugaMap } from '../Anuga/selectorsAnuga';
 import { getPaywallSteady } from './reducer';

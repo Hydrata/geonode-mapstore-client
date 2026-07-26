@@ -86,9 +86,9 @@ class MembershipPanelClass extends React.Component {
         // V2P-24 — coarse `canManage` replaced with per-row gates derived from
         // each membership row's `perms` (V2P-14 SerializerMethodField). The
         // panel-level `canAdd` controls the Add-member affordance and the
-        // Visibility section, derived from project-level role + any row whose
-        // perms include `change_resourcebase_permissions` (V2P-30 grants this
-        // to org-owners-without-explicit-membership via Role.MANAGER).
+        // Visibility section; it is project-level role only (owner/manager) since
+        // TASK-2463/W2.8 removed its unreachable second branch — see
+        // _deriveCanAdd.
         canAdd: PropTypes.bool,
         // V2P-24 — when /my-perms/ failed AND a row's perms wasn't fetched
         // through MembershipSerializerV2, the panel falls back to a read-only
@@ -661,27 +661,37 @@ class MembershipPanelClass extends React.Component {
 }
 
 /**
- * V2P-24 — derive the panel-level Add capability.
+ * V2P-24 — derive the panel-level Add capability: project my_role is owner or
+ * manager. Panel-level only; per-row gates still apply to Change-role / Remove
+ * via canEditLayer / canDeleteLayer.
  *
- * Read order:
- *  1. project my_role === owner|manager → grant (legacy and most common).
- *  2. ANY membership row whose perms include
- *     `change_resourcebase_permissions` → grant (V2P-30 case: org-owner with no
- *     explicit ProjectMembership row, but get_user_role returns Role.MANAGER
- *     so MembershipSerializerV2.get_perms grants the manage perm).
+ * TASK-2463 (epic 2425 W2.8) DELETED A SECOND BRANCH: "OR any membership row
+ * whose perms include `change_resourcebase_permissions`". Its stated
+ * justification was the V2P-30 case — an organisation owner with no explicit
+ * ProjectMembership row, for whom get_user_role returned Role.MANAGER. TASK-859
+ * REMOVED that org-fold (sync.py's get_user_role documents steps 5-6 as deleted;
+ * organisation membership now grants no implicit role at all), so the case the
+ * branch existed for no longer exists.
  *
- * Returning false otherwise. Note this is a panel-level gate; per-row gates
- * still apply to Change-role / Remove buttons via canEditLayer / canDeleteLayer.
+ * And it could not have fired anyway. `m.perms` is NOT the row user's perms: it
+ * comes from MembershipSerializerV2's _PermsFieldMixin.get_perms, which calls
+ * get_user_resource_perms_batch(project, REQUEST.USER) — and that computes ONE
+ * perm list from the requesting user's role and stamps the same list on every row
+ * (sync.py: `result[resource_type] = {rid: list(perm_list) for rid in ids}`).
+ * `change_resourcebase_permissions` appears only in _ROLE_PERMS[MANAGER] and
+ * _OWNER_PERMS, so a row could carry it only when the READER is already a manager
+ * or owner — i.e. branch 2 was a strict subset of branch 1 in every reachable
+ * state. It also never had a test: nothing in membershipPanel-test.js sets up a
+ * below-manager reader with a permissive row, because that state cannot be
+ * produced by the API.
+ *
+ * The one theoretical divergence, and it is the safe direction: if the project
+ * fetch and the members fetch straddled a role change, the members response could
+ * report manager perms while `my_role` still said editor. Removing the branch then
+ * withholds Add from someone who has it, for one refresh — never grants it to
+ * someone who does not.
  */
-const _deriveCanAdd = (memberships, myRole) => {
-    if (myRole === 'owner' || myRole === 'manager') return true;
-    if (!Array.isArray(memberships)) return false;
-    // V2P-22 AC#4: use .includes() in component code; .indexOf() is reserved
-    // for the V2P-02 helpers in selectorsAnuga.js (test files exempt).
-    return memberships.some((m) =>
-        Array.isArray(m?.perms) && m.perms.includes('change_resourcebase_permissions')
-    );
-};
+const _deriveCanAdd = (myRole) => myRole === 'owner' || myRole === 'manager';
 
 const mapStateToProps = (state) => {
     const memberships = getMemberships(state);
@@ -693,7 +703,7 @@ const mapStateToProps = (state) => {
         loading: getMembershipsLoading(state),
         // V2P-24 — coarse `canManageMembers` gate replaced with per-row gating
         // + a derived panel-level `canAdd` for the Add-member affordance.
-        canAdd: _deriveCanAdd(memberships, myRole),
+        canAdd: _deriveCanAdd(myRole),
         // V2P-24 — read-only fallback flag set by V2P-20 /my-perms/ failure.
         // Lives at state.anuga.resources.permsLoadFailed per V2P-21's reducer.
         // Falls back to state.anuga.permsLoadFailed for forward-compat with the
