@@ -23,7 +23,15 @@ const mapDispatchToProps = (dispatch) => ({
     onSubscribeClick: () => dispatch(subscribeCheckoutRequest('subscription')),
     onRenewClick: () => dispatch(subscribeCheckoutRequest('subscription')),
     // TASK-2420 (epic 2359 W4.5) — "View account" on the upgrade_prompt modal.
+    //
+    // W2 remediation: dismisses the upgrade prompt FIRST, for the same reason
+    // ComputeMeterContainer does. The upgrade modal is now hosted in the same
+    // body-level ModalHost (portal + click-absorbing backdrop + focus trap),
+    // so leaving it open while opening the Account panel — a MovablePanel
+    // confined inside .gn-page-wrapper's stacking context — would strand the
+    // customer behind a scrim they cannot click through or Tab out of.
     onViewAccount: () => {
+        dispatch(dismissPaywallUpgrade());
         dispatch(setMembershipPanel(true));
         dispatch(setMembershipPanelTab('billing'));
     }
