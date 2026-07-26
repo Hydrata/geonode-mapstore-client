@@ -119,6 +119,13 @@ function nearestFocusable(el) {
     if (!el || !el.parentElement || typeof document === 'undefined') {
         return null;
     }
+    // If the invoker itself has been detached, so has everything around it, and
+    // .focus() on a detached node is a silent no-op. Reachable: a stale
+    // lastInteractedElement pointing into a previously-unmounted dialog. Bail
+    // rather than walk a dead subtree looking for a target that cannot work.
+    if (!document.contains(el)) {
+        return null;
+    }
     let node = el.parentElement;
     while (node && node !== document.body && node !== document.documentElement) {
         const candidate = node.querySelector(FOCUSABLE);
