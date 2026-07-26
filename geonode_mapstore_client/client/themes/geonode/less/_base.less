@@ -303,10 +303,31 @@ div.chart-color-class-modal {
 // WHY padding-right AND NOT `right`. Moving a 320px fixed box left runs it off
 // the LEFT edge on a narrow window. Padding leaves the box anchored and shrinks
 // the card instead (320 - 10 - 65 = 245px of content), degrading gracefully at
-// any width. 65px clears the widest case with room: the button occupies
-// [vw-55, vw-15] at full size, [vw-46, vw-10] at <=900px and [vw-42, vw-10] at
-// <=600px, so a card ending at vw-65 is clear at every step. !important because
-// the library sets `padding` inline.
+// any width. !important because the library sets `padding` inline.
+//
+// WHY var(--sv-widget-right) AND NOT A LITERAL 65 (TASK-2481 follow-up, W2.7).
+// simpleViewContainer.js:150 already publishes --sv-widget-right (15px toolbar
+// offset + 40px button + 10px gap = 65) on document.documentElement, and the
+// legend panel, measure container, uploader, TaskMonitor and search bar all read
+// it (simpleView.css:261,266,701,762). A literal here was a FOURTH copy of the
+// same number in a rule whose whole job is to stay clear of that column, and the
+// clearance margin is only 10px at the widest breakpoint — so a desync would not
+// have to be large to reintroduce the collision. It is on the ROOT element, not
+// on a SimpleView node, so this selector can read it. The 65px fallback matches
+// every other consumer's and applies on any page where SimpleView never mounted
+// (where the :has() guard below means this rule does not apply anyway).
+//
+// The var is a CONSTANT, not a measurement: it stays 65 at every breakpoint even
+// though the column narrows. That is deliberate over-clearance, and it is why
+// the numbers below differ per step while the padding does not. The button
+// occupies [vw-55, vw-15] at full size (right:15px, 40px wide),
+// [vw-51, vw-15] at <=900px (right:15px UNCHANGED, button 36px) and
+// [vw-42, vw-10] at <=600px (right:10px, button 32px — simpleView.css:878,
+// inside the 600px block opened at :847). A card ending at vw-65 is clear at
+// every step, by 10 / 14 / 23px respectively. The <=900px figure previously read
+// "[vw-46, vw-10]", which was wrong: it borrowed the 600px block's right:10px,
+// and it is exactly the number a future reader would cite to justify shrinking
+// the 65.
 //
 // WHY :has() AND NOT AN UNCONDITIONAL RULE. This corner is only reserved on
 // pages that render that toolbar; narrowing every toast on the catalogue or a
@@ -333,7 +354,7 @@ div.chart-color-class-modal {
 // Only -tr is inset: -tl and -tc do not reach this corner.
 .gn-page-wrapper:has(.simple-view-right-toolbar) {
     .notifications-tr {
-        padding-right: 65px !important;
+        padding-right: var(--sv-widget-right, 65px) !important;
         pointer-events: none;
 
         .notification {
