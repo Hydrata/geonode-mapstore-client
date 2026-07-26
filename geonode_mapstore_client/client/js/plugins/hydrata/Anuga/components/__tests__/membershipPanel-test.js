@@ -54,7 +54,10 @@ function createMockStore({
     layerCount = 2,
     permsLoadFailed = false,
     invitations = [],
-    invitationsEnabled = true
+    invitationsEnabled = true,
+    // TASK-2466 (epic 2425 W2.5) — the "Current" pill follows this, so a test
+    // needs to be able to make Organization the active row.
+    visibility = 'private'
 } = {}) {
     const state = {
         anuga: {
@@ -70,7 +73,7 @@ function createMockStore({
                     id: 42,
                     my_role: role,
                     owner_username: 'project_owner',
-                    visibility: 'private'
+                    visibility
                 }
             },
             resources: {
@@ -572,13 +575,92 @@ describe('TASK-2399 MembershipPanel — sharing-dialog truth pass', () => {
 
     it('AC#2b — Private option shows a paid-tier badge BEFORE interaction when paywallEnabled is true', () => {
         return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: true }).then(() => {
-            const badge = container.querySelector('[data-testid="sv-membership-visibility-paid-badge"]');
+            const badge = container.querySelector('[data-tier="private"][data-testid="sv-membership-visibility-paid-badge"]');
             expect(badge).toExist();
             expect(badge.textContent).toInclude('Paid');
-            // The badge sits under Private, not Public/Organization.
+            // NOTE (TASK-2466): this used to read "the badge sits under Private,
+            // not Public/Organization". Organization now carries one too — it
+            // always was a paid tier — so the query is scoped by data-tier
+            // rather than taking the first badge and asserting a claim that is
+            // deliberately no longer true.
             const privateRow = Array.from(container.querySelectorAll('.sv-membership-visibility-option-row'))
                 .find(r => r.textContent.includes('Private'));
             expect(privateRow.contains(badge)).toBe(true);
+        });
+    });
+
+    // ── TASK-2466 (epic 2425 W2.5) ──────────────────────────────────────────
+    // Organization is a paid tier and this panel advertised it as free. That is
+    // the mislead that made the original organization->private bypass a
+    // two-click accident rather than an exploit (epic dogfood finding 1: "the
+    // UI offers all three as plain radio rows and only Private carries the Paid
+    // pill"). The backend has treated organization as paid since 0c2faa4, and
+    // W1 doubled down: TASK-2431's destination gate charges for any change INTO
+    // organization, TASK-2432 gave it a distinct paid steady state.
+    it('AC#1 — the Organization row carries a Paid badge, the SAME component/classes as Private (not a lookalike)', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: true }).then(() => {
+            const orgBadge = container.querySelector('[data-tier="organization"][data-testid="sv-membership-visibility-paid-badge"]');
+            const privBadge = container.querySelector('[data-tier="private"][data-testid="sv-membership-visibility-paid-badge"]');
+            expect(orgBadge).toExist('the Organization row has no Paid badge — the UI still offers a paid tier as free');
+            expect(orgBadge.textContent).toBe(privBadge.textContent);
+            // "the same badge, not a lookalike" == identical class list. A
+            // second component with matching pixels is exactly what drifts.
+            expect(orgBadge.className).toBe(privBadge.className);
+            expect(orgBadge.tagName).toBe(privBadge.tagName);
+            expect(orgBadge.className).toInclude('sv-account-pill');
+            expect(orgBadge.className).toInclude('sv-account-pill--paid');
+
+            const orgRow = Array.from(container.querySelectorAll('.sv-membership-visibility-option-row'))
+                .find(r => r.textContent.startsWith('Organization'));
+            expect(orgRow.contains(orgBadge)).toBe(true);
+        });
+    });
+
+    it('AC#1b — Public is the ONLY row without a Paid badge (exactly two paid tiers)', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: true }).then(() => {
+            const badges = container.querySelectorAll('[data-testid="sv-membership-visibility-paid-badge"]');
+            expect(badges.length).toBe(2);
+            const publicRow = Array.from(container.querySelectorAll('.sv-membership-visibility-option-row'))
+                .find(r => r.textContent.startsWith('Public'));
+            expect(publicRow.querySelector('[data-testid="sv-membership-visibility-paid-badge"]')).toBe(null);
+        });
+    });
+
+    it('AC#2 — the Organization badge describes the TIER, not the viewer: present for an entitled owner too', () => {
+        // No entitlement input reaches this component at all — the pill is a
+        // fact about the tier. Asserted here so nobody later "improves" it by
+        // gating on the viewer's own subscription, which would make the paywall
+        // invisible to exactly the people about to hit it.
+        return mountPanel({ role: 'owner', layerCount: 0, visibility: 'organization' }, { paywallEnabled: true }).then(() => {
+            expect(container.querySelector('[data-tier="organization"][data-testid="sv-membership-visibility-paid-badge"]')).toExist();
+        });
+    });
+
+    it('AC#3 — Paid and Current co-exist on the Organization row when it is the active visibility', () => {
+        return mountPanel({ role: 'owner', layerCount: 0, visibility: 'organization' }, { paywallEnabled: true }).then(() => {
+            const orgTitle = Array.from(container.querySelectorAll('.sv-membership-visibility-option-title'))
+                .find(t => t.textContent.startsWith('Organization'));
+            expect(orgTitle).toExist();
+            const paid = orgTitle.querySelector('[data-testid="sv-membership-visibility-paid-badge"]');
+            const current = orgTitle.querySelector('.sv-account-pill--current');
+            expect(paid).toExist();
+            expect(current).toExist();
+            expect(current.textContent).toBe('Current');
+            // Both are children of the same flex line, in a stable order.
+            expect(paid.parentNode).toBe(orgTitle);
+            expect(current.parentNode).toBe(orgTitle);
+            expect(paid.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            // NOTE: "without wrapping or overlapping" is a LAYOUT claim and
+            // jsdom has no layout engine — this proves co-existence and order
+            // only. The geometry is asserted in
+            // deploy/tests/e2e/test_paywall_money_path.py
+            // (test_organization_row_shows_paid_and_current_side_by_side).
+        });
+    });
+
+    it('AC#2a-org — no Organization badge under the kill-switch either', () => {
+        return mountPanel({ role: 'owner', layerCount: 0 }, { paywallEnabled: false }).then(() => {
+            expect(container.querySelectorAll('[data-testid="sv-membership-visibility-paid-badge"]').length).toBe(0);
         });
     });
 

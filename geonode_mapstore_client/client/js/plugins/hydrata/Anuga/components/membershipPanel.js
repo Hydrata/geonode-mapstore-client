@@ -59,10 +59,22 @@ const ROLES = [
 // by direct link/id, never by browsing. "Anyone can view" reads as
 // bot-browsable-public; it is not. Copy corrected to name the real
 // public-UNLISTED semantics instead of the more alarming (and wrong) implication.
+// TASK-2466 (epic 2425 W2.5) — `paid` is DATA, not a special case in the JSX.
+// Organization is a paid tier and the panel advertised it as free, which is
+// the mislead that made the original organization->private bypass a two-click
+// accident rather than an exploit. It has been paid on the backend since
+// 0c2faa4 and doubly so since W1: TASK-2431 made the entry gate
+// DESTINATION-based (any change INTO private OR organization is gated) and
+// TASK-2432 added paid_organization as a distinct paid steady state. The
+// Sharing panel was the last surface still saying otherwise.
+//
+// Driven off this flag rather than `opt.value === 'private'` so the next tier
+// change is a data edit — the previous shape made it possible for the backend
+// to move and the UI not to.
 const VISIBILITY_OPTIONS = [
-    {value: 'private', label: 'Private', description: 'Only members can access'},
-    {value: 'organization', label: 'Organization', description: 'Organization members can view'},
-    {value: 'public', label: 'Public', description: 'Anyone with the link can view — not listed in the public project directory'}
+    {value: 'private', label: 'Private', description: 'Only members can access', paid: true},
+    {value: 'organization', label: 'Organization', description: 'Organization members can view', paid: true},
+    {value: 'public', label: 'Public', description: 'Anyone with the link can view — not listed in the public project directory', paid: false}
 ];
 
 class MembershipPanelClass extends React.Component {
@@ -230,21 +242,29 @@ class MembershipPanelClass extends React.Component {
                                 <span className="sv-membership-visibility-option-main">
                                     <span className="sv-membership-visibility-option-title">
                                         {opt.label}
-                                        {/* TASK-2399 — freemium context BEFORE the click: Private
-                                            is the paid tier (commerce/checkout_views.py,
-                                            api_v2.py's G2 entitlement gate). Shown unconditionally
-                                            once paywallEnabled (not gated on this user's own
-                                            entitlement — a user who already has one still just
-                                            sees this as a true fact about the Private tier).
+                                        {/* TASK-2399 — freemium context BEFORE the click: the paid
+                                            tiers are marked (commerce/checkout_views.py, api_v2.py's
+                                            G2 entitlement gate). Shown unconditionally once
+                                            paywallEnabled and NOT gated on this user's own
+                                            entitlement — the pill describes the TIER, not the
+                                            viewer's state, so an already-entitled user still sees it
+                                            as a true fact about that tier.
                                             Clicking it as a non-entitled user never dead-ends on a
                                             bare 402: updateProjectVisibilityEpic (membershipEpics.js)
                                             already routes the 402's upgrade_prompt contract shape
                                             into the paywall overlay, which the always-mounted
                                             PaywallPanel (Paywall.js) renders as the UpgradeModal
-                                            (reused, not re-implemented). */}
-                                        {opt.value === 'private' && this.props.paywallEnabled ? (
+                                            (reused, not re-implemented).
+
+                                            TASK-2466 (W2.5) — driven by opt.paid, so Organization
+                                            carries the SAME pill as Private rather than a lookalike:
+                                            one span, one pair of classes, no second component to
+                                            drift. `data-tier` lets a test tell the two apart without
+                                            needing two testids. */}
+                                        {opt.paid && this.props.paywallEnabled ? (
                                             <span
                                                 data-testid="sv-membership-visibility-paid-badge"
+                                                data-tier={opt.value}
                                                 className="sv-membership-visibility-paid-badge sv-account-pill sv-account-pill--paid"
                                             >
                                                 Paid
