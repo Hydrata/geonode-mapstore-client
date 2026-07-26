@@ -7,11 +7,22 @@
  * i.e. option B — gate the paywall indicator to viewers for whom the project's
  * paid/private status is actually their concern. Everyone else sees nothing.
  *
- * ⚠ THIS GATE IS HALF-IMPLEMENTED, ON PURPOSE, AND THE MISSING HALF IS A
+ * TASK-2484 (W2.7) WIDENED THE PROJECT HALF TO MANAGER+, operator-decided:
+ *   "managers should see the padlock." It was owner-only, and that was wrong in
+ *   the direction that costs money rather than the safe one. The BACKEND gate on
+ *   the visibility write is MANAGER+ (gn_anuga/api_v2.py: check_project_role,
+ *   min_role=ProjectMembership.Role.MANAGER) and the entitlement check charges
+ *   REQUEST.USER's account (_check_private_entitlement_response ->
+ *   resolve_account_for_user). So a manager could flip a project to Private, be
+ *   BILLED FOR IT, and later receive past_due refusals, while never being shown
+ *   a padlock or a lapse notice. The indicator now covers everyone the write
+ *   gate covers — no more, no less.
+ *
+ * ⚠ THIS GATE IS STILL HALF-IMPLEMENTED, ON PURPOSE, AND THE MISSING HALF IS A
  *   BACKEND GAP — NOT AN OVERSIGHT. See TASK-2471.
  *
- *   IMPLEMENTED: owner (my_role === 'owner', which the backend also returns
- *   for superusers — sync.py steps 2-3).
+ *   IMPLEMENTED: owner or manager (my_role; the backend returns 'owner' for
+ *   superusers — sync.py steps 2-3).
  *
  *   NOT IMPLEMENTED: "member of the OWNING ORGANISATION". That is not
  *   derivable on the frontend today, and it is not a close call:
@@ -32,28 +43,34 @@
  *       invite-driven via explicit ProjectMembership rows only (sync.py:139-171).
  *
  *   So the org half needs a NEW backend field on my_perms (see TASK-2471).
- *   Until it lands this gate UNDER-shows: an org colleague who is not the
- *   owner sees no padlock. That is the safe direction. The unsafe direction —
- *   falling back to "any authenticated viewer", or to my_role !== null — is
- *   precisely the mislead this epic exists to remove: it would show a
- *   paid-tier indicator to people who cannot act on it.
+ *   Until it lands this gate UNDER-shows: an org colleague with no
+ *   ProjectMembership sees no padlock. That is the safe direction. The unsafe
+ *   direction — falling back to "any authenticated viewer", or to
+ *   my_role !== null — is precisely the mislead this epic exists to remove: it
+ *   would show a paid-tier indicator to people who cannot act on it.
  *
- * CONSISTENCY WITH THE W1 DESTINATION GATE (TASK-2431): satisfied trivially.
- * The indicator is an indicator — it is not an affordance, and this wave adds
- * no second make-private CTA anywhere (the action stays in Account > Sharing,
- * itself canManageMembers-gated to owner/manager). `owner` is a strict subset
- * of owner/manager, so nobody is shown a control the backend will then refuse.
+ * CONSISTENCY WITH THE W1 DESTINATION GATE (TASK-2431): now EXACT rather than
+ * merely safe. The write gate is owner/manager and so is this, so nobody is
+ * shown a paid-tier state they cannot act on, and nobody who can act on it (and
+ * be billed for it) is left without the signal. The indicator is still only an
+ * indicator: this wave adds no second make-private CTA, the action stays in
+ * Account > Sharing, itself canManageMembers-gated to the same owner/manager.
  */
-import { isOwnerAnugaMap } from '../Anuga/selectorsAnuga';
+import { canManageAnugaMap } from '../Anuga/selectorsAnuga';
 
 /**
- * TASK-2462 gate: may this viewer see the project's visibility indicator?
+ * TASK-2462 gate (widened to MANAGER+ by TASK-2484): may this viewer see the
+ * project's visibility indicator?
  *
- * Owner-only today. Widen this — and ONLY this — when the backend ships the
- * owning-organisation signal; every consumer reads through here so there is
- * one place to change.
+ * Reads the EXISTING owner/manager selector rather than re-listing the roles,
+ * so "manager+" has one definition shared with canManageMembers and with the
+ * Sharing panel's own gate. Re-inlining `['owner', 'manager'].includes(...)`
+ * here would be a second copy that can drift from the backend's min_role.
+ *
+ * Widen this — and ONLY this — when the backend ships the owning-organisation
+ * signal (TASK-2471); every consumer reads through here.
  */
-export const canSeeVisibilityIndicator = (state) => isOwnerAnugaMap(state);
+export const canSeeVisibilityIndicator = (state) => canManageAnugaMap(state);
 
 /**
  * The paywall STEADY state literal (free_public / paid_private /

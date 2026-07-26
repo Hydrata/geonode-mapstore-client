@@ -32,7 +32,9 @@ function makeStore(state) {
 }
 
 /**
- * @param myRole      the viewer's role on the project ('owner' gates the lock in)
+ * @param myRole      the viewer's role on the project ('owner' or 'manager'
+ *                    gates the lock in — TASK-2484 widened it from owner-only
+ *                    to match the backend's MANAGER+ visibility-write gate)
  * @param visibility  the project's server-side visibility
  * @param paywallSteady  the paywall steady-state literal, or null
  */
@@ -229,17 +231,31 @@ describe('Account button visibility padlock — the TASK-2462 gate', () => {
         expect(lockIn(container)).toExist();
     });
 
-    // The operator's verdict was "owner, or member of the organisation that
-    // owns the project". The org half is NOT derivable on the FE today (no
-    // backend field carries the project's owning organisation — see
-    // Paywall/selectors.js and TASK-2471), so the gate is owner-only and
-    // UNDER-shows rather than guessing. These four pin that it under-shows
-    // deliberately: if someone later widens the gate to my_role !== null or to
-    // canEditResource, these fail and force the decision back into the open
-    // rather than quietly showing a paid-tier control to people who cannot
-    // act on it.
-    ['manager', 'editor', 'contributor', 'viewer'].forEach(role => {
-        it(`a ${role} (non-owner) sees NO padlock — the gate under-shows, it does not guess`, () => {
+    // TASK-2484 (W2.7), operator-decided: MANAGERS SEE IT TOO. The backend's
+    // visibility-write gate is MANAGER+ (check_project_role, min_role=MANAGER)
+    // and the entitlement check charges request.user's own account, so a
+    // manager can flip a project Private, be BILLED, and take past_due
+    // refusals. Withholding the indicator from exactly those people was the
+    // costly direction of wrong, not the safe one.
+    it('a MANAGER of a private project sees it — the backend lets a manager flip visibility and bills them for it (TASK-2484)', () => {
+        const { container } = mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />, { store: makeStore(stateFor('manager', 'private')) }
+        );
+        expect(lockIn(container)).toExist();
+        expect(accountBtn(container).getAttribute('aria-label'))
+            .toBe('Account — Project visibility: Private');
+    });
+
+    // W2.5 added these to stop the gate widening BY ACCIDENT, and W2.7 moved the
+    // line rather than removing them — that protection is the whole point of
+    // TASK-2462. The line is now exactly the backend's write gate: owner/manager
+    // in, everyone else out. If someone later widens to my_role !== null, to
+    // canEditAnugaMap (which admits 'editor'), or to canCreateScenario (which
+    // admits 'contributor'), these fail and force the decision back into the
+    // open rather than quietly showing a paid-tier indicator — and a lapse
+    // notice about someone else's account — to people who cannot act on it.
+    ['editor', 'contributor', 'viewer'].forEach(role => {
+        it(`a ${role} (below manager) sees NO padlock — the gate matches the backend's MANAGER+ write gate, it does not guess`, () => {
             const { container } = mountWithProviders(
                 <ConnectedSimpleView paywallEnabled />, { store: makeStore(stateFor(role, 'private')) }
             );
@@ -255,14 +271,30 @@ describe('Account button visibility padlock — the TASK-2462 gate', () => {
         expect(lockIn(container)).toBe(null);
     });
 
-    it('a non-owner sees nothing even when the project is past_due', () => {
-        // The lapse belongs to the OWNER's account. Announcing it to a
-        // collaborator leaks account standing and offers a fix they cannot apply.
+    it('a below-manager collaborator sees nothing even when the project is past_due', () => {
+        // Announcing the lapse to someone who cannot act on it leaks account
+        // standing and offers a fix they cannot apply. An editor cannot change
+        // visibility (backend min_role=MANAGER), so the lapse is not theirs.
         const { container } = mountWithProviders(
             <ConnectedSimpleView paywallEnabled />,
             { store: makeStore(stateFor('editor', 'private', 'past_due')) }
         );
         expect(lockIn(container)).toBe(null);
         expect(accountBtn(container).getAttribute('aria-label')).toBe('Account');
+    });
+
+    it('a MANAGER does see the past_due lapse — the account being charged may be theirs (TASK-2484)', () => {
+        // The counterpart to the assertion above, and the reason the widening
+        // matters: _check_private_entitlement_response charges request.user's
+        // account, so a manager who privatised the project is the one holding a
+        // lapsed subscription. Deleting the on-map dunning banner in W2.5 left
+        // the padlock as the only proactive lapse surface.
+        const { container } = mountWithProviders(
+            <ConnectedSimpleView paywallEnabled />,
+            { store: makeStore(stateFor('manager', 'private', 'past_due')) }
+        );
+        expect(lockIn(container)).toExist();
+        expect(lockIn(container).getAttribute('aria-label'))
+            .toBe('Project visibility: Private (subscription lapsed)');
     });
 });
