@@ -131,6 +131,21 @@ export default (state = initialState, action) => {
     //     stalled notice with a balance that has already gone up two lines below
     //     it. The notice's wording therefore claims only that WE have not
     //     confirmed anything — never that no money arrived. Filed as TASK-2486.
+    //
+    // THE PRICE OF THIS RULE, stated because it is not obvious. The poll's
+    // lifetime is `takeWhile(isPaywallPending)`, so anything that clears the
+    // overlay also STOPS the poll. A customer who was ALREADY subscribed and buys
+    // a credit pack has subscription.active true in the very first summary, so
+    // this clears at the first tick and the poll's balance refresh stops ~3s in
+    // instead of running its budget. Considered and accepted rather than solved
+    // with a false-vs-true TRANSITION check (clear only on false -> true), because
+    // that trade is worse: when the webhook BEATS the return — which is the common
+    // case — the first summary already reads active, no transition is ever
+    // observed, and a customer whose subscription landed perfectly would be shown
+    // the stalled notice five minutes later. A stale meter balance is recoverable
+    // (the Billing tab reads its balance from this same summary, and
+    // accountEpics' window-focus refresh re-reads both); a false claim on the
+    // money path is what this wave exists to remove. Also folded into TASK-2486.
     case SET_ACCOUNT_SUMMARY: {
         const active = !!(action.data && action.data.subscription && action.data.subscription.active);
         return (active && state.overlay && state.overlay.state === 'pending')

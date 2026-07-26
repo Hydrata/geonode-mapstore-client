@@ -16,8 +16,13 @@
  *   past_due          → the same padlock, amber (--lapsed). The renew/manage
  *                       action lives in Account > Billing
  *                       (BillingTabPanel SubscriptionSection).
- *   pending           → nothing. FE-only Stripe-return window; the poll epic
- *                       still runs, it just has no on-map surface.
+ *   pending           → nothing HERE. FE-only Stripe-return window. Since
+ *                       TASK-2463 (W2.8) it is not silent either: the
+ *                       confirmation notice ("Confirming your purchase…", then
+ *                       an honest "still confirming" plus a Check again once the
+ *                       poll's budget is spent) lives in Account > Billing —
+ *                       BillingTabPanel's ConfirmingPurchaseSection, the tab the
+ *                       checkout return already opens. Still no on-map surface.
  *   anon              → nothing (paywall key absent for anonymous callers).
  *
  * WHY — grill decision 6 (2026-07-25): "the map becomes a modal HOST, not a
