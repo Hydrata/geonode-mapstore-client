@@ -160,6 +160,82 @@ describe('ComputeMeterPanel — focus trap and Escape (TASK-2435 AC#2)', () => {
         expect(document.activeElement).toBe(invoker);
     });
 
+    // W2 remediation — THE REAL RUN -> 402 PATH, which the test above does not
+    // reproduce. scenarioHeaderActions.js's fireDebounced disables the Run
+    // button SYNCHRONOUSLY on click (startDebounce), so by the time the server
+    // answers 402 and this modal mounts, document.activeElement is already
+    // <body> and the shipped "restore focus" was a guaranteed no-op. The
+    // synthetic invoker above never disables, which is exactly why it passed.
+    //
+    // The fix is two-part and both parts are asserted here: remember the control
+    // the customer actually PRESSED (tracked from module load, before the click
+    // can disable it), and — when that control can no longer take focus back —
+    // land on a deterministic neighbour in the same cluster, not <body>.
+    describe('the invoker disables itself on click (the real Run -> 402 path)', () => {
+        let cluster;
+        let runBtn;
+        let buildBtn;
+
+        /**
+         * A real user click is mousedown -> mouseup -> click. HTMLElement.click()
+         * dispatches ONLY the click, so a test that uses it alone is not
+         * exercising the path the customer takes. The press is the whole point
+         * here: it is the last moment at which the Run button is still enabled.
+         */
+        const userClick = (el) => {
+            el.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
+            el.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
+            el.click();
+        };
+
+        beforeEach(() => {
+            cluster = document.createElement('div');
+            runBtn = document.createElement('button');
+            runBtn.textContent = 'Run';
+            // Exactly what fireDebounced does: disable on click, synchronously.
+            runBtn.addEventListener('click', () => { runBtn.disabled = true; });
+            buildBtn = document.createElement('button');
+            buildBtn.textContent = 'Build';
+            cluster.appendChild(runBtn);
+            cluster.appendChild(buildBtn);
+            document.body.appendChild(cluster);
+        });
+        afterEach(() => {
+            if (cluster && cluster.parentNode) {
+                cluster.parentNode.removeChild(cluster);
+            }
+            cluster = runBtn = buildBtn = null;
+        });
+
+        it('does not dump focus on <body> when the invoker disabled itself', () => {
+            runBtn.focus();
+            expect(document.activeElement).toBe(runBtn);
+            userClick(runBtn);
+            // The browser blurs a disabled element — this is the state the
+            // modal actually mounts into on the real path.
+            expect(runBtn.disabled).toBe(true);
+            expect(document.activeElement).toNotBe(runBtn);
+
+            render({enabled: true, modal: {type: 'insufficient_balance', detail: 'x'}});
+            act(() => { ReactDOM.unmountComponentAtNode(container); });
+
+            expect(document.activeElement).toNotBe(document.body);
+            // Deterministic target: the nearest focusable control in the same
+            // cluster the customer was working in — not the map, not <body>.
+            expect(document.activeElement).toBe(buildBtn);
+        });
+
+        it('still prefers the invoker itself when it is re-enabled by close time', () => {
+            runBtn.focus();
+            userClick(runBtn);
+            render({enabled: true, modal: {type: 'insufficient_balance', detail: 'x'}});
+            // The debounce window expires while the modal is open.
+            runBtn.disabled = false;
+            act(() => { ReactDOM.unmountComponentAtNode(container); });
+            expect(document.activeElement).toBe(runBtn);
+        });
+    });
+
     it('Escape calls onDismissModal', () => {
         let dismissed = false;
         render({

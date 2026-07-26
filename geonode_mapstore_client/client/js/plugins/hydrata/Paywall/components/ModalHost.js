@@ -57,6 +57,98 @@ const FOCUSABLE = [
 ].join(',');
 
 /**
+ * THE INVOKER IS ALREADY GONE BY THE TIME WE MOUNT — a W2-review finding.
+ *
+ * `document.activeElement` at mount is NOT the control the customer pressed on
+ * the real Run -> 402 path. scenarioHeaderActions.js's `fireDebounced`
+ * disables the Run button SYNCHRONOUSLY on click (`startDebounce`), the
+ * browser blurs a disabled element, and the refusal modal only mounts once the
+ * server has answered — so activeElement is <body> and "focus returns to the
+ * invoking control" was a no-op in production. The existing karma coverage
+ * missed it because its synthetic invoker never disables.
+ *
+ * So the last control the customer ACTUALLY INTERACTED WITH is tracked
+ * continuously, from module load — a listener installed at mount would be far
+ * too late, the press has already happened by then.
+ *
+ * `mousedown`/`keydown`, NOT `focusin`, and that choice is load-bearing rather
+ * than stylistic. Chrome does not dispatch focus/focusin AT ALL while the
+ * document itself is unfocused, even though `.focus()` still moves
+ * `document.activeElement` — measured in the full karma suite, where
+ * `document.hasFocus()` is false and a focusin-based tracker recorded nothing
+ * (the scoped run, whose window did have focus, passed and hid the problem).
+ * Input events have no such dependency: mousedown fires before the click
+ * handler can disable the button, and keydown covers Space/Enter activation
+ * for keyboard users. One passive listener each, one retained reference.
+ */
+let lastInteractedElement = null;
+function rememberInteraction(e) {
+    const t = e.target;
+    if (!t || t.nodeType !== 1 || t === document.body || t === document.documentElement) {
+        return;
+    }
+    // A press often lands on an icon/label INSIDE the control; resolve to the
+    // control itself so the restore target is something that can take focus.
+    const control = typeof t.closest === 'function' ? t.closest(FOCUSABLE) : null;
+    lastInteractedElement = control || t;
+}
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('mousedown', rememberInteraction, true);
+    document.addEventListener('keydown', rememberInteraction, true);
+}
+
+/** The control to return focus to when a dialog closes. */
+function invokingControl() {
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    if (active && active !== document.body && active !== document.documentElement) {
+        return active;
+    }
+    return lastInteractedElement;
+}
+
+/**
+ * Deterministic fallback when the invoker cannot take focus back — it was
+ * disabled on click (the Run case above) or removed from the document.
+ * Walks OUT from the invoker to the first ancestor containing any focusable
+ * element, so focus lands in the same control cluster the customer was in
+ * (for the run cluster: Build-and-Run / Build beside a debounced Run) rather
+ * than being dumped on <body>, which is where a keyboard user loses their
+ * place entirely.
+ */
+function nearestFocusable(el) {
+    if (!el || !el.parentElement || typeof document === 'undefined') {
+        return null;
+    }
+    let node = el.parentElement;
+    while (node && node !== document.body && node !== document.documentElement) {
+        const candidate = node.querySelector(FOCUSABLE);
+        if (candidate && candidate !== el) {
+            return candidate;
+        }
+        node = node.parentElement;
+    }
+    return null;
+}
+
+function restoreFocus(previous) {
+    if (typeof document === 'undefined') {
+        return;
+    }
+    if (previous && typeof previous.focus === 'function' && document.contains(previous)) {
+        previous.focus();
+        // A disabled element silently swallows .focus() — verify rather than
+        // assume, which is precisely what the shipped implementation did not do.
+        if (document.activeElement === previous) {
+            return;
+        }
+    }
+    const fallback = nearestFocusable(previous);
+    if (fallback && typeof fallback.focus === 'function') {
+        fallback.focus();
+    }
+}
+
+/**
  * @param {node}   children   the dialog content (its own overlay/backdrop)
  * @param {func}   onDismiss  called on Escape
  * @param {string} testId     data-testid for the host element
@@ -66,11 +158,6 @@ const FOCUSABLE = [
  */
 function ModalHost({ children, onDismiss, testId, className, titleId }) {
     const hostRef = useRef(null);
-    // Captured synchronously at mount, restored at unmount — the "returns to
-    // the invoking control" half of TASK-2435 AC#2. There is no in-DOM trigger
-    // for these dialogs (they arrive as Redux actions from a refused Run
-    // dispatch or a 402 visibility PATCH), so the invoking control is whatever
-    // had focus when the refusal landed.
     const previouslyFocusedRef = useRef(null);
     // The keydown listener is attached ONCE (mount) and must not be re-bound on
     // every render, but it still has to call the CURRENT onDismiss — hence a
@@ -97,7 +184,7 @@ function ModalHost({ children, onDismiss, testId, className, titleId }) {
     // host-bound onKeyDown would then never see Escape again, leaving the
     // dialog un-closable by keyboard.
     useLayoutEffect(() => {
-        previouslyFocusedRef.current = document.activeElement;
+        previouslyFocusedRef.current = invokingControl();
         const items = focusable();
         if (items.length > 0) {
             items[0].focus();
@@ -142,13 +229,8 @@ function ModalHost({ children, onDismiss, testId, className, titleId }) {
         document.addEventListener('keydown', handleKeyDown);
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
-            const previous = previouslyFocusedRef.current;
-            // Only restore if the invoking control is still in the document
-            // and still focusable — otherwise leave focus where the browser
-            // put it rather than throwing it to <body>.
-            if (previous && typeof previous.focus === 'function' && document.contains(previous)) {
-                previous.focus();
-            }
+            restoreFocus(previouslyFocusedRef.current);
+            previouslyFocusedRef.current = null;
         };
     }, [focusable]);
 
