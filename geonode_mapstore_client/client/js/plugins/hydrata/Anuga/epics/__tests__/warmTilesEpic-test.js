@@ -33,11 +33,23 @@ const makeActions$ = (actions) => {
     return action$;
 };
 
-const makeStore = ({ mapId = 100, flat = [], projectId = null } = {}) => ({
+// TASK-2427: `projectBaseMapId` is the map the cached Redux project belongs to.
+// It defaults to `mapId` (the consistent case). Passing a DIFFERENT value models
+// the stale-Redux state after SPA navigation to another project's map — the
+// state that made the prod prefetch warm 0/7.
+const makeStore = ({ mapId = 100, flat = [], projectId = null,
+    projectBaseMapId = undefined } = {}) => ({
     getState: () => ({
         gnresource: { id: mapId },
         layers: { flat },
-        anuga: { projects: { data: projectId ? { id: projectId } : null } }
+        anuga: {
+            projects: {
+                data: projectId
+                    ? { id: projectId,
+                        base_map: projectBaseMapId === undefined ? mapId : projectBaseMapId }
+                    : null
+            }
+        }
     })
 });
 
@@ -135,6 +147,54 @@ describe('TASK-1930 W2.6 warmTilesOnMapOpenEpic', () => {
                 () => {},
                 err => done(err),
                 () => { expect(warmPosts(mockAxios).length).toBe(0); done(); }
+            );
+        });
+
+        // -------------------------------------------------------------------
+        // TASK-2427 — the Redux project id must belong to THIS map.
+        //
+        // Prod, 2026-07-26: `project 712 warmed 0/7`, `project 704 warmed 0/9`.
+        // The BE ownership guard was correct; the epic was handing it the
+        // CURRENT map's layer names paired with the PREVIOUS project's id,
+        // because `state.anuga.projects.data` survives SPA navigation and the
+        // old code short-circuited on its truthiness. Anonymous sessions, which
+        // always resolved from the map id, scored 4/4 and 9/9 in the same period.
+        // -------------------------------------------------------------------
+        it('(f) stale Redux project (belongs to another map) is IGNORED; resolves from map id', (done) => {
+            // Redux still holds project 1, but that project's base map is 999 —
+            // we are opening map 205. The stale id must not be used.
+            const store = makeStore({
+                mapId: 205, projectId: 1, projectBaseMapId: 999, flat: [wms(TERRAIN)]
+            });
+            const action$ = makeActions$([{ type: MAP_CONFIG_LOADED }]);
+            warmTilesOnMapOpenEpic(action$, store).subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    const posts = warmPosts(mockAxios);
+                    expect(posts.length).toBe(1);
+                    // 7 is what the mocked from-map endpoint resolves to; the
+                    // stale Redux id (1) must NOT appear in the URL.
+                    expect(posts[0].url).toBe('/api/v2/anuga/projects/7/warm-tiles/');
+                    done();
+                }
+            );
+        });
+
+        it('(g) project payload with no recognisable base map falls back to from-map (fail-safe)', (done) => {
+            const store = makeStore({
+                mapId: 206, projectId: 1, projectBaseMapId: null, flat: [wms(TERRAIN)]
+            });
+            const action$ = makeActions$([{ type: MAP_CONFIG_LOADED }]);
+            warmTilesOnMapOpenEpic(action$, store).subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    const posts = warmPosts(mockAxios);
+                    expect(posts.length).toBe(1);
+                    expect(posts[0].url).toBe('/api/v2/anuga/projects/7/warm-tiles/');
+                    done();
+                }
             );
         });
 
