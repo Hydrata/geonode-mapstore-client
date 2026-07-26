@@ -498,9 +498,17 @@ export const getProjectV2 = (projectId) =>
 export const getProjectsV2 = (pageSize = 100, page = 1) =>
     axios.get('/api/v2/anuga/projects/', { params: { page_size: pageSize, page } });
 
-// V2P-21 — batch perm fetch for the whole project. Backend caches with
-// Cache-Control: private, max-age=60. See V2P-20 endpoint at
-// /opt/hydrata/apps/gn_anuga/api_v2.py::ProjectViewSetV2.my_perms.
+// V2P-21 — batch perm fetch for the whole project.
+//
+// NO CACHE-BUSTER HERE, DELIBERATELY (TASK-2463, W2.7). The backend now sends
+// `Cache-Control: private, no-cache` + a strong ETag, so every call revalidates
+// and a caller can never receive a stale entitlement — a cheap 304 when nothing
+// changed, a full 200 the moment the webhook flips something. Adding a `?_=`
+// param on top would fragment the cache key for no freshness gain and would
+// make correctness depend on each caller remembering to opt in. See the header
+// block in gn_anuga/api_v2.py::my_perms for why the old `max-age=60` (with no
+// validator, on a resource the Stripe webhook mutates out of band) broke the
+// post-checkout poll.
 export const getMyPerms = (projectId) =>
     axios.get(`/api/v2/anuga/projects/${projectId}/my-perms/`);
 

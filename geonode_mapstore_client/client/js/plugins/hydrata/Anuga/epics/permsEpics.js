@@ -16,9 +16,15 @@
  *   interactive_s median 13.60s; an eager perm fetch on map init would push
  *   past the 14.28s 5% budget).
  *
- * Dedupe: 30-second module-level cache keyed by projectId. Backend sets
- *   Cache-Control: private, max-age=60; we use half that interval to be
- *   conservative against clock skew.
+ * Dedupe: 30-second module-level cache keyed by projectId. This window is now
+ *   the ONLY thing suppressing repeat panel-open fetches — TASK-2463 (W2.7)
+ *   changed the backend header to `private, no-cache` + ETag, so the browser no
+ *   longer holds a 60s freshness window of its own. This comment used to say
+ *   "half the backend max-age, to be conservative against clock skew"; that
+ *   reasoning is gone, and 30s is now simply the chosen budget. Why the header
+ *   had to change: my_perms is mutated OUT OF BAND by the Stripe webhook, and a
+ *   max-age with no validator made the post-checkout poll re-read its own cache
+ *   for the full 60s it runs. See gn_anuga/api_v2.py::my_perms.
  *
  * Error handling: retry once on 5xx / network error with 1s backoff. On final
  *   failure, dispatch setPermsLoadFailed(true) + a non-blocking toast. The
