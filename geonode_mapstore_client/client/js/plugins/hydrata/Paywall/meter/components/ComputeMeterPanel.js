@@ -250,6 +250,13 @@ function MeterModalHost({ children, onDismiss }) {
     // Run dispatch), so the invoking control is whatever had focus when the
     // refusal landed — normally the Run button the customer just pressed.
     const previouslyFocusedRef = useRef(null);
+    // The keydown listener is attached ONCE (mount) and must not be re-bound on
+    // every render, but it still has to call the CURRENT onDismiss — hence a
+    // ref rather than putting onDismiss in the effect's dependency list, which
+    // would tear down and re-attach the listener (and re-run the focus-entry
+    // logic) on every parent render.
+    const onDismissRef = useRef(onDismiss);
+    onDismissRef.current = onDismiss;
 
     const focusable = useCallback(() => {
         if (!hostRef.current) {
@@ -259,8 +266,15 @@ function MeterModalHost({ children, onDismiss }) {
     }, []);
 
     // useLayoutEffect, not useEffect, for the same synchronous-attach reason
-    // anugaScenarioOverflowMenu.js documents: the handler must be live before
+    // anugaScenarioOverflowMenu.js documents: the handlers must be live before
     // the browser can deliver an Escape to the newly painted dialog.
+    //
+    // The listeners go on `document`, NOT on the host via onKeyDown, and that
+    // is load-bearing. The backdrop is deliberately not dismiss-on-click, so a
+    // customer who clicks it moves focus to <body> — outside the host. A
+    // host-bound onKeyDown would then never see Escape again, leaving the
+    // dialog un-closable by keyboard. Same precedent as
+    // anugaScenarioOverflowMenu.js, same reason.
     useLayoutEffect(() => {
         previouslyFocusedRef.current = document.activeElement;
         const items = focusable();
@@ -269,7 +283,44 @@ function MeterModalHost({ children, onDismiss }) {
         } else if (hostRef.current) {
             hostRef.current.focus();
         }
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                e.stopPropagation();
+                onDismissRef.current();
+                return;
+            }
+            if (e.key !== 'Tab' && e.keyCode !== 9) {
+                return;
+            }
+            const focusables = focusable();
+            if (focusables.length === 0) {
+                e.preventDefault();
+                return;
+            }
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            const host = hostRef.current;
+            // Focus has escaped the dialog entirely (backdrop click) — pull it
+            // back in rather than letting Tab walk into the map behind.
+            if (host && !host.contains(document.activeElement)) {
+                e.preventDefault();
+                first.focus();
+                return;
+            }
+            // Wrap at both ends so Tab can never walk out into the map behind.
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
         return () => {
+            document.removeEventListener('keydown', handleKeyDown);
             const previous = previouslyFocusedRef.current;
             // Only restore if the invoking control is still in the document
             // and still focusable — otherwise leave focus where the browser
@@ -279,32 +330,6 @@ function MeterModalHost({ children, onDismiss }) {
             }
         };
     }, [focusable]);
-
-    const handleKeyDown = (e) => {
-        if (e.key === 'Escape' || e.keyCode === 27) {
-            e.stopPropagation();
-            onDismiss();
-            return;
-        }
-        if (e.key !== 'Tab' && e.keyCode !== 9) {
-            return;
-        }
-        const items = focusable();
-        if (items.length === 0) {
-            e.preventDefault();
-            return;
-        }
-        const first = items[0];
-        const last = items[items.length - 1];
-        // Wrap at both ends so Tab can never walk out into the map behind.
-        if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-        }
-    };
 
     if (typeof document === 'undefined') {
         return null;
@@ -319,7 +344,6 @@ function MeterModalHost({ children, onDismiss }) {
             aria-modal="true"
             aria-labelledby={MODAL_TITLE_ID}
             tabIndex={-1}
-            onKeyDown={handleKeyDown}
         >
             {children}
         </div>,
@@ -522,8 +546,14 @@ class ComputeMeterPanel extends React.Component {
             return null;
         }
 
+        // key={modal.type}: if a SECOND refusal arrives while the first is
+        // still open (the reducer replaces the modal without an intervening
+        // dismiss), React would otherwise reconcile the same host in place and
+        // the mount effect would not re-run — leaving focus on a button that
+        // no longer exists. Keying on the type forces a remount, so focus
+        // enters the new dialog and the old invoker is still restored.
         return (
-            <MeterModalHost onDismiss={onDismissModal}>
+            <MeterModalHost key={modal.type} onDismiss={onDismissModal}>
                 {content}
             </MeterModalHost>
         );

@@ -175,6 +175,72 @@ describe('ComputeMeterPanel — focus trap and Escape (TASK-2435 AC#2)', () => {
         expect(dismissed).toBe(true);
     });
 
+    // Cumulative-review catch (TASK-2435 Phase 1.7). The backdrop deliberately
+    // does NOT dismiss, so a customer who clicks it moves focus to <body>. With
+    // the keydown handler bound to the host via onKeyDown, Escape would never
+    // fire again and the dialog would be un-closable by keyboard. The listener
+    // is on `document` for exactly this case.
+    it('Escape still closes after focus has left the dialog (backdrop click)', () => {
+        let dismissed = false;
+        render({
+            enabled: true,
+            modal: {type: 'cap_exceeded', detail: 'x'},
+            onDismissModal: () => { dismissed = true; }
+        });
+        // Simulate focus escaping the dialog, as a backdrop click does.
+        document.body.focus();
+        if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+        }
+        const host = document.querySelector('[data-testid="compute-meter-panel"]');
+        expect(host.contains(document.activeElement)).toBe(false);
+        act(() => {
+            document.body.dispatchEvent(
+                new KeyboardEvent('keydown', {key: 'Escape', keyCode: 27, bubbles: true})
+            );
+        });
+        expect(dismissed).toBe(true);
+    });
+
+    it('Tab pulls focus back in when it has escaped the dialog', () => {
+        render({
+            enabled: true,
+            availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}],
+            modal: {type: 'insufficient_balance', detail: 'x'}
+        });
+        const host = document.querySelector('[data-testid="compute-meter-panel"]');
+        if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+        }
+        act(() => {
+            document.body.dispatchEvent(
+                new KeyboardEvent('keydown', {key: 'Tab', keyCode: 9, bubbles: true})
+            );
+        });
+        expect(host.contains(document.activeElement)).toBe(true);
+    });
+
+    // Cumulative-review catch (TASK-2435 Phase 1.7). A second refusal can
+    // replace the first without an intervening dismiss; without key={modal.type}
+    // React reconciles the host in place, the mount effect does not re-run, and
+    // focus is left on a button that no longer exists.
+    it('a modal-type swap while open re-enters focus into the NEW dialog', () => {
+        render({
+            enabled: true,
+            modal: {type: 'insufficient_balance', detail: 'x'}
+        });
+        act(() => {
+            ReactDOM.render(
+                <ComputeMeterPanel enabled modal={{type: 'cap_exceeded', detail: 'y'}} />,
+                container
+            );
+        });
+        const host = document.querySelector('[data-testid="compute-meter-panel"]');
+        expect(document.querySelector('[data-testid="meter-cap-exceeded-modal"]')).toExist();
+        expect(document.querySelector('[data-testid="meter-insufficient-balance-modal"]')).toBe(null);
+        expect(host.contains(document.activeElement)).toBe(true);
+    });
+
     it('Tab from the last focusable wraps to the first (focus cannot walk out to the map)', () => {
         render({
             enabled: true,
