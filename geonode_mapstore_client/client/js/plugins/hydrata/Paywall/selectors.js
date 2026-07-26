@@ -167,13 +167,27 @@ const _viewerOwnsProject = (state) => {
  * (serializers_v2.py), and on production it is NULL for all 166 projects
  * (verified read-only 2026-07-26), so even reading it would answer nothing for
  * the live estate. What it CAN determine is whether the reader is the project's
- * owner — and for the owner, past_due is a true, actionable statement about the
- * only account that can be charged for this project today.
+ * owner — and for the owner, past_due is a true statement about their own
+ * standing on a project that is theirs, and an actionable one: it is their
+ * account that will be refused when they act on this project's privacy.
+ *
+ * (NOT "the only account that can be charged for this project" — an earlier
+ * draft of this comment said that and it is false: _check_private_entitlement_
+ * response charges REQUEST.USER, so a manager can flip a project private and be
+ * billed for it. That is the whole reason W2.7 widened the gate.)
  *
  * SO: the owner keeps the lapse notice (it is also the day-one default at flip
  * for 84 of 84 non-public prod owners, and W2.5 deleted the dunning banner that
  * used to carry it). Everyone else gets the visibility and no claim about
  * billing. Say nothing rather than something false.
+ *
+ * ⚠ THE OWNER'S HALF IS STILL NOT WHOLLY TRUE, and W2.8 deliberately did not
+ * touch the wording. past_due is `not (account and account.has_paid_private_
+ * entitlement)`, which collapses "lapsed" and "never subscribed" into one
+ * literal — and on day one at flip the second is the case for every owner, since
+ * provision_accounts has never been run and those 84 owners have no Account row
+ * at all. Rewording is fork (i) of the same open decision below, so it is filed
+ * (TASK-2487) rather than pre-empted here.
  *
  * ⚠ OPEN QUESTION, NOT SETTLED HERE. Which account governs a project's paid
  * standing, and whether Project.account should be populated at creation, is being
