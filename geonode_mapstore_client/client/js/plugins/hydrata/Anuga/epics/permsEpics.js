@@ -7,31 +7,46 @@
  * in selectorsAnuga.js) can read state.anuga.resources.<type>[i].perms instead
  * of the legacy project my_role gate.
  *
- * Trigger: INIT_ANUGA (= componentDidUpdate on AnugaContainer = panel-open).
- *   This is the SAME action that initAnugaEpic uses to fan-out the v1 catalogue
- *   list endpoints, so we already know the user has the panel visible. The
- *   action is NOT dispatched on map init — that's MAP_CONFIG_LOADED in
- *   MapStore2's stack. Test suite below explicitly asserts no fetch on
- *   MAP_CONFIG_LOADED to guard the TASK-658 perf budget (cold-anon
- *   interactive_s median 13.60s; an eager perm fetch on map init would push
- *   past the 14.28s 5% budget).
+ * Trigger: INIT_ANUGA (= componentDidUpdate on AnugaContainer = panel-open), OR
+ *   SET_ANUGA_PROJECT_DATA — whichever happens second, since INIT_ANUGA may fire
+ *   before the project id exists (see triggerFetchMyPermsOnInitEpic). INIT_ANUGA
+ *   is the SAME action initAnugaEpic uses to fan out the v1 catalogue list
+ *   endpoints, so we already know the user has the panel visible. Neither action
+ *   is dispatched on map init — that's MAP_CONFIG_LOADED in MapStore2's stack.
+ *   The test suite explicitly asserts no fetch on MAP_CONFIG_LOADED to guard the
+ *   TASK-658 perf budget (cold-anon interactive_s median 13.60s; an eager perm
+ *   fetch on map init would push past the 14.28s 5% budget).
  *
- * Dedupe: 30-second module-level cache keyed by projectId. This window is now
- *   the ONLY thing suppressing repeat panel-open fetches — TASK-2463 (W2.7)
- *   changed the backend header to `private, no-cache` + ETag, so the browser no
- *   longer holds a 60s freshness window of its own. This comment used to say
- *   "half the backend max-age, to be conservative against clock skew"; that
- *   reasoning is gone, and 30s is now simply the chosen budget. Why the header
- *   had to change: my_perms is mutated OUT OF BAND by the Stripe webhook, and a
- *   max-age with no validator made the post-checkout poll re-read its own cache
- *   for the full 60s it runs. See gn_anuga/api_v2.py::my_perms.
+ * Dedupe: 30-second module-level cache keyed by projectId, in fetchMyPermsEpic.
+ *   TASK-2463 (epic 2425 W2.9) — a correction. W2.8 wrote here that this window
+ *   is "now the ONLY thing suppressing repeat panel-open fetches", which is
+ *   false, and the thing that refutes it is 20 lines below in this same file:
+ *   triggerFetchMyPermsOnInitEpic ends in `.distinctUntilChanged()`, so repeat
+ *   panel-opens on an UNCHANGED project emit no FETCH_MY_PERMS at all and never
+ *   reach the window. What the window actually suppresses is the fetches that DO
+ *   get through it — an A -> B -> A nav inside 30s, and any other dispatcher of
+ *   FETCH_MY_PERMS (the post-checkout poll, the tab-visible re-read, "Check
+ *   again"), all of which pass `force: true` where being suppressed would be a
+ *   bug. Two independent mechanisms, different jobs.
+ *
+ *   What W2.8 got right and is still true: the window is no longer sized against
+ *   a backend max-age. This used to say "half the backend max-age, to be
+ *   conservative against clock skew"; TASK-2463 (W2.7) changed the header to
+ *   `private, no-cache` + ETag, so there is no freshness window left to be half
+ *   of and 30s is simply the chosen budget. Why the header had to change:
+ *   my_perms is mutated OUT OF BAND by the Stripe webhook, and a max-age with no
+ *   validator made the post-checkout poll re-read its own cache for the whole
+ *   time it ran. See gn_anuga/api_v2.py::my_perms.
  *
  * Error handling: retry once on 5xx / network error with 1s backoff. On final
- *   failure, dispatch setPermsLoadFailed(true) + a non-blocking toast. The
- *   V2P-02 helpers MUST treat permsLoadFailed=true as "fall back to project
- *   my_role" (they already do — _resolveResourcePerms returns layer.perms ||
- *   [] when state.anuga.resources[type] is missing the id, and the helpers
- *   then defer to myRole).
+ *   failure — AND only if no newer response for the same project has already
+ *   been applied (the ordering guard below covers both branches as of W2.9) —
+ *   dispatch setPermsLoadFailed(true) + a non-blocking toast. The V2P-02 helpers
+ *   MUST treat permsLoadFailed=true as "fall back to project my_role" (they
+ *   already do — _resolveResourcePerms returns layer.perms || [] when
+ *   state.anuga.resources[type] is missing the id, and the helpers then defer to
+ *   myRole). That fallback is exactly why a STALE failure matters: it discards
+ *   perms that are already correct in the store.
  */
 import Rx from 'rxjs';
 import { show } from '../../../../../MapStore2/web/client/actions/notifications';
@@ -147,9 +162,10 @@ export const triggerFetchMyPermsOnInitEpic = (action$, store) => action$
  *   1. A visibility PATCH lands seconds after the panel-open fetch, squarely
  *      inside the window — the paywall steady state never refreshed and the
  *      indicator stayed stale (this task).
- *   2. pollMyPermsWhilePendingEpic polls every 3s for up to 20 attempts against
- *      a 30s window, so 9 of the first 10 ticks were no-ops. The poll looked
- *      like it was working and was mostly not.
+ *   2. pollMyPermsWhilePendingEpic polled every 3s against a 30s window, so 9 of
+ *      the first 10 ticks were no-ops. The poll looked like it was working and
+ *      was mostly not. (Its budget has since grown a second, slower phase —
+ *      PAYWALL_POLL_SLOW_* in paywallEpics.js — which does not change the point.)
  *
  * `force` still WRITES the timestamp, so a forced fetch re-arms the window for
  * ordinary triggers rather than disabling the dedupe from then on.
@@ -181,6 +197,12 @@ export const fetchMyPermsEpic = (action$) => action$
         const fetchOnce = Rx.Observable
             .defer(() => Rx.Observable.from(anugaApi.getMyPerms(projectId)));
 
+        /** Has a NEWER request for this project already had its answer applied? */
+        const isSuperseded = () => {
+            const applied = _appliedSeqByProjectId.get(projectId);
+            return applied !== undefined && applied > seq;
+        };
+
         /**
          * Apply a response ONLY if no newer one has already been applied for this
          * project. Emits the store write, or nothing at all.
@@ -189,8 +211,7 @@ export const fetchMyPermsEpic = (action$) => action$
          * an error, and the state the user sees is the newer one either way.
          */
         const applyIfNewest = (response) => {
-            const applied = _appliedSeqByProjectId.get(projectId);
-            if (applied !== undefined && applied > seq) {
+            if (isSuperseded()) {
                 return Rx.Observable.empty();
             }
             _appliedSeqByProjectId.set(projectId, seq);
@@ -198,8 +219,24 @@ export const fetchMyPermsEpic = (action$) => action$
         };
 
         const buildFailureBranch = () => {
+            // THE FAILURE BRANCH IS UNDER THE SAME ORDERING GUARD (TASK-2463, epic
+            // 2425 W2.9). W2.8 wrapped only the success write, and this is the
+            // branch that dispatches setPermsLoadFailed(true) — which the V2P-02
+            // helpers read as "ignore state.anuga.resources, fall back to project
+            // my_role". So on the poll's own shape (tick 1 slow and eventually
+            // 5xx, tick 2 fast and paid) a customer's correct, already-applied
+            // paid perms were discounted by an older request's failure, plus a
+            // permissions-unavailable toast, with no further response coming.
+            // Ordering was the whole point of the guard; a stale FAILURE is as
+            // stale as a stale success.
+            if (isSuperseded()) {
+                return Rx.Observable.empty();
+            }
             // Inline (per-subscription): invalidate dedupe so the next panel-
-            // open can retry, and emit setPermsLoadFailed + toast.
+            // open can retry, and emit setPermsLoadFailed + toast. The
+            // invalidation is inside the guard too — a newer request has already
+            // re-stamped the window with its own timestamp, and deleting it on
+            // behalf of a superseded one would only buy a redundant refetch.
             _lastFetchByProjectId.delete(projectId);
             return Rx.Observable.of(
                 setPermsLoadFailed(true),

@@ -2011,6 +2011,65 @@ describe('ANUGA Epics', () => {
             });
         });
 
+        // TASK-2463 (epic 2425 W2.9) — W2.8's guard wrapped only the SUCCESS
+        // write. The failure branch was left outside it, and it is the branch that
+        // dispatches setPermsLoadFailed(true).
+        //
+        // The shape: tick 1 (asked first) is slow and eventually 500s after its
+        // retry; tick 2 (asked second) answers fast with the post-webhook paid
+        // body and is applied. Tick 1's failure then lands and flips
+        // permsLoadFailed to true — which is what the V2P-02 helpers read as
+        // "ignore state.anuga.resources and fall back to project my_role". So a
+        // customer whose correct, paid perms are already in the store has them
+        // discounted by an older request's failure, and nothing further is coming.
+        it('a superseded FAILURE cannot mark the perms load failed after a newer one succeeded', (done) => {
+            let call = 0;
+            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(() => {
+                call += 1;
+                // Calls 1 and 3 belong to tick 1 (the request plus its single
+                // 1s-backoff retry); call 2 is tick 2, which succeeds at once.
+                if (call === 2) {
+                    return [200, body('private', 'paid_private')];
+                }
+                return new Promise((resolve) => setTimeout(() => resolve([500, {}]), 20));
+            });
+
+            const action$ = mockActions([fetchMyPerms(42, true), fetchMyPerms(42, true)]);
+            const emitted = [];
+            fetchMyPermsEpic(action$).subscribe(a => emitted.push(a), done);
+
+            // > 1s: the failure branch is only reached after the 1s backoff retry.
+            assertAfter(1400, done, () => {
+                const perms = emitted.filter(a => a.type === 'ANUGA:SET_ANUGA_RESOURCE_PERMS');
+                expect(perms.length).toBe(1, 'the newer, successful response was not applied');
+                expect(perms[0].payload.paywall.state).toBe('paid_private');
+                expect(emitted.some(a => a.type === 'ANUGA:SET_PERMS_LOAD_FAILED')).toBe(
+                    false,
+                    'a superseded request\'s failure marked the perms load failed AFTER the '
+                    + 'paid response had already landed — the V2P-02 helpers now discard the '
+                    + 'correct perms and fall back to project my_role, and no further '
+                    + 'response is coming'
+                );
+                expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(
+                    false, 'and the customer is shown a permissions-unavailable toast as well'
+                );
+            });
+        }).timeout(5000);
+
+        it('a failure that is NOT superseded still reports — the guard must not silence it', (done) => {
+            // The counterpart, so the fix above cannot be "never report failures".
+            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(500, {});
+            const action$ = mockActions([fetchMyPerms(42, true)]);
+            const emitted = [];
+            fetchMyPermsEpic(action$).subscribe(a => emitted.push(a), done);
+            assertAfter(1400, done, () => {
+                expect(emitted.some(a => a.type === 'ANUGA:SET_PERMS_LOAD_FAILED')).toBe(
+                    true, 'a genuine, un-superseded failure is now silent'
+                );
+                expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(true);
+            });
+        }).timeout(5000);
+
         it('two fetches for DIFFERENT projects do not cancel or drop each other', (done) => {
             // The guard must be per-project. A global "newest wins" would make an
             // SPA nav A -> B drop B's answer whenever A's landed second.
