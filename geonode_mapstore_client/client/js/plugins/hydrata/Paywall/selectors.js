@@ -57,6 +57,7 @@
  * Account > Sharing, itself canManageMembers-gated to the same owner/manager.
  */
 import { canManageAnugaMap } from '../Anuga/selectorsAnuga';
+import { getPaywallSteady } from './reducer';
 
 /**
  * TASK-2462 gate (widened to MANAGER+ by TASK-2484): may this viewer see the
@@ -81,10 +82,17 @@ export const canSeeVisibilityIndicator = (state) => canManageAnugaMap(state);
  * would mask the server's entitlement view. A transient "you just clicked
  * subscribe" must not silently change what the padlock claims about the
  * account's standing.
+ *
+ * TASK-2463 (W2.7) — delegates to reducer.js's getPaywallSteady rather than
+ * reaching into the slice, so the "does this steady state describe the project
+ * on screen" guard has ONE implementation shared with
+ * getEffectivePaywallPayload. Reading state.anuga.paywall.steady directly here
+ * is what allowed the padlock to pair B's visibility with A's lapse.
  */
-export const getPaywallSteadyState = (state) =>
-    (state && state.anuga && state.anuga.paywall && state.anuga.paywall.steady
-        && state.anuga.paywall.steady.state) || null;
+export const getPaywallSteadyState = (state) => {
+    const steady = getPaywallSteady(state);
+    return (steady && steady.state) || null;
+};
 
 /** True when the account's subscription has lapsed (server steady state). */
 export const isPaywallPastDue = (state) => getPaywallSteadyState(state) === 'past_due';

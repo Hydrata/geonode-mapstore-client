@@ -82,9 +82,10 @@
    The body-level layer ModalHost portals into. Identical contract to
    meter.css's .compute-meter-panel: it exists ONLY while the blocking state
    is live (PaywallPanel returns null for every other state — the anchored
-   shell this comment used to name as the alternative was deleted 26 lines
-   above, in this same wave), so a full-viewport fixed layer here can never
-   become an invisible click-blocker.
+   shell this comment used to name as the alternative, .paywall-panel--anchored,
+   was deleted in W2.5 by gmc 3a2e1ba12, NOT in the wave that rewrote this
+   comment), so a full-viewport fixed layer here can never become an invisible
+   click-blocker.
    No padding/flex from the base class reaches it — the backdrop below is the
    full-bleed child. */
 .paywall-panel--modal-host {

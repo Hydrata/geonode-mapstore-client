@@ -3,7 +3,8 @@
  * merge that feeds PaywallPanelContainer's connected `paywallPayload` prop.
  */
 import expect from 'expect';
-import paywallReducer, {getEffectivePaywallPayload, isPaywallPending} from '../reducer';
+import paywallReducer, {getEffectivePaywallPayload, getPaywallSteady, isPaywallPending} from '../reducer';
+import {getPaywallSteadyState, isPaywallPastDue} from '../selectors';
 import {SET_ANUGA_RESOURCE_PERMS} from '../../Anuga/actionsAnuga';
 import {
     SET_PAYWALL_UPGRADE_PROMPT,
@@ -170,6 +171,73 @@ describe('TASK-2099 Paywall reducer', () => {
         it('is true only when overlay.state is pending', () => {
             expect(isPaywallPending({anuga: {paywall: {overlay: {state: 'pending'}}}})).toBe(true);
             expect(isPaywallPending({anuga: {paywall: {overlay: {state: 'upgrade_prompt'}}}})).toBe(false);
+        });
+    });
+
+    // ── TASK-2463 (epic 2425 W2.7): steady must describe the project on screen ──
+    //
+    // W2.6 gave projectsReducer a projectId refusal for `visibility` and left
+    // this half of the SAME payload unprotected, so after an SPA nav A -> B a
+    // late my_perms for A was refused for visibility and accepted for
+    // paywall.steady. The padlock then paired B's visibility with A's lapse: a
+    // billing claim about a project the user is no longer looking at.
+    describe('getPaywallSteady — the project stamp (TASK-2463 W2.7)', () => {
+        const steadyFor = (projectId, paywallState) => paywallReducer(undefined, {
+            type: SET_ANUGA_RESOURCE_PERMS,
+            projectId,
+            payload: {paywall: {state: paywallState, checkout_url: null, read_only: false}}
+        });
+        const withProject = (paywall, loadedId) => ({
+            anuga: {paywall, projects: {data: {id: loadedId, visibility: 'private'}}}
+        });
+
+        it('records which project the steady payload describes', () => {
+            expect(steadyFor(7, 'past_due').steadyProjectId).toBe(7);
+        });
+
+        it('normalises a payload with no project identity to null', () => {
+            expect(steadyFor(undefined, 'past_due').steadyProjectId).toBe(null);
+        });
+
+        it('returns the steady state when the stamp matches the loaded project', () => {
+            const state = withProject(steadyFor(7, 'past_due'), 7);
+            expect(getPaywallSteady(state).state).toBe('past_due');
+            expect(getPaywallSteadyState(state)).toBe('past_due');
+            expect(isPaywallPastDue(state)).toBe(true);
+        });
+
+        it('REFUSES a steady state stamped for a DIFFERENT project — the A->B nav bug', () => {
+            const state = withProject(steadyFor(7, 'past_due'), 8);
+            expect(getPaywallSteady(state)).toBe(null);
+            expect(getPaywallSteadyState(state)).toBe(null);
+            // The consequence that matters: no "(subscription lapsed)" claim
+            // attached to a project whose account never lapsed.
+            expect(isPaywallPastDue(state)).toBe(false);
+        });
+
+        it('ACCEPTS an unstamped steady state — refusing it would be fail-DANGEROUS here', () => {
+            // Unlike projectsReducer, SET_ANUGA_RESOURCE_PERMS is the ONLY writer
+            // of `steady`, so a refusal discards the paywall state outright
+            // rather than falling back to another writer's value.
+            const state = withProject(steadyFor(undefined, 'past_due'), 8);
+            expect(getPaywallSteadyState(state)).toBe('past_due');
+        });
+
+        it('ACCEPTS a stamped steady state when no project is loaded yet', () => {
+            const state = {anuga: {paywall: steadyFor(7, 'paid_private'), projects: {data: null}}};
+            expect(getPaywallSteadyState(state)).toBe('paid_private');
+        });
+
+        it('getEffectivePaywallPayload honours the same guard, and an OVERLAY still wins', () => {
+            const mismatched = steadyFor(7, 'past_due');
+            expect(getEffectivePaywallPayload(withProject(mismatched, 8))).toBe(null);
+            // An FE-only overlay is not project-stamped and must not be dropped:
+            // it is armed by a click in the here and now.
+            const withOverlay = paywallReducer(mismatched, {
+                type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl: 'https://x/'
+            });
+            expect(getEffectivePaywallPayload(withProject(withOverlay, 8)).state)
+                .toBe('upgrade_prompt');
         });
     });
 });
