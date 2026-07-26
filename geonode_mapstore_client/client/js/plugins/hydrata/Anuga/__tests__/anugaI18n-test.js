@@ -106,20 +106,27 @@ describe('Anuga i18n', () => {
         expect(enMessages['hydrata.anuga.terrainCrsDetected']).toMatch(/\{crs\}/);
     });
 
-    // TASK-2463 (epic 2425 W2.8) — the stalled-confirmation toast is the FIRST
-    // thing a customer sees when a webhook is slow, and it is raised from an epic
-    // by msgId. A missing key renders the raw msgId, so a paying customer would
-    // read "hydrata.anuga.checkoutStalled.title" — which is worse than the
-    // silence this toast replaces. Asserted in every locale that carries the
-    // sibling checkout keys, not just en-US.
+    // The two money-path toasts that survive: checkout CANCELLED and checkout
+    // create-session FAILED. Both are raised from paywallEpics.js by msgId, so a
+    // missing key renders the raw id to a customer mid-purchase. Asserted in
+    // every locale that carries them, not just en-US.
+    //
+    // TASK-2486 (epic 2425 W2.9) — the third member of this list,
+    // `hydrata.anuga.checkoutStalled.*`, is GONE, along with the toast it fed.
+    // W2.8 raised that one with autoDismiss:0 on the poll's give-up tail; there
+    // is no notification-retraction path in this codebase, so it could not be
+    // taken back when the webhook landed a minute later and refuted it. The
+    // give-up state is now state-driven only (BillingTabPanel's
+    // ConfirmingPurchaseSection), which retracts itself. Keys deleted from all
+    // four locales that had them rather than left behind — an i18n test
+    // asserting keys for a toast that cannot be raised is the vacuous kind.
     it('the money-path checkout toast keys exist in every locale that has the others', () => {
         const {esMessages, htMessages} = require('../../../../__tests__/fixtures/translations');
         const keys = [
-            'hydrata.anuga.checkoutStalled.title',
-            'hydrata.anuga.checkoutStalled.message',
-            // Its siblings, so this test also pins that they never regress.
             'hydrata.anuga.checkoutCancelled.title',
-            'hydrata.anuga.checkoutFailed.title'
+            'hydrata.anuga.checkoutCancelled.message',
+            'hydrata.anuga.checkoutFailed.title',
+            'hydrata.anuga.checkoutFailed.message'
         ];
         [['en', enMessages], ['fr', frMessages], ['es', esMessages], ['ht', htMessages]]
             .forEach(([locale, messages]) => {
@@ -127,14 +134,10 @@ describe('Anuga i18n', () => {
                     expect(messages[key]).toExist(`Missing ${locale} translation for: ${key}`);
                     expect(messages[key].length).toBeGreaterThan(0, `Empty ${locale} value for: ${key}`);
                 });
-                // The wording is load-bearing on the money path: the toast must
-                // never claim the payment failed. Only the app's own uncertainty
-                // is knowable (see BillingTabPanel's ConfirmingPurchaseSection).
-                const msg = (messages['hydrata.anuga.checkoutStalled.message'] || '').toLowerCase();
-                ['failed', 'lost', 'echwe', 'error en el pago']
-                    .forEach((banned) => expect(msg).toNotInclude(
-                        banned, `${locale} stalled-toast copy claims "${banned}"`
-                    ));
+                expect(messages['hydrata.anuga.checkoutStalled.title']).toNotExist(
+                    `${locale} still carries the retired stalled-toast key — the toast it fed `
+                    + 'was removed because it could never be retracted'
+                );
             });
     });
 

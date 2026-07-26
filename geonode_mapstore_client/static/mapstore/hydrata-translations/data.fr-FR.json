@@ -243,10 +243,6 @@
           "title": "Echec du paiement",
           "message": "Impossible de demarrer le paiement. Veuillez reessayer."
         },
-        "checkoutStalled": {
-          "title": "Confirmation de votre achat en cours",
-          "message": "Votre paiement est enregistre chez Stripe. Ouvrez Compte › Facturation pour verifier a nouveau."
-        },
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "Le mesh apparaîtra ici lorsqu'un scénario sera construit.",

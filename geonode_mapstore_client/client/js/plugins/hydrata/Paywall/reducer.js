@@ -9,9 +9,13 @@
  *   overlay — FE-only ephemeral state my_perms never emits (upgrade_prompt,
  *             pending). Takes precedence over `steady` while set. A `pending`
  *             overlay also carries `stalled` (TASK-2463, W2.8): the poll has run
- *             its full budget without seeing the purchase land, so the Billing
- *             tab switches from "confirming" to an honest "still confirming"
- *             plus a re-check. It is NOT cleared into nothing — see actions.js.
+ *             its full budget without OBSERVING the purchase land, so the Billing
+ *             tab swaps "Confirming your purchase…" for a re-check plus a line
+ *             saying when the figures below were last read. `stalled` names the
+ *             POLL's outcome, not the customer's money — the app cannot tell a
+ *             missing webhook from one it simply had no channel to see, so
+ *             neither the flag nor the copy claims anything is outstanding
+ *             (TASK-2486, W2.9). It is NOT cleared into nothing — see actions.js.
  *
  * getEffectivePaywallPayload resolves the two into the single payload shape
  * PaywallPanel expects ({state, checkout_url, read_only}).
@@ -31,7 +35,8 @@ import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
     SET_PAYWALL_PENDING,
-    STALL_PAYWALL_PENDING
+    STALL_PAYWALL_PENDING,
+    CLEAR_PAYWALL_PENDING
 } from './actions';
 
 /**
@@ -112,40 +117,60 @@ export default (state = initialState, action) => {
         return (state.overlay && state.overlay.state === 'pending' && !state.overlay.stalled)
             ? { ...state, overlay: { ...state.overlay, stalled: true } }
             : state;
+    // TASK-2486 (W2.9) — the THIRD confirmation channel, and the one that
+    // covers the credit pack: the compute balance went up. Dispatched by
+    // clearPendingOnBalanceIncreaseEpic, which is where the previous balance is
+    // observable (see actions.js's CLEAR_PAYWALL_PENDING).
+    //
+    // Narrow, like the two clears above it: acts only on a pending overlay, so a
+    // balance increase during an unrelated upgrade_prompt cannot dismiss the
+    // refusal the user is looking at.
+    case CLEAR_PAYWALL_PENDING:
+        return (state.overlay && state.overlay.state === 'pending')
+            ? { ...state, overlay: null }
+            : state;
     // TASK-2463 (W2.8) — the SECOND way a purchase can be confirmed, and without
     // it the honest-stall change above would have created a new permanent lie.
     //
-    // The pending overlay is armed by ANY `?checkout=success` return. Only ONE of
-    // the three purchase kinds it covers ends in a paid PROJECT steady state:
-    //   * privacy subscription with a project on the session -> paid_private,
-    //     cleared by SET_ANUGA_RESOURCE_PERMS above;
+    // The pending overlay is armed by ANY `?checkout=success` return, and it
+    // covers three purchase kinds. Each now has exactly one detector, and the
+    // three are checked here in one place because their asymmetry is the thing
+    // that keeps being got wrong:
+    //   * privacy subscription WITH a project on the session -> the webhook sets
+    //     the entitlement AND flips visibility (commerce/checkout_views.py
+    //     _grant_entitlement_and_flip_project), so my_perms answers
+    //     paid_private/paid_organization. Cleared by SET_ANUGA_RESOURCE_PERMS
+    //     above — and also by the rule below, whichever arrives first.
     //   * ACCOUNT-scoped subscription (Billing tab "Subscribe" passes
     //     accountOnly, so no project rides the session — see subscribeCheckoutEpic)
-    //     -> my_perms keeps answering free_public forever, because the project
-    //     genuinely is still public. Nothing would ever have cleared it, so the
-    //     customer would sit on "still confirming" after a subscription that had
-    //     landed perfectly. THIS case is what the rule below closes.
-    //   * credit pack -> confirmed by the BALANCE, which this reducer cannot see.
-    //     Deliberately NOT adjudicated here, and stated rather than fudged: a
-    //     credit-pack buyer whose subscription is inactive can still reach the
-    //     stalled notice with a balance that has already gone up two lines below
-    //     it. The notice's wording therefore claims only that WE have not
-    //     confirmed anything — never that no money arrived. Filed as TASK-2486.
+    //     -> the same webhook grants the entitlement but flips nothing, because
+    //     there is no project on the session. my_perms keeps answering
+    //     free_public for good. THIS case is what the rule below closes.
+    //   * credit pack -> `purchase_type=credit_pack` is discriminated BEFORE the
+    //     subscription path (checkout_views.py stripe_webhook) and routed to
+    //     _handle_credit_pack_checkout_completed, which writes ONE
+    //     ComputeLedgerEntry and touches has_paid_private_entitlement nowhere.
+    //     So `subscription.active` below can NEVER go true for it, and neither
+    //     can a paid project state. Its only signal is the BALANCE, which this
+    //     reducer cannot see: cleared by CLEAR_PAYWALL_PENDING above (TASK-2486,
+    //     W2.9). Before that clear existed, an UNSUBSCRIBED pack buyer — the
+    //     default shape of the production estate — could not be confirmed by any
+    //     rule in this file and always ran the poll to exhaustion.
     //
-    // THE PRICE OF THIS RULE, stated because it is not obvious. The poll's
-    // lifetime is `takeWhile(isPaywallPending)`, so anything that clears the
-    // overlay also STOPS the poll. A customer who was ALREADY subscribed and buys
-    // a credit pack has subscription.active true in the very first summary, so
-    // this clears at the first tick and the poll's balance refresh stops ~3s in
-    // instead of running its budget. Considered and accepted rather than solved
-    // with a false-vs-true TRANSITION check (clear only on false -> true), because
-    // that trade is worse: when the webhook BEATS the return — which is the common
-    // case — the first summary already reads active, no transition is ever
-    // observed, and a customer whose subscription landed perfectly would be shown
-    // the stalled notice five minutes later. A stale meter balance is recoverable
-    // (the Billing tab reads its balance from this same summary, and
-    // accountEpics' window-focus refresh re-reads both); a false claim on the
-    // money path is what this wave exists to remove. Also folded into TASK-2486.
+    // `subscription.active` IS `Account.has_paid_private_entitlement`
+    // (commerce/account_views.py AccountSummaryView) — the same field the
+    // subscription webhook writes and `customer.subscription.deleted` revokes.
+    // It is a SUBSCRIPTION flag, not a "money arrived" flag; reading it as the
+    // latter is what left the pack buyer with no detector.
+    //
+    // NOT A TRANSITION CHECK, deliberately: this clears on `active` being true,
+    // not on it going false -> true. When the webhook BEATS the return — the
+    // common case — the first summary already reads active and no transition is
+    // ever observable, so a transition check would strand a subscription that
+    // landed perfectly. The cost that used to carry (an already-subscribed
+    // customer buying a pack cleared at tick 1 and stopped the poll's balance
+    // refresh with it) is gone: pollMyPermsWhilePendingEpic now runs a minimum
+    // floor of PAYWALL_POLL_MAX_ATTEMPTS ticks regardless of this clear.
     case SET_ACCOUNT_SUMMARY: {
         const active = !!(action.data && action.data.subscription && action.data.subscription.active);
         return (active && state.overlay && state.overlay.state === 'pending')

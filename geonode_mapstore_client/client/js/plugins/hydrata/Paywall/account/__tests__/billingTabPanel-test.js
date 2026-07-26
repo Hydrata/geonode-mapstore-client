@@ -314,6 +314,31 @@ describe('BillingTabPanel — post-checkout confirmation notice (W2.8)', () => {
             .forEach((banned) => expect(text).toNotInclude(banned, `notice claims "${banned}"`));
     });
 
+    // TASK-2486 (epic 2425 W2.9). THE OTHER HALF OF THE SAME RULE, and the one
+    // W2.8 broke while writing the rule down. Its stalled copy opened "We are
+    // still confirming your purchase with our payment provider." The shape that
+    // reaches this state most often is an UNSUBSCRIBED customer who bought a
+    // credit pack (84 of 84 prod owners have no subscription) and whose webhook
+    // landed before the poll's first balance read — for them that sentence sits
+    // two lines above an ALREADY-CORRECT balance, and Check again cannot clear
+    // it, because the endpoints it re-asks are structurally incapable of
+    // confirming a pack. A claim the customer's own screen refutes is the defect
+    // class this epic exists to remove; "we have not confirmed it" is such a
+    // claim just as much as "it failed" is.
+    it('never asserts that anything is still outstanding — the app cannot know that either', () => {
+        const text = render({ ...loaded, confirming: { stalled: true } })
+            .querySelector('[data-testid="sv-account-confirming"]').textContent.toLowerCase();
+        ['still confirming', 'we are confirming', 'has not', 'have not', 'waiting for']
+            .forEach((banned) => expect(text).toNotInclude(
+                banned,
+                `stalled notice claims "${banned}" — false for a purchase that has landed by a `
+                + 'channel this notice cannot see, which is the commonest way to reach it'
+            ));
+        // What it MUST still do: say when the figures below were read, and give a
+        // way to read them again. Removing the claim must not remove the answer.
+        expect(text).toInclude('check again');
+    });
+
     it('does not displace the balance or the subscription state — they are the real confirmation', () => {
         const c = render({
             ...loaded, confirming: { stalled: true }, balance: '10.00',

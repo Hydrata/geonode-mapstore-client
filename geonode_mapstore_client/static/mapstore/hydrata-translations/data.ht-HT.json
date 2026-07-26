@@ -243,10 +243,6 @@
           "title": "Peman echwe",
           "message": "Pa t kapab kòmanse peman an. Tanpri eseye ankò."
         },
-        "checkoutStalled": {
-          "title": "N ap toujou konfime acha w la",
-          "message": "Peman w la anrejistre nan Stripe. Louvri Kont › Fakturasyon pou tcheke ankò."
-        },
         "mesh": "May",
         "meshRegions": "Rejyon May",
         "meshWillAppear": "Mesh la ap parèt isit la lè yo konstwi yon senaryo.",

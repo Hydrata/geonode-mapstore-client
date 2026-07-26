@@ -243,10 +243,6 @@
           "title": "Checkout failed",
           "message": "Could not start checkout. Please try again."
         },
-        "checkoutStalled": {
-          "title": "Still confirming your purchase",
-          "message": "Your checkout is recorded with Stripe. Open Account \u203a Billing to re-check."
-        },
         "mesh": "Mesh",
         "meshRegions": "Mesh",
         "meshWillAppear": "Mesh will appear here when a Scenario is built.",

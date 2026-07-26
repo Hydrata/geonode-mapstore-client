@@ -12,7 +12,8 @@ import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
     SET_PAYWALL_PENDING,
-    STALL_PAYWALL_PENDING
+    STALL_PAYWALL_PENDING,
+    CLEAR_PAYWALL_PENDING
 } from '../actions';
 import {SET_ACCOUNT_SUMMARY} from '../account/actions';
 
@@ -218,6 +219,50 @@ describe('TASK-2099 Paywall reducer', () => {
             const state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
             expect(paywallReducer(state, {type: SET_ACCOUNT_SUMMARY})).toBe(state);
             expect(paywallReducer(state, {type: SET_ACCOUNT_SUMMARY, data: {}})).toBe(state);
+        });
+    });
+
+    // TASK-2486 (epic 2425 W2.9) — the THIRD confirmation channel, the credit
+    // pack's. Its signal is the compute balance, which this slice cannot see, so
+    // the comparison is made in clearPendingOnBalanceIncreaseEpic and only its
+    // verdict arrives here. Backend-verified: the credit-pack webhook branch
+    // (commerce/checkout_views.py _handle_credit_pack_checkout_completed) writes
+    // a ComputeLedgerEntry and touches neither has_paid_private_entitlement (the
+    // field `subscription.active` reports) nor Project.visibility, so NEITHER of
+    // the two clears above can ever fire for an unsubscribed pack buyer.
+    describe('confirmation via the compute balance (W2.9)', () => {
+        it('clears a pending overlay', () => {
+            let state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
+            state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING, reason: 'balance'});
+            expect(state.overlay).toBe(
+                null,
+                'the pack landed, the balance went up, and the app still claimed it had '
+                + 'confirmed nothing'
+            );
+        });
+
+        it('clears a STALLED overlay too — the balance can arrive after the poll gave up', () => {
+            let state = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
+            state = paywallReducer(state, {type: STALL_PAYWALL_PENDING});
+            state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING, reason: 'balance'});
+            expect(state.overlay).toBe(null);
+            expect(getPaywallConfirming({anuga: {paywall: state}})).toBe(null);
+        });
+
+        it('does not touch an upgrade_prompt refusal', () => {
+            let state = paywallReducer(undefined, {
+                type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl: 'https://x/'
+            });
+            state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING, reason: 'balance'});
+            expect(state.overlay.state).toBe(
+                'upgrade_prompt',
+                'a balance change dismissed the refusal the user was reading'
+            );
+        });
+
+        it('is inert with no overlay at all', () => {
+            const state = paywallReducer(undefined, {type: 'INIT'});
+            expect(paywallReducer(state, {type: CLEAR_PAYWALL_PENDING})).toBe(state);
         });
     });
 

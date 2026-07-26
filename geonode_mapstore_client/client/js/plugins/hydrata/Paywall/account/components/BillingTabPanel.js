@@ -196,6 +196,19 @@ SubscriptionSection.propTypes = {
  * `stalled` = the poll has spent its full 5-minute budget. The notice does not
  * disappear: it gains the re-check. If it vanished, the customer would be back to
  * the silence this whole change exists to remove.
+ *
+ * THE STALLED COPY WAS REWRITTEN IN W2.9 (TASK-2486), and the reason is the
+ * whole point of the section above. W2.8's version opened "We are still
+ * confirming your purchase with our payment provider." For the shape that
+ * reaches this state most often — an unsubscribed customer who bought a credit
+ * pack, and whose webhook landed before the poll's first balance read — that
+ * sentence is rendered two lines above a balance that is ALREADY CORRECT, and
+ * pressing Check again cannot change it. A claim that the customer's own screen
+ * refutes is exactly the defect this wave is clearing, so the copy no longer
+ * asserts that anything is outstanding: it states when the figures below were
+ * last read, and makes the "not landed yet" case conditional. Both halves are
+ * true whether or not the purchase has landed. A karma test bans the phrasing
+ * that is not.
  */
 function ConfirmingPurchaseSection({ confirming, onRecheck }) {
     if (!confirming) {
@@ -212,9 +225,10 @@ function ConfirmingPurchaseSection({ confirming, onRecheck }) {
         >
             <span className="sv-account-confirming-text" data-testid="sv-account-confirming-text">
                 {confirming.stalled
-                    ? 'We are still confirming your purchase with our payment provider. '
-                      + 'Your checkout is recorded with Stripe. Your compute balance and '
-                      + 'subscription below are re-read every time you check.'
+                    ? 'Your compute balance and subscription below were re-read a moment ago, '
+                      + 'and are re-read every time you check. If a purchase you have just made '
+                      + 'is not shown there yet, check again shortly — our payment provider can '
+                      + 'take a few minutes to confirm one.'
                     : 'Confirming your purchase…'}
             </span>
             {confirming.stalled ? (

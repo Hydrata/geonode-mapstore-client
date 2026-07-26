@@ -37,6 +37,27 @@ export const SET_PAYWALL_PENDING = 'PAYWALL:SET_PENDING';
  */
 export const STALL_PAYWALL_PENDING = 'PAYWALL:STALL_PENDING';
 /**
+ * TASK-2486 (epic 2425 W2.9) — a purchase HAS been observed to land, by a
+ * channel this slice cannot see for itself. Reinstated after W2.8 removed it.
+ *
+ * W2.8 removed CLEAR_PENDING because its only caller was the poll's give-up
+ * tail, where clearing revealed nothing (W2.5 had deleted PendingSpinner). That
+ * remains true of the GIVE-UP path and the give-up path still does not clear.
+ * This action is the opposite case and always was a different thing: positive
+ * confirmation, dispatched only when a signal has actually been observed.
+ *
+ * WHY IT IS AN ACTION AND NOT ANOTHER REDUCER CASE. The credit-pack signal is
+ * the compute BALANCE going up, and "up" is a comparison against the value at
+ * the moment the overlay was armed. The paywall slice is mounted through
+ * combineReducers (Anuga/reducersAnuga.js), so it can see neither the meter
+ * slice nor any earlier value of it. The comparison is therefore made where the
+ * store is readable — clearPendingOnBalanceIncreaseEpic in
+ * Anuga/epics/paywallEpics.js — and its RESULT is what reaches the reducer.
+ * TASK-2486 AC2 forbids mirroring the balance into this slice; a transient
+ * baseline held by an epic is not a mirror of it.
+ */
+export const CLEAR_PAYWALL_PENDING = 'PAYWALL:CLEAR_PENDING';
+/**
  * TASK-2463 (W2.8) — the customer pressed "Check again" on the stalled notice.
  * Handled by recheckPaymentEpic, which re-asks every endpoint that could carry
  * the news (my_perms forced, compute balance, account summary).
@@ -73,6 +94,16 @@ export function setPaywallPending() {
  */
 export function stallPaywallPending() {
     return { type: STALL_PAYWALL_PENDING };
+}
+
+/**
+ * Disarms the pending overlay because a purchase was OBSERVED to land.
+ *
+ * @param {string} reason — which channel saw it ('balance' today). Carried for
+ *   the log/devtools only; the reducer does not branch on it.
+ */
+export function clearPaywallPending(reason) {
+    return { type: CLEAR_PAYWALL_PENDING, reason };
 }
 
 /** "Check again" on the stalled notice. */
