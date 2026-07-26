@@ -275,3 +275,69 @@ div.chart-color-class-modal {
 .notifications-tc {
     top: 70px !important;
 }
+
+// ── Toasts must not land on the SimpleView RHS toolbar ──────────────────────
+// TASK-2465 regression, epic 2425 W2.6. Same class, same kind of reason as the
+// navbar nudge above (top-right page furniture), so it lives here beside it
+// rather than in simpleView.css — which is also what the sv-* namespace
+// ratchet (js/plugins/hydrata/SimpleView/css-namespace-guard.js) requires: a
+// `notifications-` prefix is not allowed in that file.
+//
+// react-notification-system pins `.notifications-tr` with INLINE
+// `inset: 0 0 auto auto; width: 320px; padding: 0 10px 10px; z-index: 9998`,
+// which put a 320px toast squarely over the first two buttons of the map's
+// right-hand column — measured [1088, 70, 320, 82] against an Account button
+// at [1353, 60, 40, 40] and its visibility padlock at [1373, 66, 15, 15].
+// Harmless while the Account button was LAST in that column at y~280; TASK-2465
+// promoted it to first and moved the padlock into the toast's footprint. The
+// toast raised on a visibility change is emitted by the very action that
+// changes the padlock, so the indicator was hidden exactly when a user looks
+// at it.
+//
+// WHY NOT RAISE THE BUTTON ABOVE THE TOAST. It would pass a hit-test and be the
+// wrong fix: the notification's own dismiss control sits in that same corner,
+// so the buttons would paint over it. That trades one occlusion for another,
+// which is the mistake this epic has already made three times. The two must not
+// share pixels at all, and neither may be painted over the other.
+//
+// WHY padding-right AND NOT `right`. Moving a 320px fixed box left runs it off
+// the LEFT edge on a narrow window. Padding leaves the box anchored and shrinks
+// the card instead (320 - 10 - 65 = 245px of content), degrading gracefully at
+// any width. 65px clears the widest case with room: the button occupies
+// [vw-55, vw-15] at full size, [vw-46, vw-10] at <=900px and [vw-42, vw-10] at
+// <=600px, so a card ending at vw-65 is clear at every step. !important because
+// the library sets `padding` inline.
+//
+// WHY :has() AND NOT AN UNCONDITIONAL RULE. This corner is only reserved on
+// pages that render that toolbar; narrowing every toast on the catalogue or a
+// dataset page would be a fleet-wide change for a map-only collision. :has() is
+// the only way CSS can say "when that toolbar is present", and it is supported
+// by every browser this app targets. If it were ever dropped the rule simply
+// does not apply and the toast overlaps again — which
+// test_padlock_stays_hit_testable_while_a_toast_is_on_screen (deploy,
+// tests/e2e/test_paywall_money_path.py) fails on at all four viewports. That
+// test hit-tests the padlock WITH A TOAST ON SCREEN; geometry measured without
+// one is what let this ship.
+//
+// AND THE CONTAINER ITSELF, which insetting the card is not enough to solve.
+// `.notifications-tr` is anchored `right: 0` and 320px wide, so its BOX always
+// reaches this corner however narrow its content is — and it is transparent, so
+// nothing shows there while it silently absorbs every click aimed at the top
+// two toolbar buttons. Measured after the padding fix: the card had moved clear
+// to [1098, 80, 245, 62] and elementFromPoint at the padlock still returned
+// DIV.notifications-tr. That layer is pre-existing and this is a REMOVAL of it,
+// not a new one: the container stops taking pointer events, the toast card puts
+// them back for itself, so the notification (and its dismiss control) stays
+// fully clickable while the empty padding is click-through.
+//
+// Only -tr is inset: -tl and -tc do not reach this corner.
+.gn-page-wrapper:has(.simple-view-right-toolbar) {
+    .notifications-tr {
+        padding-right: 65px !important;
+        pointer-events: none;
+
+        .notification {
+            pointer-events: auto;
+        }
+    }
+}
