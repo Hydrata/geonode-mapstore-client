@@ -40,6 +40,9 @@
  */
 import React, { useCallback, useLayoutEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
+// TASK-2436 — imported by the component that EMITS the markup, not by a
+// sibling panel, so the modal can never ship without its stylesheet again.
+import '../meter.css';
 const PropTypes = require('prop-types');
 
 /**

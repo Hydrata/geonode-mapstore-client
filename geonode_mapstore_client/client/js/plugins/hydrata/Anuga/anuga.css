@@ -2369,6 +2369,85 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.75);
 }
 
+/* ── Estimate badges (TASK-2436, epic 2425 W2) ───────────────────────────────
+   scenarioPane.js emitted .sv-anuga-scenario-estimate-over-balance-badge with
+   NO rule anywhere in the repo — the second instance of this epic's defect
+   class (markup shipped without its stylesheet). It rendered as bare browser
+   default text and read as inert chrome, when it is in fact the only warning
+   that a run is about to be refused.
+
+   Both badges are given an OPAQUE fill on purpose. The SimpleView panel behind
+   them is var(--sv-panel-bg) = rgba(0, 60, 136, 0.88) over the live map, so
+   any translucent treatment would have a contrast ratio that changes with the
+   basemap. Opaque fills make the AA numbers below true unconditionally.
+
+   MEASURED CONTRAST (AC#3), not estimated — AA body text needs 4.5:1
+   (these are 11.5px, so the 3:1 large-text allowance does NOT apply):
+     ceiling  #3a2a00 on #f5d78e -> 9.92:1
+     action   #2b1d00 on #ffc107 -> 10.08:1
+     action:hover  #2b1d00 on #ffd451 -> 11.57:1
+     action:active #2b1d00 on #e6ac00 ->  8.03:1
+   Dark-text-on-amber is deliberate: greyed-out low-contrast chrome is exactly
+   how a disabled control reads, and these are warnings the customer must ACT
+   on. */
+.sv-anuga-scenario-estimate-over-balance-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.5;
+    vertical-align: baseline;
+}
+
+/* Over the dispatch ceiling: a <span>. Nothing to click — the way forward is
+   to contact us — so it is a flat notice chip with a default cursor and no
+   hover response. Softer amber than the actionable badge. */
+.sv-anuga-scenario-estimate-badge--ceiling {
+    background-color: #f5d78e;
+    border-color: #d8b45f;
+    color: #3a2a00;
+    cursor: default;
+}
+
+/* Over balance: a <button> that opens the Billing tab. Full-strength amber
+   plus real button chrome — pointer cursor, hover/active fills, visible focus
+   ring — so the affordance difference from the ceiling chip is legible
+   without reading the text. */
+.sv-anuga-scenario-estimate-badge--action {
+    background-color: #ffc107;
+    border-color: #c69500;
+    color: #2b1d00;
+    cursor: pointer;
+    text-align: left;
+}
+
+.sv-anuga-scenario-estimate-badge--action:hover {
+    background-color: #ffd451;
+}
+
+.sv-anuga-scenario-estimate-badge--action:active {
+    background-color: #e6ac00;
+}
+
+.sv-anuga-scenario-estimate-badge--action:focus-visible {
+    outline: 2px solid #5bc0ff;
+    outline-offset: 2px;
+}
+
+/* Sibling of the two badges in the same JSX block and equally rule-less
+   before this task. Reads as a parenthetical caveat on the figure above it,
+   so it stays text rather than becoming a third chip.
+   MEASURED: #c9d6ea over --sv-panel-bg composited on a WHITE basemap
+   (rgb(31,83,150), the worst case) -> 5.20:1; on a black basemap -> 8.05:1. */
+.sv-anuga-scenario-estimate-stale {
+    font-size: 11.5px;
+    font-style: italic;
+    color: #c9d6ea;
+}
+
 /* TASK-2210 (W3.1, epic 2204, AC#3) — post-build actual-vs-estimate
    comparison. SAME visual treatment as the pre-build estimate label above
    it (extend, don't invent a parallel style) — this is its post-build

@@ -205,3 +205,45 @@ describe('BillingTabPanel — recent activity empty state (TASK-2424)', () => {
         expect(empty.textContent).toInclude('hydrata.anuga.accountRecentActivityEmpty');
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK-2436 (epic 2425 W2) — Billing-tab visual-regression guard.
+//
+// W2 added unscoped rules for the compute-meter refusal modal, which shares
+// two classNames with this panel (.compute-meter-buy-pack-btn and
+// .compute-meter-billing-policy-link). Those new rules are all scoped under
+// `.compute-meter-modal` precisely so they cannot reach this tab, and the
+// pre-existing `.sv-account-billing-tab .compute-meter-*` rules were left
+// untouched. This test pins the structural invariant that scoping relies on.
+//
+// (Karma cannot compare pixels — jsdom has no cascade. What it CAN prove, and
+// what actually matters, is that the guarding ancestor is absent here.)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('BillingTabPanel — TASK-2436 scoping guard', () => {
+    it('renders no .compute-meter-modal ancestor, so W2\'s modal rules cannot reach the card', () => {
+        const c = render({
+            loaded: true,
+            balance: '15.00',
+            availablePacks: [{ price_id: 'price_a', amount: '10', currency: 'usd' }],
+            freeBand: baseFreeBand
+        });
+        const tab = c.querySelector('[data-testid="sv-account-billing-tab"]');
+        expect(tab).toExist();
+        expect(c.querySelector('.compute-meter-modal')).toBe(null);
+        expect(c.querySelector('.compute-meter-modal-overlay')).toBe(null);
+        expect(c.querySelector('.compute-meter-panel')).toBe(null);
+    });
+
+    it('still renders the card variant with the shared classNames the tab-scoped rules target', () => {
+        const c = render({
+            loaded: true,
+            balance: '15.00',
+            availablePacks: [{ price_id: 'price_a', amount: '10', currency: 'usd' }],
+            freeBand: baseFreeBand
+        });
+        const strip = c.querySelector('[data-testid="compute-meter-balance-strip"]');
+        expect(strip.className).toInclude('compute-meter-balance-strip--card');
+        expect(c.querySelector('.compute-meter-buy-pack-btn')).toExist();
+        expect(c.querySelector('.compute-meter-billing-policy-link')).toExist();
+    });
+});

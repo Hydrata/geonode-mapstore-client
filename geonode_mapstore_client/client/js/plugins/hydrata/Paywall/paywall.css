@@ -1,0 +1,351 @@
+/**
+ * paywall.css — the privacy-paywall panel surface (TASK-2436, epic 2425 W2).
+ *
+ * WHY THIS FILE DID NOT EXIST
+ * ---------------------------
+ * PaywallPanel.js has shipped 28 distinct paywall-* classNames since epic 2359
+ * and NOT ONE of them had a rule anywhere in the repo — verified by grepping
+ * every .css/.less in the client (minus node_modules) and the compiled
+ * dist bundle, which contains the className strings but no matching selector.
+ * The panel has been dark on every site ("paywallEnabled": false in both
+ * localConfig entries), so nobody has seen it. Flipping PAYWALL_ENABLED — the
+ * entire purpose of epic 2425 — would have revealed 28 browser-default
+ * elements at once. That is the same defect that put an invisible refusal
+ * modal in front of a paying customer, caught before shipping rather than
+ * after.
+ *
+ * Imported by PaywallPanel.js, the component that emits the markup, for the
+ * same reason meter.css is imported by ComputeMeterPanel.js: a stylesheet that
+ * arrives via some other component's import chain is one refactor away from
+ * silently not arriving at all.
+ *
+ * Selectors ship as `.msgapi <selector>` (package.json themePrefix).
+ *
+ * MEASURED CONTRAST (AC#3) — the panel surfaces are OPAQUE so these hold
+ * regardless of the basemap underneath. AA body text needs 4.5:1:
+ *   #ffffff on #003c88 -> 10.49:1   (modal title, badge label, button text)
+ *   #dce6f7 on #003c88 ->  8.34:1   (modal body, hint text)
+ *   #5bc0ff on #003c88 ->  5.21:1   (links; --sv-accent-blue reused, not reinvented)
+ *   #003c88 on #ffffff -> 10.49:1   (primary button)
+ *   #2b1d00 on #ffc107 -> 10.08:1   (dunning / past-due amber)
+ */
+
+/* ── Panel shell ─────────────────────────────────────────────────────────────
+   PaywallPanel renders inline in .gn-viewer-layout-center, NOT through a
+   portal — unlike the compute-meter refusal modals it is an advisory surface,
+   not a blocking dialog, so it stays in flow. The upgrade modal below is the
+   one blocking piece and carries its own fixed overlay. */
+.paywall-panel {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #dce6f7;
+}
+
+/* ── free_public: the "make private" CTA ────────────────────────────────── */
+.paywall-make-private-btn {
+    background-color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    color: #003c88;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.paywall-make-private-btn:hover {
+    background-color: rgba(255, 255, 255, 0.88);
+}
+
+.paywall-make-private-hint {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #dce6f7;
+}
+
+/* ── upgrade_prompt: the blocking checkout modal ─────────────────────────────
+   z-index 100000 for the same reason meter.css documents: the app UI lives
+   inside .gn-page-wrapper's z-index:99999 stacking context, so anything lower
+   paints behind the entire application. Unlike the meter modal this one is
+   NOT portaled, so it is also subject to .gn-viewer-layout-body's
+   transform:translate(0) containing block on the map route — the overlay will
+   cover the viewer layout rather than the literal viewport. That is
+   acceptable for an advisory upgrade prompt but NOT for a refusal; if this
+   ever needs to be viewport-exact, portal it the way MeterModalHost does. */
+.paywall-upgrade-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+    background-color: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.paywall-upgrade-modal {
+    background-color: #003c88;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    padding: 20px 22px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.paywall-upgrade-modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #ffffff;
+}
+
+.paywall-upgrade-modal-body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #dce6f7;
+}
+
+.paywall-upgrade-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* The one solid-fill control: the action that takes money. */
+.paywall-subscribe-btn {
+    background-color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    color: #003c88;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.paywall-subscribe-btn:hover {
+    background-color: rgba(255, 255, 255, 0.88);
+}
+
+.paywall-view-account-btn,
+.paywall-dismiss-btn {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.paywall-view-account-btn:hover,
+.paywall-dismiss-btn:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.paywall-billing-policy-link {
+    align-self: flex-start;
+    color: #dce6f7;
+    font-size: 12px;
+    text-decoration: underline;
+}
+
+.paywall-billing-policy-link:hover,
+.paywall-billing-policy-link:focus-visible {
+    color: #5bc0ff;
+}
+
+/* ── pending: the post-Stripe confirmation window ────────────────────────── */
+.paywall-pending-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 12px;
+    background-color: #003c88;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+}
+
+/* Honest affordance: this genuinely is a wait, so it animates. Reduced-motion
+   users get a static ring rather than a spinner that never stops. */
+.paywall-spinner-icon {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: paywall-spin 0.9s linear infinite;
+}
+
+@keyframes paywall-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .paywall-spinner-icon {
+        animation: none;
+        border-top-color: rgba(255, 255, 255, 0.3);
+    }
+}
+
+.paywall-pending-text {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.paywall-pending-subtext {
+    margin: 0;
+    font-size: 12px;
+    color: #dce6f7;
+}
+
+/* ── paid_private / paid_organization: the steady-state badge ────────────────
+   TASK-2446 added the organization tier. The two share the chassis and differ
+   by fill, so "which visibility am I paying for?" is answerable at a glance
+   without reading the label. */
+.paywall-private-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background-color: #003c88;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    font-size: 12px;
+    color: #ffffff;
+}
+
+.paywall-private-badge--organization {
+    background-color: #0a4f6e;
+    border-color: rgba(155, 220, 255, 0.5);
+}
+
+/* past_due, dunning already dismissed: the badge persists but says so. Amber,
+   because a lapsed subscription is a warning the user must act on — and
+   never, ever a hint that the model has been made public (hard contract
+   rule: LAPSE NEVER AUTO-PUBLISHES). */
+.paywall-private-badge--past-due {
+    background-color: #ffc107;
+    border-color: #c69500;
+    color: #2b1d00;
+}
+
+.paywall-private-badge-icon {
+    font-size: 13px;
+    line-height: 1;
+}
+
+.paywall-private-badge-label {
+    font-weight: 600;
+}
+
+.paywall-manage-billing-link {
+    color: #5bc0ff;
+    font-size: 12px;
+    text-decoration: underline;
+}
+
+.paywall-private-badge--past-due .paywall-manage-billing-link {
+    color: #5a3d00;
+}
+
+/* ── past_due: the non-blocking dunning banner ───────────────────────────────
+   Advisory by contract — it must NOT hard-lock the project UI, so it is a
+   banner in flow, not an overlay. */
+.paywall-dunning-banner {
+    border-radius: 8px;
+    padding: 8px 12px;
+    background-color: #003c88;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.paywall-dunning-banner--warning {
+    background-color: #ffc107;
+    border-color: #c69500;
+    color: #2b1d00;
+}
+
+.paywall-dunning-banner-content {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.paywall-dunning-banner-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.paywall-dunning-banner-text {
+    flex: 1 1 240px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.paywall-renew-btn {
+    background-color: #2b1d00;
+    border: none;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+
+.paywall-renew-btn:hover {
+    background-color: #45300a;
+}
+
+.paywall-dunning-dismiss {
+    background: transparent;
+    border: none;
+    color: #2b1d00;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+}
+
+/* Every interactive control on this surface needs a visible focus ring —
+   several of them are the only route to a paid action. */
+.paywall-panel a:focus-visible,
+.paywall-panel button:focus-visible,
+.paywall-upgrade-modal a:focus-visible,
+.paywall-upgrade-modal button:focus-visible {
+    outline: 2px solid #5bc0ff;
+    outline-offset: 2px;
+}
+
+.paywall-dunning-banner--warning a:focus-visible,
+.paywall-dunning-banner--warning button:focus-visible,
+.paywall-private-badge--past-due a:focus-visible {
+    outline: 2px solid #2b1d00;
+    outline-offset: 2px;
+}

@@ -26,6 +26,10 @@
  */
 
 import React from 'react';
+// TASK-2436 — imported by the component that EMITS the markup, so the panel
+// can never ship without its stylesheet again (28 paywall-* classNames had
+// no rule anywhere in the repo before this).
+import '../paywall.css';
 const PropTypes = require('prop-types');
 import { getStatePayload } from '../paywallContract';
 
