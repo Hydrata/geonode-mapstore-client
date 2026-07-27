@@ -159,8 +159,18 @@ const CONVERT_TERRAIN_DATUM_ERROR = 'ANUGA:CONVERT_TERRAIN_DATUM_ERROR';
 // TASK-2335 (epic 2323): persist the datum-badge dismissal (fire-and-forget).
 const ACK_TERRAIN_DATUM = 'ANUGA:ACK_TERRAIN_DATUM';
 
-function setAnugaProjectData(data) {
-    return { type: SET_ANUGA_PROJECT_DATA, data };
+// TASK-2548 (epic 2425 W3e) — `mapId` STAMPS which map this project data was
+// fetched for. The payload cannot answer that question itself: the retrieve
+// serializer is ProjectSerializerV2, and only ProjectSerializerV2Full carries
+// `base_map` (gn_anuga/serializers_v2.py), so `data` measured live is exactly
+// [id, name, projection, simple_view_config, visibility, owner_username,
+// my_role]. Whoever fetched it knows the map, so whoever fetched it stamps it.
+// projectsReducer refuses a stamp that positively disagrees with the map the
+// slice is about — the same rule SET_ANUGA_RESOURCE_PERMS already applies to
+// `projectId`, and for the same reason: late data for the map the user has
+// LEFT must not relabel the one they are on.
+function setAnugaProjectData(data, mapId) {
+    return { type: SET_ANUGA_PROJECT_DATA, data, mapId };
 }
 
 // TASK-1637 — pass the map id when setting (so the gate can compare against

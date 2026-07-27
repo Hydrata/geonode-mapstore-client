@@ -107,6 +107,14 @@ export const updateProjectVisibilityEpic = (action$, store) =>
     action$.ofType(UPDATE_PROJECT_VISIBILITY_REQUEST)
         .switchMap(({visibility}) => {
             const projectId = getProjectId(store.getState());
+            // TASK-2548 — the map this PATCH is ABOUT, captured at request
+            // time rather than at response time. Nothing cancels this request
+            // on an SPA map switch, so a response that lands after the user has
+            // moved on must be refusable; a response-time read would stamp it
+            // with the map they moved TO and re-poison the slice with the
+            // project they left. projectsReducer drops a positively
+            // disagreeing stamp.
+            const requestMapId = store.getState()?.gnresource?.id;
             // TASK-2440 — settle even here. The flag is armed by the REQUEST
             // action, which the reducer has already seen, so an
             // Observable.empty() on this branch would leave all three Sharing
@@ -130,7 +138,7 @@ export const updateProjectVisibilityEpic = (action$, store) =>
                     // draw a HIGHER sequence number than this write.
                     markProjectWriteApplied(projectId);
                     return Rx.Observable.from([
-                        setAnugaProjectData(response.data),
+                        setAnugaProjectData(response.data, requestMapId),
                         // TASK-2464 — REFETCH my_perms, on the SUCCESS branch only.
                         //
                         // Why it is needed at all: state.anuga.paywall.steady is

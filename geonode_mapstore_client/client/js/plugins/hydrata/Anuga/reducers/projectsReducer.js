@@ -6,6 +6,11 @@ import {
     UPDATE_PROJECT_VISIBILITY_REQUEST,
     UPDATE_PROJECT_VISIBILITY_SETTLED
 } from "../actionsAnuga";
+// TASK-2548 — the single writer of `gnresource.id` (reducers/gnresource.js is
+// the only case for it, and actions/gnresource.js the only creator). That makes
+// it the exact "the map changed" signal, and NOT @@router/LOCATION_CHANGE,
+// which also fires for every non-map route in the SPA.
+import { SET_RESOURCE_ID } from "@js/actions/gnresource";
 
 // The my_perms top-level keys this reducer OWNS — the ones it folds into
 // state.anuga.projects.data. The same two are skipped by resourcesReducer's
@@ -13,6 +18,32 @@ import {
 // here, so the two lists must be read together. See the SET_ANUGA_RESOURCE_PERMS
 // case below for why folding is not a second source of truth.
 const _PROJECT_KEYS_FROM_MY_PERMS = ['visibility', 'my_role'];
+
+// TASK-2548 — the keys that describe THE LOADED PROJECT, as opposed to the
+// slice's map-independent contents. A map change invalidates all of them at
+// once, so they are reset together; naming them here (rather than spreading
+// `initialState`) keeps the two deliberate EXCLUSIONS visible:
+//   - `anugaHomePageResources` is the catalogue list, not this project — it is
+//     fetched once and must survive a map switch;
+//   - `loading` has no writer anywhere in this reducer, so resetting it would
+//     be dead code claiming to do something.
+const _NO_PROJECT_LOADED = {
+    data: null,
+    initInFlight: false,
+    visibilityPending: null,
+    visibilityPendingProjectId: null
+};
+
+// `gnresource.id` is a STRING on the SPA route path (measured live: "1418"),
+// while other setResourceId callers pass a numeric pk. A type-only difference
+// must never read as "different map" — that would clear a live project on the
+// map it belongs to. Null/undefined on either side is NOT a match: an unknown
+// map id fails closed, into the reset branch.
+const _isSameMap = (a, b) => {
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+    if (a == null || b == null) return false;
+    return String(a) === String(b);
+};
 
 const initialState = {
     data: null,
@@ -47,20 +78,99 @@ const initialState = {
     // of the slice TASK-2440 added afterwards. Stamped from `data.id` at reduce
     // time rather than carried on the action, so the two can never disagree.
     visibilityPendingProjectId: null,
+    // TASK-2548 (epic 2425 W3e) — WHICH MAP THIS SLICE IS ABOUT.
+    //
+    // THE MONEY BUG THIS CLOSES. `data` used to be write-once per document.
+    // The only dispatcher of INIT_ANUGA is anugaContainer.componentDidUpdate,
+    // gated on `!isAnugaProject` — which mapStateToProps defines as literally
+    // `projects.data.id` — and NO case here ever cleared `data`. So the first
+    // project to load stayed loaded for the life of the document, and a
+    // same-document map switch (/catalogue/#/map/<id>) could not update it.
+    // Every project-scoped paywall guard then compared against the wrong
+    // project: measured on localhost, standing on map 1404 (project 15283),
+    // the checkout POST carried {"project_id":15834, ..., "return_map_id":
+    // "1404"} — the customer bought and PRIVATISED the project they were not
+    // looking at.
+    //
+    // WHY A STAMP AND NOT A FIELD OF `data`. The retrieve serializer is
+    // ProjectSerializerV2 (api_v2.py get_serializer_class); only
+    // ProjectSerializerV2Full adds `base_map`. Measured live, `data` carries
+    // exactly [id, name, projection, simple_view_config, visibility,
+    // owner_username, my_role] — there is no map id in the payload to compare
+    // against. So the fetcher stamps it (see setAnugaProjectData).
+    //
+    // WHY CLEARING, NOT A SMARTER READ (AC5, option (b)). The alternative was
+    // to leave `data` in place and have every reader compare it against the
+    // live map. That keeps project A readable for the whole window while B
+    // loads, which is the exact shape of the bug — stale data read as current —
+    // and it puts the burden on every future reader. Clearing makes the stale
+    // value UNREADABLE, so a reader that forgets the comparison gets "no
+    // project" (fail-closed) instead of the wrong one. On a money path a
+    // transient dead edit-pencil beats a transient wrong project_id.
+    mapId: null,
     anugaHomePageResources: null
 };
 
 export default (state = initialState, action) => {
     switch (action.type) {
-    case SET_ANUGA_PROJECT_DATA:
+    /**
+     * TASK-2548 (epic 2425 W3e) — THE PROJECT FOLLOWS THE MAP.
+     *
+     * This is the whole fix. `gnresource.id` moving is what "the map changed"
+     * MEANS in this app, and SET_RESOURCE_ID is its only writer, so this case
+     * fires exactly once per map switch (measured: one GEONODE:SET_RESOURCE_ID
+     * across a hash nav, carrying the new id) and never on a non-map route.
+     * Dropping the loaded project here makes anugaContainer's existing gate
+     * — `gnResourceLoaded && !isAnugaProject && !initRunningForThisMap` —
+     * true again, so the init it has always been able to run for the new map
+     * finally runs. Nothing else needed changing; the gate was never wrong
+     * about what it was asking, it was asking about a value that never moved.
+     *
+     * SAME MAP → SAME OBJECT, deliberately. Returning a fresh object for a
+     * repeat SET_RESOURCE_ID would re-render every consumer of project data
+     * and, worse, would clear `data` under a map that is still loaded — the
+     * container would then re-init on a map it had already initialised, which
+     * is the re-dispatch storm TASK-1637 fixed, re-entered through a new door.
+     */
+    case SET_RESOURCE_ID: {
+        if (_isSameMap(state.mapId, action.id)) return state;
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+        return { ...state, ..._NO_PROJECT_LOADED, mapId: action.id == null ? null : action.id };
+    }
+    case SET_ANUGA_PROJECT_DATA: {
+        // TASK-2548 — REFUSE data fetched for a map we have since left.
+        //
+        // initAnugaEpic's switchMap cancels its own in-flight waterfall when a
+        // new INIT_ANUGA arrives, so the init path cannot land late. The
+        // visibility PATCH can: updateProjectVisibilityEpic dispatches
+        // setAnugaProjectData from its own response, and nothing cancels it on
+        // a nav — a PATCH issued on map A and answered after the switch would
+        // otherwise re-poison this slice with A's project, undoing the reset
+        // above with no further SET_RESOURCE_ID coming to clear it again.
+        //
+        // Only a stamp that POSITIVELY disagrees is refused — an unstamped
+        // dispatch (a caller that has not been taught to stamp) still reads
+        // through, the same fail-safe rule SET_ANUGA_RESOURCE_PERMS applies
+        // below. Both shipped dispatchers stamp.
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+        if (action.mapId != null && state.mapId != null && !_isSameMap(action.mapId, state.mapId)) {
+            return state;
+        }
         return {
             ...state,
             // Project data landed → the init waterfall is done. Clear the
             // guard here too (belt-and-braces with the epic's explicit clear)
             // so a re-init is always permitted once data is present.
             initInFlight: false,
-            data: action.data
+            data: action.data,
+            // Adopt the stamp only when the slice has no map identity yet (no
+            // SET_RESOURCE_ID seen — unit tests, and any host that mounts the
+            // reducer without the GeoNode resource lifecycle). Where the two
+            // are both known they already agree, checked immediately above.
+            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+            mapId: state.mapId != null ? state.mapId : (action.mapId ?? null)
         };
+    }
     /**
      * TASK-2463 (epic 2425 W2.6) — my_perms REFRESHES `visibility` here.
      *

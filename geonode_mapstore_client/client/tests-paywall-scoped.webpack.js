@@ -18,6 +18,13 @@ epics.keys().forEach(epics);
 // ALONE raised the completed count by exactly 4, which is how it was verified.
 var meterEpics = require.context('./js/plugins/hydrata/Anuga/__tests__', false, /computeMeterEpics-test\.jsx?$/);
 meterEpics.keys().forEach(meterEpics);
+// TASK-2548 (epic 2425 W3e) — the map-switch project-identity specs. Same
+// reason as the computeMeterEpics line above: the Anuga/__tests__ contexts here
+// match by FILENAME, so a new spec in that directory executes nothing until it
+// is named. This runner is the money-path subset and this file is the money
+// path's project identity, so it belongs here rather than only in the full run.
+var followsMap = require.context('./js/plugins/hydrata/Anuga/__tests__', false, /projectFollowsMap-test\.jsx?$/);
+followsMap.keys().forEach(followsMap);
 var paywall = require.context('./js/plugins/hydrata/Paywall/__tests__', false, /-test\.jsx?$/);
 paywall.keys().forEach(paywall);
 var account = require.context('./js/plugins/hydrata/Paywall/account/__tests__', false, /-test\.jsx?$/);

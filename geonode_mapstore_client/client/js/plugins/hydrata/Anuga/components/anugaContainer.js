@@ -154,8 +154,25 @@ export class AnugaContainer extends React.Component {
         // initInFlight guard every re-render in that window re-dispatched
         // INIT_ANUGA, and the epic's switchMap cancelled + restarted the
         // in-flight chain (a wasted full round-trip before the menus mount).
-        // The guard is keyed on map id in the epic, so a map switch (new
-        // gnResourceLoaded id) is never blocked by the prior map's guard.
+        // The initInFlight guard is keyed on map id (here and in the epic), so
+        // a map switch (new gnResourceLoaded id) is never blocked by the prior
+        // map's guard.
+        //
+        // TASK-2548 (epic 2425 W3e) — READ THAT LAST SENTENCE NARROWLY. It is
+        // true of `initRunningForThisMap` and ONLY of it. The `!isAnugaProject`
+        // conjunct beside it is not keyed on anything: mapStateToProps defines
+        // isAnugaProject as `state.anuga.projects.data.id`, the id of whatever
+        // project is loaded, so once ANY project had loaded that clause was
+        // false forever and this gate could never fire a second time. For the
+        // life of a document, a same-document map switch left the previous
+        // project loaded — and the paywall bought THAT project while the
+        // customer was looking at another one. This comment read as reassurance
+        // about the whole condition and is why that shipped.
+        //
+        // What makes the gate correct now is projectsReducer clearing the
+        // project slice on SET_RESOURCE_ID, so `!isAnugaProject` genuinely
+        // means "no project for the map on screen". Do not re-derive
+        // isAnugaProject from anything that can outlive a map switch.
         const initRunningForThisMap = this.props.initInFlight === this.props.gnResourceLoaded;
         if (this.props.gnResourceLoaded && !this.props.isAnugaProject && !initRunningForThisMap) {
             this.props.initAnuga();
