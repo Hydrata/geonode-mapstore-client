@@ -79,7 +79,12 @@ export function dismissPaywallUpgrade() {
  * @param {object|null} anchor — TASK-2489 (epic 2425 W3c). The departure record
  *   subscribeCheckoutEpic persisted to localStorage before opening the Stripe
  *   tab, lifted back out by checkoutReturnEpic:
- *   {purchaseType, accountOnly, projectId, latestPurchaseIso, balanceObserved}.
+ *   {purchaseType, accountOnly, projectId, departedAtIso}.
+ *
+ *   `departedAtIso` is the SERVER's `departed_at` off the create-session
+ *   response (TASK-2511, W3d), not a client-side reading of the ledger. The
+ *   Account is SHARED by every member of the org, so a client-side floor let a
+ *   colleague's purchase row retract this customer's confirmation.
  *
  *   It rides the ACTION rather than being re-read from storage on every poll
  *   tick for two reasons. It scopes the record to the checkout this overlay is

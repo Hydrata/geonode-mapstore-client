@@ -200,13 +200,17 @@ describe('TASK-2099 Paywall reducer', () => {
     // That is what stops a settled checkout's record being adopted by a later
     // one, and it is why the Billing tab's notice can be a pure store read.
     describe('the checkout anchor (TASK-2489)', () => {
+        // TASK-2511 (W3d) — the anchor's floor is the SERVER's `departed_at`,
+        // not a client-side reading of a SHARED account's ledger. Opaque payload
+        // to this reducer either way, so no assertion here changes; the fixtures
+        // are updated for honesty.
         const ANCHOR = {
             purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
-            latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
+            departedAtIso: '2026-07-27T01:00:00+00:00'
         };
         const SUB_ANCHOR = {
             purchaseType: 'subscription', accountOnly: true, projectId: null,
-            latestPurchaseIso: null, balanceObserved: true
+            departedAtIso: null
         };
         /** A store with the anchored overlay plus whatever /commerce/account/ last said. */
         const withSummary = (paywall, summary) => ({
@@ -290,7 +294,7 @@ describe('TASK-2099 Paywall reducer', () => {
         describe('TASK-2512 — the clear cannot be fired by another project\'s payload', () => {
             const subAnchorFor = (projectId) => ({
                 purchaseType: 'subscription', accountOnly: false, projectId,
-                latestPurchaseIso: null, balanceObserved: true
+                departedAtIso: null
             });
             const paidPrivateFor = (state, projectId) => paywallReducer(state, {
                 type: SET_ANUGA_RESOURCE_PERMS,

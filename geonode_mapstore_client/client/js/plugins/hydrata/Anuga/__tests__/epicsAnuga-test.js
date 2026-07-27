@@ -2605,7 +2605,7 @@ describe('ANUGA Epics', () => {
                     __setPollIntervalForTests(1);
                     const store = pollStore({
                         purchaseType: 'subscription', accountOnly: true, projectId: null,
-                        latestPurchaseIso: null, balanceObserved: true
+                        departedAtIso: null
                     });
                     const emitted = [];
                     pollMyPermsWhilePendingEpic(mockActions([{type: SET_PAYWALL_PENDING}]), store)
@@ -2626,7 +2626,7 @@ describe('ANUGA Epics', () => {
                     __setPollIntervalForTests(1);
                     const store = pollStore({
                         purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
-                        latestPurchaseIso: null, balanceObserved: true
+                        departedAtIso: null
                     });
                     const emitted = [];
                     pollMyPermsWhilePendingEpic(mockActions([{type: SET_PAYWALL_PENDING}]), store)
@@ -2705,12 +2705,11 @@ describe('ANUGA Epics', () => {
                 })
             });
 
-            const creditPackAnchor = (latestPurchaseIso, balanceObserved = true) => ({
+            const creditPackAnchor = (departedAtIso) => ({
                 purchaseType: 'credit_pack',
                 accountOnly: false,
                 projectId: 42,
-                latestPurchaseIso,
-                balanceObserved
+                departedAtIso
             });
 
             const runEpic = (actions, store, assertFn, done) => {
@@ -2879,64 +2878,109 @@ describe('ANUGA Epics', () => {
                 }, done);
             });
 
-            // ── AC3: the null-anchor rule and its balanceObserved gate ──────
+            // ── TASK-2511 (W3d): NO FLOOR MEANS NO CLAIM ────────────────────
             //
-            // "no purchase row at departure => ANY purchase row is new" is sound
-            // ONLY when the empty window was FETCHED and empty. Three live shapes
-            // make it NEVER-fetched, and in each of them a month-old row would
-            // clear the notice ~3s after arming.
-            it('fetched-and-empty (balanceObserved) + an arriving purchase row -> clears', (done) => {
+            // The four specs that stood here pinned the old null-anchor rule and
+            // its "was the balance window observed" gate. Both are DELETED, not
+            // overlooked: that gate existed only because a CLIENT-side floor
+            // cannot distinguish "fetched and empty" from "never fetched", and a
+            // SERVER departure timestamp has no such ambiguity. What replaces
+            // them is the fail-safe below.
+            it('a legacy anchor with no departure timestamp never clears — fail-safe', (done) => {
+                // Written by a previous bundle in another tab, or by a hydrata
+                // backend deployed behind this gmc bundle. Consequence, bounded:
+                // that checkout's notice runs to the 60s cap, where the poll tail
+                // still dispatches clearPaywallPending() AND fetchAccountSummary(),
+                // so the panel never keeps showing pre-purchase money.
                 const store = pendingStore({
-                    anchor: creditPackAnchor(null, true),
+                    anchor: {purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
+                        latestPurchaseIso: OLD_PURCHASE, balanceObserved: true},
                     entries: [purchaseRow(NEW_PURCHASE)]
                 });
                 runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
                     expect(emitted.length).toBe(
-                        1,
-                        'the balanceObserved gate swallowed the null-anchor rule it is '
-                        + 'supposed to be guarding'
+                        0,
+                        'a legacy-shape anchor carrying no departure timestamp still '
+                        + 'cleared the confirming state — that is a claim with no floor '
+                        + 'behind it'
                     );
                 }, done);
             });
 
-            it('DARK meter at departure (enabled:false) -> never judges, whatever rows turn up later', (done) => {
-                // balance_views.py:32-38 _dark_response — enabled false, balance
-                // null, recent_entries []. The empty window says nothing at all.
+            // ── TASK-2511 THE RED CRITERION: the SHARED ACCOUNT ──────────────
+            //
+            // resolve_account_for_user resolves an Account shared by every
+            // AccountUser on it (on hydrata.com prod, Account pk=1 carries 47
+            // users via `registered-members`), and balance_views serialises every
+            // row of it. The old floor was the newest row the CLIENT happened to
+            // hold at click time, refreshed only at boot / on focus / during a
+            // pending poll. So a colleague's purchase, landing between this tab's
+            // last balance fetch and the departure click, read as "newer than the
+            // floor" and retracted THIS customer's confirmation ~3s in — ending
+            // the poll before their own webhook ever landed.
+            //
+            // The anchor is built by running the REAL subscribeCheckoutEpic: a
+            // hand-built {departedAtIso} would pass against the OLD code too
+            // (no latestPurchaseIso -> the observed-window branch -> undefined ->
+            // false -> zero emissions), i.e. prove nothing.
+            it('a COLLEAGUE\'s purchase row, dated before departure, does NOT clear', (done) => {
+                const P0 = '2026-07-20T09:00:00+00:00';
+                const COLLEAGUE = '2026-07-27T09:40:00+00:00';
+                const DEPARTED = '2026-07-27T09:50:00+00:00';
+
+                mockAxios.onPost('/commerce/checkout/create-session/').reply(200, {
+                    checkout_url: 'https://checkout.stripe.com/pay/cs_test_shared',
+                    departed_at: DEPARTED
+                });
+                __setRedirectForTests(() => {});
+                subscribeCheckoutEpic(
+                    mockActions([{
+                        type: SUBSCRIBE_CHECKOUT_REQUEST,
+                        purchaseType: 'credit_pack', priceId: 'price_x'
+                    }]),
+                    {getState: () => ({anuga: {
+                        projects: {data: {id: 42}},
+                        computeMeter: {enabled: true, balance: '5.00', recentEntries: [purchaseRow(P0)]}
+                    }})}
+                ).subscribe(() => {}, done, () => {
+                    const anchor = JSON.parse(
+                        window.localStorage.getItem(CHECKOUT_ANCHOR_STORAGE_KEY)
+                    );
+                    const store = pendingStore({
+                        anchor,
+                        entries: [purchaseRow(COLLEAGUE), purchaseRow(P0)]
+                    });
+                    runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                        expect(emitted.length).toBe(
+                            0,
+                            'a purchase row belonging to another member of the SHARED '
+                            + 'account, dated BEFORE this checkout departed the server, '
+                            + 'retracted the confirmation and ended the poll'
+                        );
+                    }, done);
+                });
+            });
+
+            it('the SAME account\'s row dated AFTER departure still clears', (done) => {
                 const store = pendingStore({
-                    anchor: creditPackAnchor(null, false),
-                    entries: [purchaseRow('2026-06-01T00:00:00+00:00')],
-                    enabled: false, balance: null
+                    anchor: creditPackAnchor('2026-07-27T09:50:00+00:00'),
+                    entries: [purchaseRow('2026-07-27T09:50:01+00:00')]
                 });
                 runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
                     expect(emitted.length).toBe(
-                        0,
-                        'a month-old purchase row cleared the confirming state because the '
-                        + 'departure window was empty for a reason that had nothing to do '
-                        + 'with purchases'
+                        1, 'the customer\'s own webhook row no longer clears the notice'
                     );
                 }, done);
             });
 
-            it('no billing account at departure (enabled:true, balance:null) -> never judges either', (done) => {
-                // balance_views.py:60-66. A user can be added to a pre-existing
-                // account carrying old rows between departure and return.
+            it('a DEBIT row after departure clears nothing — only a purchase confirms a purchase', (done) => {
+                // A run debited mid-checkout is not evidence of the pack landing.
                 const store = pendingStore({
-                    anchor: creditPackAnchor(null, false),
-                    entries: [purchaseRow('2026-06-01T00:00:00+00:00')],
-                    enabled: true, balance: null
+                    anchor: creditPackAnchor('2026-07-27T09:50:00+00:00'),
+                    entries: [debitRow('2026-07-27T09:50:01+00:00')]
                 });
                 runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
                     expect(emitted.length).toBe(0);
-                }, done);
-            });
-
-            it('only DEBIT rows at departure still counts as observed — the window was read', (done) => {
-                const store = pendingStore({
-                    anchor: creditPackAnchor(null, true),
-                    entries: [debitRow(NEW_PURCHASE), purchaseRow(NEW_PURCHASE)]
-                });
-                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
-                    expect(emitted.length).toBe(1);
                 }, done);
             });
 
@@ -2952,7 +2996,7 @@ describe('ANUGA Epics', () => {
             describe('the SUBSCRIPTION channel (W3c adversarial)', () => {
                 const subAnchor = () => ({
                     purchaseType: 'subscription', accountOnly: true, projectId: null,
-                    latestPurchaseIso: null, balanceObserved: true
+                    departedAtIso: null
                 });
                 const subStore = ({active, loaded = true, pending = true}) => ({
                     getState: () => ({
@@ -3033,7 +3077,7 @@ describe('ANUGA Epics', () => {
                 // would be a claim about the wrong purchase.
                 const store = pendingStore({
                     anchor: {purchaseType: 'subscription', accountOnly: true, projectId: null,
-                        latestPurchaseIso: OLD_PURCHASE, balanceObserved: true},
+                        departedAtIso: OLD_PURCHASE},
                     entries: [purchaseRow(NEW_PURCHASE)]
                 });
                 runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
@@ -3070,9 +3114,15 @@ describe('ANUGA Epics', () => {
             });
             const readAnchor = () => JSON.parse(window.localStorage.getItem(CHECKOUT_ANCHOR_STORAGE_KEY));
 
+            const DEPARTED_AT = '2026-07-27T09:50:00+00:00';
+
             const departAndAssert = (store, assertFn, done) => {
-                mockAxios.onPost('/commerce/checkout/create-session/')
-                    .reply(200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_anchor'});
+                mockAxios.onPost('/commerce/checkout/create-session/').reply(200, {
+                    checkout_url: 'https://checkout.stripe.com/pay/cs_test_anchor',
+                    // TASK-2511 — the SERVER's departure timestamp, which is now
+                    // the anchor's only floor.
+                    departed_at: DEPARTED_AT
+                });
                 __setRedirectForTests(() => {});
                 const action$ = mockActions([
                     {type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'credit_pack', priceId: 'price_x'}
@@ -3082,7 +3132,15 @@ describe('ANUGA Epics', () => {
                 });
             };
 
-            it('persists the newest purchase row\'s SERVER created_at, verbatim', (done) => {
+            // ── TASK-2511 (W3d): INVERTED, deliberately ──────────────────────
+            //
+            // This spec used to assert the anchor persisted "the newest purchase
+            // row's SERVER created_at, verbatim". That floor was a snapshot of a
+            // SHARED account's ledger taken at click time, so it could not
+            // establish what its docstring claimed. Same three-row meter window;
+            // the assertion is now that the rows did NOT influence the anchor at
+            // all, and that the floor is the server's own departure stamp.
+            it('persists the SERVER departure timestamp, and no reading of the ledger', (done) => {
                 departAndAssert(
                     storeWithMeter({
                         enabled: true, balance: '5.00',
@@ -3093,75 +3151,51 @@ describe('ANUGA Epics', () => {
                         ]
                     }),
                     (anchor) => {
-                        expect(anchor.latestPurchaseIso).toBe('2026-07-27T01:00:00+00:00');
-                        expect(anchor.balanceObserved).toBe(true);
+                        expect(anchor.departedAtIso).toBe(
+                            DEPARTED_AT,
+                            'the anchor did not carry the server departure timestamp verbatim'
+                        );
                         expect(anchor.purchaseType).toBe('credit_pack');
+                        expect(Object.keys(anchor).sort()).toEqual(
+                            ['accountOnly', 'departedAtIso', 'projectId', 'purchaseType'],
+                            'the anchor still carries a field derived from the meter slice'
+                        );
                     },
                     done
                 );
             });
 
-            it('a window with only DEBIT rows persists latestPurchaseIso: null', (done) => {
-                departAndAssert(
-                    storeWithMeter({
-                        enabled: true, balance: '5.00',
-                        recentEntries: [{entry_type: 'debit', amount: '2.00', created_at: '2026-07-27T02:00:00+00:00'}]
-                    }),
-                    (anchor) => {
-                        expect(anchor.latestPurchaseIso).toBe(null);
-                        // The window WAS read, so a later purchase row is judgeable.
-                        expect(anchor.balanceObserved).toBe(true);
-                    },
-                    done
-                );
-            });
-
-            it('the DARK meter shape persists balanceObserved: false', (done) => {
+            // The meter slice no longer reaches the anchor at all, so the four
+            // specs that pinned its shapes (DARK, no-account, never-fetched, and
+            // debit-only) are DELETED rather than left asserting fields that do
+            // not exist. This one covers what actually matters now: whatever the
+            // meter says, the floor is the server's.
+            it('the DARK meter shape changes nothing — the floor is the server\'s', (done) => {
                 departAndAssert(
                     storeWithMeter({enabled: false, balance: null, recentEntries: []}),
-                    (anchor) => {
-                        expect(anchor.latestPurchaseIso).toBe(null);
-                        expect(anchor.balanceObserved).toBe(false);
-                    },
+                    (anchor) => expect(anchor.departedAtIso).toBe(DEPARTED_AT),
                     done
                 );
             });
 
-            // ── W3c adversarial (staleness lens): the FIRST-EVER purchase ────
-            //
-            // This asserted `false`, and that killed TASK-2489's whole
-            // confirmation channel on the commonest purchase there is.
-            // /commerce/balance/ resolves-only (balance_views.py:59) while
-            // /commerce/account/ provisions (account_views.py:110), and INIT_ANUGA
-            // issues the balance GET FIRST — so a brand-new user's meter slice
-            // holds {enabled: true, balance: null} and nothing refetches it all
-            // session. Requiring a non-null balance therefore stamped the anchor
-            // unobservable for every first purchase, and the customer sat the
-            // full 60s on "Confirming your purchase…" over a stale $0.00.
-            //
-            // The no-account response IS an authoritative empty ledger: no
-            // account means no rows.
-            it('the no-billing-account read IS observed — no account means an empty ledger, authoritatively', (done) => {
-                departAndAssert(
-                    storeWithMeter({enabled: true, balance: null, recentEntries: []}),
-                    (anchor) => expect(anchor.balanceObserved).toBe(
-                        true,
-                        'a first-ever purchase was stamped unobservable, so nothing could '
-                        + 'ever confirm it'
-                    ),
-                    done
-                );
-            });
-
-            it('the never-fetched slice is still NOT observed — silence is not an empty ledger', (done) => {
-                // meter/reducer.js initialState, which a Billing-tab onBuyPack can
-                // beat, and where a transient failure of the boot fetch also lands
-                // (computeMeterEpics catches every error to Observable.empty()).
-                departAndAssert(
-                    storeWithMeter({enabled: false, balance: null, recentEntries: []}),
-                    (anchor) => expect(anchor.balanceObserved).toBe(false),
-                    done
-                );
+            it('a backend with no departed_at yields a floorless anchor, not a guess', (done) => {
+                // A hydrata deployed behind this gmc bundle. The compare side
+                // then refuses to clear at all (see the fail-safe spec above).
+                mockAxios.onPost('/commerce/checkout/create-session/')
+                    .reply(200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_legacy'});
+                __setRedirectForTests(() => {});
+                subscribeCheckoutEpic(
+                    mockActions([{
+                        type: SUBSCRIBE_CHECKOUT_REQUEST,
+                        purchaseType: 'credit_pack', priceId: 'price_x'
+                    }]),
+                    storeWithMeter({enabled: true, balance: '5.00', recentEntries: []})
+                ).subscribe(() => {}, done, () => {
+                    try {
+                        expect(readAnchor().departedAtIso).toBe(null);
+                        done();
+                    } catch (err) { done(err); }
+                });
             });
 
             // W3c adversarial — THE RECORD IS CONSUMED, not merely read. Its
@@ -3173,7 +3207,7 @@ describe('ANUGA Epics', () => {
             it('checkoutReturnEpic DELETES the record once it has lifted it into the store', (done) => {
                 window.localStorage.setItem(CHECKOUT_ANCHOR_STORAGE_KEY, JSON.stringify({
                     purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
-                    latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
+                    departedAtIso: '2026-07-27T01:00:00+00:00'
                 }));
                 window.history.pushState({}, '', '?checkout=success');
                 const emitted = [];
@@ -3198,7 +3232,7 @@ describe('ANUGA Epics', () => {
             it('checkoutReturnEpic lifts an anchor written by ANOTHER TAB onto SET_PAYWALL_PENDING', (done) => {
                 const written = {
                     purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
-                    latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
+                    departedAtIso: '2026-07-27T01:00:00+00:00'
                 };
                 // Written by the originating tab; this tab shares nothing else.
                 window.localStorage.setItem(CHECKOUT_ANCHOR_STORAGE_KEY, JSON.stringify(written));
@@ -3349,7 +3383,7 @@ describe('ANUGA Epics', () => {
                 let pending = true;
                 const anchor = {
                     purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
-                    latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
+                    departedAtIso: '2026-07-27T01:00:00+00:00'
                 };
                 const store = {
                     getState: () => ({

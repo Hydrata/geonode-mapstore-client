@@ -177,91 +177,82 @@ const _consumeCheckoutDeparture = () => {
 };
 
 /**
- * The newest SERVER `created_at` among purchase rows in the balance window, or
- * null when it holds none.
+ * Build the anchor recorded at the moment of departure.
  *
- * Never a COUNT: both commerce endpoints return only the 10 newest rows
- * (balance_views.py:29 RECENT_ENTRIES_LIMIT), so a count is not monotonic and a
- * busy account's purchase row can fall out of the window between two reads.
+ * TASK-2511 (epic 2425 W3d) — THE FLOOR IS THE SERVER'S DEPARTURE TIMESTAMP,
+ * `departed_at` off the create-session response. It used to be
+ * `latestPurchaseIso`: the newest purchase row in whatever
+ * `meter.recentEntries` held at CLICK time. That could not answer the question
+ * `_hasPurchaseSinceAnchor`'s docstring claimed it answered, for two independent
+ * reasons.
+ *
+ *   (a) The snapshot is refreshed only at boot, on window focus, and during a
+ *       pending poll — so it is routinely minutes stale.
+ *   (b) `resolve_account_for_user` resolves an Account SHARED by every
+ *       AccountUser on it (services.py `provision_account_for_user` folds a user
+ *       into the ONE Account of their earliest GroupProfile), and
+ *       balance_views.py serialises EVERY row of it. On hydrata.com prod that is
+ *       Account pk=1 with 47 users via `registered-members` — so "a colleague"
+ *       is "every other paying customer".
+ *
+ * The failure that shipped: 09:00 you open the map (newest row P0, last week);
+ * 09:40 a colleague buys a pack, P1 lands on the shared account, your tab never
+ * refetches; 09:50 you click Buy credits with floor = P0; 09:51 the first poll
+ * tick returns P1 > P0, the notice retracts ~3s in on a row that PREDATES your
+ * checkout, `takeWhile` ends the poll, and your own webhook 20s later is never
+ * observed. That is exactly the "panel kept showing pre-purchase money" defect
+ * TASK-2489 exists to close, re-entered through a stale floor.
+ *
+ * A server floor makes the whole was-the-window-observed gate UNNECESSARY, so it
+ * is gone along with the 37-line block that justified it. That gate existed only
+ * because a client-side floor cannot distinguish "fetched and empty" from "never
+ * fetched"; a departure timestamp has no such ambiguity, and nothing here reads
+ * the meter slice any more.
+ *
+ * OPERATOR RULING 2026-07-27 recorded the two rejected alternatives so they are
+ * not re-opened: (b) stamping the Stripe session id onto ComputeLedgerEntry
+ * gives exact attribution but costs a column + migration + webhook write +
+ * serializer, queued behind the 2491/2492 migration series; (c) an FE-only floor
+ * tweak is cheapest and does NOT close the shared-Account case, which IS the
+ * reported defect.
  */
-const _newestPurchaseIso = (entries) => (Array.isArray(entries) ? entries : []).reduce(
-    (newest, e) => {
-        if (!e || e.entry_type !== 'purchase' || !e.created_at) return newest;
-        return (newest === null || Date.parse(e.created_at) > Date.parse(newest)) ? e.created_at : newest;
-    },
-    null
-);
+const _buildCheckoutAnchor = ({purchaseType, accountOnly, projectId, departedAtIso}) => ({
+    purchaseType,
+    accountOnly: !!accountOnly,
+    projectId: projectId ?? null,
+    departedAtIso: departedAtIso ?? null
+});
 
 /**
- * Build the anchor from the store as it stands at the moment of departure.
+ * Has a purchase row landed on this SHARED account since this checkout departed
+ * the server?
  *
- * `balanceObserved` is the whole reason AC3's null-anchor rule is safe. "No
- * purchase row at departure, therefore ANY purchase row later is new" holds only
- * if the empty window was FETCHED and empty. Two live shapes make it
- * never-fetched, and in each of them a month-old row would clear the notice ~3s
- * after arming — the same unearned claim as W2.8/W2.9, inverted:
- *   (a) meter dark        — balance_views.py:32-38, enabled FALSE, balance null;
- *   (b) nothing fetched yet — meter/reducer.js initialState, enabled FALSE
- *       (which a Billing-tab onBuyPack can beat, and which is also where a
- *       transient failure of the boot fetch leaves the slice —
- *       computeMeterEpics.js catches every error to Observable.empty()).
- * `enabled` is written by exactly one action (SET_COMPUTE_BALANCE) off exactly
- * one response, so `enabled === true` is exactly "the balance endpoint answered
- * this session".
- *
- * W3c adversarial (staleness lens) — IT WAS `enabled === true && balance !==
- * null`, AND THAT DISABLED THE WHOLE CHANNEL FOR EVERY FIRST-EVER PURCHASE.
- * GET /commerce/balance/ resolve-only (balance_views.py:59) and does NOT
- * provision; GET /commerce/account/ does (account_views.py:110). On INIT_ANUGA
- * the balance GET is issued FIRST (Anuga.js registration order), so a user with
- * no AccountUser row gets the no-account shape — enabled TRUE, balance null —
- * and nothing refetches the meter slice for the rest of the session. Requiring a
- * non-null balance therefore stamped `balanceObserved: false` on the commonest
- * purchase there is, the first one, and the detector could never fire: the
- * customer sat the full 60s on "Confirming your purchase…" over a stale $0.00,
- * under copy promising the panel updates on its own.
- *
- * The no-account response IS an authoritative reading of an empty ledger — no
- * account means no rows, and the account that gets provisioned moments later by
- * the summary fetch is a fresh personal one with none either. The hazard the
- * old form was defending (a user ADDED to a pre-existing account carrying old
- * rows, mid-checkout) requires a manager to issue and the user to accept an
- * invitation inside a 30-second Stripe round trip; its cost is a notice
- * retracting early, and its cost is now weighed against a channel that was dead
- * on the path that matters most.
- */
-const _buildCheckoutAnchor = (state, {purchaseType, accountOnly, projectId}) => {
-    const meter = getComputeMeterState(state);
-    return {
-        purchaseType,
-        accountOnly: !!accountOnly,
-        projectId: projectId ?? null,
-        latestPurchaseIso: _newestPurchaseIso(meter.recentEntries),
-        balanceObserved: meter.enabled === true
-    };
-};
-
-/**
- * Does the balance window now hold a purchase row this checkout is responsible
- * for?
+ * THAT IS EXACTLY WHAT IT ESTABLISHES — no more. The residual it does NOT close,
+ * stated rather than glossed: two purchases on the SAME account inside the same
+ * ~30s checkout window are still indistinguishable, because a ledger row carries
+ * no reference to the session that produced it. The server floor narrows 47
+ * shared users down to that; it does not eliminate it.
  *
  * BOTH SIDES ARE SERVER TIMESTAMPS. No Date.now(), no client clock: a browser
  * running fast would otherwise make no row ever look new and the notice would
  * never retract, which is precisely the sticky claim this task exists to
- * prevent. Date.parse here only parses two strings the server produced.
+ * prevent. `departed_at` is `timezone.now()` in CreateCheckoutSessionView and
+ * `created_at` is `ComputeLedgerEntry.created_at` (auto_now_add) serialised by
+ * balance_views.py — the same app-server clock, pinned by a pytest.
+ *
+ * NO FLOOR MEANS NO CLAIM. A record written by a previous bundle in another tab,
+ * or a hydrata backend deployed behind this gmc bundle, carries no
+ * `departedAtIso` — and returns FALSE, never a clear. The consequence is bounded
+ * and benign: that checkout's notice runs to the 60s cap, where the poll tail
+ * still dispatches `clearPaywallPending()` AND `fetchAccountSummary()`, so the
+ * panel never keeps showing pre-purchase money.
  */
 const _hasPurchaseSinceAnchor = (entries, anchor) => {
-    const rows = (Array.isArray(entries) ? entries : [])
-        .filter((e) => e && e.entry_type === 'purchase' && e.created_at);
-    if (!rows.length) return false;
-    if (anchor.latestPurchaseIso) {
-        const floor = Date.parse(anchor.latestPurchaseIso);
-        return rows.some((e) => Date.parse(e.created_at) > floor);
-    }
-    // Null anchor: sound ONLY on a window that was actually read. Both endpoints
-    // order -created_at, so a purchase row absent from a READ window at
-    // departure and present later must be newer.
-    return anchor.balanceObserved === true;
+    if (!anchor || !anchor.departedAtIso) return false;
+    const floor = Date.parse(anchor.departedAtIso);
+    return (Array.isArray(entries) ? entries : []).some(
+        (e) => e && e.entry_type === 'purchase' && e.created_at && Date.parse(e.created_at) > floor
+    );
 };
 
 // Fixed-interval poll, capped — a "no polish" MVP: no backoff, just a hard
@@ -737,6 +728,11 @@ export const subscribeCheckoutEpic = (action$, store) => action$
         )
             .mergeMap((response) => {
                 const url = response?.data?.checkout_url;
+                // TASK-2511 — the SERVER's departure timestamp, read alongside
+                // the url and carried into the anchor VERBATIM. Absent when a
+                // hydrata backend predating this bundle answers; the compare
+                // side then makes no claim at all (see _hasPurchaseSinceAnchor).
+                const departedAtIso = response?.data?.departed_at;
                 if (url) {
                     // TASK-2489 — THE DEPARTURE ANCHOR, written immediately
                     // before the Stripe tab opens.
@@ -751,7 +747,7 @@ export const subscribeCheckoutEpic = (action$, store) => action$
                     // failed (no session, no purchase possible) leaves no record
                     // for a later return to adopt.
                     _writeCheckoutAnchor(
-                        _buildCheckoutAnchor(store.getState(), {purchaseType, accountOnly, projectId})
+                        _buildCheckoutAnchor({purchaseType, accountOnly, projectId, departedAtIso})
                     );
                     // TASK-2496 — the customer is leaving THIS tab for Stripe.
                     // Same branch and same reasons as the anchor above: inside
