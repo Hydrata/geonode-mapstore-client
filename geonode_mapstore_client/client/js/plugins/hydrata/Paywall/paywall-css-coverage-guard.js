@@ -71,6 +71,57 @@
  *     a colour. Check 2 answers "could this ever be styled outside X", not
  *     "is it styled ENOUGH outside X".
  *
+ * CHECK 3: DECLARED-MOUNT ENUMERATION (TASK-2461, W3d)
+ * ----------------------------------------------------
+ * Check 2 ends in a human sentence -- "this component only ever renders inside
+ * .sv-account-billing-tab" -- and that sentence is a claim about the WHOLE
+ * source tree, not about one file. It was true when written and it is exactly
+ * the kind of claim a later refactor falsifies in one line, silently, which is
+ * how the outage happened the first time: BalanceStrip picked up a second
+ * mount on the map, where the ancestor every rule requires does not exist.
+ *
+ * The karma spec (Paywall/__tests__/ancestorScoped-test.js) proves the ancestor
+ * IS present at the mounts we know about, and it cannot do more than that -- a
+ * render test only sees the mounts it was written to render, so a brand new
+ * mount is invisible to it by construction. This check is the other half:
+ *
+ *   For each component in DECLARED_MOUNTS, scan every non-test .js/.jsx under
+ *   `js/` and fail when the set of files that can render it differs from the
+ *   declaration -- an UNDECLARED new mount, or a DECLARED mount that vanished
+ *   (which leaves check 2's reasons resting on a file that no longer mounts
+ *   anything).
+ *
+ * Fail-open cases, stated rather than implied:
+ *   - The scan is textual, over `js/` only. A mount from outside that tree
+ *     (e.g. a MapStore2 override) is not seen.
+ *   - Comments are stripped block-wise and whole-line, so prose quoting
+ *     `<BalanceStrip` does not register (ancestorScoped.js's own comment is
+ *     the live fixture for that). A TRAILING `// <Foo` after code on the same
+ *     line still registers -- a false POSITIVE, which is loud and fixable,
+ *     rather than a false negative, which is the failure this check exists
+ *     to prevent.
+ *   - A component reached through a runtime indirection no source line names
+ *     (a registry lookup, `React.createElement(map[key])`) is not detectable
+ *     statically. The import-binding signal catches the common alias case
+ *     (`import { BalanceStrip as Strip }` then `<Strip/>`), because importing
+ *     a component is the prerequisite for mounting it.
+ *   - Check 3 enumerates mounts for the COMPONENTS in DECLARED_MOUNTS, so a
+ *     newly declared className belonging to some other component is outside
+ *     it. That is mostly closed by the interlock below, and the residual gap
+ *     is narrow but real: a className that is already emitted somewhere inside
+ *     an existing declared mount's tree AND is also emitted by a second
+ *     component mounted elsewhere would satisfy both halves. Adding that
+ *     component to DECLARED_MOUNTS is the fix; nothing here forces it.
+ *
+ * THE TWO HALVES INTERLOCK
+ * ------------------------
+ * Neither check can be satisfied by weakening the other. To add a declaration
+ * you must render it (the karma spec fails on a declared-but-never-emitted
+ * className); to render it you need a renderer keyed by a declared mount path
+ * (the spec fails on a renderer with no declaration, and on a declaration with
+ * no renderer); and adding that path to DECLARED_MOUNTS is what pulls the new
+ * component into check 3's scan. The cheapest way through is the honest one.
+ *
  * FALSE POSITIVES
  * ---------------
  * classNames are extracted from string AND template-literal AND conditional
@@ -168,46 +219,12 @@ const STYLE_ROOTS = [
 const ALLOWLIST = {};
 
 /**
- * Check 2's declarations: classNames for which EVERY covering rule sits under
- * the same ancestor, reviewed and accepted.
- *
- * `ancestors` must list exactly the intersection the guard computes (sorted) --
- * if a stylesheet edit widens or narrows it, this file has to be re-read, which
- * is the whole point. `reason` must say WHY the component can only ever render
- * inside that ancestor.
+ * Check 2's declarations and check 3's mount list live in a SHARED module, not
+ * here: the karma spec that proves them against a real render tree cannot
+ * import this file (shebang CLI, no module.exports, `process.exit` at import
+ * time, no `fs` fallback in the karma webpack config). See ./ancestorScoped.js.
  */
-const ANCESTOR_SCOPED = {
-    // All six belong to BalanceStrip, and since TASK-2458 deleted its inline
-    // variant the argument is no longer a judgement call: BalanceStrip renders
-    // one thing, `grep -rn "<BalanceStrip" js/` returns exactly one non-test
-    // hit (BillingTabPanel.js), and that mount is inside .sv-account-billing-tab
-    // by construction — the tab renders the card, nothing else does. There is
-    // no second variant that could ever render these classes elsewhere.
-    'compute-meter-balance-strip': {
-        ancestors: ['sv-account-billing-tab'],
-        reason: 'The balance card root; BillingTabPanel is BalanceStrip\'s only caller and it renders inside the Billing tab.'
-    },
-    'compute-meter-balance': {
-        ancestors: ['sv-account-billing-tab'],
-        reason: 'BalanceStrip figure; only app mount is BillingTabPanel\'s card, inside the Billing tab.'
-    },
-    'compute-meter-balance-row': {
-        ancestors: ['sv-account-billing-tab'],
-        reason: 'BalanceStrip layout row — same single mount as above.'
-    },
-    'compute-meter-balance-labelled': {
-        ancestors: ['sv-account-billing-tab'],
-        reason: 'BalanceStrip label/value stack — same single mount as above.'
-    },
-    'compute-meter-balance-label': {
-        ancestors: ['sv-account-billing-tab'],
-        reason: 'BalanceStrip\'s "Compute balance" caption — same single mount as above.'
-    },
-    'compute-meter-packs': {
-        ancestors: ['sv-account-billing-tab'],
-        reason: 'BalanceStrip pack-button wrapper; the refusal modals use their own meter-buy-pack-cta-* row, not this one.'
-    }
-};
+const { ANCESTOR_SCOPED, DECLARED_MOUNTS } = require('./ancestorScoped');
 
 /**
  * Ancestors that are on <body> or the app root and therefore always present.
@@ -258,6 +275,17 @@ function walk(dir, exts, out) {
  */
 function stripComments(text) {
     return text.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ''));
+}
+
+/**
+ * Blank out WHOLE-LINE `//` comments (check 3 only). Deliberately not the
+ * trailing form: `//` also appears inside string literals and URLs, and losing
+ * the rest of a line of real code could hide a genuine mount. Prose that
+ * quotes JSX is written on its own line -- ancestorScoped.js's comment quoting
+ * `<BalanceStrip` is the live fixture that keeps this honest.
+ */
+function stripWholeLineComments(text) {
+    return text.replace(/^[ \t]*\/\/.*$/gm, '');
 }
 
 /**
@@ -525,6 +553,70 @@ for (const k of Object.keys(ANCESTOR_SCOPED)) {
     }
 }
 
+// ── Check 3: declared-mount enumeration ─────────────────────────────────────
+
+/**
+ * The ways a source file can end up rendering a component. Each is a false-
+ * negative hole in the one before it, which is why all three run: a pure
+ * `<Foo` scan is defeated by `import { Foo as Bar }` + `<Bar/>`, and both are
+ * defeated by `createElement(Foo)`. Importing is the prerequisite for all of
+ * them, so the import signal is the backstop.
+ *
+ * `renders` is what separates the two directions of the check, and it is not a
+ * detail: an import ALONE is enough to suspect an undeclared file (it can
+ * mount, so it must be reviewed), but it is NOT enough to keep a DECLARED
+ * mount alive. Deleting the JSX and leaving the import behind is the ordinary
+ * shape of a mount vanishing, and an import-satisfies-declaration rule lets
+ * exactly that pass -- verified, not assumed: the first cut of this check did
+ * pass it.
+ */
+const MOUNT_SIGNALS = [
+    { label: 'JSX', renders: true, pattern: (name) => new RegExp(`<${name}[\\s/>]`) },
+    { label: 'createElement', renders: true, pattern: (name) => new RegExp(`createElement\\(\\s*${name}\\b`) },
+    // `[^;]*` keeps the match inside one statement, so it spans a multi-line
+    // import list but never runs on into the next statement.
+    { label: 'import binding', renders: false, pattern: (name) => new RegExp(`(?:import|export)[^;]*\\b${name}\\b[^;]*from`) }
+];
+const RENDER_LABELS = MOUNT_SIGNALS.filter((s) => s.renders).map((s) => s.label);
+
+/** Names come from our own table; refuse anything that is not a bare identifier. */
+const badMountNames = Object.keys(DECLARED_MOUNTS).filter((n) => !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(n));
+
+const mountScanFiles = walk(path.join(CLIENT_ROOT, 'js'), ['.js', '.jsx'], [])
+    .filter((f) => !f.includes('__tests__'));
+/** component -> Map(relative file -> [signal labels]) */
+const mountsFound = new Map(Object.keys(DECLARED_MOUNTS).map((c) => [c, new Map()]));
+if (badMountNames.length === 0) {
+    for (const f of mountScanFiles) {
+        const text = stripWholeLineComments(stripComments(fs.readFileSync(f, 'utf8')));
+        const rel = path.relative(CLIENT_ROOT, f).split(path.sep).join('/');
+        for (const [component, hitsByFile] of mountsFound) {
+            const signals = MOUNT_SIGNALS.filter((s) => s.pattern(component).test(text)).map((s) => s.label);
+            if (signals.length > 0) hitsByFile.set(rel, signals);
+        }
+    }
+}
+
+const undeclaredMounts = [];  // a file that can render it, not in DECLARED_MOUNTS
+const vanishedMounts = [];    // declared, but nothing in that file renders it any more
+// Only meaningful if the scan actually ran; a bad key already fails the guard,
+// and reporting every declared mount as "vanished" on top of it would be noise
+// that reads like a second, unrelated fault.
+const mountEntries = badMountNames.length > 0 ? [] : Object.entries(DECLARED_MOUNTS);
+for (const [component, files] of mountEntries) {
+    const declared = new Set(files);
+    const found = mountsFound.get(component);
+    for (const [rel, signals] of found) {
+        if (!declared.has(rel)) undeclaredMounts.push({ component, file: rel, signals });
+    }
+    for (const rel of declared) {
+        const signals = found.get(rel) || [];
+        if (!signals.some((s) => RENDER_LABELS.includes(s))) {
+            vanishedMounts.push({ component, file: rel, signals });
+        }
+    }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 if (asJson) {
@@ -539,6 +631,11 @@ if (asJson) {
         undeclaredScoped,
         driftedScoped,
         staleScoped,
+        mountScanFiles: mountScanFiles.length,
+        declaredMounts: DECLARED_MOUNTS,
+        undeclaredMounts,
+        vanishedMounts,
+        badMountNames,
         parsedSources
     }, null, 2) + '\n');
 } else {
@@ -560,6 +657,13 @@ if (asJson) {
     process.stdout.write(`  ancestor-scoped   : ${declaredPresent.length} declared, ${undeclaredScoped.length} undeclared` + '\n');
     for (const k of declaredPresent) {
         process.stdout.write(`      .${k} — under .${[...ANCESTOR_SCOPED[k].ancestors].sort().join(' .')} — ${ANCESTOR_SCOPED[k].reason}` + '\n');
+    }
+    process.stdout.write(`  declared mounts   : ${Object.keys(DECLARED_MOUNTS).length} component(s) over ${mountScanFiles.length} non-test sources under js/` + '\n');
+    for (const [component, files] of Object.entries(DECLARED_MOUNTS)) {
+        for (const f of files) {
+            const signals = mountsFound.get(component).get(f);
+            process.stdout.write(`      <${component}> in ${f} [${signals ? signals.join(', ') : 'NOT FOUND'}]` + '\n');
+        }
     }
 }
 
@@ -636,11 +740,53 @@ if (staleScoped.length > 0) {
     }
 }
 
+if (badMountNames.length > 0) {
+    failed = true;
+    if (!asJson) {
+        process.stderr.write('\nFAIL: DECLARED_MOUNTS keys must be bare component identifiers.' + '\n');
+        for (const n of badMountNames) process.stderr.write(`  ${n}` + '\n');
+        process.stderr.write('Check 3 builds a regex from each key; it did not run.' + '\n');
+    }
+}
+
+if (undeclaredMounts.length > 0) {
+    failed = true;
+    if (!asJson) {
+        process.stderr.write('\nFAIL: a non-test source can render a component that is ancestor-scoped,' + '\n');
+        process.stderr.write('and that file is NOT in DECLARED_MOUNTS (ancestorScoped.js).\n' + '\n');
+        for (const m of undeclaredMounts) {
+            process.stderr.write(`  <${m.component}> in ${m.file}  [${m.signals.join(', ')}]` + '\n');
+            process.stderr.write(`        declared mounts: ${DECLARED_MOUNTS[m.component].join(', ')}` + '\n');
+        }
+        process.stderr.write('\nThis is the outage, one line at a time: every rule that styles that' + '\n');
+        process.stderr.write('component requires an ancestor, and a new mount is a new place where' + '\n');
+        process.stderr.write('the ancestor may not be. Either scope the new mount under the declared' + '\n');
+        process.stderr.write('ancestor, or add the file to DECLARED_MOUNTS -- and if you add it, give' + '\n');
+        process.stderr.write('it a renderer in Paywall/__tests__/ancestorScoped-test.js, which fails' + '\n');
+        process.stderr.write('until you do, so the new mount is PROVED rather than asserted.' + '\n');
+    }
+}
+
+if (vanishedMounts.length > 0) {
+    failed = true;
+    if (!asJson) {
+        process.stderr.write('\nFAIL: DECLARED_MOUNTS names a file that no longer renders the component.' + '\n');
+        for (const m of vanishedMounts) {
+            const how = m.signals.length > 0 ? `only ${m.signals.join(', ')}, no render` : 'no reference at all';
+            process.stderr.write(`  <${m.component}> declared in ${m.file} — ${how}` + '\n');
+        }
+        process.stderr.write('The ANCESTOR_SCOPED reasons rest on that mount, so they are now stale:' + '\n');
+        process.stderr.write('re-read them, then update DECLARED_MOUNTS (and its renderer in' + '\n');
+        process.stderr.write('Paywall/__tests__/ancestorScoped-test.js).' + '\n');
+    }
+}
+
 if (failed) {
     process.exit(1);
 }
 
 if (!asJson) {
     process.stdout.write('\nOK: every watched className has a rule (or a justified allowlist entry),' + '\n');
-    process.stdout.write('    and none is reachable ONLY through an undeclared ancestor.' + '\n');
+    process.stdout.write('    none is reachable ONLY through an undeclared ancestor, and every' + '\n');
+    process.stdout.write('    ancestor-scoped component mounts exactly where it is declared to.' + '\n');
 }
