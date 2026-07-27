@@ -326,6 +326,57 @@ describe('PaywallPanel — state: upgrade_prompt', () => {
         expect(dismiss).toExist('"Keep it public" dismiss action not found');
     });
 
+    // ── W3d: the modal names the tier the customer is actually buying ───────
+    //
+    // The copy was three hardcoded sentences all naming Private. That read as
+    // accurate only because the webhook flipped EVERY purchase to PRIVATE
+    // whatever the customer picked. Fixing that (they now receive the tier
+    // they bought) would have moved the lie into this component instead of
+    // removing it: someone who chose Organization would be told "make private"
+    // three times and then correctly receive Organization.
+    describe('upgrade modal copy follows the refused destination (W3d)', () => {
+        const renderWithVisibility = (visibility) => renderPaywall({
+            paywallEnabled: true,
+            paywallPayload: {
+                state: 'upgrade_prompt',
+                checkout_url: 'https://x/create-session/',
+                read_only: false,
+                visibility
+            }
+        });
+
+        it('says Private when Private was refused', () => {
+            const doc = renderWithVisibility('private');
+            const cta = doc.querySelector('[data-testid="subscribe-cta"]');
+            expect(cta.textContent).toBe('Subscribe & make private');
+            expect(cta.getAttribute('data-tier')).toBe('private');
+        });
+
+        it('NEVER says private when Organization was refused', () => {
+            const doc = renderWithVisibility('organization');
+            const cta = doc.querySelector('[data-testid="subscribe-cta"]');
+            expect(cta.getAttribute('data-tier')).toBe('organization');
+            const text = doc.querySelector('[data-testid="upgrade-modal"]').textContent;
+            expect(text.toLowerCase().indexOf('make private')).toBe(
+                -1,
+                'the modal promised Private to a customer buying Organization'
+            );
+            expect(text.indexOf('Organization')).toNotBe(
+                -1, 'the modal never names the tier being bought'
+            );
+        });
+
+        it('falls back to copy true of BOTH tiers when the refusal carries none', () => {
+            // An overlay armed by an older FE build's action shape, or fixture
+            // mode. Guessing a tier here is how the defect came back.
+            const doc = renderWithVisibility(undefined);
+            const text = doc.querySelector('[data-testid="upgrade-modal"]').textContent;
+            expect(text.toLowerCase().indexOf('make private')).toBe(-1);
+            expect(doc.querySelector('[data-testid="subscribe-cta"]').textContent)
+                .toBe('Subscribe');
+        });
+    });
+
     it('does not show dunning banner', () => {
         expect(c.querySelector('[data-testid="dunning-banner"]')).toBe(null);
     });

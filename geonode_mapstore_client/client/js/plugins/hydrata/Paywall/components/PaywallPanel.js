@@ -88,6 +88,48 @@ const UPGRADE_MODAL_TITLE_ID = 'paywall-upgrade-modal-title';
 // a future decision reverses this — do not resurrect them by accident.
 
 /**
+ * The refusal modal's copy, per DESTINATION the customer was refused.
+ *
+ * W3d — this used to be three hardcoded sentences all naming Private, which was
+ * accurate only because the webhook flipped every purchase to PRIVATE whatever
+ * the customer picked. Fixing that (the customer now receives the tier they
+ * bought) would have moved the lie here instead of removing it: someone who
+ * chose Organization would read "Keep your flood model private" and "Subscribe
+ * & make private" three times, then correctly receive Organization.
+ *
+ * So the copy is driven off the same `visibility` the refusal carries. The
+ * neutral fallback covers an overlay armed without one — an older FE build's
+ * action shape, or fixture mode — and is written to be true of BOTH tiers
+ * rather than guessing at one.
+ *
+ * Organization's body deliberately promises no more than Private's: an
+ * organisation member cannot view anything today (sync.py emits no group perms),
+ * and the Sharing panel's own description was corrected to match. Nothing here
+ * may promise organisation-wide viewing until the explicit-grant work lands.
+ */
+const TIER_COPY = {
+    'private': {
+        title: 'Private models require a subscription',
+        body: 'Keep your flood model private — visible only to you and the members you '
+            + 'invite. Start a subscription to unlock it.',
+        cta: 'Subscribe & make private'
+    },
+    'organization': {
+        title: 'Organization models require a subscription',
+        body: 'Take your flood model out of public view — visible only to you and the '
+            + 'members you invite. Start a subscription to unlock it.',
+        cta: 'Subscribe & switch to Organization'
+    }
+};
+
+const TIER_COPY_NEUTRAL = {
+    title: 'This visibility requires a subscription',
+    body: 'Take your flood model out of public view — visible only to you and the '
+        + 'members you invite. Start a subscription to unlock it.',
+    cta: 'Subscribe'
+};
+
+/**
  * UpgradeModal — shown when upgrade_prompt state is active (after 402 response).
  * checkout_url comes from the contract payload.
  *
@@ -105,26 +147,27 @@ const UPGRADE_MODAL_TITLE_ID = 'paywall-upgrade-modal-title';
  * entry/trap/restore, Escape). Before that it was a full-viewport
  * click-absorbing scrim with none of them.
  */
-function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick, onViewAccount }) {
+function UpgradeModal({ checkoutUrl, visibility, onDismiss, onSubscribeClick, onViewAccount }) {
+    const copy = TIER_COPY[visibility] || TIER_COPY_NEUTRAL;
     return (
         <div data-testid="upgrade-modal" className="paywall-upgrade-modal-overlay">
             <div className="paywall-upgrade-modal">
                 <h2 id={UPGRADE_MODAL_TITLE_ID} className="paywall-upgrade-modal-title">
-                    Private models require a subscription
+                    {copy.title}
                 </h2>
                 <p className="paywall-upgrade-modal-body">
-                    Keep your flood model private — visible only to you and your team.
-                    Start a subscription to unlock private models.
+                    {copy.body}
                 </p>
                 <div className="paywall-upgrade-modal-actions">
                     <button
                         type="button"
                         data-testid="subscribe-cta"
+                        data-tier={visibility || null}
                         className="paywall-subscribe-btn"
                         data-href={checkoutUrl}
                         onClick={() => onSubscribeClick(checkoutUrl)}
                     >
-                        Subscribe &amp; make private
+                        {copy.cta}
                     </button>
                     {/* TASK-2420 (epic 2359 W4.5) — "View account" -> Billing tab. */}
                     <button
@@ -157,6 +200,7 @@ function UpgradeModal({ checkoutUrl, onDismiss, onSubscribeClick, onViewAccount 
 
 UpgradeModal.propTypes = {
     checkoutUrl: PropTypes.string,
+    visibility: PropTypes.string,
     onDismiss: PropTypes.func,
     onSubscribeClick: PropTypes.func,
     onViewAccount: PropTypes.func
@@ -164,6 +208,7 @@ UpgradeModal.propTypes = {
 
 UpgradeModal.defaultProps = {
     checkoutUrl: '',
+    visibility: null,
     onDismiss: () => {},
     onSubscribeClick: () => {},
     onViewAccount: () => {}
@@ -272,6 +317,7 @@ class PaywallPanel extends React.Component {
                 >
                     <UpgradeModal
                         checkoutUrl={checkoutUrl}
+                        visibility={payload && payload.visibility}
                         onDismiss={onDismissUpgrade}
                         onSubscribeClick={onSubscribeClick}
                         onViewAccount={onViewAccount}
