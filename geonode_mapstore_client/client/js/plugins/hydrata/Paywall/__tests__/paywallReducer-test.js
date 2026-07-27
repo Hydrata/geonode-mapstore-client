@@ -24,6 +24,19 @@ import {
 // W2.10 revert — see the reducer's CLEAR_PAYWALL_PENDING case.
 const PENDING_OVERLAY = {state: 'pending', checkout_url: null, read_only: false, visibility: null};
 
+// Shared by the three project-stamp describes below: build a slice through the
+// REAL reducer (never a hand-rolled literal — that is how a shape change slips
+// past a stamp test), then mount it under a given loaded project.
+const withProject = (paywall, loadedId) => ({
+    anuga: {paywall, projects: {data: {id: loadedId, visibility: 'private'}}}
+});
+const refusalFor = (projectId, visibility) => paywallReducer(undefined, {
+    type: SET_PAYWALL_UPGRADE_PROMPT,
+    checkoutUrl: 'https://x/create-session/',
+    visibility,
+    projectId
+});
+
 describe('TASK-2099 Paywall reducer', () => {
     it('initial state has no steady/overlay', () => {
         const state = paywallReducer(undefined, {type: '@@INIT'});
@@ -219,9 +232,6 @@ describe('TASK-2099 Paywall reducer', () => {
             projectId,
             payload: {paywall: {state: paywallState, checkout_url: null, read_only: false}}
         });
-        const withProject = (paywall, loadedId) => ({
-            anuga: {paywall, projects: {data: {id: loadedId, visibility: 'private'}}}
-        });
 
         it('records which project the steady payload describes', () => {
             expect(steadyFor(7, 'past_due').steadyProjectId).toBe(7);
@@ -286,15 +296,6 @@ describe('TASK-2099 Paywall reducer', () => {
     // checkout for B and the webhook privatised B, a project the customer was
     // never refused on and never asked to change.
     describe('getEffectivePaywallPayload — the overlay stamp (W3d)', () => {
-        const refusalFor = (projectId, visibility) => paywallReducer(undefined, {
-            type: SET_PAYWALL_UPGRADE_PROMPT,
-            checkoutUrl: 'https://x/create-session/',
-            visibility,
-            projectId
-        });
-        const withProject = (paywall, loadedId) => ({
-            anuga: {paywall, projects: {data: {id: loadedId, visibility: 'public'}}}
-        });
 
         it('records which project the refusal is about', () => {
             expect(refusalFor(7, 'private').overlayProjectId).toBe(7);
@@ -333,15 +334,6 @@ describe('TASK-2099 Paywall reducer', () => {
     // then flipped to a hardcoded PRIVATE: paid for Organization, given
     // Private, with no surface saying so.
     describe('getPaywallDesiredVisibility (W3d)', () => {
-        const refusalFor = (projectId, visibility) => paywallReducer(undefined, {
-            type: SET_PAYWALL_UPGRADE_PROMPT,
-            checkoutUrl: 'https://x/create-session/',
-            visibility,
-            projectId
-        });
-        const withProject = (paywall, loadedId) => ({
-            anuga: {paywall, projects: {data: {id: loadedId, visibility: 'public'}}}
-        });
 
         it('carries the destination the customer was refused', () => {
             expect(getPaywallDesiredVisibility(withProject(refusalFor(7, 'organization'), 7)))

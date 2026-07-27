@@ -166,15 +166,23 @@ export default (state = initialState, action) => {
  * reducer has no access to; the failure mode is a spinner clearing early rather
  * than a wrong billing claim, so it is not folded in here on speculation.
  */
-export const getPaywallSteady = (state) => {
-    const slice = state && state.anuga && state.anuga.paywall;
-    if (!slice || !slice.steady) return null;
-    const stamped = slice.steadyProjectId;
+/**
+ * The one stamp comparison both layers use: refuse only a stamp that POSITIVELY
+ * disagrees with a known loaded project. An unstamped payload, or a state with
+ * no project loaded yet, is accepted — see the two callers for why refusing
+ * either would be fail-dangerous rather than fail-safe.
+ */
+const _describesLoadedProject = (state, stamped) => {
     const loaded = state.anuga.projects && state.anuga.projects.data
         && state.anuga.projects.data.id;
     // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
-    if (stamped != null && loaded != null && stamped !== loaded) return null;
-    return slice.steady;
+    return !(stamped != null && loaded != null && stamped !== loaded);
+};
+
+export const getPaywallSteady = (state) => {
+    const slice = state && state.anuga && state.anuga.paywall;
+    if (!slice || !slice.steady) return null;
+    return _describesLoadedProject(state, slice.steadyProjectId) ? slice.steady : null;
 };
 
 /**
@@ -203,12 +211,7 @@ export const getPaywallSteady = (state) => {
 const getPaywallOverlay = (state) => {
     const slice = state && state.anuga && state.anuga.paywall;
     if (!slice || !slice.overlay) return null;
-    const stamped = slice.overlayProjectId;
-    const loaded = state.anuga.projects && state.anuga.projects.data
-        && state.anuga.projects.data.id;
-    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
-    if (stamped != null && loaded != null && stamped !== loaded) return null;
-    return slice.overlay;
+    return _describesLoadedProject(state, slice.overlayProjectId) ? slice.overlay : null;
 };
 
 /** Resolves the single payload PaywallPanel renders from, or null. */
