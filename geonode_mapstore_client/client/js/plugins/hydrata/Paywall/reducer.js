@@ -109,10 +109,42 @@ export default (state = initialState, action) => {
         //
         // An overlay with NO anchor still clears here exactly as before: no
         // anchor means no detector, so this and the 60s tail are all there is.
+        //
+        // TASK-2512 (epic 2425 W3d) — AND NOT ON ANOTHER PROJECT'S PAYLOAD. This
+        // clear used to act on an unstamped OR MISMATCHED payload, so after an
+        // SPA nav A -> B a late my_perms for A disarmed a `pending` armed for B.
+        // The cost of that is no longer "a spinner clearing early" (true while
+        // W2.5 had `pending` rendering nothing): since TASK-2489 the same flag
+        // gates the Billing tab's confirming notice, the 3s poll via `takeWhile`
+        // and the tail's account refetch — so an early clear means the purchase
+        // stops being watched for and the panel goes quiet showing pre-purchase
+        // money, which is the exact defect 2489 exists to close, re-entered from
+        // the side.
+        //
+        // THE COMPARISON IS ANCHOR-RELATIVE, NOT LOADED-PROJECT-RELATIVE. This
+        // slice is mounted through combineReducers and cannot see which project
+        // is loaded (that is why getPaywallSteady solves its half at SELECTOR
+        // level). But the anchor already records the project THIS CHECKOUT was
+        // for, which answers the sharper question anyway: "is this evidence
+        // about the thing the customer paid for?" A payload stamped for the
+        // anchored project clears; one stamped for a different project does not,
+        // whichever project happens to be on screen.
+        //
+        // Same fail-safe rule as describesLoadedProject: refuse only a stamp
+        // that POSITIVELY disagrees. An unstamped payload, or an ACCOUNT-scoped
+        // anchor (the Billing tab's Subscribe rides no project, and the
+        // entitlement it buys is account-scoped, so paid_* on any project of
+        // that account IS evidence), still clears.
         const anchor = state.overlay && state.overlay.anchor;
+        const anchoredProjectId = anchor?.projectId ?? null;
+        /* eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom */
+        const describesAnchoredProject = !(anchoredProjectId !== null
+            && action.projectId != null
+            && anchoredProjectId !== action.projectId);
         const overlay = (state.overlay && state.overlay.state === 'pending'
             && PAID_STEADY_STATES.includes(paywall.state)
-            && anchor?.purchaseType !== 'credit_pack')
+            && anchor?.purchaseType !== 'credit_pack'
+            && describesAnchoredProject)
             ? null
             : state.overlay;
         // Stamp the project this payload describes. `?? null` normalises the
@@ -220,18 +252,21 @@ export default (state = initialState, action) => {
  * the paywall state outright — fail-DANGEROUS. So: refuse only a stamp that
  * positively disagrees with a known loaded project.
  *
- * NOT COVERED, deliberately: the pending-overlay clear above still acts on an
- * unstamped or mismatched payload, so a late paid_* for A can disarm a `pending`
- * armed for B. That needs the current project id at reduce time, which this
- * reducer has no access to, so it is not folded in here on speculation.
+ * THE PENDING-OVERLAY CLEAR IS NOW COVERED TOO (TASK-2512, W3d). This paragraph
+ * used to record it as a deliberate gap — "a late paid_* for A can disarm a
+ * `pending` armed for B" — on the grounds that the reducer has no access to the
+ * loaded project id. That reasoning was sound and the conclusion was wrong: the
+ * clear does not need the LOADED project, it needs the project the CHECKOUT was
+ * for, and the departure anchor already carries it. So the clear compares
+ * `action.projectId` against `anchor.projectId` under the same fail-safe rule
+ * this selector uses — refuse only a stamp that positively disagrees. See the
+ * SET_ANUGA_RESOURCE_PERMS case above.
  *
- * W3c adversarial — THE COST OF THAT IS NO LONGER "a spinner clearing early",
- * which is what this paragraph used to say and what was true when `pending`
- * rendered nothing (W2.5 deleted PendingSpinner). Since TASK-2489 the flag also
- * gates the Billing tab's confirming notice, the 3s poll and the tail's account
- * refetch, so an early clear now means a purchase stops being watched for. The
- * credit-pack half of that is closed above (the anchor gate); the cross-project
- * half is bounded by the same 60s cap and is filed rather than guessed at.
+ * Why it mattered enough to close rather than file: since TASK-2489 the pending
+ * flag also gates the Billing tab's confirming notice, the 3s poll (via
+ * `takeWhile`) and the tail's account refetch, so an early clear is not a
+ * spinner blinking out — it is the purchase ceasing to be watched for while the
+ * panel shows pre-purchase money.
  */
 export const getPaywallSteady = (state) => {
     const slice = state && state.anuga && state.anuga.paywall;

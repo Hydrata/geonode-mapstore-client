@@ -272,6 +272,91 @@ describe('TASK-2099 Paywall reducer', () => {
             expect(getPaywallCheckoutAnchor({anuga: {paywall: state}})).toEqual(ANCHOR);
         });
 
+        // ── TASK-2512 (epic 2425 W3d): the CROSS-PROJECT half of the same rule ──
+        //
+        // The PAID clear acted on an unstamped OR MISMATCHED payload, so after an
+        // SPA nav A -> B a late my_perms for A could disarm a confirmation armed
+        // for B. That used to cost "a spinner clearing early" and no longer does:
+        // since TASK-2489 the same flag gates the Billing tab's confirming
+        // notice, the 3s poll (via takeWhile) and the tail's account refetch, so
+        // an early clear means the purchase stops being watched for and the panel
+        // goes quiet showing pre-purchase money.
+        //
+        // The comparison is anchor-relative, not "loaded project"-relative, and
+        // that is deliberate: this reducer is mounted through combineReducers and
+        // cannot see the loaded project, but the anchor already records the
+        // project THIS CHECKOUT was for — which is the sharper question anyway
+        // ("is this evidence about the thing I paid for?").
+        describe('TASK-2512 — the clear cannot be fired by another project\'s payload', () => {
+            const subAnchorFor = (projectId) => ({
+                purchaseType: 'subscription', accountOnly: false, projectId,
+                latestPurchaseIso: null, balanceObserved: true
+            });
+            const paidPrivateFor = (state, projectId) => paywallReducer(state, {
+                type: SET_ANUGA_RESOURCE_PERMS,
+                projectId,
+                payload: {paywall: {state: 'paid_private', checkout_url: null, read_only: false}}
+            });
+
+            // ── THE RED ONE ──────────────────────────────────────────────────
+            it('a PAID steady stamped for ANOTHER project does NOT clear the confirmation', () => {
+                const state = paidPrivateFor(
+                    paywallReducer(undefined, setPaywallPending(subAnchorFor(7))), 42
+                );
+                expect(isPaywallPending({anuga: {paywall: state}})).toBe(
+                    true,
+                    'a late my_perms for a project the customer navigated AWAY from '
+                    + 'disarmed the confirmation for the project they actually paid '
+                    + 'for — the poll ends and the panel goes quiet over '
+                    + 'pre-purchase money'
+                );
+                expect(getPaywallCheckoutAnchor({anuga: {paywall: state}})).toEqual(subAnchorFor(7));
+                // The steady write itself is NOT refused — only the clear is.
+                // getPaywallSteady is what decides whether that steady is shown.
+                expect(state.steady.state).toBe('paid_private');
+                expect(state.steadyProjectId).toBe(42);
+            });
+
+            it('the SAME project\'s PAID steady still clears — the confirmation path stays working', () => {
+                const state = paidPrivateFor(
+                    paywallReducer(undefined, setPaywallPending(subAnchorFor(42))), 42
+                );
+                expect(isPaywallPending({anuga: {paywall: state}})).toBe(
+                    false, 'the guard swallowed the very clear it is supposed to allow'
+                );
+            });
+
+            // Same fail-safe rule as describesLoadedProject / getPaywallSteady:
+            // refuse only a stamp that POSITIVELY disagrees. An unstamped payload
+            // is the common shape (permsEpics dispatches carry no project id on
+            // several paths), and refusing it would strand a paying customer.
+            it('an UNSTAMPED payload still clears, matching _describesLoadedProject', () => {
+                const state = paidPrivate(
+                    paywallReducer(undefined, setPaywallPending(subAnchorFor(7)))
+                );
+                expect(isPaywallPending({anuga: {paywall: state}})).toBe(
+                    false, 'an unstamped payload was refused — fail-DANGEROUS, not fail-safe'
+                );
+            });
+
+            it('an ACCOUNT-SCOPED anchor (projectId null) clears on any project\'s paid steady', () => {
+                // The Billing tab's Subscribe rides no project at all, and the
+                // entitlement it buys is account-scoped — so paid_* on ANY project
+                // of that account IS evidence the subscription landed.
+                const state = paidPrivateFor(
+                    paywallReducer(undefined, setPaywallPending(SUB_ANCHOR)), 42
+                );
+                expect(isPaywallPending({anuga: {paywall: state}})).toBe(false);
+            });
+
+            it('an ANCHORLESS pending overlay is unaffected by the stamp either way', () => {
+                // No anchor means no detector, so this clear and the 60s tail are
+                // all there is — pre-2489 behaviour, deliberately preserved.
+                const state = paidPrivateFor(paywallReducer(undefined, setPaywallPending()), 42);
+                expect(isPaywallPending({anuga: {paywall: state}})).toBe(false);
+            });
+        });
+
         it('an upgrade_prompt overlay is never mistaken for a confirming checkout', () => {
             const state = refusalFor(42, 'private');
             expect(getPaywallCheckoutAnchor({anuga: {paywall: state}})).toBe(null);
