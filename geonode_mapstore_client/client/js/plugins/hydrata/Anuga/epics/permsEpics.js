@@ -100,6 +100,35 @@ let _lastFetchByProjectId = new Map();
 let _fetchSeq = 0;
 const _appliedSeqByProjectId = new Map();
 
+/**
+ * TASK-2498 (epic 2425 W3d) — the sequence above ordered my_perms answers
+ * against EACH OTHER, and was blind to the one other writer of the same slice:
+ * the Sharing panel's visibility PATCH (membershipEpics' updateProjectVisibility
+ * Epic), whose `setAnugaProjectData(response.data)` took no sequence number at
+ * all. So a my_perms request issued BEFORE the PATCH could be applied AFTER it —
+ * a panel-open fetch that 502s and enters the 1s backoff below, while the user
+ * flips the project to Public, then lands carrying the pre-PATCH visibility. The
+ * padlock reverts, and if the PATCH's own forced refetch then fails twice, the
+ * failure branch is the last thing to run and nothing corrects it: the indicator
+ * is stranded on the old value with the success toast still on screen.
+ *
+ * Claim the next number from THIS counter and record it as the newest applied
+ * write for `projectId`. A second counter in another module would not be a
+ * sequence — the whole guarantee is that every writer of this slice draws from
+ * one monotonic source.
+ *
+ * PER PROJECT, like everything else here: stamping a flip on A must not discard
+ * an unrelated, newer answer for B (see the per-project karma specs).
+ *
+ * Keys are compared by identity, so callers must pass the same NUMBER shape the
+ * FETCH_MY_PERMS actions carry — both sides read it from
+ * state.anuga.projects.data.id, so they cannot drift.
+ */
+export const markProjectWriteApplied = (projectId) => {
+    if (projectId === undefined || projectId === null) return;
+    _appliedSeqByProjectId.set(projectId, ++_fetchSeq);
+};
+
 /** Test seam. Resets BOTH module caches — a half-reset leaks state between tests. */
 export const __resetPermsCacheForTests = () => {
     _lastFetchByProjectId = new Map();

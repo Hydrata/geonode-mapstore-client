@@ -2282,6 +2282,211 @@ describe('ANUGA Epics', () => {
         });
     });
 
+    /**
+     * TASK-2498 (epic 2425 W3d) — the ordering guard was blind to the ONE writer
+     * that is not a my_perms response.
+     *
+     * fetchMyPermsEpic sequences my_perms answers against each other
+     * (permsEpics.js `_fetchSeq` / `_appliedSeqByProjectId`), and the visibility
+     * PATCH writes the same slice — `setAnugaProjectData(response.data)` in
+     * membershipEpics' updateProjectVisibilityEpic — with NO sequence number at
+     * all. So a my_perms request issued BEFORE the PATCH could be applied AFTER
+     * it, and the guard had no way to know.
+     *
+     * The interleaving, which is the poll's own shape plus one click:
+     *   t0    panel-open fetch for A is seq 1; it 500s and enters the 1s backoff.
+     *   t30   the user flips A to Public. The PATCH succeeds, the store says
+     *         public, the success toast fires, and the forced refetch goes out.
+     *   t1000 seq 1's RETRY lands carrying the PRE-patch `private`. Nothing has
+     *         been applied for A yet, so isSuperseded() is false and it wins.
+     *   t1030 the forced refetch fails its second attempt, so buildFailureBranch
+     *         fires setPermsLoadFailed(true) + the permsUnavailable toast — and
+     *         no further response is coming.
+     * The padlock is left PERMANENTLY on the pre-PATCH value with "Project is now
+     * public" still on screen.
+     *
+     * The fix is a seam, not a new guard: the PATCH claims the next sequence
+     * number from the SAME counter and records itself as the newest applied write
+     * for that project. The reducer's four guards were always correct; the bug is
+     * that a stale action reached them at all.
+     */
+    describe('TASK-2498 (W3d) — the visibility PATCH takes part in the my_perms sequence', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            fetchMyPermsEpic, __resetPermsCacheForTests, __setNowForTests
+        } = require('../epics/permsEpics');
+        const {updateProjectVisibilityEpic} = require('../epics/membershipEpics');
+        const {
+            UPDATE_PROJECT_VISIBILITY_REQUEST, FETCH_MY_PERMS, SET_ANUGA_PROJECT_DATA
+        } = require('../actionsAnuga');
+        const projectsReducer = require('../reducers/projectsReducer').default;
+
+        const body = (visibility) => ({
+            my_role: 'owner', visibility,
+            paywall: {state: visibility === 'public' ? 'free_public' : 'paid_private',
+                checkout_url: null, read_only: false}
+        });
+
+        const assertAfter = (ms, done, fn) => setTimeout(() => {
+            try {
+                fn();
+                done();
+            } catch (err) {
+                done(err);
+            }
+        }, ms);
+
+        let mockAxios;
+        beforeEach(() => {
+            mockAxios = new MockAdapter(axios);
+            __resetPermsCacheForTests();
+            __setNowForTests(() => 3000000);
+        });
+        afterEach(() => {
+            mockAxios.restore();
+            __resetPermsCacheForTests();
+            __setNowForTests(null);
+        });
+
+        /**
+         * A one-project action loop: both epics read the SAME stream, and every
+         * action an epic emits is fed back in — which is what the MapStore epic
+         * middleware does, and is the only way the PATCH's own
+         * `fetchMyPerms(42, true)` reaches fetchMyPermsEpic.
+         */
+        const runLoop = (initialActions, emitted) => {
+            const subject = new Rx.Subject();
+            const action$ = subject.asObservable();
+            action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+            const sink = (a) => {
+                emitted.push(a);
+                subject.next(a);
+            };
+            const subs = [
+                fetchMyPermsEpic(action$).subscribe(sink),
+                updateProjectVisibilityEpic(action$, storeWithProjectId(42)).subscribe(sink)
+            ];
+            setTimeout(() => initialActions.forEach(a => subject.next(a)), 0);
+            return () => subs.forEach(s => s.unsubscribe());
+        };
+
+        /** Replay the emitted store writes through the real reducer, in order. */
+        const finalVisibility = (emitted) => emitted
+            .filter(a => a.type === SET_ANUGA_PROJECT_DATA
+                || a.type === 'ANUGA:SET_ANUGA_RESOURCE_PERMS')
+            .reduce(
+                (acc, a) => projectsReducer(acc, a),
+                projectsReducer(undefined, {
+                    type: SET_ANUGA_PROJECT_DATA,
+                    data: {id: 42, name: 'Merewether', visibility: 'private', my_role: 'owner'}
+                })
+            ).data.visibility;
+
+        it('a my_perms answer issued BEFORE the PATCH cannot be applied after it', (done) => {
+            // Call order is fixed by the timers: 1 = seq-1 first attempt (t0),
+            // 2 = the PATCH's forced refetch, first attempt (t~30), 3 = seq-1's
+            // 1s-backoff RETRY carrying the PRE-patch body (t~1000), 4 = the
+            // forced refetch's retry (t~1030). Only call 3 answers 200.
+            let permsCall = 0;
+            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(() => {
+                permsCall += 1;
+                return permsCall === 3 ? [200, body('private')] : [500, {}];
+            });
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(
+                () => new Promise((resolve) => setTimeout(
+                    () => resolve([200, {id: 42, visibility: 'public', my_role: 'owner'}]), 30)));
+
+            const emitted = [];
+            const stop = runLoop([
+                {type: FETCH_MY_PERMS, projectId: 42, force: true},
+                {type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'public'}
+            ], emitted);
+
+            assertAfter(1500, done, () => {
+                stop();
+                expect(permsCall).toBe(
+                    4,
+                    'the interleaving did not happen as written — the assertions below '
+                    + `would prove nothing. my-perms calls: ${permsCall}`
+                );
+                const patchWrite = emitted.findIndex(a => a.type === SET_ANUGA_PROJECT_DATA);
+                expect(patchWrite > -1).toBe(true, 'the visibility PATCH never succeeded');
+
+                const stale = emitted
+                    .map((a, i) => ({a, i}))
+                    .filter(({a, i}) => a.type === 'ANUGA:SET_ANUGA_RESOURCE_PERMS'
+                        && i > patchWrite
+                        && a.payload?.visibility === 'private');
+                expect(stale.length).toBe(
+                    0,
+                    'a my_perms answer stamped BEFORE the visibility PATCH was applied '
+                    + 'AFTER it, folding the pre-PATCH visibility back over the new one'
+                );
+                expect(finalVisibility(emitted)).toBe(
+                    'public',
+                    'the padlock is stranded on the pre-PATCH visibility while the '
+                    + '"Project is now public" success toast is still on screen'
+                );
+            });
+        }).timeout(5000);
+
+        it('the failed refresh that follows still reports, and leaves the PATCHed value standing', (done) => {
+            // AC3 counterpart. The forced refetch fails twice, so
+            // buildFailureBranch legitimately fires setPermsLoadFailed(true) — it
+            // is NOT superseded, and silencing it would be the TASK-2463 W2.9 bug
+            // in reverse. What must NOT happen is the padlock reverting.
+            let permsCall = 0;
+            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(() => {
+                permsCall += 1;
+                return permsCall === 3 ? [200, body('private')] : [500, {}];
+            });
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(
+                () => new Promise((resolve) => setTimeout(
+                    () => resolve([200, {id: 42, visibility: 'public', my_role: 'owner'}]), 30)));
+
+            const emitted = [];
+            const stop = runLoop([
+                {type: FETCH_MY_PERMS, projectId: 42, force: true},
+                {type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'public'}
+            ], emitted);
+
+            assertAfter(1500, done, () => {
+                stop();
+                expect(emitted.some(a => a.type === 'ANUGA:SET_PERMS_LOAD_FAILED')).toBe(
+                    true, 'a genuine, un-superseded failure went silent'
+                );
+                expect(finalVisibility(emitted)).toBe('public');
+            });
+        }).timeout(5000);
+
+        it('the stamp is PER PROJECT — flipping A does not supersede B\'s in-flight answer', (done) => {
+            // The same trap the per-project isolation spec above guards for
+            // my_perms: a global "newest wins" here would make a PATCH on A
+            // discard an unrelated, newer answer for B.
+            mockAxios.onGet('/api/v2/anuga/projects/43/my-perms/').reply(
+                () => new Promise((resolve) => setTimeout(
+                    () => resolve([200, body('private')]), 60)));
+            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(
+                200, {id: 42, visibility: 'public', my_role: 'owner'});
+
+            const emitted = [];
+            const stop = runLoop([
+                {type: FETCH_MY_PERMS, projectId: 43, force: true},
+                {type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'public'}
+            ], emitted);
+
+            assertAfter(200, done, () => {
+                stop();
+                const forB = emitted.filter(a => a.type === 'ANUGA:SET_ANUGA_RESOURCE_PERMS'
+                    && a.projectId === 43);
+                expect(forB.length).toBe(
+                    1, 'a PATCH on project 42 dropped project 43\'s my_perms answer'
+                );
+            });
+        }).timeout(5000);
+    });
+
     describe('TASK-2099 paywallEpics', () => {
         const MockAdapter = require('axios-mock-adapter');
         const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;

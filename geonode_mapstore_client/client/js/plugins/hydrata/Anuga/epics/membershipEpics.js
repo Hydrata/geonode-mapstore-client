@@ -29,6 +29,10 @@ import {setPaywallUpgradePrompt} from '../../Paywall/actions';
 // Shared axios error-shape readers (see crudEpics.js's original comment / the
 // util's own docstring for the MapStore2 ajax-interceptor gotcha).
 import {readErrStatus as _readErrStatus, readErrData as _readErrData} from '../utils/apiErrorUtils';
+// TASK-2498 (epic 2425 W3d) — the visibility PATCH writes the same slice
+// my_perms responses do, so it has to draw from the same per-project sequence.
+// permsEpics owns the counter; a second one here would not be a sequence.
+import {markProjectWriteApplied} from './permsEpics';
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
 
@@ -109,41 +113,58 @@ export const updateProjectVisibilityEpic = (action$, store) =>
             // rows disabled for the rest of the session.
             if (!projectId) return Rx.Observable.of(updateProjectVisibilitySettled());
             return Rx.Observable.from(anugaApi.updateProjectVisibility(projectId, visibility))
-                .switchMap(response => Rx.Observable.from([
-                    setAnugaProjectData(response.data),
-                    // TASK-2464 — REFETCH my_perms, on the SUCCESS branch only.
+                .switchMap(response => {
+                    // TASK-2498 (epic 2425 W3d) — STAMP FIRST, before a single
+                    // action is emitted. This write and every my_perms response
+                    // touch the same slice, but only my_perms answers were
+                    // sequenced against each other, so a fetch issued BEFORE this
+                    // PATCH (one that 502'd and is sitting in permsEpics' 1s
+                    // backoff) could land AFTER it carrying the pre-PATCH
+                    // visibility, and the reducer's guards had no way to tell.
+                    // Claiming the next number from permsEpics' own counter makes
+                    // this the newest applied write for the project, so anything
+                    // older is dropped on BOTH the success and the failure path.
                     //
-                    // Why it is needed at all: state.anuga.paywall.steady is
-                    // written by exactly one action (SET_ANUGA_RESOURCE_PERMS,
-                    // Paywall/reducer.js), emitted by exactly one thing (a
-                    // getMyPerms fetch). Nothing dispatched FETCH_MY_PERMS after
-                    // a visibility PATCH, so the paywall state stayed frozen at
-                    // whatever the panel-open fetch returned — the operator saw
-                    // "Public — Current" in this very panel while the indicator
-                    // still read Private.
-                    //
-                    // Why setAnugaProjectData above is NOT enough, even though
-                    // triggerFetchMyPermsOnInitEpic listens for it: that stream
-                    // maps to the project id and then hits distinctUntilChanged.
-                    // The id has not changed, so the emission is dropped and
-                    // FETCH_MY_PERMS is never even dispatched.
-                    //
-                    // Why `force`: permsEpics' 30s dedupe is only invalidated on
-                    // FAILURE, so a plain re-dispatch seconds after the
-                    // panel-open fetch returns Observable.empty() silently — no
-                    // HTTP call, no action, no log. See permsEpics.js.
-                    //
-                    // SERVER TRUTH, not optimism: this asks the server what the
-                    // state is now. A privacy indicator driven by what the user
-                    // clicked can be false in the dangerous direction.
-                    fetchMyPerms(projectId, true),
-                    show({title: "Visibility updated", message: `Project is now ${visibility}`, level: "success"}),
-                    // TASK-2440 — LAST, after setAnugaProjectData above.
-                    // Unlocking the rows before the new visibility is written
-                    // would render an enabled control beside a stale "Current"
-                    // pill for a frame.
-                    updateProjectVisibilitySettled()
-                ]))
+                    // It must be here rather than after the emit: the forced
+                    // refetch below is dispatched in the same array, and it must
+                    // draw a HIGHER sequence number than this write.
+                    markProjectWriteApplied(projectId);
+                    return Rx.Observable.from([
+                        setAnugaProjectData(response.data),
+                        // TASK-2464 — REFETCH my_perms, on the SUCCESS branch only.
+                        //
+                        // Why it is needed at all: state.anuga.paywall.steady is
+                        // written by exactly one action (SET_ANUGA_RESOURCE_PERMS,
+                        // Paywall/reducer.js), emitted by exactly one thing (a
+                        // getMyPerms fetch). Nothing dispatched FETCH_MY_PERMS after
+                        // a visibility PATCH, so the paywall state stayed frozen at
+                        // whatever the panel-open fetch returned — the operator saw
+                        // "Public — Current" in this very panel while the indicator
+                        // still read Private.
+                        //
+                        // Why setAnugaProjectData above is NOT enough, even though
+                        // triggerFetchMyPermsOnInitEpic listens for it: that stream
+                        // maps to the project id and then hits distinctUntilChanged.
+                        // The id has not changed, so the emission is dropped and
+                        // FETCH_MY_PERMS is never even dispatched.
+                        //
+                        // Why `force`: permsEpics' 30s dedupe is only invalidated on
+                        // FAILURE, so a plain re-dispatch seconds after the
+                        // panel-open fetch returns Observable.empty() silently — no
+                        // HTTP call, no action, no log. See permsEpics.js.
+                        //
+                        // SERVER TRUTH, not optimism: this asks the server what the
+                        // state is now. A privacy indicator driven by what the user
+                        // clicked can be false in the dangerous direction.
+                        fetchMyPerms(projectId, true),
+                        show({title: "Visibility updated", message: `Project is now ${visibility}`, level: "success"}),
+                        // TASK-2440 — LAST, after setAnugaProjectData above.
+                        // Unlocking the rows before the new visibility is written
+                        // would render an enabled control beside a stale "Current"
+                        // pill for a frame.
+                        updateProjectVisibilitySettled()
+                    ]);
+                })
                 // The catch below is the REFUSAL path (402 upgrade_prompt from
                 // the W1 destination gate) and the error path. Neither reaches
                 // the block above, so neither moves the indicator — the server
