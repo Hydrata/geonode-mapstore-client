@@ -323,11 +323,12 @@ function fetchMyPerms(projectId, force = false) {
  * @param {object} payload  the my-perms body
  * @param {number} projectId  TASK-2463 (epic 2425 W2.6) — the project the
  *   payload DESCRIBES. Required by projectsReducer, which folds
- *   `payload.visibility` back into state.anuga.projects.data and must not do
- *   that when a late response for the previous project lands after an SPA
- *   navigation. The action carried no project identity before, so the reducer
- *   had no way to tell. Omitting it is fail-SAFE: the fold is skipped and the
- *   padlock keeps showing the last value the project fetch established.
+ *   `payload.visibility` and (TASK-2497, W3d) `payload.my_role` back into
+ *   state.anuga.projects.data and must not do that when a late response for
+ *   the previous project lands after an SPA navigation. The action carried no
+ *   project identity before, so the reducer had no way to tell. Omitting it is
+ *   fail-SAFE: the fold is skipped, and the padlock and the role selectors keep
+ *   showing the last values the project fetch established.
  */
 function setAnugaResourcePerms(payload, projectId) {
     // payload shape from /api/v2/anuga/projects/<pid>/my-perms/:

@@ -76,32 +76,65 @@ export default (state = initialState, action) => {
      * "stop discarding it" — is what would have created a rival copy, so
      * _NON_RESOURCE_KEYS still skips it over there, and its comment says why.
      *
-     * `my_role` is deliberately NOT folded in the same way even though the
-     * payload carries it too: it gates far more than an indicator (every
-     * canX/isX selector in selectorsAnuga.js), so widening its writer set is a
-     * change with its own blast radius and belongs to whoever needs it.
+     * TASK-2497 (epic 2425 W3d) — `my_role` IS FOLDED HERE TOO now. This
+     * paragraph used to say it deliberately was not, on the grounds that it
+     * gates far more than an indicator (every canX/isX selector in
+     * selectorsAnuga.js) so widening its writer set carried its own blast
+     * radius. That blast radius is now the POINT, not a side effect: without
+     * this, a role change was invisible to the affected user until a full page
+     * reload — and in the demotion direction that meant showing them the
+     * padlock and the Sharing radios after the server had already taken the
+     * authority away, so they click Private and the backend 403s.
      *
-     * Four guards, each load-bearing:
+     * Same "no new slice" argument as `visibility`, and for a stronger reason:
+     * both channels derive my_role from ONE ladder over ONE helper — the
+     * my-perms view (api_v2.py: get_user_role -> 'owner' special case ->
+     * ProjectMembership.Role(role).label.lower() -> None) and
+     * ProjectSerializerV2.get_my_role are character-for-character that ladder.
+     * my_perms cannot produce a value the project fetch could not, including
+     * `null` for a non-member on a public project.
+     *
+     * SCOPE — what this fold does and does not cover. It covers role changes
+     * that still return 200: manager->editor, ->viewer, and ->null on a PUBLIC
+     * project. It does NOT cover removal from a PRIVATE project: api_v2.py
+     * raises NotFound for an authenticated non-member on a non-public project,
+     * so that arrives as a 404, which permsEpics classes non-retryable ->
+     * buildFailureBranch -> setPermsLoadFailed(true), and the V2P-02 helpers
+     * then fall back to the STALE project my_role. Closing that needs a
+     * permsLoadFailed-aware treatment in the epic's failure branch and is
+     * deliberately not attempted here. Demotion is not "handled"; the 200 cases
+     * are.
+     *
+     * Four guards, each load-bearing, and applied PER KEY so a payload carrying
+     * one and not the other still works:
      *   - no `data` yet -> ignore. Creating one here would put an id-less
      *     project object in the slice that anugaContainer's init guard and
      *     every getProjectId caller read.
      *   - `action.projectId` not the loaded project -> ignore. A my_perms
      *     response for the project the user just navigated AWAY from must not
      *     relabel the new one. An action with no projectId at all also lands
-     *     here: fail-SAFE, the padlock keeps the project fetch's value.
-     *   - no `visibility` key -> ignore, rather than writing undefined. Anon
-     *     callers and any future partial payload must not blank the field.
-     *   - value unchanged -> return `state` UNTOUCHED. The poll fires every 3s
-     *     and connect() shallow-compares; a fresh `data` object each tick would
+     *     here: fail-SAFE, the padlock keeps the project fetch's value, and the
+     *     role keeps whatever the project fetch established.
+     *   - key absent -> ignore THAT key, rather than writing undefined. Anon
+     *     callers and any future partial payload must not blank a field, and a
+     *     payload with no `visibility` must still be able to move `my_role`.
+     *   - value unchanged -> that key contributes nothing, and if NEITHER key
+     *     moved we return `state` UNTOUCHED. The poll fires every 3s and
+     *     connect() shallow-compares; a fresh `data` object each tick would
      *     re-render every consumer of project data on a timer.
      */
     case SET_ANUGA_RESOURCE_PERMS: {
         const payload = action.payload || {};
         if (!state.data) return state;
         if (action.projectId !== state.data.id) return state;
-        if (!Object.prototype.hasOwnProperty.call(payload, 'visibility')) return state;
-        if (payload.visibility === state.data.visibility) return state;
-        return { ...state, data: { ...state.data, visibility: payload.visibility } };
+        const patch = {};
+        ['visibility', 'my_role'].forEach((key) => {
+            if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+            if (payload[key] === state.data[key]) return;
+            patch[key] = payload[key];
+        });
+        if (Object.keys(patch).length === 0) return state;
+        return { ...state, data: { ...state.data, ...patch } };
     }
     // TASK-2440 — armed on the click, cleared by the epic on every branch of
     // the round-trip. Same shape as the shipped REQUEST_BILLING_PORTAL ->

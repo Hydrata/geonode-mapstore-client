@@ -107,9 +107,39 @@ const _BE_TO_FE_KEY = {
 //                 slice as well: getProjectVisibility reads projects.data, and
 //                 a second copy here is a rival truth that can disagree with
 //                 the Sharing panel. Skipping it here is what keeps it single.
-//   my_role    -> genuinely dropped. It arrives from the project fetch
-//                 (ProjectSerializerV2) and nothing refreshes it from my_perms.
+//   my_role    -> Anuga/reducers/projectsReducer.js as well, which folds it
+//                 into state.anuga.projects.data alongside visibility
+//                 (TASK-2497, epic 2425 W3d). It used to be genuinely dropped
+//                 here — "it arrives from the project fetch
+//                 (ProjectSerializerV2) and nothing refreshes it from
+//                 my_perms" — which meant a demoted user kept the padlock and
+//                 the Sharing radios until a reload. It STAYS in this Set for
+//                 the same reason `visibility` does: it now has an owner, and a
+//                 second copy in this slice would be a rival truth. Removing it
+//                 from the Set drops it into the generic merge loop below,
+//                 where it lands as garbage (see the next block).
 const _NON_RESOURCE_KEYS = new Set(['my_role', 'visibility', 'paywall']);
+
+// TASK-2497 AC9 (folded from the archived TASK-2500) — FAIL LOUD on the next key
+// that repeats the `paywall` mistake. An unlisted top-level OBJECT passes the
+// `typeof idsToPerms !== 'object'` guard, falls into the merge loop, fails
+// parseInt on every key and lands as `[]` — the payload silently vanishes, which
+// is exactly how TASK-2099 was found the hard way. One warn, naming the key and
+// this Set, so the next one is found by reading the console instead.
+//
+// EMPTY OBJECTS ARE LEGITIMATE and must not warn: sync.py's
+// get_user_resource_perms_batch guarantees every resource_type key is present
+// and hard-codes `compute-instances: {}`, so an empty map arrives on EVERY
+// my_perms response — warning on it would log on every 3s poll tick.
+const _warnUnmappableKey = (beKey) => {
+    if (typeof console !== 'undefined' && console.warn) {
+        console.warn(
+            `hydrata: my_perms key '${beKey}' is a non-empty object with no numeric ` +
+            `ids — it is not a resource_type map and will be dropped. Add it to ` +
+            `_NON_RESOURCE_KEYS (resourcesReducer.js) and give it an owning reducer.`
+        );
+    }
+};
 
 // Skip these resource_type keys — they don't map to the resources reducer
 // slice. (members lives in membershipsReducer; runs lives in runsReducer.)
@@ -257,15 +287,25 @@ export default (state = initialState, action) => {
             // 2. Stub-add ids that are in the perms payload but not yet in
             //    state (the FE may have opened the panel before the v1
             //    fan-out finished, and V2P-02 helpers should still find perms).
-            Object.entries(permsByIdStr).forEach(([idStr, perms]) => {
-                if (seenIds.has(idStr)) return;
+            const idStrs = Object.keys(permsByIdStr);
+            let parsedAny = false;
+            idStrs.forEach((idStr) => {
                 const numericId = parseInt(idStr, 10);
                 if (Number.isNaN(numericId)) return;
+                parsedAny = true;
+                if (seenIds.has(idStr)) return;
                 merged.push({
                     id: numericId,
-                    perms: Array.isArray(perms) ? perms : []
+                    perms: Array.isArray(permsByIdStr[idStr]) ? permsByIdStr[idStr] : []
                 });
             });
+
+            // TASK-2497 AC9 — a non-empty object none of whose keys are ids is
+            // not a resource_type map at all. Keep the (unchanged) dropping
+            // behaviour, but say so.
+            if (idStrs.length > 0 && !parsedAny) {
+                _warnUnmappableKey(beKey);
+            }
 
             next[feKey] = merged;
         });
