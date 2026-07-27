@@ -598,8 +598,28 @@ export const deleteMembership = (projectId, membershipId) =>
 
 // -- Project visibility ---------------------------------------------------
 
+/**
+ * W3c adversarial — THE ONLY DEADLINE ON THE THREE IN-FLIGHT-FLAGGED CALLS.
+ *
+ * MapStore2/web/client/libs/ajax sets no `timeout`, so axios waits forever.
+ * That was harmless while a second click simply started a second request; it
+ * stopped being harmless when TASK-2440/2441 armed a reducer flag on the click
+ * and cleared it only from the promise settling. A POST that establishes and
+ * then stalls (proxy blackhole, captive portal, a wedged uwsgi worker) now
+ * leaves EVERY buy control in the app disabled — or all three Sharing rows,
+ * with "Working…" pinned on one — for the life of the page, with no dismiss,
+ * no explanation and no retry short of a reload. That is the one behaviour
+ * those tasks made strictly worse than before, and a deadline is what closes
+ * it: the existing catch handlers already emit an explanatory toast AND the
+ * settle, so a timeout is indistinguishable from any other failure.
+ *
+ * 30s is well beyond the p99 of a Stripe session create (the slowest of the
+ * three) and well inside a customer's patience for a dead-looking button.
+ */
+export const REQUEST_DEADLINE_MS = 30000;
+
 export const updateProjectVisibility = (projectId, visibility) =>
-    axios.patch(`/api/v2/anuga/projects/${projectId}/`, { visibility });
+    axios.patch(`/api/v2/anuga/projects/${projectId}/`, { visibility }, { timeout: REQUEST_DEADLINE_MS });
 
 // -- Checkout (TASK-2099 / TASK-2100, epic 2092 W2.2/W4) -------------------
 //
@@ -634,7 +654,9 @@ export const createCheckoutSession = (
         // app home (where checkoutReturnEpic never fires).
         body.return_map_id = returnMapId;
     }
-    return axios.post('/commerce/checkout/create-session/', body);
+    // REQUEST_DEADLINE_MS — a stalled create-session used to disable every buy
+    // control in the app permanently (TASK-2441's flag has no other release).
+    return axios.post('/commerce/checkout/create-session/', body, { timeout: REQUEST_DEADLINE_MS });
 };
 
 // -- Compute meter (TASK-2100, epic 2092 W4.2) -----------------------------
@@ -652,7 +674,7 @@ export const getAccountSummary = () =>
     axios.get('/commerce/account/');
 
 export const createBillingPortalSession = () =>
-    axios.post('/commerce/billing-portal/');
+    axios.post('/commerce/billing-portal/', undefined, { timeout: REQUEST_DEADLINE_MS });
 
 // -- Invitations (TASK-860 / TASK-855/856) ---------------------------------
 //

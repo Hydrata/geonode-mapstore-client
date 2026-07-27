@@ -150,6 +150,29 @@ describe('TASK-2420 accountEpics', () => {
                 });
         });
 
+        // W3c adversarial — a 200 WITH NO URL emitted NOTHING, so portalLoading
+        // stayed true and "Manage billing" read "Opening…" for the life of the
+        // page. Verbatim the defect TASK-2441 fixed in subscribeCheckoutEpic,
+        // in the sibling epic 2441 cites as its own precedent.
+        it('a 200 with NO url still settles the button rather than pinning "Opening…" forever', (done) => {
+            mockAxios.onPost('/commerce/billing-portal/').reply(200, {});
+            const action$ = mockActions([{ type: REQUEST_BILLING_PORTAL }]);
+            const emitted = [];
+            requestBillingPortalEpic(action$)
+                .subscribe(a => emitted.push(a), done, () => {
+                    try {
+                        expect(emitted.length).toBe(
+                            1,
+                            'the no-url branch emitted nothing, so the flag it armed is '
+                            + 'never released and the control is dead for the page life'
+                        );
+                        expect(emitted[0].type).toBe(SET_BILLING_PORTAL_ERROR);
+                        expect(emitted[0].detail).toNotBe(null);
+                        done();
+                    } catch (err) { done(err); }
+                });
+        });
+
         it('a 403 (non-manager) -> SET_BILLING_PORTAL_ERROR with the server detail', (done) => {
             mockAxios.onPost('/commerce/billing-portal/').reply(403, { detail: 'Only the account manager can manage billing.' });
 

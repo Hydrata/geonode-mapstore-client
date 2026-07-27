@@ -80,10 +80,16 @@ function PackButtons({ availablePacks, testIdPrefix, onBuyPack, compact, pending
                     // TASK-2441 — the native attribute, styled by a :disabled
                     // rule rather than a modifier className (no new class, so
                     // the paywall CSS coverage guard stays quiet). The
-                    // authoritative double-submit guard is the store read in
-                    // subscribeCheckoutEpic; this is the affordance that stops
-                    // the customer reaching for a second click during the
-                    // several seconds before the Stripe tab opens.
+                    // authoritative double-submit guard is subscribeCheckoutEpic's
+                    // `exhaustMap`; this is the affordance that stops the customer
+                    // reaching for a second click during the several seconds
+                    // before the Stripe tab opens.
+                    //
+                    // NOT a store read — that was 2441's original spec and it is
+                    // unimplementable: redux-observable reduces BEFORE it emits to
+                    // epics, so `.filter(() => !isCheckoutInFlight(...))` refuses
+                    // the FIRST click too and every buy control ships dead. See
+                    // paywallEpics.js's subscribeCheckoutEpic before changing this.
                     disabled={pending}
                     onClick={() => onBuyPack(priceId)}
                 >

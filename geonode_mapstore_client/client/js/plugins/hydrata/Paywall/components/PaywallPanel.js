@@ -168,7 +168,10 @@ function UpgradeModal({ checkoutUrl, visibility, onDismiss, onSubscribeClick, on
                         // TASK-2441 — this CTA commits to $100/mo and had LESS
                         // double-submit protection than the $10 credit pack.
                         // The authoritative guard is subscribeCheckoutEpic's
-                        // store read; this is the affordance.
+                        // `exhaustMap`, NOT a store read on this flag: that was
+                        // the original spec and it refuses the FIRST click too
+                        // (redux-observable reduces before it emits to epics).
+                        // This is the affordance.
                         disabled={checkoutPending}
                         onClick={() => onSubscribeClick(checkoutUrl)}
                     >

@@ -1876,6 +1876,8 @@ describe('ANUGA Epics', () => {
         // pair has to rule out.
         describe('visibilityPending flag (TASK-2440)', () => {
             const mount = (projects) => ({anuga: {projects}});
+            const anugaApi = require('../api/anugaApi');
+            const {REQUEST_DEADLINE_MS} = anugaApi;
 
             it('starts null', () => {
                 expect(projectsReducer(undefined, {type: '@@INIT'}).visibilityPending).toBe(null);
@@ -1937,6 +1939,45 @@ describe('ANUGA Epics', () => {
                         expect(dataIdx).toBeLessThan(settleIdx, 'the rows unlocked before the new visibility landed');
                         done();
                     });
+            });
+
+            // W3c adversarial — the flag has NO release but the promise settling,
+            // and MapStore's ajax lib sets no axios timeout. A PATCH that
+            // establishes and then stalls left all three Sharing rows disabled
+            // with "Working…" pinned on one for the life of the page. Before
+            // TASK-2440 the same hang left the rows usable.
+            it('a STALLED request settles on the deadline rather than pinning the rows forever', (done) => {
+                mockAxios.onPatch('/api/v2/anuga/projects/42/').timeout();
+                const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'private'}]);
+                const emitted = [];
+                updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            expect(emitted.some(a => a.type === UPDATE_PROJECT_VISIBILITY_SETTLED)).toBe(
+                                true,
+                                'a request that never answers leaves every Sharing row disabled '
+                                + 'with no dismiss, no explanation and no retry short of a reload'
+                            );
+                            // And the customer is told, rather than left guessing.
+                            expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(true);
+                            done();
+                        } catch (err) { done(err); }
+                    });
+            });
+
+            it('the PATCH carries a request deadline', () => {
+                // Structural: axios-mock-adapter cannot observe a real network
+                // stall, so the behavioural test above rides its `.timeout()`
+                // rejection. This pins the config that makes it reachable in a
+                // browser at all.
+                let seen = null;
+                mockAxios.onPatch('/api/v2/anuga/projects/42/').reply((config) => {
+                    seen = config.timeout;
+                    return [200, {id: 42, visibility: 'private'}];
+                });
+                return anugaApi.updateProjectVisibility(42, 'private').then(() => {
+                    expect(seen).toBe(REQUEST_DEADLINE_MS);
+                });
             });
 
             it('a request with NO project loaded still settles — no permanent lock-out', (done) => {
@@ -3401,6 +3442,43 @@ describe('ANUGA Epics', () => {
                         expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_abc');
                         done();
                     });
+            });
+
+            // W3c adversarial — TASK-2441's flag has no release but the promise
+            // settling, and MapStore's ajax lib sets no axios timeout. A
+            // create-session that establishes and then stalls therefore left
+            // EVERY buy control in the app disabled for the life of the page —
+            // and `exhaustMap` swallowed every retry click on top. Before 2441 a
+            // second click at least started a fresh POST.
+            it('a STALLED create-session settles on the deadline, so the buy controls come back', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').timeout();
+                __setRedirectForTests(() => {});
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}]);
+                const emitted = [];
+                subscribeCheckoutEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            expect(emitted.some(a => a.type === SUBSCRIBE_CHECKOUT_SETTLED)).toBe(
+                                true,
+                                'a request that never answers locks every buy control in the '
+                                + 'app until the page is reloaded'
+                            );
+                            expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(true);
+                            done();
+                        } catch (err) { done(err); }
+                    });
+            });
+
+            it('the create-session POST carries a request deadline', () => {
+                const anugaApi = require('../api/anugaApi');
+                let seen = null;
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    seen = config.timeout;
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_x'}];
+                });
+                return anugaApi.createCheckoutSession(42, 'subscription').then(() => {
+                    expect(seen).toBe(anugaApi.REQUEST_DEADLINE_MS);
+                });
             });
 
             // ── W3d: the customer is sold the tier they actually chose ──────
