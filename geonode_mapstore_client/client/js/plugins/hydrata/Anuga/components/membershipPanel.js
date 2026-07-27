@@ -71,9 +71,32 @@ const ROLES = [
 // Driven off this flag rather than `opt.value === 'private'` so the next tier
 // change is a data edit — the previous shape made it possible for the backend
 // to move and the UI not to.
+// W3d — 'Organization members can view' was FALSE, and false in the direction
+// that costs the customer money. No organisation member can view anything:
+// gn_anuga/sync.py's compute_resource_perms sets `groups = {}` and returns it
+// untouched, so no GroupProfile ever reaches Guardian for an ANUGA project, and
+// get_visible_projects has no org branch — the org steps of get_user_role were
+// removed by TASK-859. Access is explicit-ProjectMembership-only, i.e. exactly
+// what Private grants.
+//
+// The failure it produced: the owner of a public project wanting to restrict it
+// to colleagues reads this line, picks Organization, pays for it, and every
+// colleague who had link access is silently locked OUT — the opposite of the
+// promise. Fail-closed, so nothing leaked; but a paid promise the code cannot
+// keep is still a paid promise, and this was the sentence people paid for.
+//
+// The description now says what is true TODAY. It deliberately reads the same
+// as Private, because today it IS the same as Private, and it makes no
+// forward promise ('coming soon' would be the same defect wearing a hedge).
+// The tier survives as a distinct stored value on purpose — decision
+// 2026-07-26-q-2 rules that organisation access arrives as an EXPLICIT GRANT of
+// a NAMED organisation (a GroupProfile), granting VIEWER only. When that work
+// lands it differentiates this line; until then nothing may claim it does.
+// See also this file's own header note below: the previous mislabel here is
+// what made the organization->private bypass a two-click accident.
 const VISIBILITY_OPTIONS = [
     {value: 'private', label: 'Private', description: 'Only members can access', paid: true},
-    {value: 'organization', label: 'Organization', description: 'Organization members can view', paid: true},
+    {value: 'organization', label: 'Organization', description: 'Only members can access', paid: true},
     {value: 'public', label: 'Public', description: 'Anyone with the link can view — not listed in the public project directory', paid: false}
 ];
 
