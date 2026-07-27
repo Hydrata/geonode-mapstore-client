@@ -3586,7 +3586,7 @@ describe('ANUGA Epics', () => {
                             .subscribe(() => {}, done, () => {
                                 try {
                                     expect(calls).toBe(1, 'the t=60 stamping fetch never happened');
-                                } catch (err) { return done(err); }
+                                } catch (err) { done(err); return; }
 
                                 // t=85: they come back from Stripe, having paid.
                                 nowMs = 85000;
@@ -3600,7 +3600,7 @@ describe('ANUGA Epics', () => {
                                     sub.unsubscribe();
                                     try {
                                         expect(emitted.length).toBe(1);
-                                    } catch (err) { return done(err); }
+                                    } catch (err) { done(err); return; }
                                     fetchMyPermsEpic(mockActions([emitted[0]]))
                                         .subscribe(() => {}, done, () => {
                                             try {
@@ -3614,9 +3614,7 @@ describe('ANUGA Epics', () => {
                                                 done();
                                             } catch (err) { done(err); }
                                         });
-                                    return undefined;
                                 }, 400);
-                                return undefined;
                             });
                     }, done);
                 });
@@ -3649,7 +3647,7 @@ describe('ANUGA Epics', () => {
                                 expect(emitted.length).toBe(
                                     0, 'my_perms is project-scoped — nothing should have been emitted'
                                 );
-                            } catch (err) { sub.unsubscribe(); return done(err); }
+                            } catch (err) { sub.unsubscribe(); done(err); return; }
                             loadedId = 42;
                             fireVisibilityChange();
                             setTimeout(() => {
@@ -3664,7 +3662,6 @@ describe('ANUGA Epics', () => {
                                     done();
                                 } catch (err) { done(err); }
                             }, 400);
-                            return undefined;
                         }, 400);
                     }, done);
                 });

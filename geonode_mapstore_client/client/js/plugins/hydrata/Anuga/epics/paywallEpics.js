@@ -393,7 +393,7 @@ export const checkoutReturnEpic = (action$) => action$
         // REDUCER, which cannot dispatch and cannot reach localStorage, so the
         // record survived indefinitely. A later checkout whose own
         // _writeCheckoutAnchor throws (Safari private mode, quota — swallowed
-        // by design) then inherited it, and a months-old latestPurchaseIso is a
+        // by design) then inherited it, and a months-old departure stamp is a
         // floor that any purchase row clears. Deleting it HERE makes the record
         // self-limiting by construction: the store copy on the overlay is the
         // live read model from this point on, storage has no further job, and
@@ -741,11 +741,19 @@ export const subscribeCheckoutEpic = (action$, store) => action$
                     // projection, which is TASK-2441's double-submit guard, so a
                     // suppressed second click can never overwrite the anchor
                     // belonging to the checkout actually in flight — that would
-                    // replace latestPurchaseIso with a value read seconds later
-                    // and silently widen the window in which a stale row looks
-                    // new. And it sits on the URL branch, so a create that
-                    // failed (no session, no purchase possible) leaves no record
-                    // for a later return to adopt.
+                    // replace `departedAtIso` with a LATER server stamp, and the
+                    // customer's own purchase row (if the webhook beat the second
+                    // click) would then fall BELOW the floor and stop counting.
+                    // Note the direction of that harm changed with TASK-2511: a
+                    // client-side floor read seconds later widened the window in
+                    // which a STALE row looked new (fail-dangerous, an unearned
+                    // claim), whereas a later server floor only costs a clear the
+                    // notice was entitled to — it runs to the 60s cap instead,
+                    // where the tail clears it anyway. Fail-safe now, but still
+                    // wrong, and still worth the exhaustMap. And it sits on the
+                    // URL branch, so a create that failed (no session, no
+                    // purchase possible) leaves no record for a later return to
+                    // adopt.
                     _writeCheckoutAnchor(
                         _buildCheckoutAnchor({purchaseType, accountOnly, projectId, departedAtIso})
                     );

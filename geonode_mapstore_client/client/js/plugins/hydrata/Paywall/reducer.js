@@ -136,11 +136,15 @@ export default (state = initialState, action) => {
         // entitlement it buys is account-scoped, so paid_* on any project of
         // that account IS evidence), still clears.
         const anchor = state.overlay && state.overlay.anchor;
+        // `?? null` on both sides normalises undefined-vs-null to one value, so
+        // the disagreement test below is a plain !== and needs no loose compare
+        // (describesLoadedProject uses the `!= null` idiom with an eslint escape;
+        // this reads the same and does not need one).
         const anchoredProjectId = anchor?.projectId ?? null;
-        /* eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom */
+        const stampedProjectId = action.projectId ?? null;
         const describesAnchoredProject = !(anchoredProjectId !== null
-            && action.projectId != null
-            && anchoredProjectId !== action.projectId);
+            && stampedProjectId !== null
+            && anchoredProjectId !== stampedProjectId);
         const overlay = (state.overlay && state.overlay.state === 'pending'
             && PAID_STEADY_STATES.includes(paywall.state)
             && anchor?.purchaseType !== 'credit_pack'
