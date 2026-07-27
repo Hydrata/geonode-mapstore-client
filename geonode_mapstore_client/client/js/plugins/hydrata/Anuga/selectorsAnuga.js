@@ -15,6 +15,26 @@ export const getProjectVisibility = (state) =>
     state?.anuga?.projects?.data?.visibility || null;
 
 /**
+ * Does a payload/flag STAMPED with `stampedId` describe the project on screen?
+ *
+ * THE ONE RULE, in one place: refuse only a stamp that POSITIVELY disagrees with
+ * a known loaded project. An unstamped value, or a state with no project loaded
+ * yet, reads through — refusing either is fail-DANGEROUS in every caller (the
+ * paywall steady state has a single writer, so a refusal discards it outright;
+ * the visibility flag would simply never arm).
+ *
+ * Three copies of this comparison had accumulated — projectsReducer's my_perms
+ * guard, Paywall/reducer's steady/overlay guard and the visibility in-flight
+ * flag — each written after a bug where late state for project A relabelled
+ * project B. W3c collapsed the two selector-level ones onto this.
+ */
+export const describesLoadedProject = (state, stampedId) => {
+    const loaded = state?.anuga?.projects?.data?.id;
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+    return !(stampedId != null && loaded != null && stampedId !== loaded);
+};
+
+/**
  * TASK-2440 (epic 2425 W4.1) — the visibility change currently being requested
  * of the server ('private' | 'organization' | 'public'), or null.
  *
@@ -33,11 +53,9 @@ export const getProjectVisibility = (state) =>
 export const getProjectVisibilityPending = (state) => {
     const projects = state?.anuga?.projects;
     if (!projects || !projects.visibilityPending) return null;
-    const stamped = projects.visibilityPendingProjectId;
-    const loaded = projects.data && projects.data.id;
-    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
-    if (stamped != null && loaded != null && stamped !== loaded) return null;
-    return projects.visibilityPending;
+    return describesLoadedProject(state, projects.visibilityPendingProjectId)
+        ? projects.visibilityPending
+        : null;
 };
 
 // Legacy selectors — now read from project my_role instead of gnresource

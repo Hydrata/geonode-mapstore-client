@@ -196,10 +196,18 @@ SubscriptionSection.propTypes = {
  *     js/plugins/hydrata` returns one unrelated hit — which is exactly why W2.8's
  *     autoDismiss:0 toast outlived its own refutation.
  *  2. THERE IS ALWAYS A CHANNEL THAT CAN RETRACT IT. `confirming` requires an
- *     anchor, and the anchor is what lets clearPendingOnPurchaseRowEpic observe a
- *     credit pack landing; a subscription clears on the PAID steady state; and
- *     the 60s tail clears everything else. Bounded at 60s in the worst case,
- *     against W2.8's indefinite.
+ *     anchor, and the anchor is what lets clearPendingOnPurchaseRowEpic observe
+ *     either purchase shape landing — a credit pack as a purchase ROW on
+ *     /commerce/balance/, a subscription as `subscription.active` on
+ *     /commerce/account/ — with the PAID steady state and the 60s tail behind
+ *     them. Bounded at 60s in the worst case, against W2.8's indefinite.
+ *  2b. AND IT CANNOT SURVIVE ITS OWN REFUTATION EVEN FOR A FRAME. W3c's
+ *     adversarial review found this notice rendering directly above
+ *     SubscriptionSection's "Active since <today>" for the full 60s, on the
+ *     Subscribe button four elements below it. isPaywallConfirming now reads the
+ *     same account summary the panel renders and refuses to claim what it
+ *     contradicts (Paywall/reducer.js), so the epic clear is a tidy-up rather
+ *     than the only thing standing between the customer and a contradiction.
  *  3. NO "CHECK AGAIN" CONTROL. The poll already re-reads every 3s;
  *     RECHECK_PAYMENT was deleted by 26e4aab36 and stays deleted. A button that
  *     re-asks an endpoint incapable of answering is worse than no button.

@@ -27,6 +27,10 @@
  * corrupts into resources.paywall = []). See _NON_RESOURCE_KEYS there.
  */
 import { SET_ANUGA_RESOURCE_PERMS } from '../Anuga/actionsAnuga';
+// The "is this stamp about the project on screen?" rule, in one place — this
+// file used to carry its own copy. Paywall/selectors.js already reads from
+// selectorsAnuga, so the direction is established.
+import { describesLoadedProject } from '../Anuga/selectorsAnuga';
 // W3c adversarial — the account summary is READ here (never written), so the
 // confirming notice cannot outlive the evidence rendered beneath it.
 // account/reducer.js imports only its own actions, so this is not a cycle.
@@ -160,19 +164,22 @@ export default (state = initialState, action) => {
     // never eat an upgrade_prompt refusal that armed while the poll was
     // running (same narrowness as DISMISS_PAYWALL_UPGRADE above).
     //
-    // THE ONLY OTHER WAY OUT is the PAID clear in SET_ANUGA_RESOURCE_PERMS
-    // above. W2.8 added a `stalled` marker here and W2.9 a SET_ACCOUNT_SUMMARY
-    // channel beside it; the operator reverted both on 2026-07-26 (W2.10). The
-    // asymmetry those were reaching for is real and is written down in
-    // TASK-2489: an ACCOUNT-scoped subscription (Billing tab "Subscribe" passes
-    // accountOnly, so no project rides the session) grants the entitlement
-    // without flipping any project, and a credit pack writes only a
-    // ComputeLedgerEntry — so neither ever produces a paid PROJECT steady state
-    // and the poll runs to exhaustion for both. What no rule in this file can
-    // do is tell "the purchase has not landed" from "it landed by a channel
-    // this slice cannot observe", which is why every client-side attempt so far
-    // has rendered a claim the customer's own screen refutes. TASK-2489 closes
-    // it server-side.
+    // W2.8 added a `stalled` marker here and W2.9 a SET_ACCOUNT_SUMMARY channel
+    // beside it; the operator reverted both on 2026-07-26 (W2.10). The asymmetry
+    // those were reaching for is real: an ACCOUNT-scoped subscription (Billing
+    // tab "Subscribe" passes accountOnly, so no project rides the session)
+    // grants the entitlement without flipping any project, and a credit pack
+    // writes only a ComputeLedgerEntry — so neither reliably produces a paid
+    // PROJECT steady state, and this reducer alone cannot tell "the purchase has
+    // not landed" from "it landed by a channel this slice cannot observe".
+    //
+    // TASK-2489 answered that by moving the question OUT of this slice rather
+    // than adding another rule to it: a DEPARTURE ANCHOR captured before the
+    // Stripe tab opens gives an epic something to compare server timestamps
+    // against. There are now three ways out, all of them named in
+    // paywallEpics.js's channel matrix — the PAID clear above, this action (via
+    // clearPendingOnPurchaseRowEpic on either purchase shape's own channel, or
+    // the poll's give-up tail), and nothing else. Do not re-add a detector here.
     case CLEAR_PAYWALL_PENDING:
         return (state.overlay && state.overlay.state === 'pending')
             ? { ...state, overlay: null, overlayProjectId: null }
@@ -226,23 +233,10 @@ export default (state = initialState, action) => {
  * credit-pack half of that is closed above (the anchor gate); the cross-project
  * half is bounded by the same 60s cap and is filed rather than guessed at.
  */
-/**
- * The one stamp comparison both layers use: refuse only a stamp that POSITIVELY
- * disagrees with a known loaded project. An unstamped payload, or a state with
- * no project loaded yet, is accepted — see the two callers for why refusing
- * either would be fail-dangerous rather than fail-safe.
- */
-const _describesLoadedProject = (state, stamped) => {
-    const loaded = state.anuga.projects && state.anuga.projects.data
-        && state.anuga.projects.data.id;
-    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
-    return !(stamped != null && loaded != null && stamped !== loaded);
-};
-
 export const getPaywallSteady = (state) => {
     const slice = state && state.anuga && state.anuga.paywall;
     if (!slice || !slice.steady) return null;
-    return _describesLoadedProject(state, slice.steadyProjectId) ? slice.steady : null;
+    return describesLoadedProject(state, slice.steadyProjectId) ? slice.steady : null;
 };
 
 /**
@@ -253,7 +247,7 @@ export const getPaywallSteady = (state) => {
  * (epicsAnuga-test.js storeWithProjectId), and this selector is read on every
  * SUBSCRIBE_CHECKOUT_REQUEST, so an unguarded read would throw inside the epic.
  *
- * NOT routed through _describesLoadedProject — see initialState.checkoutInFlight
+ * NOT routed through describesLoadedProject — see initialState.checkoutInFlight
  * for why the flag is account-scoped rather than project-scoped.
  */
 export const isCheckoutInFlight = (state) =>
@@ -285,7 +279,7 @@ export const isCheckoutInFlight = (state) =>
 const getPaywallOverlay = (state) => {
     const slice = state && state.anuga && state.anuga.paywall;
     if (!slice || !slice.overlay) return null;
-    return _describesLoadedProject(state, slice.overlayProjectId) ? slice.overlay : null;
+    return describesLoadedProject(state, slice.overlayProjectId) ? slice.overlay : null;
 };
 
 /** Resolves the single payload PaywallPanel renders from, or null. */
