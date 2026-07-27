@@ -11,6 +11,13 @@
 // suite. Every file listed here is also picked up by the untargeted run.
 var epics = require.context('./js/plugins/hydrata/Anuga/__tests__', false, /epicsAnuga-test\.jsx?$/);
 epics.keys().forEach(epics);
+// TASK-2513 (epic 2425 W3d) — the compute-meter balance-fetch epics. They were
+// NOT in this runner: the context above matches only /epicsAnuga-test\.jsx?$/,
+// so every spec in computeMeterEpics-test.js was invisible here and a red-first
+// cycle on that file reported green having executed nothing. Adding this line
+// ALONE raised the completed count by exactly 4, which is how it was verified.
+var meterEpics = require.context('./js/plugins/hydrata/Anuga/__tests__', false, /computeMeterEpics-test\.jsx?$/);
+meterEpics.keys().forEach(meterEpics);
 var paywall = require.context('./js/plugins/hydrata/Paywall/__tests__', false, /-test\.jsx?$/);
 paywall.keys().forEach(paywall);
 var account = require.context('./js/plugins/hydrata/Paywall/account/__tests__', false, /-test\.jsx?$/);

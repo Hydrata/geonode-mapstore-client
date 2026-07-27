@@ -156,7 +156,11 @@ import {
 // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
 import {
     triggerFetchBalanceOnInitEpic,
-    fetchComputeBalanceEpic
+    fetchComputeBalanceEpic,
+    // TASK-2513 (epic 2425 W3d) — the second trigger: a boot-time miss left the
+    // meter slice dark for the whole session, and a dark slice render-nulls all
+    // three refusal modals.
+    refetchBalanceOnAccountSummaryEpic
 } from "./epics/computeMeterEpics";
 // TASK-2420 (epic 2359 W4.5) — Account panel Billing-tab fetch + Stripe
 // Customer Portal round-trip epics.
@@ -236,6 +240,8 @@ export default createPlugin('Anuga', {
         // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
         triggerFetchBalanceOnInitEpic,
         fetchComputeBalanceEpic,
+        // TASK-2513 (epic 2425 W3d) — repairs a boot fetch that failed.
+        refetchBalanceOnAccountSummaryEpic,
         // TASK-2420 (epic 2359 W4.5) — Account panel Billing-tab fetch + portal.
         triggerFetchAccountSummaryOnInitEpic,
         triggerFetchAccountSummaryOnBillingTabOpenEpic,

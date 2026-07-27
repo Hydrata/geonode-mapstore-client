@@ -27,6 +27,43 @@ describe('TASK-2100 compute-meter reducer', () => {
         expect(state.balance).toBe(null);
     });
 
+    // ── TASK-2513 (epic 2425 W3d): `loaded`, the discriminator ───────────────
+    //
+    // Mirrors Paywall/account/reducer.js's own flag and its docstring in intent:
+    // it distinguishes "never fetched yet" from a genuinely empty/dark response.
+    // That distinction is not cosmetic here — initialState and the dark response
+    // reduce to the IDENTICAL {enabled: false, balance: null}, so `balance ===
+    // null` cannot decide between "the boot fetch failed and nothing has ever
+    // answered" and "the meter is off on this site", and a repair keyed on it
+    // would fetch on every account summary for the life of every dark session
+    // (three of the four prod sites).
+    it('a never-fetched slice reads loaded: false', () => {
+        expect(meterReducer(undefined, {type: '@@INIT'}).loaded).toBe(false);
+    });
+
+    it('the DARK response marks the slice LOADED — dark is an answer, not silence', () => {
+        // The verbatim _dark_response() body from commerce/balance_views.py.
+        const state = meterReducer(undefined, setComputeBalance({
+            enabled: false, balance: null, available_packs: [], recent_entries: []
+        }));
+        expect(state.loaded).toBe(
+            true,
+            'a dark response left the slice indistinguishable from never-fetched, '
+            + 'so the repair epic will refetch it forever'
+        );
+        expect(state.enabled).toBe(false);
+        expect(state.balance).toBe(null);
+    });
+
+    it('the no-billing-account response also marks it LOADED', () => {
+        const state = meterReducer(undefined, setComputeBalance({
+            enabled: true, balance: null, available_packs: [], recent_entries: []
+        }));
+        expect(state.loaded).toBe(true);
+        expect(state.enabled).toBe(true);
+        expect(state.balance).toBe(null);
+    });
+
     it('SET_COMPUTE_BALANCE (flag-on, real data) populates balance/packs/entries', () => {
         // TASK-2124 — available_packs entries are {price_id, amount, currency}
         // objects; the reducer is a transparent passthrough (no shape

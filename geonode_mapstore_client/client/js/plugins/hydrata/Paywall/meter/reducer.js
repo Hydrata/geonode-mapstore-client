@@ -17,6 +17,18 @@ import {
 } from './actions';
 
 const initialState = {
+    // TASK-2513 (epic 2425 W3d) — distinguishes "never fetched yet" from a
+    // genuinely empty/dark response, exactly as Paywall/account/reducer.js's own
+    // `loaded` does for the summary slice.
+    //
+    // It is load-bearing, not bookkeeping: initialState and the backend's
+    // `_dark_response()` (commerce/balance_views.py) reduce to the IDENTICAL
+    // {enabled: false, balance: null}, so `balance === null` cannot tell "the
+    // boot fetch failed and nothing has ever answered" from "the meter is off on
+    // this site". refetchBalanceOnAccountSummaryEpic gates on THIS, and a repair
+    // keyed on the balance instead would refetch on every account summary for
+    // the life of every dark session — three of the four prod sites.
+    loaded: false,
     enabled: false,
     balance: null,
     availablePacks: [],
@@ -31,6 +43,9 @@ export default (state = initialState, action) => {
         const data = action.data || {};
         return {
             ...state,
+            // Any response marks the slice observed — including a dark one. That
+            // self-clearing is what bounds the repair epic without a once-guard.
+            loaded: true,
             enabled: !!data.enabled,
             balance: data.balance !== undefined ? data.balance : null,
             availablePacks: data.available_packs || [],
