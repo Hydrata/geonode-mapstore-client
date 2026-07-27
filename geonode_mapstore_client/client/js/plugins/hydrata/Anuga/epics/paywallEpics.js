@@ -637,10 +637,22 @@ export const subscribeCheckoutEpic = (action$, store) => action$
     // controls); it just cannot also be this epic's self-guard. Verified by the
     // two-clicks test in epicsAnuga-test.js, which counts POSTs on the mock.
     //
-    // RESIDUAL, deliberately not closed here: nothing client-side survives two
-    // browser tabs or a reload mid-flight. CreateCheckoutSessionView.post
-    // (apps/commerce/checkout_views.py:399) has no idempotency key and creates
-    // the session unconditionally at :542 / :577. That is a backend task.
+    // WHAT THIS GUARD DOES NOT COVER, AND WHAT NOW DOES (TASK-2510). Nothing
+    // client-side survives two browser tabs or a reload mid-flight, and since
+    // UAT-2 the checkout opens in a NEW tab — so this page stays alive with
+    // every buy control re-enabled while the customer is still on Stripe. That
+    // window is closed on the SERVER: CreateCheckoutSessionView now records an
+    // `OpenCheckoutSession` (commerce/models.py) keyed on the purchase
+    // discriminators, and a second create-session POST inside
+    // CHECKOUT_SESSION_REUSE_WINDOW is handed back the SAME session while
+    // Stripe still reports it `open` — never a second live one, and never a
+    // consumed URL for a legitimate repeat purchase.
+    //
+    // `exhaustMap` is still the right operator and is NOT redundant: it is what
+    // stops a double click costing two create-session round trips at all, and
+    // it is the only thing scoping the departure anchor written below to the
+    // checkout actually in flight. The two guards are orthogonal — this one is
+    // per-click within one page, that one is per-account across tabs.
     .exhaustMap(({ purchaseType, priceId, accountOnly }) => {
         // UAT-2 — `accountOnly` (Billing tab's Subscribe): the subscription is
         // ACCOUNT-scoped, so no project rides the session — no post-payment
