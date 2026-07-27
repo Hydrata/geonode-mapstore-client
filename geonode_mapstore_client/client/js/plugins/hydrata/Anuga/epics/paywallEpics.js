@@ -150,6 +150,33 @@ const _clearCheckoutAnchor = () => {
 };
 
 /**
+ * TASK-2496 (epic 2425 W3d) — did a checkout depart from THIS TAB?
+ *
+ * A MODULE VARIABLE, deliberately, and not the localStorage anchor above. The
+ * anchor is written for the tab the customer RETURNS to, and checkoutReturnEpic
+ * reads and immediately DELETES it (:386-387) — in the return tab, because
+ * `_redirectTo` is `_openInNewTab`. So it is already gone before the ORIGINATING
+ * tab regains visibility, which is precisely the tab this flag is about. Being
+ * per-tab is the whole point: it answers "did the customer leave THIS page for
+ * Stripe", which no shared storage can answer.
+ *
+ * Consumed EXACTLY ONCE, by refreshMyPermsOnTabVisibleEpic below. That bounds
+ * the extra request rate at one forced my_perms per checkout initiated from this
+ * tab — not one per focus, which is the rate decision TASK-2483 AC2 pinned and
+ * the green test at epicsAnuga-test.js's refreshMyPermsOnTabVisibleEpic describe
+ * still enforces.
+ */
+let _checkoutDepartedFromThisTab = false;
+export const __resetCheckoutDepartureForTests = () => { _checkoutDepartedFromThisTab = false; };
+
+/** Read-and-clear. Never call this inside a `||` — see the epic below. */
+const _consumeCheckoutDeparture = () => {
+    const departed = _checkoutDepartedFromThisTab;
+    _checkoutDepartedFromThisTab = false;
+    return departed;
+};
+
+/**
  * The newest SERVER `created_at` among purchase rows in the balance window, or
  * null when it holds none.
  *
@@ -581,11 +608,32 @@ export const clearPendingOnPurchaseRowEpic = (action$, store) => action$
  * padlock stayed stale until a reload. It does not need the poll — it needs one
  * fetch when the customer looks at it again.
  *
- * `force` only while a purchase is being confirmed. Outside that, the ordinary
- * 30s dedupe applies, so tab-flipping cannot turn into a fetch per switch. For
- * case (b) that is still sufficient: the customer was away completing a Stripe
- * checkout, which takes far longer than 30s, so the window has always expired by
- * the time they return. (If they bail out in under 30s, nothing was bought.)
+ * `force` while a purchase is being confirmed OR when a checkout departed from
+ * THIS tab. Outside those, the ordinary 30s dedupe applies, so tab-flipping
+ * cannot turn into a fetch per switch (TASK-2483 AC2's rate decision, and the
+ * TASK-658 cold-start budget).
+ *
+ * TASK-2496 (epic 2425 W3d) — THE DEPARTURE FLAG, and why `confirming` alone was
+ * never enough for case (b). `confirming` is isPaywallPending, armed ONLY by
+ * checkoutReturnEpic off a `?checkout=success` marker; the originating tab never
+ * sees that marker, so `confirming` is structurally FALSE there for the whole
+ * life of the page.
+ *
+ * The justification that used to stand here measured the wrong interval: "the
+ * customer was away completing a Stripe checkout, which takes far longer than
+ * 30s, so the window has always expired by the time they return". permsEpics'
+ * gate is keyed to the last ACTUAL FETCH IN THIS TAB, not to time away. So:
+ * t=0 flip to the Stripe tab; t=60 a glance back at the map (a real, unforced
+ * fetch — stamp = 60); t=80 pay, t=82 the webhook lands; t=85 return, 85-60 =
+ * 25s < 30s, `Rx.Observable.empty()`, no HTTP, no action, no log. Nothing else
+ * recurs on this endpoint: refreshAccountOnWindowFocusEpic is account-scoped and
+ * gated on accountSummary.loaded, and triggerFetchMyPermsOnInitEpic ends in
+ * distinctUntilChanged. The customer who has paid keeps seeing an unpaid padlock
+ * until a focus that happens to land more than 30s after that stamp.
+ *
+ * RATE CONSEQUENCE, exactly: at most ONE extra forced my_perms per checkout
+ * initiated from this tab, because the flag is read-and-cleared (see
+ * `_consumeCheckoutDeparture`). Not one per focus.
  *
  * WHY NOT JUST EXTEND accountEpics.js's refreshAccountOnWindowFocusEpic, which
  * already refetches the summary + balance on window focus. Two reasons, both
@@ -609,7 +657,19 @@ export const refreshMyPermsOnTabVisibleEpic = (action$, store) => (
         confirming: isPaywallPending(store.getState())
     }))
     .filter(({ projectId }) => Boolean(projectId))
-    .map(({ projectId, confirming }) => fetchMyPerms(projectId, confirming));
+    .map(({ projectId, confirming }) => {
+        // TASK-2496 — CONSUMED HERE, i.e. AFTER the projectId filter above, and
+        // never in the `.map` that computes `confirming`. That earlier map runs
+        // on every visible transition including ones that emit no action (no
+        // project loaded yet), so consuming there burns the flag on a
+        // visibilitychange that goes nowhere and the forced refetch is lost.
+        //
+        // On its OWN LINE, then OR'd. `confirming || _consumeCheckoutDeparture()`
+        // short-circuits, leaving the flag set whenever a confirmation is already
+        // in flight — after which behaviour becomes order-dependent.
+        const departed = _consumeCheckoutDeparture();
+        return fetchMyPerms(projectId, confirming || departed);
+    });
 
 export const subscribeCheckoutEpic = (action$, store) => action$
     .ofType(SUBSCRIBE_CHECKOUT_REQUEST)
@@ -693,6 +753,13 @@ export const subscribeCheckoutEpic = (action$, store) => action$
                     _writeCheckoutAnchor(
                         _buildCheckoutAnchor(store.getState(), {purchaseType, accountOnly, projectId})
                     );
+                    // TASK-2496 — the customer is leaving THIS tab for Stripe.
+                    // Same branch and same reasons as the anchor above: inside
+                    // the exhaustMap projection so a suppressed second click
+                    // cannot arm it twice, and on the URL branch only, so a
+                    // create that failed (nothing to pay for, nothing left the
+                    // tab) does not buy a forced refetch.
+                    _checkoutDepartedFromThisTab = true;
                     _redirectTo(url);
                 }
                 // TASK-2441 — the clear is UNCONDITIONAL, on both the url and

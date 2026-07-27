@@ -2294,6 +2294,7 @@ describe('ANUGA Epics', () => {
             clearPendingOnPurchaseRowEpic,
             CHECKOUT_ANCHOR_STORAGE_KEY,
             __resetCheckoutReturnForTests,
+            __resetCheckoutDepartureForTests,
             __setPollIntervalForTests,
             __setDocumentVisibleForTests,
             __setRedirectForTests
@@ -2317,6 +2318,14 @@ describe('ANUGA Epics', () => {
         beforeEach(() => {
             mockAxios = new MockAdapter(axios);
             __resetCheckoutReturnForTests();
+            // TASK-2496 AC6 — BLOCKING, not optional. The `TASK-2489 checkout
+            // anchor (AC2)` block below drives several SUCCESSFUL create-sessions
+            // through subscribeCheckoutEpic, which now also arms the per-tab
+            // departure flag. Without this reset that flag leaks forward into
+            // `refreshMyPermsOnTabVisibleEpic`'s "outside a confirmation it is
+            // UNFORCED" spec and turns it red for a reason unrelated to the
+            // change under test.
+            __resetCheckoutDepartureForTests();
             try { window.localStorage.removeItem(CHECKOUT_ANCHOR_STORAGE_KEY); } catch (e) { /* private mode */ }
         });
         afterEach(() => {
@@ -3466,6 +3475,257 @@ describe('ANUGA Epics', () => {
                         done();
                     } catch (err) { sub.unsubscribe(); done(err); }
                 }, 400);
+            });
+
+            // ── TASK-2496 (epic 2425 W3d): THE ORIGINATING TAB ───────────────
+            //
+            // `force` was `confirming`, and `confirming` is isPaywallPending —
+            // which is armed ONLY by checkoutReturnEpic off a ?checkout=success
+            // marker. Checkout opens in a NEW tab (UAT-2), so the tab the
+            // customer STARTED from never sees that marker and `confirming` is
+            // structurally false there, for the whole life of the page.
+            //
+            // The old justification measured the wrong interval: "the customer
+            // was away completing a Stripe checkout, which takes far longer than
+            // 30s". permsEpics' gate is keyed to the last ACTUAL FETCH IN THIS
+            // TAB, not to time away — so a mid-checkout glance back at the map
+            // re-stamps it and the post-payment refresh is swallowed.
+            describe('TASK-2496 the per-tab checkout-departure flag', () => {
+                const {
+                    fetchMyPermsEpic, __resetPermsCacheForTests, __setNowForTests
+                } = require('../epics/permsEpics');
+                const {fetchMyPerms} = require('../actionsAnuga');
+
+                // These are permsEpics seams and are NOT restored by the outer
+                // afterEach, so a frozen clock would leak into every later spec
+                // in this 3800-line file.
+                afterEach(() => {
+                    __resetPermsCacheForTests();
+                    __setNowForTests(null);
+                });
+
+                /**
+                 * Arm the departure THROUGH THE REAL WIRING — a successful
+                 * create-session driven through subscribeCheckoutEpic — rather
+                 * than by poking module state. Poking it would pass even if the
+                 * set site were deleted.
+                 */
+                const departFromThisTab = (onArmed, done) => {
+                    mockAxios.onPost('/commerce/checkout/create-session/')
+                        .reply(200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_depart'});
+                    __setRedirectForTests(() => {});
+                    subscribeCheckoutEpic(
+                        mockActions([{
+                            type: SUBSCRIBE_CHECKOUT_REQUEST,
+                            purchaseType: 'credit_pack', priceId: 'price_x'
+                        }]),
+                        storeWithProjectId(42)
+                    ).subscribe(() => {}, done, () => {
+                        try { onArmed(); } catch (err) { done(err); }
+                    });
+                };
+
+                // ── AC5: THE RED ONE ─────────────────────────────────────────
+                //
+                // The exact interleaving, through BOTH epics composed, asserting
+                // a real HTTP my_perms lands. t=0 flip to Stripe; t=60 a glance
+                // back at the map (a real fetch, stamp = 60); t=80 pay, t=82 the
+                // webhook lands; t=85 return -> 85-60 = 25s < 30s, so the
+                // unforced refetch was Observable.empty(): no HTTP, no action,
+                // no log, and the padlock stays stale.
+                it('the post-payment refresh is NOT swallowed by the 30s dedupe', (done) => {
+                    let nowMs = 0;
+                    let calls = 0;
+                    __resetPermsCacheForTests();
+                    __setNowForTests(() => nowMs);
+                    mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(() => {
+                        calls += 1;
+                        return [200, {my_role: 'owner', visibility: 'private',
+                            paywall: {state: 'paid_private', checkout_url: null, read_only: false}}];
+                    });
+
+                    departFromThisTab(() => {
+                        // t=60: the customer glances back at the map. A real,
+                        // unforced fetch — this is the stamp that defeats them.
+                        nowMs = 60000;
+                        fetchMyPermsEpic(mockActions([fetchMyPerms(42)]))
+                            .subscribe(() => {}, done, () => {
+                                try {
+                                    expect(calls).toBe(1, 'the t=60 stamping fetch never happened');
+                                } catch (err) { return done(err); }
+
+                                // t=85: they come back from Stripe, having paid.
+                                nowMs = 85000;
+                                __setDocumentVisibleForTests(() => true);
+                                const emitted = [];
+                                const sub = refreshMyPermsOnTabVisibleEpic(
+                                    mockActions([]), {getState: () => stateWith(false)}
+                                ).subscribe(a => emitted.push(a));
+                                fireVisibilityChange();
+                                setTimeout(() => {
+                                    sub.unsubscribe();
+                                    try {
+                                        expect(emitted.length).toBe(1);
+                                    } catch (err) { return done(err); }
+                                    fetchMyPermsEpic(mockActions([emitted[0]]))
+                                        .subscribe(() => {}, done, () => {
+                                            try {
+                                                expect(calls).toBe(
+                                                    2,
+                                                    'the originating tab is 25s inside the dedupe '
+                                                    + 'window and the post-payment refresh was '
+                                                    + 'swallowed — the customer who has paid sees '
+                                                    + 'an unpaid padlock'
+                                                );
+                                                done();
+                                            } catch (err) { done(err); }
+                                        });
+                                    return undefined;
+                                }, 400);
+                                return undefined;
+                            });
+                    }, done);
+                });
+
+                // ── AC2: consumed AFTER the projectId filter, never before ────
+                //
+                // The `.map` that computes `confirming` runs on EVERY visible
+                // transition, including ones that emit nothing because no project
+                // is loaded yet. Consuming there burns the flag on a
+                // visibilitychange that produces no action, and the forced
+                // refetch is then lost permanently.
+                it('a visibilitychange that emits NOTHING does not burn the flag', (done) => {
+                    __setDocumentVisibleForTests(() => true);
+                    let loadedId = null;
+                    const store = {getState: () => ({
+                        anuga: {
+                            projects: {data: loadedId === null ? null : {id: loadedId}},
+                            paywall: {overlay: null, steady: null}
+                        }
+                    })};
+
+                    departFromThisTab(() => {
+                        const emitted = [];
+                        const sub = refreshMyPermsOnTabVisibleEpic(
+                            mockActions([]), store
+                        ).subscribe(a => emitted.push(a));
+                        fireVisibilityChange();
+                        setTimeout(() => {
+                            try {
+                                expect(emitted.length).toBe(
+                                    0, 'my_perms is project-scoped — nothing should have been emitted'
+                                );
+                            } catch (err) { sub.unsubscribe(); return done(err); }
+                            loadedId = 42;
+                            fireVisibilityChange();
+                            setTimeout(() => {
+                                sub.unsubscribe();
+                                try {
+                                    expect(emitted.length).toBe(1);
+                                    expect(emitted[0].force).toBe(
+                                        true,
+                                        'the departure was consumed by a visibilitychange that '
+                                        + 'emitted no action, so the forced refetch is lost forever'
+                                    );
+                                    done();
+                                } catch (err) { done(err); }
+                            }, 400);
+                            return undefined;
+                        }, 400);
+                    }, done);
+                });
+
+                // ── AC3: exactly ONCE per checkout, not once per focus ────────
+                //
+                // This is the whole rate story, and the reason the consume must
+                // be its own statement rather than the right operand of `||`:
+                // `confirming || _consumeCheckoutDeparture()` short-circuits, so
+                // the flag would survive any focus taken while a confirmation is
+                // already in flight and later behaviour becomes order-dependent.
+                it('is consumed EXACTLY ONCE — the second and third focus are unforced again', (done) => {
+                    __setDocumentVisibleForTests(() => true);
+                    departFromThisTab(() => {
+                        const emitted = [];
+                        const sub = refreshMyPermsOnTabVisibleEpic(
+                            mockActions([]), {getState: () => stateWith(false)}
+                        ).subscribe(a => emitted.push(a));
+                        fireVisibilityChange();
+                        setTimeout(() => {
+                            fireVisibilityChange();
+                            setTimeout(() => {
+                                fireVisibilityChange();
+                                setTimeout(() => {
+                                    sub.unsubscribe();
+                                    try {
+                                        expect(emitted.length).toBe(3);
+                                        expect(emitted[0].force).toBe(
+                                            true, 'the departure never forced anything'
+                                        );
+                                        expect(emitted[1].force).toBe(
+                                            false,
+                                            'one checkout bought MORE than one forced my_perms — '
+                                            + 'ordinary tab-flipping is turning into a fetch per switch'
+                                        );
+                                        expect(emitted[2].force).toBe(false);
+                                        done();
+                                    } catch (err) { done(err); }
+                                }, 400);
+                            }, 400);
+                        }, 400);
+                    }, done);
+                });
+
+                // AC8 — the pending-poll path is untouched: with `pending` armed
+                // the emission is forced whether or not a departure was recorded.
+                it('a pending confirmation still forces, with no departure recorded', (done) => {
+                    __setDocumentVisibleForTests(() => true);
+                    const emitted = [];
+                    const sub = refreshMyPermsOnTabVisibleEpic(
+                        mockActions([]), {getState: () => stateWith(true)}
+                    ).subscribe(a => emitted.push(a));
+                    fireVisibilityChange();
+                    setTimeout(() => {
+                        sub.unsubscribe();
+                        try {
+                            expect(emitted.length).toBe(1);
+                            expect(emitted[0].force).toBe(true);
+                            done();
+                        } catch (err) { done(err); }
+                    }, 400);
+                });
+
+                // A create-session that returned NO url means nothing left the
+                // tab, so there is nothing to come back from.
+                it('a FAILED create-session arms nothing', (done) => {
+                    __setDocumentVisibleForTests(() => true);
+                    mockAxios.onPost('/commerce/checkout/create-session/').reply(200, {});
+                    __setRedirectForTests(() => {});
+                    subscribeCheckoutEpic(
+                        mockActions([{
+                            type: SUBSCRIBE_CHECKOUT_REQUEST,
+                            purchaseType: 'credit_pack', priceId: 'price_x'
+                        }]),
+                        storeWithProjectId(42)
+                    ).subscribe(() => {}, done, () => {
+                        const emitted = [];
+                        const sub = refreshMyPermsOnTabVisibleEpic(
+                            mockActions([]), {getState: () => stateWith(false)}
+                        ).subscribe(a => emitted.push(a));
+                        fireVisibilityChange();
+                        setTimeout(() => {
+                            sub.unsubscribe();
+                            try {
+                                expect(emitted.length).toBe(1);
+                                expect(emitted[0].force).toBe(
+                                    false,
+                                    'a create-session that produced no checkout url still bought '
+                                    + 'a forced refetch — nothing left the tab'
+                                );
+                                done();
+                            } catch (err) { done(err); }
+                        }, 400);
+                    });
+                });
             });
         });
 
