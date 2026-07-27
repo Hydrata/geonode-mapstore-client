@@ -2217,7 +2217,7 @@ describe('ANUGA Epics', () => {
         const paywallReducer = require('../../Paywall/reducer').default;
         const {isCheckoutInFlight} = require('../../Paywall/reducer');
         const {FETCH_COMPUTE_BALANCE, SET_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
-        const {FETCH_ACCOUNT_SUMMARY} = require('../../Paywall/account/actions');
+        const {FETCH_ACCOUNT_SUMMARY, SET_ACCOUNT_SUMMARY} = require('../../Paywall/account/actions');
         const SET_ANUGA_RESOURCE_PERMS = 'ANUGA:SET_ANUGA_RESOURCE_PERMS';
 
         let mockAxios;
@@ -2473,6 +2473,74 @@ describe('ANUGA Epics', () => {
                     }
                 );
                 setTimeout(() => { pending = false; }, 5);
+            });
+
+            // ── W3c adversarial: giving ROW 4 the per-tick channel it lacked ──
+            //
+            // An account-scoped subscription bought while viewing a PUBLIC
+            // project surfaces on neither my_perms nor the ledger. Without a
+            // per-tick read of /commerce/account/ the notice could not be
+            // retracted by anything short of the 60s tail, while the panel below
+            // it already read "Active since today".
+            describe('the SUBSCRIPTION anchor also polls /commerce/account/', () => {
+                const pollStore = (anchor) => {
+                    let pending = true;
+                    return {
+                        settle: () => { pending = false; },
+                        getState: () => ({
+                            anuga: {
+                                projects: {data: {id: 42}},
+                                paywall: {
+                                    overlay: pending ? {state: 'pending', anchor} : null,
+                                    overlayProjectId: null, steady: pending ? null : {state: 'paid_private'}
+                                },
+                                computeMeter: {enabled: true, balance: '0.00', recentEntries: []},
+                                accountSummary: {loaded: true, subscription: {active: false, since: null}}
+                            }
+                        })
+                    };
+                };
+
+                it('a SUBSCRIPTION anchor refetches the summary on every tick, not just at the tail', (done) => {
+                    __setPollIntervalForTests(1);
+                    const store = pollStore({
+                        purchaseType: 'subscription', accountOnly: true, projectId: null,
+                        latestPurchaseIso: null, balanceObserved: true
+                    });
+                    const emitted = [];
+                    pollMyPermsWhilePendingEpic(mockActions([{type: SET_PAYWALL_PENDING}]), store)
+                        .subscribe(a => emitted.push(a), done, () => {
+                            try {
+                                expect(emitted.filter(a => a.type === FETCH_ACCOUNT_SUMMARY).length)
+                                    .toBeGreaterThan(
+                                        1,
+                                        'the one channel that can observe an account-scoped '
+                                        + 'subscription was read once, at the 60s tail'
+                                    );
+                                done();
+                            } catch (err) { done(err); }
+                        });
+                });
+
+                it('a CREDIT-PACK anchor does NOT — its evidence is the balance row already fetched', (done) => {
+                    __setPollIntervalForTests(1);
+                    const store = pollStore({
+                        purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
+                        latestPurchaseIso: null, balanceObserved: true
+                    });
+                    const emitted = [];
+                    pollMyPermsWhilePendingEpic(mockActions([{type: SET_PAYWALL_PENDING}]), store)
+                        .subscribe(a => emitted.push(a), done, () => {
+                            try {
+                                expect(emitted.filter(a => a.type === FETCH_ACCOUNT_SUMMARY).length).toBe(
+                                    1,
+                                    'a credit pack is paying for a per-tick account fetch it has '
+                                    + 'no use for — that is the unbounded fetch 26e4aab36 reverted'
+                                );
+                                done();
+                            } catch (err) { done(err); }
+                        });
+                });
             });
 
             it('no project id -> still refreshes the balance (account-scoped, not project-scoped), but never emits FETCH_MY_PERMS', (done) => {
@@ -2772,6 +2840,90 @@ describe('ANUGA Epics', () => {
                 }, done);
             });
 
+            // ── W3c adversarial (money-path CRITICAL): the SUBSCRIPTION channel ──
+            //
+            // An account-scoped subscription bought while viewing a PUBLIC
+            // project is observable on NEITHER polled channel:
+            // _derive_paywall_state returns free_public before and after
+            // entitlement, and a subscription writes no ledger row. So the
+            // notice ran the full 60s while SubscriptionSection — four lines
+            // below it in the same panel, off the same store — already read
+            // "Active since today".
+            describe('the SUBSCRIPTION channel (W3c adversarial)', () => {
+                const subAnchor = () => ({
+                    purchaseType: 'subscription', accountOnly: true, projectId: null,
+                    latestPurchaseIso: null, balanceObserved: true
+                });
+                const subStore = ({active, loaded = true, pending = true}) => ({
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {
+                                overlay: pending ? {state: 'pending', anchor: subAnchor()} : null,
+                                overlayProjectId: null, steady: null
+                            },
+                            computeMeter: {enabled: true, balance: '0.00', recentEntries: []},
+                            accountSummary: {loaded, subscription: {active, since: active ? '2026-07-27' : null}}
+                        }
+                    })
+                });
+
+                it('an ACTIVE subscription on the account summary clears the pending overlay', (done) => {
+                    runEpic([{type: SET_ACCOUNT_SUMMARY}], subStore({active: true}), (emitted) => {
+                        expect(emitted.length).toBe(
+                            1,
+                            'the account summary already said the subscription was active and '
+                            + 'the confirming state stayed armed — the notice and the panel '
+                            + 'beneath it contradict each other for 60s'
+                        );
+                        expect(emitted[0].type).toBe(CLEAR_PAYWALL_PENDING);
+                    }, done);
+                });
+
+                it('an INACTIVE subscription is not evidence — nothing is claimed either way', (done) => {
+                    runEpic([{type: SET_ACCOUNT_SUMMARY}], subStore({active: false}), (emitted) => {
+                        expect(emitted.length).toBe(0);
+                    }, done);
+                });
+
+                it('an UNLOADED summary carrying a stale active flag does not clear', (done) => {
+                    runEpic(
+                        [{type: SET_ACCOUNT_SUMMARY}], subStore({active: true, loaded: false}),
+                        (emitted) => expect(emitted.length).toBe(0), done
+                    );
+                });
+
+                it('a CREDIT-PACK anchor is never cleared by subscription.active', (done) => {
+                    // An entitled customer buying a pack has active===true and
+                    // always did. Reading it as evidence retracts on the wrong
+                    // purchase entirely.
+                    const store = {
+                        getState: () => ({
+                            anuga: {
+                                projects: {data: {id: 42}},
+                                paywall: {
+                                    overlay: {state: 'pending', anchor: creditPackAnchor(OLD_PURCHASE)},
+                                    overlayProjectId: null, steady: null
+                                },
+                                computeMeter: {enabled: true, balance: '5.00', recentEntries: []},
+                                accountSummary: {loaded: true, subscription: {active: true, since: '2026-01-01'}}
+                            }
+                        })
+                    };
+                    runEpic([{type: SET_ACCOUNT_SUMMARY}], store, (emitted) => {
+                        expect(emitted.length).toBe(0);
+                    }, done);
+                });
+
+                it('it clears on the ARMING action too, when the summary already landed', (done) => {
+                    // The webhook routinely wins the cold-boot race, so the very
+                    // first summary read can already be the answer.
+                    runEpic([{type: SET_PAYWALL_PENDING}], subStore({active: true}), (emitted) => {
+                        expect(emitted.length).toBe(1);
+                    }, done);
+                });
+            });
+
             // ── Scope: a SUBSCRIPTION writes NO ledger row ──────────────────
             it('a SUBSCRIPTION anchor is never cleared by a purchase row (that channel is my_perms)', (done) => {
                 // checkout_views.py has exactly one ENTRY_TYPE_PURCHASE write and
@@ -2875,12 +3027,68 @@ describe('ANUGA Epics', () => {
                 );
             });
 
-            it('an account-present read with balance null (no billing account) is NOT observed', (done) => {
+            // ── W3c adversarial (staleness lens): the FIRST-EVER purchase ────
+            //
+            // This asserted `false`, and that killed TASK-2489's whole
+            // confirmation channel on the commonest purchase there is.
+            // /commerce/balance/ resolves-only (balance_views.py:59) while
+            // /commerce/account/ provisions (account_views.py:110), and INIT_ANUGA
+            // issues the balance GET FIRST — so a brand-new user's meter slice
+            // holds {enabled: true, balance: null} and nothing refetches it all
+            // session. Requiring a non-null balance therefore stamped the anchor
+            // unobservable for every first purchase, and the customer sat the
+            // full 60s on "Confirming your purchase…" over a stale $0.00.
+            //
+            // The no-account response IS an authoritative empty ledger: no
+            // account means no rows.
+            it('the no-billing-account read IS observed — no account means an empty ledger, authoritatively', (done) => {
                 departAndAssert(
                     storeWithMeter({enabled: true, balance: null, recentEntries: []}),
+                    (anchor) => expect(anchor.balanceObserved).toBe(
+                        true,
+                        'a first-ever purchase was stamped unobservable, so nothing could '
+                        + 'ever confirm it'
+                    ),
+                    done
+                );
+            });
+
+            it('the never-fetched slice is still NOT observed — silence is not an empty ledger', (done) => {
+                // meter/reducer.js initialState, which a Billing-tab onBuyPack can
+                // beat, and where a transient failure of the boot fetch also lands
+                // (computeMeterEpics catches every error to Observable.empty()).
+                departAndAssert(
+                    storeWithMeter({enabled: false, balance: null, recentEntries: []}),
                     (anchor) => expect(anchor.balanceObserved).toBe(false),
                     done
                 );
+            });
+
+            // W3c adversarial — THE RECORD IS CONSUMED, not merely read. Its
+            // three deletion sites all missed the commonest success path (a
+            // subscription clearing via the PAID steady state happens in a
+            // REDUCER, which cannot reach localStorage), so the record survived
+            // indefinitely and a later checkout whose own write threw inherited
+            // a months-old floor.
+            it('checkoutReturnEpic DELETES the record once it has lifted it into the store', (done) => {
+                window.localStorage.setItem(CHECKOUT_ANCHOR_STORAGE_KEY, JSON.stringify({
+                    purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
+                    latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
+                }));
+                window.history.pushState({}, '', '?checkout=success');
+                const emitted = [];
+                checkoutReturnEpic(mockActions([{type: INIT_ANUGA}]), storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            expect(emitted.find(a => a.type === SET_PAYWALL_PENDING).anchor).toNotBe(null);
+                            expect(window.localStorage.getItem(CHECKOUT_ANCHOR_STORAGE_KEY)).toBe(
+                                null,
+                                'the departure record outlived the return that consumed it — '
+                                + 'a later checkout can adopt it as its own floor'
+                            );
+                            done();
+                        } catch (err) { done(err); }
+                    });
             });
 
             // AC9b — the Stripe return lands in a NEW TAB (_openInNewTab), so a

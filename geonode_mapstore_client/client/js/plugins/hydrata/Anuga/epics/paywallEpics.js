@@ -43,11 +43,12 @@ import {
 import {
     isPaywallPending,
     getPaywallDesiredVisibility,
-    getPaywallCheckoutAnchor
+    getPaywallCheckoutAnchor,
+    isAnchoredPurchaseConfirmed
 } from '../../Paywall/reducer';
 import { SET_COMPUTE_BALANCE, fetchComputeBalance, dismissMeterModal } from '../../Paywall/meter/actions';
 import { getComputeMeterState } from '../../Paywall/meter/reducer';
-import { fetchAccountSummary } from '../../Paywall/account/actions';
+import { SET_ACCOUNT_SUMMARY, fetchAccountSummary } from '../../Paywall/account/actions';
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
 
@@ -68,18 +69,33 @@ const getProjectId = (state) => state?.anuga?.projects?.data?.id;
  * | (upgrade modal)                    |                                   | flip                      | clear, Paywall/reducer.js
  * | subscription, account-scoped,      | BillingTabContainer.js:36         | entitlement only          | YES — past_due -> paid_private/paid_organization
  * | viewing a NON-public project       | (accountOnly: true)               | (checkout_views.py:133-136)| on my_perms
- * | subscription, account-scoped,      | BillingTabContainer.js:36         | entitlement only          | NO — _derive_paywall_state returns free_public
- * | viewing a PUBLIC project           |                                   |                           | before AND after (api_v2.py:795-797)
+ * | subscription, account-scoped,      | BillingTabContainer.js:36         | entitlement only          | YES (W3c) — subscription.active on
+ * | viewing a PUBLIC project           |                                   |                           | /commerce/account/, polled per tick
  *
- * ROW 4 IS THE NAMED RESIDUAL GAP. The entitlement surfaces only as
- * `subscription.active` on /commerce/account/, which is fetched at boot and not
- * on any tick. Its ONLY in-scope coverage is the give-up tail's single
- * fetchAccountSummary() (below): a webhook landing anywhere inside the 60s
- * window makes that read true. After 60s: nothing further until focus or
- * reload. That is recorded, not papered over with an invented detector — the
- * app cannot tell "not landed" from "landed by a channel it cannot observe",
- * and every wording that pretended otherwise was refuted by the customer's own
- * screen.
+ * ROW 4 WAS THE NAMED RESIDUAL GAP, AND W3c's ADVERSARIAL REVIEW SHOWED WHY IT
+ * COULD NOT STAY ONE. `_derive_paywall_state` returns free_public for a public
+ * project before AND after entitlement (apps/gn_anuga/api_v2.py:795-797), so no
+ * my_perms tick can ever retract this shape's notice; meanwhile the ONE
+ * /commerce/account/ read taken at boot routinely lands AFTER the webhook (the
+ * return goes through a synchronous Session.retrieve plus a 13.6s median cold
+ * MapStore boot), so SubscriptionSection rendered "Active since <today>"
+ * directly BELOW a notice saying the confirmation had not landed — for the full
+ * 60s, on the Billing tab's own Subscribe. A claim the customer's own screen
+ * refutes is precisely what the operator reverted in W2.10.
+ *
+ * The repair is to give row 4 the per-tick channel the matrix rule demands,
+ * rather than to keep making an unretractable claim: while a SUBSCRIPTION
+ * anchor is pending, each poll tick also re-reads /commerce/account/. This is
+ * NOT the reverted per-tick account fetch (26e4aab36) — that one fired on every
+ * paid my_perms reading for as long as the customer stayed paid, unbounded. This
+ * one is bounded twice over: only while `pending` (<= 20 ticks / 60s) and only
+ * for the one purchase shape whose evidence lives on that endpoint. A credit
+ * pack still polls only /commerce/balance/.
+ *
+ * `subscription.active` is EVIDENCE FOR THIS CHECKOUT, not merely correlated
+ * with one: an account that already holds the entitlement is 409'd before Stripe
+ * is touched at all (apps/commerce/checkout_views.py:471-476), so it cannot have
+ * started this checkout.
  */
 
 /**
@@ -154,17 +170,38 @@ const _newestPurchaseIso = (entries) => (Array.isArray(entries) ? entries : []).
  *
  * `balanceObserved` is the whole reason AC3's null-anchor rule is safe. "No
  * purchase row at departure, therefore ANY purchase row later is new" holds only
- * if the empty window was FETCHED and empty. Three live shapes make it
+ * if the empty window was FETCHED and empty. Two live shapes make it
  * never-fetched, and in each of them a month-old row would clear the notice ~3s
  * after arming — the same unearned claim as W2.8/W2.9, inverted:
- *   (a) meter dark        — balance_views.py:32-38, enabled false, balance null;
- *   (b) no billing account — balance_views.py:60-66, enabled true, balance null
- *       (and a user can be added to a pre-existing account carrying old rows
- *       between departure and return);
- *   (c) nothing fetched yet — meter/reducer.js initialState, which a Billing-tab
- *       onBuyPack can beat.
- * Only the account-present shape (balance_views.py:85-90) sets both fields, so
- * `enabled === true && balance !== null` is exactly "this window was read".
+ *   (a) meter dark        — balance_views.py:32-38, enabled FALSE, balance null;
+ *   (b) nothing fetched yet — meter/reducer.js initialState, enabled FALSE
+ *       (which a Billing-tab onBuyPack can beat, and which is also where a
+ *       transient failure of the boot fetch leaves the slice —
+ *       computeMeterEpics.js catches every error to Observable.empty()).
+ * `enabled` is written by exactly one action (SET_COMPUTE_BALANCE) off exactly
+ * one response, so `enabled === true` is exactly "the balance endpoint answered
+ * this session".
+ *
+ * W3c adversarial (staleness lens) — IT WAS `enabled === true && balance !==
+ * null`, AND THAT DISABLED THE WHOLE CHANNEL FOR EVERY FIRST-EVER PURCHASE.
+ * GET /commerce/balance/ resolve-only (balance_views.py:59) and does NOT
+ * provision; GET /commerce/account/ does (account_views.py:110). On INIT_ANUGA
+ * the balance GET is issued FIRST (Anuga.js registration order), so a user with
+ * no AccountUser row gets the no-account shape — enabled TRUE, balance null —
+ * and nothing refetches the meter slice for the rest of the session. Requiring a
+ * non-null balance therefore stamped `balanceObserved: false` on the commonest
+ * purchase there is, the first one, and the detector could never fire: the
+ * customer sat the full 60s on "Confirming your purchase…" over a stale $0.00,
+ * under copy promising the panel updates on its own.
+ *
+ * The no-account response IS an authoritative reading of an empty ledger — no
+ * account means no rows, and the account that gets provisioned moments later by
+ * the summary fetch is a fresh personal one with none either. The hazard the
+ * old form was defending (a user ADDED to a pre-existing account carrying old
+ * rows, mid-checkout) requires a manager to issue and the user to accept an
+ * invitation inside a 30-second Stripe round trip; its cost is a notice
+ * retracting early, and its cost is now weighed against a channel that was dead
+ * on the path that matters most.
  */
 const _buildCheckoutAnchor = (state, {purchaseType, accountOnly, projectId}) => {
     const meter = getComputeMeterState(state);
@@ -173,7 +210,7 @@ const _buildCheckoutAnchor = (state, {purchaseType, accountOnly, projectId}) => 
         accountOnly: !!accountOnly,
         projectId: projectId ?? null,
         latestPurchaseIso: _newestPurchaseIso(meter.recentEntries),
-        balanceObserved: meter.enabled === true && meter.balance !== null
+        balanceObserved: meter.enabled === true
     };
 };
 
@@ -330,10 +367,29 @@ export const checkoutReturnEpic = (action$) => action$
         // return is being handled. The originating tab wrote it; this tab may
         // not be that tab (_openInNewTab), which is why the handover is
         // localStorage and not module state.
-        ? Rx.Observable.of(
-            setPaywallPending(_readCheckoutAnchor()), dismissMeterModal(),
-            setMembershipPanel(true), setMembershipPanelTab('billing'), fetchAccountSummary()
-        )
+        // W3c adversarial (correctness + staleness lenses) — THE RECORD IS
+        // CONSUMED, i.e. read and immediately deleted. It had exactly three
+        // deletion sites (cancel, the poll's give-up tail, the purchase-row
+        // detector) and none of them covers the commonest success path: a
+        // subscription that clears via the PAID steady state does so in a
+        // REDUCER, which cannot dispatch and cannot reach localStorage, so the
+        // record survived indefinitely. A later checkout whose own
+        // _writeCheckoutAnchor throws (Safari private mode, quota — swallowed
+        // by design) then inherited it, and a months-old latestPurchaseIso is a
+        // floor that any purchase row clears. Deleting it HERE makes the record
+        // self-limiting by construction: the store copy on the overlay is the
+        // live read model from this point on, storage has no further job, and
+        // ?checkout=success is stripped with replaceState so this return cannot
+        // be replayed. `defer` so the read/clear happen at subscribe time, not
+        // when the observable is built.
+        ? Rx.Observable.defer(() => {
+            const anchor = _readCheckoutAnchor();
+            _clearCheckoutAnchor();
+            return Rx.Observable.of(
+                setPaywallPending(anchor), dismissMeterModal(),
+                setMembershipPanel(true), setMembershipPanelTab('billing'), fetchAccountSummary()
+            );
+        })
         // NOTE the show(opts, level) signature: level is the SECOND ARG — a
         // `level` key inside opts is overwritten by the arg's 'success'
         // default (the UAT-2 green-error-toast bug).
@@ -364,8 +420,11 @@ export const checkoutReturnEpic = (action$) => action$
  * webhook was slow or lost was left in `pending` until they reloaded the page.
  * An un-dismissable state is a trap (ModalHost.js's own standard).
  *
- * TASK-2489 (epic 2425 W3c) — THE TAIL IS THE SOLE EMITTER OF THE POST-CHECKOUT
- * `fetchAccountSummary()`, on BOTH branches. The Billing tab the customer was
+ * TASK-2489 (epic 2425 W3c) — THE TAIL EMITS A `fetchAccountSummary()` ON BOTH
+ * BRANCHES, and (W3c adversarial aside: for a CREDIT-PACK or anchorless pending
+ * it is the only emitter — a subscription anchor additionally polls that
+ * endpoint per tick, see the mergeMap above and the matrix at the top of this
+ * file). The Billing tab the customer was
  * just sent to renders the ACCOUNT slice, not the per-tick meter slice
  * (BillingTabContainer.js) — so the fresher balance every tick already fetched
  * is invisible there, and the panel kept showing pre-purchase money over an
@@ -413,10 +472,23 @@ export const pollMyPermsWhilePendingEpic = (action$, store) => action$
             .take(PAYWALL_POLL_MAX_ATTEMPTS)
             .takeWhile(() => isPaywallPending(store.getState()))
             .mergeMap(() => {
-                const projectId = getProjectId(store.getState());
+                const state = store.getState();
+                const projectId = getProjectId(state);
+                // W3c adversarial — the ROW-4 channel (see the matrix at the top
+                // of this file). An account-scoped subscription bought while
+                // viewing a PUBLIC project surfaces on NEITHER of the two reads
+                // above, so without this the notice could not be retracted by
+                // anything short of the 60s tail while the panel below it already
+                // read "Active since today". Gated on the anchor so a credit pack
+                // — whose evidence is a balance row, already fetched above —
+                // does not pay for it, and bounded by `pending` so this can never
+                // become the unbounded per-tick fetch 26e4aab36 reverted.
+                const anchor = getPaywallCheckoutAnchor(state);
+                const confirmingSubscription = anchor && anchor.purchaseType === 'subscription';
                 return Rx.Observable.of(
                     fetchComputeBalance(),
-                    ...(projectId ? [fetchMyPerms(projectId, true)] : [])
+                    ...(projectId ? [fetchMyPerms(projectId, true)] : []),
+                    ...(confirmingSubscription ? [fetchAccountSummary()] : [])
                 );
             })
             .concat(Rx.Observable.defer(() => {
@@ -450,11 +522,22 @@ export const pollMyPermsWhilePendingEpic = (action$, store) => action$
  * diff cannot see a change that happened before the client existed. An anchor
  * captured BEFORE departure, compared against a server timestamp, can.
  *
- * CREDIT PACKS ONLY, by construction. checkout_views.py has exactly one
- * ENTRY_TYPE_PURCHASE write (:791-796) and it is the credit-pack path; a
- * subscription writes no ledger row at all. Subscriptions clear on their own
- * channel — the PAID steady state in Paywall/reducer.js — and the anchor's
- * purchaseType is what keeps the two from claiming each other's purchase.
+ * ONE EPIC, TWO PURCHASE SHAPES, ONE CHANNEL EACH — never both. checkout_views.py
+ * has exactly one ENTRY_TYPE_PURCHASE write (:791-796) and it is the credit-pack
+ * path; a subscription writes no ledger row at all, so a pack's row can never
+ * confirm a subscription and vice versa. The anchor's purchaseType is what keeps
+ * the two from claiming each other's purchase.
+ *   credit_pack   -> a purchase row newer than the departure anchor, on
+ *                    /commerce/balance/ (polled every tick).
+ *   subscription  -> `subscription.active` on /commerce/account/ (polled every
+ *                    tick while a subscription is pending — see the matrix at
+ *                    the top of this file), or the PAID steady state in
+ *                    Paywall/reducer.js when a project flip is part of the deal.
+ *
+ * W3c adversarial (money-path CRITICAL) added the subscription branch. Before
+ * it, the account-scoped-subscription-on-a-public-project shape had NO channel
+ * at all: the notice ran the full 60s while SubscriptionSection, four lines
+ * below it in the same panel, already read "Active since today".
  *
  * IT EVALUATES ON SET_PAYWALL_PENDING TOO, not only on each balance tick.
  * triggerFetchBalanceOnInitEpic (computeMeterEpics.js:26) fires the first
@@ -470,12 +553,15 @@ export const pollMyPermsWhilePendingEpic = (action$, store) => action$
  * would make it two.
  */
 export const clearPendingOnPurchaseRowEpic = (action$, store) => action$
-    .ofType(SET_COMPUTE_BALANCE, SET_PAYWALL_PENDING)
+    .ofType(SET_COMPUTE_BALANCE, SET_ACCOUNT_SUMMARY, SET_PAYWALL_PENDING)
     .filter(() => isPaywallPending(store.getState()))
     .filter(() => {
-        const anchor = getPaywallCheckoutAnchor(store.getState());
-        if (!anchor || anchor.purchaseType !== 'credit_pack') return false;
-        return _hasPurchaseSinceAnchor(getComputeMeterState(store.getState()).recentEntries, anchor);
+        const state = store.getState();
+        const anchor = getPaywallCheckoutAnchor(state);
+        if (!anchor) return false;
+        if (anchor.purchaseType === 'subscription') return isAnchoredPurchaseConfirmed(state);
+        if (anchor.purchaseType !== 'credit_pack') return false;
+        return _hasPurchaseSinceAnchor(getComputeMeterState(state).recentEntries, anchor);
     })
     .map(() => {
         _clearCheckoutAnchor();

@@ -27,6 +27,10 @@
  * corrupts into resources.paywall = []). See _NON_RESOURCE_KEYS there.
  */
 import { SET_ANUGA_RESOURCE_PERMS } from '../Anuga/actionsAnuga';
+// W3c adversarial — the account summary is READ here (never written), so the
+// confirming notice cannot outlive the evidence rendered beneath it.
+// account/reducer.js imports only its own actions, so this is not a cycle.
+import { getAccountSummaryState } from './account/reducer';
 import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
@@ -82,8 +86,29 @@ export default (state = initialState, action) => {
         // _meta.note_on_pending) — the poll epic is watching for the webhook
         // flip to show up as a steady PAID state, at which point the FE-only
         // pending overlay has done its job and clears itself.
+        //
+        // W3c adversarial (money-path + correctness lenses) — NOT for a CREDIT
+        // PACK. This clear was written for subscriptions, where a paid steady
+        // state IS the purchase landing. A credit pack changes no entitlement,
+        // so for an ALREADY-ENTITLED customer on a private project
+        // `_derive_paywall_state` returns paid_private on every tick before and
+        // after the purchase (apps/gn_anuga/api_v2.py:727). The first my_perms
+        // read then disarmed the overlay on evidence that said nothing about the
+        // pack: the notice retracted ~3s in, takeWhile ended the poll, and
+        // TASK-2489's purchase-row detector — the ONLY channel that can observe
+        // a pack — never got to fire. The customer was left reading
+        // pre-purchase money with no notice up to say so, which is the live
+        // defect 2489 exists to close. The anchor's purchaseType is what keeps
+        // the two purchase shapes from claiming each other's evidence
+        // (paywallEpics.js), and it has to be enforced on BOTH sides of that
+        // sentence, not just the epic's.
+        //
+        // An overlay with NO anchor still clears here exactly as before: no
+        // anchor means no detector, so this and the 60s tail are all there is.
+        const anchor = state.overlay && state.overlay.anchor;
         const overlay = (state.overlay && state.overlay.state === 'pending'
-            && PAID_STEADY_STATES.includes(paywall.state))
+            && PAID_STEADY_STATES.includes(paywall.state)
+            && anchor?.purchaseType !== 'credit_pack')
             ? null
             : state.overlay;
         // Stamp the project this payload describes. `?? null` normalises the
@@ -191,8 +216,15 @@ export default (state = initialState, action) => {
  * NOT COVERED, deliberately: the pending-overlay clear above still acts on an
  * unstamped or mismatched payload, so a late paid_* for A can disarm a `pending`
  * armed for B. That needs the current project id at reduce time, which this
- * reducer has no access to; the failure mode is a spinner clearing early rather
- * than a wrong billing claim, so it is not folded in here on speculation.
+ * reducer has no access to, so it is not folded in here on speculation.
+ *
+ * W3c adversarial — THE COST OF THAT IS NO LONGER "a spinner clearing early",
+ * which is what this paragraph used to say and what was true when `pending`
+ * rendered nothing (W2.5 deleted PendingSpinner). Since TASK-2489 the flag also
+ * gates the Billing tab's confirming notice, the 3s poll and the tail's account
+ * refetch, so an early clear now means a purchase stops being watched for. The
+ * credit-pack half of that is closed above (the anchor gate); the cross-project
+ * half is bounded by the same 60s cap and is filed rather than guessed at.
  */
 /**
  * The one stamp comparison both layers use: refuse only a stamp that POSITIVELY
@@ -298,6 +330,40 @@ export const getPaywallCheckoutAnchor = (state) => {
 };
 
 /**
+ * W3c adversarial (money-path CRITICAL) — is the anchored purchase ALREADY
+ * CONFIRMED by something this store is rendering elsewhere?
+ *
+ * The Billing tab put "Confirming your purchase… this panel updates on its own"
+ * directly above a SubscriptionSection reading "Active since 2026-07-27", for
+ * the full 60s poll, on the Billing tab's own Subscribe. That is the W2.8/W2.9
+ * failure the operator reverted — a claim the customer's own screen refutes —
+ * and it came back for one purchase shape (account-scoped subscription bought
+ * while viewing a PUBLIC project: `_derive_paywall_state` returns free_public
+ * before AND after entitlement, so the PAID-steady clear can never fire).
+ *
+ * `subscription.active` is unambiguous EVIDENCE FOR THIS CHECKOUT, not merely
+ * correlated with it: `_create_subscription_session` 409s an account that
+ * already has the entitlement (apps/commerce/checkout_views.py:471-476), so a
+ * subscription checkout cannot even be STARTED by an active account. Active
+ * after a subscription return therefore means this one landed.
+ *
+ * It is a RETRACTION, never an arming condition — paywallEpics.js explains why
+ * /commerce/account/ cannot ARM anything (AC9c: one reading, taken at the
+ * instant the race is about). Refusing to make a claim the store already
+ * contradicts needs no such freshness: the worst case is silence.
+ *
+ * Credit packs are deliberately absent: their evidence is a purchase ROW, which
+ * clearPendingOnPurchaseRowEpic already reads, and the account summary carries
+ * no departure baseline to compare a balance against.
+ */
+export const isAnchoredPurchaseConfirmed = (state) => {
+    const anchor = getPaywallCheckoutAnchor(state);
+    if (!anchor || anchor.purchaseType !== 'subscription') return false;
+    const account = getAccountSummaryState(state);
+    return !!(account.loaded && account.subscription && account.subscription.active);
+};
+
+/**
  * TASK-2489 — should the Billing tab render its confirming notice?
  *
  * `pending` armed AND a departure anchor for it. Both halves matter. Without
@@ -308,5 +374,12 @@ export const getPaywallCheckoutAnchor = (state) => {
  * notice nothing can take down. The notice therefore disappears BY RENDERING,
  * with no retraction call; there is no notification-retraction path in this
  * codebase, which is what made W2.8's autoDismiss:0 toast unwithdrawable.
+ *
+ * W3c adversarial — AND NOT ALREADY REFUTED. The epic clear runs one dispatch
+ * behind the evidence that triggers it, and React is free to paint in between;
+ * gating the notice on the same store value the panel below it renders makes
+ * the contradiction unrenderable rather than merely short-lived. See
+ * isAnchoredPurchaseConfirmed above.
  */
-export const isPaywallConfirming = (state) => !!getPaywallCheckoutAnchor(state);
+export const isPaywallConfirming = (state) =>
+    !!getPaywallCheckoutAnchor(state) && !isAnchoredPurchaseConfirmed(state);

@@ -8,6 +8,7 @@ import paywallReducer, {
     getPaywallCheckoutAnchor,
     getPaywallDesiredVisibility,
     getPaywallSteady,
+    isAnchoredPurchaseConfirmed,
     isCheckoutInFlight,
     isPaywallConfirming,
     isPaywallPending
@@ -203,6 +204,14 @@ describe('TASK-2099 Paywall reducer', () => {
             purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
             latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
         };
+        const SUB_ANCHOR = {
+            purchaseType: 'subscription', accountOnly: true, projectId: null,
+            latestPurchaseIso: null, balanceObserved: true
+        };
+        /** A store with the anchored overlay plus whatever /commerce/account/ last said. */
+        const withSummary = (paywall, summary) => ({
+            anuga: {paywall, accountSummary: {loaded: true, subscription: {active: false, since: null}, ...summary}}
+        });
 
         it('SET_PAYWALL_PENDING carries the anchor onto the overlay', () => {
             const state = paywallReducer(undefined, setPaywallPending(ANCHOR));
@@ -228,13 +237,39 @@ describe('TASK-2099 Paywall reducer', () => {
             expect(isPaywallConfirming({anuga: {paywall: state}})).toBe(false);
         });
 
-        it('a PAID steady clearing the overlay takes the anchor with it', () => {
-            let state = paywallReducer(undefined, setPaywallPending(ANCHOR));
-            state = paywallReducer(state, {
-                type: SET_ANUGA_RESOURCE_PERMS,
-                payload: {paywall: {state: 'paid_private', checkout_url: null, read_only: false}}
-            });
+        const paidPrivate = (state) => paywallReducer(state, {
+            type: SET_ANUGA_RESOURCE_PERMS,
+            payload: {paywall: {state: 'paid_private', checkout_url: null, read_only: false}}
+        });
+
+        it('a PAID steady clearing a SUBSCRIPTION overlay takes the anchor with it', () => {
+            const state = paidPrivate(paywallReducer(undefined, setPaywallPending(SUB_ANCHOR)));
             expect(isPaywallConfirming({anuga: {paywall: state}})).toBe(false);
+        });
+
+        it('an anchorless pending overlay still clears on a PAID steady — pre-2489 behaviour', () => {
+            const state = paidPrivate(paywallReducer(undefined, setPaywallPending()));
+            expect(isPaywallPending({anuga: {paywall: state}})).toBe(false);
+        });
+
+        // ── W3c adversarial: the PAID clear must not eat a CREDIT PACK ───────
+        //
+        // A credit pack changes no entitlement, so for an already-entitled
+        // customer on a private project `paid_private` is what EVERY my_perms
+        // tick returns, before and after the purchase. Clearing on it retracted
+        // the notice ~3s in on evidence about a different thing entirely, ended
+        // the poll via takeWhile, and left the purchase-row detector — the only
+        // channel that can see a pack — with nothing to fire on. The customer
+        // was then reading pre-purchase money with no notice up to say so, which
+        // is the live defect TASK-2489 exists to close.
+        it('a PAID steady does NOT clear a CREDIT-PACK overlay — that purchase has its own channel', () => {
+            const state = paidPrivate(paywallReducer(undefined, setPaywallPending(ANCHOR)));
+            expect(isPaywallPending({anuga: {paywall: state}})).toBe(
+                true,
+                'an entitled customer\'s steady paid_private disarmed a credit-pack '
+                + 'confirmation, so the pack\'s own detector never got to fire'
+            );
+            expect(getPaywallCheckoutAnchor({anuga: {paywall: state}})).toEqual(ANCHOR);
         });
 
         it('an upgrade_prompt overlay is never mistaken for a confirming checkout', () => {
@@ -246,6 +281,57 @@ describe('TASK-2099 Paywall reducer', () => {
         it('both selectors are null-safe on a store with no paywall slice', () => {
             expect(getPaywallCheckoutAnchor({})).toBe(null);
             expect(isPaywallConfirming({})).toBe(false);
+        });
+
+        // ── W3c adversarial (money-path CRITICAL) ────────────────────────────
+        //
+        // "Confirming your purchase… this panel updates on its own" rendered
+        // directly above SubscriptionSection's "Active since 2026-07-27", for
+        // the full 60s, on the Billing tab's own Subscribe. Both read the SAME
+        // store, so the contradiction is not a race to be narrowed — it is a
+        // claim the notice must refuse to make.
+        describe('the notice cannot contradict the panel it sits on', () => {
+            const pendingSub = () => paywallReducer(undefined, setPaywallPending(SUB_ANCHOR));
+
+            it('a SUBSCRIPTION anchor stops confirming the moment the summary says active', () => {
+                const state = withSummary(pendingSub(), {subscription: {active: true, since: '2026-07-27'}});
+                expect(isAnchoredPurchaseConfirmed(state)).toBe(true);
+                expect(isPaywallConfirming(state)).toBe(
+                    false,
+                    'the notice claimed the confirmation had not landed while the same '
+                    + 'store already rendered "Active since" four lines below it'
+                );
+                // The overlay itself is untouched — the epic clears it, and the
+                // poll must keep running until it does.
+                expect(isPaywallPending(state)).toBe(true);
+            });
+
+            it('...and keeps confirming while the summary still says inactive', () => {
+                expect(isPaywallConfirming(withSummary(pendingSub(), {}))).toBe(true);
+            });
+
+            it('an UNLOADED summary is not evidence of anything', () => {
+                const state = withSummary(pendingSub(), {loaded: false, subscription: {active: true}});
+                expect(isAnchoredPurchaseConfirmed(state)).toBe(false);
+                expect(isPaywallConfirming(state)).toBe(true);
+            });
+
+            it('a CREDIT-PACK anchor is not confirmed by a subscription being active', () => {
+                // An entitled customer buying a pack: `active` is true and always
+                // was. Reading it as evidence would retract the notice on the
+                // wrong purchase entirely.
+                const state = withSummary(
+                    paywallReducer(undefined, setPaywallPending(ANCHOR)),
+                    {subscription: {active: true, since: '2026-01-01'}}
+                );
+                expect(isAnchoredPurchaseConfirmed(state)).toBe(false);
+                expect(isPaywallConfirming(state)).toBe(true);
+            });
+
+            it('is null-safe with no accountSummary slice at all', () => {
+                expect(isAnchoredPurchaseConfirmed({anuga: {paywall: pendingSub()}})).toBe(false);
+                expect(isAnchoredPurchaseConfirmed({})).toBe(false);
+            });
         });
     });
 
