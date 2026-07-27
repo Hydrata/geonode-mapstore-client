@@ -1883,7 +1883,11 @@ describe('anugaScenarioMenu — paywall props reach the run-actions strip (TASK-
         expect(strip).toExist();
         const price = strip.querySelector('[data-testid="sv-scenario-run-price"]');
         expect(price).toExist();
-        expect(price.textContent).toBe('Costs $2 · balance $0.00 · add $2 to run');
+        // "at least" — W3c adversarial: a pre-build estimate is a floor, not the
+        // bill, and dropping the hedge in the one state where the number is an
+        // instruction is what let a customer top up exactly $2, watch a larger
+        // mesh price at $5, and be refused for doing what the chip said.
+        expect(price.textContent).toBe('Costs $2 · balance $0.00 · add at least $2 to run');
         price.click();
         expect(opened).toBe(1);
     });

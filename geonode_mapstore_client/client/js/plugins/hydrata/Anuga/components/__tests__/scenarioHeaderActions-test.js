@@ -338,7 +338,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 () => {
                     const el = priceEl();
                     expect(el).toExist();
-                    expect(el.textContent).toBe('Costs $2 · balance $0.00 · add $2 to run');
+                    expect(el.textContent).toBe('Costs $2 · balance $0.00 · add at least $2 to run');
                     expect(el.tagName).toBe('BUTTON');
                     Simulate.click(el);
                     expect(opened).toBe(1);
@@ -359,7 +359,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 />,
                 container,
                 () => {
-                    expect(priceEl().textContent).toBe('Costs $2 · balance $1.50 · add $0.50 to run');
+                    expect(priceEl().textContent).toBe('Costs $2 · balance $1.50 · add at least $0.50 to run');
                     done();
                 }
             );
@@ -429,6 +429,109 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                     done();
                 }
             );
+        });
+
+        // ── W3c adversarial: two claims the chip made that the server refuses ──
+        describe('the chip stops promising what the server will refuse (W3c)', () => {
+            const free = {...priced, compute_cost_estimate: 0.25};
+
+            it('says plain "Free" while free dispatches remain', (done) => {
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={free} canEdit canRunScenario paywallEnabled
+                        freeBand={{...FREE_BAND, cap: 3, usedToday: 1}}
+                    />,
+                    container,
+                    () => {
+                        expect(priceEl().textContent).toBe('Free');
+                        done();
+                    }
+                );
+            });
+
+            it('stops saying plain "Free" once today\'s free dispatches are used', (done) => {
+                // The dispatch gate refuses exactly these runs with `free_cap`
+                // (apps/gn_anuga/api_v2.py), counting the same query the summary
+                // reports as used_today — so the promise is refutable server-side
+                // before the customer ever clicks. Before TASK-2438 this chip
+                // rendered nothing at all for a never-run scenario, so the
+                // promise is newly introduced.
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={free} canEdit canRunScenario paywallEnabled
+                        freeBand={{...FREE_BAND, cap: 3, usedToday: 3}}
+                    />,
+                    container,
+                    () => {
+                        const el = priceEl();
+                        expect(el.textContent).toNotBe(
+                            'Free',
+                            'the chip guaranteed a free run the server refuses with free_cap'
+                        );
+                        expect(el.textContent).toInclude('daily limit reached');
+                        expect(el.getAttribute('title')).toInclude('refused');
+                        done();
+                    }
+                );
+            });
+
+            it('an UNLOADED free band (cap 0) under-warns rather than inventing a refusal', (done) => {
+                // The account reducer's initialState is {cap: 0, usedToday: 0},
+                // and 0 >= 0 would stamp "limit reached" on every render before
+                // GET /commerce/account/ lands.
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={{...free, latest_run: {price_band: '0'}}}
+                        canEdit canRunScenario paywallEnabled
+                        freeBand={{cap: 0, usedToday: 0, edge: '0.50', table: []}}
+                    />,
+                    container,
+                    () => {
+                        expect(priceEl().textContent).toBe('Free');
+                        done();
+                    }
+                );
+            });
+
+            it('the shortfall on an ESTIMATE keeps the hedge in both the sentence and the tooltip', (done) => {
+                // The over-balance title used to REPLACE the estimate caveat, so
+                // "add $2 to run" read as a precise instruction in the one state
+                // where the number is one. A larger built mesh can price higher,
+                // and then the customer is refused having done exactly what the
+                // chip told them.
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={priced} canEdit canRunScenario paywallEnabled
+                        freeBand={FREE_BAND} accountBalance="0.00"
+                        onOpenAccountBilling={() => {}}
+                    />,
+                    container,
+                    () => {
+                        const el = priceEl();
+                        expect(el.textContent).toInclude('at least');
+                        expect(el.getAttribute('title')).toInclude('confirmed when it builds');
+                        done();
+                    }
+                );
+            });
+
+            it('a BUILT run\'s shortfall carries NO hedge — its price is frozen off the real mesh', (done) => {
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={{...priced, latest_run: {price_band: '5'}}}
+                        canEdit canRunScenario paywallEnabled
+                        freeBand={FREE_BAND} accountBalance="0.00"
+                        onOpenAccountBilling={() => {}}
+                    />,
+                    container,
+                    () => {
+                        const el = priceEl();
+                        expect(el.textContent).toBe('Costs $5 · balance $0.00 · add $5 to run');
+                        expect(el.getAttribute('title')).toNotInclude('estimate');
+                        done();
+                    }
+                );
+            });
         });
 
         it('no customer-visible string anywhere in the strip says "band"', (done) => {
