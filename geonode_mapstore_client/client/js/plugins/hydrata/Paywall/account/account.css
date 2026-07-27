@@ -247,6 +247,15 @@
     background-color: rgba(255, 255, 255, 0.78);
 }
 
+/* TASK-2441 — checkout in flight. The Subscribe button beside it needs no new
+   rule: .sv-account-subscribe-btn also carries .sv-account-btn-sm, whose
+   :disabled rule below already covers it. */
+.sv-account-billing-tab .compute-meter-buy-pack-btn:disabled {
+    background-color: rgba(255, 255, 255, 0.45);
+    color: rgba(0, 60, 136, 0.55);
+    cursor: progress;
+}
+
 .sv-account-billing-tab .compute-meter-billing-policy-link {
     display: inline-block;
     align-self: flex-start;

@@ -439,3 +439,61 @@ describe('PaywallPanel — hard contract rule: lapse never auto-publishes', () =
         expect(c.querySelector('[data-testid="auto-publish-on-lapse"]')).toBe(null);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK-2441 (epic 2425 W4.2) — the upgrade modal's Subscribe CTA disables
+// while a checkout create is in flight.
+//
+// This CTA commits to $100/mo and had LESS double-submit protection than the
+// $10 credit pack: no disabled attribute at all. The epic's store-read filter
+// is the authoritative guard; this is the affordance that says the click
+// registered during the seconds before the Stripe tab opens.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('PaywallPanel — Subscribe CTA in-flight state (TASK-2441)', () => {
+    const renderUpgrade = (checkoutPending) => renderPaywall({
+        paywallEnabled: true,
+        checkoutPending,
+        paywallPayload: {
+            state: 'upgrade_prompt',
+            checkout_url: 'https://x/create-session/',
+            read_only: false,
+            visibility: 'private'
+        }
+    });
+
+    it('is disabled while a checkout is in flight', () => {
+        const doc = renderUpgrade(true);
+        expect(doc.querySelector('[data-testid="subscribe-cta"]').disabled).toBe(true);
+    });
+
+    it('is enabled when nothing is in flight', () => {
+        const doc = renderUpgrade(false);
+        expect(doc.querySelector('[data-testid="subscribe-cta"]').disabled).toBe(false);
+    });
+
+    it('is enabled by default (the prop is absent in fixture mode)', () => {
+        const doc = renderPaywall({
+            paywallEnabled: true,
+            fixtureMode: true,
+            fixtureState: 'upgrade_prompt'
+        });
+        expect(doc.querySelector('[data-testid="subscribe-cta"]').disabled).toBe(false);
+    });
+
+    it('a disabled CTA does not fire onSubscribeClick', () => {
+        let calls = 0;
+        const doc = renderPaywall({
+            paywallEnabled: true,
+            checkoutPending: true,
+            onSubscribeClick: () => { calls += 1; },
+            paywallPayload: {
+                state: 'upgrade_prompt',
+                checkout_url: 'https://x/create-session/',
+                read_only: false,
+                visibility: 'private'
+            }
+        });
+        doc.querySelector('[data-testid="subscribe-cta"]').click();
+        expect(calls).toBe(0);
+    });
+});

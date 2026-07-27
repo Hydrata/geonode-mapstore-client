@@ -151,6 +151,15 @@
     background-color: rgba(255, 255, 255, 0.78);
 }
 
+/* TASK-2441 — a checkout-session create is on the wire. Pseudo-class on the
+   EXISTING className rather than a --pending modifier, so no new class enters
+   the paywall CSS coverage guard's watch set. */
+.compute-meter-modal .compute-meter-buy-pack-btn:disabled {
+    background-color: rgba(255, 255, 255, 0.45);
+    color: rgba(0, 60, 136, 0.55);
+    cursor: progress;
+}
+
 /* Secondary actions — outlined, so the paid action is never ambiguous. */
 .compute-meter-view-account-link,
 .compute-meter-dismiss-btn {

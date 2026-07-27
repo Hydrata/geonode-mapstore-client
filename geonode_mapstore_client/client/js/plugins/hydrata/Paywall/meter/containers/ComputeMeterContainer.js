@@ -5,6 +5,8 @@
 import { connect } from 'react-redux';
 import ComputeMeterPanel from '../components/ComputeMeterPanel';
 import { getComputeMeterState } from '../reducer';
+// TASK-2441 (epic 2425 W4.2) — the account-scoped checkout in-flight flag.
+import { isCheckoutInFlight } from '../../reducer';
 import { dismissMeterModal } from '../actions';
 import { subscribeCheckoutRequest } from '../../actions';
 // TASK-2420 (epic 2359 W4.5) — "View account" on the refusal modals.
@@ -19,7 +21,8 @@ const mapStateToProps = (state) => {
     return {
         enabled: meter.enabled,
         availablePacks: meter.availablePacks,
-        modal: meter.modal
+        modal: meter.modal,
+        checkoutPending: isCheckoutInFlight(state)
     };
 };
 

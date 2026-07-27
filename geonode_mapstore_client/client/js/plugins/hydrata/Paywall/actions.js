@@ -40,6 +40,20 @@ export const CLEAR_PAYWALL_PENDING = 'PAYWALL:CLEAR_PENDING';
 export const SUBSCRIBE_CHECKOUT_REQUEST = 'PAYWALL:SUBSCRIBE_CHECKOUT_REQUEST';
 
 /**
+ * TASK-2441 (epic 2425 W4.2) — the create-session round-trip has finished, by
+ * ANY route: a session url returned, a 200 with no url, or an error. Clears the
+ * checkout in-flight flag SUBSCRIBE_CHECKOUT_REQUEST arms.
+ *
+ * There is deliberately ONE settle action rather than a success/error pair.
+ * Since UAT-2 the checkout opens in a NEW TAB (paywallEpics.js _openInNewTab),
+ * so the originating tab survives a success and no navigation ever unmounts the
+ * flag — a clear-on-error-only design would disable every buy control forever
+ * after the first successful purchase. Same shape, same reason, as
+ * SET_BILLING_PORTAL_OPENED (Paywall/account/actions.js).
+ */
+export const SUBSCRIBE_CHECKOUT_SETTLED = 'PAYWALL:SUBSCRIBE_CHECKOUT_SETTLED';
+
+/**
  * @param {string} checkoutUrl — from the 402 body (upgrade_prompt.checkout_url).
  * @param {string} visibility — the destination the customer was REFUSED, so the
  *   checkout can buy the tier they actually chose. Dropping it is what made a
@@ -79,4 +93,9 @@ export function clearPaywallPending() {
  */
 export function subscribeCheckoutRequest(purchaseType = 'subscription', extra = {}) {
     return { type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType, ...extra };
+}
+
+/** The create-session round-trip finished (success, empty body, or error). */
+export function subscribeCheckoutSettled() {
+    return { type: SUBSCRIBE_CHECKOUT_SETTLED };
 }

@@ -33,7 +33,13 @@ import Rx from 'rxjs';
 import { show } from '../../../../../MapStore2/web/client/actions/notifications';
 import * as anugaApi from '../api/anugaApi';
 import { INIT_ANUGA, fetchMyPerms, setMembershipPanel, setMembershipPanelTab } from '../actionsAnuga';
-import { SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING, setPaywallPending, clearPaywallPending } from '../../Paywall/actions';
+import {
+    SUBSCRIBE_CHECKOUT_REQUEST,
+    SET_PAYWALL_PENDING,
+    setPaywallPending,
+    clearPaywallPending,
+    subscribeCheckoutSettled
+} from '../../Paywall/actions';
 import { isPaywallPending, getPaywallDesiredVisibility } from '../../Paywall/reducer';
 import { fetchComputeBalance, dismissMeterModal } from '../../Paywall/meter/actions';
 import { fetchAccountSummary } from '../../Paywall/account/actions';
@@ -296,7 +302,35 @@ export const refreshMyPermsOnTabVisibleEpic = (action$, store) => (
 
 export const subscribeCheckoutEpic = (action$, store) => action$
     .ofType(SUBSCRIBE_CHECKOUT_REQUEST)
-    .switchMap(({ purchaseType, priceId, accountOnly }) => {
+    // TASK-2441 (epic 2425 W4.2) — THE double-submit guard. Two clicks used to
+    // create two live Stripe checkout sessions.
+    //
+    // `exhaustMap` IGNORES a source action while the inner stream is still
+    // running, so the projection below is never entered for the second click
+    // and `anugaApi.createCheckoutSession(...)` is never reached. That matters
+    // because the call is EAGER — it fires while the projection is still
+    // building its return value — which is precisely why the `switchMap` this
+    // replaces was not a guard: switchMap unsubscribes the first INNER stream,
+    // but by then the first POST has already left the browser AND the second
+    // one has been made. Anyone who reads an unsubscribe as cancellation will
+    // put switchMap back; it is not, and the money path is where that shows up.
+    //
+    // WHY NOT A STORE READ (`.filter(() => !isCheckoutInFlight(...))`), which is
+    // what this task originally specified: redux-observable dispatches to the
+    // REDUCER FIRST and to the epic second (redux-observable@0.19.0,
+    // createEpicMiddleware.js:79-80 — `next(action)` then `input$.next(action)`).
+    // The reducer arms checkoutInFlight on SUBSCRIBE_CHECKOUT_REQUEST, so that
+    // filter sees its OWN action's flag already set and refuses the FIRST click
+    // as well as the second — every buy control dead on arrival. The reducer
+    // flag is still the source of truth for the UI (it is what disables the
+    // controls); it just cannot also be this epic's self-guard. Verified by the
+    // two-clicks test in epicsAnuga-test.js, which counts POSTs on the mock.
+    //
+    // RESIDUAL, deliberately not closed here: nothing client-side survives two
+    // browser tabs or a reload mid-flight. CreateCheckoutSessionView.post
+    // (apps/commerce/checkout_views.py:399) has no idempotency key and creates
+    // the session unconditionally at :542 / :577. That is a backend task.
+    .exhaustMap(({ purchaseType, priceId, accountOnly }) => {
         // UAT-2 — `accountOnly` (Billing tab's Subscribe): the subscription is
         // ACCOUNT-scoped, so no project rides the session — no post-payment
         // visibility flip of whichever map the user happened to be viewing.
@@ -323,7 +357,20 @@ export const subscribeCheckoutEpic = (action$, store) => action$
                 if (url) {
                     _redirectTo(url);
                 }
-                return Rx.Observable.empty();
+                // TASK-2441 — the clear is UNCONDITIONAL, on both the url and
+                // the no-url branch. Two reasons it cannot be success-only or
+                // error-only:
+                //  - Since UAT-2 the checkout opens in a NEW TAB, so this page
+                //    survives a success and nothing else would ever clear it
+                //    (same fix, same reason, as requestBillingPortalEpic's
+                //    setBillingPortalOpened in accountEpics.js).
+                //  - The no-url branch used to emit nothing at all. With a flag
+                //    added, that silence becomes a permanent lock-out of every
+                //    buy control.
+                // The popup-blocked fallback same-tab navigates, so its clear is
+                // a harmless no-op — but the clear must not be conditional on
+                // which branch ran.
+                return Rx.Observable.of(subscribeCheckoutSettled());
             })
             .catch(() => Rx.Observable.of(
                 show({
@@ -331,7 +378,9 @@ export const subscribeCheckoutEpic = (action$, store) => action$
                     message: 'hydrata.anuga.checkoutFailed.message',
                     autoDismiss: 5,
                     position: 'tc'
-                }, 'error')
+                }, 'error'),
+                // A failed create must be retryable.
+                subscribeCheckoutSettled()
             ));
     });
 

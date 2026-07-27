@@ -62,7 +62,7 @@ const PropTypes = require('prop-types');
  * sites, or a failed lookup) — NEVER a hardcoded price->dollar map here.
  * A null amount renders the pre-2124 generic label so checkout still works.
  */
-function PackButtons({ availablePacks, testIdPrefix, onBuyPack, compact }) {
+function PackButtons({ availablePacks, testIdPrefix, onBuyPack, compact, pending }) {
     if (!availablePacks || availablePacks.length === 0) {
         return null;
     }
@@ -76,6 +76,14 @@ function PackButtons({ availablePacks, testIdPrefix, onBuyPack, compact }) {
                     key={priceId}
                     data-testid={`${testIdPrefix}-${priceId}`}
                     className="compute-meter-buy-pack-btn"
+                    // TASK-2441 — the native attribute, styled by a :disabled
+                    // rule rather than a modifier className (no new class, so
+                    // the paywall CSS coverage guard stays quiet). The
+                    // authoritative double-submit guard is the store read in
+                    // subscribeCheckoutEpic; this is the affordance that stops
+                    // the customer reaching for a second click during the
+                    // several seconds before the Stripe tab opens.
+                    disabled={pending}
                     onClick={() => onBuyPack(priceId)}
                 >
                     {compact
@@ -112,15 +120,19 @@ BillingPolicyLink.propTypes = {
 PackButtons.propTypes = {
     availablePacks: PropTypes.array,
     testIdPrefix: PropTypes.string.isRequired,
-    onBuyPack: PropTypes.func
+    onBuyPack: PropTypes.func,
+    compact: PropTypes.bool,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    pending: PropTypes.bool
 };
 
 PackButtons.defaultProps = {
     availablePacks: [],
-    onBuyPack: () => {}
+    onBuyPack: () => {},
+    pending: false
 };
 
-function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, variant }) {
+function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, variant, pending }) {
     // UAT-2 redesign — `variant="card"` (Account panel Billing tab only):
     // uppercase-labelled balance card, 2dp value, compact primary pack
     // buttons right of the figure. The default inline strip (refusal-modal
@@ -143,7 +155,7 @@ function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, varia
                     </span>
                     {availablePacks && availablePacks.length > 0 ? (
                         <span className="compute-meter-packs">
-                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} compact />
+                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} pending={pending} compact />
                         </span>
                     ) : null}
                 </div>
@@ -155,7 +167,7 @@ function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, varia
                     </span>
                     {availablePacks && availablePacks.length > 0 ? (
                         <span className="compute-meter-packs">
-                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} />
+                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} pending={pending} />
                         </span>
                     ) : null}
                 </React.Fragment>
@@ -180,14 +192,17 @@ BalanceStrip.propTypes = {
     availablePacks: PropTypes.array,
     recentEntries: PropTypes.array,
     onBuyPack: PropTypes.func,
-    variant: PropTypes.oneOf(['inline', 'card'])
+    variant: PropTypes.oneOf(['inline', 'card']),
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    pending: PropTypes.bool
 };
 
 BalanceStrip.defaultProps = {
     balance: null,
     availablePacks: [],
     recentEntries: [],
-    onBuyPack: () => {}
+    onBuyPack: () => {},
+    pending: false
 };
 
 /**
@@ -253,7 +268,7 @@ MeterModalHost.defaultProps = {
 };
 
 /** Insufficient-balance 402 -> modal -> pack purchase CTAs (AC#2). */
-function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss, onViewAccount }) {
+function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss, onViewAccount, checkoutPending }) {
     return (
         <div data-testid="meter-insufficient-balance-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
@@ -262,7 +277,7 @@ function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss
                     {detail}
                 </p>
                 <div className="compute-meter-modal-actions">
-                    <PackButtons availablePacks={availablePacks} testIdPrefix="meter-buy-pack-cta" onBuyPack={onBuyPack} />
+                    <PackButtons availablePacks={availablePacks} testIdPrefix="meter-buy-pack-cta" onBuyPack={onBuyPack} pending={checkoutPending} />
                     <ViewAccountLink testIdPrefix="meter-insufficient-balance" onViewAccount={onViewAccount} />
                     <button
                         type="button"
@@ -283,7 +298,9 @@ InsufficientBalanceModal.propTypes = {
     availablePacks: PropTypes.array,
     onBuyPack: PropTypes.func,
     onDismiss: PropTypes.func,
-    onViewAccount: PropTypes.func
+    onViewAccount: PropTypes.func,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    checkoutPending: PropTypes.bool
 };
 
 /**
@@ -381,6 +398,13 @@ class ComputeMeterPanel extends React.Component {
             detail: PropTypes.string
         }),
         onBuyPack: PropTypes.func,
+        /**
+         * TASK-2441 (epic 2425 W4.2) — a checkout-session create is on the
+         * wire, so every buy control disables. Mapped from the paywall slice's
+         * account-scoped flag (isCheckoutInFlight), not from local state: the
+         * same purchase can be started from three different surfaces.
+         */
+        checkoutPending: PropTypes.bool,
         onDismissModal: PropTypes.func,
         // TASK-2420 (epic 2359 W4.5) — "View account" on all three refusal
         // modals, opening the Account panel's Billing tab.
@@ -391,13 +415,14 @@ class ComputeMeterPanel extends React.Component {
         enabled: false,
         availablePacks: [],
         modal: null,
+        checkoutPending: false,
         onBuyPack: () => {},
         onDismissModal: () => {},
         onViewAccount: () => {}
     };
 
     render() {
-        const { enabled, availablePacks, modal, onBuyPack, onDismissModal, onViewAccount } = this.props;
+        const { enabled, availablePacks, modal, checkoutPending, onBuyPack, onDismissModal, onViewAccount } = this.props;
 
         // Kill-switch: render nothing when the backend reports no meter
         // (ships dark — see commerce.balance_views.AccountBalanceView).
@@ -424,6 +449,7 @@ class ComputeMeterPanel extends React.Component {
                     onBuyPack={onBuyPack}
                     onDismiss={onDismissModal}
                     onViewAccount={onViewAccount}
+                    checkoutPending={checkoutPending}
                 />
             );
         } else if (modal.type === 'cap_exceeded') {

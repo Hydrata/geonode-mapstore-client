@@ -562,3 +562,73 @@ describe('ComputeMeterPanel — "View account" on all three refusal modals (TASK
         expect(called).toBe(true);
     });
 });
+
+// ─── TASK-2441 (epic 2425 W4.2): buy controls disable while a checkout is in
+// flight ──────────────────────────────────────────────────────────────────────
+//
+// Two clicks used to create two live Stripe checkout sessions. The epic's store
+// read is the authoritative guard; this is the affordance that stops a customer
+// reaching for the second click during the ~4-6s of silence before the tab
+// opens. PackButtons has TWO mounts, so both are asserted — the Billing tab's
+// card strip is the one that spends money most often.
+describe('buy controls disabled while a checkout is in flight (TASK-2441)', () => {
+    const packs = [
+        {price_id: 'price_a', amount: '10', currency: 'usd'},
+        {price_id: 'price_b', amount: '25', currency: 'usd'}
+    ];
+
+    it('insufficient-balance modal: every pack CTA is disabled when checkoutPending', () => {
+        const c = render({
+            enabled: true,
+            availablePacks: packs,
+            checkoutPending: true,
+            modal: {type: 'insufficient_balance', detail: 'x'}
+        });
+        expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]').disabled).toBe(true);
+        expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_b"]').disabled).toBe(true);
+    });
+
+    it('insufficient-balance modal: pack CTAs are enabled when nothing is in flight', () => {
+        const c = render({
+            enabled: true,
+            availablePacks: packs,
+            modal: {type: 'insufficient_balance', detail: 'x'}
+        });
+        expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]').disabled).toBe(false);
+        expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_b"]').disabled).toBe(false);
+    });
+
+    it('BalanceStrip (Billing tab card): pack buttons are disabled when pending', () => {
+        const c = renderInContainer(
+            <BalanceStrip balance="15.00" availablePacks={packs} variant="card" pending />
+        );
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(true);
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_b"]').disabled).toBe(true);
+    });
+
+    it('BalanceStrip (inline variant): pack buttons are disabled when pending', () => {
+        const c = renderInContainer(
+            <BalanceStrip balance="15.00" availablePacks={packs} pending />
+        );
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(true);
+    });
+
+    it('BalanceStrip: pack buttons are enabled by default', () => {
+        const c = renderInContainer(<BalanceStrip balance="15.00" availablePacks={packs} />);
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(false);
+    });
+
+    it('a disabled pack button does not fire onBuyPack', () => {
+        let calls = 0;
+        const c = renderInContainer(
+            <BalanceStrip
+                balance="15.00"
+                availablePacks={packs}
+                pending
+                onBuyPack={() => { calls += 1; }}
+            />
+        );
+        c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').click();
+        expect(calls).toBe(0);
+    });
+});

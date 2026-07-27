@@ -31,7 +31,9 @@ import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
     SET_PAYWALL_PENDING,
-    CLEAR_PAYWALL_PENDING
+    CLEAR_PAYWALL_PENDING,
+    SUBSCRIBE_CHECKOUT_REQUEST,
+    SUBSCRIBE_CHECKOUT_SETTLED
 } from './actions';
 
 /**
@@ -61,7 +63,14 @@ const initialState = {
     // W3d — the same stamp for `overlay`. W2.7 stamped `steady` only, and
     // getEffectivePaywallPayload reads `overlay` FIRST, so the guard was
     // short-circuited exactly when an overlay existed. See below.
-    overlayProjectId: null
+    overlayProjectId: null,
+    // TASK-2441 (epic 2425 W4.2) — a create-session POST is on the wire. Read
+    // by subscribeCheckoutEpic's double-submit filter and by every buy control.
+    // ACCOUNT-scoped on purpose, and deliberately NOT stamped with a project:
+    // the Billing tab's Subscribe is `accountOnly` and rides no project at all
+    // (BillingTabContainer.js -> paywallEpics.js), so a project-guarded flag
+    // would silently never arm for the one control that commits to $100/mo.
+    checkoutInFlight: false
 };
 
 export default (state = initialState, action) => {
@@ -131,6 +140,13 @@ export default (state = initialState, action) => {
         return (state.overlay && state.overlay.state === 'pending')
             ? { ...state, overlay: null, overlayProjectId: null }
             : state;
+    // TASK-2441 — checkout in-flight, armed on the click and cleared by the
+    // epic on EVERY branch of the round-trip. Mirrors the shipped
+    // REQUEST_BILLING_PORTAL -> portalLoading pair in account/reducer.js.
+    case SUBSCRIBE_CHECKOUT_REQUEST:
+        return { ...state, checkoutInFlight: true };
+    case SUBSCRIBE_CHECKOUT_SETTLED:
+        return { ...state, checkoutInFlight: false };
     default:
         return state;
     }
@@ -184,6 +200,20 @@ export const getPaywallSteady = (state) => {
     if (!slice || !slice.steady) return null;
     return _describesLoadedProject(state, slice.steadyProjectId) ? slice.steady : null;
 };
+
+/**
+ * TASK-2441 — is a checkout-session create on the wire right now?
+ *
+ * Null-safe in the same shape as getPaywallSteady above: an absent slice reads
+ * `false`. Several epic-test stores mount `anuga` with no `paywall` key at all
+ * (epicsAnuga-test.js storeWithProjectId), and this selector is read on every
+ * SUBSCRIBE_CHECKOUT_REQUEST, so an unguarded read would throw inside the epic.
+ *
+ * NOT routed through _describesLoadedProject — see initialState.checkoutInFlight
+ * for why the flag is account-scoped rather than project-scoped.
+ */
+export const isCheckoutInFlight = (state) =>
+    !!(state && state.anuga && state.anuga.paywall && state.anuga.paywall.checkoutInFlight);
 
 /**
  * The overlay, but ONLY if it describes the project now loaded.

@@ -147,7 +147,7 @@ const TIER_COPY_NEUTRAL = {
  * entry/trap/restore, Escape). Before that it was a full-viewport
  * click-absorbing scrim with none of them.
  */
-function UpgradeModal({ checkoutUrl, visibility, onDismiss, onSubscribeClick, onViewAccount }) {
+function UpgradeModal({ checkoutUrl, visibility, onDismiss, onSubscribeClick, onViewAccount, checkoutPending }) {
     const copy = TIER_COPY[visibility] || TIER_COPY_NEUTRAL;
     return (
         <div data-testid="upgrade-modal" className="paywall-upgrade-modal-overlay">
@@ -165,6 +165,11 @@ function UpgradeModal({ checkoutUrl, visibility, onDismiss, onSubscribeClick, on
                         data-tier={visibility || null}
                         className="paywall-subscribe-btn"
                         data-href={checkoutUrl}
+                        // TASK-2441 — this CTA commits to $100/mo and had LESS
+                        // double-submit protection than the $10 credit pack.
+                        // The authoritative guard is subscribeCheckoutEpic's
+                        // store read; this is the affordance.
+                        disabled={checkoutPending}
                         onClick={() => onSubscribeClick(checkoutUrl)}
                     >
                         {copy.cta}
@@ -203,7 +208,9 @@ UpgradeModal.propTypes = {
     visibility: PropTypes.string,
     onDismiss: PropTypes.func,
     onSubscribeClick: PropTypes.func,
-    onViewAccount: PropTypes.func
+    onViewAccount: PropTypes.func,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    checkoutPending: PropTypes.bool
 };
 
 UpgradeModal.defaultProps = {
@@ -211,7 +218,8 @@ UpgradeModal.defaultProps = {
     visibility: null,
     onDismiss: () => {},
     onSubscribeClick: () => {},
-    onViewAccount: () => {}
+    onViewAccount: () => {},
+    checkoutPending: false
 };
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -249,7 +257,14 @@ class PaywallPanel extends React.Component {
         onSubscribeClick: PropTypes.func,
 
         /** TASK-2420 — "View account" on the upgrade_prompt modal -> Billing tab. */
-        onViewAccount: PropTypes.func
+        onViewAccount: PropTypes.func,
+
+        /**
+         * TASK-2441 (epic 2425 W4.2) — a checkout-session create is on the
+         * wire, so the Subscribe CTA disables. Account-scoped: the same
+         * purchase can be started from the Billing tab instead.
+         */
+        checkoutPending: PropTypes.bool
     };
 
     static defaultProps = {
@@ -259,7 +274,8 @@ class PaywallPanel extends React.Component {
         fixtureState: null,
         onDismissUpgrade: () => {},
         onSubscribeClick: () => {},
-        onViewAccount: () => {}
+        onViewAccount: () => {},
+        checkoutPending: false
     };
 
     /**
@@ -288,7 +304,7 @@ class PaywallPanel extends React.Component {
     }
 
     render() {
-        const { paywallEnabled, onDismissUpgrade, onSubscribeClick, onViewAccount } = this.props;
+        const { paywallEnabled, onDismissUpgrade, onSubscribeClick, onViewAccount, checkoutPending } = this.props;
 
         // Kill-switch: render nothing when disabled (dark ship default).
         if (!paywallEnabled) {
@@ -321,6 +337,7 @@ class PaywallPanel extends React.Component {
                         onDismiss={onDismissUpgrade}
                         onSubscribeClick={onSubscribeClick}
                         onViewAccount={onViewAccount}
+                        checkoutPending={checkoutPending}
                     />
                 </ModalHost>
             );

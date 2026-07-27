@@ -2105,7 +2105,13 @@ describe('ANUGA Epics', () => {
             __setRedirectForTests
         } = require('../epics/paywallEpics');
         const {FETCH_MY_PERMS} = require('../actionsAnuga');
-        const {SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING} = require('../../Paywall/actions');
+        const {
+            SUBSCRIBE_CHECKOUT_REQUEST,
+            SUBSCRIBE_CHECKOUT_SETTLED,
+            SET_PAYWALL_PENDING
+        } = require('../../Paywall/actions');
+        const paywallReducer = require('../../Paywall/reducer').default;
+        const {isCheckoutInFlight} = require('../../Paywall/reducer');
         const {FETCH_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
 
         let mockAxios;
@@ -2461,7 +2467,12 @@ describe('ANUGA Epics', () => {
 
                 subscribeCheckoutEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(0); // no action emitted; redirect is the side effect
+                        // TASK-2441 — the redirect is still the substantive side
+                        // effect, but the in-flight flag must also be cleared:
+                        // the new tab leaves THIS page alive, so nothing else
+                        // ever would (see AC#3).
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SUBSCRIBE_CHECKOUT_SETTLED);
                         expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_abc');
                         done();
                     });
@@ -2554,7 +2565,8 @@ describe('ANUGA Epics', () => {
 
                 subscribeCheckoutEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(0);
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SUBSCRIBE_CHECKOUT_SETTLED);
                         expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_acct');
                         done();
                     });
@@ -2579,7 +2591,8 @@ describe('ANUGA Epics', () => {
 
                 subscribeCheckoutEpic(action$, store)
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(0);
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SUBSCRIBE_CHECKOUT_SETTLED);
                         expect(redirectedTo).toBe('https://checkout.stripe.com/pay/cs_test_rmid');
                         done();
                     });
@@ -2595,15 +2608,131 @@ describe('ANUGA Epics', () => {
 
                 subscribeCheckoutEpic(action$, storeWithProjectId(42))
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(1);
+                        // TASK-2441 — notification AND the in-flight clear, so a
+                        // failed create is retryable.
+                        expect(emitted.length).toBe(2);
                         expect(emitted[0].type).toInclude('NOTIFICATION');
                         // UAT-2 green-error-toast regression: show()'s level is
                         // its SECOND ARG — a level key inside opts is silently
                         // overwritten to 'success'.
                         expect(emitted[0].level).toBe('error');
+                        expect(emitted[1].type).toBe(SUBSCRIBE_CHECKOUT_SETTLED);
                         expect(redirectedTo).toBe(null);
                         done();
                     });
+            });
+
+            // ── TASK-2441 (epic 2425 W4.2): two clicks, ONE Stripe session ──
+            //
+            // The headline defect. `switchMap` is NOT a double-submit guard:
+            // anugaApi.createCheckoutSession(...) is invoked EAGERLY in the
+            // projection, so the first POST has already left the browser by the
+            // time the second action unsubscribes the first inner stream.
+            // `exhaustMap` is the guard — it never enters the projection at all
+            // while the first inner stream is running.
+            describe('double-submit guard (TASK-2441)', () => {
+                // The store stub reduces through the REAL paywall reducer as
+                // each action is emitted, in redux-observable's REAL order:
+                // reducer first, epic second (redux-observable@0.19.0,
+                // createEpicMiddleware.js:79-80). mockActions pairs with a
+                // STATIC store, which would prove nothing here.
+                //
+                // That ordering is also why the guard cannot be the store read
+                // `.filter(() => !isCheckoutInFlight(store.getState()))` this
+                // task first specified: the flag is armed by the reducer before
+                // the epic ever sees the action, so such a filter refuses the
+                // FIRST click too and every buy control is dead. This test
+                // caught exactly that (it reported "0 Stripe checkout sessions"
+                // for two clicks), so keep the reduce-then-emit order below —
+                // a stub that emits before reducing would let the broken design
+                // pass.
+                const storeReducingPaywall = (projectId) => {
+                    let paywall = paywallReducer(undefined, {type: '@@INIT'});
+                    return {
+                        getState: () => ({anuga: {projects: {data: {id: projectId}}, paywall}}),
+                        __reduce: (action) => { paywall = paywallReducer(paywall, action); }
+                    };
+                };
+                const actionsThroughStore = (actions, store) => {
+                    const subject = new Rx.Subject();
+                    const action$ = subject.asObservable();
+                    action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+                    setTimeout(() => {
+                        actions.forEach(a => { store.__reduce(a); subject.next(a); });
+                        subject.complete();
+                    }, 0);
+                    return action$;
+                };
+
+                it('a second click while a create is in flight POSTs create-session exactly ONCE', (done) => {
+                    let posts = 0;
+                    mockAxios.onPost('/commerce/checkout/create-session/').reply(() => {
+                        posts += 1;
+                        return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_dupe'}];
+                    });
+                    __setRedirectForTests(() => {});
+
+                    const store = storeReducingPaywall(42);
+                    const action$ = actionsThroughStore([
+                        {type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'credit_pack', priceId: 'price_x'},
+                        {type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'credit_pack', priceId: 'price_x'}
+                    ], store);
+
+                    subscribeCheckoutEpic(action$, store).subscribe(() => {}, done, () => {
+                        // Counted on the POST handler, NOT inferred from an
+                        // absent second redirect: two live Stripe sessions is
+                        // the defect, and the second one redirects nowhere.
+                        setTimeout(() => {
+                            try {
+                                expect(posts).toBe(1, `two clicks created ${posts} Stripe checkout sessions`);
+                                done();
+                            } catch (err) { done(err); }
+                        }, 100);
+                    });
+                });
+
+                it('a 200 carrying NO checkout_url still clears the flag (no permanent lock-out)', (done) => {
+                    mockAxios.onPost('/commerce/checkout/create-session/').reply(200, {});
+                    let redirectedTo = null;
+                    __setRedirectForTests((url) => { redirectedTo = url; });
+
+                    const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}]);
+                    const emitted = [];
+
+                    subscribeCheckoutEpic(action$, storeWithProjectId(42))
+                        .subscribe(a => emitted.push(a), done, () => {
+                            // This branch used to emit NOTHING at all, which with
+                            // a flag added disables every buy control forever.
+                            expect(emitted.length).toBe(1);
+                            expect(emitted[0].type).toBe(SUBSCRIBE_CHECKOUT_SETTLED);
+                            expect(redirectedTo).toBe(null);
+                            done();
+                        });
+                });
+
+                it('the flag ends up clear after a successful create, so the NEXT purchase is possible', (done) => {
+                    mockAxios.onPost('/commerce/checkout/create-session/')
+                        .reply(200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_ok'});
+                    __setRedirectForTests(() => {});
+
+                    const store = storeReducingPaywall(42);
+                    const action$ = actionsThroughStore(
+                        [{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}], store
+                    );
+
+                    subscribeCheckoutEpic(action$, store).subscribe(
+                        (a) => { store.__reduce(a); },
+                        done,
+                        () => {
+                            setTimeout(() => {
+                                try {
+                                    expect(isCheckoutInFlight(store.getState())).toBe(false);
+                                    done();
+                                } catch (err) { done(err); }
+                            }, 100);
+                        }
+                    );
+                });
             });
         });
     });

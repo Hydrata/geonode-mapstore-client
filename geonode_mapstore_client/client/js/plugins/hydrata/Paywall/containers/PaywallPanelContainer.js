@@ -9,12 +9,15 @@
  */
 import { connect } from 'react-redux';
 import PaywallPanel from '../components/PaywallPanel';
-import { getEffectivePaywallPayload } from '../reducer';
+import { getEffectivePaywallPayload, isCheckoutInFlight } from '../reducer';
 import { dismissPaywallUpgrade, subscribeCheckoutRequest } from '../actions';
 import { setMembershipPanel, setMembershipPanelTab } from '../../Anuga/actionsAnuga';
 
 const mapStateToProps = (state) => ({
-    paywallPayload: getEffectivePaywallPayload(state)
+    paywallPayload: getEffectivePaywallPayload(state),
+    // TASK-2441 (epic 2425 W4.2) — disables the Subscribe CTA while a
+    // create-session POST is on the wire.
+    checkoutPending: isCheckoutInFlight(state)
 });
 
 // TASK-2463 (epic 2425 W2.5) dropped two handlers with the components that

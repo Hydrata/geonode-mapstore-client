@@ -177,6 +177,13 @@
     background-color: rgba(255, 255, 255, 0.88);
 }
 
+/* TASK-2441 — a checkout-session create is on the wire. */
+.paywall-subscribe-btn:disabled {
+    background-color: rgba(255, 255, 255, 0.45);
+    color: rgba(0, 60, 136, 0.55);
+    cursor: progress;
+}
+
 .paywall-view-account-btn,
 .paywall-dismiss-btn {
     background-color: transparent;

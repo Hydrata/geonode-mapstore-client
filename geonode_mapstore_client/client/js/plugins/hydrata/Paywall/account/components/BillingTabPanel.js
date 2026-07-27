@@ -107,7 +107,7 @@ FreeBandSection.propTypes = {
  * subscribe CTA itself (a $100/mo recurring commitment is the manager's
  * call alone, TASK-2364's Account.manager-only decision).
  */
-function SubscriptionSection({ subscription, isManager, manager, onSubscribe, onManageBilling, portalLoading }) {
+function SubscriptionSection({ subscription, isManager, manager, onSubscribe, onManageBilling, portalLoading, checkoutPending }) {
     const active = !!subscription?.active;
     const since = subscription?.since;
     // UAT-2 redesign — "Private models" label + state pill on one line with
@@ -142,9 +142,16 @@ function SubscriptionSection({ subscription, isManager, manager, onSubscribe, on
                                 type="button"
                                 data-testid="sv-account-subscribe-btn"
                                 className="sv-account-btn-sm sv-account-subscribe-btn"
+                                // TASK-2441 (epic 2425 W4.2) — exactly the
+                                // sibling Manage-billing treatment above. This
+                                // button commits to $100/mo and, until now, had
+                                // no double-submit protection at all while its
+                                // neighbour did. .sv-account-btn-sm:disabled
+                                // (account.css) already styles the state.
+                                disabled={checkoutPending}
                                 onClick={onSubscribe}
                             >
-                                Subscribe
+                                {checkoutPending ? 'Opening…' : 'Subscribe'}
                             </button>
                         )
                     ) : null}
@@ -169,7 +176,9 @@ SubscriptionSection.propTypes = {
     manager: PropTypes.string,
     onSubscribe: PropTypes.func,
     onManageBilling: PropTypes.func,
-    portalLoading: PropTypes.bool
+    portalLoading: PropTypes.bool,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    checkoutPending: PropTypes.bool
 };
 
 /*
@@ -191,7 +200,7 @@ SubscriptionSection.propTypes = {
  */
 function BillingTabPanel({
     loaded, organisation, isPersonal, manager, isManager, balance, freeBand, subscription,
-    availablePacks, recentEntries, portalLoading, portalError,
+    availablePacks, recentEntries, portalLoading, portalError, checkoutPending,
     onBuyPack, onSubscribe, onManageBilling
 }) {
     if (!loaded) {
@@ -213,6 +222,7 @@ function BillingTabPanel({
                 availablePacks={availablePacks}
                 onBuyPack={onBuyPack}
                 variant="card"
+                pending={checkoutPending}
             />
             <FreeBandSection freeBand={freeBand} />
             <SubscriptionSection
@@ -222,6 +232,7 @@ function BillingTabPanel({
                 onSubscribe={onSubscribe}
                 onManageBilling={onManageBilling}
                 portalLoading={portalLoading}
+                checkoutPending={checkoutPending}
             />
             {portalError ? (
                 <div className="sv-account-portal-error" data-testid="sv-account-portal-error">
@@ -294,6 +305,8 @@ BillingTabPanel.propTypes = {
     recentEntries: PropTypes.array,
     portalLoading: PropTypes.bool,
     portalError: PropTypes.string,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    checkoutPending: PropTypes.bool,
     onBuyPack: PropTypes.func,
     onSubscribe: PropTypes.func,
     onManageBilling: PropTypes.func
@@ -304,6 +317,7 @@ BillingTabPanel.defaultProps = {
     isPersonal: true,
     availablePacks: [],
     recentEntries: [],
+    checkoutPending: false,
     onBuyPack: () => {},
     onSubscribe: () => {},
     onManageBilling: () => {}

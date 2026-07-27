@@ -7,6 +7,7 @@ import paywallReducer, {
     getEffectivePaywallPayload,
     getPaywallDesiredVisibility,
     getPaywallSteady,
+    isCheckoutInFlight,
     isPaywallPending
 } from '../reducer';
 import {getPaywallSteadyState, isPaywallPastDue} from '../selectors';
@@ -15,7 +16,9 @@ import {
     SET_PAYWALL_UPGRADE_PROMPT,
     DISMISS_PAYWALL_UPGRADE,
     SET_PAYWALL_PENDING,
-    CLEAR_PAYWALL_PENDING
+    CLEAR_PAYWALL_PENDING,
+    subscribeCheckoutRequest,
+    subscribeCheckoutSettled
 } from '../actions';
 
 // The pending overlay's exact shape, spelled out once so the toEqual assertions
@@ -357,6 +360,63 @@ describe('TASK-2099 Paywall reducer', () => {
             // decide what tier THIS project is bought at.
             expect(getPaywallDesiredVisibility(withProject(refusalFor(7, 'organization'), 8)))
                 .toBe(null);
+        });
+    });
+
+    // ── TASK-2441 (epic 2425 W4.2): the checkout in-flight flag ─────────────
+    //
+    // The single source of truth the epic's double-submit filter reads and
+    // every buy control disables on. Shape copied from the shipped
+    // REQUEST_BILLING_PORTAL -> portalLoading precedent
+    // (Paywall/account/reducer.js:62-67).
+    describe('checkout in-flight flag (TASK-2441)', () => {
+        const mount = (paywall, loadedId) => ({
+            anuga: {paywall, projects: {data: {id: loadedId}}}
+        });
+
+        it('starts clear', () => {
+            expect(paywallReducer(undefined, {type: '@@INIT'}).checkoutInFlight).toBe(false);
+        });
+
+        it('SUBSCRIBE_CHECKOUT_REQUEST arms it', () => {
+            const state = paywallReducer(
+                undefined, subscribeCheckoutRequest('credit_pack', {priceId: 'price_x'})
+            );
+            expect(state.checkoutInFlight).toBe(true);
+            expect(isCheckoutInFlight(mount(state, 7))).toBe(true);
+        });
+
+        it('the settle action clears it', () => {
+            const armed = paywallReducer(undefined, subscribeCheckoutRequest('subscription'));
+            const settled = paywallReducer(armed, subscribeCheckoutSettled());
+            expect(settled.checkoutInFlight).toBe(false);
+            expect(isCheckoutInFlight(mount(settled, 7))).toBe(false);
+        });
+
+        it('an unrelated action leaves it untouched', () => {
+            const armed = paywallReducer(undefined, subscribeCheckoutRequest('subscription'));
+            expect(paywallReducer(armed, {type: SET_PAYWALL_PENDING}).checkoutInFlight).toBe(true);
+            expect(paywallReducer(armed, {type: 'SOMETHING:ELSE'}).checkoutInFlight).toBe(true);
+        });
+
+        it('the selector is null-safe — an absent slice reads false, never throws', () => {
+            // storeWithProjectId in epicsAnuga-test.js mounts `anuga` with no
+            // paywall key at all; a selector that assumed the slice would
+            // redden epic tests that never touched checkout.
+            expect(isCheckoutInFlight(undefined)).toBe(false);
+            expect(isCheckoutInFlight({})).toBe(false);
+            expect(isCheckoutInFlight({anuga: {}})).toBe(false);
+            expect(isCheckoutInFlight({anuga: {projects: {data: {id: 7}}}})).toBe(false);
+        });
+
+        it('is NOT project-guarded — the Billing tab Subscribe rides no project', () => {
+            // accountOnly checkouts (BillingTabContainer.js:33) carry no
+            // project, and the Billing tab can be open with a project loaded
+            // whose id would never match. Routing this flag through
+            // _describesLoadedProject would silently never arm for them.
+            const armed = paywallReducer(undefined, subscribeCheckoutRequest('subscription', {accountOnly: true}));
+            expect(isCheckoutInFlight(mount(armed, 42))).toBe(true);
+            expect(isCheckoutInFlight({anuga: {paywall: armed, projects: {data: null}}})).toBe(true);
         });
     });
 });

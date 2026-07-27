@@ -274,3 +274,58 @@ describe('BillingTabPanel — no post-checkout confirmation notice (W2.10 revert
         expect(c.querySelector('.compute-meter-balance')).toExist();
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK-2441 (epic 2425 W4.2) — the Billing tab's money controls disable while
+// a checkout create is in flight.
+//
+// Both surfaces on this tab spend money: the credit-pack buttons in the balance
+// card and the $100/mo Subscribe button. Subscribe had no double-submit
+// protection whatsoever, while its own sibling Manage-billing has carried
+// `disabled={portalLoading}` since UAT-2 — this closes that asymmetry using the
+// same treatment.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('BillingTabPanel — checkout in-flight state (TASK-2441)', () => {
+    const base = {
+        loaded: true,
+        isManager: true,
+        manager: 'dave',
+        balance: '15.00',
+        freeBand: baseFreeBand,
+        subscription: {active: false},
+        availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}]
+    };
+
+    it('Subscribe is disabled and acknowledges the click while a checkout is in flight', () => {
+        const c = render({...base, checkoutPending: true});
+        const btn = c.querySelector('[data-testid="sv-account-subscribe-btn"]');
+        expect(btn.disabled).toBe(true);
+        // Mirrors the sibling Manage-billing button's shipped 'Opening…'
+        // treatment — a greyed button with unchanged copy still reads as dead.
+        expect(btn.textContent).toBe('Opening…');
+    });
+
+    it('Subscribe is enabled with its normal label when nothing is in flight', () => {
+        const c = render(base);
+        const btn = c.querySelector('[data-testid="sv-account-subscribe-btn"]');
+        expect(btn.disabled).toBe(false);
+        expect(btn.textContent).toBe('Subscribe');
+    });
+
+    it('the balance card pack buttons are disabled while a checkout is in flight', () => {
+        const c = render({...base, checkoutPending: true});
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(true);
+    });
+
+    it('the balance card pack buttons are enabled by default', () => {
+        const c = render(base);
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(false);
+    });
+
+    it('a disabled Subscribe does not fire onSubscribe', () => {
+        let calls = 0;
+        const c = render({...base, checkoutPending: true, onSubscribe: () => { calls += 1; }});
+        c.querySelector('[data-testid="sv-account-subscribe-btn"]').click();
+        expect(calls).toBe(0);
+    });
+});
