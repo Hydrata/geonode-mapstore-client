@@ -30,6 +30,16 @@ const initialState = {
     // `loading` prop): that means the memberships LIST, and reusing it would
     // grey out the visibility rows on an unrelated list refresh.
     visibilityPending: null,
+    // W3c adversarial — WHICH project `visibilityPending` is about. It carried
+    // no identity and nothing resets it on an SPA nav, so an in-flight PATCH on
+    // project A disabled project B's Sharing rows and rendered the "Working…"
+    // pill on a row nobody clicked — a claim that B's visibility was being
+    // changed when nothing about B was ever requested. The SET_ANUGA_RESOURCE_PERMS
+    // case below already refuses a payload stamped for another project, for the
+    // same reason and in the same words; this is that guard applied to the half
+    // of the slice TASK-2440 added afterwards. Stamped from `data.id` at reduce
+    // time rather than carried on the action, so the two can never disagree.
+    visibilityPendingProjectId: null,
     anugaHomePageResources: null
 };
 
@@ -97,9 +107,13 @@ export default (state = initialState, action) => {
     // the round-trip. Same shape as the shipped REQUEST_BILLING_PORTAL ->
     // portalLoading pair (Paywall/account/reducer.js).
     case UPDATE_PROJECT_VISIBILITY_REQUEST:
-        return { ...state, visibilityPending: action.visibility || null };
+        return {
+            ...state,
+            visibilityPending: action.visibility || null,
+            visibilityPendingProjectId: (state.data && state.data.id) ?? null
+        };
     case UPDATE_PROJECT_VISIBILITY_SETTLED:
-        return { ...state, visibilityPending: null };
+        return { ...state, visibilityPending: null, visibilityPendingProjectId: null };
     case SET_ANUGA_INIT_IN_FLIGHT:
         // action.mapId is the live gnresource.id when set, or false to clear.
         return {

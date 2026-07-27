@@ -1921,6 +1921,56 @@ describe('ANUGA Epics', () => {
                 expect(getProjectVisibilityPending(undefined)).toBe(null);
             });
 
+            // ── W3c adversarial: the flag is about ONE project ───────────────
+            //
+            // Nothing resets this slice on an SPA nav, so an in-flight PATCH for
+            // A used to disable B's three Sharing rows and render the "Working…"
+            // pill on a row nobody clicked. The reducer three cases above already
+            // refuses a my_perms payload stamped for another project, and says
+            // why; this is the same guard on the half TASK-2440 added later.
+            describe('and it is scoped to the project it was clicked on', () => {
+                const onProject = (id) => projectsReducer(undefined, {
+                    type: 'SET_ANUGA_PROJECT_DATA', data: {id, visibility: 'public'}
+                });
+
+                it('records which project the request is about', () => {
+                    const armed = projectsReducer(onProject(42), updateProjectVisibilityRequest('private'));
+                    expect(armed.visibilityPendingProjectId).toBe(42);
+                });
+
+                it('reads through on the project it was armed for', () => {
+                    const armed = projectsReducer(onProject(42), updateProjectVisibilityRequest('private'));
+                    expect(getProjectVisibilityPending(mount(armed))).toBe('private');
+                });
+
+                it('goes SILENT after a nav to another project — B was never asked to change', () => {
+                    let state = projectsReducer(onProject(42), updateProjectVisibilityRequest('private'));
+                    state = projectsReducer(state, {
+                        type: 'SET_ANUGA_PROJECT_DATA', data: {id: 77, visibility: 'public'}
+                    });
+                    expect(getProjectVisibilityPending(mount(state))).toBe(
+                        null,
+                        'a PATCH in flight for project A disabled project B\'s Sharing rows '
+                        + 'and put "Working…" on one of them'
+                    );
+                    // The request itself is untouched — A's settle still clears it.
+                    expect(state.visibilityPending).toBe('private');
+                });
+
+                it('an UNSTAMPED flag still reads through (fail-safe, matching the perms guard)', () => {
+                    const armed = projectsReducer(undefined, updateProjectVisibilityRequest('private'));
+                    expect(armed.visibilityPendingProjectId).toBe(null);
+                    expect(getProjectVisibilityPending(mount({...armed, data: {id: 9}}))).toBe('private');
+                });
+
+                it('the settle clears the stamp with the flag', () => {
+                    let state = projectsReducer(onProject(42), updateProjectVisibilityRequest('private'));
+                    state = projectsReducer(state, {type: UPDATE_PROJECT_VISIBILITY_SETTLED});
+                    expect(state.visibilityPending).toBe(null);
+                    expect(state.visibilityPendingProjectId).toBe(null);
+                });
+            });
+
             it('SUCCESS emits exactly one settle, AFTER the project data write', (done) => {
                 mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(200, {
                     id: 42, visibility: 'public', my_role: 'owner'

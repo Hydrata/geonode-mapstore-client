@@ -21,9 +21,24 @@ export const getProjectVisibility = (state) =>
  * Note the shape: this sits on the projects SLICE, not on `projects.data`,
  * because it describes an in-flight request and not the stored project. Reading
  * it from `data` would be the first step towards an optimistic write.
+ *
+ * W3c adversarial — AND ONLY WHEN IT IS ABOUT THE PROJECT ON SCREEN. Nothing
+ * resets the slice on an SPA nav, so a PATCH still in flight for project A used
+ * to disable project B's three Sharing rows and put the "Working…" pill on one
+ * of them: a claim that B's visibility was being changed, when nothing about B
+ * had been requested. Same rule as the reducer's SET_ANUGA_RESOURCE_PERMS
+ * guard — refuse only a stamp that POSITIVELY disagrees with a known loaded
+ * project, so an unstamped flag or a not-yet-loaded project still reads through.
  */
-export const getProjectVisibilityPending = (state) =>
-    state?.anuga?.projects?.visibilityPending || null;
+export const getProjectVisibilityPending = (state) => {
+    const projects = state?.anuga?.projects;
+    if (!projects || !projects.visibilityPending) return null;
+    const stamped = projects.visibilityPendingProjectId;
+    const loaded = projects.data && projects.data.id;
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+    if (stamped != null && loaded != null && stamped !== loaded) return null;
+    return projects.visibilityPending;
+};
 
 // Legacy selectors — now read from project my_role instead of gnresource
 export const canViewAnugaMap = (state) =>
