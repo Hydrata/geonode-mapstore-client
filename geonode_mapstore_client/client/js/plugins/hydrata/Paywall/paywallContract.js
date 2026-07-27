@@ -29,7 +29,7 @@ export const CONTRACT_FIXTURE = {
         "authored_by": "TASK-1363/W3",
         "purpose": "Canonical paywall contract fixture — anti-drift source of truth for the my_perms `paywall` block. TASK-1356/1357/1350-Karma consume this file verbatim. Do not edit the shape without updating the derivation table in docs/strategy/paywall-contract.md and re-running the W3 gate tests.",
         "version": "1.1",
-        "note_on_v1.1": "TASK-2432 (W1.2, epic 2425) added the `paid_organization` state and widened `paid_private`/`past_due`'s backend_condition to organization where applicable. geonode-mapstore-client's Paywall/paywallContract.js is a manually-maintained VERBATIM copy of this file (not an import) and its PaywallPanel.js consumer does NOT yet have a case for `paid_organization` (falls through to its default/blank branch) — this is a KNOWN gmc gap flagged for operator decision, out of scope for the hydrata-repo wave that authored this bump (see epic TASK-2425 wave W1 novel_questions).",
+        "note_on_v1.1": "TASK-2432 (W1.2, epic 2425) added the `paid_organization` state and widened `paid_private`/`past_due`'s backend_condition to organization where applicable. geonode-mapstore-client's Paywall/paywallContract.js is a manually-maintained VERBATIM copy of this file (not an import). This note used to flag its PaywallPanel.js consumer having no case for `paid_organization` as an open gmc gap awaiting operator decision; that gap is CLOSED. TASK-2463 (W2.5) rewrote PaywallPanel to render exactly one thing — the blocking upgrade_prompt refusal modal — so every other state rendering null is the DESIGNED behaviour, not an unhandled fall-through. Corrected by TASK-2501 (W3d); docs/strategy/paywall-contract.md 'Known FE gaps' records the same resolution.",
         "note_on_pending": "The `pending` state is FE-only (client polled after returning from Stripe before webhook fires). The backend has no in-flight marker today — no DB field was invented this wave. The `pending` payload is included here for FE/Karma contract completeness; the backend never emits it from my_perms."
     },
     "states": [
@@ -65,7 +65,7 @@ export const CONTRACT_FIXTURE = {
         },
         {
             "state": "paid_private",
-            "description": "Private project with active entitlement. Full access, manage-billing CTA.",
+            "description": "Private project with active entitlement. Full access. NO on-map surface, by design: PaywallPanel renders exactly one thing, the blocking upgrade_prompt refusal modal, and every other state renders null there (TASK-2463, W2.5 — do not re-add an on-map badge). The indicator is the padlock on the Account button (gmc SimpleView/components/accountVisibilityLock.js); the billing action lives in Account > Billing, whose manager-gated 'Manage billing' button (BillingTabPanel.js SubscriptionSection) is LIVE and must not be retired.",
             "backend_condition": "project.visibility == 'private' AND acting-user account entitled",
             "payload": {
                 "state": "paid_private",
@@ -75,7 +75,7 @@ export const CONTRACT_FIXTURE = {
         },
         {
             "state": "paid_organization",
-            "description": "TASK-2432 (W1.2) — Organization-visibility project with active entitlement. Full access, manage-billing CTA. A DISTINCT state from paid_private: reusing paid_private for an organization project would misdescribe it to the FE.",
+            "description": "TASK-2432 (W1.2) — Organization-visibility project with active entitlement. Full access, surfaced exactly as paid_private: no on-map surface by design (TASK-2463, W2.5), the Account-button padlock is the indicator, and billing lives in Account > Billing. A DISTINCT state from paid_private: reusing paid_private for an organization project would misdescribe it to the FE.",
             "backend_condition": "project.visibility == 'organization' AND acting-user account entitled",
             "payload": {
                 "state": "paid_organization",
