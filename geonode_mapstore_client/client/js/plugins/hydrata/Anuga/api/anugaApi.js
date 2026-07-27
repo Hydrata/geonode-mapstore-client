@@ -608,7 +608,9 @@ export const updateProjectVisibility = (projectId, visibility) =>
 // checkout epic POSTs here then redirects the browser to the returned
 // session.url. Shared by the subscription flow (2099) and the compute-meter
 // credit-pack flow (2100, purchaseType='credit_pack' + priceId).
-export const createCheckoutSession = (projectId, purchaseType = 'subscription', priceId, returnMapId) => {
+export const createCheckoutSession = (
+    projectId, purchaseType = 'subscription', priceId, returnMapId, desiredVisibility
+) => {
     const body = { purchase_type: purchaseType };
     if (purchaseType === 'credit_pack') {
         body.price_id = priceId;
@@ -617,6 +619,14 @@ export const createCheckoutSession = (projectId, purchaseType = 'subscription', 
         // Billing tab's Subscribe carries no project; see checkout_views.py's
         // optional-project contract).
         body.project_id = projectId;
+        if (desiredVisibility) {
+            // W3d — the destination the customer chose in the Sharing panel,
+            // so the webhook delivers the tier that was bought instead of a
+            // hardcoded 'private'. Only meaningful alongside a project; the
+            // server re-validates it against the paid tiers either way, so a
+            // stale or absent value degrades to 'private', never wider.
+            body.desired_visibility = desiredVisibility;
+        }
     }
     if (returnMapId) {
         // UAT-2 — the map the user is on, so a project-less session (account

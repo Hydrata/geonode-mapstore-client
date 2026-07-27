@@ -57,7 +57,11 @@ const initialState = {
     overlay: null,
     // TASK-2463 (epic 2425 W2.7) — which project `steady` DESCRIBES, or null when
     // the writing action carried no identity. See getPaywallSteady below.
-    steadyProjectId: null
+    steadyProjectId: null,
+    // W3d — the same stamp for `overlay`. W2.7 stamped `steady` only, and
+    // getEffectivePaywallPayload reads `overlay` FIRST, so the guard was
+    // short-circuited exactly when an overlay existed. See below.
+    overlayProjectId: null
 };
 
 export default (state = initialState, action) => {
@@ -86,14 +90,26 @@ export default (state = initialState, action) => {
     case SET_PAYWALL_UPGRADE_PROMPT:
         return {
             ...state,
-            overlay: { state: 'upgrade_prompt', checkout_url: action.checkoutUrl, read_only: false }
+            overlay: {
+                state: 'upgrade_prompt',
+                checkout_url: action.checkoutUrl,
+                read_only: false,
+                // W3d — the destination the customer was refused, carried through
+                // to the checkout so they are sold the tier they picked.
+                visibility: action.visibility ?? null
+            },
+            overlayProjectId: action.projectId ?? null
         };
     case DISMISS_PAYWALL_UPGRADE:
         return (state.overlay && state.overlay.state === 'upgrade_prompt')
-            ? { ...state, overlay: null }
+            ? { ...state, overlay: null, overlayProjectId: null }
             : state;
     case SET_PAYWALL_PENDING:
-        return { ...state, overlay: { state: 'pending', checkout_url: null, read_only: false } };
+        return {
+            ...state,
+            overlay: { state: 'pending', checkout_url: null, read_only: false, visibility: null },
+            overlayProjectId: null
+        };
     // TASK-2457 — the poll gave up. Clear ONLY a pending overlay, so this can
     // never eat an upgrade_prompt refusal that armed while the poll was
     // running (same narrowness as DISMISS_PAYWALL_UPGRADE above).
@@ -113,7 +129,7 @@ export default (state = initialState, action) => {
     // it server-side.
     case CLEAR_PAYWALL_PENDING:
         return (state.overlay && state.overlay.state === 'pending')
-            ? { ...state, overlay: null }
+            ? { ...state, overlay: null, overlayProjectId: null }
             : state;
     default:
         return state;
@@ -161,11 +177,58 @@ export const getPaywallSteady = (state) => {
     return slice.steady;
 };
 
+/**
+ * The overlay, but ONLY if it describes the project now loaded.
+ *
+ * W3d — W2.7 stamped `steady` and guarded it in getPaywallSteady, but
+ * getEffectivePaywallPayload reads `overlay` FIRST, so the guard was
+ * short-circuited precisely when an overlay existed. `upgrade_prompt` is the
+ * overlay that matters: it is the only one rendering a live CTA, and unlike
+ * `pending` it has never been covered.
+ *
+ * WHY IT SURVIVES A NAV AT ALL. The upgrade modal is ModalHost-backdropped and
+ * deliberately NOT dismiss-on-click (ModalHost.js), and the slice is not reset
+ * on an SPA route change — so a refusal armed on project A is still mounted
+ * when the user reaches project B, and PaywallPanelContainer re-renders it.
+ *
+ * WHY IT WAS A MONEY BUG, not just a stale modal. `onSubscribeClick` dispatches
+ * SUBSCRIBE_CHECKOUT_REQUEST with no project; subscribeCheckoutEpic resolves
+ * getProjectId at CLICK time. So clicking Subscribe on A's stale refusal opened
+ * a checkout for B and the webhook privatised B — a project the customer was
+ * never refused on and never asked to change.
+ *
+ * An UNSTAMPED overlay is accepted, matching getPaywallSteady: refuse only a
+ * stamp that positively disagrees with a known loaded project.
+ */
+const getPaywallOverlay = (state) => {
+    const slice = state && state.anuga && state.anuga.paywall;
+    if (!slice || !slice.overlay) return null;
+    const stamped = slice.overlayProjectId;
+    const loaded = state.anuga.projects && state.anuga.projects.data
+        && state.anuga.projects.data.id;
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+    if (stamped != null && loaded != null && stamped !== loaded) return null;
+    return slice.overlay;
+};
+
 /** Resolves the single payload PaywallPanel renders from, or null. */
 export const getEffectivePaywallPayload = (state) => {
     const slice = state && state.anuga && state.anuga.paywall;
     if (!slice) return null;
-    return slice.overlay || getPaywallSteady(state) || null;
+    return getPaywallOverlay(state) || getPaywallSteady(state) || null;
+};
+
+/**
+ * The destination visibility a live, project-matched refusal was about, or null.
+ *
+ * Read at Subscribe-click time so the checkout buys the tier the customer
+ * chose. Routed through getPaywallOverlay rather than the raw slice so a
+ * refusal belonging to another project can never supply the visibility for
+ * this one's purchase.
+ */
+export const getPaywallDesiredVisibility = (state) => {
+    const overlay = getPaywallOverlay(state);
+    return (overlay && overlay.state === 'upgrade_prompt' && overlay.visibility) || null;
 };
 
 /** True while the FE-only post-checkout poll should keep running. */

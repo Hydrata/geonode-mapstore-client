@@ -3,7 +3,12 @@
  * merge that feeds PaywallPanelContainer's connected `paywallPayload` prop.
  */
 import expect from 'expect';
-import paywallReducer, {getEffectivePaywallPayload, getPaywallSteady, isPaywallPending} from '../reducer';
+import paywallReducer, {
+    getEffectivePaywallPayload,
+    getPaywallDesiredVisibility,
+    getPaywallSteady,
+    isPaywallPending
+} from '../reducer';
 import {getPaywallSteadyState, isPaywallPastDue} from '../selectors';
 import {SET_ANUGA_RESOURCE_PERMS} from '../../Anuga/actionsAnuga';
 import {
@@ -17,7 +22,7 @@ import {
 // below keep asserting the WHOLE object (a field quietly added or dropped is how
 // a change to it escapes review). W2.8's `stalled` sub-state was removed by the
 // W2.10 revert — see the reducer's CLEAR_PAYWALL_PENDING case.
-const PENDING_OVERLAY = {state: 'pending', checkout_url: null, read_only: false};
+const PENDING_OVERLAY = {state: 'pending', checkout_url: null, read_only: false, visibility: null};
 
 describe('TASK-2099 Paywall reducer', () => {
     it('initial state has no steady/overlay', () => {
@@ -40,7 +45,7 @@ describe('TASK-2099 Paywall reducer', () => {
 
     it('SET_PAYWALL_UPGRADE_PROMPT arms the overlay with the 402 checkout_url', () => {
         const state = paywallReducer(undefined, {type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl: 'https://x/create-session/'});
-        expect(state.overlay).toEqual({state: 'upgrade_prompt', checkout_url: 'https://x/create-session/', read_only: false});
+        expect(state.overlay).toEqual({state: 'upgrade_prompt', checkout_url: 'https://x/create-session/', read_only: false, visibility: null});
     });
 
     it('DISMISS_PAYWALL_UPGRADE clears an upgrade_prompt overlay only', () => {
@@ -255,16 +260,111 @@ describe('TASK-2099 Paywall reducer', () => {
             expect(getPaywallSteadyState(state)).toBe('paid_private');
         });
 
-        it('getEffectivePaywallPayload honours the same guard, and an OVERLAY still wins', () => {
+        it('getEffectivePaywallPayload honours the same guard, and an UNSTAMPED overlay still wins', () => {
             const mismatched = steadyFor(7, 'past_due');
             expect(getEffectivePaywallPayload(withProject(mismatched, 8))).toBe(null);
-            // An FE-only overlay is not project-stamped and must not be dropped:
-            // it is armed by a click in the here and now.
+            // W3d — an overlay armed with NO identity is still accepted, matching
+            // getPaywallSteady: refuse only a stamp that positively disagrees.
+            // (This assertion predates W3d, when overlays were never stamped at
+            // all; a MISMATCHED overlay is now refused — see the block below.)
             const withOverlay = paywallReducer(mismatched, {
                 type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl: 'https://x/'
             });
             expect(getEffectivePaywallPayload(withProject(withOverlay, 8)).state)
                 .toBe('upgrade_prompt');
+        });
+    });
+
+    // ── W3d: the OVERLAY needs the same stamp, and it is read FIRST ──────────
+    //
+    // W2.7 stamped `steady` and guarded it, but getEffectivePaywallPayload reads
+    // `overlay ||` first, so the guard was short-circuited exactly when an
+    // overlay existed. `upgrade_prompt` is the one that matters: it renders a
+    // live CTA, it survives an SPA nav (ModalHost is not dismiss-on-click and
+    // the slice is not reset on a route change), and clicking its Subscribe
+    // resolves getProjectId at CLICK time — so a refusal armed on A opened a
+    // checkout for B and the webhook privatised B, a project the customer was
+    // never refused on and never asked to change.
+    describe('getEffectivePaywallPayload — the overlay stamp (W3d)', () => {
+        const refusalFor = (projectId, visibility) => paywallReducer(undefined, {
+            type: SET_PAYWALL_UPGRADE_PROMPT,
+            checkoutUrl: 'https://x/create-session/',
+            visibility,
+            projectId
+        });
+        const withProject = (paywall, loadedId) => ({
+            anuga: {paywall, projects: {data: {id: loadedId, visibility: 'public'}}}
+        });
+
+        it('records which project the refusal is about', () => {
+            expect(refusalFor(7, 'private').overlayProjectId).toBe(7);
+            expect(refusalFor(undefined, 'private').overlayProjectId).toBe(null);
+        });
+
+        it('renders the refusal on the project it was armed for', () => {
+            expect(getEffectivePaywallPayload(withProject(refusalFor(7, 'private'), 7)).state)
+                .toBe('upgrade_prompt');
+        });
+
+        it('REFUSES a refusal armed for a DIFFERENT project — the wrong-project purchase', () => {
+            expect(getEffectivePaywallPayload(withProject(refusalFor(7, 'private'), 8))).toBe(null);
+        });
+
+        it('renders a stamped refusal when no project is loaded yet', () => {
+            const state = {anuga: {paywall: refusalFor(7, 'private'), projects: {data: null}}};
+            expect(getEffectivePaywallPayload(state).state).toBe('upgrade_prompt');
+        });
+
+        it('DISMISS and CLEAR_PENDING drop the stamp with the overlay', () => {
+            const dismissed = paywallReducer(refusalFor(7, 'private'), {type: DISMISS_PAYWALL_UPGRADE});
+            expect(dismissed.overlay).toBe(null);
+            expect(dismissed.overlayProjectId).toBe(null);
+
+            const pending = paywallReducer(refusalFor(7, 'private'), {type: SET_PAYWALL_PENDING});
+            expect(pending.overlayProjectId).toBe(null);
+            expect(paywallReducer(pending, {type: CLEAR_PAYWALL_PENDING}).overlayProjectId).toBe(null);
+        });
+    });
+
+    // ── W3d: the refused DESTINATION rides the refusal ──────────────────────
+    //
+    // The 402 branch kept only checkout_url, so "the customer chose
+    // Organization" was lost between the refusal and the checkout. The webhook
+    // then flipped to a hardcoded PRIVATE: paid for Organization, given
+    // Private, with no surface saying so.
+    describe('getPaywallDesiredVisibility (W3d)', () => {
+        const refusalFor = (projectId, visibility) => paywallReducer(undefined, {
+            type: SET_PAYWALL_UPGRADE_PROMPT,
+            checkoutUrl: 'https://x/create-session/',
+            visibility,
+            projectId
+        });
+        const withProject = (paywall, loadedId) => ({
+            anuga: {paywall, projects: {data: {id: loadedId, visibility: 'public'}}}
+        });
+
+        it('carries the destination the customer was refused', () => {
+            expect(getPaywallDesiredVisibility(withProject(refusalFor(7, 'organization'), 7)))
+                .toBe('organization');
+            expect(getPaywallDesiredVisibility(withProject(refusalFor(7, 'private'), 7)))
+                .toBe('private');
+        });
+
+        it('is null with no refusal armed', () => {
+            expect(getPaywallDesiredVisibility({})).toBe(null);
+            expect(getPaywallDesiredVisibility({anuga: {paywall: {overlay: null}}})).toBe(null);
+        });
+
+        it('is null for a pending overlay — nothing was refused', () => {
+            const pending = paywallReducer(undefined, {type: SET_PAYWALL_PENDING});
+            expect(getPaywallDesiredVisibility(withProject(pending, 7))).toBe(null);
+        });
+
+        it('NEVER supplies another project\'s destination', () => {
+            // Routed through the same stamp guard, so a stale refusal cannot
+            // decide what tier THIS project is bought at.
+            expect(getPaywallDesiredVisibility(withProject(refusalFor(7, 'organization'), 8)))
+                .toBe(null);
         });
     });
 });

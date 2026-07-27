@@ -34,7 +34,7 @@ import { show } from '../../../../../MapStore2/web/client/actions/notifications'
 import * as anugaApi from '../api/anugaApi';
 import { INIT_ANUGA, fetchMyPerms, setMembershipPanel, setMembershipPanelTab } from '../actionsAnuga';
 import { SUBSCRIBE_CHECKOUT_REQUEST, SET_PAYWALL_PENDING, setPaywallPending, clearPaywallPending } from '../../Paywall/actions';
-import { isPaywallPending } from '../../Paywall/reducer';
+import { isPaywallPending, getPaywallDesiredVisibility } from '../../Paywall/reducer';
 import { fetchComputeBalance, dismissMeterModal } from '../../Paywall/meter/actions';
 import { fetchAccountSummary } from '../../Paywall/account/actions';
 
@@ -306,7 +306,18 @@ export const subscribeCheckoutEpic = (action$, store) => action$
         // The map being viewed — CheckoutReturnView's fallback return target
         // for project-less sessions (see createCheckoutSession).
         const returnMapId = store.getState()?.gnresource?.id || null;
-        return Rx.Observable.from(anugaApi.createCheckoutSession(projectId, purchaseType, priceId, returnMapId))
+        // W3d — the destination the live refusal was about, so the customer is
+        // sold the tier they picked rather than a hardcoded 'private'. Null for
+        // an account-scoped subscription (nothing is flipped) and for the
+        // compute-meter pack flow. getPaywallDesiredVisibility is itself
+        // project-guarded, so a refusal belonging to another project cannot
+        // supply the visibility for this purchase.
+        const desiredVisibility = accountOnly
+            ? null
+            : getPaywallDesiredVisibility(store.getState());
+        return Rx.Observable.from(
+            anugaApi.createCheckoutSession(projectId, purchaseType, priceId, returnMapId, desiredVisibility)
+        )
             .mergeMap((response) => {
                 const url = response?.data?.checkout_url;
                 if (url) {

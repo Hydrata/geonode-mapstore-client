@@ -2467,6 +2467,78 @@ describe('ANUGA Epics', () => {
                     });
             });
 
+            // ── W3d: the customer is sold the tier they actually chose ──────
+            //
+            // The 402 branch kept only checkout_url, the session carried no
+            // visibility, and the webhook flipped to a hardcoded 'private'. A
+            // customer who picked Organization paid for Organization and got
+            // Private, with no surface saying so.
+            it('sends desired_visibility from the live refusal, so Organization is what is bought', (done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    expect(JSON.parse(config.data)).toEqual({
+                        purchase_type: 'subscription',
+                        project_id: 42,
+                        desired_visibility: 'organization'
+                    });
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_org'}];
+                });
+                __setRedirectForTests(() => {});
+
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {
+                                overlay: {
+                                    state: 'upgrade_prompt',
+                                    checkout_url: 'https://x/',
+                                    read_only: false,
+                                    visibility: 'organization'
+                                },
+                                overlayProjectId: 42
+                            }
+                        }
+                    })
+                };
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}]);
+                subscribeCheckoutEpic(action$, store)
+                    .subscribe(() => {}, done, () => done());
+            });
+
+            it('omits desired_visibility when the armed refusal belongs to ANOTHER project', (done) => {
+                // The wrong-project purchase: a refusal armed on project 7 must
+                // not decide what tier project 42 is bought at. Routed through
+                // the same stamp guard as the modal itself.
+                mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
+                    expect(JSON.parse(config.data)).toEqual({
+                        purchase_type: 'subscription',
+                        project_id: 42
+                    });
+                    return [200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_x'}];
+                });
+                __setRedirectForTests(() => {});
+
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {
+                                overlay: {
+                                    state: 'upgrade_prompt',
+                                    checkout_url: 'https://x/',
+                                    read_only: false,
+                                    visibility: 'organization'
+                                },
+                                overlayProjectId: 7
+                            }
+                        }
+                    })
+                };
+                const action$ = mockActions([{type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'subscription'}]);
+                subscribeCheckoutEpic(action$, store)
+                    .subscribe(() => {}, done, () => done());
+            });
+
             it('accountOnly (Billing tab Subscribe) POSTs create-session with NO project_id', (done) => {
                 mockAxios.onPost('/commerce/checkout/create-session/').reply((config) => {
                     // UAT-2: account-scoped subscription — no project rides the

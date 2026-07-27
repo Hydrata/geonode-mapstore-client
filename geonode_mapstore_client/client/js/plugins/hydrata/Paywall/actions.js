@@ -41,9 +41,17 @@ export const SUBSCRIBE_CHECKOUT_REQUEST = 'PAYWALL:SUBSCRIBE_CHECKOUT_REQUEST';
 
 /**
  * @param {string} checkoutUrl — from the 402 body (upgrade_prompt.checkout_url).
+ * @param {string} visibility — the destination the customer was REFUSED, so the
+ *   checkout can buy the tier they actually chose. Dropping it is what made a
+ *   customer who picked Organization pay for Organization and receive Private
+ *   (W3d; checkout_views.py's _grant_entitlement_and_flip_project).
+ * @param {number} projectId — which project this refusal is ABOUT. The overlay
+ *   survives an SPA nav and its modal is not dismiss-on-click, so without a
+ *   stamp a refusal armed on project A stays on screen over project B and its
+ *   Subscribe button buys — and privatises — B. See getEffectivePaywallPayload.
  */
-export function setPaywallUpgradePrompt(checkoutUrl) {
-    return { type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl };
+export function setPaywallUpgradePrompt(checkoutUrl, visibility, projectId) {
+    return { type: SET_PAYWALL_UPGRADE_PROMPT, checkoutUrl, visibility, projectId };
 }
 
 /** "Keep it public" — dismisses the upgrade_prompt overlay only. */

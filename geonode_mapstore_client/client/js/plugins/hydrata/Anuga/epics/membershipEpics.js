@@ -145,7 +145,16 @@ export const updateProjectVisibilityEpic = (action$, store) =>
                     // to the paywall overlay instead of the generic error toast.
                     if (_readErrStatus(err) === 402) {
                         const data = _readErrData(err);
-                        return Rx.Observable.of(setPaywallUpgradePrompt(data?.checkout_url));
+                        // W3d — the refusal carries WHAT was refused and WHICH
+                        // project it was refused on. Keeping only checkout_url
+                        // lost both: the destination (so a customer who chose
+                        // Organization was sold, and given, Private) and the
+                        // project identity (so a refusal armed here stayed live
+                        // over the next project the user opened, and its
+                        // Subscribe button bought and privatised THAT one).
+                        return Rx.Observable.of(
+                            setPaywallUpgradePrompt(data?.checkout_url, visibility, projectId)
+                        );
                     }
                     const detail = _readErrData(err)?.detail || "Failed to update visibility";
                     return Rx.Observable.of(
