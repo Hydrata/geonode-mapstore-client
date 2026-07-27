@@ -221,7 +221,6 @@ function BillingTabPanel({
                 balance={balance}
                 availablePacks={availablePacks}
                 onBuyPack={onBuyPack}
-                variant="card"
                 pending={checkoutPending}
             />
             <FreeBandSection freeBand={freeBand} />

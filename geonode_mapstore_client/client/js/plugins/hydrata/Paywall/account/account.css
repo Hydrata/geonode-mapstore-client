@@ -180,8 +180,12 @@
 }
 
 /* 2. Balance card — uppercase label over the big figure; the two primary
-   (solid white) pack buttons sit right of it; policy link below. */
-.sv-account-billing-tab .compute-meter-balance-strip--card {
+   (solid white) pack buttons sit right of it; policy link below.
+   TASK-2458 — was .compute-meter-balance-strip--card. The modifier existed to
+   tell the card apart from BalanceStrip's inline variant; that variant is
+   deleted, so the modifier distinguished the strip from nothing and the rule
+   moved onto the base class. */
+.sv-account-billing-tab .compute-meter-balance-strip {
     display: flex;
     flex-direction: column;
     gap: 8px;

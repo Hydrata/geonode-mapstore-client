@@ -356,33 +356,46 @@ describe('ComputeMeterPanel — focus trap and Escape (TASK-2435 AC#2)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BalanceStrip — the inline variant, rendered directly (TASK-2435 AC#3).
+// BalanceStrip — ONE variant, the Billing-tab card (TASK-2458).
 //
-// ESCALATION recorded here so it is not silently lost: TASK-2435's Context and
-// AC#3 assert that the inline variant is "the strip embedded INSIDE the
-// modals". It is not, and never was. `grep -rn "<BalanceStrip" js/` returns
-// exactly two mounts — BillingTabPanel.js:194 (variant="card") and the
-// standalone map mount this task removes. The modals share PackButtons and
-// BillingPolicyLink with the strip, not the strip itself; the source comment
-// AC#3 appears to paraphrase calls the strip the "refusal-modal HOST surface".
-// So AC#3's second clause would mandate NEW UI (a second, duplicate buy-pack
-// row inside the insufficient_balance modal), not preserve existing UI.
-// What is preserved instead, and asserted below: the inline variant is not
-// deleted, still renders, and is still exported.
+// History, kept because it is the whole reason this task exists: TASK-2435
+// removed the standalone on-map balance strip, which was the inline variant's
+// only app mount. The escalation recorded here at the time noted that AC#3's
+// "the strip embedded INSIDE the modals" was never true — the modals share
+// PackButtons and BillingPolicyLink with the strip, not the strip itself — and
+// so W2 kept the inline branch alive, exported and tested, rather than deleting
+// it. "Kept, tested, and unmounted" is a holding position, not an end state:
+// dead-but-tested code survives every refactor precisely because the tests
+// pass.
+//
+// The operator closed AC1's first branch on 2026-07-27: the inline variant does
+// NOT get a mount beside Run — giving it one would reintroduce exactly the
+// on-map furniture W2.5 removed when the visibility indicator became a padlock
+// on the account button. So the branch is deleted and BalanceStrip is simply
+// the card it has actually been since TASK-2435. With one variant left, the
+// --card modifier modified nothing and is gone too; the single class now
+// carries the rule that used to sit on the modifier.
 // ─────────────────────────────────────────────────────────────────────────────
-describe('BalanceStrip — inline variant survives the map-mount removal (TASK-2435 AC#3)', () => {
-    it('shows the balance, available packs, and recent entries', () => {
+describe('BalanceStrip — one variant, the Billing-tab card (TASK-2458)', () => {
+    it('renders the card markup with no variant prop at all', () => {
         const c = renderInContainer(
             <BalanceStrip
                 balance="15.00"
                 availablePacks={[{price_id: 'price_a', amount: '10', currency: 'usd'}]}
-                recentEntries={[{entry_type: 'debit', amount: '5.00'}]}
             />
         );
         expect(c.querySelector('[data-testid="compute-meter-balance-strip"]')).toExist();
-        expect(c.querySelector('[data-testid="compute-meter-balance"]').textContent).toInclude('$15.00');
+        expect(c.querySelector('.compute-meter-balance-row')).toExist();
+        expect(c.querySelector('.compute-meter-balance-label').textContent).toBe('Compute balance');
+        // The card's 2dp figure, not the inline branch's raw `$${balance}`.
+        expect(c.querySelector('[data-testid="compute-meter-balance"]').textContent).toBe('$15.00');
         expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]')).toExist();
-        expect(c.querySelector('[data-testid="compute-meter-recent-entries"]')).toExist();
+    });
+
+    it('carries exactly one className — no --card modifier to distinguish', () => {
+        const c = renderInContainer(<BalanceStrip balance="15.00" />);
+        const strip = c.querySelector('[data-testid="compute-meter-balance-strip"]');
+        expect(strip.className).toBe('compute-meter-balance-strip');
     });
 
     it('shows a "no billing account yet" message when balance is null', () => {
@@ -390,27 +403,50 @@ describe('BalanceStrip — inline variant survives the map-mount removal (TASK-2
         expect(c.querySelector('[data-testid="compute-meter-balance"]').textContent).toInclude('No billing account yet');
     });
 
-    it('is the INLINE variant, not the Billing-tab card', () => {
-        const c = renderInContainer(<BalanceStrip balance="15.00" />);
-        const strip = c.querySelector('[data-testid="compute-meter-balance-strip"]');
-        expect(strip.className).toInclude('compute-meter-balance-strip');
-        expect(strip.className).toNotInclude('compute-meter-balance-strip--card');
+    it('never renders a recent-entries list, even when handed entries', () => {
+        // The rendering went with the inline branch. BillingTabPanel — the one
+        // app mount — deliberately does not pass recentEntries: it renders its
+        // own richer list (dates, run links). This is the assertion that keeps
+        // the paywall CSS guard's deleted .compute-meter-recent-entries
+        // allowlist entry from needing to come back.
+        const c = renderInContainer(
+            <BalanceStrip balance="15.00" recentEntries={[{entry_type: 'debit', amount: '5.00'}]} />
+        );
+        expect(c.querySelector('[data-testid="compute-meter-recent-entries"]')).toBe(null);
     });
 });
 
 describe('BalanceStrip — pack CTA dollar labels (TASK-2124)', () => {
-    it('renders "Buy $<amount> pack" when the API resolves an amount', () => {
+    // TASK-2458 — these three used to render the inline variant, so they
+    // asserted PackButtons' VERBOSE labels. The strip is now always the card,
+    // which passes `compact`, so they assert the compact labels here. The
+    // verbose form did not lose its coverage with the branch: it is what the
+    // refusal modals render, asserted in the insufficient_balance describe
+    // above ('Buy $10 pack' on meter-buy-pack-cta-price_a) and by the
+    // null-amount fallback case below.
+    it('renders "+ $<amount>" when the API resolves an amount', () => {
         const c = renderInContainer(
             <BalanceStrip availablePacks={[{price_id: 'price_a', amount: '10', currency: 'usd'}]} />
         );
-        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('Buy $10 pack');
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('+ $10');
     });
 
     it('falls back to the generic label when amount is null (unconfigured/failed lookup)', () => {
         const c = renderInContainer(
             <BalanceStrip availablePacks={[{price_id: 'price_a', amount: null, currency: null}]} />
         );
-        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('Buy credit pack');
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('Buy credits');
+    });
+
+    it('the modal CTAs keep the VERBOSE label, including the null-amount fallback', () => {
+        // Same TASK-2124 contract on the other surface: never a hardcoded
+        // price->dollar map, and a null amount still renders a working button.
+        const c = render({
+            enabled: true,
+            availablePacks: [{price_id: 'price_a', amount: null, currency: null}],
+            modal: {type: 'insufficient_balance', detail: 'x'}
+        });
+        expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]').textContent).toBe('Buy credit pack');
     });
 
     it('renders each pack with its OWN amount label, never a shared/hardcoded one', () => {
@@ -422,8 +458,8 @@ describe('BalanceStrip — pack CTA dollar labels (TASK-2124)', () => {
                 ]}
             />
         );
-        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('Buy $10 pack');
-        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_b"]').textContent).toBe('Buy $25 pack');
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').textContent).toBe('+ $10');
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_b"]').textContent).toBe('+ $25');
     });
 });
 
@@ -598,19 +634,15 @@ describe('buy controls disabled while a checkout is in flight (TASK-2441)', () =
         expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_b"]').disabled).toBe(false);
     });
 
+    // TASK-2458 — this used to be two specs, one per variant, asserting the
+    // same thing about the same markup. With one variant left they were the
+    // same test twice; the surviving one keeps both pack assertions.
     it('BalanceStrip (Billing tab card): pack buttons are disabled when pending', () => {
-        const c = renderInContainer(
-            <BalanceStrip balance="15.00" availablePacks={packs} variant="card" pending />
-        );
-        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(true);
-        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_b"]').disabled).toBe(true);
-    });
-
-    it('BalanceStrip (inline variant): pack buttons are disabled when pending', () => {
         const c = renderInContainer(
             <BalanceStrip balance="15.00" availablePacks={packs} pending />
         );
         expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(true);
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_b"]').disabled).toBe(true);
     });
 
     it('BalanceStrip: pack buttons are enabled by default', () => {

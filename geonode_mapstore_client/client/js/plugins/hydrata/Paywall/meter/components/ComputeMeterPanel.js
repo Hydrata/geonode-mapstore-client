@@ -35,8 +35,9 @@
  * contact-us path (no CTA fixes an over-ceiling run).
  *
  * BalanceStrip itself is NOT deleted — it is still the Billing tab's balance
- * card (variant="card", BillingTabPanel.js) and its default inline variant
- * stays exported and directly covered by computeMeterPanel-test.js.
+ * card (BillingTabPanel.js, its one and only caller). Its second, inline
+ * variant WAS deleted, by TASK-2458: removing the on-map strip left that
+ * branch with zero app mounts, and it is not coming back beside Run.
  */
 import React from 'react';
 // TASK-2436 — imported by the component that EMITS the markup, not by a
@@ -132,56 +133,46 @@ PackButtons.defaultProps = {
     pending: false
 };
 
-function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, variant, pending }) {
-    // UAT-2 redesign — `variant="card"` (Account panel Billing tab only):
-    // uppercase-labelled balance card, 2dp value, compact primary pack
-    // buttons right of the figure. The default inline strip (refusal-modal
-    // host surface) is byte-identical to before.
-    const isCard = variant === 'card';
+/**
+ * The Billing tab's balance card: uppercase label over the figure, compact
+ * primary pack buttons right of it, policy link below.
+ *
+ * TASK-2458 — this used to branch on `variant`, with the INLINE branch as the
+ * default. TASK-2435 removed that branch's only app mount (the standalone
+ * on-map strip) and kept it exported and tested rather than deleted; the
+ * operator closed the question on 2026-07-27 by ruling out giving it a new
+ * home, since a balance beside Run would reintroduce exactly the on-map
+ * furniture W2.5 had just removed. So the branch, its `variant` prop and its
+ * recent-entries list are gone: BillingTabPanel is the one caller, and this is
+ * the card it has been rendering all along. Dead-but-tested code survives
+ * every refactor because the tests pass, which is what made it worth deleting
+ * rather than leaving.
+ *
+ * `recentEntries` went with the branch and was NOT re-homed: BillingTabPanel
+ * deliberately never passed it — it renders its own richer ledger list (dates,
+ * run links) below this card.
+ */
+function BalanceStrip({ balance, availablePacks, onBuyPack, pending }) {
     const noAccount = balance === null || balance === undefined;
-    const cardValue = () => {
+    const value = () => {
         const n = parseFloat(balance);
         return Number.isFinite(n) ? `$${n.toFixed(2)}` : `$${balance}`;
     };
     return (
-        <div data-testid="compute-meter-balance-strip" className={`compute-meter-balance-strip${isCard ? ' compute-meter-balance-strip--card' : ''}`}>
-            {isCard ? (
-                <div className="compute-meter-balance-row">
-                    <span className="compute-meter-balance-labelled">
-                        <span className="compute-meter-balance-label">Compute balance</span>
-                        <span data-testid="compute-meter-balance" className="compute-meter-balance">
-                            {noAccount ? 'No billing account yet' : cardValue()}
-                        </span>
-                    </span>
-                    {availablePacks && availablePacks.length > 0 ? (
-                        <span className="compute-meter-packs">
-                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} pending={pending} compact />
-                        </span>
-                    ) : null}
-                </div>
-            ) : (
-                <React.Fragment>
+        <div data-testid="compute-meter-balance-strip" className="compute-meter-balance-strip">
+            <div className="compute-meter-balance-row">
+                <span className="compute-meter-balance-labelled">
+                    <span className="compute-meter-balance-label">Compute balance</span>
                     <span data-testid="compute-meter-balance" className="compute-meter-balance">
-                        {'Compute balance: '}
-                        {noAccount ? 'No billing account yet' : `$${balance}`}
+                        {noAccount ? 'No billing account yet' : value()}
                     </span>
-                    {availablePacks && availablePacks.length > 0 ? (
-                        <span className="compute-meter-packs">
-                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} pending={pending} />
-                        </span>
-                    ) : null}
-                </React.Fragment>
-            )}
-            {recentEntries && recentEntries.length > 0 ? (
-                <ul data-testid="compute-meter-recent-entries" className="compute-meter-recent-entries">
-                    {/* index-as-key: read-only, server-ordered list, no reorder/insert */}
-                    {recentEntries.map((entry, idx) => (
-                        <li key={idx}>
-                            {`${entry.entry_type} $${entry.amount}`}
-                        </li>
-                    ))}
-                </ul>
-            ) : null}
+                </span>
+                {availablePacks && availablePacks.length > 0 ? (
+                    <span className="compute-meter-packs">
+                        <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} pending={pending} compact />
+                    </span>
+                ) : null}
+            </div>
             <BillingPolicyLink testIdPrefix="compute-meter" />
         </div>
     );
@@ -190,9 +181,7 @@ function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, varia
 BalanceStrip.propTypes = {
     balance: PropTypes.string,
     availablePacks: PropTypes.array,
-    recentEntries: PropTypes.array,
     onBuyPack: PropTypes.func,
-    variant: PropTypes.oneOf(['inline', 'card']),
     /** TASK-2441 — a checkout-session create is on the wire. */
     pending: PropTypes.bool
 };
@@ -200,7 +189,6 @@ BalanceStrip.propTypes = {
 BalanceStrip.defaultProps = {
     balance: null,
     availablePacks: [],
-    recentEntries: [],
     onBuyPack: () => {},
     pending: false
 };
@@ -388,7 +376,9 @@ class ComputeMeterPanel extends React.Component {
         /**
          * Only needed by the insufficient_balance modal's buy-pack CTAs.
          * `balance` / `recentEntries` were dropped with the standalone strip
-         * (TASK-2435) — BalanceStrip still takes them, on the Billing tab.
+         * (TASK-2435); `balance` still reaches BalanceStrip on the Billing
+         * tab, and `recentEntries` is rendered there by BillingTabPanel's own
+         * richer list (BalanceStrip stopped rendering one in TASK-2458).
          */
         availablePacks: PropTypes.array,
         /** {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling', checkoutUrl, detail} | null */

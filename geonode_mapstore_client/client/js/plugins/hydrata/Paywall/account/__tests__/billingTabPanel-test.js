@@ -234,7 +234,7 @@ describe('BillingTabPanel — TASK-2436 scoping guard', () => {
         expect(c.querySelector('.compute-meter-panel')).toBe(null);
     });
 
-    it('still renders the card variant with the shared classNames the tab-scoped rules target', () => {
+    it('still renders the balance card with the shared classNames the tab-scoped rules target', () => {
         const c = render({
             loaded: true,
             balance: '15.00',
@@ -242,7 +242,11 @@ describe('BillingTabPanel — TASK-2436 scoping guard', () => {
             freeBand: baseFreeBand
         });
         const strip = c.querySelector('[data-testid="compute-meter-balance-strip"]');
-        expect(strip.className).toInclude('compute-meter-balance-strip--card');
+        // TASK-2458 — the class the tab-scoped rule targets is now the bare
+        // .compute-meter-balance-strip: with the inline variant deleted there
+        // is only one strip, so the --card modifier distinguished it from
+        // nothing.
+        expect(strip.className).toBe('compute-meter-balance-strip');
         expect(c.querySelector('.compute-meter-buy-pack-btn')).toExist();
         expect(c.querySelector('.compute-meter-billing-policy-link')).toExist();
     });

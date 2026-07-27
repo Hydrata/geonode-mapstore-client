@@ -53,12 +53,13 @@
  * fact nobody had written down before the outage. What is NOT decidable
  * statically is the follow-up question -- "is the required ancestor actually
  * present at this component's mount point?" -- because that needs the render
- * tree, and these components mount in two different places on purpose
- * (BalanceStrip is in the Billing tab AND was on the map). So the guard does
- * not guess: it FAILS until the class is declared in ANCESTOR_SCOPED with the
- * ancestor named and a one-line reason, turning an invisible property into a
- * reviewed one. A declaration whose ancestor set has drifted also fails, so
- * the reasons cannot rot.
+ * tree, and a component can be mounted in more than one place on purpose (the
+ * refusal modals portal to <body>; BalanceStrip was on the map as well as in
+ * the Billing tab until TASK-2435 removed that mount and TASK-2458 deleted the
+ * variant behind it). So the guard does not guess: it FAILS until the class is
+ * declared in ANCESTOR_SCOPED with the ancestor named and a one-line reason,
+ * turning an invisible property into a reviewed one. A declaration whose
+ * ancestor set has drifted also fails, so the reasons cannot rot.
  *
  * Fail-open cases, stated rather than implied:
  *   - LESS nesting (`.a { .b { } }`) is parsed flat, so `.b` looks unscoped.
@@ -153,13 +154,18 @@ const STYLE_ROOTS = [
  * Genuinely rule-less classNames. EVERY entry needs a one-line reason
  * (AC#4) and is asserted to still be un-ruled -- a stale entry fails the
  * guard rather than rotting silently.
+ *
+ * EMPTY since TASK-2458, and that is the interesting part: both entries this
+ * list ever held existed only because BalanceStrip's inline variant had
+ * outlived its last app mount. `compute-meter-balance-strip` was a bare BEM
+ * base token whose rule sat on the `--card` modifier; deleting the variant
+ * left one strip, so the rule moved onto the base class and the token stopped
+ * being rule-less. `compute-meter-recent-entries` was emitted only by that
+ * branch and is no longer emitted at all. Neither was allowlisted away -- the
+ * allowlist is what made the dead branch visible for long enough to be
+ * deleted, which is the job it was written to do.
  */
-const ALLOWLIST = {
-    'compute-meter-balance-strip':
-        'BEM base token: the only rendered instance is the Billing tab card, which also carries the styled --card modifier.',
-    'compute-meter-recent-entries':
-        'No app mount since TASK-2435 removed the on-map strip; BillingTabPanel deliberately does not pass recentEntries (it renders its own richer list).'
-};
+const ALLOWLIST = {};
 
 /**
  * Check 2's declarations: classNames for which EVERY covering rule sits under
@@ -171,41 +177,35 @@ const ALLOWLIST = {
  * inside that ancestor.
  */
 const ANCESTOR_SCOPED = {
-    // All five belong to BalanceStrip. Since TASK-2435 removed the on-map
-    // balance strip, BillingTabPanel.js (variant="card") is its ONLY app
-    // mount, and that mount is inside .sv-account-billing-tab by construction
-    // — the tab renders the card, nothing else does. `grep -rn "<BalanceStrip"
-    // js/` returns exactly one non-test hit. The inline variant reachable at
-    // ComputeMeterPanel.js:95/100 is exported for direct karma rendering only.
+    // All six belong to BalanceStrip, and since TASK-2458 deleted its inline
+    // variant the argument is no longer a judgement call: BalanceStrip renders
+    // one thing, `grep -rn "<BalanceStrip" js/` returns exactly one non-test
+    // hit (BillingTabPanel.js), and that mount is inside .sv-account-billing-tab
+    // by construction — the tab renders the card, nothing else does. There is
+    // no second variant that could ever render these classes elsewhere.
+    'compute-meter-balance-strip': {
+        ancestors: ['sv-account-billing-tab'],
+        reason: 'The balance card root; BillingTabPanel is BalanceStrip\'s only caller and it renders inside the Billing tab.'
+    },
     'compute-meter-balance': {
         ancestors: ['sv-account-billing-tab'],
         reason: 'BalanceStrip figure; only app mount is BillingTabPanel\'s card, inside the Billing tab.'
     },
     'compute-meter-balance-row': {
         ancestors: ['sv-account-billing-tab'],
-        reason: 'Card-variant-only layout row — emitted solely by BalanceStrip variant="card" (Billing tab).'
+        reason: 'BalanceStrip layout row — same single mount as above.'
     },
     'compute-meter-balance-labelled': {
         ancestors: ['sv-account-billing-tab'],
-        reason: 'Card-variant-only label/value stack — same single mount as above.'
+        reason: 'BalanceStrip label/value stack — same single mount as above.'
     },
     'compute-meter-balance-label': {
         ancestors: ['sv-account-billing-tab'],
-        reason: 'Card-variant-only "Compute balance" caption — same single mount as above.'
+        reason: 'BalanceStrip\'s "Compute balance" caption — same single mount as above.'
     },
     'compute-meter-packs': {
         ancestors: ['sv-account-billing-tab'],
         reason: 'BalanceStrip pack-button wrapper; the refusal modals use their own meter-buy-pack-cta-* row, not this one.'
-    },
-    // Sixth BalanceStrip class, and the guard could not see it until W2.6 fixed
-    // extractClassNames' blindness to `${cond ? ' x' : ''}` branches. Same
-    // single mount as the five above, and stronger: the class is emitted ONLY
-    // when variant === 'card' (ComputeMeterPanel.js:135), and BillingTabPanel.js
-    // :194 is the only non-test caller passing variant="card" — so it cannot
-    // render outside .sv-account-billing-tab even in principle.
-    'compute-meter-balance-strip--card': {
-        ancestors: ['sv-account-billing-tab'],
-        reason: 'Emitted only for variant="card", whose sole app caller is BillingTabPanel inside the Billing tab.'
     }
 };
 
