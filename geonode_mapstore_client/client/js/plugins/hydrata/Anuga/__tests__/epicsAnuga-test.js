@@ -2383,32 +2383,39 @@ describe('ANUGA Epics', () => {
                 })
             ).data.visibility;
 
-        it('a my_perms answer issued BEFORE the PATCH cannot be applied after it', (done) => {
-            // Call order is fixed by the timers: 1 = seq-1 first attempt (t0),
-            // 2 = the PATCH's forced refetch, first attempt (t~30), 3 = seq-1's
-            // 1s-backoff RETRY carrying the PRE-patch body (t~1000), 4 = the
-            // forced refetch's retry (t~1030). Only call 3 answers 200.
-            let permsCall = 0;
+        /**
+         * The interleaving itself, shared by the two specs that assert different
+         * things about it. Call order is fixed by the timers: 1 = seq-1 first
+         * attempt (t0), 2 = the PATCH's forced refetch, first attempt (t~30),
+         * 3 = seq-1's 1s-backoff RETRY carrying the PRE-patch body (t~1000),
+         * 4 = the forced refetch's retry (t~1030). Only call 3 answers 200.
+         */
+        const arrangeStaleAnswerAcrossPatch = (emitted) => {
+            const calls = {perms: 0};
             mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(() => {
-                permsCall += 1;
-                return permsCall === 3 ? [200, body('private')] : [500, {}];
+                calls.perms += 1;
+                return calls.perms === 3 ? [200, body('private')] : [500, {}];
             });
             mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(
                 () => new Promise((resolve) => setTimeout(
                     () => resolve([200, {id: 42, visibility: 'public', my_role: 'owner'}]), 30)));
-
-            const emitted = [];
             const stop = runLoop([
                 {type: FETCH_MY_PERMS, projectId: 42, force: true},
                 {type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'public'}
             ], emitted);
+            return {calls, stop};
+        };
+
+        it('a my_perms answer issued BEFORE the PATCH cannot be applied after it', (done) => {
+            const emitted = [];
+            const {calls, stop} = arrangeStaleAnswerAcrossPatch(emitted);
 
             assertAfter(1500, done, () => {
                 stop();
-                expect(permsCall).toBe(
+                expect(calls.perms).toBe(
                     4,
                     'the interleaving did not happen as written — the assertions below '
-                    + `would prove nothing. my-perms calls: ${permsCall}`
+                    + `would prove nothing. my-perms calls: ${calls.perms}`
                 );
                 const patchWrite = emitted.findIndex(a => a.type === SET_ANUGA_PROJECT_DATA);
                 expect(patchWrite > -1).toBe(true, 'the visibility PATCH never succeeded');
@@ -2436,20 +2443,8 @@ describe('ANUGA Epics', () => {
             // buildFailureBranch legitimately fires setPermsLoadFailed(true) — it
             // is NOT superseded, and silencing it would be the TASK-2463 W2.9 bug
             // in reverse. What must NOT happen is the padlock reverting.
-            let permsCall = 0;
-            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(() => {
-                permsCall += 1;
-                return permsCall === 3 ? [200, body('private')] : [500, {}];
-            });
-            mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(
-                () => new Promise((resolve) => setTimeout(
-                    () => resolve([200, {id: 42, visibility: 'public', my_role: 'owner'}]), 30)));
-
             const emitted = [];
-            const stop = runLoop([
-                {type: FETCH_MY_PERMS, projectId: 42, force: true},
-                {type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'public'}
-            ], emitted);
+            const {stop} = arrangeStaleAnswerAcrossPatch(emitted);
 
             assertAfter(1500, done, () => {
                 stop();

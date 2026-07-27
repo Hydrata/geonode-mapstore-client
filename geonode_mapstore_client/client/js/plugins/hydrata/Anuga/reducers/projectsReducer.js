@@ -7,6 +7,13 @@ import {
     UPDATE_PROJECT_VISIBILITY_SETTLED
 } from "../actionsAnuga";
 
+// The my_perms top-level keys this reducer OWNS — the ones it folds into
+// state.anuga.projects.data. The same two are skipped by resourcesReducer's
+// _NON_RESOURCE_KEYS, and that is not a coincidence: skipped there means owned
+// here, so the two lists must be read together. See the SET_ANUGA_RESOURCE_PERMS
+// case below for why folding is not a second source of truth.
+const _PROJECT_KEYS_FROM_MY_PERMS = ['visibility', 'my_role'];
+
 const initialState = {
     data: null,
     loading: false,
@@ -128,7 +135,7 @@ export default (state = initialState, action) => {
         if (!state.data) return state;
         if (action.projectId !== state.data.id) return state;
         const patch = {};
-        ['visibility', 'my_role'].forEach((key) => {
+        _PROJECT_KEYS_FROM_MY_PERMS.forEach((key) => {
             if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
             if (payload[key] === state.data[key]) return;
             patch[key] = payload[key];
