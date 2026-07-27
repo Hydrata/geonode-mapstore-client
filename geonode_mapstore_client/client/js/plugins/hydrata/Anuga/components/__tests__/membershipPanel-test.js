@@ -57,13 +57,19 @@ function createMockStore({
     invitationsEnabled = true,
     // TASK-2466 (epic 2425 W2.5) — the "Current" pill follows this, so a test
     // needs to be able to make Organization the active row.
-    visibility = 'private'
+    visibility = 'private',
+    // TASK-2440 (epic 2425 W4.1) — the visibility change the server is being
+    // asked for right now, or null. The store stub is STATIC (dispatch is a
+    // no-op), so a click cannot arm this; tests preset it instead and the
+    // arming itself is pinned by the reducer test in epicsAnuga-test.js.
+    visibilityPending = null,
+    membershipsLoading = false
 } = {}) {
     const state = {
         anuga: {
             memberships: {
                 data: makeMembershipRows(role, layerCount),
-                loading: false,
+                loading: membershipsLoading,
                 // TASK-860 — invitation state defaults for tests
                 invitations,
                 invitations_enabled: invitationsEnabled
@@ -74,7 +80,8 @@ function createMockStore({
                     my_role: role,
                     owner_username: 'project_owner',
                     visibility
-                }
+                },
+                visibilityPending
             },
             resources: {
                 terrain: [],
@@ -765,6 +772,148 @@ describe('TASK-2420 MembershipPanel — Account panel tabs', () => {
         }).then(() => {
             container.querySelector('[data-testid="sv-account-tab-billing"]').click();
             expect(currentTab).toBe('billing');
+        });
+    });
+});
+
+// ─── TASK-2440 (epic 2425 W4.1): in-flight state on the Sharing visibility
+// rows ────────────────────────────────────────────────────────────────────────
+//
+// Operator report, 2026-07-25: "the Account buttons to change the subscription
+// are very laggy, it seems they wait for the backend response before giving any
+// UI feedback when clicked." Confirmed in source — handleVisibilityChange
+// dispatched and returned, so EVERY scrap of feedback waited on the response.
+// The response time is what it is; what was missing is the acknowledgement, and
+// an unacknowledged button is what makes someone click it twice.
+//
+// The store stub here is static (dispatch is a no-op), so a click cannot arm
+// the flag in this harness. These mount with the flag preset; the arming itself
+// is pinned by the reducer test in epicsAnuga-test.js.
+describe('TASK-2440 MembershipPanel — visibility rows show in-flight state', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function mountPanel(opts = {}, ownProps = {}) {
+        const { MembershipPanel } = require('../membershipPanel');
+        const store = createMockStore(opts);
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}><MembershipPanel {...ownProps} /></Provider>,
+                container,
+                () => resolve(container)
+            );
+        });
+    }
+
+    const rows = () => Array.from(container.querySelectorAll('.sv-membership-visibility-option-row'));
+    const rowNamed = (name) => rows().find(r => r.textContent.startsWith(name));
+
+    it('AC#3 — with a change in flight EVERY row is disabled (no second click can land)', () => {
+        return mountPanel({role: 'owner', layerCount: 0, visibilityPending: 'private'}).then(() => {
+            expect(rows().length).toBe(3);
+            rows().forEach(r => {
+                expect(r.disabled).toBe(true, `row "${r.textContent.slice(0, 20)}" is still clickable mid-request`);
+            });
+        });
+    });
+
+    it('AC#3 — the row being requested carries aria-busy, so it is not a silently dead radiogroup', () => {
+        return mountPanel({role: 'owner', layerCount: 0, visibilityPending: 'private'}).then(() => {
+            expect(rowNamed('Private').getAttribute('aria-busy')).toBe('true');
+            // Only the requested row is busy — the other two are merely disabled.
+            expect(rowNamed('Public').getAttribute('aria-busy')).toNotBe('true');
+            expect(rowNamed('Organization').getAttribute('aria-busy')).toNotBe('true');
+        });
+    });
+
+    it('AC#3 — the requested row carries a VISIBLE busy affordance, not just an attribute', () => {
+        return mountPanel({role: 'owner', layerCount: 0, visibilityPending: 'organization'}).then(() => {
+            const busy = container.querySelector('[data-testid="sv-membership-visibility-working"]');
+            expect(busy).toExist('no visible in-flight affordance — a greyed row alone still reads as broken');
+            expect(rowNamed('Organization').contains(busy)).toBe(true);
+            // Exactly one, on the row actually being requested.
+            expect(container.querySelectorAll('[data-testid="sv-membership-visibility-working"]').length).toBe(1);
+        });
+    });
+
+    it('AC#3 — with nothing in flight no row is disabled and nothing is busy', () => {
+        return mountPanel({role: 'owner', layerCount: 0, visibilityPending: null}).then(() => {
+            rows().forEach(r => expect(r.disabled).toBe(false));
+            expect(container.querySelector('[data-testid="sv-membership-visibility-working"]')).toBe(null);
+        });
+    });
+
+    it('AC#5 — getMembershipsLoading is NOT reused: a memberships fetch greys nothing here', () => {
+        // The panel already had a `loading` prop and it means the memberships
+        // LIST. Reusing it would grey out the visibility rows on an unrelated
+        // list refresh.
+        return mountPanel({
+            role: 'owner', layerCount: 0, membershipsLoading: true, visibilityPending: null
+        }).then(() => {
+            rows().forEach(r => expect(r.disabled).toBe(false, 'a memberships-list fetch disabled the visibility rows'));
+        });
+    });
+
+    // AC#7 — recast as a REGRESSION GUARD. gmc a1e4a9fb3 (TASK-2464) already
+    // made the success branch refetch, so the pill follows server state. No
+    // production change should be needed to pass this; if one is, something
+    // regressed since that commit.
+    it('AC#7 — the Current pill follows the SERVER visibility and appears exactly once', () => {
+        return mountPanel({role: 'owner', layerCount: 0, visibility: 'private'}).then(() => {
+            expect(container.querySelectorAll('.sv-account-pill--current').length).toBe(1);
+            expect(rowNamed('Private').querySelector('.sv-account-pill--current')).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+            return mountPanel({role: 'owner', layerCount: 0, visibility: 'organization'});
+        }).then(() => {
+            const pills = container.querySelectorAll('.sv-account-pill--current');
+            expect(pills.length).toBe(1, 'the Current pill did not MOVE — two rows claim to be current');
+            expect(rowNamed('Organization').querySelector('.sv-account-pill--current')).toExist();
+            expect(rowNamed('Private').querySelector('.sv-account-pill--current')).toBe(null);
+        });
+    });
+
+    // AC#4 — in-flight starts when the REQUEST is dispatched, never when the
+    // confirmation overlay opens. Arming on overlay-open would disable the
+    // overlay's own Cancel path, i.e. trap the user in a dialog about making
+    // their project public.
+    it('AC#4 — opening the public-transition confirm overlay arms NOTHING', () => {
+        return mountPanel({role: 'owner', layerCount: 0, visibility: 'private'}).then(() => {
+            const publicRow = rowNamed('Public');
+            expect(publicRow.disabled).toBe(false);
+            publicRow.click();
+            // The overlay is open and no PATCH has been dispatched.
+            const overlay = container.querySelector('.sv-membership-confirm-overlay');
+            expect(overlay).toExist('the public-transition confirm overlay did not open');
+            const cancel = Array.from(overlay.querySelectorAll('button'))
+                .find(b => b.textContent.trim() === 'Cancel');
+            expect(cancel).toExist();
+            expect(cancel.disabled).toBe(false, 'Cancel is disabled — the user is trapped in the confirm dialog');
+            // And no row is greyed: nothing has been requested of the server.
+            rows().forEach(r => expect(r.disabled).toBe(false, 'a row was disabled merely by OPENING the confirm overlay'));
+            expect(container.querySelector('[data-testid="sv-membership-visibility-working"]')).toBe(null);
+        });
+    });
+
+    it('AC#8 — the selection tracks the STORE, so no local copy can drift from it', () => {
+        // The selection and the pill read this.props.visibility only, and
+        // visibilityPending describes the REQUEST, never the stored value. A
+        // this.state copy is how an optimistic UI starts lying about privacy —
+        // here the store says 'public' while a change to 'private' is in
+        // flight, and the selection must still say public.
+        return mountPanel({
+            role: 'owner', layerCount: 0, visibility: 'public', visibilityPending: 'private'
+        }).then(() => {
+            expect(rowNamed('Public').getAttribute('aria-checked')).toBe('true');
+            expect(rowNamed('Private').getAttribute('aria-checked')).toBe('false');
         });
     });
 });

@@ -990,6 +990,19 @@ div that holds the feature-grid */
     box-sizing: border-box;
 }
 
+/* TASK-2440 (epic 2425 W4.1) — a visibility change is in flight. Every row
+   disables so a second click cannot land; the row actually being requested
+   also carries aria-busy and the "Working…" pill below. */
+.sv-membership-visibility-btn:disabled {
+    opacity: 0.55;
+    cursor: progress;
+}
+
+.sv-membership-visibility-working {
+    background-color: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.9);
+}
+
 .sv-membership-visibility-btn.active,
 .sv-membership-visibility-btn.active:hover,
 .sv-membership-visibility-btn.active:focus,

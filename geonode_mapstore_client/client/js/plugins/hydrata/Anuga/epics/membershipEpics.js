@@ -7,6 +7,7 @@ import {
     UPDATE_MEMBERSHIP_REQUEST,
     DELETE_MEMBERSHIP_REQUEST,
     UPDATE_PROJECT_VISIBILITY_REQUEST,
+    updateProjectVisibilitySettled,
     setMemberships,
     setMembershipsLoading,
     setAnugaProjectData,
@@ -102,7 +103,11 @@ export const updateProjectVisibilityEpic = (action$, store) =>
     action$.ofType(UPDATE_PROJECT_VISIBILITY_REQUEST)
         .switchMap(({visibility}) => {
             const projectId = getProjectId(store.getState());
-            if (!projectId) return Rx.Observable.empty();
+            // TASK-2440 — settle even here. The flag is armed by the REQUEST
+            // action, which the reducer has already seen, so an
+            // Observable.empty() on this branch would leave all three Sharing
+            // rows disabled for the rest of the session.
+            if (!projectId) return Rx.Observable.of(updateProjectVisibilitySettled());
             return Rx.Observable.from(anugaApi.updateProjectVisibility(projectId, visibility))
                 .switchMap(response => Rx.Observable.from([
                     setAnugaProjectData(response.data),
@@ -132,7 +137,12 @@ export const updateProjectVisibilityEpic = (action$, store) =>
                     // state is now. A privacy indicator driven by what the user
                     // clicked can be false in the dangerous direction.
                     fetchMyPerms(projectId, true),
-                    show({title: "Visibility updated", message: `Project is now ${visibility}`, level: "success"})
+                    show({title: "Visibility updated", message: `Project is now ${visibility}`, level: "success"}),
+                    // TASK-2440 — LAST, after setAnugaProjectData above.
+                    // Unlocking the rows before the new visibility is written
+                    // would render an enabled control beside a stale "Current"
+                    // pill for a frame.
+                    updateProjectVisibilitySettled()
                 ]))
                 // The catch below is the REFUSAL path (402 upgrade_prompt from
                 // the W1 destination gate) and the error path. Neither reaches
@@ -153,12 +163,19 @@ export const updateProjectVisibilityEpic = (action$, store) =>
                         // over the next project the user opened, and its
                         // Subscribe button bought and privatised THAT one).
                         return Rx.Observable.of(
-                            setPaywallUpgradePrompt(data?.checkout_url, visibility, projectId)
+                            setPaywallUpgradePrompt(data?.checkout_url, visibility, projectId),
+                            // TASK-2440 — a REFUSAL is an outcome too. After
+                            // W1.1 any move into organization or private can
+                            // 402, so a success-only clear would strand the
+                            // rows disabled on the commonest unhappy path.
+                            updateProjectVisibilitySettled()
                         );
                     }
                     const detail = _readErrData(err)?.detail || "Failed to update visibility";
                     return Rx.Observable.of(
-                        show({title: "Error", message: detail, level: "error"})
+                        show({title: "Error", message: detail, level: "error"}),
+                        // TASK-2440 — a failed change must be retryable.
+                        updateProjectVisibilitySettled()
                     );
                 });
         });

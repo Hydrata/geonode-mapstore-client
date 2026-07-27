@@ -14,6 +14,17 @@ export const getProjectMyRole = (state) =>
 export const getProjectVisibility = (state) =>
     state?.anuga?.projects?.data?.visibility || null;
 
+/**
+ * TASK-2440 (epic 2425 W4.1) — the visibility change currently being requested
+ * of the server ('private' | 'organization' | 'public'), or null.
+ *
+ * Note the shape: this sits on the projects SLICE, not on `projects.data`,
+ * because it describes an in-flight request and not the stored project. Reading
+ * it from `data` would be the first step towards an optimistic write.
+ */
+export const getProjectVisibilityPending = (state) =>
+    state?.anuga?.projects?.visibilityPending || null;
+
 // Legacy selectors — now read from project my_role instead of gnresource
 export const canViewAnugaMap = (state) =>
     getProjectMyRole(state) !== null;

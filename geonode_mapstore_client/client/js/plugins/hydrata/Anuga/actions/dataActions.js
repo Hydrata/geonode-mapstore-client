@@ -47,6 +47,15 @@ const UPDATE_MEMBERSHIP_REQUEST = 'UPDATE_MEMBERSHIP_REQUEST';
 const DELETE_MEMBERSHIP_REQUEST = 'DELETE_MEMBERSHIP_REQUEST';
 const SET_MEMBERSHIPS_LOADING = 'SET_MEMBERSHIPS_LOADING';
 const UPDATE_PROJECT_VISIBILITY_REQUEST = 'UPDATE_PROJECT_VISIBILITY_REQUEST';
+// TASK-2440 (epic 2425 W4.1) — the visibility PATCH has finished, by ANY route:
+// success, a 402 refusal, a generic error, or no project loaded at all. Clears
+// the visibilityPending flag the REQUEST above arms (projectsReducer).
+// ONE settle for all outcomes on purpose: the 402 and error branches emit no
+// SET_ANUGA_PROJECT_DATA, so a success-only clear would leave all three Sharing
+// rows permanently disabled after any refusal — and SET_PAYWALL_UPGRADE_PROMPT
+// lives in the Paywall slice, so clearing off that would force projectsReducer
+// to import across slices to cover just one of three branches.
+const UPDATE_PROJECT_VISIBILITY_SETTLED = 'UPDATE_PROJECT_VISIBILITY_SETTLED';
 
 // V2P-21 — lazy-fetch my_perms on Anuga panel open
 // Trigger: FETCH_MY_PERMS dispatched by initAnugaEpic (= AnugaContainer mount = panel open).
@@ -264,6 +273,11 @@ function setMembershipsLoading(loading) {
 
 function updateProjectVisibilityRequest(visibility) {
     return { type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility };
+}
+
+/** The visibility PATCH finished — success, 402, error, or no project. */
+function updateProjectVisibilitySettled() {
+    return { type: UPDATE_PROJECT_VISIBILITY_SETTLED };
 }
 
 // Invitation action creators (TASK-860)
@@ -549,6 +563,7 @@ module.exports = {
     DELETE_MEMBERSHIP_REQUEST, deleteMembershipRequest,
     SET_MEMBERSHIPS_LOADING, setMembershipsLoading,
     UPDATE_PROJECT_VISIBILITY_REQUEST, updateProjectVisibilityRequest,
+    UPDATE_PROJECT_VISIBILITY_SETTLED, updateProjectVisibilitySettled,
     // Invitation actions (TASK-860)
     FETCH_INVITATIONS, fetchInvitations,
     SET_INVITATIONS, setInvitations,

@@ -2,7 +2,9 @@ import {
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_INIT_IN_FLIGHT,
     SET_ANUGA_RESOURCES,
-    SET_ANUGA_RESOURCE_PERMS
+    SET_ANUGA_RESOURCE_PERMS,
+    UPDATE_PROJECT_VISIBILITY_REQUEST,
+    UPDATE_PROJECT_VISIBILITY_SETTLED
 } from "../actionsAnuga";
 
 const initialState = {
@@ -14,6 +16,20 @@ const initialState = {
     // chain errors. anugaContainer.componentDidUpdate consults it so a
     // re-render before setAnugaProjectData can't re-fire INIT_ANUGA.
     initInFlight: false,
+    // TASK-2440 (epic 2425 W4.1) — the visibility the server is being ASKED for
+    // right now ('private' | 'organization' | 'public'), or null. It stores the
+    // destination rather than a bare boolean so the Sharing panel can put the
+    // busy affordance on the row that was actually clicked.
+    //
+    // This describes the REQUEST, never the stored value: `data.visibility`
+    // stays the one source of truth for what the project IS, and is only ever
+    // written by a server response. An optimistic copy here is how a privacy
+    // control starts claiming a change the server refused.
+    //
+    // Deliberately NOT getMembershipsLoading (membershipPanel.js's existing
+    // `loading` prop): that means the memberships LIST, and reusing it would
+    // grey out the visibility rows on an unrelated list refresh.
+    visibilityPending: null,
     anugaHomePageResources: null
 };
 
@@ -77,6 +93,13 @@ export default (state = initialState, action) => {
         if (payload.visibility === state.data.visibility) return state;
         return { ...state, data: { ...state.data, visibility: payload.visibility } };
     }
+    // TASK-2440 — armed on the click, cleared by the epic on every branch of
+    // the round-trip. Same shape as the shipped REQUEST_BILLING_PORTAL ->
+    // portalLoading pair (Paywall/account/reducer.js).
+    case UPDATE_PROJECT_VISIBILITY_REQUEST:
+        return { ...state, visibilityPending: action.visibility || null };
+    case UPDATE_PROJECT_VISIBILITY_SETTLED:
+        return { ...state, visibilityPending: null };
     case SET_ANUGA_INIT_IN_FLIGHT:
         // action.mapId is the live gnresource.id when set, or false to clear.
         return {

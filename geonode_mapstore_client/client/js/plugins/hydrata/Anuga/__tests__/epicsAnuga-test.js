@@ -1753,8 +1753,15 @@ describe('ANUGA Epics', () => {
         const MockAdapter = require('axios-mock-adapter');
         const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
         const {updateProjectVisibilityEpic} = require('../epics/membershipEpics');
-        const {UPDATE_PROJECT_VISIBILITY_REQUEST} = require('../actionsAnuga');
+        const {
+            UPDATE_PROJECT_VISIBILITY_REQUEST,
+            UPDATE_PROJECT_VISIBILITY_SETTLED,
+            updateProjectVisibilityRequest,
+            updateProjectVisibilitySettled
+        } = require('../actionsAnuga');
         const {SET_PAYWALL_UPGRADE_PROMPT} = require('../../Paywall/actions');
+        const projectsReducer = require('../reducers/projectsReducer').default;
+        const {getProjectVisibilityPending} = require('../selectorsAnuga');
 
         let mockAxios;
         beforeEach(() => { mockAxios = new MockAdapter(axios); });
@@ -1772,9 +1779,14 @@ describe('ANUGA Epics', () => {
 
             updateProjectVisibilityEpic(action$, storeWithProjectId(42))
                 .subscribe(a => emitted.push(a), done, () => {
-                    expect(emitted.length).toBe(1);
+                    // TASK-2440 — the refusal AND the in-flight settle. A 402 is
+                    // one of the three ways this request ends; if it did not
+                    // settle, every Sharing row would stay disabled forever
+                    // after a single refusal.
+                    expect(emitted.length).toBe(2);
                     expect(emitted[0].type).toBe(SET_PAYWALL_UPGRADE_PROMPT);
                     expect(emitted[0].checkoutUrl).toBe('https://example.com/commerce/checkout/create-session/');
+                    expect(emitted[1].type).toBe(UPDATE_PROJECT_VISIBILITY_SETTLED);
                     done();
                 });
         });
@@ -1787,8 +1799,10 @@ describe('ANUGA Epics', () => {
 
             updateProjectVisibilityEpic(action$, storeWithProjectId(42))
                 .subscribe(a => emitted.push(a), done, () => {
-                    expect(emitted.length).toBe(1);
+                    // TASK-2440 — the toast AND the in-flight settle.
+                    expect(emitted.length).toBe(2);
                     expect(emitted[0].type).toInclude('NOTIFICATION');
+                    expect(emitted[1].type).toBe(UPDATE_PROJECT_VISIBILITY_SETTLED);
                     done();
                 });
         });
@@ -1852,6 +1866,92 @@ describe('ANUGA Epics', () => {
                     expect(emitted.some(a => a.type === 'SET_ANUGA_PROJECT_DATA')).toBe(false);
                     done();
                 });
+        });
+
+        // ── TASK-2440 (epic 2425 W4.1): the visibility in-flight flag ───────
+        //
+        // The reducer contract lives here beside the epic because the epic's
+        // emission is only meaningful as the thing that clears this flag, and a
+        // settle emitted into a reducer that ignores it is exactly the bug the
+        // pair has to rule out.
+        describe('visibilityPending flag (TASK-2440)', () => {
+            const mount = (projects) => ({anuga: {projects}});
+
+            it('starts null', () => {
+                expect(projectsReducer(undefined, {type: '@@INIT'}).visibilityPending).toBe(null);
+            });
+
+            it('UPDATE_PROJECT_VISIBILITY_REQUEST stores the REQUESTED destination, not a bare bool', () => {
+                // The destination is what identifies the clicked row, so the
+                // busy affordance can land on it rather than on all three.
+                expect(projectsReducer(undefined, updateProjectVisibilityRequest('private')).visibilityPending)
+                    .toBe('private');
+                expect(projectsReducer(undefined, updateProjectVisibilityRequest('organization')).visibilityPending)
+                    .toBe('organization');
+                expect(projectsReducer(undefined, updateProjectVisibilityRequest('public')).visibilityPending)
+                    .toBe('public');
+            });
+
+            it('the settle action returns it to null', () => {
+                const armed = projectsReducer(undefined, updateProjectVisibilityRequest('private'));
+                expect(projectsReducer(armed, updateProjectVisibilitySettled()).visibilityPending).toBe(null);
+            });
+
+            it('an unrelated action leaves it untouched', () => {
+                const armed = projectsReducer(undefined, updateProjectVisibilityRequest('private'));
+                expect(projectsReducer(armed, {type: 'SOMETHING:ELSE'}).visibilityPending).toBe('private');
+            });
+
+            it('arming does NOT touch projects.data — the flag describes the REQUEST, never the stored value', () => {
+                const withData = projectsReducer(undefined, {
+                    type: 'SET_ANUGA_PROJECT_DATA', data: {id: 42, visibility: 'public'}
+                });
+                const armed = projectsReducer(withData, updateProjectVisibilityRequest('private'));
+                expect(armed.data.visibility).toBe('public');
+                expect(armed.visibilityPending).toBe('private');
+            });
+
+            it('the selector reads it and is null-safe', () => {
+                const armed = projectsReducer(undefined, updateProjectVisibilityRequest('organization'));
+                expect(getProjectVisibilityPending(mount(armed))).toBe('organization');
+                expect(getProjectVisibilityPending({})).toBe(null);
+                expect(getProjectVisibilityPending({anuga: {}})).toBe(null);
+                expect(getProjectVisibilityPending(undefined)).toBe(null);
+            });
+
+            it('SUCCESS emits exactly one settle, AFTER the project data write', (done) => {
+                mockAxios.onPatch('/api/v2/anuga/projects/42/').reply(200, {
+                    id: 42, visibility: 'public', my_role: 'owner'
+                });
+                const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'public'}]);
+                const emitted = [];
+                updateProjectVisibilityEpic(action$, storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        const settles = emitted.filter(a => a.type === UPDATE_PROJECT_VISIBILITY_SETTLED);
+                        expect(settles.length).toBe(1);
+                        // Ordering is load-bearing: unlocking the control before
+                        // the new visibility is written would render an enabled
+                        // row beside a stale "Current" pill for one frame.
+                        const dataIdx = emitted.findIndex(a => a.type === 'SET_ANUGA_PROJECT_DATA');
+                        const settleIdx = emitted.findIndex(a => a.type === UPDATE_PROJECT_VISIBILITY_SETTLED);
+                        expect(dataIdx).toBeLessThan(settleIdx, 'the rows unlocked before the new visibility landed');
+                        done();
+                    });
+            });
+
+            it('a request with NO project loaded still settles — no permanent lock-out', (done) => {
+                // The epic short-circuits on a missing project id. Without a
+                // settle here the flag would arm on the click and never clear,
+                // disabling all three rows for the rest of the session.
+                const action$ = mockActions([{type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility: 'private'}]);
+                const emitted = [];
+                updateProjectVisibilityEpic(action$, {getState: () => ({anuga: {projects: {data: null}}})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(UPDATE_PROJECT_VISIBILITY_SETTLED);
+                        done();
+                    });
+            });
         });
     });
 

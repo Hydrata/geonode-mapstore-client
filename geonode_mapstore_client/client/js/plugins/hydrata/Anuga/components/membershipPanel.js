@@ -21,6 +21,7 @@ import {
     getMembershipsLoading,
     isOwnerAnugaMap,
     getProjectVisibility,
+    getProjectVisibilityPending,
     getProjectMyRole,
     canEditLayer,
     canDeleteLayer,
@@ -119,6 +120,13 @@ class MembershipPanelClass extends React.Component {
         permsLoadFailed: PropTypes.bool,
         isOwner: PropTypes.bool,
         visibility: PropTypes.string,
+        /**
+         * TASK-2440 (epic 2425 W4.1) — the visibility change currently being
+         * requested of the server, or null. DISTINCT from `loading` above,
+         * which is getMembershipsLoading (the memberships LIST): reusing that
+         * would grey these rows out on an unrelated list fetch.
+         */
+        visibilityPending: PropTypes.string,
         myRole: PropTypes.string,
         currentUserId: PropTypes.number,
         // UAT-2 redesign — the viewing user's username, for the "(you)" marker
@@ -252,12 +260,28 @@ class MembershipPanelClass extends React.Component {
                 <div className="sv-membership-visibility-options" role="radiogroup" aria-label="Project visibility">
                     {VISIBILITY_OPTIONS.map(opt => {
                         const selected = this.props.visibility === opt.value;
+                        // TASK-2440 (epic 2425 W4.1) — in-flight state. The
+                        // PATCH takes as long as it takes; what was missing was
+                        // the acknowledgement, and an unacknowledged control is
+                        // what makes someone click it twice.
+                        //
+                        // ALL rows disable (a second click on any destination is
+                        // just as wrong as a second click on the same one), and
+                        // `disabled` on a role="radio" button also suppresses
+                        // its onClick — which is the point. It is paired with
+                        // aria-busy + a visible affordance on the row actually
+                        // being requested, so this is a radiogroup that says it
+                        // is working rather than one that has silently died.
+                        const pending = this.props.visibilityPending;
+                        const busy = !!pending && pending === opt.value;
                         return (
                             <button
                                 type="button"
                                 key={opt.value}
                                 role="radio"
                                 aria-checked={selected}
+                                aria-busy={busy ? 'true' : undefined}
+                                disabled={!!pending}
                                 className={`sv-membership-visibility-option-row sv-membership-visibility-btn ${selected ? 'active' : ''}`}
                                 onClick={() => this.handleVisibilityChange(opt.value)}
                             >
@@ -295,6 +319,18 @@ class MembershipPanelClass extends React.Component {
                                         ) : null}
                                         {selected ? (
                                             <span className="sv-account-pill sv-account-pill--current">Current</span>
+                                        ) : null}
+                                        {/* TASK-2440 — the visible half of the
+                                            in-flight state, matching the Billing
+                                            tab's "Opening…" treatment. A greyed
+                                            row on its own still reads as broken. */}
+                                        {busy ? (
+                                            <span
+                                                data-testid="sv-membership-visibility-working"
+                                                className="sv-account-pill sv-membership-visibility-working"
+                                            >
+                                                Working…
+                                            </span>
                                         ) : null}
                                     </span>
                                     <span className="sv-membership-visibility-desc">
@@ -735,6 +771,9 @@ const mapStateToProps = (state) => {
             || state?.anuga?.permsLoadFailed === true,
         isOwner: isOwnerAnugaMap(state),
         visibility: getProjectVisibility(state),
+        // TASK-2440 — the in-flight visibility REQUEST. Deliberately NOT
+        // `loading` above (getMembershipsLoading) — see the propType.
+        visibilityPending: getProjectVisibilityPending(state),
         myRole,
         // V2P-24 — currentUserId is required by the V2P-02 helpers' Contributor
         // ownership rule. Pulled from the same security slice the helpers'
