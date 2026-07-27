@@ -179,6 +179,35 @@
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
+/* 1b. Post-checkout confirming notice (TASK-2489, epic 2425 W3c).
+   Sits directly above the balance card, because the balance IS the answer it is
+   waiting for — the customer reads the claim and its resolution in one glance.
+   Informational blue rather than the amber the estimate/shortfall badges use:
+   nothing here needs action, and nothing has gone wrong. It has no `--stalled`
+   variant and no button; the notice is removed by the overlay clearing, never by
+   the customer dismissing it. */
+.sv-account-confirming {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(120, 190, 255, 0.35);
+    background-color: rgba(120, 190, 255, 0.12);
+}
+
+.sv-account-confirming-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #cfe6ff;
+}
+
+.sv-account-confirming-message {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
 /* 2. Balance card — uppercase label over the big figure; the two primary
    (solid white) pack buttons sit right of it; policy link below.
    TASK-2458 — was .compute-meter-balance-strip--card. The modifier existed to

@@ -6,7 +6,11 @@ import { connect } from 'react-redux';
 import BillingTabPanel from '../components/BillingTabPanel';
 import { getAccountSummaryState } from '../reducer';
 // TASK-2441 (epic 2425 W4.2) — the account-scoped checkout in-flight flag.
-import { isCheckoutInFlight } from '../../reducer';
+// TASK-2489 (epic 2425 W3c) — a returned checkout whose confirmation has not
+// landed yet. Both are pure store reads; the departure anchor isPaywallConfirming
+// keys off rides the pending overlay precisely so this stays pure (a
+// mapStateToProps that touched localStorage would run on every dispatch).
+import { isCheckoutInFlight, isPaywallConfirming } from '../../reducer';
 import { requestBillingPortal } from '../actions';
 import { subscribeCheckoutRequest } from '../../actions';
 
@@ -25,7 +29,8 @@ const mapStateToProps = (state) => {
         recentEntries: account.recentEntries,
         portalLoading: account.portalLoading,
         portalError: account.portalError,
-        checkoutPending: isCheckoutInFlight(state)
+        checkoutPending: isCheckoutInFlight(state),
+        confirming: isPaywallConfirming(state)
     };
 };
 

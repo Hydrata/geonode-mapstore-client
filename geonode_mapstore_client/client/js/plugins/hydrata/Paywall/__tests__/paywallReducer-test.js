@@ -5,9 +5,11 @@
 import expect from 'expect';
 import paywallReducer, {
     getEffectivePaywallPayload,
+    getPaywallCheckoutAnchor,
     getPaywallDesiredVisibility,
     getPaywallSteady,
     isCheckoutInFlight,
+    isPaywallConfirming,
     isPaywallPending
 } from '../reducer';
 import {getPaywallSteadyState, isPaywallPastDue} from '../selectors';
@@ -17,6 +19,7 @@ import {
     DISMISS_PAYWALL_UPGRADE,
     SET_PAYWALL_PENDING,
     CLEAR_PAYWALL_PENDING,
+    setPaywallPending,
     subscribeCheckoutRequest,
     subscribeCheckoutSettled
 } from '../actions';
@@ -24,8 +27,12 @@ import {
 // The pending overlay's exact shape, spelled out once so the toEqual assertions
 // below keep asserting the WHOLE object (a field quietly added or dropped is how
 // a change to it escapes review). W2.8's `stalled` sub-state was removed by the
-// W2.10 revert — see the reducer's CLEAR_PAYWALL_PENDING case.
-const PENDING_OVERLAY = {state: 'pending', checkout_url: null, read_only: false, visibility: null};
+// W2.10 revert — see the reducer's CLEAR_PAYWALL_PENDING case. TASK-2489 added
+// `anchor`: the departure record, inert in this slice, defaulting to null so an
+// arming that carries none is indistinguishable from pre-2489 behaviour.
+const PENDING_OVERLAY = {
+    state: 'pending', checkout_url: null, read_only: false, visibility: null, anchor: null
+};
 
 // Shared by the three project-stamp describes below: build a slice through the
 // REAL reducer (never a hand-rolled literal — that is how a shape change slips
@@ -184,6 +191,62 @@ describe('TASK-2099 Paywall reducer', () => {
         });
         expect(after).toBe(state, 'the account summary disarmed the pending overlay');
         expect(isPaywallPending({anuga: {paywall: after}})).toBe(true);
+    });
+
+    // ── TASK-2489 (epic 2425 W3c): the departure anchor ─────────────────────
+    //
+    // It rides the arming action and lives ON the overlay, so it dies with it.
+    // That is what stops a settled checkout's record being adopted by a later
+    // one, and it is why the Billing tab's notice can be a pure store read.
+    describe('the checkout anchor (TASK-2489)', () => {
+        const ANCHOR = {
+            purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
+            latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
+        };
+
+        it('SET_PAYWALL_PENDING carries the anchor onto the overlay', () => {
+            const state = paywallReducer(undefined, setPaywallPending(ANCHOR));
+            expect(state.overlay.anchor).toEqual(ANCHOR);
+            expect(getPaywallCheckoutAnchor({anuga: {paywall: state}})).toEqual(ANCHOR);
+            expect(isPaywallConfirming({anuga: {paywall: state}})).toBe(true);
+        });
+
+        it('an arming with NO anchor is pre-2489 behaviour — pending, but nothing confirming', () => {
+            // localStorage blocked, a corrupt record, or a return this browser
+            // never started. The poll still runs and still clears; the panel just
+            // makes no claim it has no channel to retract.
+            const state = paywallReducer(undefined, setPaywallPending());
+            expect(state.overlay.anchor).toBe(null);
+            expect(isPaywallPending({anuga: {paywall: state}})).toBe(true);
+            expect(isPaywallConfirming({anuga: {paywall: state}})).toBe(false);
+        });
+
+        it('the anchor dies with the overlay, so a settled checkout leaves nothing to adopt', () => {
+            let state = paywallReducer(undefined, setPaywallPending(ANCHOR));
+            state = paywallReducer(state, {type: CLEAR_PAYWALL_PENDING});
+            expect(getPaywallCheckoutAnchor({anuga: {paywall: state}})).toBe(null);
+            expect(isPaywallConfirming({anuga: {paywall: state}})).toBe(false);
+        });
+
+        it('a PAID steady clearing the overlay takes the anchor with it', () => {
+            let state = paywallReducer(undefined, setPaywallPending(ANCHOR));
+            state = paywallReducer(state, {
+                type: SET_ANUGA_RESOURCE_PERMS,
+                payload: {paywall: {state: 'paid_private', checkout_url: null, read_only: false}}
+            });
+            expect(isPaywallConfirming({anuga: {paywall: state}})).toBe(false);
+        });
+
+        it('an upgrade_prompt overlay is never mistaken for a confirming checkout', () => {
+            const state = refusalFor(42, 'private');
+            expect(getPaywallCheckoutAnchor({anuga: {paywall: state}})).toBe(null);
+            expect(isPaywallConfirming({anuga: {paywall: state}})).toBe(false);
+        });
+
+        it('both selectors are null-safe on a store with no paywall slice', () => {
+            expect(getPaywallCheckoutAnchor({})).toBe(null);
+            expect(isPaywallConfirming({})).toBe(false);
+        });
     });
 
     describe('getEffectivePaywallPayload', () => {

@@ -2194,25 +2194,31 @@ describe('ANUGA Epics', () => {
     describe('TASK-2099 paywallEpics', () => {
         const MockAdapter = require('axios-mock-adapter');
         const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const paywallEpicsModule = require('../epics/paywallEpics');
         const {
             checkoutReturnEpic,
             pollMyPermsWhilePendingEpic,
             refreshMyPermsOnTabVisibleEpic,
             subscribeCheckoutEpic,
+            clearPendingOnPurchaseRowEpic,
+            CHECKOUT_ANCHOR_STORAGE_KEY,
             __resetCheckoutReturnForTests,
             __setPollIntervalForTests,
             __setDocumentVisibleForTests,
             __setRedirectForTests
-        } = require('../epics/paywallEpics');
+        } = paywallEpicsModule;
         const {FETCH_MY_PERMS} = require('../actionsAnuga');
         const {
             SUBSCRIBE_CHECKOUT_REQUEST,
             SUBSCRIBE_CHECKOUT_SETTLED,
-            SET_PAYWALL_PENDING
+            SET_PAYWALL_PENDING,
+            CLEAR_PAYWALL_PENDING
         } = require('../../Paywall/actions');
         const paywallReducer = require('../../Paywall/reducer').default;
         const {isCheckoutInFlight} = require('../../Paywall/reducer');
-        const {FETCH_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
+        const {FETCH_COMPUTE_BALANCE, SET_COMPUTE_BALANCE} = require('../../Paywall/meter/actions');
+        const {FETCH_ACCOUNT_SUMMARY} = require('../../Paywall/account/actions');
+        const SET_ANUGA_RESOURCE_PERMS = 'ANUGA:SET_ANUGA_RESOURCE_PERMS';
 
         let mockAxios;
         const originalPath = window.location.pathname;
@@ -2220,6 +2226,7 @@ describe('ANUGA Epics', () => {
         beforeEach(() => {
             mockAxios = new MockAdapter(axios);
             __resetCheckoutReturnForTests();
+            try { window.localStorage.removeItem(CHECKOUT_ANCHOR_STORAGE_KEY); } catch (e) { /* private mode */ }
         });
         afterEach(() => {
             mockAxios.restore();
@@ -2227,6 +2234,7 @@ describe('ANUGA Epics', () => {
             __setDocumentVisibleForTests(null); // restore the real visibility probe
             __setRedirectForTests(null); // restore real redirect
             window.history.pushState({}, '', originalPath);
+            try { window.localStorage.removeItem(CHECKOUT_ANCHOR_STORAGE_KEY); } catch (e) { /* private mode */ }
         });
 
         describe('checkoutReturnEpic', () => {
@@ -2409,10 +2417,19 @@ describe('ANUGA Epics', () => {
                     a => emitted.push(a), done, () => {
                         try {
                             expect(emitted.length).toBeGreaterThan(0);
-                            const last = emitted[emitted.length - 1];
-                            expect(last.type).toBe(
-                                'PAYWALL:CLEAR_PENDING',
-                                'the poll ran out of attempts and left the overlay armed'
+                            // TASK-2489 — the tail now emits the give-up CLEAR
+                            // followed by ONE account refetch (AC5), so the
+                            // Billing panel the customer was returned to stops
+                            // showing pre-purchase money. The assertion is on
+                            // the PAIR and their order, not on "last action".
+                            const tail = emitted.slice(-2).map(a => a.type);
+                            expect(tail).toEqual(
+                                [CLEAR_PAYWALL_PENDING, FETCH_ACCOUNT_SUMMARY],
+                                'the poll ran out of attempts and left the overlay armed, '
+                                + 'or refreshed the panel before clearing it'
+                            );
+                            expect(emitted.filter(a => a.type === FETCH_ACCOUNT_SUMMARY).length).toBe(
+                                1, 'the give-up path refetched the account summary more than once'
                             );
                             // No toast either. W2.8 raised an autoDismiss:0 warning
                             // here; there is no notification-retraction path in this
@@ -2444,6 +2461,14 @@ describe('ANUGA Epics', () => {
                     a => emitted.push(a), done, () => {
                         expect(emitted.some(a => a.type === 'PAYWALL:CLEAR_PENDING')).toBe(false);
                         expect(emitted.some(a => a.type === 'SHOW_NOTIFICATION')).toBe(false);
+                        // TASK-2489 AC5 — the resolved branch still refetches the
+                        // account summary EXACTLY once. The Billing tab renders the
+                        // ACCOUNT slice (BillingTabContainer.js), not the per-tick
+                        // meter slice, so without this the panel the customer was
+                        // returned to keeps showing pre-purchase money.
+                        expect(emitted.filter(a => a.type === FETCH_ACCOUNT_SUMMARY).length).toBe(
+                            1, 'the resolved branch refetched the account summary 0 or >1 times'
+                        );
                         done();
                     }
                 );
@@ -2464,6 +2489,598 @@ describe('ANUGA Epics', () => {
                     sub.unsubscribe();
                     done();
                 }, 35);
+            });
+        });
+
+        // ─────────────────────────────────────────────────────────────────────
+        // TASK-2489 (epic 2425 W3c) — the post-checkout confirmation, on the
+        // channel that is actually POLLED.
+        //
+        // Three earlier attempts failed by inventing a client-side detector.
+        // The signal was there the whole time: /commerce/balance/ is re-fetched
+        // on EVERY 3s poll tick (pollMyPermsWhilePendingEpic -> fetchComputeBalance
+        // -> Paywall/meter/reducer.js recentEntries), its rows carry the SERVER's
+        // `created_at` (balance_views.py:73-83), and a credit pack writes exactly
+        // one row with entry_type='purchase' (checkout_views.py:791-796).
+        //
+        // The anchor is captured BEFORE departure and persisted to localStorage,
+        // because the Stripe return lands in a DIFFERENT TAB (paywallEpics.js
+        // _openInNewTab) — sessionStorage and module state do not survive that.
+        // Comparing a server timestamp against a server timestamp is what makes
+        // this immune to the cold-boot race that defeated W2.9: the webhook is
+        // allowed to win, and the FE can still see that it did.
+        // ─────────────────────────────────────────────────────────────────────
+        describe('TASK-2489 clearPendingOnPurchaseRowEpic', () => {
+            const OLD_PURCHASE = '2026-07-27T01:00:00+00:00';
+            const NEW_PURCHASE = '2026-07-27T01:00:05+00:00';
+
+            const purchaseRow = (createdAt) => ({entry_type: 'purchase', amount: '10.00', created_at: createdAt});
+            const debitRow = (createdAt) => ({entry_type: 'debit', amount: '0.42', created_at: createdAt});
+
+            /**
+             * A store already in the post-return shape: `pending` armed and
+             * carrying the departure anchor checkoutReturnEpic lifted out of
+             * localStorage, plus whatever the last /commerce/balance/ read left
+             * in the meter slice.
+             */
+            const pendingStore = ({anchor, entries = [], enabled = true, balance = '5.00', pending = true}) => ({
+                getState: () => ({
+                    anuga: {
+                        projects: {data: {id: 42}},
+                        paywall: {
+                            overlay: pending ? {state: 'pending', anchor: anchor || null} : null,
+                            overlayProjectId: null,
+                            steady: null
+                        },
+                        computeMeter: {enabled, balance, recentEntries: entries}
+                    }
+                })
+            });
+
+            const creditPackAnchor = (latestPurchaseIso, balanceObserved = true) => ({
+                purchaseType: 'credit_pack',
+                accountOnly: false,
+                projectId: 42,
+                latestPurchaseIso,
+                balanceObserved
+            });
+
+            const runEpic = (actions, store, assertFn, done) => {
+                const emitted = [];
+                clearPendingOnPurchaseRowEpic(mockActions(actions), store).subscribe(
+                    a => emitted.push(a), done, () => {
+                        try { assertFn(emitted); done(); } catch (err) { done(err); }
+                    }
+                );
+            };
+
+            // ── THE DESIGNATED RED CRITERION (AC3) ──────────────────────────
+            it('a purchase row dated AFTER the departure anchor clears the pending overlay', (done) => {
+                const store = pendingStore({
+                    anchor: creditPackAnchor(OLD_PURCHASE),
+                    entries: [purchaseRow(NEW_PURCHASE), purchaseRow(OLD_PURCHASE)]
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(
+                        1, 'the detector emitted something other than exactly one clear'
+                    );
+                    expect(emitted[0].type).toBe(
+                        CLEAR_PAYWALL_PENDING,
+                        'a purchase row newer than the checkout anchor did not clear the '
+                        + 'confirming state — the customer sits on "confirming" over money '
+                        + 'that has already landed'
+                    );
+                    // AC3: the clear is the epic's ONLY output. The single account
+                    // refetch belongs to the poll tail (AC5); emitting it here too
+                    // would make it two.
+                    expect(emitted.some(a => a.type === FETCH_ACCOUNT_SUMMARY)).toBe(
+                        false, 'the detector also fetched the account summary — that is the tail\'s job'
+                    );
+                }, done);
+            });
+
+            it('a purchase row NOT strictly newer than the anchor is the row we already saw — no clear', (done) => {
+                const store = pendingStore({
+                    anchor: creditPackAnchor(OLD_PURCHASE),
+                    entries: [purchaseRow(OLD_PURCHASE)]
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(
+                        0, 'the row present at departure was mistaken for the new purchase'
+                    );
+                }, done);
+            });
+
+            it('deletes the localStorage anchor when it clears, so an abandoned record cannot outlive its checkout', (done) => {
+                window.localStorage.setItem(
+                    CHECKOUT_ANCHOR_STORAGE_KEY, JSON.stringify(creditPackAnchor(OLD_PURCHASE))
+                );
+                const store = pendingStore({
+                    anchor: creditPackAnchor(OLD_PURCHASE),
+                    entries: [purchaseRow(NEW_PURCHASE)]
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(1);
+                    expect(window.localStorage.getItem(CHECKOUT_ANCHOR_STORAGE_KEY)).toBe(null);
+                }, done);
+            });
+
+            // ── AC4: the cold-boot race that defeated W2.9 ──────────────────
+            //
+            // Stripe posts checkout.session.completed server-to-server in
+            // seconds, while the return goes through a synchronous
+            // Session.retrieve and then a full cold MapStore boot (13.6s median,
+            // permsEpics.js:18). So the webhook routinely wins and the credit is
+            // ALREADY in the very first reading the SPA takes. W2.9 adopted its
+            // baseline from that first reading and could therefore never see the
+            // change. A departure-time SERVER timestamp can.
+            it('the webhook winning the cold-boot race is still observed — clears on the FIRST reading, no second one needed', (done) => {
+                const store = pendingStore({
+                    anchor: creditPackAnchor(OLD_PURCHASE),
+                    // The row exists at server time before this SPA even booted.
+                    entries: [purchaseRow(NEW_PURCHASE)]
+                });
+                // SET_PAYWALL_PENDING is the arming action itself: the epic must
+                // evaluate against the store as it already stands rather than
+                // waiting 3s for a tick that would tell it nothing new. A design
+                // that lazily adopts a baseline from a post-arming reading emits
+                // nothing here, which is exactly the W2.9 defect.
+                runEpic([{type: SET_PAYWALL_PENDING}], store, (emitted) => {
+                    expect(emitted.length).toBe(
+                        1,
+                        'the purchase had already landed before the SPA booted and the '
+                        + 'confirming state never cleared — a client-side before/after '
+                        + 'diff cannot see a change that happened before the client existed'
+                    );
+                    expect(emitted[0].type).toBe(CLEAR_PAYWALL_PENDING);
+                }, done);
+            });
+
+            it('and on the FIRST SET_COMPUTE_BALANCE when the row lands mid-poll', (done) => {
+                let entries = [];
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {
+                                overlay: {state: 'pending', anchor: creditPackAnchor(OLD_PURCHASE)},
+                                overlayProjectId: null, steady: null
+                            },
+                            computeMeter: {enabled: true, balance: '5.00', recentEntries: entries}
+                        }
+                    })
+                };
+                const emitted = [];
+                const subject = new Rx.Subject();
+                const action$ = subject.asObservable();
+                action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+                clearPendingOnPurchaseRowEpic(action$, store).subscribe(a => emitted.push(a));
+                setTimeout(() => {
+                    // Tick 1 — the webhook has not landed yet.
+                    subject.next({type: SET_COMPUTE_BALANCE});
+                    expect(emitted.length).toBe(0, 'cleared before any purchase row existed');
+                    // Tick 2 — it lands.
+                    entries = [purchaseRow(NEW_PURCHASE)];
+                    store.getState = () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {
+                                overlay: {state: 'pending', anchor: creditPackAnchor(OLD_PURCHASE)},
+                                overlayProjectId: null, steady: null
+                            },
+                            computeMeter: {enabled: true, balance: '15.00', recentEntries: entries}
+                        }
+                    });
+                    subject.next({type: SET_COMPUTE_BALANCE});
+                    try {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(CLEAR_PAYWALL_PENDING);
+                        subject.complete();
+                        done();
+                    } catch (err) { done(err); }
+                }, 0);
+            });
+
+            // ── AC9a: the comparison is anchor-relative, never clock-relative ──
+            //
+            // A `Date.now()` on either side of the freshness test makes a browser
+            // whose clock runs fast see no row as new — the sticky "still
+            // confirming" this task exists to prevent. Both timestamps here are
+            // decades in the past, so any now-relative rule emits nothing.
+            it('compares two SERVER timestamps, not the client clock', (done) => {
+                const store = pendingStore({
+                    anchor: creditPackAnchor('2000-01-01T00:00:00+00:00'),
+                    entries: [purchaseRow('2000-01-01T00:00:01+00:00')]
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(
+                        1,
+                        'a row one second newer than a decades-old anchor did not clear — '
+                        + 'the freshness test is reading the client clock'
+                    );
+                }, done);
+            });
+
+            it('a row far in the FUTURE of the client clock but older than the anchor still does not clear', (done) => {
+                const store = pendingStore({
+                    anchor: creditPackAnchor('2099-01-01T00:00:00+00:00'),
+                    entries: [purchaseRow('2098-01-01T00:00:00+00:00')]
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(0);
+                }, done);
+            });
+
+            // ── AC3: the null-anchor rule and its balanceObserved gate ──────
+            //
+            // "no purchase row at departure => ANY purchase row is new" is sound
+            // ONLY when the empty window was FETCHED and empty. Three live shapes
+            // make it NEVER-fetched, and in each of them a month-old row would
+            // clear the notice ~3s after arming.
+            it('fetched-and-empty (balanceObserved) + an arriving purchase row -> clears', (done) => {
+                const store = pendingStore({
+                    anchor: creditPackAnchor(null, true),
+                    entries: [purchaseRow(NEW_PURCHASE)]
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(
+                        1,
+                        'the balanceObserved gate swallowed the null-anchor rule it is '
+                        + 'supposed to be guarding'
+                    );
+                }, done);
+            });
+
+            it('DARK meter at departure (enabled:false) -> never judges, whatever rows turn up later', (done) => {
+                // balance_views.py:32-38 _dark_response — enabled false, balance
+                // null, recent_entries []. The empty window says nothing at all.
+                const store = pendingStore({
+                    anchor: creditPackAnchor(null, false),
+                    entries: [purchaseRow('2026-06-01T00:00:00+00:00')],
+                    enabled: false, balance: null
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(
+                        0,
+                        'a month-old purchase row cleared the confirming state because the '
+                        + 'departure window was empty for a reason that had nothing to do '
+                        + 'with purchases'
+                    );
+                }, done);
+            });
+
+            it('no billing account at departure (enabled:true, balance:null) -> never judges either', (done) => {
+                // balance_views.py:60-66. A user can be added to a pre-existing
+                // account carrying old rows between departure and return.
+                const store = pendingStore({
+                    anchor: creditPackAnchor(null, false),
+                    entries: [purchaseRow('2026-06-01T00:00:00+00:00')],
+                    enabled: true, balance: null
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(0);
+                }, done);
+            });
+
+            it('only DEBIT rows at departure still counts as observed — the window was read', (done) => {
+                const store = pendingStore({
+                    anchor: creditPackAnchor(null, true),
+                    entries: [debitRow(NEW_PURCHASE), purchaseRow(NEW_PURCHASE)]
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(1);
+                }, done);
+            });
+
+            // ── Scope: a SUBSCRIPTION writes NO ledger row ──────────────────
+            it('a SUBSCRIPTION anchor is never cleared by a purchase row (that channel is my_perms)', (done) => {
+                // checkout_views.py has exactly one ENTRY_TYPE_PURCHASE write and
+                // it is on the credit-pack path; a subscription sets
+                // has_paid_private_entitlement and flips the project. Clearing a
+                // subscription's confirming state off someone else's credit pack
+                // would be a claim about the wrong purchase.
+                const store = pendingStore({
+                    anchor: {purchaseType: 'subscription', accountOnly: true, projectId: null,
+                        latestPurchaseIso: OLD_PURCHASE, balanceObserved: true},
+                    entries: [purchaseRow(NEW_PURCHASE)]
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(0);
+                }, done);
+            });
+
+            it('no anchor (localStorage unavailable, or a return this tab did not start) -> no clear', (done) => {
+                const store = pendingStore({anchor: null, entries: [purchaseRow(NEW_PURCHASE)]});
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(0);
+                }, done);
+            });
+
+            it('not pending -> inert, so a later purchase cannot re-fire it', (done) => {
+                const store = pendingStore({
+                    anchor: creditPackAnchor(OLD_PURCHASE),
+                    entries: [purchaseRow(NEW_PURCHASE)],
+                    pending: false
+                });
+                runEpic([{type: SET_COMPUTE_BALANCE}], store, (emitted) => {
+                    expect(emitted.length).toBe(0);
+                }, done);
+            });
+        });
+
+        // ─────────────────────────────────────────────────────────────────────
+        // TASK-2489 AC2 — the departure anchor, and AC9b: it is persisted where
+        // a DIFFERENT TAB can read it.
+        // ─────────────────────────────────────────────────────────────────────
+        describe('TASK-2489 checkout anchor (AC2)', () => {
+            const storeWithMeter = (meter) => ({
+                getState: () => ({anuga: {projects: {data: {id: 42}}, computeMeter: meter}})
+            });
+            const readAnchor = () => JSON.parse(window.localStorage.getItem(CHECKOUT_ANCHOR_STORAGE_KEY));
+
+            const departAndAssert = (store, assertFn, done) => {
+                mockAxios.onPost('/commerce/checkout/create-session/')
+                    .reply(200, {checkout_url: 'https://checkout.stripe.com/pay/cs_test_anchor'});
+                __setRedirectForTests(() => {});
+                const action$ = mockActions([
+                    {type: SUBSCRIBE_CHECKOUT_REQUEST, purchaseType: 'credit_pack', priceId: 'price_x'}
+                ]);
+                subscribeCheckoutEpic(action$, store).subscribe(() => {}, done, () => {
+                    try { assertFn(readAnchor()); done(); } catch (err) { done(err); }
+                });
+            };
+
+            it('persists the newest purchase row\'s SERVER created_at, verbatim', (done) => {
+                departAndAssert(
+                    storeWithMeter({
+                        enabled: true, balance: '5.00',
+                        recentEntries: [
+                            {entry_type: 'purchase', amount: '10.00', created_at: '2026-07-27T01:00:00+00:00'},
+                            {entry_type: 'debit', amount: '2.00', created_at: '2026-07-27T02:00:00+00:00'},
+                            {entry_type: 'purchase', amount: '10.00', created_at: '2026-07-26T09:00:00+00:00'}
+                        ]
+                    }),
+                    (anchor) => {
+                        expect(anchor.latestPurchaseIso).toBe('2026-07-27T01:00:00+00:00');
+                        expect(anchor.balanceObserved).toBe(true);
+                        expect(anchor.purchaseType).toBe('credit_pack');
+                    },
+                    done
+                );
+            });
+
+            it('a window with only DEBIT rows persists latestPurchaseIso: null', (done) => {
+                departAndAssert(
+                    storeWithMeter({
+                        enabled: true, balance: '5.00',
+                        recentEntries: [{entry_type: 'debit', amount: '2.00', created_at: '2026-07-27T02:00:00+00:00'}]
+                    }),
+                    (anchor) => {
+                        expect(anchor.latestPurchaseIso).toBe(null);
+                        // The window WAS read, so a later purchase row is judgeable.
+                        expect(anchor.balanceObserved).toBe(true);
+                    },
+                    done
+                );
+            });
+
+            it('the DARK meter shape persists balanceObserved: false', (done) => {
+                departAndAssert(
+                    storeWithMeter({enabled: false, balance: null, recentEntries: []}),
+                    (anchor) => {
+                        expect(anchor.latestPurchaseIso).toBe(null);
+                        expect(anchor.balanceObserved).toBe(false);
+                    },
+                    done
+                );
+            });
+
+            it('an account-present read with balance null (no billing account) is NOT observed', (done) => {
+                departAndAssert(
+                    storeWithMeter({enabled: true, balance: null, recentEntries: []}),
+                    (anchor) => expect(anchor.balanceObserved).toBe(false),
+                    done
+                );
+            });
+
+            // AC9b — the Stripe return lands in a NEW TAB (_openInNewTab), so a
+            // module-level variable or sessionStorage would be gone by the time
+            // anything reads it. checkoutReturnEpic must pick the record up out
+            // of localStorage, which is the only store the other tab shares.
+            it('checkoutReturnEpic lifts an anchor written by ANOTHER TAB onto SET_PAYWALL_PENDING', (done) => {
+                const written = {
+                    purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
+                    latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
+                };
+                // Written by the originating tab; this tab shares nothing else.
+                window.localStorage.setItem(CHECKOUT_ANCHOR_STORAGE_KEY, JSON.stringify(written));
+                window.history.pushState({}, '', '?checkout=success');
+                const emitted = [];
+                checkoutReturnEpic(mockActions([{type: INIT_ANUGA}]), storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            const armed = emitted.find(a => a.type === SET_PAYWALL_PENDING);
+                            expect(armed.anchor).toEqual(
+                                written,
+                                'the departure anchor did not survive into the return tab — '
+                                + 'the detector has nothing to compare against'
+                            );
+                            done();
+                        } catch (err) { done(err); }
+                    });
+            });
+
+            it('a corrupt or absent record degrades to no anchor rather than throwing', (done) => {
+                window.localStorage.setItem(CHECKOUT_ANCHOR_STORAGE_KEY, 'not json{');
+                window.history.pushState({}, '', '?checkout=success');
+                const emitted = [];
+                checkoutReturnEpic(mockActions([{type: INIT_ANUGA}]), storeWithProjectId(42))
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            expect(emitted.length).toBe(5);
+                            expect(emitted.find(a => a.type === SET_PAYWALL_PENDING).anchor).toBe(null);
+                            done();
+                        } catch (err) { done(err); }
+                    });
+            });
+        });
+
+        // ─────────────────────────────────────────────────────────────────────
+        // TASK-2489 AC5 — ONE account refetch per armed checkout, EDGE-triggered.
+        //
+        // Both tests run the module's WHOLE epic set (Object.values of its default
+        // export) rather than the poll epic alone. That is deliberate: the
+        // forbidden mechanism is a NEW epic on SET_ANUGA_RESOURCE_PERMS that
+        // fetches whenever the state is paid, and a test aimed only at the poll
+        // would stay green while it shipped. Enumerating the default export means
+        // any epic added to this module is counted here automatically.
+        // ─────────────────────────────────────────────────────────────────────
+        describe('TASK-2489 exactly-one account refetch (AC5)', () => {
+            const allEpics = () => Object.keys(paywallEpicsModule.default)
+                .map(k => paywallEpicsModule.default[k]);
+
+            const paidPerms = () => ({
+                type: SET_ANUGA_RESOURCE_PERMS,
+                projectId: 42,
+                payload: {paywall: {state: 'paid_private', checkout_url: null, read_only: false}}
+            });
+
+            /** A stream we can feed on a schedule; mockActions fires everything at once. */
+            const timedActions = () => {
+                const subject = new Rx.Subject();
+                const action$ = subject.asObservable();
+                action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+                return {action$, emit: (a) => subject.next(a), end: () => subject.complete()};
+            };
+
+            it('the confirming edge refetches the account summary exactly once', (done) => {
+                __setPollIntervalForTests(2);
+                let pending = true;
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {
+                                overlay: pending ? {state: 'pending', anchor: null} : null,
+                                overlayProjectId: null,
+                                steady: pending ? null : {state: 'paid_private'}
+                            },
+                            computeMeter: {enabled: true, balance: '0.00', recentEntries: []}
+                        }
+                    })
+                };
+                const {action$, emit, end} = timedActions();
+                const emitted = [];
+                const sub = Rx.Observable.merge(...allEpics().map(e => e(action$, store)))
+                    .subscribe(a => emitted.push(a));
+
+                emit({type: SET_PAYWALL_PENDING});
+                // The webhook flips the project: the reducer's PAID_STEADY_STATES
+                // case nulls the overlay (Paywall/reducer.js:85-88). A reducer
+                // cannot dispatch, which is exactly why the tail exists.
+                setTimeout(() => { pending = false; }, 8);
+                setTimeout(() => {
+                    try {
+                        expect(emitted.filter(a => a.type === FETCH_ACCOUNT_SUMMARY).length).toBe(
+                            1,
+                            'the Billing tab renders the ACCOUNT slice, so without exactly one '
+                            + 'refetch on the confirming edge it shows pre-purchase money over '
+                            + 'an unlocked padlock'
+                        );
+                        sub.unsubscribe(); end(); done();
+                    } catch (err) { sub.unsubscribe(); end(); done(err); }
+                }, 120);
+            });
+
+            // THE TEST THAT FALSIFIES THE FORBIDDEN EPIC (AC18). An epic on
+            // SET_ANUGA_RESOURCE_PERMS that fetches whenever paywall.state is paid
+            // fires on EVERY 3s tick for as long as the customer is paid — the
+            // per-tick account fetch 26e4aab36 reverted. It passes the test above
+            // and fails this one.
+            it('subsequent PAID ticks do NOT refetch again — the per-tick fetch stays reverted', (done) => {
+                __setPollIntervalForTests(2);
+                let pending = true;
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {
+                                overlay: pending ? {state: 'pending', anchor: null} : null,
+                                overlayProjectId: null,
+                                steady: pending ? null : {state: 'paid_private'}
+                            },
+                            computeMeter: {enabled: true, balance: '0.00', recentEntries: []}
+                        }
+                    })
+                };
+                const {action$, emit, end} = timedActions();
+                const emitted = [];
+                const sub = Rx.Observable.merge(...allEpics().map(e => e(action$, store)))
+                    .subscribe(a => emitted.push(a));
+
+                emit({type: SET_PAYWALL_PENDING});
+                setTimeout(() => { pending = false; }, 8);
+                // Three more paid my_perms readings, exactly as the poll would
+                // deliver them while the customer keeps looking at the map.
+                [40, 60, 80].forEach(t => setTimeout(() => emit(paidPerms()), t));
+                setTimeout(() => {
+                    try {
+                        const fetches = emitted.filter(a => a.type === FETCH_ACCOUNT_SUMMARY);
+                        expect(fetches.length).toBe(
+                            1,
+                            `${fetches.length} account-summary fetches: a paid steady state is `
+                            + 'firing one per tick, which is the reverted per-tick fetch (AC9c)'
+                        );
+                        sub.unsubscribe(); end(); done();
+                    } catch (err) { sub.unsubscribe(); end(); done(err); }
+                }, 160);
+            });
+
+            it('the credit-pack path clears AND refetches once, with no duplicate from the detector', (done) => {
+                __setPollIntervalForTests(2);
+                let pending = true;
+                const anchor = {
+                    purchaseType: 'credit_pack', accountOnly: false, projectId: 42,
+                    latestPurchaseIso: '2026-07-27T01:00:00+00:00', balanceObserved: true
+                };
+                const store = {
+                    getState: () => ({
+                        anuga: {
+                            projects: {data: {id: 42}},
+                            paywall: {
+                                overlay: pending ? {state: 'pending', anchor} : null,
+                                overlayProjectId: null, steady: null
+                            },
+                            computeMeter: {
+                                enabled: true, balance: '15.00',
+                                recentEntries: [{
+                                    entry_type: 'purchase', amount: '10.00',
+                                    created_at: '2026-07-27T01:00:05+00:00'
+                                }]
+                            }
+                        }
+                    })
+                };
+                const {action$, emit, end} = timedActions();
+                const emitted = [];
+                const sub = Rx.Observable.merge(...allEpics().map(e => e(action$, store)))
+                    // The real store would reduce the clear; mirror that so the
+                    // poll's takeWhile sees it.
+                    .subscribe(a => {
+                        emitted.push(a);
+                        if (a.type === CLEAR_PAYWALL_PENDING) pending = false;
+                    });
+
+                emit({type: SET_PAYWALL_PENDING});
+                setTimeout(() => {
+                    try {
+                        expect(emitted.some(a => a.type === CLEAR_PAYWALL_PENDING)).toBe(true);
+                        expect(emitted.filter(a => a.type === FETCH_ACCOUNT_SUMMARY).length).toBe(
+                            1, 'the detector and the tail both fetched the summary'
+                        );
+                        sub.unsubscribe(); end(); done();
+                    } catch (err) { sub.unsubscribe(); end(); done(err); }
+                }, 120);
             });
         });
 

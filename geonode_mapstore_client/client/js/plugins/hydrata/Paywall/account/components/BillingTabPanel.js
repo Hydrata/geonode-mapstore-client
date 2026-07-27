@@ -181,26 +181,50 @@ SubscriptionSection.propTypes = {
     checkoutPending: PropTypes.bool
 };
 
-/*
- * NO POST-CHECKOUT CONFIRMATION NOTICE HERE (W2.10 revert, operator decision
- * 2026-07-26). W2.8 added a ConfirmingPurchaseSection above the balance —
- * "Confirming your purchase…", then a stalled variant with a Check again
- * button — and W2.9 rewrote its copy and its clearing rules. Both are removed.
+/**
+ * The post-checkout confirming notice (TASK-2489, epic 2425 W3c).
  *
- * The reason is not that the notice was ugly. The app cannot distinguish "the
- * purchase has not landed" from "it landed by a channel this panel cannot
- * observe" (a credit pack is confirmed only by the balance rendered two lines
- * below the notice), so every wording tried was a claim the customer's own
- * screen could refute, and Check again re-asked endpoints structurally
- * incapable of clearing the state. The genuine defect underneath — a
- * subscription webhook slower than the 60s poll leaves the customer
- * unacknowledged — is TASK-2489, which carries the correct mechanism (a
- * server-side read of whether this checkout session was processed) and all
- * three post-mortems. Do NOT re-add a notice here without that read.
+ * W2.8 put a ConfirmingPurchaseSection here and W2.9 rewrote it; the operator
+ * reverted both on 2026-07-26 because neither could be retracted once refuted.
+ * The three things that make this one different, all of them structural rather
+ * than editorial:
+ *
+ *  1. IT IS STATE-DRIVEN, NOT A TOAST. It renders off `confirming`
+ *     (isPaywallConfirming — the pending overlay plus a departure anchor), so it
+ *     disappears BY RENDERING the moment the overlay clears. There is still no
+ *     notification-retraction path in this codebase — `grep -rn 'hide('
+ *     js/plugins/hydrata` returns one unrelated hit — which is exactly why W2.8's
+ *     autoDismiss:0 toast outlived its own refutation.
+ *  2. THERE IS ALWAYS A CHANNEL THAT CAN RETRACT IT. `confirming` requires an
+ *     anchor, and the anchor is what lets clearPendingOnPurchaseRowEpic observe a
+ *     credit pack landing; a subscription clears on the PAID steady state; and
+ *     the 60s tail clears everything else. Bounded at 60s in the worst case,
+ *     against W2.8's indefinite.
+ *  3. NO "CHECK AGAIN" CONTROL. The poll already re-reads every 3s;
+ *     RECHECK_PAYMENT was deleted by 26e4aab36 and stays deleted. A button that
+ *     re-asks an endpoint incapable of answering is worse than no button.
+ *
+ * The copy claims only what ?checkout=success actually establishes — that the
+ * customer came back from Stripe and we are waiting for the confirmation — and
+ * never that money has moved. The real answer (the balance and the subscription
+ * pill) is rendered directly below it, unchanged.
  */
+function ConfirmingNotice() {
+    return (
+        <div className="sv-account-confirming" data-testid="sv-account-confirming" role="status">
+            <span className="sv-account-confirming-title">
+                <Message msgId="hydrata.anuga.checkoutConfirming.title" />
+            </span>
+            <span className="sv-account-confirming-message">
+                <Message msgId="hydrata.anuga.checkoutConfirming.message" />
+            </span>
+        </div>
+    );
+}
+
 function BillingTabPanel({
     loaded, organisation, isPersonal, manager, isManager, balance, freeBand, subscription,
-    availablePacks, recentEntries, portalLoading, portalError, checkoutPending,
+    availablePacks, recentEntries, portalLoading, portalError, checkoutPending, confirming,
     onBuyPack, onSubscribe, onManageBilling
 }) {
     if (!loaded) {
@@ -213,6 +237,7 @@ function BillingTabPanel({
     return (
         <div className="sv-account-billing-tab" data-testid="sv-account-billing-tab">
             <AccountHeader organisation={organisation} isPersonal={isPersonal} manager={manager} />
+            {confirming ? <ConfirmingNotice /> : null}
             {/* recentEntries intentionally NOT passed here — this panel renders
                 its OWN richer "Recent activity" list below (with run->project
                 links, spec item 6), so BalanceStrip only contributes balance +
@@ -306,6 +331,8 @@ BillingTabPanel.propTypes = {
     portalError: PropTypes.string,
     /** TASK-2441 — a checkout-session create is on the wire. */
     checkoutPending: PropTypes.bool,
+    /** TASK-2489 — a checkout has returned and its confirmation has not landed yet. */
+    confirming: PropTypes.bool,
     onBuyPack: PropTypes.func,
     onSubscribe: PropTypes.func,
     onManageBilling: PropTypes.func
@@ -317,10 +344,11 @@ BillingTabPanel.defaultProps = {
     availablePacks: [],
     recentEntries: [],
     checkoutPending: false,
+    confirming: false,
     onBuyPack: () => {},
     onSubscribe: () => {},
     onManageBilling: () => {}
 };
 
 export default BillingTabPanel;
-export { AccountHeader, FreeBandSection, SubscriptionSection };
+export { AccountHeader, FreeBandSection, SubscriptionSection, ConfirmingNotice };

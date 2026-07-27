@@ -40,28 +40,177 @@ import {
     clearPaywallPending,
     subscribeCheckoutSettled
 } from '../../Paywall/actions';
-import { isPaywallPending, getPaywallDesiredVisibility } from '../../Paywall/reducer';
-import { fetchComputeBalance, dismissMeterModal } from '../../Paywall/meter/actions';
+import {
+    isPaywallPending,
+    getPaywallDesiredVisibility,
+    getPaywallCheckoutAnchor
+} from '../../Paywall/reducer';
+import { SET_COMPUTE_BALANCE, fetchComputeBalance, dismissMeterModal } from '../../Paywall/meter/actions';
+import { getComputeMeterState } from '../../Paywall/meter/reducer';
 import { fetchAccountSummary } from '../../Paywall/account/actions';
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
+
+/*
+ * ─── TASK-2489 (epic 2425 W3c): THE CHANNEL MATRIX ──────────────────────────
+ *
+ * This replaces the "what the clear does not solve" note that stood here through
+ * W2.10. Three attempts failed by inventing a detector before establishing which
+ * channel each purchase shape is observable ON. The rule the matrix establishes,
+ * and which the code below enforces: A CONFIRMING CLAIM MAY ONLY BE RENDERED
+ * WHERE A PER-TICK CHANNEL EXISTS TO RETRACT IT.
+ *
+ * | purchase shape                     | dispatched by                     | webhook writes            | per-tick channel |
+ * |------------------------------------|-----------------------------------|---------------------------|------------------|
+ * | credit pack (meter modal, Billing) | ComputeMeterContainer.js:27,      | purchase ledger row       | YES — /commerce/balance/ recent_entries[].created_at
+ * |                                    | BillingTabContainer.js:33         | (checkout_views.py:791-796)| -> state.anuga.computeMeter.recentEntries
+ * | subscription, project-scoped       | PaywallPanelContainer.js:29       | entitlement + visibility  | YES — my_perms paywall.state -> PAID_STEADY_STATES
+ * | (upgrade modal)                    |                                   | flip                      | clear, Paywall/reducer.js
+ * | subscription, account-scoped,      | BillingTabContainer.js:36         | entitlement only          | YES — past_due -> paid_private/paid_organization
+ * | viewing a NON-public project       | (accountOnly: true)               | (checkout_views.py:133-136)| on my_perms
+ * | subscription, account-scoped,      | BillingTabContainer.js:36         | entitlement only          | NO — _derive_paywall_state returns free_public
+ * | viewing a PUBLIC project           |                                   |                           | before AND after (api_v2.py:795-797)
+ *
+ * ROW 4 IS THE NAMED RESIDUAL GAP. The entitlement surfaces only as
+ * `subscription.active` on /commerce/account/, which is fetched at boot and not
+ * on any tick. Its ONLY in-scope coverage is the give-up tail's single
+ * fetchAccountSummary() (below): a webhook landing anywhere inside the 60s
+ * window makes that read true. After 60s: nothing further until focus or
+ * reload. That is recorded, not papered over with an invented detector — the
+ * app cannot tell "not landed" from "landed by a channel it cannot observe",
+ * and every wording that pretended otherwise was refuted by the customer's own
+ * screen.
+ */
+
+/**
+ * The departure record, written before the Stripe tab opens and read back by
+ * whichever tab the return lands in.
+ *
+ * localStorage, NOT sessionStorage and NOT a module variable: checkout opens in
+ * a NEW TAB (_openInNewTab below), so the tab that reads this is not the tab
+ * that wrote it. One key, last-write-wins — the same semantics the buy control's
+ * own in-flight guard gives the click stream.
+ */
+export const CHECKOUT_ANCHOR_STORAGE_KEY = 'hydrata_checkout_anchor';
+
+// Storage access is wrapped and warned exactly like pollingEpics.js's handled-ids
+// store (:761-770, :825-833): a quota/privacy block must degrade the feature, not
+// break the money path.
+const _warnStorage = (verb, e) => {
+    if (typeof console !== 'undefined' && console.warn) {
+        console.warn(`hydrata: checkout anchor storage unavailable on ${verb}`, e);
+    }
+};
+
+const _writeCheckoutAnchor = (record) => {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    try {
+        window.localStorage.setItem(CHECKOUT_ANCHOR_STORAGE_KEY, JSON.stringify(record));
+    } catch (e) {
+        _warnStorage('write', e);
+    }
+};
+
+const _readCheckoutAnchor = () => {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    try {
+        const raw = window.localStorage.getItem(CHECKOUT_ANCHOR_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : null;
+    } catch (e) {
+        _warnStorage('read', e);
+        return null;
+    }
+};
+
+const _clearCheckoutAnchor = () => {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    try {
+        window.localStorage.removeItem(CHECKOUT_ANCHOR_STORAGE_KEY);
+    } catch (e) {
+        _warnStorage('clear', e);
+    }
+};
+
+/**
+ * The newest SERVER `created_at` among purchase rows in the balance window, or
+ * null when it holds none.
+ *
+ * Never a COUNT: both commerce endpoints return only the 10 newest rows
+ * (balance_views.py:29 RECENT_ENTRIES_LIMIT), so a count is not monotonic and a
+ * busy account's purchase row can fall out of the window between two reads.
+ */
+const _newestPurchaseIso = (entries) => (Array.isArray(entries) ? entries : []).reduce(
+    (newest, e) => {
+        if (!e || e.entry_type !== 'purchase' || !e.created_at) return newest;
+        return (newest === null || Date.parse(e.created_at) > Date.parse(newest)) ? e.created_at : newest;
+    },
+    null
+);
+
+/**
+ * Build the anchor from the store as it stands at the moment of departure.
+ *
+ * `balanceObserved` is the whole reason AC3's null-anchor rule is safe. "No
+ * purchase row at departure, therefore ANY purchase row later is new" holds only
+ * if the empty window was FETCHED and empty. Three live shapes make it
+ * never-fetched, and in each of them a month-old row would clear the notice ~3s
+ * after arming — the same unearned claim as W2.8/W2.9, inverted:
+ *   (a) meter dark        — balance_views.py:32-38, enabled false, balance null;
+ *   (b) no billing account — balance_views.py:60-66, enabled true, balance null
+ *       (and a user can be added to a pre-existing account carrying old rows
+ *       between departure and return);
+ *   (c) nothing fetched yet — meter/reducer.js initialState, which a Billing-tab
+ *       onBuyPack can beat.
+ * Only the account-present shape (balance_views.py:85-90) sets both fields, so
+ * `enabled === true && balance !== null` is exactly "this window was read".
+ */
+const _buildCheckoutAnchor = (state, {purchaseType, accountOnly, projectId}) => {
+    const meter = getComputeMeterState(state);
+    return {
+        purchaseType,
+        accountOnly: !!accountOnly,
+        projectId: projectId ?? null,
+        latestPurchaseIso: _newestPurchaseIso(meter.recentEntries),
+        balanceObserved: meter.enabled === true && meter.balance !== null
+    };
+};
+
+/**
+ * Does the balance window now hold a purchase row this checkout is responsible
+ * for?
+ *
+ * BOTH SIDES ARE SERVER TIMESTAMPS. No Date.now(), no client clock: a browser
+ * running fast would otherwise make no row ever look new and the notice would
+ * never retract, which is precisely the sticky claim this task exists to
+ * prevent. Date.parse here only parses two strings the server produced.
+ */
+const _hasPurchaseSinceAnchor = (entries, anchor) => {
+    const rows = (Array.isArray(entries) ? entries : [])
+        .filter((e) => e && e.entry_type === 'purchase' && e.created_at);
+    if (!rows.length) return false;
+    if (anchor.latestPurchaseIso) {
+        const floor = Date.parse(anchor.latestPurchaseIso);
+        return rows.some((e) => Date.parse(e.created_at) > floor);
+    }
+    // Null anchor: sound ONLY on a window that was actually read. Both endpoints
+    // order -created_at, so a purchase row absent from a READ window at
+    // departure and present later must be newer.
+    return anchor.balanceObserved === true;
+};
 
 // Fixed-interval poll, capped — a "no polish" MVP: no backoff, just a hard
 // ceiling so an abandoned tab (webhook lost, user never returns) can't poll
 // forever. 20 * 3s = 60s, comfortably longer than a normal webhook round trip.
 //
-// TASK-2489 (epic 2425 W2.10) OWNS WHAT THIS DOES NOT COVER, and it is written
-// down here so the next reader does not rediscover it as a surprise. A Stripe
-// webhook RETRY is measured in minutes, so a delivery slower than 60s runs the
-// budget out and the poll terminates silently (see the clear tail below). On the
-// credit-pack path that is harmless — the balance the panel already shows is
-// correct — but a subscription that lands late leaves the customer
-// unacknowledged until they reload. Three attempts to fix that in-epic (W2.8,
-// W2.9 and their remediation) each shipped a claim the customer's own screen
-// could refute, so the operator reverted the surface on 2026-07-26 and moved the
-// genuine problem to TASK-2489, which carries the correct mechanism (a
-// server-side "was THIS checkout session processed" read) and all three
-// post-mortems. Do NOT re-add a client-side detector here.
+// A Stripe webhook RETRY is measured in minutes, so a delivery slower than 60s
+// still runs the budget out. TASK-2489 did not change that ceiling and could
+// not: what it changed is what the customer is told inside it (a state-driven
+// notice that retracts by rendering) and what happens at the cap (the clear now
+// carries one account refetch, so the panel stops showing pre-purchase money).
+// See the CHANNEL MATRIX above for which shapes are observable per tick and
+// which one is not.
 export const PAYWALL_POLL_INTERVAL_MS = 3000;
 export const PAYWALL_POLL_MAX_ATTEMPTS = 20;
 
@@ -176,19 +325,29 @@ export const checkoutReturnEpic = (action$) => action$
         // TASK-2420 — ALSO open the Account panel on Billing with the
         // balance refreshed, so the user watches the credit/subscription
         // land rather than having to hunt for it afterwards.
+        // TASK-2489 — the pending overlay carries the DEPARTURE ANCHOR, lifted
+        // out of localStorage here because this is the one place that knows a
+        // return is being handled. The originating tab wrote it; this tab may
+        // not be that tab (_openInNewTab), which is why the handover is
+        // localStorage and not module state.
         ? Rx.Observable.of(
-            setPaywallPending(), dismissMeterModal(),
+            setPaywallPending(_readCheckoutAnchor()), dismissMeterModal(),
             setMembershipPanel(true), setMembershipPanelTab('billing'), fetchAccountSummary()
         )
         // NOTE the show(opts, level) signature: level is the SECOND ARG — a
         // `level` key inside opts is overwritten by the arg's 'success'
         // default (the UAT-2 green-error-toast bug).
-        : Rx.Observable.of(show({
-            title: 'hydrata.anuga.checkoutCancelled.title',
-            message: 'hydrata.anuga.checkoutCancelled.message',
-            autoDismiss: 5,
-            position: 'tc'
-        }, 'info'))
+        // TASK-2489 — a cancelled checkout leaves no record behind: nothing is
+        // confirming, so nothing should be able to claim it later.
+        : Rx.Observable.defer(() => {
+            _clearCheckoutAnchor();
+            return Rx.Observable.of(show({
+                title: 'hydrata.anuga.checkoutCancelled.title',
+                message: 'hydrata.anuga.checkoutCancelled.message',
+                autoDismiss: 5,
+                position: 'tc'
+            }, 'info'));
+        })
     );
 
 /**
@@ -205,26 +364,36 @@ export const checkoutReturnEpic = (action$) => action$
  * webhook was slow or lost was left in `pending` until they reloaded the page.
  * An un-dismissable state is a trap (ModalHost.js's own standard).
  *
- * TASK-2489 (epic 2425 W2.10) — WHAT THE CLEAR STILL DOES NOT SOLVE, recorded
- * rather than papered over. W2.5 deleted PendingSpinner, so `pending` renders
- * nothing; clearing it therefore reveals whatever `steady` the server last
- * reported and nothing more. On the credit-pack path that is right — the balance
- * beside it is already correct. On a SUBSCRIPTION whose webhook lands later than
- * 60s it leaves the customer unacknowledged until they reload: a real but rare
- * defect, and the whole of TASK-2489. W2.8 and W2.9 each tried to close it from
- * the client and each shipped a claim the customer's own screen could refute
- * (the app cannot distinguish "not landed" from "landed by a channel this poll
- * cannot observe"), so the operator reverted the surface on 2026-07-26. The
- * mechanism that CAN close it is a server-side read of whether this checkout
- * session was processed; it belongs in TASK-2489, not here.
+ * TASK-2489 (epic 2425 W3c) — THE TAIL IS THE SOLE EMITTER OF THE POST-CHECKOUT
+ * `fetchAccountSummary()`, on BOTH branches. The Billing tab the customer was
+ * just sent to renders the ACCOUNT slice, not the per-tick meter slice
+ * (BillingTabContainer.js) — so the fresher balance every tick already fetched
+ * is invisible there, and the panel kept showing pre-purchase money over an
+ * unlocked padlock. That is the live common-path defect, and this is where it is
+ * closed.
+ *
+ * IT IS EXACTLY-ONCE BY CONSTRUCTION, which is the only reason it is allowed to
+ * exist at all: the interval has COMPLETED by the time this defer runs, so there
+ * are no ticks left to fire on. The obvious alternative — an epic on
+ * SET_ANUGA_RESOURCE_PERMS that fetches whenever `paywall.state` is paid, the
+ * natural repair given that the PAID clear lives in a reducer which cannot
+ * dispatch — is FORBIDDEN: it fires every 3s for as long as the customer is
+ * paid, which is precisely the per-tick account fetch `26e4aab36` reverted. It
+ * passes a test written against the credit-pack path and fails the one in
+ * epicsAnuga-test.js that feeds three more paid readings after the clear.
+ *
+ * ACCEPTED COST, stated rather than glossed: on the fast paths the refetch lands
+ * at the NEXT tick, so the panel's money figure can lag the padlock by up to one
+ * 3s interval. It carries no claim while it lags — the confirming notice renders
+ * off the pending flag and is already gone — and it is pre-W2.8 behaviour plus a
+ * bounded refresh, not worse than it.
  *
  * The clear is a `concat(defer(...))` tail, NOT a `finally`: it must run only
  * when the inner stream COMPLETES (attempts exhausted, or takeWhile went
  * false), never when switchMap unsubscribes it because a second SET_PENDING
  * arrived — a finally would fire on unsubscribe too and disarm the overlay the
  * new poll had just armed. `defer` re-reads the store at that moment, so the
- * normal success path (steady went paid_*, overlay already null) emits
- * nothing.
+ * normal success path emits the refetch alone.
  *
  * TASK-2463 (epic 2425 W2.6) — the project id is resolved PER TICK, not once
  * when the poll is armed. On the path that matters most it is not available
@@ -250,11 +419,67 @@ export const pollMyPermsWhilePendingEpic = (action$, store) => action$
                     ...(projectId ? [fetchMyPerms(projectId, true)] : [])
                 );
             })
-            .concat(Rx.Observable.defer(() => (
-                isPaywallPending(store.getState())
-                    ? Rx.Observable.of(clearPaywallPending())
-                    : Rx.Observable.empty()
-            )));
+            .concat(Rx.Observable.defer(() => {
+                if (isPaywallPending(store.getState())) {
+                    _clearCheckoutAnchor();
+                    return Rx.Observable.of(clearPaywallPending(), fetchAccountSummary());
+                }
+                return Rx.Observable.of(fetchAccountSummary());
+            }));
+    });
+
+/**
+ * TASK-2489 (epic 2425 W3c) — clear the confirming state when the purchase the
+ * customer just made actually shows up.
+ *
+ * THE CHANNEL, which three previous attempts got wrong. /commerce/account/ is
+ * fetched at most twice per checkout and BOTH are at cold-SPA boot
+ * (checkoutReturnEpic's one synchronous Observable.of, plus the Billing-tab-open
+ * trigger it causes); nothing re-reads it during the 60s poll. A detector on it
+ * gets ONE reading, taken at the instant the race is about, which is why AC9c
+ * bans it. /commerce/balance/ is re-fetched on EVERY tick by
+ * pollMyPermsWhilePendingEpic above, and its rows carry the SERVER's
+ * `created_at` (balance_views.py:73-83, key `created_at` — the account endpoint's
+ * key is `date`, and confusing the two is what sank the previous spec).
+ *
+ * WHY A TIMESTAMP AND NOT A BALANCE DIFF (W2.9's design). The webhook routinely
+ * WINS: Stripe posts checkout.session.completed server-to-server in seconds,
+ * while the return goes through a synchronous Session.retrieve and then a full
+ * cold MapStore boot (13.6s median, permsEpics.js:18). So the credit is already
+ * inside the first reading the client ever takes, and a client-side before/after
+ * diff cannot see a change that happened before the client existed. An anchor
+ * captured BEFORE departure, compared against a server timestamp, can.
+ *
+ * CREDIT PACKS ONLY, by construction. checkout_views.py has exactly one
+ * ENTRY_TYPE_PURCHASE write (:791-796) and it is the credit-pack path; a
+ * subscription writes no ledger row at all. Subscriptions clear on their own
+ * channel — the PAID steady state in Paywall/reducer.js — and the anchor's
+ * purchaseType is what keeps the two from claiming each other's purchase.
+ *
+ * IT EVALUATES ON SET_PAYWALL_PENDING TOO, not only on each balance tick.
+ * triggerFetchBalanceOnInitEpic (computeMeterEpics.js:26) fires the first
+ * balance fetch on INIT_ANUGA, which may land BEFORE this arms; without the
+ * second trigger the epic would sit out a needless 3s waiting to be told
+ * something the store already knows. redux-observable reduces before it emits to
+ * epics (createEpicMiddleware.js:79-80), so the overlay and its anchor are both
+ * in place by the time this reads them.
+ *
+ * IT EMITS THE CLEAR AND NOTHING ELSE. The single post-checkout
+ * fetchAccountSummary() belongs to the poll tail above, which is exactly-once by
+ * construction because the interval has completed; emitting one here as well
+ * would make it two.
+ */
+export const clearPendingOnPurchaseRowEpic = (action$, store) => action$
+    .ofType(SET_COMPUTE_BALANCE, SET_PAYWALL_PENDING)
+    .filter(() => isPaywallPending(store.getState()))
+    .filter(() => {
+        const anchor = getPaywallCheckoutAnchor(store.getState());
+        if (!anchor || anchor.purchaseType !== 'credit_pack') return false;
+        return _hasPurchaseSinceAnchor(getComputeMeterState(store.getState()).recentEntries, anchor);
+    })
+    .map(() => {
+        _clearCheckoutAnchor();
+        return clearPaywallPending();
     });
 
 /**
@@ -355,6 +580,21 @@ export const subscribeCheckoutEpic = (action$, store) => action$
             .mergeMap((response) => {
                 const url = response?.data?.checkout_url;
                 if (url) {
+                    // TASK-2489 — THE DEPARTURE ANCHOR, written immediately
+                    // before the Stripe tab opens.
+                    //
+                    // Position matters twice. It sits INSIDE the exhaustMap
+                    // projection, which is TASK-2441's double-submit guard, so a
+                    // suppressed second click can never overwrite the anchor
+                    // belonging to the checkout actually in flight — that would
+                    // replace latestPurchaseIso with a value read seconds later
+                    // and silently widen the window in which a stale row looks
+                    // new. And it sits on the URL branch, so a create that
+                    // failed (no session, no purchase possible) leaves no record
+                    // for a later return to adopt.
+                    _writeCheckoutAnchor(
+                        _buildCheckoutAnchor(store.getState(), {purchaseType, accountOnly, projectId})
+                    );
                     _redirectTo(url);
                 }
                 // TASK-2441 — the clear is UNCONDITIONAL, on both the url and
@@ -388,5 +628,6 @@ export default {
     checkoutReturnEpic,
     pollMyPermsWhilePendingEpic,
     refreshMyPermsOnTabVisibleEpic,
-    subscribeCheckoutEpic
+    subscribeCheckoutEpic,
+    clearPendingOnPurchaseRowEpic
 };

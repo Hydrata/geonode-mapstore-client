@@ -147,7 +147,11 @@ import {
     // customer STARTED checkout from never sees ?checkout=success and so never
     // polls; this is what makes its padlock fresh when they look at it again.
     refreshMyPermsOnTabVisibleEpic,
-    subscribeCheckoutEpic
+    subscribeCheckoutEpic,
+    // TASK-2489 (epic 2425 W3c) — clears the confirming state on the POLLED
+    // /commerce/balance/ channel, against a server timestamp captured before
+    // departure.
+    clearPendingOnPurchaseRowEpic
 } from "./epics/paywallEpics";
 // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
 import {
@@ -227,6 +231,8 @@ export default createPlugin('Anuga', {
         pollMyPermsWhilePendingEpic,
         refreshMyPermsOnTabVisibleEpic,
         subscribeCheckoutEpic,
+        // TASK-2489 (epic 2425 W3c) — the post-checkout confirmation's clear.
+        clearPendingOnPurchaseRowEpic,
         // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
         triggerFetchBalanceOnInitEpic,
         fetchComputeBalanceEpic,

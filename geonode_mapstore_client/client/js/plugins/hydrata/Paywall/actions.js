@@ -73,9 +73,27 @@ export function dismissPaywallUpgrade() {
     return { type: DISMISS_PAYWALL_UPGRADE };
 }
 
-/** Arms the FE-only pending overlay (checkout=success return, pre-webhook). */
-export function setPaywallPending() {
-    return { type: SET_PAYWALL_PENDING };
+/**
+ * Arms the FE-only pending overlay (checkout=success return, pre-webhook).
+ *
+ * @param {object|null} anchor — TASK-2489 (epic 2425 W3c). The departure record
+ *   subscribeCheckoutEpic persisted to localStorage before opening the Stripe
+ *   tab, lifted back out by checkoutReturnEpic:
+ *   {purchaseType, accountOnly, projectId, latestPurchaseIso, balanceObserved}.
+ *
+ *   It rides the ACTION rather than being re-read from storage on every poll
+ *   tick for two reasons. It scopes the record to the checkout this overlay is
+ *   actually about — the store copy dies with the overlay, so a stale record
+ *   cannot be adopted by a later arming. And the Billing tab's confirming notice
+ *   is rendered from it, which needs a pure store read: a mapStateToProps that
+ *   touched localStorage would run on every dispatch in the app.
+ *
+ *   `null` whenever no record survived (storage blocked, corrupt payload, or a
+ *   return this browser did not start). That degrades to exactly pre-W2.8
+ *   behaviour rather than to a guess.
+ */
+export function setPaywallPending(anchor = null) {
+    return { type: SET_PAYWALL_PENDING, anchor };
 }
 
 /**

@@ -113,10 +113,22 @@ export default (state = initialState, action) => {
         return (state.overlay && state.overlay.state === 'upgrade_prompt')
             ? { ...state, overlay: null, overlayProjectId: null }
             : state;
+    // TASK-2489 (epic 2425 W3c) — the overlay carries the DEPARTURE ANCHOR, the
+    // record written to localStorage before the Stripe tab opened and lifted
+    // back out by checkoutReturnEpic. It is inert data in this slice: nothing
+    // here reads it, and no action other than this one can put it there. It
+    // exists so (a) clearPendingOnPurchaseRowEpic has a server timestamp to
+    // compare against without re-reading storage every 3s, and (b) the Billing
+    // tab's confirming notice has a pure store read to render from. Because it
+    // lives ON the overlay it dies with it, so a clear can never leave a stale
+    // anchor behind for a later checkout to adopt.
     case SET_PAYWALL_PENDING:
         return {
             ...state,
-            overlay: { state: 'pending', checkout_url: null, read_only: false, visibility: null },
+            overlay: {
+                state: 'pending', checkout_url: null, read_only: false, visibility: null,
+                anchor: action.anchor ?? null
+            },
             overlayProjectId: null
         };
     // TASK-2457 — the poll gave up. Clear ONLY a pending overlay, so this can
@@ -269,3 +281,32 @@ export const isPaywallPending = (state) => {
     const slice = state && state.anuga && state.anuga.paywall;
     return !!(slice && slice.overlay && slice.overlay.state === 'pending');
 };
+
+/**
+ * TASK-2489 — the departure anchor of the checkout THIS overlay is confirming,
+ * or null.
+ *
+ * Deliberately gated on `pending`: the anchor is meaningless once the overlay is
+ * gone, and reading it through this selector means a caller cannot accidentally
+ * treat a leftover value as live. Null-safe in the same shape as the selectors
+ * above (several epic-test stores mount `anuga` with no `paywall` key at all).
+ */
+export const getPaywallCheckoutAnchor = (state) => {
+    const slice = state && state.anuga && state.anuga.paywall;
+    if (!slice || !slice.overlay || slice.overlay.state !== 'pending') return null;
+    return slice.overlay.anchor || null;
+};
+
+/**
+ * TASK-2489 — should the Billing tab render its confirming notice?
+ *
+ * `pending` armed AND a departure anchor for it. Both halves matter. Without
+ * `pending` there is nothing to confirm. Without an anchor there is no channel
+ * that can retract the claim — the AC1 matrix rule is that a confirming claim
+ * may only be rendered where a per-tick observation exists to withdraw it — so
+ * a storage-blocked browser falls back to the pre-W2.8 silence rather than to a
+ * notice nothing can take down. The notice therefore disappears BY RENDERING,
+ * with no retraction call; there is no notification-retraction path in this
+ * codebase, which is what made W2.8's autoDismiss:0 toast unwithdrawable.
+ */
+export const isPaywallConfirming = (state) => !!getPaywallCheckoutAnchor(state);

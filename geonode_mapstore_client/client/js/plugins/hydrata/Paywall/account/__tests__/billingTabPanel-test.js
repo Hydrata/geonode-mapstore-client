@@ -252,30 +252,72 @@ describe('BillingTabPanel — TASK-2436 scoping guard', () => {
     });
 });
 
-// ── W2.10 REVERT RATCHET (operator decision 2026-07-26) ─────────────────────
+// ── TASK-2489 (epic 2425 W3c): the confirming notice, REPLACING the W2.10 ────
+//    revert ratchet deliberately rather than slipping past it.
 //
-// W2.8 put a ConfirmingPurchaseSection here — "Confirming your purchase…", then
-// a stalled variant with a Check again button — and W2.9 rewrote its copy and
-// its clearing rules. The whole surface is removed. It is asserted ABSENT rather
-// than merely deleted for the reason W2.9 itself gave about the orphan --lapsed
-// CSS rule: a surface with nothing pinning its absence is a surface that comes
-// back. The app cannot tell "the purchase has not landed" from "it landed by a
-// channel this panel cannot observe", so any notice here is a claim it cannot
-// support. TASK-2489 owns the server-side read that could.
-describe('BillingTabPanel — no post-checkout confirmation notice (W2.10 revert)', () => {
-    it('renders no confirming notice and no re-check, whatever props it is handed', () => {
-        const c = render({
-            loaded: true, isPersonal: true, freeBand: baseFreeBand,
-            // A stray prop from an un-updated caller must be inert, not revive it.
-            confirming: { stalled: true }, isManager: true, balance: '10.00'
-        });
+// The W2.10 ratchet asserted "renders no confirming notice and no re-check,
+// whatever props it is handed". That was right for a panel with no channel
+// capable of retracting a claim. TASK-2489 gives it one — the polled
+// /commerce/balance/ purchase row, anchored to a server timestamp — so the
+// notice comes back, under the SAME testid the ratchet named. Renaming it to
+// evade those assertions would have been the violation; replacing them, and
+// keeping every part that still holds, is the point.
+//
+// WHAT SURVIVES FROM THE RATCHET, UNCHANGED IN FORCE:
+//   (i)   absent when not confirming — the panel must not invent the state;
+//   (ii)  NO re-check control in EITHER state — RECHECK_PAYMENT was deleted by
+//         26e4aab36 and stays deleted; the poll already re-reads every 3s, and a
+//         button that re-asks an endpoint incapable of answering is worse than
+//         no button;
+//   (iii) the real answer — the subscription pill and the balance — still
+//         renders. Adding the claim must not displace the answer, exactly as
+//         removing it must not have.
+describe('BillingTabPanel — post-checkout confirming notice (TASK-2489)', () => {
+    const base = {
+        loaded: true, isPersonal: true, freeBand: baseFreeBand,
+        isManager: true, balance: '10.00'
+    };
+
+    it('(i) renders NO notice when nothing is confirming', () => {
+        const c = render({ ...base, confirming: false });
         expect(c.querySelector('[data-testid="sv-account-confirming"]')).toBe(null);
-        expect(c.querySelector('[data-testid="sv-account-confirming-recheck"]')).toBe(null);
         expect(c.innerHTML).toNotInclude('sv-account-confirming');
-        // The real confirmation — the balance and the subscription state — is
-        // still there. Removing the claim must not remove the answer.
+    });
+
+    it('renders the notice while a returned checkout is still confirming', () => {
+        const c = render({ ...base, confirming: true });
+        const notice = c.querySelector('[data-testid="sv-account-confirming"]');
+        expect(notice).toExist();
+        // i18n'd, not hardcoded English — the four locales that carry
+        // checkoutCancelled carry these too (anugaI18n-test.js).
+        expect(notice.textContent).toInclude('hydrata.anuga.checkoutConfirming.title');
+        expect(notice.textContent).toInclude('hydrata.anuga.checkoutConfirming.message');
+        // Announced, because it appears without the customer doing anything.
+        expect(notice.getAttribute('role')).toBe('status');
+    });
+
+    it('(ii) offers NO re-check control in either state', () => {
+        [false, true].forEach((confirming) => {
+            const c = render({ ...base, confirming });
+            expect(c.querySelector('[data-testid="sv-account-confirming-recheck"]')).toBe(null);
+            expect(c.innerHTML).toNotInclude('recheck');
+            expect(c.innerHTML).toNotInclude('Check again');
+        });
+    });
+
+    it('(iii) the real answer still renders underneath it — the claim never displaces the balance', () => {
+        const c = render({ ...base, confirming: true, subscription: { active: false } });
         expect(c.querySelector('[data-testid="sv-account-subscription-state"]')).toExist();
         expect(c.querySelector('.compute-meter-balance')).toExist();
+        // Order matters: the notice sits ABOVE the balance card, so the customer
+        // reads the claim and its resolution in one glance.
+        const html = c.innerHTML;
+        expect(html.indexOf('sv-account-confirming')).toBeLessThan(html.indexOf('compute-meter-balance-strip'));
+    });
+
+    it('defaults to not confirming, so an un-updated caller cannot raise the claim by omission', () => {
+        const c = render({ ...base });
+        expect(c.querySelector('[data-testid="sv-account-confirming"]')).toBe(null);
     });
 });
 

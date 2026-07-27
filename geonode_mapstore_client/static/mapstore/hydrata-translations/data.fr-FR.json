@@ -239,6 +239,10 @@
           "title": "Paiement annule",
           "message": "Aucune modification n'a ete effectuee — vous pouvez reessayer a tout moment."
         },
+        "checkoutConfirming": {
+          "title": "Confirmation de votre achat…",
+          "message": "Vous revenez de Stripe et nous attendons la confirmation. Ce panneau se met à jour tout seul — vous n'avez rien d'autre à faire."
+        },
         "checkoutFailed": {
           "title": "Echec du paiement",
           "message": "Impossible de demarrer le paiement. Veuillez reessayer."
