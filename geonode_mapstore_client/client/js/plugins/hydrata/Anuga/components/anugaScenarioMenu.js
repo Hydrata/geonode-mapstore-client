@@ -1022,6 +1022,14 @@ class AnugaScenarioMenuClass extends React.Component {
               onBuildAndRunClick={this.handleBuildAndRunClick}
               onRetryClick={this.handleRetryClick}
               onConfirmCancelRun={(s) => this.openConfirm('cancel-run', s)}
+              // TASK-2438 (epic 2425 W3.1) — the same four paywall props
+              // renderRunSettings already hands scenarioPane. Without them the
+              // strip can only price a run that already exists, which is the
+              // one case where the customer no longer needs to be told.
+              paywallEnabled={this.props.paywallEnabled}
+              accountBalance={this.props.accountBalance}
+              freeBand={this.props.freeBand}
+              onOpenAccountBilling={this.props.onOpenAccountBilling}
           />
       );
   }

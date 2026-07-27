@@ -2050,6 +2050,66 @@ div that holds the feature-grid */
     color: #5cb85c;
 }
 
+/* ── Price beside Run (TASK-2438, epic 2425 W3.1) ────────────────────────────
+   .sv-scenario-run-price has been emitted since TASK-2100 with NO rule
+   anywhere in the repo — the same defect class this epic already fixed twice
+   (markup shipped without its stylesheet). It rendered as bare inherited
+   text wedged between two raised buttons, i.e. as chrome, when it is the only
+   place the price of a click appears.
+
+   Two states, one element (scenarioHeaderActions.js's renderPrice): the bare
+   price when the balance covers it, and the over-balance sentence — a BUTTON
+   into the Billing tab — when it does not. */
+.sv-scenario-run-price {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.5;
+    vertical-align: baseline;
+    white-space: nowrap;
+    background: none;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Over balance: the SAME amber token pair as the estimate section's
+   actionable badge (.sv-anuga-scenario-estimate-badge--action) — identical
+   colours, therefore identical MEASURED contrast: #2b1d00 on #ffc107 ->
+   10.08:1, hover #ffd451 -> 11.57:1, active #e6ac00 -> 8.03:1 (AA body text
+   needs 4.5:1 and this is 11.5px, so the 3:1 large-text allowance does not
+   apply). Extend the family, don't invent a parallel warning style: these
+   two are the same warning about the same balance, seen from the header and
+   from the Run settings section. */
+.sv-scenario-run-price--short {
+    background-color: #ffc107;
+    border-color: #c69500;
+    color: #2b1d00;
+    cursor: pointer;
+    text-align: left;
+}
+
+button.sv-scenario-run-price--short:hover {
+    background-color: #ffd451;
+}
+
+button.sv-scenario-run-price--short:active {
+    background-color: #e6ac00;
+}
+
+button.sv-scenario-run-price--short:focus-visible {
+    outline: 2px solid #5bc0ff;
+    outline-offset: 2px;
+}
+
+/* No CTA handler wired (the strip renders a <span> then): same warning, but
+   nothing to click, so drop the button affordances. */
+span.sv-scenario-run-price--short {
+    cursor: default;
+}
+
 /* Build-and-Run combined action — sits between Build and Run; the primary
    bsStyle differentiates it from the green single-step Build/Run buttons. */
 .sv-scenario-action-build-run.disabled,
