@@ -86,11 +86,37 @@ export const warmTilesOnMapOpenEpic = (action$, store) =>
             }
             _warmedMapIds.add(mapId);
 
-            // Resolve the project id: authenticated users have it in Redux; anon
-            // viewers (the cold-storm victims) resolve it from the map id via the
-            // AllowAny from-map endpoint.
+            // Resolve the project id for THIS map.
+            //
+            // TASK-2427: the Redux project id may only be used when it provably
+            // belongs to the map that just loaded. `state.anuga.projects.data` is
+            // the ANUGA panel's LAST-loaded project, set by the login-gated
+            // INIT_ANUGA waterfall — it is not reset on SPA navigation, so after
+            // moving to another project's map it is stale but still TRUTHY. The
+            // old `known ? of(known) : …` short-circuited on that truthiness and
+            // therefore paired THIS map's layer names with the PREVIOUS project's
+            // id, so every alternate failed the BE ownership guard.
+            //
+            // Measured on prod 2026-07-26: `project 712 warmed 0/7`,
+            // `project 704 warmed 0/9`, `704 warmed 0/4` — the prefetch had never
+            // warmed a single tile in an authenticated multi-map session, while
+            // anonymous sessions (which always resolved from the map id) scored
+            // 4/4, 9/9, 3/3. The BE guard was correct throughout; it was
+            // faithfully rejecting layers that genuinely belonged to other
+            // projects.
+            //
+            // Fail-safe by construction: if the project payload carries no
+            // recognisable base-map id, the match fails and we fall through to
+            // the authoritative from-map endpoint rather than trusting Redux.
+            const cached = state?.anuga?.projects?.data;
+            const cachedMapId = cached?.base_map
+                ?? cached?.base_map_full?.pk
+                ?? cached?.base_map_full?.id;
             const known = getProjectId(state);
-            const projectId$ = known
+            const knownMatchesThisMap = !!known
+                && cachedMapId !== undefined && cachedMapId !== null
+                && String(cachedMapId) === String(mapId);
+            const projectId$ = knownMatchesThisMap
                 ? Rx.Observable.of(known)
                 : Rx.Observable.from(anugaApi.getProjectFromMapId(mapId))
                     .map(resp => resp?.data?.projectId)
