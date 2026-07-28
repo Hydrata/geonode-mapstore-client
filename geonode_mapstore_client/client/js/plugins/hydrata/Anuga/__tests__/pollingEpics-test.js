@@ -1037,7 +1037,27 @@ describe('Polling Epics', () => {
             );
         });
 
-        it('should ADD_LAYER on the next tick once initAnuga refresh delivers the missing terrain row', (done) => {
+        it('should ADD_LAYER on the next tick once initAnuga refresh delivers the missing terrain row (MULTI-PROCESS CASE ONLY — see TASK-2565)', (done) => {
+            // ⚠ TASK-2565 — WHAT THIS TEST DOES *NOT* COVER. Read before
+            // treating it as proof of the deferral path.
+            //
+            // It hand-feeds a SECOND TM_SET_PROCESSES carrying the same
+            // process. Production emits that second tick only while OTHER
+            // processes are still churning the list, because both pollers end
+            // in `.distinctUntilChanged(processListsEqual)`
+            // (epicsTaskMonitor.js:116, :161). So this test covers the
+            // multi-process case — a first terrain with the six default
+            // layer_create processes still in flight behind it.
+            //
+            // When the completing terrain is the LAST live process the list
+            // goes terminal, TM_SET_PROCESSES never fires again, and tick 2
+            // never arrives. That is the real bug (prod 2026-07-28, project
+            // 724 / map 5997: the layers never appeared until a full reload)
+            // and this test passed straight through it. Coverage of the
+            // single-terminal-process case is the SET_ANUGA_TERRAIN_DATA
+            // re-entry suite below, which dispatches exactly ONE
+            // TM_SET_PROCESSES.
+            //
             // Real-world fresh-upload race: Celery stamps the new Terrain
             // in DB and emits process.complete BEFORE the FE's cached
             // terrain list has been refetched. (No projectId in state → the
@@ -1094,6 +1114,143 @@ describe('Polling Epics', () => {
                 done();
             } catch (e) { sub.unsubscribe(); done(e); }
         });
+
+        // TASK-2565 — the single-terminal-process case the test above cannot reach.
+        //
+        // Exactly ONE TM_SET_PROCESSES is dispatched in each of these, which is
+        // what distinguishes them from the multi-process test above. The second
+        // signal is SET_ANUGA_TERRAIN_DATA — the terrain-list refresh the epic
+        // itself dispatches — fed back through the action stream exactly as
+        // redux-observable does in production.
+        describe('SET_ANUGA_TERRAIN_DATA re-entry (TASK-2565)', () => {
+            // Each test gets its OWN mapId and process id. The handled-completion
+            // registry is persisted to localStorage keyed by mapId and SURVIVES
+            // between tests, so sharing either would let test 1's "handled" mark
+            // silently suppress test 2's candidate — the second test would then
+            // pass or fail for reasons that have nothing to do with the epic.
+            let mapSeq = 0;
+            const HANDLED_IDS_KEY = 'hydrata_handled_completion_ids_';
+            const usedMapIds = [];
+            const nextMapId = () => {
+                const id = 597000 + (mapSeq += 1);
+                usedMapIds.push(id);
+                return id;
+            };
+            afterEach(() => {
+                usedMapIds.forEach(id => {
+                    try { localStorage.removeItem(HANDLED_IDS_KEY + id); } catch (e) { /* ignore */ }
+                });
+                usedMapIds.length = 0;
+            });
+
+            const makeProcess = (id) => ({
+                id,
+                process_type: 'terrain_create',
+                status: 'complete',
+                metadata: {
+                    terrain_id: 550,
+                    project_id: 724,
+                    is_first_upload: false,
+                    target_group: 'Input Data.Terrain',
+                    mapstore_layers: [
+                        { name: 'geonode:ele_550_utm_glo30_cog', type: 'wms', url: '/geoserver/ows' },
+                        { name: 'geonode:ele_550_hillshade_glo30_cog', type: 'wms', url: '/geoserver/ows' }
+                    ]
+                }
+            });
+            // No projects.data.id → the refreshNeeded branch takes the
+            // initAnuga() fallback rather than an axios terrain GET, keeping
+            // these tests synchronous and network-free. Convergence is
+            // identical: production emits SET_ANUGA_TERRAIN_DATA from the
+            // terrain fetch, which is what we feed in by hand below.
+            const makeStore = (initialTerrain) => {
+                let resources = { terrainLoaded: true, terrain: initialTerrain };
+                const mapId = nextMapId();
+                return {
+                    store: {
+                        getState: () => ({
+                            gnresource: { id: mapId },
+                            taskMonitor: { processes: { byId: {} } },
+                            layers: { flat: [], groups: [] },
+                            anuga: { resources }
+                        })
+                    },
+                    deliverTerrain: (terrain) => { resources = { terrainLoaded: true, terrain }; }
+                };
+            };
+
+            it('adds both layers off the terrain refresh alone, with only ONE TM_SET_PROCESSES', (done) => {
+                const terrainProcess = makeProcess('glo30-550-a');
+                const { store, deliverTerrain } = makeStore([{ id: 549 }]);   // stale: 550 missing
+                const { subject, action$ } = liveActions();
+                const emitted = [];
+                const sub = taskCompleteLayerEpic(action$, store)
+                    .subscribe(a => emitted.push(a), err => done(err));
+                try {
+                    // The ONE and ONLY TM_SET_PROCESSES. 550 is absent from the
+                    // terrain list → 'unknown' → defer + request a refresh.
+                    subject.next({ type: TM_SET_PROCESSES, processes: [terrainProcess] });
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                    // The refresh lands. Pre-fix, nothing consumed this and the
+                    // layers stayed invisible until a full page reload.
+                    deliverTerrain([{ id: 549 }, { id: 550 }]);
+                    subject.next({ type: SET_ANUGA_TERRAIN_DATA, data: [{ id: 549 }, { id: 550 }] });
+                    const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                    expect(adds.length).toBe(2);
+                    expect(adds.map(a => a.layer.name).sort()).toEqual([
+                        'geonode:ele_550_hillshade_glo30_cog',
+                        'geonode:ele_550_utm_glo30_cog'
+                    ]);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            });
+
+            it('marks the process handled on re-entry so a later reload cannot duplicate the layers', (done) => {
+                const terrainProcess = makeProcess('glo30-550-b');
+                const { store, deliverTerrain } = makeStore([{ id: 549 }]);
+                const { subject, action$ } = liveActions();
+                const emitted = [];
+                const sub = taskCompleteLayerEpic(action$, store)
+                    .subscribe(a => emitted.push(a), err => done(err));
+                try {
+                    subject.next({ type: TM_SET_PROCESSES, processes: [terrainProcess] });
+                    deliverTerrain([{ id: 549 }, { id: 550 }]);
+                    subject.next({ type: SET_ANUGA_TERRAIN_DATA, data: [{ id: 549 }, { id: 550 }] });
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(2);
+                    // Replaying the same completion must be a no-op — the
+                    // handled-completion registry is what a reload consults.
+                    subject.next({ type: TM_SET_PROCESSES, processes: [terrainProcess] });
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(2);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            });
+
+            it('still classifies a genuinely orphaned terrain as orphaned after the refresh (V2P-714 preserved)', (done) => {
+                const terrainProcess = makeProcess('glo30-550-c');
+                const { store } = makeStore([{ id: 549 }]);   // 550 never arrives
+                const { subject, action$ } = liveActions();
+                const emitted = [];
+                const sub = taskCompleteLayerEpic(action$, store)
+                    .subscribe(a => emitted.push(a), err => done(err));
+                try {
+                    subject.next({ type: TM_SET_PROCESSES, processes: [terrainProcess] });
+                    // Refresh arrives but the row is STILL missing → orphaned.
+                    subject.next({ type: SET_ANUGA_TERRAIN_DATA, data: [{ id: 549 }] });
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                    // Decisive now, so no further refresh is requested: the
+                    // re-entry converges instead of looping.
+                    const initsBefore = emitted.filter(a => a.type === INIT_ANUGA).length;
+                    subject.next({ type: SET_ANUGA_TERRAIN_DATA, data: [{ id: 549 }] });
+                    expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(initsBefore);
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            });
+        });
+
 
         it('refetches ONLY the terrain list (not a full initAnuga) on an orphan first-miss when a projectId is set', (done) => {
             // UAT-2026-06-29 finding #1 (option C residual) — the production path
