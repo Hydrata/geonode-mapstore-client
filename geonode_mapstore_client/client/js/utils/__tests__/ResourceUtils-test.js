@@ -20,6 +20,8 @@ import {
     toGeoNodeMapConfig,
     compareBackgroundLayers,
     toMapStoreMapConfig,
+    resolveCacheableStyle,
+    resourceToLayers,
     parseStyleName,
     canCopyResource,
     processUploadResponse,
@@ -1286,5 +1288,132 @@ describe('Test Resource Utils', () => {
         const previewLayer = resourceToLayerConfig(vectorGnLayer);
         // Vector: default_style preserved → STYLES=geonode:custom_vector_style
         expect(previewLayer.style).toBe('geonode:custom_vector_style');
+    });
+});
+
+// TASK-2566 — the FE must not emit an unqualified default-style name.
+//
+// GeoNode stores Style.name UNQUALIFIED and create_maplayer_for_dataset copies
+// it into MapLayer.current_style; WMSUtils emits `STYLES: options.style`, so
+// every terrain tile went out as STYLES=<bare name>. GWC answers that with
+// MISS + "ParameterException: Style '<name>' is invalid" — a refusal, not an
+// ordinary miss, so user traffic could not even warm the cache. Measured on
+// prod 2026-07-28: 14364 ms median at z17 vs ~4 ms for the same cached tile.
+//
+// These tests pin the normalisation. They FAIL against pre-fix HEAD, where
+// toMapStoreMapConfig passed current_style through verbatim.
+describe('toMapStoreMapConfig GWC style normalisation (TASK-2566)', () => {
+    const baseConfig = { map: { layers: [{ type: 'osm', source: 'osm', group: 'background', visibility: true }] } };
+    const DEM = 'ele_550_utm_msimbazi_dem_cog';
+
+    const mergeResource = (currentStyle, defaultStyle) => ({
+        maplayers: [{
+            pk: 10,
+            extra_params: { msId: '03' },
+            current_style: currentStyle,
+            dataset: { pk: 1, alternate: `geonode:${DEM}`, ...(defaultStyle && { default_style: defaultStyle }) }
+        }],
+        data: { map: { layers: [{ id: '03', type: 'wms', name: `geonode:${DEM}`, url: 'geoserver/wms' }] } }
+    });
+    const mergedStyle = (resource) =>
+        toMapStoreMapConfig(resource, baseConfig).map.layers.find(l => l.id === '03').style;
+
+    it('blanks a bare default-style name so STYLES matches the GWC cache key', () => {
+        // The exact prod shape: current_style is the unqualified default.
+        const style = mergedStyle(mergeResource(DEM, { pk: 3, name: DEM, workspace: 'geonode' }));
+        expect(style).toBe('');
+    });
+
+    it('preserves a workspace-qualified style (GWC resolves it to the default and HITs)', () => {
+        const style = mergedStyle(mergeResource(`geonode:${DEM}`, { pk: 3, name: DEM, workspace: 'geonode' }));
+        expect(style).toBe(`geonode:${DEM}`);
+    });
+
+    it('preserves a genuinely non-default style selection (dem_contours overlay)', () => {
+        // layerOrderEpics/anugaInputMenu identify the contour overlay by
+        // `layer.style === 'dem_contours'` — blanking it would break the DEM /
+        // contour split, so a style that is not the dataset default must survive.
+        const style = mergedStyle(mergeResource('dem_contours', { pk: 3, name: DEM, workspace: 'geonode' }));
+        expect(style).toBe('dem_contours');
+    });
+
+    it('leaves the style untouched when the dataset default is unknown', () => {
+        // Cannot prove it is the default → changing it could change the render.
+        expect(mergedStyle(mergeResource(DEM, null))).toBe(DEM);
+    });
+
+    it('normalises the addMapLayers path too (MapLayer not present in the blob)', () => {
+        const resource = {
+            maplayers: [{
+                pk: 11,
+                extra_params: { msId: 'not-in-blob', anuga_group: 'Input Data.Terrain' },
+                current_style: DEM,
+                dataset: {
+                    pk: 2,
+                    alternate: `geonode:${DEM}`,
+                    subtype: 'raster',
+                    title: 'DEM',
+                    links: [{ mime: 'image/png', link_type: 'OGC:WMS', url: 'geoserver/wms', extension: 'html' }],
+                    default_style: { pk: 3, name: DEM, workspace: 'geonode' }
+                }
+            }],
+            data: { map: { layers: [] } }
+        };
+        const added = toMapStoreMapConfig(resource, baseConfig).map.layers
+            .find(l => l.name === `geonode:${DEM}`);
+        expect(added).toBeTruthy();
+        expect(added.style).toBe('');
+    });
+});
+
+describe('resolveCacheableStyle (TASK-2566)', () => {
+    const ds = (name) => ({ default_style: { name, workspace: 'geonode' } });
+    it('blanks the bare default-style name', () => {
+        expect(resolveCacheableStyle('ele_1_utm_cog', ds('ele_1_utm_cog'))).toBe('');
+    });
+    it('passes a qualified name through', () => {
+        expect(resolveCacheableStyle('geonode:ele_1_utm_cog', ds('ele_1_utm_cog'))).toBe('geonode:ele_1_utm_cog');
+    });
+    it('passes a non-default style through', () => {
+        expect(resolveCacheableStyle('dem_contours', ds('ele_1_utm_cog'))).toBe('dem_contours');
+    });
+    it('returns empty string for empty/absent input', () => {
+        expect(resolveCacheableStyle('', ds('x'))).toBe('');
+        expect(resolveCacheableStyle(undefined, ds('x'))).toBe('');
+        expect(resolveCacheableStyle(null, undefined)).toBe('');
+    });
+    it('leaves the style alone when the dataset carries no default_style', () => {
+        expect(resolveCacheableStyle('ele_1_utm_cog', {})).toBe('ele_1_utm_cog');
+        expect(resolveCacheableStyle('ele_1_utm_cog', undefined)).toBe('ele_1_utm_cog');
+    });
+});
+
+describe('resourceToLayers GWC style normalisation (TASK-2566)', () => {
+    // The details thumbnail (DetailsThumbnail.jsx) and the GeoLimits editor
+    // render REAL WMS tiles through this path, so the bare default-style name
+    // made GWC refuse them here exactly as on the main map — lower traffic,
+    // identical defect. Pinned so the second emitter cannot drift back.
+    const DEM = 'ele_550_utm_msimbazi_dem_cog';
+    const mapResource = (currentStyle, defaultStyleName) => ({
+        resource_type: ResourceTypes.MAP,
+        maplayers: [{
+            current_style: currentStyle,
+            dataset: {
+                pk: 1,
+                alternate: `geonode:${DEM}`,
+                subtype: 'raster',
+                title: 'DEM',
+                links: [],
+                default_style: { pk: 3, name: defaultStyleName, workspace: 'geonode' }
+            }
+        }]
+    });
+
+    it('blanks a bare default-style name', () => {
+        expect(resourceToLayers(mapResource(DEM, DEM))[0].style).toBe('');
+    });
+
+    it('preserves a non-default style', () => {
+        expect(resourceToLayers(mapResource('dem_contours', DEM))[0].style).toBe('dem_contours');
     });
 });
