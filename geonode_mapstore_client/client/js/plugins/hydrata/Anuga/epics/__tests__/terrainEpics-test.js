@@ -19,13 +19,16 @@
 import expect from 'expect';
 import Rx from 'rxjs';
 import { VISUALIZATION_MODE_CHANGED } from '@mapstore/framework/actions/maptype';
-import { ADD_LAYER, REMOVE_LAYER } from '@mapstore/framework/actions/layers';
+import { ADD_LAYER, REMOVE_LAYER, CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
 import { SET_ANUGA_TERRAIN_DATA } from '../../actionsAnuga';
 
 import {
     bareName,
     findBestDemLayer,
-    manageTerrain3DEpic
+    manageTerrain3DEpic,
+    // TASK-2572 — superseded-terrain layer silencing.
+    supersededLayerNames,
+    supersededTerrainVisibilityEpic
 } from '../terrainEpics';
 
 // ── Epic harness ──────────────────────────────────────────────────────────────
@@ -426,5 +429,214 @@ describe('flood-surface drape — manageTerrain3DEpic does not touch result laye
         // Verify the same helper works on depth_max names.
         expect(bareName('geonode:run_42_depth_max_cog')).toBe('run_42_depth_max_cog');
         expect(bareName('run_42_depth_max_cog')).toBe('run_42_depth_max_cog');
+    });
+});
+
+/**
+ * TASK-2572 — a terrain SUPERSEDED by a datum-shift conversion must stop
+ * rendering.
+ *
+ * _buildTerrainGroups (anugaInputMenu.js) hides a superseded terrain from the
+ * Terrain list and keeps its orphan layers out of the stand-alone-row fallback,
+ * so those layers get NO row anywhere — yet they stayed at visibility:true and
+ * kept painting the uncorrected ellipsoid surface on top of the EGM2008 one
+ * (prod hydrata.com map 6015 / project 727).
+ */
+describe('TASK-2572 supersededTerrainVisibilityEpic', () => {
+    const SUPERSEDE_COLLECT_MS = 700; // > the epic's 300ms debounce
+
+    // The prod shape: TWO terrains (552 ellipsoid original, 553 its EGM2008
+    // conversion) with four WMS layers between them. 552 carries superseded_by.
+    const makeSupersedeState = ({
+        superseded = true,
+        visibility = true,
+        withHillshade = true,
+        terrainModels
+    } = {}) => ({
+        maptype: { mapType: 'openlayers' },
+        layers: {
+            flat: [
+                { id: 'l-552-dem', name: 'geonode:ele_552_utm', type: 'wms', group: 'Input Data.Terrain', visibility },
+                { id: 'l-552-hs', name: 'geonode:ele_552_hillshade', type: 'wms', group: 'Input Data.Terrain', visibility },
+                { id: 'l-553-dem', name: 'geonode:ele_553_utm', type: 'wms', group: 'Input Data.Terrain', visibility: true },
+                { id: 'l-553-hs', name: 'geonode:ele_553_hillshade', type: 'wms', group: 'Input Data.Terrain', visibility: true }
+            ]
+        },
+        anuga: {
+            resources: {
+                terrainLoaded: true,
+                terrain: terrainModels !== undefined ? terrainModels : [
+                    {
+                        id: 552,
+                        status: 'ready',
+                        gn_layer_name: 'ele_552_utm',
+                        gn_layer_hillshade_name: withHillshade ? 'ele_552_hillshade' : null,
+                        metadata: superseded ? { superseded_by: 553 } : {}
+                    },
+                    {
+                        id: 553,
+                        status: 'ready',
+                        gn_layer_name: 'ele_553_utm',
+                        gn_layer_hillshade_name: 'ele_553_hillshade',
+                        metadata: {}
+                    }
+                ]
+            }
+        }
+    });
+
+    const runSupersedeEpic = (actions, state, done, assert) => {
+        const action$ = makeActions$(actions);
+        const store = { getState: () => (typeof state === 'function' ? state() : state) };
+        const emitted = [];
+        supersededTerrainVisibilityEpic(action$, store).subscribe(
+            a => emitted.push(a),
+            err => done(err)
+        );
+        setTimeout(() => {
+            try {
+                assert(emitted);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, SUPERSEDE_COLLECT_MS);
+    };
+
+    const hiddenIds = (emitted) => emitted
+        .filter(a => a.type === CHANGE_LAYER_PROPERTIES && a.newProperties?.visibility === false)
+        .map(a => a.layer);
+
+    it('AC1: hides BOTH layers of a superseded terrain and nothing else', function(done) {
+        this.timeout(3000);
+        runSupersedeEpic(
+            [{ type: SET_ANUGA_TERRAIN_DATA, data: [] }],
+            makeSupersedeState(),
+            done,
+            (emitted) => {
+                const ids = hiddenIds(emitted);
+                expect(ids.length).toBe(2);
+                expect(ids.indexOf('l-552-dem') > -1).toBe(true);
+                expect(ids.indexOf('l-552-hs') > -1).toBe(true);
+                // The EGM2008 replacement keeps rendering.
+                expect(ids.indexOf('l-553-dem')).toBe(-1);
+                expect(ids.indexOf('l-553-hs')).toBe(-1);
+            }
+        );
+    });
+
+    it('AC3: order-independent — terrain models arriving AFTER the layers still hide them', function(done) {
+        this.timeout(3000);
+        // Pane/map rendered first with terrain=[] (nothing to hide, and
+        // _buildTerrainGroups would have shown the layers as stand-alone rows);
+        // the models land later and SET_ANUGA_TERRAIN_DATA re-applies the filter.
+        let models = [];
+        const subject = new Rx.Subject();
+        const action$ = subject.asObservable();
+        action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+        const store = { getState: () => makeSupersedeState({ terrainModels: models }) };
+        const emitted = [];
+        supersededTerrainVisibilityEpic(action$, store).subscribe(
+            a => emitted.push(a),
+            err => done(err)
+        );
+        // First: an ADD_LAYER while the terrain rows are still empty → silent.
+        subject.next({ type: ADD_LAYER, layer: { id: 'l-552-dem' } });
+        setTimeout(() => {
+            expect(emitted.length).toBe(0);
+            models = makeSupersedeState().anuga.resources.terrain;
+            subject.next({ type: SET_ANUGA_TERRAIN_DATA, data: models });
+        }, 500);
+        setTimeout(() => {
+            try {
+                expect(hiddenIds(emitted).length).toBe(2);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, 1400);
+    });
+
+    it('AC3: also fires on ADD_LAYER, so a layer added after the models load is hidden', function(done) {
+        this.timeout(3000);
+        runSupersedeEpic(
+            [{ type: ADD_LAYER, layer: { id: 'l-552-dem' } }],
+            makeSupersedeState(),
+            done,
+            (emitted) => expect(hiddenIds(emitted).length).toBe(2)
+        );
+    });
+
+    it('AC4: reversible — with superseded_by cleared, nothing is hidden', function(done) {
+        this.timeout(3000);
+        runSupersedeEpic(
+            [{ type: SET_ANUGA_TERRAIN_DATA, data: [] }],
+            makeSupersedeState({ superseded: false }),
+            done,
+            (emitted) => expect(emitted.length).toBe(0)
+        );
+    });
+
+    it('is idempotent — emits nothing when the layers are already hidden', function(done) {
+        this.timeout(3000);
+        runSupersedeEpic(
+            [{ type: SET_ANUGA_TERRAIN_DATA, data: [] }],
+            makeSupersedeState({ visibility: false }),
+            done,
+            (emitted) => expect(emitted.length).toBe(0)
+        );
+    });
+
+    it('handles a superseded terrain with no hillshade (hides the DEM only)', function(done) {
+        this.timeout(3000);
+        runSupersedeEpic(
+            [{ type: SET_ANUGA_TERRAIN_DATA, data: [] }],
+            makeSupersedeState({ withHillshade: false }),
+            done,
+            (emitted) => {
+                const ids = hiddenIds(emitted);
+                expect(ids.length).toBe(1);
+                expect(ids[0]).toBe('l-552-dem');
+            }
+        );
+    });
+
+    it('leaves the synthetic 3D terrain layers alone (manageTerrain3DEpic owns those ids)', function(done) {
+        this.timeout(3000);
+        // findBestDemLayer does not check visibility, so the 3D epic can name
+        // `terrain-dem` after a superseded DEM. This epic must not touch it.
+        const state = makeSupersedeState();
+        state.layers.flat.push({
+            id: 'terrain-dem', name: 'geonode:ele_552_utm', type: 'terrain',
+            provider: 'wms', group: 'background', visibility: true
+        });
+        runSupersedeEpic(
+            [{ type: SET_ANUGA_TERRAIN_DATA, data: [] }],
+            state,
+            done,
+            (emitted) => {
+                const ids = hiddenIds(emitted);
+                expect(ids.indexOf('terrain-dem')).toBe(-1);
+                // the real WMS layers are still hidden
+                expect(ids.length).toBe(2);
+            }
+        );
+    });
+
+    it('supersededLayerNames: bare names, prefix-agnostic, empty when nothing superseded', () => {
+        const models = makeSupersedeState().anuga.resources.terrain;
+        const names = supersededLayerNames(models);
+        expect(names.has('ele_552_utm')).toBe(true);
+        expect(names.has('ele_552_hillshade')).toBe(true);
+        expect(names.has('ele_553_utm')).toBe(false);
+        // Workspace-qualified rows normalise to the same bare name.
+        expect(supersededLayerNames([{
+            gn_layer_name: 'geonode:ele_99_utm',
+            metadata: { superseded_by: 100 }
+        }]).has('ele_99_utm')).toBe(true);
+        expect(supersededLayerNames([]).size).toBe(0);
+        expect(supersededLayerNames(undefined).size).toBe(0);
+        expect(supersededLayerNames([{ gn_layer_name: 'ele_1_utm', metadata: {} }]).size).toBe(0);
+        expect(supersededLayerNames([null, {}]).size).toBe(0);
     });
 });

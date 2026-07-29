@@ -114,7 +114,9 @@ export {
 } from './epics/vectorDrawAnugaEpics';
 
 export {
-    manageTerrain3DEpic
+    manageTerrain3DEpic,
+    // TASK-2572 — silence a datum-shift-superseded terrain's orphan map layers.
+    supersededTerrainVisibilityEpic
 } from './epics/terrainEpics';
 
 // V2P-21 — lazy-fetch my_perms on Anuga panel open (INIT_ANUGA trigger).
