@@ -830,6 +830,13 @@ span.sv-menu-row-glyph {
         font-size: 14px;
     }
 
+    /* TASK-2463 — 36x36 button (32x32 padding box): right:3px puts the 15px
+       padlock at x 16..31 from the button's own left edge, inside the 34px
+       inner edge. The default rule already fits, so this step needs no
+       override; kept here as the explicit statement that the geometry holds at
+       this size too — and since W2.6 that is browser-verified, not asserted:
+       the padlock e2e cases run at 880px (see the <=600px note below). */
+
     .sv-legend-panel {
         max-width: 250px;
         max-height: calc(100vh - 31px);
@@ -877,6 +884,31 @@ span.sv-menu-row-glyph {
         width: 32px;
         height: 32px;
         font-size: 13px;
+    }
+
+    /* TASK-2463 — a 15px padlock on a 32px button reads as a blob; shrink it
+       with the button. 32x32 border box, 2px border -> 28x28 padding box at
+       (2,2). right:2 puts the 13px badge's right edge at 28 and top:3 its top
+       at 5, i.e. x 15..28 / y 5..18 measured from the BUTTON'S OWN top-left,
+       overlapping the (13px) glyph's top-right corner and clear of all four
+       edges. (The x range previously stated here, 13..26, was padding-box
+       relative while the y range beside it was border-box relative — two
+       frames in one sentence, and the numbers disagreed with the <=900px
+       comment above, which is border-box. One frame only: the button's border
+       box, same as :833.)
+
+       NO LONGER ARITHMETIC ONLY: test_padlock_stays_hit_testable_while_a_toast_
+       is_on_screen and test_account_visibility_padlock_in_viewport_and_hit_
+       testable (deploy, tests/e2e/test_paywall_money_path.py) both run at 560px
+       and 880px as of W2.6, so a real browser now evaluates this @media block
+       and hit-tests the result. Karma never can: it evaluates no @media rule
+       and has no layout engine. */
+    .sv-visibility-lock {
+        width: 13px;
+        height: 13px;
+        top: 3px;
+        right: 2px;
+        font-size: 8px;
     }
 
     .sv-legend-panel {
@@ -1521,6 +1553,80 @@ span.sv-menu-row-glyph {
     border-radius: 50%;
     background: var(--sv-glyph-inactive, red);
 }
+
+/* ── TASK-2463 (epic 2425 W2.5): project-visibility padlock on the Account button
+   Replaces the on-map paywall badge W2 anchored top-centre over the map and the
+   operator rejected: "the Private badge in the middle of the screen is way too
+   much. can we just move it so the padlock appears over the top right hand side
+   of the person icon in the account button."
+
+   Follows .sv-tm-button / .sv-tm-notification-dot on the Tasks button directly
+   below: a second class supplies the positioned host rather than editing the
+   shared .simple-view-right-button base, and NEITHER rule carries a z-index.
+
+   NO z-index HERE — DELIBERATE. `position: relative` with z-index AUTO does not
+   create a stacking context; it only makes the button a containing block for
+   absolutely positioned descendants, and the Account button has no others (the
+   Account panel is a MovablePanel mounted by anugaContainer, and every modal
+   portals to document.body, so none of them is a DOM descendant of this
+   button). Adding a z-index WOULD create a stacking context, which is exactly
+   the shape of both bites in this epic: `.paywall-panel`'s old
+   `position: relative; z-index: 2` capped its own "z-index: 100000" descendant.
+
+   GEOMETRY (checked against the real box, not guessed). Button 40x40 with a 2px
+   border, so the padding box abs offsets resolve against is 36x36 at (2,2). The
+   16px person glyph is centred, spanning roughly x 12..28 / y 12..28.
+     top: 4px  -> y  6..21
+     right: 3px -> x 20..35   (36 - 3 - 15 = 18 from the padding-box left)
+   That overlaps the glyph's top-right corner (x 20..28 / y 12..21) and stays
+   inside the 38px inner edge, so it neither clips nor overflows. Neither
+   .simple-view-right-toolbar nor .simple-view-right-button sets `overflow`, so
+   nothing upstream clips it either.
+
+   NOT pointer-events: none — the e2e gate hit-tests
+   document.elementFromPoint at the padlock's centre, and a click-through badge
+   would return the button and make that assertion vacuous. The badge is a DOM
+   child of the button, so a click on it still bubbles and still opens Account.
+
+   CONTRAST: #04234a on #ffffff -> 14.6:1. One pair only since W2.9 removed the
+   amber lapsed variant (see below). The fill is opaque, so it holds over any
+   basemap. */
+.sv-visibility-lock-host {
+    position: relative;
+}
+
+.sv-visibility-lock {
+    position: absolute;
+    top: 4px;
+    right: 3px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    line-height: 1;
+    color: #04234a;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+/* Bootstrap's .glyphicon ships `position: relative; top: 1px`, which pushes the
+   padlock off-centre inside a box this small. Zero it rather than fighting the
+   1px with padding. (`position: relative` on the glyph is harmless — z-index
+   stays auto, so still no stacking context.) */
+.sv-visibility-lock .glyphicon {
+    top: 0;
+}
+
+/* TASK-2463 (epic 2425 W2.9) — the `.sv-visibility-lock--lapsed` amber variant
+   that used to sit here is DELETED, with the claim it painted. past_due is
+   computed from the READING user's acting account, never from the project's, so
+   an amber padlock said something about the project that no payload establishes
+   (see accountVisibilityLock.js for the derivation and the mirror case that
+   defeated W2.8's ownership predicate). Deleted rather than left unreferenced:
+   an orphan rule is how the modifier gets silently re-added later. */
 
 /* TASK-2420 (epic 2359 W4.5, UAT-1 finding 12 — plain bug, NOT flag-gated):
    the top navbar user-menu dropdown-toggle (GeoNode-mapstore-client's

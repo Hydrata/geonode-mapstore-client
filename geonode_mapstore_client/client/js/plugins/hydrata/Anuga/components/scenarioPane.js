@@ -832,9 +832,18 @@ function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, 
                     ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
                     : ''}
             </span>
+            {/* TASK-2436 — the two badges share the ...-over-balance-badge
+                chassis but carry a distinguishing MODIFIER class, because they
+                need different affordances: this one is a <span> stating a
+                limit the user cannot self-serve past (contact us), the one
+                below is a <button> that opens the Billing tab. Styling was
+                previously impossible without keying off a data-testid, which
+                we don't do. They are mutually exclusive at runtime
+                (overCeiling === band Infinity; overBalance requires a finite
+                band), so only one ever renders. */}
             {overCeiling ? (
                 <span
-                    className="sv-anuga-scenario-estimate-over-balance-badge"
+                    className="sv-anuga-scenario-estimate-over-balance-badge sv-anuga-scenario-estimate-badge--ceiling"
                     data-testid="sv-anuga-scenario-estimate-over-ceiling-badge"
                 >
                     {'Above the automatic dispatch ceiling — contact us for a quote'}
@@ -843,7 +852,7 @@ function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, 
             {overBalance ? (
                 <button
                     type="button"
-                    className="sv-anuga-scenario-estimate-over-balance-badge"
+                    className="sv-anuga-scenario-estimate-over-balance-badge sv-anuga-scenario-estimate-badge--action"
                     data-testid="sv-anuga-scenario-estimate-over-balance-badge"
                     onClick={() => { if (onOpenAccountBilling) onOpenAccountBilling(); }}
                 >

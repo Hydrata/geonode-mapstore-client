@@ -4,7 +4,7 @@ import {Button, OverlayTrigger, Tooltip} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
-import {findScenarioStatus, IN_FLIGHT_STATUSES, formatCostEstimate} from './scenarioHelpers';
+import {findScenarioStatus, IN_FLIGHT_STATUSES, formatCostEstimate, bandForEstimate} from './scenarioHelpers';
 import {TERMINAL_RUN_STATES} from '../anugaConstants';
 
 /**
@@ -187,7 +187,11 @@ const ScenarioHeaderActions = (props, context) => {
         onRunClick,
         onBuildAndRunClick,
         onRetryClick,
-        onConfirmCancelRun
+        onConfirmCancelRun,
+        paywallEnabled,
+        accountBalance,
+        freeBand,
+        onOpenAccountBilling
     } = props;
 
     // One debounce timer id per action; cleared on unmount so a late timer
@@ -258,15 +262,118 @@ const ScenarioHeaderActions = (props, context) => {
     const showDownload = isBuilt || isComplete || !!latestCompleteRun;
     const downloadHref = latestCompleteRun?.s3_package_url || scenario?.latest_run?.s3_package_url;
 
-    // TASK-2100 (epic 2092 W4.2) — the coarse, customer-BILLED price band
+    // TASK-2100 (epic 2092 W4.2) — the coarse, customer-BILLED price
     // (RunSerializerV2.price_band; supersedes scenarioPane.js's exact-$
     // pre-build estimate as the answer to "what will I actually be charged").
     // null both when the meter is off (ships dark — see get_price_band's
     // gating) AND when this particular run can't yet be priced
-    // (PricingUnavailable, e.g. no mesh build) — either way, nothing renders.
-    const priceBand = scenario?.latest_run?.price_band;
-    const hasPriceBand = priceBand !== null && priceBand !== undefined;
-    const priceLabel = hasPriceBand ? (Number(priceBand) === 0 ? 'Free' : `$${priceBand}`) : null;
+    // (PricingUnavailable, e.g. no mesh build).
+    //
+    // TASK-2438 (epic 2425 W3.1) — that value is null until a run EXISTS, so
+    // a priced scenario that has never been run structurally could not show a
+    // price: the customer met the number for the first time in a refusal.
+    // The PRE-BUILD estimate now fills exactly that gap, bucketed through
+    // bandForEstimate (which mirrors gn_anuga.estimate.band()) so the figure
+    // shown before a build cannot disagree with what a build would charge.
+    // The built run's own price stays authoritative wherever it exists — it
+    // is frozen off the real mesh; the estimate is not (a scenario can
+    // estimate $10.48 and still be charged $5).
+    const runPrice = scenario?.latest_run?.price_band;
+    const hasRunPrice = runPrice !== null && runPrice !== undefined;
+    const estimatePrice = !hasRunPrice && paywallEnabled
+        ? bandForEstimate(scenario?.compute_cost_estimate, freeBand?.edge, freeBand?.table)
+        : null;
+    const price = hasRunPrice ? Number(runPrice) : estimatePrice;
+    // Number.isFinite is doing three jobs, all of them "say nothing rather
+    // than say nonsense": it rejects null (no run AND no usable estimate —
+    // including every render before GET /commerce/account/ lands the price
+    // table, where bandForEstimate correctly returns null), NaN (a malformed
+    // price would otherwise render "$NaN"), and Infinity (bandForEstimate's
+    // above-the-dispatch-ceiling sentinel — the backend refuses those
+    // outright, so there is no price to quote; scenarioPane's ceiling badge
+    // is what explains that state).
+    const hasPrice = Number.isFinite(price);
+    // Trailing-zero strip keeps the whole-dollar prices these tables actually
+    // contain reading as "$2", not "$2.00", while a fractional shortfall
+    // still gets its cents.
+    const usd = (n) => `$${Number(n).toFixed(2).replace(/\.00$/, '')}`;
+    // W3c adversarial — "Free" IS A PROMISE THE SERVER REFUSES once the daily
+    // free-dispatch cap is spent. bandForEstimate returns 0 for anything at or
+    // below the free threshold, and the dispatch gate refuses exactly those runs
+    // with `free_cap` when today's count is used up (apps/gn_anuga/api_v2.py) —
+    // counting the SAME query the account summary reports as `used_today`
+    // (apps/commerce/account_views.py:114), so the two cannot disagree. Before
+    // TASK-2438 this chip rendered nothing at all for a never-run scenario, so
+    // the promise is newly introduced, and it fails in the direction the task
+    // exists to fix: the customer meeting the number for the first time in a
+    // refusal, inverted into a guarantee of free.
+    //
+    // `cap > 0` is load-bearing: the account reducer's initialState is
+    // {cap: 0, usedToday: 0}, and 0 >= 0 would stamp "limit reached" on every
+    // render before GET /commerce/account/ lands. Under-warning on an unloaded
+    // summary is the safe direction; inventing a refusal is not.
+    const freeCap = Number(freeBand?.cap);
+    const freeUsed = Number(freeBand?.usedToday);
+    const freeCapSpent = price === 0 && Number.isFinite(freeCap) && freeCap > 0
+        && Number.isFinite(freeUsed) && freeUsed >= freeCap;
+    const priceLabel = hasPrice
+        ? (price === 0 ? (freeCapSpent ? 'Free · daily limit reached' : 'Free') : usd(price))
+        : null;
+
+    // The shortfall: what the customer is short by, stated BEFORE the click
+    // instead of inside the refusal. Applies to a built run's price too — a
+    // $5 built run against a $0 balance is refused on dispatch exactly like
+    // an estimated one. A $0 (free) run is never blocked by balance.
+    const balance = accountBalance === null || accountBalance === undefined ? null : Number(accountBalance);
+    const shortfall = hasPrice && price > 0 && balance !== null && Number.isFinite(balance) && price > balance
+        ? price - balance
+        : null;
+    // COPY RULE (decision 5, glossary.md:609): never say "band" to a
+    // customer — it collides with Analysis band, a raster concept. Lead with
+    // the price.
+    const priceTitle = freeCapSpent
+        ? `Free runs are capped at ${freeCap} a day and today's are used — this one will be refused until tomorrow`
+        : (hasRunPrice
+            ? 'What this run will be charged (compute meter)'
+            : 'What this run will cost, from the current size estimate — confirmed when it builds');
+    // W3c adversarial — THE HEDGE MUST SURVIVE INTO THE SHORTFALL STATE, which
+    // is the one place the number stops being information and becomes an
+    // instruction. The over-balance title used to REPLACE the estimate caveat
+    // outright, so a customer told "add $5 to run" against a pre-build estimate
+    // could top up exactly $5, watch the build produce a larger mesh, and be
+    // refused for insufficient balance having done exactly what the chip said.
+    // The FE/BE bucketing mirror is faithful (bandForEstimate <-> estimate.band)
+    // but the INPUT is not the same: compute_cost_estimate before a build,
+    // build-frozen mesh counts after one. A built run's price is frozen off the
+    // real mesh, so only the estimate branch carries the caveat.
+    const shortfallTitle = hasRunPrice
+        ? 'Add compute credit to run this scenario — opens your billing settings'
+        : 'Add compute credit to run this scenario. The amount comes from the current '
+          + 'size estimate and is confirmed when it builds — opens your billing settings';
+
+    // ONE element carries the price, in two states, so every consumer (and
+    // every test) has a single place to read it: the bare price when the
+    // balance covers it, the full "costs / balance / add" sentence when it
+    // does not. The over-balance state is a BUTTON into the Billing tab,
+    // because at that moment the price is not information, it is a task.
+    // Deliberately NOT paired with a disabled Run (decision 4).
+    const renderPrice = () => {
+        const shared = {
+            'data-testid': 'sv-scenario-run-price',
+            className: 'sv-scenario-run-price' + (shortfall !== null ? ' sv-scenario-run-price--short' : ''),
+            title: shortfall !== null ? shortfallTitle : priceTitle
+        };
+        if (shortfall === null) {
+            return <span {...shared}>{priceLabel}</span>;
+        }
+        // "at least" on the estimate branch, for the same reason as the title:
+        // a pre-build figure is a floor, not the bill.
+        const add = hasRunPrice ? `add ${usd(shortfall)} to run` : `add at least ${usd(shortfall)} to run`;
+        const text = `Costs ${usd(price)} · balance $${balance.toFixed(2)} · ${add}`;
+        return onOpenAccountBilling
+            ? <button type="button" {...shared} onClick={() => onOpenAccountBilling()}>{text}</button>
+            : <span {...shared}>{text}</span>;
+    };
 
     const fireDebounced = (key, handler, eventName) => () => {
         if (handler) handler(scenario);
@@ -389,15 +496,17 @@ const ScenarioHeaderActions = (props, context) => {
                     ) : null
                 }
             </div>
-            {canRunScenario && priceLabel ?
-                <span
-                    data-testid="sv-scenario-run-price"
-                    className="sv-scenario-run-price"
-                    title="This run's price band — what you'll actually be charged (compute meter)"
-                >
-                    {priceLabel}
-                </span> : null
-            }
+            {/* TASK-2438 — ONE element carries the price, in two states, so
+                every consumer (and every test) has a single place to read it:
+                the bare price when the balance covers it, and the full
+                "costs / balance / add" sentence when it does not. The
+                over-balance state is a BUTTON into the Billing tab, because
+                at that moment the price is not information, it is a task.
+                Deliberately NOT paired with a disable: the server is the
+                single source of truth (decision 4) and a button disabled from
+                a stale client-side estimate produces FALSE refusals, which
+                are worse than caught ones. */}
+            {canRunScenario && priceLabel ? renderPrice() : null}
             {/* TASK-2079: a benign 409 (build-dedup guard — a build is
                 already in flight/just-dispatched for this scenario) shows
                 inline info here instead of the 'Build failed' toast. Does
@@ -464,13 +573,27 @@ ScenarioHeaderActions.propTypes = {
     onRunClick: PropTypes.func,
     onBuildAndRunClick: PropTypes.func,
     onRetryClick: PropTypes.func,
-    onConfirmCancelRun: PropTypes.func
+    onConfirmCancelRun: PropTypes.func,
+    // TASK-2438 (epic 2425 W3.1) — the pre-build price + shortfall beside
+    // Run. Same four props scenarioPane.js already receives from
+    // anugaScenarioMenu.js's connect(); this strip was simply never passed
+    // them.
+    paywallEnabled: PropTypes.bool,
+    accountBalance: PropTypes.string,
+    freeBand: PropTypes.shape({
+        cap: PropTypes.number,
+        usedToday: PropTypes.number,
+        edge: PropTypes.string,
+        table: PropTypes.array
+    }),
+    onOpenAccountBilling: PropTypes.func
 };
 
 ScenarioHeaderActions.defaultProps = {
     canEdit: false,
     canRunScenario: false,
-    hasCompleteResults: false
+    hasCompleteResults: false,
+    paywallEnabled: false
 };
 
 // Pull intl messages off React legacy context so getMessageById can resolve

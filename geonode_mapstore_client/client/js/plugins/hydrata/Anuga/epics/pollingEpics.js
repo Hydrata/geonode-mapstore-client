@@ -286,7 +286,14 @@ export const initAnugaEpic = (action$, store) =>
                                     );
 
                                     return Rx.Observable.of(
-                                        setAnugaProjectData(response2.data),
+                                        // TASK-2548 — stamp the map this
+                                        // project was fetched FOR. `mapId` is
+                                        // the gnresource.id captured at the top
+                                        // of this switchMap, i.e. the map whose
+                                        // from-map lookup produced projectId,
+                                        // so the stamp and the data can never
+                                        // describe different maps.
+                                        setAnugaProjectData(response2.data, mapId),
                                         fixAnugaGroups(),
                                         setSvConfig(response2.data.simple_view_config)
                                     ).concat(

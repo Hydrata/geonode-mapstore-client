@@ -143,12 +143,24 @@ import {
 import {
     checkoutReturnEpic,
     pollMyPermsWhilePendingEpic,
-    subscribeCheckoutEpic
+    // TASK-2483 (epic 2425 W2.8) — the tab-visible my_perms re-read. The tab the
+    // customer STARTED checkout from never sees ?checkout=success and so never
+    // polls; this is what makes its padlock fresh when they look at it again.
+    refreshMyPermsOnTabVisibleEpic,
+    subscribeCheckoutEpic,
+    // TASK-2489 (epic 2425 W3c) — clears the confirming state on the POLLED
+    // /commerce/balance/ channel, against a server timestamp captured before
+    // departure.
+    clearPendingOnPurchaseRowEpic
 } from "./epics/paywallEpics";
 // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
 import {
     triggerFetchBalanceOnInitEpic,
-    fetchComputeBalanceEpic
+    fetchComputeBalanceEpic,
+    // TASK-2513 (epic 2425 W3d) — the second trigger: a boot-time miss left the
+    // meter slice dark for the whole session, and a dark slice render-nulls all
+    // three refusal modals.
+    refetchBalanceOnAccountSummaryEpic
 } from "./epics/computeMeterEpics";
 // TASK-2420 (epic 2359 W4.5) — Account panel Billing-tab fetch + Stripe
 // Customer Portal round-trip epics.
@@ -221,10 +233,15 @@ export default createPlugin('Anuga', {
         // TASK-2099 (epic 2092 W4.1) — Paywall checkout round-trip epics.
         checkoutReturnEpic,
         pollMyPermsWhilePendingEpic,
+        refreshMyPermsOnTabVisibleEpic,
         subscribeCheckoutEpic,
+        // TASK-2489 (epic 2425 W3c) — the post-checkout confirmation's clear.
+        clearPendingOnPurchaseRowEpic,
         // TASK-2100 (epic 2092 W4.2) — compute-meter balance-fetch epics.
         triggerFetchBalanceOnInitEpic,
         fetchComputeBalanceEpic,
+        // TASK-2513 (epic 2425 W3d) — repairs a boot fetch that failed.
+        refetchBalanceOnAccountSummaryEpic,
         // TASK-2420 (epic 2359 W4.5) — Account panel Billing-tab fetch + portal.
         triggerFetchAccountSummaryOnInitEpic,
         triggerFetchAccountSummaryOnBillingTabOpenEpic,

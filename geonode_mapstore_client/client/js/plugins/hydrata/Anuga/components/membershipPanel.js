@@ -21,6 +21,7 @@ import {
     getMembershipsLoading,
     isOwnerAnugaMap,
     getProjectVisibility,
+    getProjectVisibilityPending,
     getProjectMyRole,
     canEditLayer,
     canDeleteLayer,
@@ -59,10 +60,45 @@ const ROLES = [
 // by direct link/id, never by browsing. "Anyone can view" reads as
 // bot-browsable-public; it is not. Copy corrected to name the real
 // public-UNLISTED semantics instead of the more alarming (and wrong) implication.
+// TASK-2466 (epic 2425 W2.5) — `paid` is DATA, not a special case in the JSX.
+// Organization is a paid tier and the panel advertised it as free, which is
+// the mislead that made the original organization->private bypass a two-click
+// accident rather than an exploit. It has been paid on the backend since
+// 0c2faa4 and doubly so since W1: TASK-2431 made the entry gate
+// DESTINATION-based (any change INTO private OR organization is gated) and
+// TASK-2432 added paid_organization as a distinct paid steady state. The
+// Sharing panel was the last surface still saying otherwise.
+//
+// Driven off this flag rather than `opt.value === 'private'` so the next tier
+// change is a data edit — the previous shape made it possible for the backend
+// to move and the UI not to.
+// W3d — 'Organization members can view' was FALSE, and false in the direction
+// that costs the customer money. No organisation member can view anything:
+// gn_anuga/sync.py's compute_resource_perms sets `groups = {}` and returns it
+// untouched, so no GroupProfile ever reaches Guardian for an ANUGA project, and
+// get_visible_projects has no org branch — the org steps of get_user_role were
+// removed by TASK-859. Access is explicit-ProjectMembership-only, i.e. exactly
+// what Private grants.
+//
+// The failure it produced: the owner of a public project wanting to restrict it
+// to colleagues reads this line, picks Organization, pays for it, and every
+// colleague who had link access is silently locked OUT — the opposite of the
+// promise. Fail-closed, so nothing leaked; but a paid promise the code cannot
+// keep is still a paid promise, and this was the sentence people paid for.
+//
+// The description now says what is true TODAY. It deliberately reads the same
+// as Private, because today it IS the same as Private, and it makes no
+// forward promise ('coming soon' would be the same defect wearing a hedge).
+// The tier survives as a distinct stored value on purpose — decision
+// 2026-07-26-q-2 rules that organisation access arrives as an EXPLICIT GRANT of
+// a NAMED organisation (a GroupProfile), granting VIEWER only. When that work
+// lands it differentiates this line; until then nothing may claim it does.
+// See also this file's own header note below: the previous mislabel here is
+// what made the organization->private bypass a two-click accident.
 const VISIBILITY_OPTIONS = [
-    {value: 'private', label: 'Private', description: 'Only members can access'},
-    {value: 'organization', label: 'Organization', description: 'Organization members can view'},
-    {value: 'public', label: 'Public', description: 'Anyone with the link can view — not listed in the public project directory'}
+    {value: 'private', label: 'Private', description: 'Only members can access', paid: true},
+    {value: 'organization', label: 'Organization', description: 'Only members can access', paid: true},
+    {value: 'public', label: 'Public', description: 'Anyone with the link can view — not listed in the public project directory', paid: false}
 ];
 
 class MembershipPanelClass extends React.Component {
@@ -74,9 +110,9 @@ class MembershipPanelClass extends React.Component {
         // V2P-24 — coarse `canManage` replaced with per-row gates derived from
         // each membership row's `perms` (V2P-14 SerializerMethodField). The
         // panel-level `canAdd` controls the Add-member affordance and the
-        // Visibility section, derived from project-level role + any row whose
-        // perms include `change_resourcebase_permissions` (V2P-30 grants this
-        // to org-owners-without-explicit-membership via Role.MANAGER).
+        // Visibility section; it is project-level role only (owner/manager) since
+        // TASK-2463/W2.8 removed its unreachable second branch — see
+        // _deriveCanAdd.
         canAdd: PropTypes.bool,
         // V2P-24 — when /my-perms/ failed AND a row's perms wasn't fetched
         // through MembershipSerializerV2, the panel falls back to a read-only
@@ -84,6 +120,13 @@ class MembershipPanelClass extends React.Component {
         permsLoadFailed: PropTypes.bool,
         isOwner: PropTypes.bool,
         visibility: PropTypes.string,
+        /**
+         * TASK-2440 (epic 2425 W4.1) — the visibility change currently being
+         * requested of the server, or null. DISTINCT from `loading` above,
+         * which is getMembershipsLoading (the memberships LIST): reusing that
+         * would grey these rows out on an unrelated list fetch.
+         */
+        visibilityPending: PropTypes.string,
         myRole: PropTypes.string,
         currentUserId: PropTypes.number,
         // UAT-2 redesign — the viewing user's username, for the "(you)" marker
@@ -217,12 +260,28 @@ class MembershipPanelClass extends React.Component {
                 <div className="sv-membership-visibility-options" role="radiogroup" aria-label="Project visibility">
                     {VISIBILITY_OPTIONS.map(opt => {
                         const selected = this.props.visibility === opt.value;
+                        // TASK-2440 (epic 2425 W4.1) — in-flight state. The
+                        // PATCH takes as long as it takes; what was missing was
+                        // the acknowledgement, and an unacknowledged control is
+                        // what makes someone click it twice.
+                        //
+                        // ALL rows disable (a second click on any destination is
+                        // just as wrong as a second click on the same one), and
+                        // `disabled` on a role="radio" button also suppresses
+                        // its onClick — which is the point. It is paired with
+                        // aria-busy + a visible affordance on the row actually
+                        // being requested, so this is a radiogroup that says it
+                        // is working rather than one that has silently died.
+                        const pending = this.props.visibilityPending;
+                        const busy = !!pending && pending === opt.value;
                         return (
                             <button
                                 type="button"
                                 key={opt.value}
                                 role="radio"
                                 aria-checked={selected}
+                                aria-busy={busy ? 'true' : undefined}
+                                disabled={!!pending}
                                 className={`sv-membership-visibility-option-row sv-membership-visibility-btn ${selected ? 'active' : ''}`}
                                 onClick={() => this.handleVisibilityChange(opt.value)}
                             >
@@ -230,21 +289,29 @@ class MembershipPanelClass extends React.Component {
                                 <span className="sv-membership-visibility-option-main">
                                     <span className="sv-membership-visibility-option-title">
                                         {opt.label}
-                                        {/* TASK-2399 — freemium context BEFORE the click: Private
-                                            is the paid tier (commerce/checkout_views.py,
-                                            api_v2.py's G2 entitlement gate). Shown unconditionally
-                                            once paywallEnabled (not gated on this user's own
-                                            entitlement — a user who already has one still just
-                                            sees this as a true fact about the Private tier).
+                                        {/* TASK-2399 — freemium context BEFORE the click: the paid
+                                            tiers are marked (commerce/checkout_views.py, api_v2.py's
+                                            G2 entitlement gate). Shown unconditionally once
+                                            paywallEnabled and NOT gated on this user's own
+                                            entitlement — the pill describes the TIER, not the
+                                            viewer's state, so an already-entitled user still sees it
+                                            as a true fact about that tier.
                                             Clicking it as a non-entitled user never dead-ends on a
                                             bare 402: updateProjectVisibilityEpic (membershipEpics.js)
                                             already routes the 402's upgrade_prompt contract shape
                                             into the paywall overlay, which the always-mounted
                                             PaywallPanel (Paywall.js) renders as the UpgradeModal
-                                            (reused, not re-implemented). */}
-                                        {opt.value === 'private' && this.props.paywallEnabled ? (
+                                            (reused, not re-implemented).
+
+                                            TASK-2466 (W2.5) — driven by opt.paid, so Organization
+                                            carries the SAME pill as Private rather than a lookalike:
+                                            one span, one pair of classes, no second component to
+                                            drift. `data-tier` lets a test tell the two apart without
+                                            needing two testids. */}
+                                        {opt.paid && this.props.paywallEnabled ? (
                                             <span
                                                 data-testid="sv-membership-visibility-paid-badge"
+                                                data-tier={opt.value}
                                                 className="sv-membership-visibility-paid-badge sv-account-pill sv-account-pill--paid"
                                             >
                                                 Paid
@@ -252,6 +319,18 @@ class MembershipPanelClass extends React.Component {
                                         ) : null}
                                         {selected ? (
                                             <span className="sv-account-pill sv-account-pill--current">Current</span>
+                                        ) : null}
+                                        {/* TASK-2440 — the visible half of the
+                                            in-flight state, matching the Billing
+                                            tab's "Opening…" treatment. A greyed
+                                            row on its own still reads as broken. */}
+                                        {busy ? (
+                                            <span
+                                                data-testid="sv-membership-visibility-working"
+                                                className="sv-account-pill sv-membership-visibility-working"
+                                            >
+                                                Working…
+                                            </span>
                                         ) : null}
                                     </span>
                                     <span className="sv-membership-visibility-desc">
@@ -597,6 +676,7 @@ class MembershipPanelClass extends React.Component {
                     className="sv-membership-movable"
                     title={<Message msgId="hydrata.anuga.members" />}
                     onClose={this.handleClose}
+                    autoFocus
                     position={this.props.panelState?.position}
                     size={this.props.panelState?.size}
                     defaultPosition={{x: 20, y: 70}}
@@ -618,6 +698,14 @@ class MembershipPanelClass extends React.Component {
                 className="sv-membership-movable sv-account-movable"
                 title={<Message msgId="hydrata.anuga.accountPanelTitle" />}
                 onClose={this.handleClose}
+                /* W2 adversarial R4 — this panel is always the DESTINATION of
+                   a user action (the Account button, or "View account" out of
+                   a refusal modal), never a side effect, so it takes keyboard
+                   focus on open. Without it the "View account" route left a
+                   keyboard user on the map behind the panel they just asked
+                   for: the containers dismiss + open in ONE commit, and
+                   ModalHost's cleanup runs restoreFocus first. */
+                autoFocus
                 position={this.props.panelState?.position}
                 size={this.props.panelState?.size}
                 defaultPosition={{x: 20, y: 70}}
@@ -632,27 +720,37 @@ class MembershipPanelClass extends React.Component {
 }
 
 /**
- * V2P-24 — derive the panel-level Add capability.
+ * V2P-24 — derive the panel-level Add capability: project my_role is owner or
+ * manager. Panel-level only; per-row gates still apply to Change-role / Remove
+ * via canEditLayer / canDeleteLayer.
  *
- * Read order:
- *  1. project my_role === owner|manager → grant (legacy and most common).
- *  2. ANY membership row whose perms include
- *     `change_resourcebase_permissions` → grant (V2P-30 case: org-owner with no
- *     explicit ProjectMembership row, but get_user_role returns Role.MANAGER
- *     so MembershipSerializerV2.get_perms grants the manage perm).
+ * TASK-2463 (epic 2425 W2.8) DELETED A SECOND BRANCH: "OR any membership row
+ * whose perms include `change_resourcebase_permissions`". Its stated
+ * justification was the V2P-30 case — an organisation owner with no explicit
+ * ProjectMembership row, for whom get_user_role returned Role.MANAGER. TASK-859
+ * REMOVED that org-fold (sync.py's get_user_role documents steps 5-6 as deleted;
+ * organisation membership now grants no implicit role at all), so the case the
+ * branch existed for no longer exists.
  *
- * Returning false otherwise. Note this is a panel-level gate; per-row gates
- * still apply to Change-role / Remove buttons via canEditLayer / canDeleteLayer.
+ * And it could not have fired anyway. `m.perms` is NOT the row user's perms: it
+ * comes from MembershipSerializerV2's _PermsFieldMixin.get_perms, which calls
+ * get_user_resource_perms_batch(project, REQUEST.USER) — and that computes ONE
+ * perm list from the requesting user's role and stamps the same list on every row
+ * (sync.py: `result[resource_type] = {rid: list(perm_list) for rid in ids}`).
+ * `change_resourcebase_permissions` appears only in _ROLE_PERMS[MANAGER] and
+ * _OWNER_PERMS, so a row could carry it only when the READER is already a manager
+ * or owner — i.e. branch 2 was a strict subset of branch 1 in every reachable
+ * state. It also never had a test: nothing in membershipPanel-test.js sets up a
+ * below-manager reader with a permissive row, because that state cannot be
+ * produced by the API.
+ *
+ * The one theoretical divergence, and it is the safe direction: if the project
+ * fetch and the members fetch straddled a role change, the members response could
+ * report manager perms while `my_role` still said editor. Removing the branch then
+ * withholds Add from someone who has it, for one refresh — never grants it to
+ * someone who does not.
  */
-const _deriveCanAdd = (memberships, myRole) => {
-    if (myRole === 'owner' || myRole === 'manager') return true;
-    if (!Array.isArray(memberships)) return false;
-    // V2P-22 AC#4: use .includes() in component code; .indexOf() is reserved
-    // for the V2P-02 helpers in selectorsAnuga.js (test files exempt).
-    return memberships.some((m) =>
-        Array.isArray(m?.perms) && m.perms.includes('change_resourcebase_permissions')
-    );
-};
+const _deriveCanAdd = (myRole) => myRole === 'owner' || myRole === 'manager';
 
 const mapStateToProps = (state) => {
     const memberships = getMemberships(state);
@@ -664,7 +762,7 @@ const mapStateToProps = (state) => {
         loading: getMembershipsLoading(state),
         // V2P-24 — coarse `canManageMembers` gate replaced with per-row gating
         // + a derived panel-level `canAdd` for the Add-member affordance.
-        canAdd: _deriveCanAdd(memberships, myRole),
+        canAdd: _deriveCanAdd(myRole),
         // V2P-24 — read-only fallback flag set by V2P-20 /my-perms/ failure.
         // Lives at state.anuga.resources.permsLoadFailed per V2P-21's reducer.
         // Falls back to state.anuga.permsLoadFailed for forward-compat with the
@@ -673,6 +771,9 @@ const mapStateToProps = (state) => {
             || state?.anuga?.permsLoadFailed === true,
         isOwner: isOwnerAnugaMap(state),
         visibility: getProjectVisibility(state),
+        // TASK-2440 — the in-flight visibility REQUEST. Deliberately NOT
+        // `loading` above (getMembershipsLoading) — see the propType.
+        visibilityPending: getProjectVisibilityPending(state),
         myRole,
         // V2P-24 — currentUserId is required by the V2P-02 helpers' Contributor
         // ownership rule. Pulled from the same security slice the helpers'

@@ -17,7 +17,14 @@ import {saveDirectContent} from '@js/actions/gnsave';
 // by anugaContainer on ANUGA maps, so the button only appears where that
 // panel exists.
 import { setMembershipPanel } from '../../Anuga/actionsAnuga';
-import { canManageMembers } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
+import { canManageMembers, getProjectVisibility } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
+// TASK-2463 / TASK-2462 (epic 2425 W2.5) — the project-visibility padlock on
+// the Account button, and the owner gate that decides who sees it. The gate
+// lives in the Paywall plugin (it is a paywall product decision, and it is
+// only half-implementable on the FE today — read Paywall/selectors.js before
+// widening it); SimpleView only renders the pixels.
+import AccountVisibilityLock, { visibilityLockLabel } from './accountVisibilityLock';
+import { canSeeVisibilityIndicator } from '../../Paywall/selectors';
 import {canEditResource} from '@js/selectors/resource';
 import {isLoggedIn, userSelector} from '@mapstore/framework/selectors/security';
 import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
@@ -81,12 +88,18 @@ export class SimpleViewContainer extends React.Component {
         // plugins' own `paywallEnabled` cfg (threaded via localConfig.json's
         // SimpleView plugin cfg, map_viewer block). Flips the padlock ->
         // 'Account' button open to ANY authenticated user.
-        paywallEnabled: PropTypes.bool
+        paywallEnabled: PropTypes.bool,
+        // TASK-2463 (epic 2425 W2.5) — the visibility padlock on the Account
+        // button. `lockVisibility` is already gated in mapStateToProps: it is
+        // null for anyone the TASK-2462 owner gate excludes, so the component
+        // never has to know who may see it.
+        lockVisibility: PropTypes.string
     };
 
     static defaultProps = {
         visibleIntroduction: false,
-        paywallEnabled: false
+        paywallEnabled: false,
+        lockVisibility: null
     };
 
     constructor(props) {
@@ -154,6 +167,9 @@ export class SimpleViewContainer extends React.Component {
     }
 
     render() {
+        // TASK-2463 — computed once: it feeds BOTH the padlock and the host
+        // button's accessible name, and the two must not be able to disagree.
+        const lockLabel = visibilityLockLabel(this.props.lockVisibility);
         return (
             <div id="simple-view-container">
                 <div className="simple-view-left-toolbar">
@@ -191,6 +207,59 @@ export class SimpleViewContainer extends React.Component {
                     }
                 </div>
                 <div className="simple-view-right-toolbar">
+                    {/* TASK-2420 (epic 2359 W4.5) — padlock -> Account panel button.
+                        flags-off: gated on canManageMembers, glyph 'lock', title
+                        'Permissions'. flags-on: rendered for ANY authenticated user
+                        (Billing is the viewer's own Account; Sharing stays
+                        manager-gated INSIDE the panel), glyph 'user', title 'Account'.
+
+                        ⚠ THE FLAGS-OFF BRANCH IS NOT UNCHANGED FROM 2359. It used to
+                        be byte-identical to the pre-2420 markup and this comment said
+                        so; TASK-2465 then moved the whole block to the TOP of the
+                        column, and the paywall kill-switch does NOT gate position.
+                        So the four dark prod sites also get the Permissions button
+                        first in the RHS column, and turning the paywall off will not
+                        put it back. Deliberate, and pinned by
+                        simpleViewContainer-permissions-dom-test.js.
+
+                        TASK-2465 (epic 2425 W2.5) — this button is FIRST in the column.
+                        The column has no priority/order registry: it is a flex column
+                        (`.simple-view-right-toolbar`, simpleView.css) with no `order` on
+                        any child, so visual order === DOM order === THIS source order.
+                        That is the ordering mechanism; do not add a CSS `order` (it would
+                        desync from tab order and break as buttons conditionally hide).
+                        Source order also keeps DOM/tab order in agreement for a11y.
+
+                        TASK-2463 (W2.5) — the flags-on button also hosts the
+                        project-visibility padlock. `sv-visibility-lock-host` is
+                        applied UNCONDITIONALLY (the `.sv-tm-button` precedent on
+                        the Tasks button): a bare `position: relative` with no
+                        children is inert, and an anchor that only appears when
+                        the badge does is an anchor that can go missing.
+                        aria-label folds the visibility in because `button` has
+                        presentational children in ARIA — see
+                        accountVisibilityLock.js for why that is not redundant
+                        with the badge's own role=img/aria-label. */}
+                    {this.props.paywallEnabled
+                        ? (this.props.loggedIn ? (
+                            <button
+                                className={`simple-view-right-button sv-visibility-lock-host ${this.props.permissionsEnabled ? 'active' : ''}`}
+                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
+                                title="Account"
+                                aria-label={lockLabel ? `Account — ${lockLabel}` : 'Account'}>
+                                <Glyphicon glyph="user" />
+                                <AccountVisibilityLock visibility={this.props.lockVisibility} />
+                            </button>
+                        ) : null)
+                        : (this.props.canManageMembers ? (
+                            <button
+                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
+                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
+                                title="Permissions">
+                                <Glyphicon glyph="lock" />
+                            </button>
+                        ) : null)
+                    }
                     {this.props.searchPluginPresent ?
                         <button
                             className={`simple-view-right-button ${this.props.searchEnabled ? 'active' : ''}`}
@@ -233,29 +302,6 @@ export class SimpleViewContainer extends React.Component {
                             </button>
                         </>
                     ) : null}
-                    {/* TASK-2420 (epic 2359 W4.5) — padlock -> Account panel button.
-                        flags-off (AC1, byte-identical to today): gated on canManageMembers,
-                        glyph 'lock', title 'Permissions'. flags-on: rendered for ANY
-                        authenticated user (Billing is the viewer's own Account; Sharing
-                        stays manager-gated INSIDE the panel), glyph 'user', title 'Account'. */}
-                    {this.props.paywallEnabled
-                        ? (this.props.loggedIn ? (
-                            <button
-                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
-                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
-                                title="Account">
-                                <Glyphicon glyph="user" />
-                            </button>
-                        ) : null)
-                        : (this.props.canManageMembers ? (
-                            <button
-                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
-                                onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
-                                title="Permissions">
-                                <Glyphicon glyph="lock" />
-                            </button>
-                        ) : null)
-                    }
                 </div>
                 {this.state.saveConfirmVisible ?
                     <div className="sv-save-confirm-overlay">
@@ -348,7 +394,29 @@ const mapStateToProps = (state, ownProps) => {
         // TASK-2420 — ownProps carries the SimpleView plugin's own cfg
         // (localConfig.json map_viewer block), mirroring how anugaContainer
         // reads the Anuga plugin's paywallEnabled cfg.
-        paywallEnabled: !!ownProps?.paywallEnabled
+        paywallEnabled: !!ownProps?.paywallEnabled,
+        // TASK-2463 — the visibility padlock on the Account button.
+        //
+        // SERVER TRUTH, deliberately: `visibility` comes from
+        // ProjectSerializerV2 via state.anuga.projects.data, written by both
+        // the init fetch AND the visibility-PATCH response — never from the
+        // Sharing panel's local selection. A privacy indicator that reflects
+        // what the user clicked rather than what the server stored is worse
+        // than no indicator: it is an assurance that can be false in the
+        // dangerous direction ("Private" over a now-public model).
+        //
+        // A bare scalar, not an object: connect() shallow-compares, so a fresh
+        // {visibility, ...} literal here would re-render this container on every
+        // store tick.
+        //
+        // The gate is applied HERE rather than inside the component so a
+        // non-owner's visibility never even reaches the render tree.
+        // TASK-2463 (W2.9) — there is no `lockLapsed` companion any more. The
+        // padlock used to be annotated "(subscription lapsed)" at past_due, which
+        // is a claim about the PROJECT that no payload reaching this file
+        // establishes; see accountVisibilityLock.js for the derivation and
+        // TASK-2487 for the open decision about what replaces it.
+        lockVisibility: canSeeVisibilityIndicator(state) ? getProjectVisibility(state) : null
     };
 };
 

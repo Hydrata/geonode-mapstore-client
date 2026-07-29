@@ -117,3 +117,59 @@ describe('SimpleView RHS Account button (TASK-2420, paywallEnabled=true)', () =>
         expect(membershipActions[0].visible).toBe(true);
     });
 });
+
+// TASK-2465 (epic 2425 W2.5) — the Account button is the TOPMOST button in the
+// right-hand vertical toolbar.
+//
+// SCOPE OF PROOF — read before trusting this: `.simple-view-right-toolbar` is a
+// plain CSS flex column with no `order` declared on any child, so visual order
+// is DOM order. jsdom has no layout engine, so these tests prove DOM ORDER ONLY.
+// They are a genuine regression pin for a source-order reorder (which is the
+// mechanism actually in use) but they would NOT catch someone adding a CSS
+// `order`/`flex-direction: column-reverse` in simpleView.css. That is exactly
+// why the task forbids a CSS `order` hack, and why the padlock/geometry claims
+// in this wave are carried by the Playwright suite, not by karma.
+describe('SimpleView RHS toolbar order (TASK-2465)', () => {
+    // Every conditional button switched ON, so the assertion covers the full
+    // six-button column rather than the degenerate two-button case.
+    const fullToolbarState = () => ({
+        anuga: { projects: { data: { my_role: 'owner' } }, ui: { showMembershipPanel: false } },
+        security: { user: { pk: 1, is_superuser: true } },
+        gnresource: { permissions: { canEdit: true } },
+        simpleView: {},
+        layers: { groups: [] },
+        localConfig: { plugins: { map_viewer: [{ name: 'Search' }, { name: 'Measure' }] } }
+    });
+
+    const titlesOf = (container) => Array.from(
+        container.querySelectorAll('.simple-view-right-toolbar > button')
+    ).map(b => b.getAttribute('title'));
+
+    it('renders Account first, with every other button intact and in its original relative order', () => {
+        const { store } = makeStore(fullToolbarState());
+        const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
+        expect(titlesOf(container)).toEqual(
+            ['Account', 'Search', 'Measure', 'Legend', 'Layer Menu', 'Save']
+        );
+    });
+
+    it('puts the flags-off Permissions padlock first too — the same slot, not a second control', () => {
+        const { store } = makeStore(fullToolbarState());
+        const { container } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(titlesOf(container)).toEqual(
+            ['Permissions', 'Search', 'Measure', 'Legend', 'Layer Menu', 'Save']
+        );
+    });
+
+    it('stays first when the buttons below it are conditionally hidden', () => {
+        // canEdit false + no Search/Measure plugins: the ONLY thing left below
+        // Account is Legend. A CSS `order` keyed to a fixed button count would
+        // break here; source order cannot.
+        const state = fullToolbarState();
+        state.gnresource = {};
+        state.localConfig = { plugins: { map_viewer: [] } };
+        const { store } = makeStore(state);
+        const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
+        expect(titlesOf(container)).toEqual(['Account', 'Legend']);
+    });
+});

@@ -107,7 +107,7 @@ FreeBandSection.propTypes = {
  * subscribe CTA itself (a $100/mo recurring commitment is the manager's
  * call alone, TASK-2364's Account.manager-only decision).
  */
-function SubscriptionSection({ subscription, isManager, manager, onSubscribe, onManageBilling, portalLoading }) {
+function SubscriptionSection({ subscription, isManager, manager, onSubscribe, onManageBilling, portalLoading, checkoutPending }) {
     const active = !!subscription?.active;
     const since = subscription?.since;
     // UAT-2 redesign — "Private models" label + state pill on one line with
@@ -142,9 +142,16 @@ function SubscriptionSection({ subscription, isManager, manager, onSubscribe, on
                                 type="button"
                                 data-testid="sv-account-subscribe-btn"
                                 className="sv-account-btn-sm sv-account-subscribe-btn"
+                                // TASK-2441 (epic 2425 W4.2) — exactly the
+                                // sibling Manage-billing treatment above. This
+                                // button commits to $100/mo and, until now, had
+                                // no double-submit protection at all while its
+                                // neighbour did. .sv-account-btn-sm:disabled
+                                // (account.css) already styles the state.
+                                disabled={checkoutPending}
                                 onClick={onSubscribe}
                             >
-                                Subscribe
+                                {checkoutPending ? 'Opening…' : 'Subscribe'}
                             </button>
                         )
                     ) : null}
@@ -169,12 +176,63 @@ SubscriptionSection.propTypes = {
     manager: PropTypes.string,
     onSubscribe: PropTypes.func,
     onManageBilling: PropTypes.func,
-    portalLoading: PropTypes.bool
+    portalLoading: PropTypes.bool,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    checkoutPending: PropTypes.bool
 };
+
+/**
+ * The post-checkout confirming notice (TASK-2489, epic 2425 W3c).
+ *
+ * W2.8 put a ConfirmingPurchaseSection here and W2.9 rewrote it; the operator
+ * reverted both on 2026-07-26 because neither could be retracted once refuted.
+ * The three things that make this one different, all of them structural rather
+ * than editorial:
+ *
+ *  1. IT IS STATE-DRIVEN, NOT A TOAST. It renders off `confirming`
+ *     (isPaywallConfirming — the pending overlay plus a departure anchor), so it
+ *     disappears BY RENDERING the moment the overlay clears. There is still no
+ *     notification-retraction path in this codebase — `grep -rn 'hide('
+ *     js/plugins/hydrata` returns one unrelated hit — which is exactly why W2.8's
+ *     autoDismiss:0 toast outlived its own refutation.
+ *  2. THERE IS ALWAYS A CHANNEL THAT CAN RETRACT IT. `confirming` requires an
+ *     anchor, and the anchor is what lets clearPendingOnPurchaseRowEpic observe
+ *     either purchase shape landing — a credit pack as a purchase ROW on
+ *     /commerce/balance/, a subscription as `subscription.active` on
+ *     /commerce/account/ — with the PAID steady state and the 60s tail behind
+ *     them. Bounded at 60s in the worst case, against W2.8's indefinite.
+ *  2b. AND IT CANNOT SURVIVE ITS OWN REFUTATION EVEN FOR A FRAME. W3c's
+ *     adversarial review found this notice rendering directly above
+ *     SubscriptionSection's "Active since <today>" for the full 60s, on the
+ *     Subscribe button four elements below it. isPaywallConfirming now reads the
+ *     same account summary the panel renders and refuses to claim what it
+ *     contradicts (Paywall/reducer.js), so the epic clear is a tidy-up rather
+ *     than the only thing standing between the customer and a contradiction.
+ *  3. NO "CHECK AGAIN" CONTROL. The poll already re-reads every 3s;
+ *     RECHECK_PAYMENT was deleted by 26e4aab36 and stays deleted. A button that
+ *     re-asks an endpoint incapable of answering is worse than no button.
+ *
+ * The copy claims only what ?checkout=success actually establishes — that the
+ * customer came back from Stripe and we are waiting for the confirmation — and
+ * never that money has moved. The real answer (the balance and the subscription
+ * pill) is rendered directly below it, unchanged.
+ */
+function ConfirmingNotice() {
+    return (
+        <div className="sv-account-confirming" data-testid="sv-account-confirming" role="status">
+            <span className="sv-account-confirming-title">
+                <Message msgId="hydrata.anuga.checkoutConfirming.title" />
+            </span>
+            <span className="sv-account-confirming-message">
+                <Message msgId="hydrata.anuga.checkoutConfirming.message" />
+            </span>
+        </div>
+    );
+}
 
 function BillingTabPanel({
     loaded, organisation, isPersonal, manager, isManager, balance, freeBand, subscription,
-    availablePacks, recentEntries, portalLoading, portalError,
+    availablePacks, recentEntries, portalLoading, portalError, checkoutPending, confirming,
     onBuyPack, onSubscribe, onManageBilling
 }) {
     if (!loaded) {
@@ -187,6 +245,7 @@ function BillingTabPanel({
     return (
         <div className="sv-account-billing-tab" data-testid="sv-account-billing-tab">
             <AccountHeader organisation={organisation} isPersonal={isPersonal} manager={manager} />
+            {confirming ? <ConfirmingNotice /> : null}
             {/* recentEntries intentionally NOT passed here — this panel renders
                 its OWN richer "Recent activity" list below (with run->project
                 links, spec item 6), so BalanceStrip only contributes balance +
@@ -195,7 +254,7 @@ function BillingTabPanel({
                 balance={balance}
                 availablePacks={availablePacks}
                 onBuyPack={onBuyPack}
-                variant="card"
+                pending={checkoutPending}
             />
             <FreeBandSection freeBand={freeBand} />
             <SubscriptionSection
@@ -205,6 +264,7 @@ function BillingTabPanel({
                 onSubscribe={onSubscribe}
                 onManageBilling={onManageBilling}
                 portalLoading={portalLoading}
+                checkoutPending={checkoutPending}
             />
             {portalError ? (
                 <div className="sv-account-portal-error" data-testid="sv-account-portal-error">
@@ -277,6 +337,10 @@ BillingTabPanel.propTypes = {
     recentEntries: PropTypes.array,
     portalLoading: PropTypes.bool,
     portalError: PropTypes.string,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    checkoutPending: PropTypes.bool,
+    /** TASK-2489 — a checkout has returned and its confirmation has not landed yet. */
+    confirming: PropTypes.bool,
     onBuyPack: PropTypes.func,
     onSubscribe: PropTypes.func,
     onManageBilling: PropTypes.func
@@ -287,10 +351,12 @@ BillingTabPanel.defaultProps = {
     isPersonal: true,
     availablePacks: [],
     recentEntries: [],
+    checkoutPending: false,
+    confirming: false,
     onBuyPack: () => {},
     onSubscribe: () => {},
     onManageBilling: () => {}
 };
 
 export default BillingTabPanel;
-export { AccountHeader, FreeBandSection, SubscriptionSection };
+export { AccountHeader, FreeBandSection, SubscriptionSection, ConfirmingNotice };

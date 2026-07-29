@@ -275,3 +275,105 @@ div.chart-color-class-modal {
 .notifications-tc {
     top: 70px !important;
 }
+
+// ── Toasts must not land on the SimpleView RHS toolbar ──────────────────────
+// TASK-2465 regression, epic 2425 W2.6. Same class, same kind of reason as the
+// navbar nudge above (top-right page furniture), so it lives here beside it
+// rather than in simpleView.css — which is also what the sv-* namespace
+// ratchet (js/plugins/hydrata/SimpleView/css-namespace-guard.js) requires: a
+// `notifications-` prefix is not allowed in that file.
+//
+// react-notification-system pins `.notifications-tr` with INLINE
+// `inset: 0 0 auto auto; width: 320px; padding: 0 10px 10px; z-index: 9998`,
+// which put a 320px toast squarely over the first two buttons of the map's
+// right-hand column — measured [1088, 70, 320, 82] against an Account button
+// at [1353, 60, 40, 40] and its visibility padlock at [1373, 66, 15, 15].
+// Harmless while the Account button was LAST in that column at y~280; TASK-2465
+// promoted it to first and moved the padlock into the toast's footprint. The
+// toast raised on a visibility change is emitted by the very action that
+// changes the padlock, so the indicator was hidden exactly when a user looks
+// at it.
+//
+// WHY NOT RAISE THE BUTTON ABOVE THE TOAST. It would pass a hit-test and be the
+// wrong fix: the notification's own dismiss control sits in that same corner,
+// so the buttons would paint over it. That trades one occlusion for another,
+// which is the mistake this epic has already made three times. The two must not
+// share pixels at all, and neither may be painted over the other.
+//
+// WHY padding-right AND NOT `right`. Moving a 320px fixed box left runs it off
+// the LEFT edge on a narrow window. Padding leaves the box anchored and shrinks
+// the card instead (320 - 10 - 65 = 245px of content), degrading gracefully at
+// any width. !important because the library sets `padding` inline.
+//
+// WHY var(--sv-widget-right) AND NOT A LITERAL 65 (TASK-2481 follow-up, W2.7).
+// simpleViewContainer.js's updateWidgetPositions() already publishes
+// --sv-widget-right (15px toolbar offset + 40px button + 10px gap = 65) on
+// document.documentElement.
+//
+// CORRECTION (TASK-2463, W2.8): W2.7 wrote here that "the legend panel, measure
+// container, uploader, TaskMonitor and search bar all read it". Two of those five
+// do not. The var() consumers are exactly four, all in simpleView.css:
+// .measure-container (:261), .sv-legend-panel (:266), .sv-save-confirm-overlay
+// (:701) and .sv-menu-row-delete-confirm.is-open (:762). There is NO uploader
+// rule; taskMonitor.css reads --sv-panel-top / --sv-tm-top and never this var;
+// and the search bar gets the number as a JS INLINE STYLE from the same method
+// that publishes the var, not through it. Naming a consumer that does not exist
+// is how a future reader concludes the var is load-bearing somewhere it is not —
+// or that it is safe to change because "the uploader looks fine".
+//
+// A hard-coded 65 here would have been one more independent statement of the
+// number — alongside the single arithmetic producer in updateWidgetPositions()
+// and the four documented var() fallbacks — in a rule whose whole job is to stay
+// clear of that column; and the clearance margin is only 10px at the widest
+// breakpoint, so a desync would not have to be large to reintroduce the
+// collision. (No ordinal count is given, because W2.7's was derived from a
+// consumer list that was wrong.) The var is on the ROOT element, not on a
+// SimpleView node, so this selector can read it. The 65px fallback matches every
+// other consumer's and applies on any page where SimpleView never mounted (where
+// the :has() guard below means this rule does not apply anyway).
+//
+// The var is a CONSTANT, not a measurement: it stays 65 at every breakpoint even
+// though the column narrows. That is deliberate over-clearance, and it is why
+// the numbers below differ per step while the padding does not. The button
+// occupies [vw-55, vw-15] at full size (right:15px, 40px wide),
+// [vw-51, vw-15] at <=900px (right:15px UNCHANGED, button 36px) and
+// [vw-42, vw-10] at <=600px (right:10px, button 32px — simpleView.css:878,
+// inside the 600px block opened at :847). A card ending at vw-65 is clear at
+// every step, by 10 / 14 / 23px respectively. The <=900px figure previously read
+// "[vw-46, vw-10]", which was wrong: it borrowed the 600px block's right:10px,
+// and it is exactly the number a future reader would cite to justify shrinking
+// the 65.
+//
+// WHY :has() AND NOT AN UNCONDITIONAL RULE. This corner is only reserved on
+// pages that render that toolbar; narrowing every toast on the catalogue or a
+// dataset page would be a fleet-wide change for a map-only collision. :has() is
+// the only way CSS can say "when that toolbar is present", and it is supported
+// by every browser this app targets. If it were ever dropped the rule simply
+// does not apply and the toast overlaps again — which
+// test_padlock_stays_hit_testable_while_a_toast_is_on_screen (deploy,
+// tests/e2e/test_paywall_money_path.py) fails on at all four viewports. That
+// test hit-tests the padlock WITH A TOAST ON SCREEN; geometry measured without
+// one is what let this ship.
+//
+// AND THE CONTAINER ITSELF, which insetting the card is not enough to solve.
+// `.notifications-tr` is anchored `right: 0` and 320px wide, so its BOX always
+// reaches this corner however narrow its content is — and it is transparent, so
+// nothing shows there while it silently absorbs every click aimed at the top
+// two toolbar buttons. Measured after the padding fix: the card had moved clear
+// to [1098, 80, 245, 62] and elementFromPoint at the padlock still returned
+// DIV.notifications-tr. That layer is pre-existing and this is a REMOVAL of it,
+// not a new one: the container stops taking pointer events, the toast card puts
+// them back for itself, so the notification (and its dismiss control) stays
+// fully clickable while the empty padding is click-through.
+//
+// Only -tr is inset: -tl and -tc do not reach this corner.
+.gn-page-wrapper:has(.simple-view-right-toolbar) {
+    .notifications-tr {
+        padding-right: var(--sv-widget-right, 65px) !important;
+        pointer-events: none;
+
+        .notification {
+            pointer-events: auto;
+        }
+    }
+}

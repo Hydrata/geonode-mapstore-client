@@ -2180,6 +2180,65 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     }
                 );
             });
+
+            // TASK-2436 (epic 2425 W2) — both badges shared ONE className and
+            // had NO rule anywhere in the repo, so neither could be styled and
+            // the clickable one could not be told apart from the inert one
+            // without keying off a data-testid (which we don't style). Each now
+            // carries a distinguishing modifier.
+            //
+            // NOTE: karma cannot prove the resulting appearance — jsdom has no
+            // cascade or layout engine. These assert the HOOK exists; the rules
+            // themselves live in anuga.css and their contrast is recorded on
+            // TASK-2436.
+            it('over-balance badge is a BUTTON carrying the --action modifier', (done) => {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="1.00"
+                        freeBand={freeBand}
+                    />,
+                    container,
+                    () => {
+                        const badge = container.querySelector(badgeSelector);
+                        expect(badge.tagName).toBe('BUTTON');
+                        expect(badge.className).toInclude('sv-anuga-scenario-estimate-over-balance-badge');
+                        expect(badge.className).toInclude('sv-anuga-scenario-estimate-badge--action');
+                        expect(badge.className).toNotInclude('sv-anuga-scenario-estimate-badge--ceiling');
+                        done();
+                    }
+                );
+            });
+
+            it('over-ceiling badge is a SPAN carrying the --ceiling modifier (distinct affordance)', (done) => {
+                // band === Infinity: the final table row's cap is null, so an
+                // estimate above it has no finite band -> over-ceiling.
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={{...baseScenario, compute_cost_estimate: 5000, mesh_triangle_count_estimate: 9000000}}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="0.00"
+                        freeBand={{cap: 3, usedToday: 0, edge: '0.5', table: [['2', '1'], ['5', '2']]}}
+                    />,
+                    container,
+                    () => {
+                        const ceiling = container.querySelector('[data-testid="sv-anuga-scenario-estimate-over-ceiling-badge"]');
+                        expect(ceiling).toExist('over-ceiling badge did not render');
+                        expect(ceiling.tagName).toBe('SPAN');
+                        expect(ceiling.className).toInclude('sv-anuga-scenario-estimate-over-balance-badge');
+                        expect(ceiling.className).toInclude('sv-anuga-scenario-estimate-badge--ceiling');
+                        expect(ceiling.className).toNotInclude('sv-anuga-scenario-estimate-badge--action');
+                        // Mutually exclusive with the actionable badge.
+                        expect(container.querySelector(badgeSelector)).toBe(null);
+                        done();
+                    }
+                );
+            });
         });
 
         it('changing resolution dispatches onUpdateScenario with parsed float', (done) => {

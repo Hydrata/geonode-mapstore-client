@@ -5,19 +5,48 @@
  * commerce.balance_views.AccountBalanceView) — renders null when false.
  * Ships DARK by construction: flag-off's fixed response IS `enabled: false`.
  *
- * Two states, same component (mirrors PaywallPanel's single-component,
- * multi-state design):
- *   - Minimal balance strip (AC#4): balance + available packs + recent
- *     ledger entries. No polish — a compact read-only summary, not a full
- *     wallet page.
- *   - Modal overlay (AC#2/AC#3), shown ON TOP of the strip when `modal` is
- *     set: insufficient_balance -> pack purchase CTAs; cap_exceeded -> its
- *     OWN distinct message (never conflated with insufficient_balance).
- *     TASK-2123 adds a THIRD, equally distinct state: estimate_ceiling -> a
- *     contact-us path (no CTA fixes an over-ceiling run — never conflated
- *     with either of the other two).
+ * TASK-2435 (epic 2425 W2) — THE MAP MOUNT IS A MODAL HOST, NOT A DASHBOARD.
+ * ------------------------------------------------------------------------
+ * This component used to render an always-on balance strip in normal flow,
+ * with the refusal modal as a sibling underneath it. Because every
+ * compute-meter-* rule in the bundle was scoped `.msgapi
+ * .sv-account-billing-tab .compute-meter-*` (account.css — the Billing-tab
+ * embedding), the map mount got position:static/z-index:auto and landed in
+ * normal flow AFTER a map that fills 100% of .gn-viewer-layout-center, in a
+ * document that cannot scroll. Measured: every modal rendered at exactly
+ * viewportHeight + 55px, at both 1408x683 and 1305x1327. All three refusal
+ * modals were invisible for that one reason.
+ *
+ * position:fixed alone does NOT fix it. On the map route
+ * `.msgapi .page-map-viewer .gn-viewer-layout-body { transform: translate(0) }`
+ * makes that element the containing block for fixed descendants, AND
+ * `.gn-page-wrapper` carries z-index:99999. So the overlay must leave the
+ * viewer layout entirely — hence createPortal to document.body, following
+ * hydrologyDetailIdfTable.js's IdfCurveModal (the overlay shell) and
+ * anugaScenarioOverflowMenu.js (Escape + focus handling). `.msgapi` is on
+ * <body> itself, so themePrefix-ed rules still match a body-level portal.
+ *
+ * Decision 6: balance and price belong where the spend decision is made
+ * (beside Run, W3) and the Billing tab remains the top-up surface — so the
+ * standalone on-map balance strip is GONE. The panel now renders nothing at
+ * all until a refusal arrives, then portals exactly one modal:
+ * insufficient_balance -> pack purchase CTAs; cap_exceeded -> its OWN
+ * distinct message (never conflated); estimate_ceiling (TASK-2123) -> a
+ * contact-us path (no CTA fixes an over-ceiling run).
+ *
+ * BalanceStrip itself is NOT deleted — it is still the Billing tab's balance
+ * card (BillingTabPanel.js, its one and only caller). Its second, inline
+ * variant WAS deleted, by TASK-2458: removing the on-map strip left that
+ * branch with zero app mounts, and it is not coming back beside Run.
  */
 import React from 'react';
+// TASK-2436 — imported by the component that EMITS the markup, not by a
+// sibling panel, so the modal can never ship without its stylesheet again.
+import '../meter.css';
+// W2 remediation — the portal/dialog machinery TASK-2435 wrote here now lives
+// in ONE place, shared with the paywall upgrade modal (which had the same
+// stacking defect one layer up). See ModalHost.js's docstring.
+import ModalHost from '../../components/ModalHost';
 const PropTypes = require('prop-types');
 
 /**
@@ -34,7 +63,7 @@ const PropTypes = require('prop-types');
  * sites, or a failed lookup) — NEVER a hardcoded price->dollar map here.
  * A null amount renders the pre-2124 generic label so checkout still works.
  */
-function PackButtons({ availablePacks, testIdPrefix, onBuyPack, compact }) {
+function PackButtons({ availablePacks, testIdPrefix, onBuyPack, compact, pending }) {
     if (!availablePacks || availablePacks.length === 0) {
         return null;
     }
@@ -48,6 +77,20 @@ function PackButtons({ availablePacks, testIdPrefix, onBuyPack, compact }) {
                     key={priceId}
                     data-testid={`${testIdPrefix}-${priceId}`}
                     className="compute-meter-buy-pack-btn"
+                    // TASK-2441 — the native attribute, styled by a :disabled
+                    // rule rather than a modifier className (no new class, so
+                    // the paywall CSS coverage guard stays quiet). The
+                    // authoritative double-submit guard is subscribeCheckoutEpic's
+                    // `exhaustMap`; this is the affordance that stops the customer
+                    // reaching for a second click during the several seconds
+                    // before the Stripe tab opens.
+                    //
+                    // NOT a store read — that was 2441's original spec and it is
+                    // unimplementable: redux-observable reduces BEFORE it emits to
+                    // epics, so `.filter(() => !isCheckoutInFlight(...))` refuses
+                    // the FIRST click too and every buy control ships dead. See
+                    // paywallEpics.js's subscribeCheckoutEpic before changing this.
+                    disabled={pending}
                     onClick={() => onBuyPack(priceId)}
                 >
                     {compact
@@ -84,64 +127,58 @@ BillingPolicyLink.propTypes = {
 PackButtons.propTypes = {
     availablePacks: PropTypes.array,
     testIdPrefix: PropTypes.string.isRequired,
-    onBuyPack: PropTypes.func
+    onBuyPack: PropTypes.func,
+    compact: PropTypes.bool,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    pending: PropTypes.bool
 };
 
 PackButtons.defaultProps = {
     availablePacks: [],
-    onBuyPack: () => {}
+    onBuyPack: () => {},
+    pending: false
 };
 
-function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, variant }) {
-    // UAT-2 redesign — `variant="card"` (Account panel Billing tab only):
-    // uppercase-labelled balance card, 2dp value, compact primary pack
-    // buttons right of the figure. The default inline strip (refusal-modal
-    // host surface) is byte-identical to before.
-    const isCard = variant === 'card';
+/**
+ * The Billing tab's balance card: uppercase label over the figure, compact
+ * primary pack buttons right of it, policy link below.
+ *
+ * TASK-2458 — this used to branch on `variant`, with the INLINE branch as the
+ * default. TASK-2435 removed that branch's only app mount (the standalone
+ * on-map strip) and kept it exported and tested rather than deleted; the
+ * operator closed the question on 2026-07-27 by ruling out giving it a new
+ * home, since a balance beside Run would reintroduce exactly the on-map
+ * furniture W2.5 had just removed. So the branch, its `variant` prop and its
+ * recent-entries list are gone: BillingTabPanel is the one caller, and this is
+ * the card it has been rendering all along. Dead-but-tested code survives
+ * every refactor because the tests pass, which is what made it worth deleting
+ * rather than leaving.
+ *
+ * `recentEntries` went with the branch and was NOT re-homed: BillingTabPanel
+ * deliberately never passed it — it renders its own richer ledger list (dates,
+ * run links) below this card.
+ */
+function BalanceStrip({ balance, availablePacks, onBuyPack, pending }) {
     const noAccount = balance === null || balance === undefined;
-    const cardValue = () => {
+    const value = () => {
         const n = parseFloat(balance);
         return Number.isFinite(n) ? `$${n.toFixed(2)}` : `$${balance}`;
     };
     return (
-        <div data-testid="compute-meter-balance-strip" className={`compute-meter-balance-strip${isCard ? ' compute-meter-balance-strip--card' : ''}`}>
-            {isCard ? (
-                <div className="compute-meter-balance-row">
-                    <span className="compute-meter-balance-labelled">
-                        <span className="compute-meter-balance-label">Compute balance</span>
-                        <span data-testid="compute-meter-balance" className="compute-meter-balance">
-                            {noAccount ? 'No billing account yet' : cardValue()}
-                        </span>
-                    </span>
-                    {availablePacks && availablePacks.length > 0 ? (
-                        <span className="compute-meter-packs">
-                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} compact />
-                        </span>
-                    ) : null}
-                </div>
-            ) : (
-                <React.Fragment>
+        <div data-testid="compute-meter-balance-strip" className="compute-meter-balance-strip">
+            <div className="compute-meter-balance-row">
+                <span className="compute-meter-balance-labelled">
+                    <span className="compute-meter-balance-label">Compute balance</span>
                     <span data-testid="compute-meter-balance" className="compute-meter-balance">
-                        {'Compute balance: '}
-                        {noAccount ? 'No billing account yet' : `$${balance}`}
+                        {noAccount ? 'No billing account yet' : value()}
                     </span>
-                    {availablePacks && availablePacks.length > 0 ? (
-                        <span className="compute-meter-packs">
-                            <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} />
-                        </span>
-                    ) : null}
-                </React.Fragment>
-            )}
-            {recentEntries && recentEntries.length > 0 ? (
-                <ul data-testid="compute-meter-recent-entries" className="compute-meter-recent-entries">
-                    {/* index-as-key: read-only, server-ordered list, no reorder/insert */}
-                    {recentEntries.map((entry, idx) => (
-                        <li key={idx}>
-                            {`${entry.entry_type} $${entry.amount}`}
-                        </li>
-                    ))}
-                </ul>
-            ) : null}
+                </span>
+                {availablePacks && availablePacks.length > 0 ? (
+                    <span className="compute-meter-packs">
+                        <PackButtons availablePacks={availablePacks} testIdPrefix="compute-meter-buy-pack" onBuyPack={onBuyPack} pending={pending} compact />
+                    </span>
+                ) : null}
+            </div>
             <BillingPolicyLink testIdPrefix="compute-meter" />
         </div>
     );
@@ -150,16 +187,16 @@ function BalanceStrip({ balance, availablePacks, recentEntries, onBuyPack, varia
 BalanceStrip.propTypes = {
     balance: PropTypes.string,
     availablePacks: PropTypes.array,
-    recentEntries: PropTypes.array,
     onBuyPack: PropTypes.func,
-    variant: PropTypes.oneOf(['inline', 'card'])
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    pending: PropTypes.bool
 };
 
 BalanceStrip.defaultProps = {
     balance: null,
     availablePacks: [],
-    recentEntries: [],
-    onBuyPack: () => {}
+    onBuyPack: () => {},
+    pending: false
 };
 
 /**
@@ -186,17 +223,55 @@ ViewAccountLink.propTypes = {
     onViewAccount: PropTypes.func
 };
 
+/**
+ * The one id every refusal modal's <h2> carries, so MeterModalHost can point
+ * aria-labelledby at it without knowing which modal it is hosting. Safe as a
+ * single shared id because the three modals are mutually exclusive — exactly
+ * one is ever mounted (see ComputeMeterPanel.render).
+ */
+const MODAL_TITLE_ID = 'compute-meter-modal-title';
+
+/**
+ * MeterModalHost — TASK-2435's body-level refusal-modal host, now a thin
+ * naming layer over the shared ModalHost (W2 remediation): same portal, same
+ * dialog semantics, same deliberate absence of backdrop-click-to-dismiss, but
+ * ONE implementation shared with the paywall upgrade modal. The
+ * `compute-meter-panel` testid/className are unchanged — meter.css supplies
+ * this host's fixed full-viewport layer and z-index 100000.
+ */
+function MeterModalHost({ children, onDismiss }) {
+    return (
+        <ModalHost
+            onDismiss={onDismiss}
+            testId="compute-meter-panel"
+            className="compute-meter-panel"
+            titleId={MODAL_TITLE_ID}
+        >
+            {children}
+        </ModalHost>
+    );
+}
+
+MeterModalHost.propTypes = {
+    children: PropTypes.node,
+    onDismiss: PropTypes.func
+};
+
+MeterModalHost.defaultProps = {
+    onDismiss: () => {}
+};
+
 /** Insufficient-balance 402 -> modal -> pack purchase CTAs (AC#2). */
-function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss, onViewAccount }) {
+function InsufficientBalanceModal({ detail, availablePacks, onBuyPack, onDismiss, onViewAccount, checkoutPending }) {
     return (
         <div data-testid="meter-insufficient-balance-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
-                <h2 className="compute-meter-modal-title">Insufficient compute balance</h2>
+                <h2 id={MODAL_TITLE_ID} className="compute-meter-modal-title">Insufficient compute balance</h2>
                 <p data-testid="meter-insufficient-balance-detail" className="compute-meter-modal-body">
                     {detail}
                 </p>
                 <div className="compute-meter-modal-actions">
-                    <PackButtons availablePacks={availablePacks} testIdPrefix="meter-buy-pack-cta" onBuyPack={onBuyPack} />
+                    <PackButtons availablePacks={availablePacks} testIdPrefix="meter-buy-pack-cta" onBuyPack={onBuyPack} pending={checkoutPending} />
                     <ViewAccountLink testIdPrefix="meter-insufficient-balance" onViewAccount={onViewAccount} />
                     <button
                         type="button"
@@ -217,7 +292,9 @@ InsufficientBalanceModal.propTypes = {
     availablePacks: PropTypes.array,
     onBuyPack: PropTypes.func,
     onDismiss: PropTypes.func,
-    onViewAccount: PropTypes.func
+    onViewAccount: PropTypes.func,
+    /** TASK-2441 — a checkout-session create is on the wire. */
+    checkoutPending: PropTypes.bool
 };
 
 /**
@@ -228,7 +305,7 @@ function CapExceededModal({ detail, onDismiss, onViewAccount }) {
     return (
         <div data-testid="meter-cap-exceeded-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
-                <h2 className="compute-meter-modal-title">Daily free-run limit reached</h2>
+                <h2 id={MODAL_TITLE_ID} className="compute-meter-modal-title">Daily free-run limit reached</h2>
                 <p data-testid="meter-cap-exceeded-detail" className="compute-meter-modal-body">
                     {detail}
                 </p>
@@ -264,7 +341,7 @@ function EstimateCeilingModal({ detail, onDismiss, onViewAccount }) {
     return (
         <div data-testid="meter-estimate-ceiling-modal" className="compute-meter-modal-overlay">
             <div className="compute-meter-modal">
-                <h2 className="compute-meter-modal-title">This run is too large to dispatch automatically</h2>
+                <h2 id={MODAL_TITLE_ID} className="compute-meter-modal-title">This run is too large to dispatch automatically</h2>
                 <p data-testid="meter-estimate-ceiling-detail" className="compute-meter-modal-body">
                     {detail}
                 </p>
@@ -302,9 +379,14 @@ class ComputeMeterPanel extends React.Component {
     static propTypes = {
         /** Kill-switch — from the balance endpoint's `enabled` field. Default false (dark). */
         enabled: PropTypes.bool,
-        balance: PropTypes.string,
+        /**
+         * Only needed by the insufficient_balance modal's buy-pack CTAs.
+         * `balance` / `recentEntries` were dropped with the standalone strip
+         * (TASK-2435); `balance` still reaches BalanceStrip on the Billing
+         * tab, and `recentEntries` is rendered there by BillingTabPanel's own
+         * richer list (BalanceStrip stopped rendering one in TASK-2458).
+         */
         availablePacks: PropTypes.array,
-        recentEntries: PropTypes.array,
         /** {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling', checkoutUrl, detail} | null */
         modal: PropTypes.shape({
             type: PropTypes.string,
@@ -312,6 +394,13 @@ class ComputeMeterPanel extends React.Component {
             detail: PropTypes.string
         }),
         onBuyPack: PropTypes.func,
+        /**
+         * TASK-2441 (epic 2425 W4.2) — a checkout-session create is on the
+         * wire, so every buy control disables. Mapped from the paywall slice's
+         * account-scoped flag (isCheckoutInFlight), not from local state: the
+         * same purchase can be started from three different surfaces.
+         */
+        checkoutPending: PropTypes.bool,
         onDismissModal: PropTypes.func,
         // TASK-2420 (epic 2359 W4.5) — "View account" on all three refusal
         // modals, opening the Account panel's Billing tab.
@@ -320,17 +409,16 @@ class ComputeMeterPanel extends React.Component {
 
     static defaultProps = {
         enabled: false,
-        balance: null,
         availablePacks: [],
-        recentEntries: [],
         modal: null,
+        checkoutPending: false,
         onBuyPack: () => {},
         onDismissModal: () => {},
         onViewAccount: () => {}
     };
 
     render() {
-        const { enabled, balance, availablePacks, recentEntries, modal, onBuyPack, onDismissModal, onViewAccount } = this.props;
+        const { enabled, availablePacks, modal, checkoutPending, onBuyPack, onDismissModal, onViewAccount } = this.props;
 
         // Kill-switch: render nothing when the backend reports no meter
         // (ships dark — see commerce.balance_views.AccountBalanceView).
@@ -338,33 +426,53 @@ class ComputeMeterPanel extends React.Component {
             return null;
         }
 
-        return (
-            <div data-testid="compute-meter-panel" className="compute-meter-panel">
-                <BalanceStrip
-                    balance={balance}
+        // TASK-2435 — modal HOST, not a dashboard. With no refusal in flight
+        // there is nothing to show on the map; the balance lives in the
+        // Billing tab and (W3) beside Run.
+        if (!modal) {
+            return null;
+        }
+
+        // Exactly one modal, ever — the three refusal reasons are mutually
+        // exclusive and are never conflated. Selecting here (rather than
+        // three independent && branches) makes that exclusivity structural.
+        let content = null;
+        if (modal.type === 'insufficient_balance') {
+            content = (
+                <InsufficientBalanceModal
+                    detail={modal.detail}
                     availablePacks={availablePacks}
-                    recentEntries={recentEntries}
                     onBuyPack={onBuyPack}
+                    onDismiss={onDismissModal}
+                    onViewAccount={onViewAccount}
+                    checkoutPending={checkoutPending}
                 />
-                {modal && modal.type === 'insufficient_balance' ? (
-                    <InsufficientBalanceModal
-                        detail={modal.detail}
-                        availablePacks={availablePacks}
-                        onBuyPack={onBuyPack}
-                        onDismiss={onDismissModal}
-                        onViewAccount={onViewAccount}
-                    />
-                ) : null}
-                {modal && modal.type === 'cap_exceeded' ? (
-                    <CapExceededModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />
-                ) : null}
-                {modal && modal.type === 'estimate_ceiling' ? (
-                    <EstimateCeilingModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />
-                ) : null}
-            </div>
+            );
+        } else if (modal.type === 'cap_exceeded') {
+            content = (<CapExceededModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />);
+        } else if (modal.type === 'estimate_ceiling') {
+            content = (<EstimateCeilingModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />);
+        }
+
+        // An unrecognised modal.type is a contract break, not a reason to
+        // paint an empty dialog over the customer's map.
+        if (!content) {
+            return null;
+        }
+
+        // key={modal.type}: if a SECOND refusal arrives while the first is
+        // still open (the reducer replaces the modal without an intervening
+        // dismiss), React would otherwise reconcile the same host in place and
+        // the mount effect would not re-run — leaving focus on a button that
+        // no longer exists. Keying on the type forces a remount, so focus
+        // enters the new dialog and the old invoker is still restored.
+        return (
+            <MeterModalHost key={modal.type} onDismiss={onDismissModal}>
+                {content}
+            </MeterModalHost>
         );
     }
 }
 
 export default ComputeMeterPanel;
-export { BalanceStrip, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal, ViewAccountLink };
+export { BalanceStrip, MeterModalHost, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal, ViewAccountLink };

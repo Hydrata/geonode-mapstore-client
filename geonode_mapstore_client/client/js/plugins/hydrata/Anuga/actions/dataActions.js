@@ -47,6 +47,15 @@ const UPDATE_MEMBERSHIP_REQUEST = 'UPDATE_MEMBERSHIP_REQUEST';
 const DELETE_MEMBERSHIP_REQUEST = 'DELETE_MEMBERSHIP_REQUEST';
 const SET_MEMBERSHIPS_LOADING = 'SET_MEMBERSHIPS_LOADING';
 const UPDATE_PROJECT_VISIBILITY_REQUEST = 'UPDATE_PROJECT_VISIBILITY_REQUEST';
+// TASK-2440 (epic 2425 W4.1) — the visibility PATCH has finished, by ANY route:
+// success, a 402 refusal, a generic error, or no project loaded at all. Clears
+// the visibilityPending flag the REQUEST above arms (projectsReducer).
+// ONE settle for all outcomes on purpose: the 402 and error branches emit no
+// SET_ANUGA_PROJECT_DATA, so a success-only clear would leave all three Sharing
+// rows permanently disabled after any refusal — and SET_PAYWALL_UPGRADE_PROMPT
+// lives in the Paywall slice, so clearing off that would force projectsReducer
+// to import across slices to cover just one of three branches.
+const UPDATE_PROJECT_VISIBILITY_SETTLED = 'UPDATE_PROJECT_VISIBILITY_SETTLED';
 
 // V2P-21 — lazy-fetch my_perms on Anuga panel open
 // Trigger: FETCH_MY_PERMS dispatched by initAnugaEpic (= AnugaContainer mount = panel open).
@@ -150,8 +159,18 @@ const CONVERT_TERRAIN_DATUM_ERROR = 'ANUGA:CONVERT_TERRAIN_DATUM_ERROR';
 // TASK-2335 (epic 2323): persist the datum-badge dismissal (fire-and-forget).
 const ACK_TERRAIN_DATUM = 'ANUGA:ACK_TERRAIN_DATUM';
 
-function setAnugaProjectData(data) {
-    return { type: SET_ANUGA_PROJECT_DATA, data };
+// TASK-2548 (epic 2425 W3e) — `mapId` STAMPS which map this project data was
+// fetched for. The payload cannot answer that question itself: the retrieve
+// serializer is ProjectSerializerV2, and only ProjectSerializerV2Full carries
+// `base_map` (gn_anuga/serializers_v2.py), so `data` measured live is exactly
+// [id, name, projection, simple_view_config, visibility, owner_username,
+// my_role]. Whoever fetched it knows the map, so whoever fetched it stamps it.
+// projectsReducer refuses a stamp that positively disagrees with the map the
+// slice is about — the same rule SET_ANUGA_RESOURCE_PERMS already applies to
+// `projectId`, and for the same reason: late data for the map the user has
+// LEFT must not relabel the one they are on.
+function setAnugaProjectData(data, mapId) {
+    return { type: SET_ANUGA_PROJECT_DATA, data, mapId };
 }
 
 // TASK-1637 — pass the map id when setting (so the gate can compare against
@@ -266,6 +285,11 @@ function updateProjectVisibilityRequest(visibility) {
     return { type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility };
 }
 
+/** The visibility PATCH finished — success, 402, error, or no project. */
+function updateProjectVisibilitySettled() {
+    return { type: UPDATE_PROJECT_VISIBILITY_SETTLED };
+}
+
 // Invitation action creators (TASK-860)
 function fetchInvitations() {
     return { type: FETCH_INVITATIONS };
@@ -292,14 +316,34 @@ function resendInvitationRequest(invitationId) {
 }
 
 // V2P-21 action creators
-function fetchMyPerms(projectId) {
-    return { type: FETCH_MY_PERMS, projectId };
+/**
+ * @param {number}  projectId
+ * @param {boolean} force  TASK-2464 (epic 2425 W2.5) — bypass fetchMyPermsEpic's
+ *   30s per-project dedupe. Use ONLY when something just changed the answer
+ *   server-side (a visibility PATCH succeeded; a webhook poll is watching for
+ *   an entitlement flip). The dedupe exists to protect the TASK-658 cold-start
+ *   perf budget from repeated panel opens, not to suppress refetches after a
+ *   write — and it was silently doing the latter. See permsEpics.js.
+ */
+function fetchMyPerms(projectId, force = false) {
+    return { type: FETCH_MY_PERMS, projectId, force };
 }
 
-function setAnugaResourcePerms(payload) {
+/**
+ * @param {object} payload  the my-perms body
+ * @param {number} projectId  TASK-2463 (epic 2425 W2.6) — the project the
+ *   payload DESCRIBES. Required by projectsReducer, which folds
+ *   `payload.visibility` and (TASK-2497, W3d) `payload.my_role` back into
+ *   state.anuga.projects.data and must not do that when a late response for
+ *   the previous project lands after an SPA navigation. The action carried no
+ *   project identity before, so the reducer had no way to tell. Omitting it is
+ *   fail-SAFE: the fold is skipped, and the padlock and the role selectors keep
+ *   showing the last values the project fetch established.
+ */
+function setAnugaResourcePerms(payload, projectId) {
     // payload shape from /api/v2/anuga/projects/<pid>/my-perms/:
     //   { my_role, visibility, scenarios: {<id>: [perms]}, terrain: {...}, ... }
-    return { type: SET_ANUGA_RESOURCE_PERMS, payload };
+    return { type: SET_ANUGA_RESOURCE_PERMS, payload, projectId };
 }
 
 function setPermsLoadFailed(failed) {
@@ -530,6 +574,7 @@ module.exports = {
     DELETE_MEMBERSHIP_REQUEST, deleteMembershipRequest,
     SET_MEMBERSHIPS_LOADING, setMembershipsLoading,
     UPDATE_PROJECT_VISIBILITY_REQUEST, updateProjectVisibilityRequest,
+    UPDATE_PROJECT_VISIBILITY_SETTLED, updateProjectVisibilitySettled,
     // Invitation actions (TASK-860)
     FETCH_INVITATIONS, fetchInvitations,
     SET_INVITATIONS, setInvitations,

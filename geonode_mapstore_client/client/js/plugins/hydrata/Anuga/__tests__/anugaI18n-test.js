@@ -106,6 +106,45 @@ describe('Anuga i18n', () => {
         expect(enMessages['hydrata.anuga.terrainCrsDetected']).toMatch(/\{crs\}/);
     });
 
+    // The two money-path toasts that survive: checkout CANCELLED and checkout
+    // create-session FAILED. Both are raised from paywallEpics.js by msgId, so a
+    // missing key renders the raw id to a customer mid-purchase. Asserted in
+    // every locale that carries them, not just en-US.
+    //
+    // TASK-2486 (epic 2425 W2.9) — a third member, `hydrata.anuga.checkoutStalled.*`,
+    // is GONE, along with the toast it fed. W2.8 raised that one with
+    // autoDismiss:0 on the poll's give-up tail; there is no
+    // notification-retraction path in this codebase, so it could not be taken
+    // back when the webhook landed a minute later and refuted it. Keys deleted
+    // from all four locales that had them rather than left behind — an i18n test
+    // asserting keys for a toast that cannot be raised is the vacuous kind.
+    //
+    // W2.10 (operator decision 2026-07-26) went further and removed the SILENT
+    // give-up surface too: the poll now clears the overlay after 60s and says
+    // nothing at all, exactly as it did before W2.8. So the two keys asserted
+    // here are the only money-path toasts left, and the toNotExist below guards
+    // a third from returning by the toast route.
+    it('the money-path checkout toast keys exist in every locale that has the others', () => {
+        const {esMessages, htMessages} = require('../../../../__tests__/fixtures/translations');
+        const keys = [
+            'hydrata.anuga.checkoutCancelled.title',
+            'hydrata.anuga.checkoutCancelled.message',
+            'hydrata.anuga.checkoutFailed.title',
+            'hydrata.anuga.checkoutFailed.message'
+        ];
+        [['en', enMessages], ['fr', frMessages], ['es', esMessages], ['ht', htMessages]]
+            .forEach(([locale, messages]) => {
+                keys.forEach((key) => {
+                    expect(messages[key]).toExist(`Missing ${locale} translation for: ${key}`);
+                    expect(messages[key].length).toBeGreaterThan(0, `Empty ${locale} value for: ${key}`);
+                });
+                expect(messages['hydrata.anuga.checkoutStalled.title']).toNotExist(
+                    `${locale} still carries the retired stalled-toast key — the toast it fed `
+                    + 'was removed because it could never be retracted'
+                );
+            });
+    });
+
     it('core navigation keys exist', () => {
         const requiredKeys = [
             'hydrata.anuga.inputs',

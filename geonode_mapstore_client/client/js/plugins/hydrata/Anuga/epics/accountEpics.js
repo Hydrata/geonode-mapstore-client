@@ -90,7 +90,16 @@ export const requestBillingPortalEpic = (action$) => action$
                 // "Opening…" state (same-tab nav previously made this moot).
                 return Rx.Observable.of(setBillingPortalOpened());
             }
-            return Rx.Observable.empty();
+            // W3c adversarial — a 200 WITH NO URL used to emit nothing at all,
+            // so `portalLoading` stayed true and "Manage billing" read
+            // "Opening…" for the life of the page. That is verbatim the defect
+            // TASK-2441 fixed in subscribeCheckoutEpic, sitting in the sibling
+            // epic 2441 cites as its own precedent. Every branch must settle
+            // the flag it armed; an unexplained dead control is worse than an
+            // explained failure.
+            return Rx.Observable.of(setBillingPortalError(
+                'Unable to open the billing portal right now.'
+            ));
         })
         .catch((error) => Rx.Observable.of(
             setBillingPortalError(readErrData(error)?.detail || 'Unable to open the billing portal right now.')

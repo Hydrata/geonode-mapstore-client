@@ -67,6 +67,77 @@ describe('MovablePanel — TASK-2233', () => {
         return container.querySelector('.sv-movable-panel');
     };
 
+    // ── W2 adversarial finding R4 (epic 2425 W2.5) ──────────────────────────
+    // "View account" on a refusal modal dismisses the dialog and opens this
+    // panel IN ONE COMMIT. ModalHost's cleanup runs restoreFocus first, and
+    // this panel had NO focus entry, so a keyboard user was left on the map
+    // behind the panel they had just asked for.
+    describe('focus entry (adversarial R4)', () => {
+        it('focuses the first focusable control inside the panel on mount', () => {
+            ReactDOM.render(
+                <MovablePanel panelId="spec" title="Spec Panel" onClose={() => {}} autoFocus>
+                    <button data-testid="body-first">first</button>
+                    <button data-testid="body-second">second</button>
+                </MovablePanel>,
+                container
+            );
+            // The close chip is a button in the HEADER and comes first in DOM
+            // order, so it is the legitimate first stop — assert focus is
+            // INSIDE the panel rather than pinning one specific node, which
+            // would break the moment the header gains another control.
+            const panel = container.querySelector('.sv-movable-panel');
+            expect(panel.contains(document.activeElement)).toBe(
+                true,
+                'focus stayed outside the panel — the keyboard user is still on the map behind it'
+            );
+            expect(document.activeElement).toNotBe(document.body);
+        });
+
+        it('falls back to the panel itself when it has no focusable content yet', () => {
+            // e.g. an async tab still loading. tabIndex={-1} is what makes this
+            // possible on a plain div.
+            ReactDOM.render(
+                <MovablePanel panelId="spec" title="Spec Panel" autoFocus>
+                    <div>loading…</div>
+                </MovablePanel>,
+                container
+            );
+            const panel = container.querySelector('.sv-movable-panel');
+            expect(panel.getAttribute('tabindex')).toBe('-1');
+            expect(document.activeElement).toBe(panel);
+        });
+
+        it('does NOTHING without autoFocus — a legend must never steal the caret', () => {
+            // Seven components share this primitive and several mount as a SIDE
+            // EFFECT (DemRampLegend appears with a DEM layer;
+            // ClickDisambiguationPanel on any ambiguous map click). A blanket
+            // focus-on-mount would be a worse bug than the one R4 describes,
+            // introduced while fixing it. Default OFF, and pinned here.
+            const outside = document.createElement('button');
+            document.body.appendChild(outside);
+            outside.focus();
+            expect(document.activeElement).toBe(outside);
+            ReactDOM.render(
+                <MovablePanel panelId="spec" title="Spec Panel" onClose={() => {}}>
+                    <button data-testid="body-first">first</button>
+                </MovablePanel>,
+                container
+            );
+            expect(document.activeElement).toBe(
+                outside, 'the panel stole focus without autoFocus'
+            );
+            document.body.removeChild(outside);
+        });
+
+        it('is NOT a focus trap — tabIndex -1 keeps the panel out of the tab order', () => {
+            // The difference from ModalHost: this panel is non-modal and
+            // draggable, and the customer must be able to Tab away from it.
+            // There is no document keydown handler here at all.
+            const panel = render({ onClose: () => {} });
+            expect(panel.getAttribute('tabindex')).toBe('-1');
+        });
+    });
+
     it('renders title + children + close chip in a dark-glass movable panel', () => {
         const panel = render({ onClose: () => {} });
         expect(panel).toExist();

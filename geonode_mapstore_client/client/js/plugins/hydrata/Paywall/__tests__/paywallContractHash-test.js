@@ -10,12 +10,31 @@
  * gmc CI has NO hydrata checkout, so we cannot diff the two repos at test time.
  * Instead each repo asserts its OWN copy hashes to a PINNED canonical hash.
  * This test fails the moment CONTRACT_FIXTURE drifts (states / payloads /
- * version / hard_contract_rules) from the pin.
+ * descriptions / version / hard_contract_rules) from the pin.
+ *
+ * "EACH REPO" BECAME TRUE ON 2026-07-27 (TASK-2501, epic 2425 W3d). Until then
+ * this was the ONLY pin in the fleet, so the hydrata repo — which holds the
+ * source of truth — could edit the contract and break nothing. The mirror pin
+ * now lives at hydrata's
+ *     apps/gn_anuga/tests/test_paywall_contract_pin.py
+ * holding the SAME 64-hex literal, derived from the JSON.
+ *
+ * What that does and does not buy (be precise — the pins are linked only by
+ * both literals being the same string, since neither can read the other tree):
+ * editing either copy and FORGETTING to re-pin turns that repo red, which is
+ * the common careless case. Editing one copy and re-pinning ONLY that repo
+ * still leaves both suites green while the copies diverge — no automated check
+ * anywhere catches that. It is merely made conspicuous, because it takes a
+ * deliberate edit to a 64-hex constant that a reviewer can diff against the
+ * other repo's.
+ *
+ * On any bump, re-pin BOTH — derive from the hydrata JSON first, then confirm
+ * this copy reproduces it, never the reverse.
  *
  * THE PIN
  * -------
  * PINNED_CONTRACT_HASH == sha256( canonicalize(paywall_contract.json) ) as of
- * 2026-07-22, where canonicalize() is the sorted-key, stable serialization
+ * 2026-07-27, where canonicalize() is the sorted-key, stable serialization
  * below. Because the JS copy is byte-verbatim to the JSON, the same function
  * over CONTRACT_FIXTURE yields the same hash. Bumping the pin is the EXPLICIT,
  * intentional sync act: when the canonical JSON legitimately changes, update
@@ -35,8 +54,26 @@ import expect from 'expect';
 import {CONTRACT_FIXTURE} from '../paywallContract';
 
 // Pinned canonical hash — see header. Re-derive on an intentional contract bump.
+//
+// v1.0 -> v1.1 re-pin (TASK-2446, epic 2425 W2): TASK-2432 added the
+// `paid_organization` state and widened past_due's backend_condition. The old
+// pin was 13aa7dd6600920ef318de8a926c5196eafdfc0dde6c449a2cb85a4b5f6017811.
+// NOTE when re-deriving offline: canonicalize() uses JS JSON.stringify, which
+// does NOT \u-escape non-ASCII. A Python re-derivation must pass
+// ensure_ascii=False or it will produce a different (wrong) digest — the
+// fixture is full of em-dashes.
+//
+// v1.1 prose re-pin (TASK-2501, epic 2425 W3d): the fixture made two false
+// claims. paid_private/paid_organization advertised a "manage-billing CTA"
+// that TASK-2463 (W2.5) deleted, and _meta.note_on_v1.1 described this
+// component's missing `paid_organization` case as an open gap when rendering
+// null is now the DESIGNED behaviour for every state but upgrade_prompt.
+// Prose-only, behaviour-free — nothing reads .description — but description
+// strings ARE inside the hashed region, which is what forced this re-pin. The
+// old pin was ea5d4ac7a4831430a117583a7ef881283bb394869c2549d6589839cc4f7043cb.
+// _meta.version stays '1.1': the contract's SHAPE did not change.
 const PINNED_CONTRACT_HASH =
-    '13aa7dd6600920ef318de8a926c5196eafdfc0dde6c449a2cb85a4b5f6017811';
+    'eb1a72bdbe52ec6474f5329a3fd594f331b9f2c142e3777cf96a1a223c9d7cbd';
 
 /**
  * Stable, sorted-key canonical serialization. Order-independent for object

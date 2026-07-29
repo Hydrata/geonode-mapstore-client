@@ -192,6 +192,375 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
+    /*
+     * TASK-2438 (epic 2425 W3.1) — the price beside Run, sourced from the
+     * PRE-BUILD estimate when no run exists yet.
+     *
+     * The defect these pin: the label above is sourced from
+     * `scenario.latest_run.price_band`, which is null until a run EXISTS —
+     * so a priced scenario that has never been run structurally cannot show
+     * a price, which is the one moment the customer most needs it. The
+     * built run's price_band stays authoritative wherever it exists (it is
+     * frozen off the built mesh; the estimate is not).
+     */
+    describe('TASK-2438 — price + shortfall from the pre-build estimate', () => {
+        // The local band table (ansible/inventories/localhost.yaml) and the
+        // shape the account summary reducer hands down: a $0.50 free edge,
+        // then (0.50, 2] -> $1, (2, 5] -> $2, (5, 20] -> $5.
+        const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50', table: [[2, '1'], [5, '2'], [20, '5']]};
+        // $3.00 clears the free edge and lands in the (2, 5] -> $2 band.
+        const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
+
+        const priceEl = () => container.querySelector('[data-testid="sv-scenario-run-price"]');
+
+        it('a never-run priced scenario shows its band price beside Run', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={priced}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                />,
+                container,
+                () => {
+                    const el = priceEl();
+                    expect(el).toExist();
+                    expect(el.textContent).toBe('$2');
+                    done();
+                }
+            );
+        });
+
+        it('a built run\'s price_band stays authoritative over the estimate', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...priced, latest_run: {price_band: '5'}}}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                />,
+                container,
+                () => {
+                    // $5 (what the built mesh will actually be charged), never
+                    // the $2 the pre-build estimate buckets into.
+                    expect(priceEl().textContent).toBe('$5');
+                    done();
+                }
+            );
+        });
+
+        it('renders NOTHING, not "$NaN", before the band table has loaded', (done) => {
+            // The account summary reducer's initialState is
+            // {edge: '0', table: []} — every map load renders at least once
+            // in this state, before GET /commerce/account/ returns.
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={priced}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={{cap: 0, usedToday: 0, edge: '0', table: []}}
+                />,
+                container,
+                () => {
+                    expect(priceEl()).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('renders nothing when the paywall ships dark', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={priced}
+                    canEdit canRunScenario
+                    paywallEnabled={false}
+                    freeBand={FREE_BAND}
+                />,
+                container,
+                () => {
+                    expect(priceEl()).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('an estimate inside the free edge reads "Free" through the same element', (done) => {
+            // 0.10 <= the 0.50 free edge -> band 0. formatCostEstimate would
+            // render this "~$0.10 est."; the BAND is what gets charged, and
+            // it is free.
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...priced, compute_cost_estimate: 0.1}}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                    accountBalance="0.00"
+                />,
+                container,
+                () => {
+                    expect(priceEl().textContent).toBe('Free');
+                    done();
+                }
+            );
+        });
+
+        it('an estimate above the dispatch ceiling shows no price at all', (done) => {
+            // bandForEstimate returns Infinity past the table's last finite
+            // bound — the BE refuses these outright, so there is no price to
+            // state. "$Infinity" would be worse than silence.
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...priced, compute_cost_estimate: 999}}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                />,
+                container,
+                () => {
+                    expect(priceEl()).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('states the shortfall and opens Billing when the price exceeds the balance', (done) => {
+            let opened = 0;
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={priced}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                    accountBalance="0.00"
+                    onOpenAccountBilling={() => { opened++; }}
+                />,
+                container,
+                () => {
+                    const el = priceEl();
+                    expect(el).toExist();
+                    expect(el.textContent).toBe('Costs $2 · balance $0.00 · add at least $2 to run');
+                    expect(el.tagName).toBe('BUTTON');
+                    Simulate.click(el);
+                    expect(opened).toBe(1);
+                    done();
+                }
+            );
+        });
+
+        it('shortfall arithmetic is the gap, not the price (partial balance)', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={priced}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                    accountBalance="1.50"
+                    onOpenAccountBilling={() => {}}
+                />,
+                container,
+                () => {
+                    expect(priceEl().textContent).toBe('Costs $2 · balance $1.50 · add at least $0.50 to run');
+                    done();
+                }
+            );
+        });
+
+        it('a covered balance shows the bare price, no shortfall and no CTA', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={priced}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                    accountBalance="10.00"
+                    onOpenAccountBilling={() => {}}
+                />,
+                container,
+                () => {
+                    const el = priceEl();
+                    expect(el.textContent).toBe('$2');
+                    expect(el.tagName).toBe('SPAN');
+                    done();
+                }
+            );
+        });
+
+        it('a BUILT run over balance states the shortfall too', (done) => {
+            // A built run's $5 charge against a $0 balance will be refused on
+            // dispatch exactly like an estimated one — same warning.
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...priced, latest_run: {price_band: '5'}}}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                    accountBalance="0.00"
+                    onOpenAccountBilling={() => {}}
+                />,
+                container,
+                () => {
+                    expect(priceEl().textContent).toBe('Costs $5 · balance $0.00 · add $5 to run');
+                    done();
+                }
+            );
+        });
+
+        it('Run / Build / Build-and-Run stay ENABLED at insufficient balance', (done) => {
+            // Epic decision 4: the server is the single source of truth; a
+            // button disabled from a stale client-side estimate produces
+            // FALSE refusals, which are worse than caught ones.
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={priced}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                    accountBalance="0.00"
+                    onOpenAccountBilling={() => {}}
+                />,
+                container,
+                () => {
+                    ['.sv-scenario-action-run', '.sv-scenario-action-build', '.sv-scenario-action-build-run']
+                        .forEach((selector) => {
+                            const btn = container.querySelector(selector);
+                            expect(btn).toExist();
+                            expect(btn.disabled).toBe(false);
+                        });
+                    done();
+                }
+            );
+        });
+
+        // ── W3c adversarial: two claims the chip made that the server refuses ──
+        describe('the chip stops promising what the server will refuse (W3c)', () => {
+            const free = {...priced, compute_cost_estimate: 0.25};
+
+            it('says plain "Free" while free dispatches remain', (done) => {
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={free} canEdit canRunScenario paywallEnabled
+                        freeBand={{...FREE_BAND, cap: 3, usedToday: 1}}
+                    />,
+                    container,
+                    () => {
+                        expect(priceEl().textContent).toBe('Free');
+                        done();
+                    }
+                );
+            });
+
+            it('stops saying plain "Free" once today\'s free dispatches are used', (done) => {
+                // The dispatch gate refuses exactly these runs with `free_cap`
+                // (apps/gn_anuga/api_v2.py), counting the same query the summary
+                // reports as used_today — so the promise is refutable server-side
+                // before the customer ever clicks. Before TASK-2438 this chip
+                // rendered nothing at all for a never-run scenario, so the
+                // promise is newly introduced.
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={free} canEdit canRunScenario paywallEnabled
+                        freeBand={{...FREE_BAND, cap: 3, usedToday: 3}}
+                    />,
+                    container,
+                    () => {
+                        const el = priceEl();
+                        expect(el.textContent).toNotBe(
+                            'Free',
+                            'the chip guaranteed a free run the server refuses with free_cap'
+                        );
+                        expect(el.textContent).toInclude('daily limit reached');
+                        expect(el.getAttribute('title')).toInclude('refused');
+                        done();
+                    }
+                );
+            });
+
+            it('an UNLOADED free band (cap 0) under-warns rather than inventing a refusal', (done) => {
+                // The account reducer's initialState is {cap: 0, usedToday: 0},
+                // and 0 >= 0 would stamp "limit reached" on every render before
+                // GET /commerce/account/ lands.
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={{...free, latest_run: {price_band: '0'}}}
+                        canEdit canRunScenario paywallEnabled
+                        freeBand={{cap: 0, usedToday: 0, edge: '0.50', table: []}}
+                    />,
+                    container,
+                    () => {
+                        expect(priceEl().textContent).toBe('Free');
+                        done();
+                    }
+                );
+            });
+
+            it('the shortfall on an ESTIMATE keeps the hedge in both the sentence and the tooltip', (done) => {
+                // The over-balance title used to REPLACE the estimate caveat, so
+                // "add $2 to run" read as a precise instruction in the one state
+                // where the number is one. A larger built mesh can price higher,
+                // and then the customer is refused having done exactly what the
+                // chip told them.
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={priced} canEdit canRunScenario paywallEnabled
+                        freeBand={FREE_BAND} accountBalance="0.00"
+                        onOpenAccountBilling={() => {}}
+                    />,
+                    container,
+                    () => {
+                        const el = priceEl();
+                        expect(el.textContent).toInclude('at least');
+                        expect(el.getAttribute('title')).toInclude('confirmed when it builds');
+                        done();
+                    }
+                );
+            });
+
+            it('a BUILT run\'s shortfall carries NO hedge — its price is frozen off the real mesh', (done) => {
+                ReactDOM.render(
+                    <ScenarioHeaderActions
+                        scenario={{...priced, latest_run: {price_band: '5'}}}
+                        canEdit canRunScenario paywallEnabled
+                        freeBand={FREE_BAND} accountBalance="0.00"
+                        onOpenAccountBilling={() => {}}
+                    />,
+                    container,
+                    () => {
+                        const el = priceEl();
+                        expect(el.textContent).toBe('Costs $5 · balance $0.00 · add $5 to run');
+                        expect(el.getAttribute('title')).toNotInclude('estimate');
+                        done();
+                    }
+                );
+            });
+        });
+
+        it('no customer-visible string anywhere in the strip says "band"', (done) => {
+            // COPY RULE (glossary.md:609) — "band" collides with Analysis
+            // band, a raster concept. Covers title/aria text, not just the
+            // rendered copy: a tooltip is customer-visible.
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={priced}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                    accountBalance="0.00"
+                    onOpenAccountBilling={() => {}}
+                />,
+                container,
+                () => {
+                    const bare = /\bbands?\b/i;
+                    expect(bare.test(container.textContent)).toBe(false);
+                    Array.from(container.querySelectorAll('[title], [aria-label]')).forEach((el) => {
+                        expect(bare.test(el.getAttribute('title') || '')).toBe(false);
+                        expect(bare.test(el.getAttribute('aria-label') || '')).toBe(false);
+                    });
+                    done();
+                }
+            );
+        });
+    });
+
     it('Build click fires onBuildClick + the anuga-scenario-menu-build label', (done) => {
         let captured = null;
         ReactDOM.render(

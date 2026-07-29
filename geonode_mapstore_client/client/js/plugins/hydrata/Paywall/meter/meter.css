@@ -1,0 +1,221 @@
+/**
+ * meter.css — the compute-meter refusal-modal surface (TASK-2436, epic 2425 W2).
+ *
+ * WHY THIS FILE EXISTS, AND WHY IT IS NOT IN account.css
+ * ------------------------------------------------------
+ * Every compute-meter-* rule in the shipped bundle was
+ * `.msgapi .sv-account-billing-tab .compute-meter-*` — written for the Billing
+ * tab's embedding of BalanceStrip and nothing else. The SAME components also
+ * mount as the map-level refusal modal, where no ancestor ever matches
+ * `.sv-account-billing-tab`, so the modal host rendered position:static /
+ * z-index:auto and fell below the fold of a document that cannot scroll. A
+ * customer met that in production. The class of defect is "markup shipped
+ * without its stylesheet"; this file closes the meter instance of it.
+ *
+ * account.css is imported from exactly one place, BillingTabPanel.js:26. Had
+ * the modal rules gone there, the map-level modal's styling would depend on
+ * the Billing tab happening to be in the same chunk — a coupling with no
+ * reason to hold. This file is imported by ComputeMeterPanel.js, the component
+ * that actually emits the markup.
+ *
+ * SCOPING CONTRACT (TASK-2436 AC#1 — the Billing tab must not change)
+ * -------------------------------------------------------------------
+ * Two classNames are shared between the modal and the Billing-tab card:
+ * .compute-meter-buy-pack-btn and .compute-meter-billing-policy-link. Their
+ * rules here are therefore scoped under `.compute-meter-modal`, which the
+ * Billing tab never contains. Nothing in this file is a bare shared-class
+ * selector, so the existing `.sv-account-billing-tab .compute-meter-*` rules
+ * are neither overridden nor shadowed and the card layout is untouched.
+ *
+ * Selectors ship as `.msgapi <selector>` (package.json themePrefix). `.msgapi`
+ * is on <body> itself (templates/index.html:29) so these still match content
+ * portaled to document.body.
+ *
+ * CONTRAST (AC#3) — measured, not estimated. The modal surface is OPAQUE
+ * #003c88 precisely so these numbers do not depend on what the map is showing
+ * underneath:
+ *   #ffffff title  on #003c88 -> 10.49:1   (AA needs 4.5:1)
+ *   #dce6f7 body   on #003c88 ->  8.34:1
+ *   #ffffff on the secondary/dismiss button (transparent over #003c88)
+ *                             -> 10.49:1
+ *   #5bc0ff links  on #003c88 ->  5.21:1   (--sv-accent-blue, reused not reinvented)
+ *   #003c88 on the primary #ffffff pack button
+ *                             -> 10.49:1
+ */
+
+/* ── Portal host ─────────────────────────────────────────────────────────────
+   The body-level layer created by MeterModalHost (TASK-2435). It only exists
+   while a refusal is in flight — the panel returns null otherwise — so a
+   full-viewport fixed layer here can never become an invisible click-blocker.
+
+   z-index 100000: `.msgapi .gn-page-wrapper:not(.gn-legacy)` carries 99999 on
+   the map route and the whole app UI lives inside its stacking context, so
+   anything lower paints BEHIND the entire application. 100000 is the
+   codebase ceiling for body-level overlays — see hydrology.css
+   .sv-idf-curve-modal-overlay, which learned this the same painful way.
+   Do not raise it further without a reason. */
+.compute-meter-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+}
+
+/* ── Backdrop ────────────────────────────────────────────────────────────────
+   Absolute (not fixed) inside the host: the host is already the fixed
+   full-viewport layer, and nesting a second `fixed` would re-introduce a
+   dependency on containing blocks for no benefit.
+
+   Must NOT be pointer-events:none — the W0 gate hit-tests
+   document.elementFromPoint at the modal's centre, and a click-through
+   backdrop would return the map CANVAS, which is the very failure this epic
+   is closing. It is also what makes the backdrop absorb clicks aimed at the
+   map behind a refusal. */
+.compute-meter-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+/* ── Dialog card ─────────────────────────────────────────────────────────────
+   max-height + overflow-y keep the card inside the fold at the short viewport
+   the W0 gate exercises (1408x683) — the epic's whole defect was content
+   below the fold in a document that cannot scroll, so the card scrolls
+   itself rather than relying on the page. */
+.compute-meter-modal {
+    background-color: #003c88;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    padding: 20px 22px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.compute-meter-modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #ffffff;
+}
+
+.compute-meter-modal-body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #dce6f7;
+}
+
+.compute-meter-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* Primary CTA — the only solid-fill control in the dialog, mirroring the
+   Billing tab's treatment of the same component. Scoped to the modal so the
+   Billing tab's own (0,3,0) rule is untouched. */
+.compute-meter-modal .compute-meter-buy-pack-btn {
+    background-color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    color: #003c88;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.compute-meter-modal .compute-meter-buy-pack-btn:hover {
+    background-color: rgba(255, 255, 255, 0.88);
+}
+
+.compute-meter-modal .compute-meter-buy-pack-btn:active {
+    background-color: rgba(255, 255, 255, 0.78);
+}
+
+/* TASK-2441 — a checkout-session create is on the wire. Pseudo-class on the
+   EXISTING className rather than a --pending modifier, so no new class enters
+   the paywall CSS coverage guard's watch set. */
+.compute-meter-modal .compute-meter-buy-pack-btn:disabled {
+    background-color: rgba(255, 255, 255, 0.45);
+    color: rgba(0, 60, 136, 0.55);
+    cursor: progress;
+}
+
+/* Secondary actions — outlined, so the paid action is never ambiguous. */
+.compute-meter-view-account-link,
+.compute-meter-dismiss-btn {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.compute-meter-view-account-link:hover,
+.compute-meter-dismiss-btn:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+/* The estimate-ceiling path's only way forward — styled as a real action,
+   not an afterthought link, because no CTA can fix an over-ceiling run. */
+.compute-meter-contact-link {
+    display: inline-block;
+    background-color: transparent;
+    border: 1px solid #5bc0ff;
+    border-radius: 6px;
+    color: #5bc0ff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    text-decoration: none;
+}
+
+.compute-meter-contact-link:hover,
+.compute-meter-contact-link:focus {
+    background-color: rgba(91, 192, 255, 0.14);
+    color: #5bc0ff;
+    text-decoration: none;
+}
+
+.compute-meter-modal .compute-meter-billing-policy-link {
+    align-self: flex-start;
+    color: #dce6f7;
+    font-size: 12px;
+    text-decoration: underline;
+}
+
+.compute-meter-modal .compute-meter-billing-policy-link:hover,
+.compute-meter-modal .compute-meter-billing-policy-link:focus-visible {
+    color: #5bc0ff;
+}
+
+/* Keyboard users must be able to see where they are — the modal traps focus
+   (TASK-2435 AC#2), which is only usable if focus is visible. */
+.compute-meter-modal a:focus-visible,
+.compute-meter-modal button:focus-visible {
+    outline: 2px solid #5bc0ff;
+    outline-offset: 2px;
+}

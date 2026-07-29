@@ -498,9 +498,17 @@ export const getProjectV2 = (projectId) =>
 export const getProjectsV2 = (pageSize = 100, page = 1) =>
     axios.get('/api/v2/anuga/projects/', { params: { page_size: pageSize, page } });
 
-// V2P-21 — batch perm fetch for the whole project. Backend caches with
-// Cache-Control: private, max-age=60. See V2P-20 endpoint at
-// /opt/hydrata/apps/gn_anuga/api_v2.py::ProjectViewSetV2.my_perms.
+// V2P-21 — batch perm fetch for the whole project.
+//
+// NO CACHE-BUSTER HERE, DELIBERATELY (TASK-2463, W2.7). The backend now sends
+// `Cache-Control: private, no-cache` + a strong ETag, so every call revalidates
+// and a caller can never receive a stale entitlement — a cheap 304 when nothing
+// changed, a full 200 the moment the webhook flips something. Adding a `?_=`
+// param on top would fragment the cache key for no freshness gain and would
+// make correctness depend on each caller remembering to opt in. See the header
+// block in gn_anuga/api_v2.py::my_perms for why the old `max-age=60` (with no
+// validator, on a resource the Stripe webhook mutates out of band) broke the
+// post-checkout poll.
 export const getMyPerms = (projectId) =>
     axios.get(`/api/v2/anuga/projects/${projectId}/my-perms/`);
 
@@ -590,8 +598,28 @@ export const deleteMembership = (projectId, membershipId) =>
 
 // -- Project visibility ---------------------------------------------------
 
+/**
+ * W3c adversarial — THE ONLY DEADLINE ON THE THREE IN-FLIGHT-FLAGGED CALLS.
+ *
+ * MapStore2/web/client/libs/ajax sets no `timeout`, so axios waits forever.
+ * That was harmless while a second click simply started a second request; it
+ * stopped being harmless when TASK-2440/2441 armed a reducer flag on the click
+ * and cleared it only from the promise settling. A POST that establishes and
+ * then stalls (proxy blackhole, captive portal, a wedged uwsgi worker) now
+ * leaves EVERY buy control in the app disabled — or all three Sharing rows,
+ * with "Working…" pinned on one — for the life of the page, with no dismiss,
+ * no explanation and no retry short of a reload. That is the one behaviour
+ * those tasks made strictly worse than before, and a deadline is what closes
+ * it: the existing catch handlers already emit an explanatory toast AND the
+ * settle, so a timeout is indistinguishable from any other failure.
+ *
+ * 30s is well beyond the p99 of a Stripe session create (the slowest of the
+ * three) and well inside a customer's patience for a dead-looking button.
+ */
+export const REQUEST_DEADLINE_MS = 30000;
+
 export const updateProjectVisibility = (projectId, visibility) =>
-    axios.patch(`/api/v2/anuga/projects/${projectId}/`, { visibility });
+    axios.patch(`/api/v2/anuga/projects/${projectId}/`, { visibility }, { timeout: REQUEST_DEADLINE_MS });
 
 // -- Checkout (TASK-2099 / TASK-2100, epic 2092 W2.2/W4) -------------------
 //
@@ -600,7 +628,9 @@ export const updateProjectVisibility = (projectId, visibility) =>
 // checkout epic POSTs here then redirects the browser to the returned
 // session.url. Shared by the subscription flow (2099) and the compute-meter
 // credit-pack flow (2100, purchaseType='credit_pack' + priceId).
-export const createCheckoutSession = (projectId, purchaseType = 'subscription', priceId, returnMapId) => {
+export const createCheckoutSession = (
+    projectId, purchaseType = 'subscription', priceId, returnMapId, desiredVisibility
+) => {
     const body = { purchase_type: purchaseType };
     if (purchaseType === 'credit_pack') {
         body.price_id = priceId;
@@ -609,6 +639,14 @@ export const createCheckoutSession = (projectId, purchaseType = 'subscription', 
         // Billing tab's Subscribe carries no project; see checkout_views.py's
         // optional-project contract).
         body.project_id = projectId;
+        if (desiredVisibility) {
+            // W3d — the destination the customer chose in the Sharing panel,
+            // so the webhook delivers the tier that was bought instead of a
+            // hardcoded 'private'. Only meaningful alongside a project; the
+            // server re-validates it against the paid tiers either way, so a
+            // stale or absent value degrades to 'private', never wider.
+            body.desired_visibility = desiredVisibility;
+        }
     }
     if (returnMapId) {
         // UAT-2 — the map the user is on, so a project-less session (account
@@ -616,7 +654,9 @@ export const createCheckoutSession = (projectId, purchaseType = 'subscription', 
         // app home (where checkoutReturnEpic never fires).
         body.return_map_id = returnMapId;
     }
-    return axios.post('/commerce/checkout/create-session/', body);
+    // REQUEST_DEADLINE_MS — a stalled create-session used to disable every buy
+    // control in the app permanently (TASK-2441's flag has no other release).
+    return axios.post('/commerce/checkout/create-session/', body, { timeout: REQUEST_DEADLINE_MS });
 };
 
 // -- Compute meter (TASK-2100, epic 2092 W4.2) -----------------------------
@@ -634,7 +674,7 @@ export const getAccountSummary = () =>
     axios.get('/commerce/account/');
 
 export const createBillingPortalSession = () =>
-    axios.post('/commerce/billing-portal/');
+    axios.post('/commerce/billing-portal/', undefined, { timeout: REQUEST_DEADLINE_MS });
 
 // -- Invitations (TASK-860 / TASK-855/856) ---------------------------------
 //

@@ -205,3 +205,173 @@ describe('BillingTabPanel — recent activity empty state (TASK-2424)', () => {
         expect(empty.textContent).toInclude('hydrata.anuga.accountRecentActivityEmpty');
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK-2436 (epic 2425 W2) — Billing-tab visual-regression guard.
+//
+// W2 added unscoped rules for the compute-meter refusal modal, which shares
+// two classNames with this panel (.compute-meter-buy-pack-btn and
+// .compute-meter-billing-policy-link). Those new rules are all scoped under
+// `.compute-meter-modal` precisely so they cannot reach this tab, and the
+// pre-existing `.sv-account-billing-tab .compute-meter-*` rules were left
+// untouched. This test pins the structural invariant that scoping relies on.
+//
+// (Karma cannot compare pixels — jsdom has no cascade. What it CAN prove, and
+// what actually matters, is that the guarding ancestor is absent here.)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('BillingTabPanel — TASK-2436 scoping guard', () => {
+    it('renders no .compute-meter-modal ancestor, so W2\'s modal rules cannot reach the card', () => {
+        const c = render({
+            loaded: true,
+            balance: '15.00',
+            availablePacks: [{ price_id: 'price_a', amount: '10', currency: 'usd' }],
+            freeBand: baseFreeBand
+        });
+        const tab = c.querySelector('[data-testid="sv-account-billing-tab"]');
+        expect(tab).toExist();
+        expect(c.querySelector('.compute-meter-modal')).toBe(null);
+        expect(c.querySelector('.compute-meter-modal-overlay')).toBe(null);
+        expect(c.querySelector('.compute-meter-panel')).toBe(null);
+    });
+
+    it('still renders the balance card with the shared classNames the tab-scoped rules target', () => {
+        const c = render({
+            loaded: true,
+            balance: '15.00',
+            availablePacks: [{ price_id: 'price_a', amount: '10', currency: 'usd' }],
+            freeBand: baseFreeBand
+        });
+        const strip = c.querySelector('[data-testid="compute-meter-balance-strip"]');
+        // TASK-2458 — the class the tab-scoped rule targets is now the bare
+        // .compute-meter-balance-strip: with the inline variant deleted there
+        // is only one strip, so the --card modifier distinguished it from
+        // nothing.
+        expect(strip.className).toBe('compute-meter-balance-strip');
+        expect(c.querySelector('.compute-meter-buy-pack-btn')).toExist();
+        expect(c.querySelector('.compute-meter-billing-policy-link')).toExist();
+    });
+});
+
+// ── TASK-2489 (epic 2425 W3c): the confirming notice, REPLACING the W2.10 ────
+//    revert ratchet deliberately rather than slipping past it.
+//
+// The W2.10 ratchet asserted "renders no confirming notice and no re-check,
+// whatever props it is handed". That was right for a panel with no channel
+// capable of retracting a claim. TASK-2489 gives it one — the polled
+// /commerce/balance/ purchase row, anchored to a server timestamp — so the
+// notice comes back, under the SAME testid the ratchet named. Renaming it to
+// evade those assertions would have been the violation; replacing them, and
+// keeping every part that still holds, is the point.
+//
+// WHAT SURVIVES FROM THE RATCHET, UNCHANGED IN FORCE:
+//   (i)   absent when not confirming — the panel must not invent the state;
+//   (ii)  NO re-check control in EITHER state — RECHECK_PAYMENT was deleted by
+//         26e4aab36 and stays deleted; the poll already re-reads every 3s, and a
+//         button that re-asks an endpoint incapable of answering is worse than
+//         no button;
+//   (iii) the real answer — the subscription pill and the balance — still
+//         renders. Adding the claim must not displace the answer, exactly as
+//         removing it must not have.
+describe('BillingTabPanel — post-checkout confirming notice (TASK-2489)', () => {
+    const base = {
+        loaded: true, isPersonal: true, freeBand: baseFreeBand,
+        isManager: true, balance: '10.00'
+    };
+
+    it('(i) renders NO notice when nothing is confirming', () => {
+        const c = render({ ...base, confirming: false });
+        expect(c.querySelector('[data-testid="sv-account-confirming"]')).toBe(null);
+        expect(c.innerHTML).toNotInclude('sv-account-confirming');
+    });
+
+    it('renders the notice while a returned checkout is still confirming', () => {
+        const c = render({ ...base, confirming: true });
+        const notice = c.querySelector('[data-testid="sv-account-confirming"]');
+        expect(notice).toExist();
+        // i18n'd, not hardcoded English — the four locales that carry
+        // checkoutCancelled carry these too (anugaI18n-test.js).
+        expect(notice.textContent).toInclude('hydrata.anuga.checkoutConfirming.title');
+        expect(notice.textContent).toInclude('hydrata.anuga.checkoutConfirming.message');
+        // Announced, because it appears without the customer doing anything.
+        expect(notice.getAttribute('role')).toBe('status');
+    });
+
+    it('(ii) offers NO re-check control in either state', () => {
+        [false, true].forEach((confirming) => {
+            const c = render({ ...base, confirming });
+            expect(c.querySelector('[data-testid="sv-account-confirming-recheck"]')).toBe(null);
+            expect(c.innerHTML).toNotInclude('recheck');
+            expect(c.innerHTML).toNotInclude('Check again');
+        });
+    });
+
+    it('(iii) the real answer still renders underneath it — the claim never displaces the balance', () => {
+        const c = render({ ...base, confirming: true, subscription: { active: false } });
+        expect(c.querySelector('[data-testid="sv-account-subscription-state"]')).toExist();
+        expect(c.querySelector('.compute-meter-balance')).toExist();
+        // Order matters: the notice sits ABOVE the balance card, so the customer
+        // reads the claim and its resolution in one glance.
+        const html = c.innerHTML;
+        expect(html.indexOf('sv-account-confirming')).toBeLessThan(html.indexOf('compute-meter-balance-strip'));
+    });
+
+    it('defaults to not confirming, so an un-updated caller cannot raise the claim by omission', () => {
+        const c = render({ ...base });
+        expect(c.querySelector('[data-testid="sv-account-confirming"]')).toBe(null);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK-2441 (epic 2425 W4.2) — the Billing tab's money controls disable while
+// a checkout create is in flight.
+//
+// Both surfaces on this tab spend money: the credit-pack buttons in the balance
+// card and the $100/mo Subscribe button. Subscribe had no double-submit
+// protection whatsoever, while its own sibling Manage-billing has carried
+// `disabled={portalLoading}` since UAT-2 — this closes that asymmetry using the
+// same treatment.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('BillingTabPanel — checkout in-flight state (TASK-2441)', () => {
+    const base = {
+        loaded: true,
+        isManager: true,
+        manager: 'dave',
+        balance: '15.00',
+        freeBand: baseFreeBand,
+        subscription: {active: false},
+        availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}]
+    };
+
+    it('Subscribe is disabled and acknowledges the click while a checkout is in flight', () => {
+        const c = render({...base, checkoutPending: true});
+        const btn = c.querySelector('[data-testid="sv-account-subscribe-btn"]');
+        expect(btn.disabled).toBe(true);
+        // Mirrors the sibling Manage-billing button's shipped 'Opening…'
+        // treatment — a greyed button with unchanged copy still reads as dead.
+        expect(btn.textContent).toBe('Opening…');
+    });
+
+    it('Subscribe is enabled with its normal label when nothing is in flight', () => {
+        const c = render(base);
+        const btn = c.querySelector('[data-testid="sv-account-subscribe-btn"]');
+        expect(btn.disabled).toBe(false);
+        expect(btn.textContent).toBe('Subscribe');
+    });
+
+    it('the balance card pack buttons are disabled while a checkout is in flight', () => {
+        const c = render({...base, checkoutPending: true});
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(true);
+    });
+
+    it('the balance card pack buttons are enabled by default', () => {
+        const c = render(base);
+        expect(c.querySelector('[data-testid="compute-meter-buy-pack-price_a"]').disabled).toBe(false);
+    });
+
+    it('a disabled Subscribe does not fire onSubscribe', () => {
+        let calls = 0;
+        const c = render({...base, checkoutPending: true, onSubscribe: () => { calls += 1; }});
+        c.querySelector('[data-testid="sv-account-subscribe-btn"]').click();
+        expect(calls).toBe(0);
+    });
+});

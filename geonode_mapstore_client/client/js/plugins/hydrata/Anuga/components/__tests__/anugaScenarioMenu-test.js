@@ -1825,6 +1825,75 @@ describe('anugaScenarioMenu — REQUIRED auto-expand on build validation (TASK-2
 });
 
 /*
+ * TASK-2438 (epic 2425 W3.1) — the paywall props reach the header strip.
+ *
+ * mapStateToProps has carried paywallEnabled/accountBalance/freeBand (and
+ * mapDispatchToProps onOpenAccountBilling) since TASK-2420, but
+ * renderRunActions passed NONE of them down: scenarioPane got all four,
+ * ScenarioHeaderActions got none, so the price beside Run had nothing to be
+ * computed from even after the component learned how. This pins the
+ * threading itself — the component's own behaviour is covered in
+ * scenarioHeaderActions-test.js.
+ */
+describe('anugaScenarioMenu — paywall props reach the run-actions strip (TASK-2438)', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('a never-run priced scenario shows its price inside #scenario-run-actions', () => {
+        const scenario = {
+            id: 21, name: 'Priced', status: 'built', created_by: 9999,
+            terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+            friction: null, structure: null, mesh_region: null, network: null,
+            resolution: 1000, duration: 1800, unsaved: false,
+            compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000,
+            latest_run: null
+        };
+        let opened = 0;
+        ReactDOM.render(
+            <AnugaScenarioMenuClass
+                archiveFilter="none"
+                terrain={[]} boundaries={[]} inflows={[]} rainfalls={[]}
+                frictions={[]} structures={[]} meshRegions={[]} networks={[]}
+                computeInstances={[]}
+                canCreateScenario canRunScenario
+                myRole="editor" currentUserId={9999}
+                selectedScenarios={[]} readyToCompare={false} flatLayers={[]}
+                selectAnugaScenario={() => {}} setOpenMenuGroupId={() => {}}
+                saveAnugaScenario={() => {}} buildScenarioExplicit={() => {}}
+                runAnugaScenario={() => {}}
+                paywallEnabled
+                accountBalance="0.00"
+                freeBand={{cap: 3, usedToday: 0, edge: '0.50', table: [[2, '1'], [5, '2'], [20, '5']]}}
+                onOpenAccountBilling={() => { opened++; }}
+                scenarios={[scenario]}
+                selectedScenario={scenario}
+            />,
+            container
+        );
+        const strip = container.querySelector('#scenario-run-actions');
+        expect(strip).toExist();
+        const price = strip.querySelector('[data-testid="sv-scenario-run-price"]');
+        expect(price).toExist();
+        // "at least" — W3c adversarial: a pre-build estimate is a floor, not the
+        // bill, and dropping the hedge in the one state where the number is an
+        // instruction is what let a customer top up exactly $2, watch a larger
+        // mesh price at $5, and be refused for doing what the chip said.
+        expect(price.textContent).toBe('Costs $2 · balance $0.00 · add at least $2 to run');
+        price.click();
+        expect(opened).toBe(1);
+    });
+});
+
+/*
  * Regression guard — source-text scan for window.confirm / window.alert.
  *
  * Stops the bug class from recurring (memory pin

@@ -14,6 +14,50 @@ export const getProjectMyRole = (state) =>
 export const getProjectVisibility = (state) =>
     state?.anuga?.projects?.data?.visibility || null;
 
+/**
+ * Does a payload/flag STAMPED with `stampedId` describe the project on screen?
+ *
+ * THE ONE RULE, in one place: refuse only a stamp that POSITIVELY disagrees with
+ * a known loaded project. An unstamped value, or a state with no project loaded
+ * yet, reads through — refusing either is fail-DANGEROUS in every caller (the
+ * paywall steady state has a single writer, so a refusal discards it outright;
+ * the visibility flag would simply never arm).
+ *
+ * Three copies of this comparison had accumulated — projectsReducer's my_perms
+ * guard, Paywall/reducer's steady/overlay guard and the visibility in-flight
+ * flag — each written after a bug where late state for project A relabelled
+ * project B. W3c collapsed the two selector-level ones onto this.
+ */
+export const describesLoadedProject = (state, stampedId) => {
+    const loaded = state?.anuga?.projects?.data?.id;
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+    return !(stampedId != null && loaded != null && stampedId !== loaded);
+};
+
+/**
+ * TASK-2440 (epic 2425 W4.1) — the visibility change currently being requested
+ * of the server ('private' | 'organization' | 'public'), or null.
+ *
+ * Note the shape: this sits on the projects SLICE, not on `projects.data`,
+ * because it describes an in-flight request and not the stored project. Reading
+ * it from `data` would be the first step towards an optimistic write.
+ *
+ * W3c adversarial — AND ONLY WHEN IT IS ABOUT THE PROJECT ON SCREEN. Nothing
+ * resets the slice on an SPA nav, so a PATCH still in flight for project A used
+ * to disable project B's three Sharing rows and put the "Working…" pill on one
+ * of them: a claim that B's visibility was being changed, when nothing about B
+ * had been requested. Same rule as the reducer's SET_ANUGA_RESOURCE_PERMS
+ * guard — refuse only a stamp that POSITIVELY disagrees with a known loaded
+ * project, so an unstamped flag or a not-yet-loaded project still reads through.
+ */
+export const getProjectVisibilityPending = (state) => {
+    const projects = state?.anuga?.projects;
+    if (!projects || !projects.visibilityPending) return null;
+    return describesLoadedProject(state, projects.visibilityPendingProjectId)
+        ? projects.visibilityPending
+        : null;
+};
+
 // Legacy selectors — now read from project my_role instead of gnresource
 export const canViewAnugaMap = (state) =>
     getProjectMyRole(state) !== null;
