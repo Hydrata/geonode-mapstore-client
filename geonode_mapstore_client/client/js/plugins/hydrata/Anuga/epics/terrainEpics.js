@@ -2,6 +2,7 @@ import Rx from "rxjs";
 import {
     addLayer,
     removeLayer,
+    changeLayerProperties,
     ADD_LAYER,
     REMOVE_LAYER
 } from '../../../../../MapStore2/web/client/actions/layers';
@@ -220,6 +221,77 @@ const reconcileTerrain = (state) => {
     actions.push(addLayer(maptilerTerrain, false));
     return Rx.Observable.from(actions);
 };
+
+/**
+ * TASK-2572 — collect the bare layer names belonging to SUPERSEDED terrains.
+ *
+ * A terrain superseded by a datum-shift conversion carries
+ * ``metadata.superseded_by`` (stamped by supersede_source_of_datum_shift,
+ * epic 2323 / TASK-2327). Exported for the unit tests and for any future caller
+ * that needs the same predicate.
+ *
+ * @param {Array} terrainModels state.anuga.resources.terrain rows
+ * @returns {Set<string>} bare (workspace-stripped) names of the superseded
+ *                        terrains' DEM + hillshade layers
+ */
+export const supersededLayerNames = (terrainModels) => {
+    const names = new Set();
+    (terrainModels || []).forEach(model => {
+        if (!model?.metadata?.superseded_by) return;
+        [model.gn_layer_name, model.gn_layer_hillshade_name]
+            .filter(Boolean)
+            .forEach(n => names.add(bareName(n)));
+    });
+    return names;
+};
+
+/**
+ * Epic: TASK-2572 — stop a SUPERSEDED terrain's layers from rendering.
+ *
+ * _buildTerrainGroups (anugaInputMenu.js) already drops a superseded terrain
+ * from the Terrain list AND keeps its orphan layers out of the stand-alone-row
+ * fallback — so those layers end up with NO row anywhere in the TOC, while
+ * still sitting on the map at visibility:true. On prod map 6015 that left the
+ * uncorrected ellipsoid DEM (ele_554_utm, ~27.6 m high) painting ON TOP of the
+ * EGM2008 surface the modeller believes replaced it, with no control to switch
+ * it off and a GetMap storm on every pan.
+ *
+ * This epic closes that gap by deriving hide-state from ``superseded_by`` on
+ * every terrain-data load, so it is order-independent: the map layers may
+ * arrive before or after the terrain rows and the outcome is the same (AC3).
+ *
+ * DISPLAY-ONLY, deliberately — no saveDirectContent (same policy as
+ * terrainSubOrderReconcilerEpic, layerOrderEpics.js). Persisting the hide here
+ * would fight the reversal path: the BE owns the blob (supersede writes
+ * visibility:false, un-supersede writes it back), and this epic must not
+ * re-hide a layer whose ``superseded_by`` was cleared. Deriving instead of
+ * persisting keeps AC4 true — clear ``superseded_by`` and the layers return.
+ */
+export const supersededTerrainVisibilityEpic = (action$, store) =>
+    action$.ofType(SET_ANUGA_TERRAIN_DATA, ADD_LAYER)
+        .debounceTime(300)
+        .switchMap(() => {
+            const state = store.getState();
+            const hidden = supersededLayerNames(state?.anuga?.resources?.terrain);
+            if (hidden.size === 0) return Rx.Observable.empty();
+
+            // Idempotent: only emit for layers still rendering, so a re-run
+            // (every ADD_LAYER) is silent once the map is already correct.
+            //
+            // The 3D terrain layers are EXCLUDED. manageTerrain3DEpic (below)
+            // synthesises `terrain-dem` from findBestDemLayer, which does not
+            // check visibility — so it can name that layer after a superseded
+            // DEM. Hiding it here would fight that epic (it owns those two ids
+            // and reconciles them by remove+add) instead of fixing anything:
+            // the elevation source is its concern, not this one's.
+            const actions = (state?.layers?.flat || [])
+                .filter(l => l && l.id && l.visibility !== false
+                    && l.id !== TERRAIN_DEM_ID && l.id !== TERRAIN_MAPTILER_ID
+                    && hidden.has(bareName(l.name)))
+                .map(l => changeLayerProperties(l.id, { visibility: false }));
+
+            return actions.length ? Rx.Observable.from(actions) : Rx.Observable.empty();
+        });
 
 /**
  * Epic: manage terrain layers when switching to 3D mode.

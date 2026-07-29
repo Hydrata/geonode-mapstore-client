@@ -39,6 +39,9 @@ import {
     compareScenarioEpic,
     getAnugaResourcesEpic,
     manageTerrain3DEpic,
+    // TASK-2572 — a terrain superseded by a datum-shift conversion has no TOC
+    // row; hide its DEM + hillshade so the wrong-datum surface stops painting.
+    supersededTerrainVisibilityEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
     anugaMapLayerGroupEpic,
@@ -215,6 +218,7 @@ export default createPlugin('Anuga', {
         compareScenarioEpic,
         getAnugaResourcesEpic,
         manageTerrain3DEpic,
+        supersededTerrainVisibilityEpic,
         ensureAnugaGroupsEpic,
         taskCompleteLayerEpic,
         anugaMapLayerGroupEpic,

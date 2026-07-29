@@ -1625,3 +1625,71 @@ describe('TASK-1755 culvert menu entry — placeholder pane + i18n', () => {
         });
     });
 });
+
+// ── TASK-2572 (AC3): a superseded terrain must never survive as a stand-alone row
+//
+// _buildTerrainGroups drops a datum-shift-superseded terrain from the list AND
+// keeps its orphan layers out of the stand-alone-row fallback. That filter is
+// derived from `terrainModels`, so on a load where state.anuga.resources.terrain
+// is still [] when the pane renders, EVERY terrain layer briefly appears as a
+// flat stand-alone row. These specs pin that the transient resolves the moment
+// the models arrive — the render must not be fetch-order dependent — and that
+// clearing `superseded_by` brings the terrain back (AC4, FE half).
+//
+// Layer/terrain ids mirror prod hydrata.com map 6015 / project 727:
+// 552 = UAV 0.5m ellipsoid original, superseded by 553 = its EGM2008 conversion.
+describe('TASK-2572 _buildTerrainGroups superseded-terrain filtering', () => {
+    const LAYERS = [
+        { id: 'l-552-dem', name: 'geonode:ele_552_utm', title: 'UAV 0.5m', group: 'Input Data.Terrain' },
+        { id: 'l-552-hs', name: 'geonode:ele_552_hillshade', title: 'UAV 0.5m Hillshade', group: 'Input Data.Terrain' },
+        { id: 'l-553-dem', name: 'geonode:ele_553_utm', title: 'UAV 0.5m (EGM2008)', group: 'Input Data.Terrain' },
+        { id: 'l-553-hs', name: 'geonode:ele_553_hillshade', title: 'UAV 0.5m (EGM2008) Hillshade', group: 'Input Data.Terrain' }
+    ];
+    const models = (supersededBy) => [
+        {
+            id: 552, title: 'UAV 0.5m',
+            gn_layer_name: 'ele_552_utm', gn_layer_hillshade_name: 'ele_552_hillshade',
+            metadata: supersededBy ? { superseded_by: supersededBy } : {}
+        },
+        {
+            id: 553, title: 'UAV 0.5m (EGM2008)',
+            gn_layer_name: 'ele_553_utm', gn_layer_hillshade_name: 'ele_553_hillshade',
+            metadata: {}
+        }
+    ];
+    const layerIdsIn = (groups) => groups.reduce((acc, g) => acc
+        .concat(g.demLayer ? [g.demLayer.id] : [])
+        .concat(g.hillshadeLayer ? [g.hillshadeLayer.id] : []), []);
+
+    it('renders every layer as a stand-alone row while terrainModels is still empty', () => {
+        // The documented transient (SECONDARY finding on TASK-2572): with no
+        // models there is nothing to derive superseded-ness from.
+        const groups = buildGroupsWithProps({ terrainLayers: LAYERS, terrainModels: [] });
+        expect(groups.length).toBe(4);
+        expect(groups.every(g => g.terrain === null)).toBe(true);
+    });
+
+    it('AC3: once the models arrive the superseded terrain has NO row of any kind', () => {
+        const groups = buildGroupsWithProps({ terrainLayers: LAYERS, terrainModels: models(553) });
+        // Exactly one group — the EGM2008 replacement.
+        expect(groups.length).toBe(1);
+        expect(groups[0].terrain.id).toBe(553);
+        // The superseded original appears neither as a terrain group...
+        expect(groups.filter(g => g.terrain && g.terrain.id === 552).length).toBe(0);
+        // ...nor as a stand-alone fallback row.
+        const ids = layerIdsIn(groups);
+        expect(ids.indexOf('l-552-dem')).toBe(-1);
+        expect(ids.indexOf('l-552-hs')).toBe(-1);
+        expect(ids.indexOf('l-553-dem') > -1).toBe(true);
+        expect(ids.indexOf('l-553-hs') > -1).toBe(true);
+    });
+
+    it('AC4: clearing superseded_by brings the terrain and its layers back', () => {
+        const groups = buildGroupsWithProps({ terrainLayers: LAYERS, terrainModels: models(null) });
+        expect(groups.length).toBe(2);
+        expect(groups.map(g => g.terrain.id)).toEqual([552, 553]);
+        const ids = layerIdsIn(groups);
+        expect(ids.indexOf('l-552-dem') > -1).toBe(true);
+        expect(ids.indexOf('l-552-hs') > -1).toBe(true);
+    });
+});
