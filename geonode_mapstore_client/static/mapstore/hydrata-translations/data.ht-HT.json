@@ -239,10 +239,6 @@
           "title": "Peman anile",
           "message": "Pa gen okenn chanjman ki te fèt — ou ka eseye ankò nenpòt lè."
         },
-        "checkoutConfirming": {
-          "title": "N ap konfime acha w la…",
-          "message": "Ou tounen soti nan Stripe e n ap tann konfimasyon an. Panno sa a ap mete tèt li ajou pou kont li — ou pa bezwen fè anyen ankò."
-        },
         "checkoutFailed": {
           "title": "Peman echwe",
           "message": "Pa t kapab kòmanse peman an. Tanpri eseye ankò."

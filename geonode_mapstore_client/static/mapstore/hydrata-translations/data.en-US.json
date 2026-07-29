@@ -239,10 +239,6 @@
           "title": "Checkout cancelled",
           "message": "No changes were made — you can try again any time."
         },
-        "checkoutConfirming": {
-          "title": "Confirming your purchase…",
-          "message": "You're back from Stripe and we're waiting for the confirmation to land. This panel updates on its own — nothing else is needed from you."
-        },
         "checkoutFailed": {
           "title": "Checkout failed",
           "message": "Could not start checkout. Please try again."

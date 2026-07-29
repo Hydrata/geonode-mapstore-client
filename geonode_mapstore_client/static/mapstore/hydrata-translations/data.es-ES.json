@@ -239,10 +239,6 @@
           "title": "Pago cancelado",
           "message": "No se realizaron cambios — puede intentarlo de nuevo en cualquier momento."
         },
-        "checkoutConfirming": {
-          "title": "Confirmando tu compra…",
-          "message": "Has vuelto de Stripe y estamos esperando la confirmación. Este panel se actualiza solo: no necesitas hacer nada más."
-        },
         "checkoutFailed": {
           "title": "Error en el pago",
           "message": "No se pudo iniciar el pago. Por favor, intentelo de nuevo."

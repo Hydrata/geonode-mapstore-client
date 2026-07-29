@@ -32,6 +32,8 @@ import {
     initAnuga,
     SET_ANUGA_INIT_IN_FLIGHT,
     setAnugaBoundaryData,
+    // TASK-2565: the epic re-enters on the terrain-list refresh it dispatches.
+    SET_ANUGA_TERRAIN_DATA,
     setAnugaTerrainData,
     setAnugaFrictionData,
     setAnugaInflowData,
@@ -1076,173 +1078,205 @@ export const taskCompleteLayerEpic = (action$, store) => {
     // non-null.
     const pendingEntriesBeforeMapId = [];
     const refreshAttempted = new Set();
-    return action$.ofType(TM_SET_PROCESSES)
-        .switchMap((action) => {
-            const processes = action.processes || [];
-            const state = store.getState();
-            const mapId = state?.gnresource?.id;
-            const currentNames = state?.layers?.flat?.map(l => l?.name) || [];
-            // (Re)hydrate the persisted Set the first time we see this
-            // mapId in the action stream. Merge any pending entries that
-            // were captured while mapId was null (Fix 2: retroactive flush).
-            if (mapId !== undefined && mapId !== null && loadedForMapId !== mapId) {
-                const hydrated = loadHandledCompletionIds(mapId);
-                handledCompletionIds = hydrated.set;
-                handledEntries = hydrated.entries;
-                // Replay pending pre-mapId entries into the Set + entries
-                // list so the next persist call flushes them to localStorage.
-                if (pendingEntriesBeforeMapId.length > 0) {
-                    pendingEntriesBeforeMapId.forEach(e => {
-                        if (!handledCompletionIds.has(e.id)) {
-                            handledCompletionIds.add(e.id);
-                            handledEntries.push(e);
-                        }
-                    });
-                    pendingEntriesBeforeMapId.length = 0;
-                    const merged = persistHandledCompletionIds(mapId, handledCompletionIds, handledEntries);
-                    if (merged) handledEntries = merged;
-                }
-                loadedForMapId = mapId;
-            }
-            // Defence-in-depth project scoping. The TaskMonitor poller is
-            // gated on getProjectId being non-null (epicsTaskMonitor.js), and
-            // the API requires ?project_id=<int> (taskmonitor/views.py). If
-            // BOTH of those are ever bypassed and a Process from another
-            // project lands in the action payload, we still won't addLayer it
-            // here. The dedupe Set is per-mapId so it can't catch this case;
-            // currentNames dedupe can't either, because mapstore_layer.name
-            // embeds the source project id (e.g. geonode:rai_11550_rainfall_01).
-            const currentProjectId = getProjectId(state);
-            const candidates = processes.filter(
-                p => isLayerCompletionType(p.process_type) &&
-                     p.status === 'complete' &&
-                     !handledCompletionIds.has(p.id) &&
-                     (!currentProjectId || p.metadata?.project_id === currentProjectId)
-            );
-            if (!candidates.length) return Rx.Observable.empty();
-            const classified = candidates.map(p => ({
-                process: p,
-                status: orphanStatus(p, state, refreshAttempted)
-            }));
-            // Mark handled only when we can decide. 'unknown' candidates stay
-            // unmarked so the next poll (after initAnuga fills terrain) can
-            // re-classify them. 'present' and 'orphaned' are decisive.
-            let mutated = false;
-            const now = Date.now();
-            classified.forEach(c => {
-                if (c.status !== 'unknown' && !handledCompletionIds.has(c.process.id)) {
-                    handledCompletionIds.add(c.process.id);
-                    const entry = { id: c.process.id, ts: now };
-                    handledEntries.push(entry);
-                    // If mapId is not yet hydrated, buffer the entry so it
-                    // can be persisted retroactively once mapId arrives.
-                    // Soft cap at 500 entries — drop oldest first — to bound
-                    // memory growth on long-lived non-map contexts where
-                    // mapId never hydrates.
-                    if (mapId === null || mapId === undefined) {
-                        pendingEntriesBeforeMapId.push(entry);
-                        if (pendingEntriesBeforeMapId.length > 500) {
-                            pendingEntriesBeforeMapId.shift();
-                        }
+    // TASK-2565: the candidate list from the most recent TM_SET_PROCESSES.
+    //
+    // An 'unknown' candidate is deliberately left unhandled so it can be
+    // re-classified "on the next poll" — but there is no next poll. Both
+    // TaskMonitor pollers end in `.distinctUntilChanged(processListsEqual)`
+    // (epicsTaskMonitor.js:116 background, :161 open-panel), so once every
+    // process has gone terminal the list stops changing and TM_SET_PROCESSES
+    // never fires again. The deferral waited on a list CHANGE that a terminal
+    // list cannot produce, and the terrain silently never appeared until a full
+    // page reload (prod, 2026-07-28, project 724 / map 5997).
+    //
+    // The first terrain of a project is unaffected only by luck: the six default
+    // layer_create processes are still in flight behind it, so the list keeps
+    // changing and the deferred candidate gets its second tick. Every terrain
+    // added afterwards has nothing behind it.
+    //
+    // Fix: re-enter on SET_ANUGA_TERRAIN_DATA — the very refresh this epic
+    // dispatches at the bottom of the 'unknown' branch — re-evaluating the
+    // retained candidates against the now-current terrain list. Convergence is
+    // unchanged and bounded: `refreshAttempted` already holds the candidate id,
+    // so the re-entry classifies it decisively as 'present' or 'orphaned', marks
+    // it handled, and queues no further refresh.
+    let retainedProcesses = [];
+    const evaluate = (processes) => {
+        const state = store.getState();
+        const mapId = state?.gnresource?.id;
+        const currentNames = state?.layers?.flat?.map(l => l?.name) || [];
+        // (Re)hydrate the persisted Set the first time we see this
+        // mapId in the action stream. Merge any pending entries that
+        // were captured while mapId was null (Fix 2: retroactive flush).
+        if (mapId !== undefined && mapId !== null && loadedForMapId !== mapId) {
+            const hydrated = loadHandledCompletionIds(mapId);
+            handledCompletionIds = hydrated.set;
+            handledEntries = hydrated.entries;
+            // Replay pending pre-mapId entries into the Set + entries
+            // list so the next persist call flushes them to localStorage.
+            if (pendingEntriesBeforeMapId.length > 0) {
+                pendingEntriesBeforeMapId.forEach(e => {
+                    if (!handledCompletionIds.has(e.id)) {
+                        handledCompletionIds.add(e.id);
+                        handledEntries.push(e);
                     }
-                    mutated = true;
-                }
-            });
-            if (mutated && mapId !== null && mapId !== undefined) {
+                });
+                pendingEntriesBeforeMapId.length = 0;
                 const merged = persistHandledCompletionIds(mapId, handledCompletionIds, handledEntries);
                 if (merged) handledEntries = merged;
             }
-            // Refresh-then-defer: 'unknown' candidates with terrain_id set
-            // and terrainLoaded=true are fresh-upload-with-stale-list cases.
-            // Force one initAnuga catalogue refetch and mark the id so the
-            // next tick can decide. Candidates whose terrainLoaded=false
-            // are intentionally NOT in this set — initAnugaEpic itself will
-            // fire the catalogue fetch on its own gating signal.
-            const refreshNeeded = classified.filter(c => {
-                if (c.status !== 'unknown') return false;
-                if (c.process.process_type !== 'terrain_create') return false;
-                const tid = c.process.metadata?.terrain_id;
-                if (tid === null || tid === undefined) return false;
-                return state?.anuga?.resources?.terrainLoaded === true;
-            });
-            refreshNeeded.forEach(c => refreshAttempted.add(c.process.id));
-            const newlyCompleted = classified
-                .filter(c => c.status === 'present')
-                .map(c => c.process);
-            const observables = [];
-            const refreshedEndpoints = new Set();
-            newlyCompleted.forEach(p => {
-                const dispatch = modelClassDispatch[p.metadata?.model_class];
-                if (p.process_type === 'terrain_create' && Array.isArray(p.metadata?.mapstore_layers)) {
-                    observables.push(buildTerrainAddSequence(p.metadata, action$, store, currentNames));
-                } else if (p.metadata?.mapstore_layer) {
-                    const baseLayerConfig = p.metadata.mapstore_layer;
-                    if (!currentNames.includes(baseLayerConfig?.name)) {
-                        // Stamp BE-resolved ANUGA group on the layer so the
-                        // Layer Menu / Results tab filter at
-                        // simpleViewMenuRows.js (gates on
-                        // layer.group.split('.')[0]) routes it into the
-                        // right tab without waiting for the next
-                        // FIX_ANUGA_GROUPS tick (which only fires on
-                        // page-load via initAnugaEpic).
-                        const resolvedGroup = resolveAnugaGroup(p.metadata, baseLayerConfig);
-                        const layerConfig = resolvedGroup
-                            ? Object.assign({}, baseLayerConfig, { group: resolvedGroup })
-                            : baseLayerConfig;
-                        observables.push(Rx.Observable.of(addLayer(layerConfig)));
-                        // TASK-1650 (W1.5): info toast removed — auto-added
-                        // input layers appear in the Inputs panel immediately.
+            loadedForMapId = mapId;
+        }
+        // Defence-in-depth project scoping. The TaskMonitor poller is
+        // gated on getProjectId being non-null (epicsTaskMonitor.js), and
+        // the API requires ?project_id=<int> (taskmonitor/views.py). If
+        // BOTH of those are ever bypassed and a Process from another
+        // project lands in the action payload, we still won't addLayer it
+        // here. The dedupe Set is per-mapId so it can't catch this case;
+        // currentNames dedupe can't either, because mapstore_layer.name
+        // embeds the source project id (e.g. geonode:rai_11550_rainfall_01).
+        const currentProjectId = getProjectId(state);
+        const candidates = processes.filter(
+            p => isLayerCompletionType(p.process_type) &&
+                 p.status === 'complete' &&
+                 !handledCompletionIds.has(p.id) &&
+                 (!currentProjectId || p.metadata?.project_id === currentProjectId)
+        );
+        if (!candidates.length) return Rx.Observable.empty();
+        const classified = candidates.map(p => ({
+            process: p,
+            status: orphanStatus(p, state, refreshAttempted)
+        }));
+        // Mark handled only when we can decide. 'unknown' candidates stay
+        // unmarked so the next poll (after initAnuga fills terrain) can
+        // re-classify them. 'present' and 'orphaned' are decisive.
+        let mutated = false;
+        const now = Date.now();
+        classified.forEach(c => {
+            if (c.status !== 'unknown' && !handledCompletionIds.has(c.process.id)) {
+                handledCompletionIds.add(c.process.id);
+                const entry = { id: c.process.id, ts: now };
+                handledEntries.push(entry);
+                // If mapId is not yet hydrated, buffer the entry so it
+                // can be persisted retroactively once mapId arrives.
+                // Soft cap at 500 entries — drop oldest first — to bound
+                // memory growth on long-lived non-map contexts where
+                // mapId never hydrates.
+                if (mapId === null || mapId === undefined) {
+                    pendingEntriesBeforeMapId.push(entry);
+                    if (pendingEntriesBeforeMapId.length > 500) {
+                        pendingEntriesBeforeMapId.shift();
                     }
-                } else if (dispatch?.addAction) {
-                    observables.push(Rx.Observable.of(dispatch.addAction()));
                 }
-                // Refresh state.anuga.resources.<type> on non-terrain
-                // layer_create completion. The branches above inject the
-                // map layer but never update resources.<type>, leaving the
-                // Scenarios > Required dropdowns (which read
-                // resources.inflows / .rainfalls / etc.) stale on fresh
-                // projects where the page-load fan-out raced
-                // `create_supporting_models`. Dedupe by endpoint within
-                // the batch so 6 defaults completing in one tick fire 6
-                // distinct fetches, not 6 × N.
-                if (p.process_type === 'layer_create' && currentProjectId && dispatch
-                    && !refreshedEndpoints.has(dispatch.endpoint)) {
-                    refreshedEndpoints.add(dispatch.endpoint);
-                    observables.push(
-                        fetchResourceEndpoint(dispatch.endpoint, currentProjectId).map(dispatch.setAction)
-                    );
-                }
-            });
-            // UAT-2026-06-29 finding #1 (option C residual): the orphan
-            // CLASSIFICATION refresh — refetch the terrain LIST only, not a full
-            // initAnuga(). The refresh-then-defer exists solely so orphanStatus()
-            // can decide an 'unknown' terrain_create whose terrain_id is absent
-            // from the loaded list (e.g. a model-less orphan whose CASCADE-
-            // surviving COGs linger after the Terrain row was deleted, like
-            // ele_84855). A full initAnuga() re-fired POST /from-map + getProjectV2
-            // + the whole resource fan-out + polling restart on EVERY open of an
-            // orphan-bearing map (a 2nd from-map ~10s after the first, right after
-            // the closed-panel TaskMonitor poll). All orphanStatus() needs is a
-            // fresh terrain list, so refetch ONLY that — the same surgical pattern
-            // as the non-terrain layer_create branch above. setAnugaTerrainData
-            // sets terrainLoaded=true and re-drives the (display-only)
-            // terrainSubOrderReconcilerEpic, so orphan ordering is preserved;
-            // convergence to 'orphaned' is driven by refreshAttempted.add() above,
-            // independent of this dispatch. currentProjectId is non-null here (the
-            // 'unknown' branch requires terrainLoaded===true, set only after a
-            // project-scoped fetch); the initAnuga() fallback is defensive.
-            // PUSHED LAST (after the add-loop): concat() subscribes sequentially,
-            // so an async fetch placed first would block the synchronous addLayer /
-            // buildTerrainAddSequence dispatches behind a network round-trip.
-            if (refreshNeeded.length > 0) {
-                observables.push(currentProjectId
-                    ? fetchResourceEndpoint('terrain', currentProjectId).map(setAnugaTerrainData)
-                    : Rx.Observable.of(initAnuga()));
+                mutated = true;
             }
-            return observables.length > 0
-                ? Rx.Observable.concat(...observables)
-                : Rx.Observable.empty();
         });
+        if (mutated && mapId !== null && mapId !== undefined) {
+            const merged = persistHandledCompletionIds(mapId, handledCompletionIds, handledEntries);
+            if (merged) handledEntries = merged;
+        }
+        // Refresh-then-defer: 'unknown' candidates with terrain_id set
+        // and terrainLoaded=true are fresh-upload-with-stale-list cases.
+        // Force one initAnuga catalogue refetch and mark the id so the
+        // next tick can decide. Candidates whose terrainLoaded=false
+        // are intentionally NOT in this set — initAnugaEpic itself will
+        // fire the catalogue fetch on its own gating signal.
+        const refreshNeeded = classified.filter(c => {
+            if (c.status !== 'unknown') return false;
+            if (c.process.process_type !== 'terrain_create') return false;
+            const tid = c.process.metadata?.terrain_id;
+            if (tid === null || tid === undefined) return false;
+            return state?.anuga?.resources?.terrainLoaded === true;
+        });
+        refreshNeeded.forEach(c => refreshAttempted.add(c.process.id));
+        const newlyCompleted = classified
+            .filter(c => c.status === 'present')
+            .map(c => c.process);
+        const observables = [];
+        const refreshedEndpoints = new Set();
+        newlyCompleted.forEach(p => {
+            const dispatch = modelClassDispatch[p.metadata?.model_class];
+            if (p.process_type === 'terrain_create' && Array.isArray(p.metadata?.mapstore_layers)) {
+                observables.push(buildTerrainAddSequence(p.metadata, action$, store, currentNames));
+            } else if (p.metadata?.mapstore_layer) {
+                const baseLayerConfig = p.metadata.mapstore_layer;
+                if (!currentNames.includes(baseLayerConfig?.name)) {
+                    // Stamp BE-resolved ANUGA group on the layer so the
+                    // Layer Menu / Results tab filter at
+                    // simpleViewMenuRows.js (gates on
+                    // layer.group.split('.')[0]) routes it into the
+                    // right tab without waiting for the next
+                    // FIX_ANUGA_GROUPS tick (which only fires on
+                    // page-load via initAnugaEpic).
+                    const resolvedGroup = resolveAnugaGroup(p.metadata, baseLayerConfig);
+                    const layerConfig = resolvedGroup
+                        ? Object.assign({}, baseLayerConfig, { group: resolvedGroup })
+                        : baseLayerConfig;
+                    observables.push(Rx.Observable.of(addLayer(layerConfig)));
+                    // TASK-1650 (W1.5): info toast removed — auto-added
+                    // input layers appear in the Inputs panel immediately.
+                }
+            } else if (dispatch?.addAction) {
+                observables.push(Rx.Observable.of(dispatch.addAction()));
+            }
+            // Refresh state.anuga.resources.<type> on non-terrain
+            // layer_create completion. The branches above inject the
+            // map layer but never update resources.<type>, leaving the
+            // Scenarios > Required dropdowns (which read
+            // resources.inflows / .rainfalls / etc.) stale on fresh
+            // projects where the page-load fan-out raced
+            // `create_supporting_models`. Dedupe by endpoint within
+            // the batch so 6 defaults completing in one tick fire 6
+            // distinct fetches, not 6 × N.
+            if (p.process_type === 'layer_create' && currentProjectId && dispatch
+                && !refreshedEndpoints.has(dispatch.endpoint)) {
+                refreshedEndpoints.add(dispatch.endpoint);
+                observables.push(
+                    fetchResourceEndpoint(dispatch.endpoint, currentProjectId).map(dispatch.setAction)
+                );
+            }
+        });
+        // UAT-2026-06-29 finding #1 (option C residual): the orphan
+        // CLASSIFICATION refresh — refetch the terrain LIST only, not a full
+        // initAnuga(). The refresh-then-defer exists solely so orphanStatus()
+        // can decide an 'unknown' terrain_create whose terrain_id is absent
+        // from the loaded list (e.g. a model-less orphan whose CASCADE-
+        // surviving COGs linger after the Terrain row was deleted, like
+        // ele_84855). A full initAnuga() re-fired POST /from-map + getProjectV2
+        // + the whole resource fan-out + polling restart on EVERY open of an
+        // orphan-bearing map (a 2nd from-map ~10s after the first, right after
+        // the closed-panel TaskMonitor poll). All orphanStatus() needs is a
+        // fresh terrain list, so refetch ONLY that — the same surgical pattern
+        // as the non-terrain layer_create branch above. setAnugaTerrainData
+        // sets terrainLoaded=true and re-drives the (display-only)
+        // terrainSubOrderReconcilerEpic, so orphan ordering is preserved;
+        // convergence to 'orphaned' is driven by refreshAttempted.add() above,
+        // independent of this dispatch. currentProjectId is non-null here (the
+        // 'unknown' branch requires terrainLoaded===true, set only after a
+        // project-scoped fetch); the initAnuga() fallback is defensive.
+        // PUSHED LAST (after the add-loop): concat() subscribes sequentially,
+        // so an async fetch placed first would block the synchronous addLayer /
+        // buildTerrainAddSequence dispatches behind a network round-trip.
+        if (refreshNeeded.length > 0) {
+            observables.push(currentProjectId
+                ? fetchResourceEndpoint('terrain', currentProjectId).map(setAnugaTerrainData)
+                : Rx.Observable.of(initAnuga()));
+        }
+        return observables.length > 0
+            ? Rx.Observable.concat(...observables)
+            : Rx.Observable.empty();
+    };
+    return Rx.Observable.merge(
+        action$.ofType(TM_SET_PROCESSES).switchMap((action) => {
+            retainedProcesses = action.processes || [];
+            return evaluate(retainedProcesses);
+        }),
+        // mergeMap, NOT switchMap: a terrain-list refresh must never cancel an
+        // add-sequence still in flight from the TM_SET_PROCESSES tick that
+        // requested it (a tick carrying one 'present' and one 'unknown'
+        // terrain would otherwise lose the 'present' one's layers).
+        action$.ofType(SET_ANUGA_TERRAIN_DATA).mergeMap(() => evaluate(retainedProcesses))
+    );
 };
 
 // -- MapLayer group assignment: move auto-added MapLayers to correct ANUGA groups --

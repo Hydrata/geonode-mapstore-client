@@ -637,6 +637,52 @@ export function compareBackgroundLayers(aLayer, bLayer) {
         && aLayer.url === bLayer.url;
 }
 
+/**
+ * TASK-2566: normalise a MapLayer style so the WMS request matches the GWC cache key.
+ *
+ * GeoNode stores a dataset's default style UNQUALIFIED in `Style.name`
+ * (`ele_550_..._cog`) with the workspace in a sibling column, and
+ * `create_maplayer_for_dataset` copies that bare name into
+ * `MapLayer.current_style`. `WMSUtils.js` then emits `STYLES: options.style`,
+ * so every tile request carried `STYLES=<unqualified name>`.
+ *
+ * GWC refuses that outright — the tile layer's styleParameterFilter declares
+ * only an empty `defaultValue`, and the bare name resolves to no global style
+ * (`/rest/styles/<name>.json` 404s; only
+ * `/rest/workspaces/geonode/styles/<name>.json` exists). The answer is
+ * `MISS` + `ParameterException: Style '<name>' is invalid`, NOT an ordinary
+ * miss, so browsing could never populate the cache either. Measured on prod
+ * 2026-07-28: 14.4 s median at z17 against ~4 ms for the identical cached tile.
+ *
+ * Blanking is only ever applied when the requested style IS the layer's own
+ * default, so the raster renders from the very same SLD — byte-identical
+ * output, now served from cache. A genuinely non-default selection (the shared
+ * `dem_contours` overlay, a SWAMM custom style, a user style switch) has a name
+ * that differs from `default_style.name` and is passed through untouched, as is
+ * an already workspace-qualified value (which GWC accepts).
+ *
+ * @param {string} style the MapLayer/layer style value
+ * @param {object} dataset the GeoNode dataset resource (carries default_style)
+ * @return {string} the style to send as WMS STYLES
+ */
+export const resolveCacheableStyle = (style, dataset) => {
+    if (!style || typeof style !== 'string') {
+        return style || '';
+    }
+    // Already workspace-qualified (`geonode:<name>`) — GWC resolves this to the
+    // layer default and HITs, so leave it alone.
+    if (style.includes(':')) {
+        return style;
+    }
+    const defaultStyleName = dataset?.default_style?.name;
+    // Unknown default → we cannot prove this is the default style, so changing
+    // it could change the render. Leave it alone.
+    if (!defaultStyleName || defaultStyleName !== style) {
+        return style;
+    }
+    return '';
+};
+
 export function toMapStoreMapConfig(resource, baseConfig) {
     const { maplayers = [], data } = resource || {};
     const baseMapBackgroundLayers = (baseConfig?.map?.layers || []).filter(layer => layer.group === 'background');
@@ -660,7 +706,12 @@ export function toMapStoreMapConfig(resource, baseConfig) {
                     ...layer,
                     ...(mapLayer?.dataset?.perms && { perms: mapLayer.dataset.perms }),
                     ...(layer.type === 'wms' && {
-                        style: mapLayer.current_style || layer.style || ''
+                        // TASK-2566: an unqualified default-style name makes GWC
+                        // reject the tile request outright — normalise it away.
+                        style: resolveCacheableStyle(
+                            mapLayer.current_style || layer.style || '',
+                            mapLayer?.dataset
+                        )
                     }),
                     extendedParams: {
                         ...layer.extendedParams,
@@ -686,7 +737,9 @@ export function toMapStoreMapConfig(resource, baseConfig) {
             // Carry MapLayer-level overrides forward: current_style for the
             // active style and extra_params.anuga_group for the TOC group.
             if (mLayer?.current_style && layerConfig?.type === 'wms') {
-                layerConfig.style = mLayer.current_style;
+                // TASK-2566: see resolveCacheableStyle — a bare default-style
+                // name is refused by GWC, so every tile rendered live.
+                layerConfig.style = resolveCacheableStyle(mLayer.current_style, mLayer?.dataset);
             }
             if (mLayer?.extra_params?.anuga_group) {
                 layerConfig.group = mLayer.extra_params.anuga_group;
@@ -957,7 +1010,11 @@ export const resourceToLayers = (resource) => {
                     const layer = resourceToLayerConfig(maplayer.dataset);
                     return {
                         ...layer,
-                        style: maplayer.current_style
+                        // TASK-2566: same normalisation as toMapStoreMapConfig —
+                        // the details thumbnail and the GeoLimits preview render
+                        // real WMS tiles, so a bare default-style name makes GWC
+                        // refuse them here too (lower traffic, identical defect).
+                        style: resolveCacheableStyle(maplayer.current_style, maplayer.dataset)
                     };
                 }
                 return null;
