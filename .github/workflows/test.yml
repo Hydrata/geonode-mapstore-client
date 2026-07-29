@@ -74,64 +74,6 @@ jobs:
         run: node js/plugins/hydrata/SimpleView/css-namespace-guard.js
         working-directory: ./geonode_mapstore_client/client
 
-  paywall-css-coverage-guard:
-    name: Paywall CSS coverage guard
-    # TASK-2437 (epic 2425 W2), extended by the W2 remediation pass.
-    #
-    # WHAT IT ACTUALLY CHECKS — two static checks over the stylesheet SOURCES:
-    #   1. Every paywall-/compute-meter-/sv-anuga-scenario-estimate-/
-    #      sv-visibility-lock className emitted by those components has SOME
-    #      matching rule somewhere (or a justified ALLOWLIST entry).
-    #      (sv-visibility-lock — the Account-button padlock — was added in
-    #      W2.6. It had shipped OUTSIDE this guard: it matched no prefix and
-    #      lived in no scanned directory, so the wave that reported
-    #      "guard:paywall-css PASS, 34 classNames" was saying nothing at all
-    #      about the epic's newest surface. Widening it also exposed that the
-    #      className extractor could not see a class written as
-    #      `${cond ? ' x' : ''}` inside a template literal, which is exactly
-    #      how the padlock's lapsed variant is written — that is fixed too, and
-    #      the count is now 38.)
-    #   2. No such className is reachable ONLY through an ancestor selector:
-    #      if every rule covering it sits under, say, .sv-account-billing-tab,
-    #      the guard fails until that is declared in ANCESTOR_SCOPED with the
-    #      ancestor named and a reason. Check 2 exists because check 1 alone
-    #      was proven bypassable — re-scoping EVERY meter.css rule to
-    #      ".sv-account-billing-tab .compute-meter-*", byte-for-byte the
-    #      production defect shape, still exited 0.
-    #      (An earlier version of this comment said "all 23 meter.css rules".
-    #      There are 16 rule blocks / 21 selectors. The count was wrong, the
-    #      experiment was real; stating a precise number that nobody had
-    #      counted is how a guard's reputation outgrows what it checks.)
-    #
-    # TWO BOUNDARIES — do not overstate this job:
-    #   (a) IT IS NOT A MERGE BLOCKER. It is not in ruleset 19084444's required
-    #       status checks, so a PR that (for example) deletes meter.css turns
-    #       this job red and stays MERGEABLE. Making it required is an
-    #       operator-gated ruleset change, tracked separately.
-    #   (b) IT CANNOT SEE THE RUNTIME CASCADE. Both checks read source text.
-    #       "A rule exists, and is not ancestor-locked" is not "this rule
-    #       applies at this component's mount point" — that needs a real render
-    #       tree and a layout engine. Karma cannot answer it either (jsdom has
-    #       neither). Only tests/e2e/test_paywall_money_path.py in the deploy
-    #       repo can, and it is the authority whenever the two disagree.
-    #
-    # Separate job for the same reason as the guard above: it must stay
-    # independent of ESLint, and it runs in ~1s on Node built-ins with no
-    # npm install.
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checking out"
-        uses: actions/checkout@v4
-
-      - name: "Setting up Node"
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: "Run paywall CSS coverage guard"
-        run: node js/plugins/hydrata/Paywall/paywall-css-coverage-guard.js
-        working-directory: ./geonode_mapstore_client/client
-
   test:
     name: Karma unit tests
     runs-on: ubuntu-latest

@@ -269,10 +269,10 @@ describe('PaywallPanel — the non-blocking states render nothing (TASK-2463)', 
     });
 
     it('the anchored shell className is gone from the markup, not just unstyled', () => {
-        // guard:paywall-css flags a className with NO rule but never a rule
-        // with no className, so the CSS side cannot catch a half-revert. This
-        // does: paywall.css deleted `.paywall-panel--anchored`, so emitting it
-        // again would ship an unstyled browser-default box.
+        // paywall.css deleted `.paywall-panel--anchored`, so re-emitting it
+        // would ship an unstyled browser-default box. A stylesheet check
+        // cannot catch that -- it sees a className with no rule, never a rule
+        // with no className -- so the assertion has to live here, in markup.
         STEADY_STATES.concat(['upgrade_prompt']).forEach(stateName => {
             const c = renderPaywall({ paywallEnabled: true, fixtureMode: true, fixtureState: stateName });
             expect(c.querySelector('.paywall-panel--anchored')).toBe(
