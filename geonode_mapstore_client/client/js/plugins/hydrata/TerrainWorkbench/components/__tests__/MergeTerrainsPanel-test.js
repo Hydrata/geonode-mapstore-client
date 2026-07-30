@@ -22,7 +22,12 @@ import ReactDOM from 'react-dom';
 import { Provider } from 'react-redux';
 
 import { MergeTerrainsPanel, MergeTerrainsPanelClass, MergeTerrainsIcon, pickCombinedSurface } from '../MergeTerrainsPanel';
-import { TERRAIN_WORKBENCH_SET_VISIBLE } from '../../actionsTerrainWorkbench';
+import {
+    TERRAIN_WORKBENCH_SET_VISIBLE,
+    // TASK-2582 (W2a) — Merge extent draw lifecycle.
+    TW_SET_MERGE_EXTENT_DRAWING,
+    TW_SET_MERGE_EXTENT
+} from '../../actionsTerrainWorkbench';
 
 const SURFACE = {
     id: 7,
@@ -200,6 +205,84 @@ describe('TASK-1800 MergeTerrainsPanel (connected)', () => {
         const closeAction = dispatched.find(a => a.type === TERRAIN_WORKBENCH_SET_VISIBLE);
         expect(closeAction).toExist('close dispatches SET_VISIBLE');
         expect(closeAction.visible).toBe(false);
+    });
+});
+
+// TASK-2582 (W2a) — Merge extent draw lifecycle wired through the connected
+// component: mapStateToProps reads terrainWorkbench.mergeExtent/mergeExtentDrawing;
+// mapDispatchToProps' onStartMergeExtentDraw/onCancelMergeExtentDraw/onClearMergeExtent
+// dispatch the owner-isolated ('merge-extent') draw actions, mirroring
+// terrainBboxPanel.js's direct-dispatch handleDrawClick/handleCancel pattern.
+describe('TASK-2582 MergeTerrainsPanel (connected) — Merge extent draw lifecycle', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); container = undefined; });
+
+    function mockStore(terrainWorkbench, onDispatch) {
+        return {
+            getState: () => ({ terrainWorkbench }),
+            subscribe: () => () => {},
+            dispatch: (action) => { if (onDispatch) onDispatch(action); return action; }
+        };
+    }
+
+    it('"Set extent" dispatches CHANGE_DRAWING_STATUS start (owner=merge-extent) + TW_SET_MERGE_EXTENT_DRAWING(true)', () => {
+        const dispatched = [];
+        const store = mockStore(
+            { visible: true, terrains: [{ id: 1, title: 'Top DEM' }], surfaces: [SURFACE], selectedSurfaceId: null, mergeExtent: null, mergeExtentDrawing: false },
+            (a) => dispatched.push(a)
+        );
+        ReactDOM.render(<Provider store={store}><MergeTerrainsPanel/></Provider>, container);
+        container.querySelector('[data-testid="merge-extent-set-btn"]').click();
+
+        const drawStart = dispatched.find(a => a.type === 'CHANGE_DRAWING_STATUS');
+        expect(drawStart).toExist('changeDrawingStatus dispatched');
+        expect(drawStart.status).toBe('start');
+        expect(drawStart.owner).toBe('merge-extent');
+
+        const drawingFlag = dispatched.find(a => a.type === TW_SET_MERGE_EXTENT_DRAWING);
+        expect(drawingFlag).toExist();
+        expect(drawingFlag.active).toBe(true);
+    });
+
+    it('Cancel (mid-draw) resets the draw interaction THEN clears the drawing flag — no draw-state leak', () => {
+        const dispatched = [];
+        const store = mockStore(
+            { visible: true, terrains: [{ id: 1, title: 'Top DEM' }], surfaces: [SURFACE], selectedSurfaceId: null, mergeExtent: null, mergeExtentDrawing: true },
+            (a) => dispatched.push(a)
+        );
+        ReactDOM.render(<Provider store={store}><MergeTerrainsPanel/></Provider>, container);
+        // While drawing, the button reads Cancel.
+        container.querySelector('[data-testid="merge-extent-set-btn"]').click();
+
+        expect(dispatched.length).toBeGreaterThan(1);
+        // Reset FIRST (terrainBboxEpic.js precedent: draw cleanup before the flag flips).
+        expect(dispatched[0].type).toBe('CHANGE_DRAWING_STATUS');
+        expect(dispatched[0].status).toBe('clean');
+        expect(dispatched[0].owner).toBe('merge-extent');
+        expect(dispatched[1].type).toBe(TW_SET_MERGE_EXTENT_DRAWING);
+        expect(dispatched[1].active).toBe(false);
+    });
+
+    it('Clear dispatches TW_SET_MERGE_EXTENT(null) — back to the full union', () => {
+        const dispatched = [];
+        const store = mockStore(
+            {
+                visible: true,
+                terrains: [{ id: 1, title: 'Top DEM' }],
+                surfaces: [SURFACE],
+                selectedSurfaceId: null,
+                mergeExtent: [140.0, -35.0, 140.5, -34.5],
+                mergeExtentDrawing: false
+            },
+            (a) => dispatched.push(a)
+        );
+        ReactDOM.render(<Provider store={store}><MergeTerrainsPanel/></Provider>, container);
+        container.querySelector('[data-testid="merge-extent-clear-btn"]').click();
+
+        const clearAction = dispatched.find(a => a.type === TW_SET_MERGE_EXTENT);
+        expect(clearAction).toExist();
+        expect(clearAction.extent).toBe(null);
     });
 });
 

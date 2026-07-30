@@ -130,7 +130,9 @@ import {
     twDeleteSurfaceEpic,
     twSetDesignInputsEpic,
     twDeriveEpic,
-    twDeriveCompleteEpic
+    twDeriveCompleteEpic,
+    // TASK-2582 (W2a) — Merge extent draw lifecycle (owner-isolated 'merge-extent').
+    twMergeExtentEndDrawingEpic
 } from '../TerrainWorkbench/epicsTerrainWorkbench';
 import {
     fetchMembershipsEpic,
@@ -321,6 +323,8 @@ export default createPlugin('Anuga', {
         twDeleteSurfaceEpic,
         twSetDesignInputsEpic,
         twDeriveEpic,
-        twDeriveCompleteEpic
+        twDeriveCompleteEpic,
+        // TASK-2582 (W2a) — Merge extent draw lifecycle (owner-isolated 'merge-extent').
+        twMergeExtentEndDrawingEpic
     }
 });

@@ -16,6 +16,7 @@ import React from "react";
 import { OverlayTrigger, Tooltip, Button } from 'react-bootstrap';
 const PropTypes = require('prop-types');
 
+import Message from '@mapstore/framework/components/I18N/Message';
 import {ErrorStrip, StatusBadge} from "../../SimpleView/components/primitives";
 
 // ── TASK-1645 (W1.5) / TASK-1671 (W1.6): AnalysisSurface recipe builder ────
@@ -38,6 +39,15 @@ const TW_PARAM_DEFAULTS = {
 // Resolution = target_resolution_m if the user provided it, else finest
 //              native_resolution_m among the selected terrains.
 //
+// TASK-2582 (W2a): an optional 4th argument, extentWgs84 [minLon, minLat,
+// maxLon, maxLat], constrains the union bbox to its intersection with the
+// Merge extent the user drew. Decision (CLOSED): null = full union; an extent
+// BEYOND the union is clipped BACK to the union (the modeller cannot inflate
+// the output by drawing outside the DEM stack) — a plain bbox intersection
+// gives exactly that: when extentWgs84 fully contains the union the
+// intersection collapses to the union unchanged, and when it is smaller the
+// intersection collapses to the extent.
+//
 // lat_m  ≈ 111 320 m/°  (standard constant)
 // lon_m  ≈ 111 320 · cos(mean_lat) m/°
 //
@@ -45,7 +55,7 @@ const TW_PARAM_DEFAULTS = {
 // Returns null if not enough metadata is available to estimate.
 const MAX_OUTPUT_GB = 10;
 
-function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
+function estimateOutputSize(selectedInputs, terrains, targetResolutionM, extentWgs84 = null) {
     if (!selectedInputs || selectedInputs.length === 0) return null;
     // Collect bbox + resolution for each selected terrain.
     let unionWest = null;
@@ -77,12 +87,29 @@ function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
         ? targetResolutionM
         : finestResM;
 
-    const meanLat = (unionSouth + unionNorth) / 2;
+    // TASK-2582: intersect the union bbox with the Merge extent (if any).
+    let west = unionWest;
+    let south = unionSouth;
+    let east = unionEast;
+    let north = unionNorth;
+    if (Array.isArray(extentWgs84) && extentWgs84.length === 4) {
+        const [exWest, exSouth, exEast, exNorth] = extentWgs84;
+        west = Math.max(unionWest, exWest);
+        south = Math.max(unionSouth, exSouth);
+        east = Math.min(unionEast, exEast);
+        north = Math.min(unionNorth, exNorth);
+        if (west >= east || south >= north) {
+            // No overlap between the drawn extent and the DEM-stack union.
+            return { estimatedGB: 0, tooLarge: false };
+        }
+    }
+
+    const meanLat = (south + north) / 2;
     const latMPerDeg = 111320;
     const lonMPerDeg = 111320 * Math.cos(meanLat * Math.PI / 180);
 
-    const widthM = Math.abs(unionEast - unionWest) * lonMPerDeg;
-    const heightM = Math.abs(unionNorth - unionSouth) * latMPerDeg;
+    const widthM = Math.abs(east - west) * lonMPerDeg;
+    const heightM = Math.abs(north - south) * latMPerDeg;
     const areaM2 = widthM * heightM;
 
     const pixels = areaM2 / (effectiveResM * effectiveResM);
@@ -90,6 +117,31 @@ function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
     const estimatedGB = bytes / (1024 ** 3);
 
     return { estimatedGB, tooLarge: estimatedGB > MAX_OUTPUT_GB };
+}
+
+// TASK-2582: format an estimateOutputSize() result as a short display string
+// ("~340 MB" / "~1.2 GB"). Shared by the derive-confirm dialog (authoritative,
+// Create-click) and the live estimate row in the recipe builder (same
+// function, so the two numbers can never disagree per-se — see module doc).
+function formatEstimateSize(sizeEstimate) {
+    if (!sizeEstimate) return null;
+    return sizeEstimate.estimatedGB < 1
+        ? `~${(sizeEstimate.estimatedGB * 1024).toFixed(0)} MB`
+        : `~${sizeEstimate.estimatedGB.toFixed(1)} GB`;
+}
+
+// TASK-2582: rough WGS84 extent dimensions in km, for the "~W x H km" Merge
+// extent summary row. Same lat/lon-to-metres constants as estimateOutputSize
+// above (not exported — a small display-only helper local to this module).
+function mergeExtentDimsKm(bbox) {
+    if (!Array.isArray(bbox) || bbox.length !== 4) return null;
+    const [minLon, minLat, maxLon, maxLat] = bbox;
+    const meanLat = (minLat + maxLat) / 2;
+    const latMPerDeg = 111320;
+    const lonMPerDeg = 111320 * Math.cos(meanLat * Math.PI / 180);
+    const widthKm = Math.abs(maxLon - minLon) * lonMPerDeg / 1000;
+    const heightKm = Math.abs(maxLat - minLat) * latMPerDeg / 1000;
+    return { widthKm: widthKm.toFixed(1), heightKm: heightKm.toFixed(1) };
 }
 
 function TWStaleBadge({ isStale }) {
@@ -254,11 +306,9 @@ TWDemStackPicker.defaultProps = { disabled: false };
 // sizeEstimate = { estimatedGB, tooLarge } | null
 function TWDeriveConfirmDialog({ sizeEstimate, onConfirm, onCancel }) {
     const tooLarge = sizeEstimate && sizeEstimate.tooLarge;
-    const gbStr = sizeEstimate
-        ? sizeEstimate.estimatedGB < 1
-            ? `~${(sizeEstimate.estimatedGB * 1024).toFixed(0)} MB`
-            : `~${sizeEstimate.estimatedGB.toFixed(1)} GB`
-        : null;
+    // TASK-2582: shared with the live estimate row (formatEstimateSize) so the
+    // confirm-dialog number and the live number are computed identically.
+    const gbStr = formatEstimateSize(sizeEstimate);
     return (
         <div className="sv-tw-derive-confirm-overlay" data-testid="derive-confirm-dialog" role="dialog" aria-modal="true" aria-label="Confirm derive">
             <div className="sv-tw-derive-confirm-box">
@@ -313,9 +363,27 @@ class TWRecipeBuilder extends React.Component {
         saving: PropTypes.bool,
         saveError: PropTypes.string,
         onUpdate: PropTypes.func.isRequired,
-        onDerive: PropTypes.func.isRequired
+        onDerive: PropTypes.func.isRequired,
+        // TASK-2582 (W2a): Merge extent — client-side draw state (owned by the
+        // terrainWorkbench slice) + its lifecycle callbacks. mergeExtent is
+        // WGS84 [minLon, minLat, maxLon, maxLat] | null (null = full union).
+        mergeExtent: PropTypes.array,
+        mergeExtentDrawing: PropTypes.bool,
+        onStartMergeExtentDraw: PropTypes.func,
+        onCancelMergeExtentDraw: PropTypes.func,
+        onClearMergeExtent: PropTypes.func
     };
-    static defaultProps = { deriving: false, deriveError: null, saving: false, saveError: null };
+    static defaultProps = {
+        deriving: false,
+        deriveError: null,
+        saving: false,
+        saveError: null,
+        mergeExtent: null,
+        mergeExtentDrawing: false,
+        onStartMergeExtentDraw: () => {},
+        onCancelMergeExtentDraw: () => {},
+        onClearMergeExtent: () => {}
+    };
 
     // Build default-seamless inputs from the new BE shape `inputs_ordered`.
     // inputs_ordered = [{id, terrain, priority, unmodified}]
@@ -367,17 +435,21 @@ class TWRecipeBuilder extends React.Component {
     // The actual derive is dispatched only after user confirms.
     handleDeriveClick = () => {
         const { inputs, target_resolution_m } = this.state;
-        const { terrains } = this.props;
+        const { terrains, mergeExtent } = this.props;
         const targetResM = parseFloat(target_resolution_m) || null;
-        const sizeEstimate = estimateOutputSize(inputs, terrains, targetResM);
+        // TASK-2582: the confirm-dialog estimate is authoritative at Create-click —
+        // same function + same mergeExtent as the live row, so they can't disagree.
+        const sizeEstimate = estimateOutputSize(inputs, terrains, targetResM, mergeExtent);
         this.setState({ confirmOpen: true, sizeEstimate });
     };
 
     handleConfirmDerive = () => {
-        const { surface, onDerive } = this.props;
+        const { surface, onDerive, mergeExtent } = this.props;
         const { inputs, feather_width_m, target_resolution_m } = this.state;
         this.setState({ confirmOpen: false });
         // TASK-1671: dispatch atomic derive — body carries inputs + merge params.
+        // TASK-2582: merge_extent_wgs84 rides the same body as a sibling key,
+        // null when no extent has been drawn (full union).
         const body = {
             inputs: inputs.map(inp => ({
                 terrain_id: inp.terrain_id,
@@ -385,7 +457,8 @@ class TWRecipeBuilder extends React.Component {
                 unmodified: !!inp.unmodified
             })),
             feather_width_m: parseFloat(feather_width_m),
-            target_resolution_m: parseFloat(target_resolution_m)
+            target_resolution_m: parseFloat(target_resolution_m),
+            merge_extent_wgs84: mergeExtent || null
         };
         onDerive(surface.id, body);
     };
@@ -402,6 +475,65 @@ class TWRecipeBuilder extends React.Component {
         // Must not be all-unmodified (mirrors BE V5).
         if (inputs.every(d => d.unmodified)) return false;
         return true;
+    }
+
+    // TASK-2582 (W2a): 'Set extent' draw + summary/Clear + live output estimate.
+    // The button flips to Cancel while drawing (mergeExtentDrawing, owned by the
+    // terrainWorkbench slice via a NEW owner-isolated draw — 'merge-extent',
+    // mirroring terrainBboxEpic.js's terrain-bbox pattern). The live estimate is
+    // recomputed on EVERY render — extent/resolution/DEM-stack changes all flow
+    // through render() — using the exact same estimateOutputSize() the confirm
+    // dialog uses at Create-click, so the two numbers can never disagree.
+    renderMergeExtentSection() {
+        const {
+            mergeExtent, mergeExtentDrawing,
+            onStartMergeExtentDraw, onCancelMergeExtentDraw, onClearMergeExtent,
+            terrains, saving, deriving
+        } = this.props;
+        const { inputs, target_resolution_m } = this.state;
+        const targetResM = parseFloat(target_resolution_m) || null;
+        const liveEstimate = estimateOutputSize(inputs, terrains, targetResM, mergeExtent);
+        const dims = mergeExtentDimsKm(mergeExtent);
+        return (
+            <div className="sv-tw-merge-extent-section" data-testid="merge-extent-section">
+                <div className="sv-tw-merge-extent-row">
+                    <Button
+                        bsSize="small"
+                        bsStyle={mergeExtentDrawing ? 'info' : 'default'}
+                        className="sv-tw-save-btn"
+                        onClick={mergeExtentDrawing ? onCancelMergeExtentDraw : onStartMergeExtentDraw}
+                        disabled={saving || deriving}
+                        data-testid="merge-extent-set-btn"
+                    >
+                        {mergeExtentDrawing
+                            ? <Message msgId="hydrata.anuga.mergeExtentCancelButton" />
+                            : <Message msgId="hydrata.anuga.mergeExtentSetButton" />}
+                    </Button>
+                    {dims && (
+                        <span className="sv-tw-merge-extent-summary" data-testid="merge-extent-summary">
+                            <Message msgId="hydrata.anuga.mergeExtentSummary" msgParams={{widthKm: dims.widthKm, heightKm: dims.heightKm}} />
+                            <button
+                                type="button"
+                                className="sv-tw-icon-btn"
+                                onClick={onClearMergeExtent}
+                                disabled={saving || deriving}
+                                data-testid="merge-extent-clear-btn"
+                            >
+                                <Message msgId="hydrata.anuga.mergeExtentClearButton" />
+                            </button>
+                        </span>
+                    )}
+                </div>
+                {liveEstimate && (
+                    <div
+                        className={`sv-tw-merge-extent-estimate${liveEstimate.tooLarge ? ' sv-tw-merge-extent-estimate--toolarge' : ''}`}
+                        data-testid="merge-extent-live-estimate"
+                    >
+                        <Message msgId="hydrata.anuga.mergeExtentEstimateLabel" msgParams={{size: formatEstimateSize(liveEstimate)}} />
+                    </div>
+                )}
+            </div>
+        );
     }
 
     render() {
@@ -439,6 +571,8 @@ class TWRecipeBuilder extends React.Component {
                         <input type="number" className="sv-tw-number-input" value={target_resolution_m} min="0.1" step="0.1" onChange={(e) => this.handleParam('target_resolution_m', e.target.value)} disabled={saving || deriving} data-testid="target-res-input"/>
                     </div>
                     {/* TASK-1671: Save parameters button REMOVED — params saved atomically on derive */}
+                    {/* TASK-2582 (W2a): 'Set extent' lives directly under Target resolution (m). */}
+                    {this.renderMergeExtentSection()}
                 </div>
                 {/* TASK-1674: tw-error -> shared ErrorStrip. The {saveError && …} guard is
                     kept (rather than leaning on ErrorStrip's self-hide) so the data-testid
@@ -496,6 +630,9 @@ class TWRecipeBuilder extends React.Component {
 export {
     TW_PARAM_DEFAULTS,
     estimateOutputSize,
+    // TASK-2582 (W2a): Merge extent — live output estimate + summary formatting.
+    formatEstimateSize,
+    mergeExtentDimsKm,
     TWStaleBadge,
     TWSeamQAPanel,
     TWDemStackPicker,

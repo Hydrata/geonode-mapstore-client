@@ -130,3 +130,24 @@ export function twDeriveSuccess(surfaceId, processId) {
 export function twDeriveError(error) { return { type: TW_DERIVE_ERROR, error }; }
 export function twDeriveComplete(surface) { return { type: TW_DERIVE_COMPLETE, surface }; }
 export function twDeriveCompleteError(error) { return { type: TW_DERIVE_COMPLETE_ERROR, error }; }
+
+// ── Merge extent (TASK-2582, W2a) ───────────────────────────────────────────
+//
+// Client-side-only draw state: constrains the derived output to a sub-region
+// of the DEM stack's union bbox. WGS84 [minLon, minLat, maxLon, maxLat];
+// null = full union (decision, CLOSED). Rides the atomic TW_DERIVE body as a
+// sibling `merge_extent_wgs84` key (assembled by TWRecipeBuilder in
+// recipeBuilderComponents.js — see handleConfirmDerive). The draw itself
+// mirrors terrainBboxEpic.js's owner-isolated rectangle-draw pattern under a
+// NEW owner, 'merge-extent' (twMergeExtentEndDrawingEpic in
+// epicsTerrainWorkbench.js).
+
+export const TW_SET_MERGE_EXTENT_DRAWING = 'TW_SET_MERGE_EXTENT_DRAWING';
+export const TW_SET_MERGE_EXTENT = 'TW_SET_MERGE_EXTENT';
+
+export function setMergeExtentDrawing(active) {
+    return { type: TW_SET_MERGE_EXTENT_DRAWING, active };
+}
+export function setMergeExtent(extent) {
+    return { type: TW_SET_MERGE_EXTENT, extent };
+}

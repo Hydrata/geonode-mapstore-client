@@ -43,7 +43,12 @@ import {
     twDerive,
     twDeriveSuccess,
     twDeriveComplete,
-    twSelectSurfaceForTerrain
+    twSelectSurfaceForTerrain,
+    // TASK-2582 (W2a) — Merge extent.
+    TW_SET_MERGE_EXTENT_DRAWING,
+    TW_SET_MERGE_EXTENT,
+    setMergeExtentDrawing,
+    setMergeExtent
 } from '../actionsTerrainWorkbench';
 
 // ---------------------------------------------------------------------------
@@ -243,6 +248,41 @@ describe('TerrainWorkbench reducer — recipe state', () => {
 });
 
 // ---------------------------------------------------------------------------
+// TASK-2582 (W2a) — Merge extent reducer state
+// ---------------------------------------------------------------------------
+
+describe('TerrainWorkbench reducer — Merge extent (TASK-2582)', () => {
+    it('defaults to mergeExtent=null, mergeExtentDrawing=false', () => {
+        const state = reducer(undefined, {});
+        expect(state.mergeExtent).toEqual(null);
+        expect(state.mergeExtentDrawing).toEqual(false);
+    });
+
+    it('TW_SET_MERGE_EXTENT_DRAWING flips the drawing flag', () => {
+        const state = reducer(undefined, { type: TW_SET_MERGE_EXTENT_DRAWING, active: true });
+        expect(state.mergeExtentDrawing).toEqual(true);
+    });
+
+    it('TW_SET_MERGE_EXTENT stores the drawn WGS84 bbox and ends drawing', () => {
+        const initial = { ...reducer(undefined, {}), mergeExtentDrawing: true };
+        const extent = [140.1, -35.2, 140.9, -34.6];
+        const state = reducer(initial, { type: TW_SET_MERGE_EXTENT, extent });
+        expect(state.mergeExtent).toEqual(extent);
+        expect(state.mergeExtentDrawing).toEqual(false);
+    });
+
+    it('TW_SET_MERGE_EXTENT with extent=null clears back to the full union (Clear)', () => {
+        const initial = {
+            ...reducer(undefined, {}),
+            mergeExtent: [140.1, -35.2, 140.9, -34.6],
+            mergeExtentDrawing: false
+        };
+        const state = reducer(initial, { type: TW_SET_MERGE_EXTENT, extent: null });
+        expect(state.mergeExtent).toEqual(null);
+    });
+});
+
+// ---------------------------------------------------------------------------
 // Action creators
 // ---------------------------------------------------------------------------
 
@@ -317,6 +357,23 @@ describe('TerrainWorkbench action creators', () => {
         const action = twDeriveComplete(surface);
         expect(action.type).toEqual(TW_DERIVE_COMPLETE);
         expect(action.surface).toEqual(surface);
+    });
+
+    // TASK-2582 (W2a) — Merge extent action creators.
+    it('setMergeExtentDrawing returns correct type + payload', () => {
+        const action = setMergeExtentDrawing(true);
+        expect(action.type).toEqual(TW_SET_MERGE_EXTENT_DRAWING);
+        expect(action.active).toEqual(true);
+    });
+
+    it('setMergeExtent returns correct type + payload (including null for Clear)', () => {
+        const extent = [140.1, -35.2, 140.9, -34.6];
+        const action = setMergeExtent(extent);
+        expect(action.type).toEqual(TW_SET_MERGE_EXTENT);
+        expect(action.extent).toEqual(extent);
+
+        const clearAction = setMergeExtent(null);
+        expect(clearAction.extent).toEqual(null);
     });
 });
 

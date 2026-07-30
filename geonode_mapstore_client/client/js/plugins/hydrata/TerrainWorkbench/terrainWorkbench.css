@@ -348,6 +348,40 @@
     cursor: not-allowed;
 }
 
+/* ── Merge extent (TASK-2582, W2a) — 'Set extent'/Cancel + summary/Clear +
+ * live output estimate. Sits directly under the Target resolution (m) row
+ * inside .sv-tw-param-grid's parent .sv-tw-params-section. ─────────────────── */
+.sv-tw-merge-extent-section {
+    margin-top: 8px;
+}
+
+.sv-tw-merge-extent-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sv-tw-merge-extent-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    color: var(--sv-text);
+}
+
+.sv-tw-merge-extent-estimate {
+    font-size: 11.5px;
+    font-family: var(--sv-font-family);
+    color: var(--sv-text-dim);
+    margin-top: 6px;
+}
+
+.sv-tw-merge-extent-estimate--toolarge {
+    color: var(--sv-text-danger, rgb(244, 185, 183));
+}
+
 /* Secondary "Save" buttons — mirror .sv-anuga-btn-compare (muted blue) */
 .sv-tw-save-btn {
     padding: 3px 12px;

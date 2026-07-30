@@ -36,11 +36,17 @@ import { ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
 // fixed shell; header/close now come from MovablePanel.
 import MovablePanel from '../../shared/components/MovablePanel';
 import { setMovablePanelState } from '../../Anuga/actions/uiActions';
+// TASK-2582 (W2a) — Merge extent draw lifecycle: the 'Set extent'/Cancel button
+// (rendered inside TWRecipeBuilder) starts/stops an owner-isolated ('merge-extent')
+// rectangle draw, mirroring terrainBboxPanel.js's direct-dispatch pattern.
+import { changeDrawingStatus } from '../../../../../MapStore2/web/client/actions/draw';
 import {
     setTerrainWorkbenchVisible,
     twLoadData,
     twUpdateSurface,
-    twDerive
+    twDerive,
+    setMergeExtentDrawing,
+    setMergeExtent
 } from '../actionsTerrainWorkbench';
 import { TWRecipeBuilder, TW_PARAM_DEFAULTS } from './recipeBuilderComponents';
 import '../terrainWorkbench.css';
@@ -129,7 +135,13 @@ export class MergeTerrainsPanelClass extends React.Component {
         onDerive: PropTypes.func,
         // TASK-2235 — persisted MovablePanel position/size + its setter.
         panelState: PropTypes.object,
-        onPanelStateChange: PropTypes.func
+        onPanelStateChange: PropTypes.func,
+        // TASK-2582 (W2a) — Merge extent draw lifecycle (client-side-only state).
+        mergeExtent: PropTypes.array,
+        mergeExtentDrawing: PropTypes.bool,
+        onStartMergeExtentDraw: PropTypes.func,
+        onCancelMergeExtentDraw: PropTypes.func,
+        onClearMergeExtent: PropTypes.func
     };
 
     static defaultProps = {
@@ -141,7 +153,9 @@ export class MergeTerrainsPanelClass extends React.Component {
         saving: false,
         saveError: null,
         deriving: false,
-        deriveError: null
+        deriveError: null,
+        mergeExtent: null,
+        mergeExtentDrawing: false
     };
 
     render() {
@@ -150,7 +164,9 @@ export class MergeTerrainsPanelClass extends React.Component {
             terrains, surface,
             loading, error, saving, saveError, deriving, deriveError,
             onClose, onUpdateSurface, onDerive,
-            panelState, onPanelStateChange
+            panelState, onPanelStateChange,
+            mergeExtent, mergeExtentDrawing,
+            onStartMergeExtentDraw, onCancelMergeExtentDraw, onClearMergeExtent
         } = this.props;
         const persist = onPanelStateChange || (() => {});
         const hasTerrains = (terrains || []).length >= 1;
@@ -202,6 +218,11 @@ export class MergeTerrainsPanelClass extends React.Component {
                                     saveError={saveError}
                                     onUpdate={onUpdateSurface}
                                     onDerive={onDerive}
+                                    mergeExtent={mergeExtent}
+                                    mergeExtentDrawing={mergeExtentDrawing}
+                                    onStartMergeExtentDraw={onStartMergeExtentDraw}
+                                    onCancelMergeExtentDraw={onCancelMergeExtentDraw}
+                                    onClearMergeExtent={onClearMergeExtent}
                                 />
                             )}
                         </React.Fragment>
@@ -232,7 +253,10 @@ const mapStateToProps = (state) => {
         deriving: state?.terrainWorkbench?.deriving || false,
         deriveError: state?.terrainWorkbench?.deriveError || null,
         // TASK-2235 — persisted MovablePanel position/size (anuga ui slice).
-        panelState: state?.anuga?.ui?.movablePanels?.[MERGE_TERRAINS_PANEL_ID]
+        panelState: state?.anuga?.ui?.movablePanels?.[MERGE_TERRAINS_PANEL_ID],
+        // TASK-2582 (W2a) — Merge extent (client-side-only draw state).
+        mergeExtent: state?.terrainWorkbench?.mergeExtent || null,
+        mergeExtentDrawing: !!state?.terrainWorkbench?.mergeExtentDrawing
     };
 };
 
@@ -241,7 +265,20 @@ const mapDispatchToProps = (dispatch) => ({
     onLoadData: () => dispatch(twLoadData()),
     onUpdateSurface: (id, payload) => dispatch(twUpdateSurface(id, payload)),
     onDerive: (id, body) => dispatch(twDerive(id, body)),
-    onPanelStateChange: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
+    onPanelStateChange: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch)),
+    // TASK-2582 (W2a) — Merge extent draw lifecycle: owner-isolated 'merge-extent'
+    // rectangle draw (mirrors terrainBboxPanel.js's handleDrawClick/handleCancel).
+    onStartMergeExtentDraw: () => {
+        dispatch(setMergeExtentDrawing(true));
+        dispatch(changeDrawingStatus('start', 'BBOX', 'merge-extent', [], {}));
+    },
+    onCancelMergeExtentDraw: () => {
+        // No draw-state leak: reset the interaction THEN clear the drawing flag —
+        // mirrors terrainBboxPanel.js's handleCancel cleanliness bar.
+        dispatch(changeDrawingStatus('clean', '', 'merge-extent', [], {}));
+        dispatch(setMergeExtentDrawing(false));
+    },
+    onClearMergeExtent: () => dispatch(setMergeExtent(null))
 });
 
 export const MergeTerrainsPanel = connect(mapStateToProps, mapDispatchToProps)(MergeTerrainsPanelClass);
