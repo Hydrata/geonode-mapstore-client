@@ -441,6 +441,7 @@
         "crossSectionNoRunHint": "Aucune simulation terminée pour l’instant",
         "crossSectionNoStageHint": "Relancez la simulation pour obtenir une surface d'eau",
         "crossSectionStaleHint": "Les résultats sont peut-être obsolètes — le scénario a été modifié depuis cette simulation",
+        "crossSectionTerrainSupersededHint": "Terrain remplacé — tracez une nouvelle ligne pour mettre à jour",
         "crossSectionClear": "Effacer",
         "crossSectionXAxis": "Distance (m)",
         "crossSectionYAxis": "Élévation (m)",

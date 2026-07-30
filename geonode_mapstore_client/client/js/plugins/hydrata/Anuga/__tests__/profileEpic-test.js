@@ -43,15 +43,17 @@ import {
     profileStartDrawEpic,
     profileEndDrawingEpic,
     clearProfileLineEpic,
+    pruneSupersededCheckedTerrainsEpic,
     coordsToWkt,
     extractLineFromDrawAction,
+    getTerrainPickerRows,
     getProfileLayers,
     getProfileTraces,
     applyDryMask,
     PROFILE_DRAW_OWNER
 } from '../epics/profileEpic';
 import { END_DRAWING, CHANGE_DRAWING_STATUS } from '../../../../../MapStore2/web/client/actions/draw';
-import { clearProfile, clearProfileLine } from '../actionsAnuga';
+import { clearProfile, clearProfileLine, SET_ANUGA_TERRAIN_DATA, SET_CHECKED_TERRAINS } from '../actionsAnuga';
 
 // ── State helpers ──────────────────────────────────────────────────────────
 // A WGS84 project so reprojection is a pass-through and we can assert the WKT
@@ -236,6 +238,118 @@ describe('getProfileTraces / getProfileLayers — checked-entity model (TASK-225
     it('a checked-but-NOT-ready terrain id (stale id, e.g. terrain since deleted) is silently ignored', () => {
         const state = makeState({ checkedTerrainIds: [7, 999] });
         expect(getProfileTraces(state).filter(t => t.role === 'dem').length).toBe(1);
+    });
+});
+
+// ── TASK-2577 (gap in TASK-2572) — superseded terrains stay OUT of the picker ──
+describe('getTerrainPickerRows — excludes datum-shift-superseded terrains (TASK-2577, AC1)', () => {
+    it('excludes a ready terrain whose metadata.superseded_by is set', () => {
+        const state = makeState({
+            terrain: [
+                { id: 14225, status: 'ready', gn_layer_name: 'ele_14225_ellipsoid', metadata: { superseded_by: 14226 } },
+                { id: 14226, status: 'ready', gn_layer_name: 'ele_14226_egm2008' }
+            ]
+        });
+        const rows = getTerrainPickerRows(state);
+        expect(rows.map(r => r.id)).toEqual([14226]);
+    });
+
+    it('AC4: un-supersede (superseded_by cleared) restores the row', () => {
+        const state = makeState({
+            terrain: [
+                { id: 14225, status: 'ready', gn_layer_name: 'ele_14225_ellipsoid', metadata: { superseded_by: null } },
+                { id: 14226, status: 'ready', gn_layer_name: 'ele_14226_egm2008' }
+            ]
+        });
+        const rows = getTerrainPickerRows(state);
+        expect(rows.map(r => r.id)).toEqual([14225, 14226]);
+    });
+
+    it('a terrain with no metadata at all is unaffected (superseded_by absent, not just falsy-cleared)', () => {
+        const state = makeState({
+            terrain: [{ id: 7, status: 'ready', gn_layer_name: 'ele_7_blue_mountains' }]
+        });
+        expect(getTerrainPickerRows(state).map(r => r.id)).toEqual([7]);
+    });
+});
+
+describe('pruneSupersededCheckedTerrainsEpic — checked-set hygiene on terrain refetch (TASK-2577, AC2)', () => {
+    const runOnTerrainData = (state) => {
+        const store = { getState: () => state };
+        const action$ = Rx.Observable.of({ type: SET_ANUGA_TERRAIN_DATA, data: state.anuga.resources.terrain });
+        action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+        let emitted = null;
+        pruneSupersededCheckedTerrainsEpic(action$, store).subscribe(a => { emitted = a; });
+        return emitted;
+    };
+
+    it('drops a checked id that has become superseded, with NO ready substitute available', () => {
+        const state = makeState({
+            terrain: [{ id: 14225, status: 'ready', gn_layer_name: 'ele_14225_ellipsoid', metadata: { superseded_by: 14226 } }],
+            checkedTerrainIds: [14225]
+        });
+        const action = runOnTerrainData(state);
+        expect(action).toExist();
+        expect(action.type).toBe(SET_CHECKED_TERRAINS);
+        expect(action.ids).toEqual([]);
+    });
+
+    it('substitutes the superseding terrain when it is itself a ready picker row', () => {
+        const state = makeState({
+            terrain: [
+                { id: 14225, status: 'ready', gn_layer_name: 'ele_14225_ellipsoid', metadata: { superseded_by: 14226 } },
+                { id: 14226, status: 'ready', gn_layer_name: 'ele_14226_egm2008' }
+            ],
+            checkedTerrainIds: [14225]
+        });
+        const action = runOnTerrainData(state);
+        expect(action).toExist();
+        expect(action.ids).toEqual([14226]);
+    });
+
+    it('does NOT substitute when the superseding terrain is not itself ready (e.g. still processing)', () => {
+        const state = makeState({
+            terrain: [
+                { id: 14225, status: 'ready', gn_layer_name: 'ele_14225_ellipsoid', metadata: { superseded_by: 14226 } },
+                { id: 14226, status: 'creating', gn_layer_name: null }
+            ],
+            checkedTerrainIds: [14225]
+        });
+        const action = runOnTerrainData(state);
+        expect(action).toExist();
+        expect(action.ids).toEqual([]);
+    });
+
+    it('respects the 3-cap when a substitution would otherwise exceed it', () => {
+        const state = makeState({
+            terrain: [
+                { id: 1, status: 'ready', gn_layer_name: 'ele_1' },
+                { id: 2, status: 'ready', gn_layer_name: 'ele_2' },
+                { id: 3, status: 'ready', gn_layer_name: 'ele_3', metadata: { superseded_by: 4 } },
+                { id: 4, status: 'ready', gn_layer_name: 'ele_4' }
+            ],
+            checkedTerrainIds: [1, 2, 3]
+        });
+        const action = runOnTerrainData(state);
+        expect(action).toExist();
+        expect(action.ids.length).toBeLessThanOrEqualTo(3);
+        expect(action.ids).toEqual([1, 2, 4]);
+    });
+
+    it('is a no-op (no dispatch) when nothing checked is superseded', () => {
+        const state = makeState({
+            terrain: [{ id: 7, status: 'ready', gn_layer_name: 'ele_7_blue_mountains' }],
+            checkedTerrainIds: [7]
+        });
+        expect(runOnTerrainData(state)).toBe(null);
+    });
+
+    it('is a no-op when nothing is checked at all', () => {
+        const state = makeState({
+            terrain: [{ id: 14225, status: 'ready', gn_layer_name: 'ele_14225_ellipsoid', metadata: { superseded_by: 14226 } }],
+            checkedTerrainIds: []
+        });
+        expect(runOnTerrainData(state)).toBe(null);
     });
 });
 

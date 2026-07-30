@@ -151,10 +151,13 @@ export {
 // picker rows from map visibility on panel open.
 // TASK-2276 (epic 2249 W-followup) — clearProfileLineEpic guards the Clear
 // button's map-line removal to this tool's own draw owner (or idle).
+// TASK-2577 — pruneSupersededCheckedTerrainsEpic drops/substitutes a checked
+// terrain id that becomes superseded on a terrain-data refetch.
 export {
     profileStartDrawEpic,
     profileEndDrawingEpic,
     pickerSeedEpic,
+    pruneSupersededCheckedTerrainsEpic,
     clearProfileLineEpic
 } from './epics/profileEpic';
 

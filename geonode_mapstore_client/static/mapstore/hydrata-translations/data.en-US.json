@@ -441,6 +441,7 @@
         "crossSectionNoRunHint": "No completed run yet",
         "crossSectionNoStageHint": "Re-run to get a water surface",
         "crossSectionStaleHint": "Results may be stale — scenario edited since this run",
+        "crossSectionTerrainSupersededHint": "Terrain replaced — draw a new line to update",
         "crossSectionClear": "Clear",
         "crossSectionXAxis": "Distance (m)",
         "crossSectionYAxis": "Elevation (m)",

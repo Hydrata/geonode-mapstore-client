@@ -50,6 +50,9 @@ import { reproject } from '../../../../../MapStore2/web/client/utils/Coordinates
 import {
     START_PROFILE_DRAW,
     SET_PROFILE_PANEL_VISIBLE,
+    // TASK-2577 — re-evaluate the checked-terrain set whenever the terrain
+    // list refetches (pruneSupersededCheckedTerrainsEpic below).
+    SET_ANUGA_TERRAIN_DATA,
     CLEAR_PROFILE,
     CLEAR_PROFILE_LINE,
     setProfileDrawing,
@@ -144,11 +147,21 @@ export function extractLineFromDrawAction(action) {
  * prevent, just relocated from check-order to fetch-order. A not-ready
  * terrain is excluded entirely (no disabled state for terrain — only
  * scenarios have listed-disabled rows, LOCKED decision #10).
+ *
+ * TASK-2577 (gap in TASK-2572): a terrain superseded by a datum-shift
+ * conversion (``metadata.superseded_by`` set — same predicate as
+ * terrainEpics.js's supersededLayerNames / supersededTerrainVisibilityEpic)
+ * is excluded here too, so the Cross-section picker stays consistent with
+ * the TOC/Terrain pane (_buildTerrainGroups) and the hidden map layers —
+ * without this a superseded parent stayed listed AND checkable, silently
+ * re-sampling its stale DEM on every new drawn line. Display-only, same
+ * policy as TASK-2572: clearing superseded_by brings the row straight back
+ * (nothing here persists supersede state).
  */
 export function getTerrainPickerRows(state) {
     const terrain = state?.anuga?.resources?.terrain || [];
     return terrain
-        .filter(t => t?.status === 'ready' && t?.gn_layer_name)
+        .filter(t => t?.status === 'ready' && t?.gn_layer_name && !t?.metadata?.superseded_by)
         .sort((a, b) => (a?.id || 0) - (b?.id || 0));
 }
 
@@ -389,6 +402,66 @@ function resolveAnchorTerrainId(state) {
     }
     const active = findActiveTerrain(state);
     return active ? active.id : null;
+}
+
+/**
+ * pruneSupersededCheckedTerrainsEpic — TASK-2577 (gap in TASK-2572).
+ *
+ * checkedTerrainIds is seeded only by pickerSeedEpic on panel open
+ * (SET_PROFILE_PANEL_VISIBLE) — nothing prunes it afterwards, so a terrain
+ * that becomes superseded (a datum-shift conversion stamps
+ * metadata.superseded_by, TASK-2326/2327) mid-session stayed checked, and
+ * "Draw a new line" kept re-sampling its stale DEM even though the rest of
+ * the UI (TOC/Terrain pane, supersededTerrainVisibilityEpic) already treats
+ * it as gone.
+ *
+ * On every SET_ANUGA_TERRAIN_DATA (terrain-list refetch), drop any checked
+ * id whose terrain has since become superseded. If the terrain that
+ * superseded it (metadata.superseded_by) is ITSELF a ready/checkable picker
+ * row, substitute it in the freed slot — a like-for-like replacement should
+ * not just silently vanish. The 3-cap is re-asserted defensively (the
+ * SET_CHECKED_TERRAINS reducer case already slices to 3, same convention as
+ * pickerSeedEpic's own dispatch).
+ *
+ * Un-supersede (metadata.superseded_by cleared) needs no special handling
+ * here — display-only, same policy as supersededTerrainVisibilityEpic: the
+ * row simply reappears in getTerrainPickerRows (AC4) and was never removed
+ * from checkedTerrainIds unless it was itself superseded.
+ *
+ * A no-op (no dispatch) when nothing checked is superseded, so this never
+ * fires spuriously on every routine terrain refresh.
+ */
+export function pruneSupersededCheckedTerrainsEpic(action$, store) {
+    return action$.ofType(SET_ANUGA_TERRAIN_DATA)
+        .map(() => store.getState())
+        .map((state) => {
+            const checkedIds = state?.anuga?.ui?.checkedTerrainIds || [];
+            if (checkedIds.length === 0) return null;
+            const terrain = state?.anuga?.resources?.terrain || [];
+            const byId = {};
+            terrain.forEach((t) => { if (t && t.id !== undefined && t.id !== null) byId[t.id] = t; });
+            // getTerrainPickerRows already excludes superseded rows, so
+            // membership here means "ready AND not (further) superseded" —
+            // exactly the "itself a picker row (ready)" substitution gate.
+            const readyIds = new Set(getTerrainPickerRows(state).map(r => r.id));
+
+            let changed = false;
+            const next = [];
+            checkedIds.forEach((id) => {
+                const row = byId[id];
+                const supersededBy = row?.metadata?.superseded_by;
+                if (!supersededBy) {
+                    next.push(id);
+                    return;
+                }
+                changed = true;
+                if (readyIds.has(supersededBy)) next.push(supersededBy);
+                // else: no ready substitute — drop the slot entirely.
+            });
+            if (!changed) return null;
+            return setCheckedTerrains(Array.from(new Set(next)).slice(0, 3));
+        })
+        .filter((action) => action !== null);
 }
 
 /**

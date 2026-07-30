@@ -19,6 +19,7 @@ import {
     buildCheckedSlotMap,
     buildChartSlotMap,
     computeYRange,
+    hasSupersededTraceTerrain,
     CROSS_SECTION_LAYOUT,
     CROSS_SECTION_FILL_ENABLED,
     TERRAIN_PALETTE,
@@ -146,6 +147,101 @@ describe('TerrainProfilePanel — render gating (TASK-1861)', () => {
             container
         );
         expect(container.querySelector('[data-testid="profile-chart"]')).toExist();
+    });
+});
+
+// ── TASK-2577 (gap in TASK-2572) — stored-chart superseded-terrain hint ─────
+describe('TerrainProfilePanel — hasSupersededTraceTerrain (TASK-2577)', () => {
+    it('true when a dem-role trace references a now-superseded terrain', () => {
+        const traces = [{ key: 'ele_14225_ellipsoid', role: 'dem', terrainId: 14225 }];
+        const terrainResources = [{ id: 14225, metadata: { superseded_by: 14226 } }];
+        expect(hasSupersededTraceTerrain(traces, terrainResources)).toBe(true);
+    });
+
+    it('AC4: false once superseded_by is cleared (un-supersede)', () => {
+        const traces = [{ key: 'ele_14225_ellipsoid', role: 'dem', terrainId: 14225 }];
+        const terrainResources = [{ id: 14225, metadata: { superseded_by: null } }];
+        expect(hasSupersededTraceTerrain(traces, terrainResources)).toBe(false);
+    });
+
+    it('false for a stage-role trace referencing a superseded terrainId (only dem/bed traces count)', () => {
+        const traces = [{ key: 'stage_max', role: 'stage', scenarioId: 3, terrainId: 14225 }];
+        const terrainResources = [{ id: 14225, metadata: { superseded_by: 14226 } }];
+        expect(hasSupersededTraceTerrain(traces, terrainResources)).toBe(false);
+    });
+
+    it('is null/empty-safe', () => {
+        expect(hasSupersededTraceTerrain(null, null)).toBe(false);
+        expect(hasSupersededTraceTerrain([], [])).toBe(false);
+        expect(hasSupersededTraceTerrain([{ role: 'dem', terrainId: 7 }], [])).toBe(false);
+    });
+});
+
+describe('TerrainProfilePanel — superseded-terrain staleness hint render (TASK-2577)', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); });
+    const noop = () => {};
+
+    it('shows the hint when the stored chart references a superseded terrain', () => {
+        const samples = [{ distance_m: 0, ele_14225_ellipsoid: 100 }];
+        const traces = [{ key: 'ele_14225_ellipsoid', label: 'Old DEM', role: 'dem', terrainId: 14225 }];
+        const terrainResources = [{ id: 14225, metadata: { superseded_by: 14226 } }];
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady samples={samples} traces={traces} terrainResources={terrainResources}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+            />,
+            container
+        );
+        expect(container.querySelector('[data-testid="profile-terrain-superseded-hint"]')).toExist();
+    });
+
+    it('hides the hint when nothing plotted is superseded', () => {
+        const samples = [{ distance_m: 0, dem: 100 }];
+        const traces = [{ key: 'dem', label: 'Elevation', role: 'dem', terrainId: 7 }];
+        const terrainResources = [{ id: 7, metadata: {} }];
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady samples={samples} traces={traces} terrainResources={terrainResources}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+            />,
+            container
+        );
+        expect(container.querySelector('[data-testid="profile-terrain-superseded-hint"]')).toBe(null);
+    });
+
+    it('clears after a redraw whose fresh traces no longer reference the superseded terrain', () => {
+        const terrainResources = [
+            { id: 14225, metadata: { superseded_by: 14226 } },
+            { id: 14226, metadata: {} }
+        ];
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady
+                samples={[{ distance_m: 0, old_dem: 100 }]}
+                traces={[{ key: 'old_dem', label: 'Old DEM', role: 'dem', terrainId: 14225 }]}
+                terrainResources={terrainResources}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+            />,
+            container
+        );
+        expect(container.querySelector('[data-testid="profile-terrain-superseded-hint"]')).toExist();
+
+        // Redraw: a fresh trace set from the SAME (un-refetched) terrainResources,
+        // now anchored on the superseding terrain — getTerrainPickerRows/
+        // profileEndDrawingEpic can never re-offer the superseded one to check.
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady
+                samples={[{ distance_m: 0, new_dem: 105 }]}
+                traces={[{ key: 'new_dem', label: 'New DEM', role: 'dem', terrainId: 14226 }]}
+                terrainResources={terrainResources}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+            />,
+            container
+        );
+        expect(container.querySelector('[data-testid="profile-terrain-superseded-hint"]')).toBe(null);
     });
 });
 

@@ -154,6 +154,39 @@ const WATER_FILL_ALPHA = 0.25;
 export const CROSS_SECTION_FILL_ENABLED = false;
 
 /**
+ * TASK-2577 (gap in TASK-2572) — does the STORED chart (the `traces` array
+ * from the last draw, profileTraces in redux) reference a terrain that has
+ * SINCE become superseded (a datum-shift conversion stamps
+ * metadata.superseded_by, TASK-2326/2327 — same predicate as
+ * getTerrainPickerRows/terrainEpics.js's supersededLayerNames)?
+ *
+ * The chart is sample-on-draw BY DESIGN (traces are stored at END_DRAWING,
+ * TASK-2261/2262) — it never live-resamples — so a conversion that happens
+ * AFTER a line was drawn leaves the plotted DEM trace silently stale (still
+ * showing the pre-conversion ellipsoid elevation) with nothing on screen
+ * saying so. This surfaces that staleness as a hint; it does not touch the
+ * chart data itself (display-only, same policy as
+ * supersededTerrainVisibilityEpic — never persists supersede state).
+ *
+ * `terrainResources` is the RAW state.anuga.resources.terrain list — NOT
+ * getTerrainPickerRows, which already excludes superseded rows and so could
+ * never detect one. Clears itself on the next redraw with no extra
+ * bookkeeping: profileEndDrawingEpic builds `traces` from
+ * getTerrainPickerRows (TASK-2577), which already excludes superseded
+ * terrains, so a fresh draw can never reference one again.
+ */
+export function hasSupersededTraceTerrain(traces, terrainResources) {
+    if (!Array.isArray(traces) || traces.length === 0) return false;
+    const supersededIds = new Set(
+        (terrainResources || [])
+            .filter(t => t && t.metadata && t.metadata.superseded_by)
+            .map(t => t.id)
+    );
+    if (supersededIds.size === 0) return false;
+    return traces.some(t => t && t.role === 'dem' && supersededIds.has(t.terrainId));
+}
+
+/**
  * TASK-2262 — the checked-in-picker-list-order slot for EVERY row in `rows`,
  * computed ONCE (a single filter+map pass) rather than once PER ROW.
  * renderPickerGroup previously called getColorSlot(rows, checkedIds, row.id)
@@ -402,7 +435,11 @@ export class TerrainProfilePanelClass extends React.Component {
         checkedTerrainIds: PropTypes.array,
         checkedScenarioIds: PropTypes.array,
         toggleCheckedTerrain: PropTypes.func,
-        toggleCheckedScenario: PropTypes.func
+        toggleCheckedScenario: PropTypes.func,
+        // TASK-2577 — RAW terrain resources (not picker rows, which already
+        // exclude superseded terrains) so the stored-chart staleness hint
+        // can detect one.
+        terrainResources: PropTypes.array
     };
 
     static defaultProps = {
@@ -410,6 +447,7 @@ export class TerrainProfilePanelClass extends React.Component {
         scenarioRows: [],
         checkedTerrainIds: [],
         checkedScenarioIds: [],
+        terrainResources: [],
         clearProfile: () => {},
         clearProfileLine: () => {},
         toggleCheckedTerrain: () => {},
@@ -699,6 +737,21 @@ export class TerrainProfilePanelClass extends React.Component {
                         <Message msgId="hydrata.anuga.profileEmpty" />
                     </div> : null
                 }
+                {/* TASK-2577 — the chart is sample-on-draw (never live-
+                    resampled); if a stored trace's terrain has since become
+                    superseded, say so rather than silently plotting a DEM
+                    the rest of the UI no longer considers current. Clears
+                    on the next redraw with no extra state (see
+                    hasSupersededTraceTerrain doc). */}
+                {hasSamples && hasSupersededTraceTerrain(this.props.traces, this.props.terrainResources) ?
+                    <div
+                        className="alert alert-warning sv-profile-terrain-superseded"
+                        data-testid="profile-terrain-superseded-hint"
+                        style={{ padding: '6px 10px', marginBottom: 10 }}
+                    >
+                        <Message msgId="hydrata.anuga.crossSectionTerrainSupersededHint" />
+                    </div> : null
+                }
                 {this.renderChart()}
             </React.Fragment>
         );
@@ -763,7 +816,10 @@ const mapStateToProps = (state) => ({
     terrainRows: getTerrainPickerRows(state),
     scenarioRows: getScenarioPickerRows(state),
     checkedTerrainIds: state?.anuga?.ui?.checkedTerrainIds || [],
-    checkedScenarioIds: state?.anuga?.ui?.checkedScenarioIds || []
+    checkedScenarioIds: state?.anuga?.ui?.checkedScenarioIds || [],
+    // TASK-2577 — RAW list (not terrainRows above, which already excludes
+    // superseded rows) so hasSupersededTraceTerrain can detect one.
+    terrainResources: state?.anuga?.resources?.terrain || []
 });
 
 const mapDispatchToProps = (dispatch) => ({

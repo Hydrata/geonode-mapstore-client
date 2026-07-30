@@ -441,6 +441,7 @@
         "crossSectionNoRunHint": "Poko gen yon egzekisyon konplè",
         "crossSectionNoStageHint": "Fè egzekisyon an ankò pou jwenn yon sifas dlo",
         "crossSectionStaleHint": "Rezilta yo ka demode — senàyo a te modifye depi egzekisyon sa a",
+        "crossSectionTerrainSupersededHint": "Teren ranplase — trase yon nouvo liy pou mete ajou",
         "crossSectionClear": "Efase",
         "crossSectionXAxis": "Distans (m)",
         "crossSectionYAxis": "Elevasyon (m)",
