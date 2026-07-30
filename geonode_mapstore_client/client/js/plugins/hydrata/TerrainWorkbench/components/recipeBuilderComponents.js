@@ -431,15 +431,22 @@ class TWRecipeBuilder extends React.Component {
 
     handleParam = (key, val) => this.setState({ [key]: val });
 
+    // TASK-2582 (simplify-pass): the parsed target_resolution_m is needed both
+    // at Create-click (handleDeriveClick) and on every render (the live
+    // estimate row) — one parse helper instead of two copies of the same
+    // `parseFloat(...) || null` line.
+    _targetResolutionM() {
+        return parseFloat(this.state.target_resolution_m) || null;
+    }
+
     // AC#3 + AC#4: Derive → compute size estimate → show confirm dialog.
     // The actual derive is dispatched only after user confirms.
     handleDeriveClick = () => {
-        const { inputs, target_resolution_m } = this.state;
+        const { inputs } = this.state;
         const { terrains, mergeExtent } = this.props;
-        const targetResM = parseFloat(target_resolution_m) || null;
         // TASK-2582: the confirm-dialog estimate is authoritative at Create-click —
         // same function + same mergeExtent as the live row, so they can't disagree.
-        const sizeEstimate = estimateOutputSize(inputs, terrains, targetResM, mergeExtent);
+        const sizeEstimate = estimateOutputSize(inputs, terrains, this._targetResolutionM(), mergeExtent);
         this.setState({ confirmOpen: true, sizeEstimate });
     };
 
@@ -490,9 +497,8 @@ class TWRecipeBuilder extends React.Component {
             onStartMergeExtentDraw, onCancelMergeExtentDraw, onClearMergeExtent,
             terrains, saving, deriving
         } = this.props;
-        const { inputs, target_resolution_m } = this.state;
-        const targetResM = parseFloat(target_resolution_m) || null;
-        const liveEstimate = estimateOutputSize(inputs, terrains, targetResM, mergeExtent);
+        const { inputs } = this.state;
+        const liveEstimate = estimateOutputSize(inputs, terrains, this._targetResolutionM(), mergeExtent);
         const dims = mergeExtentDimsKm(mergeExtent);
         return (
             <div className="sv-tw-merge-extent-section" data-testid="merge-extent-section">
