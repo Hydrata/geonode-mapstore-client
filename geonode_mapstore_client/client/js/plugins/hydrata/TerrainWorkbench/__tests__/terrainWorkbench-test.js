@@ -194,18 +194,23 @@ describe('TerrainWorkbench reducer — recipe state', () => {
         expect(state.derivingProcessId).toEqual(null);
     });
 
-    it('TW_DERIVE_SUCCESS stores processId, stays deriving=true', () => {
-        const initial = { ...reducer(undefined, {}), deriving: true };
+    it('TW_DERIVE_SUCCESS stores processId, stays deriving=true, closes the panel', () => {
+        // UAT 2026-07-30: once the derive is accepted (202 + process_id) the
+        // TaskMonitor owns progress — the Combined-surface panel should close.
+        const initial = { ...reducer(undefined, {}), deriving: true, visible: true };
         const state = reducer(initial, { type: TW_DERIVE_SUCCESS, surfaceId: 7, processId: 99 });
         expect(state.derivingProcessId).toEqual(99);
         expect(state.deriving).toEqual(true);
+        expect(state.visible).toEqual(false);
     });
 
-    it('TW_DERIVE_ERROR clears deriving, stores error', () => {
-        const initial = { ...reducer(undefined, {}), deriving: true };
+    it('TW_DERIVE_ERROR clears deriving, stores error, keeps the panel open', () => {
+        // The panel hosts the derive ErrorStrip — a failed derive must NOT close it.
+        const initial = { ...reducer(undefined, {}), deriving: true, visible: true };
         const state = reducer(initial, { type: TW_DERIVE_ERROR, error: 'failed' });
         expect(state.deriving).toEqual(false);
         expect(state.deriveError).toEqual('failed');
+        expect(state.visible).toEqual(true);
     });
 
     it('TW_DERIVE_COMPLETE merges surface, clears deriving', () => {

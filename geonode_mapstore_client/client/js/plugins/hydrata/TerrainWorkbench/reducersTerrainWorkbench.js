@@ -147,7 +147,11 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
     case TW_DERIVE:
         return { ...state, deriving: true, deriveError: null, derivingProcessId: null };
     case TW_DERIVE_SUCCESS:
-        return { ...state, deriving: true, derivingProcessId: action.processId };
+        // UAT 2026-07-30: derive accepted (202 + process_id) — the TaskMonitor
+        // owns progress from here, so close the Combined-surface panel. The
+        // ERROR case deliberately keeps visible untouched: the panel hosts the
+        // derive ErrorStrip and must stay open to show a failure.
+        return { ...state, deriving: true, derivingProcessId: action.processId, visible: false };
     case TW_DERIVE_ERROR:
         return { ...state, deriving: false, deriveError: action.error };
     case TW_DERIVE_COMPLETE:
