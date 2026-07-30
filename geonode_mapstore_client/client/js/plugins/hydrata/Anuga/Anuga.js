@@ -86,6 +86,8 @@ import {
     profileEndDrawingEpic,
     // TASK-2254 (epic 2249 W2) — Cross-section picker seed-from-visibility.
     pickerSeedEpic,
+    // TASK-2577 — prune/substitute checked terrains superseded on a refetch.
+    pruneSupersededCheckedTerrainsEpic,
     // TASK-2276 (epic 2249 W-followup) — owner-guarded Clear draw-line removal.
     clearProfileLineEpic,
     // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
@@ -292,6 +294,8 @@ export default createPlugin('Anuga', {
         // TASK-2254 (epic 2249 W2) — Cross-section picker seed-from-visibility
         // (checked terrains/scenarios on panel open).
         pickerSeedEpic,
+        // TASK-2577 — prune/substitute checked terrains superseded on a refetch.
+        pruneSupersededCheckedTerrainsEpic,
         // TASK-2276 (epic 2249 W-followup) — owner-guarded Clear draw-line removal.
         clearProfileLineEpic,
         // TASK-1901 (epic 1898 W2) — Canonical group-tree-order reconciler.
