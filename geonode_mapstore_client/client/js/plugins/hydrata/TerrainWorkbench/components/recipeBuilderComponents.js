@@ -371,7 +371,12 @@ class TWRecipeBuilder extends React.Component {
         mergeExtentDrawing: PropTypes.bool,
         onStartMergeExtentDraw: PropTypes.func,
         onCancelMergeExtentDraw: PropTypes.func,
-        onClearMergeExtent: PropTypes.func
+        onClearMergeExtent: PropTypes.func,
+        // TASK-2580 (W2-reaim change 2): notified whenever the derive-confirm
+        // dialog opens/closes, so the hosting MergeTerrainsPanel can toggle a
+        // growth modifier class on the MovablePanel (CSS-only — see
+        // terrainWorkbench.css's --confirm-open rule).
+        onConfirmOpenChange: PropTypes.func
     };
     static defaultProps = {
         deriving: false,
@@ -382,7 +387,8 @@ class TWRecipeBuilder extends React.Component {
         mergeExtentDrawing: false,
         onStartMergeExtentDraw: () => {},
         onCancelMergeExtentDraw: () => {},
-        onClearMergeExtent: () => {}
+        onClearMergeExtent: () => {},
+        onConfirmOpenChange: () => {}
     };
 
     // Build default-seamless inputs from the new BE shape `inputs_ordered`.
@@ -401,6 +407,10 @@ class TWRecipeBuilder extends React.Component {
         super(props);
         const s = props.surface;
         this.state = {
+            // TASK-2580 (W2-reaim change 1): Combined surface NAME. Initial value
+            // = the surface's current title (PLACEHOLDER_SURFACE.title for a
+            // not-yet-created surface — MergeTerrainsPanel.js).
+            title: s.title ?? '',
             feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
             target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
             // TASK-1671: single ordered DEM stack (replaces designInputs + regional_terrain)
@@ -411,12 +421,13 @@ class TWRecipeBuilder extends React.Component {
         };
     }
 
-    componentDidUpdate(prevProps) {
+    componentDidUpdate(prevProps, prevState) {
         // Re-sync when switching surface or when the server updates inputs_ordered.
         if (prevProps.surface.id !== this.props.surface.id) {
             const s = this.props.surface;
             // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({
+                title: s.title ?? '',
                 feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
                 target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
                 inputs: TWRecipeBuilder._inputsFromSurface(s),
@@ -426,10 +437,49 @@ class TWRecipeBuilder extends React.Component {
         } else if (prevProps.surface.inputs_ordered !== this.props.surface.inputs_ordered) {
             // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({ inputs: TWRecipeBuilder._inputsFromSurface(this.props.surface) });
+        } else if (prevProps.surface.title !== this.props.surface.title) {
+            // The BE re-fetch after a successful PATCH/derive can bring back a
+            // title the user didn't just type locally (e.g. a stale response
+            // racing a second edit) — resync so the field never shows a value
+            // the server has already superseded.
+            // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
+            this.setState({ title: this.props.surface.title ?? '' });
+        }
+        // TASK-2580 (W2-reaim change 2): confirm-dialog open/close transition —
+        // tell the parent panel (className toggle -> CSS growth) and, as the
+        // too-small-viewport / previously-pinned-height fallback, scroll the
+        // dialog into view. The CSS class handles the common case; this is a
+        // harmless no-op when the dialog is already fully on-screen.
+        if (prevState.confirmOpen !== this.state.confirmOpen) {
+            if (this.props.onConfirmOpenChange) this.props.onConfirmOpenChange(this.state.confirmOpen);
+            if (this.state.confirmOpen && this._confirmBoxEl && typeof this._confirmBoxEl.scrollIntoView === 'function') {
+                this._confirmBoxEl.scrollIntoView({ block: 'nearest' });
+            }
         }
     }
 
     handleParam = (key, val) => this.setState({ [key]: val });
+
+    // TASK-2580 (W2-reaim change 1): Combined surface NAME — free-typing local
+    // state, PATCHed on blur via the EXISTING twUpdateSurfaceEpic path (the
+    // same PATCH the BE sibling's dispatch-race fix already covers), NOT
+    // folded into the derive body (a body-only param would hit that race).
+    handleTitleChange = (value) => this.setState({ title: value });
+
+    handleTitleBlur = () => {
+        const { surface, onUpdate } = this.props;
+        // A not-yet-created placeholder surface (surface.id null — see
+        // MergeTerrainsPanel.PLACEHOLDER_SURFACE) has nothing to PATCH yet;
+        // the typed name simply becomes the field's local starting value,
+        // exactly like feather_width_m/target_resolution_m are ALSO
+        // local-only until the surface is first created/derived.
+        if (surface.id === null || surface.id === undefined) return;
+        const title = (this.state.title || '').trim();
+        // No-op when unchanged so tabbing through the field without editing
+        // never fires a spurious PATCH.
+        if (title === (surface.title || '')) return;
+        onUpdate(surface.id, { title });
+    };
 
     // TASK-2582 (simplify-pass): the parsed target_resolution_m is needed both
     // at Create-click (handleDeriveClick) and on every render (the live
@@ -544,11 +594,34 @@ class TWRecipeBuilder extends React.Component {
 
     render() {
         const { surface, terrains, deriving, deriveError, saving, saveError } = this.props;
-        const { feather_width_m, target_resolution_m, inputs, confirmOpen, sizeEstimate } = this.state;
+        const { title, feather_width_m, target_resolution_m, inputs, confirmOpen, sizeEstimate } = this.state;
         const canDerive = this._canDerive();
         const allUnmodified = inputs.length > 0 && inputs.every(d => d.unmodified);
         return (
             <div className="sv-tw-recipe-builder" data-testid="recipe-builder">
+                {/* TASK-2580 (W2-reaim change 1): Combined surface NAME — ABOVE the
+                    'Merge terrains' layering UI (operator UAT). Wired to
+                    AnalysisSurface.title via the EXISTING twUpdateSurfaceEpic PATCH
+                    path (onUpdate), fired on blur — NOT the derive body (see
+                    handleTitleBlur). The derived terrain's title
+                    (`f'{surface.title} (derived)'`, tasks.py) and the derive
+                    Process label both read this field, so a rename here flows
+                    everywhere with zero BE change. */}
+                <div className="sv-tw-field sv-tw-combined-surface-name-field" data-testid="combined-surface-name-row">
+                    <label htmlFor="combined-surface-name-input" className="sv-tw-label sv-tw-label-normalcase">
+                        <Message msgId="hydrata.anuga.combinedSurfaceNameLabel" />
+                    </label>
+                    <input
+                        id="combined-surface-name-input"
+                        type="text"
+                        className="sv-tw-title-input"
+                        value={title}
+                        onChange={(e) => this.handleTitleChange(e.target.value)}
+                        onBlur={this.handleTitleBlur}
+                        disabled={saving || deriving}
+                        data-testid="combined-surface-name-input"
+                    />
+                </div>
                 {/* TASK-1671: single DEM stack (replaces TWDesignInputPicker + regional terrain picker) */}
                 <TWDemStackPicker
                     terrains={terrains}
@@ -610,13 +683,19 @@ class TWRecipeBuilder extends React.Component {
                         </div>
                     )}
                 </div>
-                {/* TASK-1671: Size-confirm dialog */}
+                {/* TASK-1671: Size-confirm dialog.
+                    TASK-2580 (W2-reaim change 2): the wrapping ref is the
+                    too-small-viewport / previously-pinned-height scrollIntoView
+                    fallback (componentDidUpdate above) — the CSS growth
+                    (--confirm-open) handles the common case. */}
                 {confirmOpen && (
-                    <TWDeriveConfirmDialog
-                        sizeEstimate={sizeEstimate}
-                        onConfirm={this.handleConfirmDerive}
-                        onCancel={this.handleCancelDerive}
-                    />
+                    <div ref={(el) => { this._confirmBoxEl = el; }}>
+                        <TWDeriveConfirmDialog
+                            sizeEstimate={sizeEstimate}
+                            onConfirm={this.handleConfirmDerive}
+                            onCancel={this.handleCancelDerive}
+                        />
+                    </div>
                 )}
                 <TWSeamQAPanel enforcementLog={surface.enforcement_log}/>
             </div>

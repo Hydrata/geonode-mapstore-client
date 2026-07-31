@@ -1252,6 +1252,39 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
         expect(loaded).toBe(true, 'clicking loads the recipe data');
     });
 
+    it('#4 (TASK-2580, W2-reaim change 3a): clicking Merge terrains ALSO closes/unhighlights the parent Inputs menu', () => {
+        let closedInputMenuTo = 'untouched';
+        const instance = Object.create(AnugaInputMenuClass.prototype);
+        instance.props = {
+            terrainLayers: [], canEditAnugaMap: true, flatLayers: [], projectId: 42,
+            twTerrains: [], setVisibleTerrainBboxPanel: () => {},
+            onOpenMergeTerrainsPanel: () => {},
+            onTwLoadData: () => {},
+            setAnugaInputMenu: (visible) => { closedInputMenuTo = visible; }
+        };
+        instance.state = { expandedTerrainIds: new Set(), contoursEnabled: {} };
+        instance.renderPaneHead = (catId, actions) => actions;
+        instance.renderTerrainEmpty = () => null;
+        instance._buildTerrainGroups = () => [];
+        instance._terrainFileInputRef = { current: null };
+        instance._openTerrainFilePicker = () => {};
+        instance._onTerrainFileSelected = () => {};
+        instance._handleTerrainStylingModeChange = () => {};
+        instance._handleContoursToggle = () => {};
+        const tree = instance.renderTerrainPane();
+
+        let btn = null;
+        (function find(el) {
+            if (btn || !el || typeof el !== 'object') return;
+            if (Array.isArray(el)) { el.forEach(find); return; }
+            if (el.props && el.props['data-testid'] === 'anuga-terrain-merge-panel-button') { btn = el; return; }
+            find(el.props && el.props.children);
+        })(tree);
+        expect(btn).toExist('Merge terrains button element found');
+        btn.props.onClick();
+        expect(closedInputMenuTo).toBe(false, 'the Inputs menu is closed when the Combined-surface panel opens');
+    });
+
     it('#3 (ad-hoc design fix 2026-07-13): the Merge terrains button is icon-only with a hover tooltip, no visible text label', () => {
         // Reverses TASK-2205: the visible text label was dropped so the three
         // terrain-source icons read as a consistent icon-only row; the affordance

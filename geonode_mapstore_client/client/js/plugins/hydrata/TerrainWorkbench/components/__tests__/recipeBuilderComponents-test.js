@@ -245,3 +245,91 @@ describe('TASK-2582 TWRecipeBuilder — Merge extent UI', () => {
         expect(derived.body.merge_extent_wgs84).toEqual(extent);
     });
 });
+
+// TASK-2580 (W2-reaim change 1) — Combined surface NAME field: renders above
+// the 'Merge terrains' layering UI, initial value = surface.title, PATCHes
+// via the EXISTING twUpdateSurfaceEpic path (onUpdate) on blur — NOT via the
+// derive body (the dispatch-race the BE sibling fixed).
+describe('TASK-2580 TWRecipeBuilder — Combined surface name field', () => {
+    let container;
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    const surface = {
+        id: 7,
+        title: 'Surface A',
+        inputs_ordered: [{ id: 1, terrain: 1, priority: 0, unmodified: false }],
+        feather_width_m: 10,
+        target_resolution_m: 30
+    };
+
+    function renderBuilder(props = {}) {
+        const updates = [];
+        const onUpdate = (id, payload) => updates.push({ id, payload });
+        const instance = ReactDOM.render(
+            <TWRecipeBuilder
+                surface={surface}
+                terrains={TERRAINS}
+                onUpdate={onUpdate}
+                onDerive={() => {}}
+                {...props}
+            />,
+            container
+        );
+        return { getUpdates: () => updates, instance };
+    }
+
+    it('renders above the Merge terrains layering UI (DEM stack picker)', () => {
+        renderBuilder();
+        const nameRow = container.querySelector('[data-testid="combined-surface-name-row"]');
+        const demStack = container.querySelector('.sv-tw-design-inputs');
+        expect(nameRow).toExist('name row renders');
+        expect(demStack).toExist('DEM stack layering UI renders');
+        // DOCUMENT_POSITION_FOLLOWING (4): nameRow precedes demStack in the DOM.
+        // eslint-disable-next-line no-bitwise
+        expect(nameRow.compareDocumentPosition(demStack) & Node.DOCUMENT_POSITION_FOLLOWING)
+            .toBeTruthy('name field is above the DEM stack picker');
+    });
+
+    it('initial value = the surface\'s current title', () => {
+        renderBuilder();
+        const input = container.querySelector('[data-testid="combined-surface-name-input"]');
+        expect(input).toExist();
+        expect(input.value).toBe('Surface A');
+    });
+
+    it('edit + blur PATCHes the title via onUpdate(surfaceId, {title}) — the update epic path', () => {
+        const { getUpdates } = renderBuilder();
+        const input = container.querySelector('[data-testid="combined-surface-name-input"]');
+        TestUtils.Simulate.change(input, { target: { value: 'Renamed surface' } });
+        TestUtils.Simulate.blur(input);
+        const updates = getUpdates();
+        expect(updates.length).toBe(1);
+        expect(updates[0].id).toBe(7);
+        expect(updates[0].payload).toEqual({ title: 'Renamed surface' });
+    });
+
+    it('blur WITHOUT a change is a no-op (no spurious PATCH)', () => {
+        const { getUpdates } = renderBuilder();
+        const input = container.querySelector('[data-testid="combined-surface-name-input"]');
+        input.focus();
+        TestUtils.Simulate.blur(input);
+        expect(getUpdates().length).toBe(0);
+    });
+
+    it('a not-yet-created placeholder surface (id null) never PATCHes on blur', () => {
+        const placeholder = { id: null, title: 'Combined surface', inputs_ordered: [] };
+        const { getUpdates } = renderBuilder({ surface: placeholder });
+        const input = container.querySelector('[data-testid="combined-surface-name-input"]');
+        expect(input.value).toBe('Combined surface');
+        TestUtils.Simulate.change(input, { target: { value: 'My model' } });
+        TestUtils.Simulate.blur(input);
+        expect(getUpdates().length).toBe(0, 'nothing to PATCH before the surface exists');
+    });
+});

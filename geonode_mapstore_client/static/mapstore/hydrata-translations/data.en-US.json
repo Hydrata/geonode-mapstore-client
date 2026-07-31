@@ -312,6 +312,7 @@
         "globalDemTooltip": "Download Global DEM",
         "combinedSurfaceTooltip": "Combine Surface",
         "combinedSurfacePanelTitle": "Combined surface",
+        "combinedSurfaceNameLabel": "Name",
         "mergeExtentSetButton": "Set extent",
         "mergeExtentCancelButton": "Cancel",
         "mergeExtentClearButton": "Clear",

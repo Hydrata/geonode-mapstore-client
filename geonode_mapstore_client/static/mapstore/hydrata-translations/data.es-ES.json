@@ -312,6 +312,7 @@
         "globalDemTooltip": "Descargar MDE global",
         "combinedSurfaceTooltip": "Combinar superficie",
         "combinedSurfacePanelTitle": "Superficie combinada",
+        "combinedSurfaceNameLabel": "Nombre",
         "mergeExtentSetButton": "Definir extensión",
         "mergeExtentCancelButton": "Cancelar",
         "mergeExtentClearButton": "Borrar",

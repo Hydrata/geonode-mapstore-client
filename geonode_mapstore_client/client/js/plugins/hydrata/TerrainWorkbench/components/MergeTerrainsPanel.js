@@ -158,6 +158,18 @@ export class MergeTerrainsPanelClass extends React.Component {
         mergeExtentDrawing: false
     };
 
+    constructor(props) {
+        super(props);
+        // TASK-2580 (W2-reaim change 2): purely presentational — whether the
+        // TWRecipeBuilder's derive-confirm dialog is currently open, so the
+        // MovablePanel can grow (className toggle -> CSS in terrainWorkbench.css).
+        this.state = { confirmOpen: false };
+    }
+
+    handleConfirmOpenChange = (isOpen) => {
+        this.setState({ confirmOpen: !!isOpen });
+    };
+
     render() {
         if (!this.props.visible) return null;
         const {
@@ -175,10 +187,35 @@ export class MergeTerrainsPanelClass extends React.Component {
         // user can still build + derive; twDerive lazily creates the row.
         const editSurface = surface || PLACEHOLDER_SURFACE;
 
+        // TASK-2580 (W2-reaim change 3b/3c): while a 'merge-extent' rectangle
+        // draw is active, hide the panel via CSS ONLY (display:none) — NEVER
+        // unmount — so the user has a full view of the map to draw against.
+        // mergeExtentDrawing is the SAME flag that flips the 'Set extent'
+        // button to 'Cancel'; every exit path already resets it to false (a
+        // completed bbox via TW_SET_MERGE_EXTENT's reducer case, an
+        // unreadable/null geometry via twMergeExtentEndDrawingEpic's explicit
+        // setMergeExtentDrawing(false), or the Cancel button's own dispatch —
+        // see epicsTerrainWorkbench.js / MergeTerrainsPanel's
+        // onCancelMergeExtentDraw below), so deriving visibility straight from
+        // it re-shows the panel automatically on every one of those paths with
+        // NO new action/epic wiring. Because the panel is never unmounted, the
+        // recipe builder's local state (DEM stack, feather width, target
+        // resolution, in-progress name edit) survives the hide/show round-trip
+        // for free — the reason this ISN'T done via
+        // setTerrainWorkbenchVisible(false) (which returns null above and
+        // would destroy that state on every draw).
+        const hiddenForDraw = !!mergeExtentDrawing;
+        // TASK-2580 (W2-reaim change 2): grow the panel (taller max-height,
+        // terrainWorkbench.css) while the derive-confirm dialog is open so it
+        // is immediately visible instead of below the fold.
+        const panelClassName = 'sv-merge-terrains-panel'
+            + (hiddenForDraw ? ' sv-merge-terrains-panel--hidden-for-draw' : '')
+            + (this.state.confirmOpen ? ' sv-merge-terrains-panel--confirm-open' : '');
+
         return (
             <MovablePanel
                 panelId={MERGE_TERRAINS_PANEL_ID}
-                className="sv-merge-terrains-panel"
+                className={panelClassName}
                 title={<Message msgId="hydrata.anuga.combinedSurfacePanelTitle" />}
                 onClose={onClose}
                 position={panelState?.position}
@@ -223,6 +260,7 @@ export class MergeTerrainsPanelClass extends React.Component {
                                     onStartMergeExtentDraw={onStartMergeExtentDraw}
                                     onCancelMergeExtentDraw={onCancelMergeExtentDraw}
                                     onClearMergeExtent={onClearMergeExtent}
+                                    onConfirmOpenChange={this.handleConfirmOpenChange}
                                 />
                             )}
                         </React.Fragment>

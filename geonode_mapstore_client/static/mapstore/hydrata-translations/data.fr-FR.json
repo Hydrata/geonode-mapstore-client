@@ -312,6 +312,7 @@
         "globalDemTooltip": "Télécharger un MNT mondial",
         "combinedSurfaceTooltip": "Combiner la surface",
         "combinedSurfacePanelTitle": "Surface combinée",
+        "combinedSurfaceNameLabel": "Nom",
         "mergeExtentSetButton": "Définir l'étendue",
         "mergeExtentCancelButton": "Annuler",
         "mergeExtentClearButton": "Effacer",

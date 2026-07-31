@@ -352,3 +352,140 @@ describe('TASK-2235 MergeTerrainsPanel — movable', () => {
         expect(patch.position).toExist();
     });
 });
+
+// TASK-2580 (W2-reaim change 2) — operator UAT: the Create-click confirm
+// dialog rendered below the fold of the fixed-height scroll area. While it is
+// open the panel grows (a class-conditional max-height bump, terrainWorkbench.css)
+// so it's immediately visible.
+describe('TASK-2580 MergeTerrainsPanel — confirm-dialog panel growth (change 2)', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); container = undefined; });
+
+    // ONE modifiable DEM in the stack so _canDerive() is true and a single
+    // click on Create opens the confirm dialog (no need to drive the add-select).
+    const SURFACE_WITH_INPUT = {
+        id: 7,
+        title: 'Surface A',
+        inputs_ordered: [{ id: 1, terrain: 1, priority: 0, unmodified: false }],
+        feather_width_m: 10,
+        target_resolution_m: 1
+    };
+
+    const renderPanel = (props = {}) => ReactDOM.render(
+        <MergeTerrainsPanelClass
+            visible
+            terrains={[{ id: 1, title: 'Top DEM' }]}
+            surface={SURFACE_WITH_INPUT}
+            onClose={() => {}}
+            onUpdateSurface={() => {}}
+            onDerive={() => {}}
+            {...props}
+        />,
+        container
+    );
+
+    it('the panel carries NO growth class before Create is clicked', () => {
+        renderPanel();
+        const panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(panel.className).toNotInclude('sv-merge-terrains-panel--confirm-open');
+    });
+
+    it('clicking Create (opening the confirm dialog) adds the growth class; Cancel removes it', () => {
+        renderPanel();
+        container.querySelector('[data-testid="derive-btn"]').click();
+        let panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(container.querySelector('[data-testid="derive-confirm-dialog"]')).toExist('confirm dialog rendered');
+        expect(panel.className).toInclude('sv-merge-terrains-panel--confirm-open');
+
+        container.querySelector('[data-testid="derive-confirm-cancel"]').click();
+        panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(panel.className).toNotInclude('sv-merge-terrains-panel--confirm-open');
+    });
+
+    it('the too-small-viewport fallback: opening the confirm dialog calls scrollIntoView', () => {
+        renderPanel();
+        const dialog = container.querySelector('[data-testid="derive-confirm-dialog"]');
+        expect(dialog).toNotExist('sanity: not open yet');
+        let scrolled = false;
+        // jsdom has no real layout/scrolling; stub the wrapper's scrollIntoView
+        // (installed on Element.prototype so it covers whichever DOM node ends
+        // up wrapping the dialog) to prove componentDidUpdate calls it.
+        const proto = window.Element.prototype;
+        const original = proto.scrollIntoView;
+        proto.scrollIntoView = function() { scrolled = true; };
+        try {
+            container.querySelector('[data-testid="derive-btn"]').click();
+        } finally {
+            proto.scrollIntoView = original;
+        }
+        expect(scrolled).toBe(true, 'scrollIntoView invoked as the fallback');
+    });
+});
+
+// TASK-2580 (W2-reaim change 3b/3c) — 'Set extent' hides the Combined-surface
+// panel (display:none only, driven by mergeExtentDrawing) so the modeller has
+// an unobstructed map to draw against; every draw-exit path (bbox drawn,
+// unreadable/null geometry, Cancel) already resets mergeExtentDrawing to
+// false — see epicsTerrainWorkbench.js / mergeExtentDraw-test.js — which
+// re-shows the panel automatically. Because the panel is never unmounted, the
+// recipe builder's local state survives the round-trip.
+describe('TASK-2580 MergeTerrainsPanel — Set extent hides the panel without losing state (change 3b/3c)', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); container = undefined; });
+
+    const renderPanel = (props = {}) => ReactDOM.render(
+        <MergeTerrainsPanelClass
+            visible
+            terrains={[{ id: 1, title: 'Top DEM' }, { id: 2, title: 'Base DEM' }]}
+            surface={SURFACE}
+            onClose={() => {}}
+            onUpdateSurface={() => {}}
+            onDerive={() => {}}
+            {...props}
+        />,
+        container
+    );
+
+    it('mergeExtentDrawing=false: the panel is visible (no hidden-for-draw class)', () => {
+        renderPanel({ mergeExtentDrawing: false });
+        const panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(panel.className).toNotInclude('sv-merge-terrains-panel--hidden-for-draw');
+        expect(container.querySelector('[data-testid="merge-terrains-panel"]')).toExist();
+    });
+
+    it('mergeExtentDrawing=true: the panel is hidden (class only) but STAYS MOUNTED', () => {
+        renderPanel({ mergeExtentDrawing: true });
+        const panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(panel.className).toInclude('sv-merge-terrains-panel--hidden-for-draw');
+        // Not unmounted — the recipe builder is still in the DOM (just visually
+        // hidden by CSS), which is exactly why its local state survives.
+        expect(container.querySelector('[data-testid="merge-terrains-panel"]')).toExist('panel body still mounted while hidden');
+        expect(container.querySelector('[data-testid="recipe-builder"]')).toExist('recipe builder still mounted while hidden');
+    });
+
+    it('recipe-builder local state (an added DEM stack row) survives a hide/show round-trip', () => {
+        renderPanel({ mergeExtentDrawing: false });
+        // Add a second DEM to the stack — TWRecipeBuilder's own local `inputs`
+        // state (NOT yet persisted — this surface has never been derived with
+        // this stack).
+        const addSelect = container.querySelector('[data-testid="dem-stack-add-select"]');
+        addSelect.value = '2';
+        addSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(container.querySelector('[data-testid="dem-stack-row-2"]')).toExist('sanity: row added locally');
+
+        // 'Set extent' clicked -> mergeExtentDrawing flips true (hides the panel).
+        renderPanel({ mergeExtentDrawing: true });
+        let panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(panel.className).toInclude('sv-merge-terrains-panel--hidden-for-draw');
+        // The added row is STILL there — TWRecipeBuilder was never remounted.
+        expect(container.querySelector('[data-testid="dem-stack-row-2"]')).toExist('added row survives while hidden');
+
+        // Draw ends (bbox/null/Cancel — all reset mergeExtentDrawing to false).
+        renderPanel({ mergeExtentDrawing: false });
+        panel = container.querySelector('[data-testid="movable-panel-mergeTerrains"]');
+        expect(panel.className).toNotInclude('sv-merge-terrains-panel--hidden-for-draw');
+        expect(container.querySelector('[data-testid="dem-stack-row-2"]')).toExist('added row survives the full round-trip');
+    });
+});
