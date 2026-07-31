@@ -89,15 +89,17 @@ describe('cross-section — buildCrossSectionData (TASK-1862, reworked TASK-2255
             { distance_m: 25, dem: 98, stage: 99.0 },
             { distance_m: 50, dem: 96, stage: 98.0 }
         ];
-        const data = buildCrossSectionData(samples, traces);
+        // TASK-2585 (round 3): fill is OFF by default again — enableFill:true
+        // opted in here so this fixture can still pin the fill SHAPE (which
+        // trace fills, which doesn't); see "fill OFF by default" below for the
+        // default-off coverage.
+        const data = buildCrossSectionData(samples, traces, { enableFill: true });
         // Two traces: terrain (filled) + water surface (stage).
         expect(data.length).toBe(2);
         const terrain = data.find(d => d.name === 'Elevation');
         const water = data.find(d => d.name !== 'Elevation');
         expect(terrain).toExist('expected a terrain trace');
         expect(water).toExist('expected a water-surface trace');
-        // Terrain follows the DEM. TASK-2585: the area fill is ON by default
-        // now, at 30% opacity (was disabled since TASK-2269).
         expect(terrain.x).toEqual([0, 25, 50]);
         expect(terrain.y).toEqual([100, 98, 96]);
         expect(terrain.fill).toBe('tozeroy');
@@ -124,11 +126,12 @@ describe('cross-section — buildCrossSectionData (TASK-1862, reworked TASK-2255
     it('still renders terrain-only when no stage raster is present (DEM-only transect)', () => {
         const demOnly = [{ key: 'dem', label: 'Elevation', role: 'dem' }];
         const samples = [{ distance_m: 0, dem: 100 }, { distance_m: 10, dem: 99 }];
-        const data = buildCrossSectionData(samples, demOnly);
+        // TASK-2585 (round 3): opted in (fill is OFF by default again) to pin
+        // the fill-SELECTION shape (terrain slot-1 always fills when enabled;
+        // no water trace here so there's nothing for it to 'tonexty' against).
+        const data = buildCrossSectionData(samples, demOnly, { enableFill: true });
         expect(data.length).toBe(1);
         expect(data[0].name).toBe('Elevation');
-        // TASK-2585: area fill is ON by default (terrain slot-1 always fills);
-        // no water trace here so there's nothing for it to 'tonexty' against.
         expect(data[0].fill).toBe('tozeroy');
         expect(data[0].fillcolor).toBe('rgba(175, 73, 29, 0.3)');
     });
@@ -170,9 +173,9 @@ describe('buildCrossSectionData — multi-terrain fill rules (TASK-2256)', () =>
         { key: 'dem3', label: 'Terrain C', role: 'dem', terrainId: 3 }
     ];
 
-    // Fill is ON by default (TASK-2585); enableFill is passed explicitly anyway
-    // so this fill-SELECTION assertion (which trace fills) doesn't depend on
-    // the module default either way.
+    // Fill is OFF by default (TASK-2585 round 3); enableFill is passed
+    // explicitly anyway so this fill-SELECTION assertion (which trace fills)
+    // doesn't depend on the module default either way.
     it('only slot-1 (the first dem trace) is a FILLED area — slots 2/3 are plain lines', () => {
         const data = buildCrossSectionData(samples, multiDemTraces, { enableFill: true });
         expect(data.length).toBe(3);
@@ -181,11 +184,11 @@ describe('buildCrossSectionData — multi-terrain fill rules (TASK-2256)', () =>
         expect(data[2].fill).toBe(undefined);
     });
 
-    it('each terrain trace colour matches its stable slot (TERRAIN_PALETTE order)', () => {
+    it('each terrain trace colour matches its stable slot (TERRAIN_PALETTE order, at the TASK-2585 round-3 0.7 line alpha)', () => {
         const data = buildCrossSectionData(samples, multiDemTraces);
-        expect(data[0].line.color).toBe('#AF491D');
-        expect(data[1].line.color).toBe('#CC9719');
-        expect(data[2].line.color).toBe('#45762D');
+        expect(data[0].line.color).toBe('rgba(175, 73, 29, 0.7)');
+        expect(data[1].line.color).toBe('rgba(204, 151, 25, 0.7)');
+        expect(data[2].line.color).toBe('rgba(69, 118, 45, 0.7)');
     });
 });
 
@@ -200,8 +203,8 @@ describe('buildCrossSectionData — single-water conditional fill (TASK-2256, LO
     ];
 
     // enableFill passed explicitly so this conditional single-water fill logic
-    // is exercised independent of the module default (fill is ON by default —
-    // TASK-2585).
+    // is exercised independent of the module default (fill is OFF by default
+    // again — TASK-2585 round 3).
     it('fills when the single water\'s scenario CURRENT terrain === slot-1 terrain', () => {
         const data = buildCrossSectionData(samples, oneDemOneStage, { scenarioTerrainById: { 3: 7 }, enableFill: true });
         const water = data.find(d => d.name !== 'Terrain A');
@@ -247,14 +250,14 @@ describe('buildCrossSectionData — multi-water: waters are ALWAYS lines when 2+
         waters.forEach((w) => expect(w.fill).toBe(undefined));
     });
 
-    it('each water colour matches its stable slot within the stage subset (WATER_PALETTE order)', () => {
+    it('each water colour matches its stable slot within the stage subset (WATER_PALETTE order, at the TASK-2585 round-3 0.7 line alpha)', () => {
         const data = buildCrossSectionData(samples, oneDemTwoStages, {
             scenarioTerrainById: { 3: 7, 4: 7 }
         });
         const waterA = data.find(d => d.name === 'Scenario 1');
         const waterB = data.find(d => d.name === 'Scenario 2');
-        expect(waterA.line.color).toBe('#006EB2');
-        expect(waterB.line.color).toBe('#07A297');
+        expect(waterA.line.color).toBe('rgba(0, 110, 178, 0.7)');
+        expect(waterB.line.color).toBe('rgba(7, 162, 151, 0.7)');
     });
 });
 
@@ -268,25 +271,25 @@ describe('buildCrossSectionData — default seed reproduces pre-rework single-te
             { key: 'dem', label: 'Active terrain', role: 'dem', terrainId: 1 },
             { key: 'stage', label: 'Selected scenario', role: 'stage', scenarioId: 1 }
         ];
-        // enableFill passed explicitly — this is now also the module default
-        // (TASK-2585), so the assertion holds either way.
+        // enableFill passed explicitly (fill is OFF by default again since
+        // TASK-2585 round 3) so the fill-shape assertion holds regardless.
         const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 }, enableFill: true });
         expect(data.length).toBe(2);
         expect(data[0].fill).toBe('tozeroy');
-        expect(data[0].line.color).toBe('#AF491D');
+        expect(data[0].line.color).toBe('rgba(175, 73, 29, 0.7)');
         expect(data[1].fill).toBe('tonexty');
-        expect(data[1].line.color).toBe('#006EB2');
+        expect(data[1].line.color).toBe('rgba(0, 110, 178, 0.7)');
     });
 });
 
-// ── TASK-2585 (epic 2580 W2 UAT round 2) — area fill RE-ENABLED at 30% alpha ──
-// TASK-2269 disabled the fill by default; the TASK-2273 water<terrain mask
-// (below) was written specifically to make re-enabling artefact-free, and the
-// operator's round-2 UAT explicitly asked for translucent fills so overlapping
-// terrain/water traces read through each other. No fill-SELECTION logic
-// changed here (still tozeroy on slot-1 terrain / tonexty on the single
-// matching water) — only the module default flag and the fillcolor alpha.
-describe('buildCrossSectionData — fill ENABLED by default at 30% alpha (TASK-2585)', () => {
+// ── TASK-2585 (epic 2580 W2 UAT round 3) — area fill OFF by default again ───
+// TASK-2269 disabled the fill by default; round 2 briefly re-enabled it at
+// 30% alpha; round-3 operator UAT ("remove the shaded fill area") reverted it
+// back off. The TASK-2273 water<terrain mask (below) still makes re-enabling
+// artefact-free — no fill-SELECTION logic changed here (still tozeroy on
+// slot-1 terrain / tonexty on the single matching water) — only the module
+// default flag.
+describe('buildCrossSectionData — fill OFF by default at the module level (TASK-2585 round 3)', () => {
     const traces = [
         { key: 'dem', label: 'Elevation', role: 'dem', terrainId: 1 },
         { key: 'stage', label: 'Water surface', role: 'stage', scenarioId: 1 }
@@ -296,18 +299,21 @@ describe('buildCrossSectionData — fill ENABLED by default at 30% alpha (TASK-2
         { distance_m: 10, dem: 98, stage: 100 }
     ];
 
-    it('emits a 30%-alpha fill on both the terrain and water trace by default', () => {
+    it('emits NO fill on either trace by default', () => {
         const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 } });
         expect(data.length).toBe(2);
+        data.forEach((d) => {
+            expect(d.fill).toBe(undefined);
+            expect(d.fillcolor).toBe(undefined);
+        });
+    });
+
+    it('the fill can still be opted back in via an explicit enableFill:true, at 30% alpha (escape hatch preserved)', () => {
+        const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 }, enableFill: true });
         expect(data[0].fill).toBe('tozeroy');
         expect(data[0].fillcolor).toBe('rgba(175, 73, 29, 0.3)');
         expect(data[1].fill).toBe('tonexty');
         expect(data[1].fillcolor).toBe('rgba(0, 110, 178, 0.3)');
-    });
-
-    it('the fill can still be forced off via an explicit enableFill:false (opt-out preserved)', () => {
-        const data = buildCrossSectionData(samples, traces, { scenarioTerrainById: { 1: 1 }, enableFill: false });
-        data.forEach((d) => expect(d.fill).toBe(undefined));
     });
 });
 

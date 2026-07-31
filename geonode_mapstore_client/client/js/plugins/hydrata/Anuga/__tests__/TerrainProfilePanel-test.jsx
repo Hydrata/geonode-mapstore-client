@@ -10,10 +10,12 @@
  */
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { Provider } from 'react-redux';
 import { fireEvent } from '@testing-library/react';
 import expect from 'expect';
 
 import {
+    TerrainProfilePanel,
     TerrainProfilePanelClass,
     buildCrossSectionData,
     buildCheckedSlotMap,
@@ -22,10 +24,48 @@ import {
     hasSupersededTraceTerrain,
     CROSS_SECTION_LAYOUT,
     CROSS_SECTION_FILL_ENABLED,
+    CROSS_SECTION_PANEL_ID,
     TERRAIN_PALETTE,
-    WATER_PALETTE
+    WATER_PALETTE,
+    terrainLineColor,
+    waterLineColor
 } from '../components/TerrainProfilePanel';
 import { getColorSlot } from '../epics/profileEpic';
+
+// TASK-2585 (epic 2580 W2 UAT round 3) — minimal store for mounting the
+// CONNECTED TerrainProfilePanel (mapStateToProps/mapDispatchToProps + the
+// MovablePanel wiring), mirroring terrainBboxPanel-test.js's createMockStore.
+function createMockStore(uiOverrides = {}) {
+    const dispatched = [];
+    const state = {
+        anuga: {
+            ui: {
+                profilePanelVisible: true,
+                profileDrawingActive: false,
+                profileLoading: false,
+                profileSamples: null,
+                profileTraces: null,
+                profileError: null,
+                checkedTerrainIds: [],
+                checkedScenarioIds: [],
+                movablePanels: {},
+                ...uiOverrides
+            },
+            resources: { terrain: [], terrainLoaded: false },
+            scenarios: { byId: {}, allIds: [] }
+        },
+        layers: { flat: [] }
+    };
+    return {
+        getState: () => state,
+        subscribe: () => () => {},
+        dispatch: (action) => {
+            dispatched.push(action);
+            return action;
+        },
+        dispatched
+    };
+}
 
 describe('TerrainProfilePanel — computeYRange (W4 UAT, TASK-1861/1862)', () => {
     it('frames high-elevation terrain so the range EXCLUDES 0 (no zero baseline)', () => {
@@ -80,9 +120,11 @@ describe('TerrainProfilePanel — cross-section (W4.5; TASK-2255 reworked stage 
         { key: 'stage', label: 'Water surface', role: 'stage' }
     ];
 
-    it('builds terrain (tozeroy) + water-surface (tonexty) on a SINGLE axis', () => {
-        // Fill is ON by default (TASK-2585); enableFill is passed explicitly
-        // anyway so this fill-shape assertion doesn't depend on the default.
+    it('builds terrain (tozeroy) + water-surface (tonexty) on a SINGLE axis when fill is opted in', () => {
+        // Fill is OFF by default (TASK-2585 round 3); enableFill is passed
+        // explicitly so this fill-SHAPE assertion doesn't depend on the
+        // default — see the "fill enabled flag" + "fill OFF by default"
+        // describe blocks below for the default-off / opt-in coverage.
         const data = buildCrossSectionData(samples, traces, { enableFill: true });
         expect(data.length).toBe(2);
         expect(data[0].fill).toBe('tozeroy');
@@ -97,6 +139,81 @@ describe('TerrainProfilePanel — cross-section (W4.5; TASK-2255 reworked stage 
         expect(range[0]).toBeGreaterThan(0);
         expect(range[0]).toBeLessThan(800);
         expect(range[1]).toBeGreaterThan(811);
+    });
+});
+
+// ── TASK-2585 (epic 2580 W2 UAT round 3) — fill OFF by default again ────────
+describe('TerrainProfilePanel — fill OFF by default (TASK-2585 round 3)', () => {
+    const samples = [
+        { distance_m: 0, dem: 810, stage: 810 },
+        { distance_m: 25, dem: 805, stage: 811 },
+        { distance_m: 50, dem: 800, stage: 800 }
+    ];
+    const traces = [
+        { key: 'dem', label: 'Elevation', role: 'dem' },
+        { key: 'stage', label: 'Water surface', role: 'stage' }
+    ];
+
+    it('the DEFAULT (no opts.enableFill) render has NO fill/fillcolor on any trace', () => {
+        const data = buildCrossSectionData(samples, traces, {});
+        expect(data.length).toBe(2);
+        data.forEach((trace) => {
+            expect(trace.fill).toBe(undefined);
+            expect(trace.fillcolor).toBe(undefined);
+        });
+    });
+
+    it('the opt-in escape hatch (opts.enableFill: true) still works, unchanged', () => {
+        const data = buildCrossSectionData(samples, traces, { enableFill: true });
+        expect(data[0].fill).toBe('tozeroy');
+        expect(data[0].fillcolor).toExist();
+        expect(data[1].fill).toBe('tonexty');
+        expect(data[1].fillcolor).toExist();
+    });
+
+    it('explicit opts.enableFill: false matches the default (both OFF)', () => {
+        const withDefault = buildCrossSectionData(samples, traces, {});
+        const withExplicitFalse = buildCrossSectionData(samples, traces, { enableFill: false });
+        expect(withDefault).toEqual(withExplicitFalse);
+    });
+});
+
+// ── TASK-2585 (epic 2580 W2 UAT round 3) — chart LINES at 0.7 alpha ─────────
+describe('TerrainProfilePanel — chart line strokes at 0.7 alpha, swatches unchanged (TASK-2585 round 3)', () => {
+    const samples = [
+        { distance_m: 0, dem: 810, stage: 810 },
+        { distance_m: 25, dem: 805, stage: 811 }
+    ];
+    const traces = [
+        { key: 'dem', label: 'Elevation', role: 'dem' },
+        { key: 'stage', label: 'Water surface', role: 'stage' }
+    ];
+
+    it('terrainLineColor/waterLineColor are the SAME hex as terrainColor/waterColor at 0.7 alpha', () => {
+        // TERRAIN_PALETTE[0] = '#AF491D' = rgb(175, 73, 29); WATER_PALETTE[0]
+        // = '#006EB2' = rgb(0, 110, 178) — same values the AC1 swatch test
+        // below asserts for the FULL-STRENGTH swatch colour.
+        expect(terrainLineColor(0)).toBe('rgba(175, 73, 29, 0.7)');
+        expect(waterLineColor(0)).toBe('rgba(0, 110, 178, 0.7)');
+    });
+
+    it('the plotted terrain + water LINE strokes render at 0.7 alpha (fillcolor unaffected, fill is off by default)', () => {
+        const data = buildCrossSectionData(samples, traces, {});
+        expect(data.length).toBe(2);
+        expect(data[0].line.color).toBe('rgba(175, 73, 29, 0.7)');
+        expect(data[1].line.color).toBe('rgba(0, 110, 178, 0.7)');
+        // No fill at all (default OFF, round 3) — nothing to assert re fillcolor.
+        expect(data[0].fillcolor).toBe(undefined);
+        expect(data[1].fillcolor).toBe(undefined);
+    });
+
+    it('the line strokes stay at 0.7 alpha even when fill is opted back in (independent knobs)', () => {
+        const data = buildCrossSectionData(samples, traces, { enableFill: true });
+        expect(data[0].line.color).toBe('rgba(175, 73, 29, 0.7)');
+        expect(data[1].line.color).toBe('rgba(0, 110, 178, 0.7)');
+        // The fill itself stays at its own 30% alpha — untouched by this wave.
+        expect(data[0].fillcolor).toBe('rgba(175, 73, 29, 0.3)');
+        expect(data[1].fillcolor).toBe('rgba(0, 110, 178, 0.3)');
     });
 });
 
@@ -261,12 +378,13 @@ describe('TerrainProfilePanel — white chart background (TASK-2270)', () => {
     });
 });
 
-// ── TASK-2585 (epic 2580 W2 UAT round 2) — area fill RE-ENABLED at 30% alpha ─
-// (was disabled by TASK-2269; see the flag's own doc comment in
-// TerrainProfilePanel.jsx for the re-enable rationale.)
-describe('TerrainProfilePanel — fill enabled flag (TASK-2585)', () => {
-    it('CROSS_SECTION_FILL_ENABLED is true (stronger palettes + translucent fill for overlap legibility)', () => {
-        expect(CROSS_SECTION_FILL_ENABLED).toBe(true);
+// ── TASK-2585 (epic 2580 W2 UAT round 3) — area fill REVERTED back OFF ──────
+// (briefly re-enabled at 30% alpha in round 2; operator UAT round 3 asked to
+// "remove the shaded fill area" — see the flag's own doc comment in
+// TerrainProfilePanel.jsx for the full history.)
+describe('TerrainProfilePanel — fill enabled flag (TASK-2585 round 3)', () => {
+    it('CROSS_SECTION_FILL_ENABLED is false (operator UAT round 3: "remove the shaded fill area")', () => {
+        expect(CROSS_SECTION_FILL_ENABLED).toBe(false);
     });
 });
 
@@ -307,35 +425,18 @@ describe('TerrainProfilePanel — Clear button (TASK-2272)', () => {
     });
 });
 
-// TASK-2274 (operator UAT 2026-07-14) — responsive body + close-button margin
-// parity with the DEM legend. CORRECTED PREMISE (grooming): the DEM legend
-// (DemRampLegend's FloatingDemLegendPanel) IS a MovablePanel, whose CSS
-// (movablePanel.css) neutralises the base .simple-view-panel's own
-// padding:5px 10px to padding:0 — so the SHARED PanelHeader primitive's close
-// chip (inline position:absolute; top:2px; right:2px — pixel-identical in
-// BOTH panels already, same component) ends up exactly 2px from the panel's
-// OUTER edge. .sv-profile-panel never neutralised that outer padding, so its
-// (otherwise-identical) close chip sat visibly further in — the base panel
-// padding PLUS the header's own 2px inset. Every section here already
-// self-pads (PanelHeader's own inline padding; the body's own class below;
-// .simple-view-panel-footer's own CSS padding), so zeroing the outer padding
-// loses no spacing — it only equalises the close-chip offset with the DEM
-// legend's.
-describe('TerrainProfilePanel — responsive body + close-button margin parity with the DEM legend (TASK-2274)', () => {
+// TASK-2274 (operator UAT 2026-07-14) — responsive body region. Originally
+// paired with a close-button margin-parity finding against the DEM legend;
+// TASK-2585 (W2 UAT round 3) makes the panel ACTUALLY ride the same
+// MovablePanel primitive the DEM legend uses (see the "MovablePanel adoption"
+// describe block below for that structural guarantee — parity is now
+// inherent, not a separately-tuned CSS override), so only the body's own
+// scroll-region behaviour is re-asserted here.
+describe('TerrainProfilePanel — responsive body region (TASK-2274)', () => {
     let container;
     beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
     afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); });
     const noop = () => {};
-
-    it('the outer panel has ZERO outer padding, like the DEM legend MovablePanel neutralisation (movablePanel.css .sv-movable-panel)', () => {
-        ReactDOM.render(
-            <TerrainProfilePanelClass visible demReady setProfilePanelVisible={noop} startProfileDraw={noop} />,
-            container
-        );
-        const panel = container.querySelector('[data-testid="profile-panel"]');
-        expect(panel).toExist();
-        expect(window.getComputedStyle(panel).padding).toBe('0px');
-    });
 
     it('the body content area is an independently-scrolling flex region (min-height:0 + overflow-y:auto), not a fixed-overflow block', () => {
         ReactDOM.render(
@@ -348,16 +449,157 @@ describe('TerrainProfilePanel — responsive body + close-button margin parity w
         expect(cs.overflowY).toBe('auto');
         expect(cs.minHeight).toBe('0px');
     });
+});
 
-    it('the header carries NO "h4" class — live-verified (2026-07-14): Bootstrap\'s .h4 margin:8px 0 pushed the close chip 8px further down than the DEM legend\'s (MovablePanel PanelHeader carries no "h4")', () => {
+// ── TASK-2585 (epic 2580 W2 UAT round 3) — MovablePanel adoption ───────────
+// The panel now rides the shared MovablePanel primitive (drag + native
+// corner resize), same convention as TerrainBboxPanel/MergeTerrainsPanel/
+// DemRampLegend's FloatingDemLegendPanel. Component-level seams only (pixel
+// drag is out of karma's reach — see terrainBboxPanel-test.js's own
+// "TASK-2235 ... — movable" describe block, the template this mirrors).
+describe('TerrainProfilePanel — MovablePanel adoption (TASK-2585 round 3)', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function mountPanel(uiOverrides = {}) {
+        const store = createMockStore(uiOverrides);
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}><TerrainProfilePanel /></Provider>,
+                container,
+                () => resolve({ store })
+            );
+        });
+    }
+
+    it('renders inside a MovablePanel (panelId crossSectionProfile); profile-panel content + header + close chip all present', () => {
+        return mountPanel({ profileLoading: false }).then(() => {
+            expect(CROSS_SECTION_PANEL_ID).toBe('crossSectionProfile');
+            const panel = container.querySelector(`[data-testid="movable-panel-${CROSS_SECTION_PANEL_ID}"]`);
+            expect(panel).toExist();
+            expect(panel.querySelector('[data-testid="profile-panel"]')).toExist();
+            // The header carries NO "h4" class (TASK-2274's live-verified finding,
+            // now an inherent property of riding the shared MovablePanel/
+            // PanelHeader combination rather than a per-panel CSS tune).
+            const header = panel.querySelector('.sv-movable-panel-header');
+            expect(header).toExist();
+            expect(header.className.split(' ')).toNotContain('h4');
+            expect(panel.querySelector('.sv-panel-header-close')).toExist();
+        });
+    });
+
+    it('close chip dispatches SET_PROFILE_PANEL_VISIBLE false', () => {
+        return mountPanel().then(({ store }) => {
+            container.querySelector('.sv-panel-header-close').click();
+            const closeAction = store.dispatched.find(a => a.visible === false && /PROFILE_PANEL_VISIBLE/.test(a.type || ''));
+            expect(closeAction).toExist();
+        });
+    });
+
+    it('applies a persisted position from anuga.ui.movablePanels.crossSectionProfile', () => {
+        return mountPanel({ movablePanels: { [CROSS_SECTION_PANEL_ID]: { position: { x: 17, y: 33 } } } }).then(() => {
+            const panel = container.querySelector(`[data-testid="movable-panel-${CROSS_SECTION_PANEL_ID}"]`);
+            expect(panel.style.transform).toInclude('17px');
+            expect(panel.style.transform).toInclude('33px');
+        });
+    });
+
+    it('drag-end dispatches ANUGA:SET_MOVABLE_PANEL_STATE keyed crossSectionProfile', () => {
+        return mountPanel().then(({ store }) => {
+            const header = container.querySelector(`[data-testid="movable-panel-${CROSS_SECTION_PANEL_ID}"] .sv-movable-panel-header`);
+            header.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }));
+            document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 90, clientY: 80 }));
+            document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: 90, clientY: 80 }));
+            const act = store.dispatched.find(a => a.type === 'ANUGA:SET_MOVABLE_PANEL_STATE');
+            expect(act).toExist();
+            expect(act.panelId).toBe(CROSS_SECTION_PANEL_ID);
+            expect(act.patch.position).toExist();
+        });
+    });
+});
+
+// ── TASK-2585 (epic 2580 W2 UAT round 3) — chart reflow on resize ──────────
+// Component-level seam only (per the acceptance criteria: "primitive
+// present/props, resize handler wired" — pixel-level drag/reflow is out of
+// karma's reach). Stubs window.ResizeObserver to assert the panel WIRES ONE
+// UP against the chart's own container once a chart exists, and that its
+// callback triggers a reflow (a window 'resize' event — the same event
+// react-plotly's `useResizeHandler` prop already listens for).
+describe('TerrainProfilePanel — chart resize-observer wiring (TASK-2585 round 3)', () => {
+    let container;
+    let originalResizeObserver;
+    let observed;
+    let triggerResize;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        observed = [];
+        originalResizeObserver = window.ResizeObserver;
+        window.ResizeObserver = function FakeResizeObserver(cb) {
+            triggerResize = cb;
+            this.observe = (el) => { observed.push(el); };
+            this.disconnect = () => {};
+        };
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+        window.ResizeObserver = originalResizeObserver;
+    });
+
+    const noop = () => {};
+    const samples = [{ distance_m: 0, dem: 100 }, { distance_m: 10, dem: 99 }];
+    const traces = [{ key: 'dem', label: 'Elevation', role: 'dem' }];
+
+    it('observes the chart container element once a chart exists', () => {
         ReactDOM.render(
-            <TerrainProfilePanelClass visible demReady setProfilePanelVisible={noop} startProfileDraw={noop} />,
+            <TerrainProfilePanelClass
+                visible demReady samples={samples} traces={traces}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+            />,
             container
         );
-        const header = container.querySelector('[data-testid="profile-panel"] .sv-panel-header');
-        expect(header).toExist();
-        expect(header.className.split(' ')).toNotContain('h4');
-        expect(window.getComputedStyle(header).marginTop).toBe('0px');
+        const chartEl = container.querySelector('[data-testid="profile-chart"]');
+        expect(chartEl).toExist();
+        expect(observed).toContain(chartEl);
+    });
+
+    it('a captured observer callback dispatches a window resize event (the seam react-plotly\'s useResizeHandler already listens for)', () => {
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady samples={samples} traces={traces}
+                setProfilePanelVisible={noop} startProfileDraw={noop}
+            />,
+            container
+        );
+        expect(typeof triggerResize).toBe('function');
+        let resizeEventFired = 0;
+        const onResize = () => { resizeEventFired++; };
+        window.addEventListener('resize', onResize);
+        triggerResize();
+        window.removeEventListener('resize', onResize);
+        expect(resizeEventFired).toBe(1);
+    });
+
+    it('never wires an observer while there is no chart (no samples yet)', () => {
+        ReactDOM.render(
+            <TerrainProfilePanelClass
+                visible demReady setProfilePanelVisible={noop} startProfileDraw={noop}
+            />,
+            container
+        );
+        expect(observed.length).toBe(0);
     });
 });
 

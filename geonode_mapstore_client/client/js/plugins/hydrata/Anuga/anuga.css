@@ -2774,51 +2774,53 @@ span.sv-scenario-run-price--short {
 }
 
 /* ── TASK-1861 (W4.4) — depth/result line-profile tool panel ──────────────── */
-/* TASK-2274 (W-followup, live-verified 2026-07-14): a COMPOUND selector
-   (both classes, no descendant combinator) — not just `.sv-profile-panel`.
-   The plugin CSS build namespaces every top-level selector under `.msgapi`
-   (see movablePanel.css's "css-namespace-guard" note), so a bare
-   `.sv-profile-panel` rule compiles to `.msgapi .sv-profile-panel`
-   (specificity 0,2,0) — EQUAL specificity to the base rule's own namespaced
-   form `.msgapi .simple-view-panel` (also 0,2,0). That's a tie, and a tie is
-   decided by STYLESHEET LOAD ORDER, which this repo does not otherwise
-   guarantee between the anuga/SimpleView bundles — live-verified on
-   localhost: the override silently lost the tie (panel rendered full-width,
-   NOT right-docked; padding stayed 5px 10px, not 0). `.simple-view-panel.
-   sv-profile-panel` compiles to `.msgapi .simple-view-panel.sv-profile-panel`
-   (0,3,0) — strictly higher, wins regardless of load order. */
-.simple-view-panel.sv-profile-panel {
-    /* Left-align the help/body + chart (the base .simple-view-panel centres). */
-    text-align: left;
-    /* FINDING 4 (UAT 2026-06-23): dock on the RIGHT so the profile tool clears
-       the Results layer panel (which sits at the base .simple-view-panel
-       left:20px). left:auto is required — without it both left+right apply and
-       the panel stretches full-width instead of right-docking. */
-    left: auto;
-    right: 20px;
-    /* TASK-2274 (operator UAT 2026-07-14): neutralise the base
-       .simple-view-panel padding:5px 10px — mirrors movablePanel.css's
-       .sv-movable-panel treatment for the SAME shared PanelHeader primitive,
-       so its close chip (inline position:absolute; top:2px; right:2px)
-       sits the SAME 2px from the outer edge in both the DEM legend
-       (MovablePanel) and this docked panel, instead of the base padding
-       pushing it further in. Every section here already self-pads (the
-       header's own inline padding, .sv-profile-body below, and
-       .simple-view-panel-footer's own CSS padding), so nothing loses its
-       spacing. */
-    padding: 0;
+/* TASK-2585 (epic 2580 W2 UAT round 3) — the panel now RIDES MovablePanel
+   (drag + native corner resize) instead of the fixed right-docked shell
+   TASK-2274 describes below — position is MovablePanel's own job now
+   (defaultProfilePanelPosition in TerrainProfilePanel.jsx), so the old
+   `left: auto; right: 20px;` + padding-neutralising rules are GONE (they'd
+   otherwise tie-break against movablePanel.css's own `.sv-movable-panel`
+   position:fixed rule — the exact same load-order landmine TASK-2274 first
+   hit, just relocated). The triple-class selector (0,4,0-ish: three classes)
+   still outranks the shared `.simple-view-panel.sv-movable-panel` base
+   (0,3,0-ish: two classes) regardless of stylesheet load order — same idiom
+   as sv-terrain-bbox-movable / sv-membership-movable / sv-merge-terrains-panel
+   above. `width` is the FIRST-OPEN default only (must match
+   DEFAULT_PROFILE_PANEL_WIDTH in TerrainProfilePanel.jsx) — a user resize
+   persists its OWN explicit size via panelState.size (MovablePanel's
+   controlled width/height). */
+.simple-view-panel.sv-movable-panel.sv-profile-panel {
+    width: min(500px, calc(100vw - 20px));
+    min-width: 320px;
+    min-height: 360px;
+    max-height: calc(100vh - 40px);
+}
+/* Scoped to THIS panel only (the shared movablePanel.css `.sv-movable-panel-
+   body` rule, used by 4 other consumers, is untouched) — turns the body into
+   a flex column so `.sv-profile-body`'s own flex:1 1 auto (below) actually
+   has something to grow inside, which in turn lets `.sv-profile-chart`
+   flex-grow into whatever extra room a resize creates (TASK-2585 tweak 3:
+   "a resized panel with a frozen chart is a fail" — see
+   TerrainProfilePanelClass's ResizeObserver wiring for the Plotly-reflow
+   half of this). */
+.simple-view-panel.sv-movable-panel.sv-profile-panel .sv-movable-panel-body {
+    display: flex;
+    flex-direction: column;
 }
 /* TASK-2274 — the body's own padding + an independently-scrolling flex
    region: the panel's max-height (base .simple-view-panel rule) previously
    had no overflow handling below it, so tall content (many picker rows +
    the chart) could spill past the panel's own bottom edge rather than
    scrolling. flex:1 1 auto + min-height:0 is the SAME idiom
-   .simple-view-panel-body already uses elsewhere in this sheet. */
+   .simple-view-panel-body already uses elsewhere in this sheet. TASK-2585 —
+   also now a flex column (see above) so the chart below can flex-grow. */
 .sv-profile-body {
     padding: 10px;
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 .sv-profile-help,
 .sv-profile-empty {
@@ -2837,8 +2839,13 @@ span.sv-scenario-run-price--short {
 }
 .sv-profile-chart {
     margin-top: 8px;
-    /* The plotly SVG paints its own white surface (paper/plot bg in
+    /* TASK-2585 — grows to fill whatever vertical space a panel resize
+       leaves it (240px is only its flex-basis, i.e. the un-resized default —
+       see the ref/ResizeObserver wiring in TerrainProfilePanel.jsx). The
+       plotly SVG paints its own white surface (paper/plot bg in
        CROSS_SECTION_LAYOUT, TASK-2270) for maximum line contrast. */
+    flex: 1 1 auto;
+    min-height: 160px;
 }
 
 /* ── TASK-2256 (epic 2249 W3) — picker-as-legend ───────────────────────────
