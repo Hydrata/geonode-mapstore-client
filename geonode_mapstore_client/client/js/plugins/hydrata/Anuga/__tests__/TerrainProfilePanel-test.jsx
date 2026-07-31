@@ -81,8 +81,8 @@ describe('TerrainProfilePanel — cross-section (W4.5; TASK-2255 reworked stage 
     ];
 
     it('builds terrain (tozeroy) + water-surface (tonexty) on a SINGLE axis', () => {
-        // TASK-2269: the area fill is disabled by default now; pass enableFill so
-        // this pre-existing fill-shape assertion still exercises the fill logic.
+        // Fill is ON by default (TASK-2585); enableFill is passed explicitly
+        // anyway so this fill-shape assertion doesn't depend on the default.
         const data = buildCrossSectionData(samples, traces, { enableFill: true });
         expect(data.length).toBe(2);
         expect(data[0].fill).toBe('tozeroy');
@@ -261,10 +261,12 @@ describe('TerrainProfilePanel — white chart background (TASK-2270)', () => {
     });
 });
 
-// ── TASK-2269 (epic 2249 W5) — area fill disabled by default ────────────────
-describe('TerrainProfilePanel — fill disabled flag (TASK-2269)', () => {
-    it('CROSS_SECTION_FILL_ENABLED is false (production charts are lines-only for now)', () => {
-        expect(CROSS_SECTION_FILL_ENABLED).toBe(false);
+// ── TASK-2585 (epic 2580 W2 UAT round 2) — area fill RE-ENABLED at 30% alpha ─
+// (was disabled by TASK-2269; see the flag's own doc comment in
+// TerrainProfilePanel.jsx for the re-enable rationale.)
+describe('TerrainProfilePanel — fill enabled flag (TASK-2585)', () => {
+    it('CROSS_SECTION_FILL_ENABLED is true (stronger palettes + translucent fill for overlap legibility)', () => {
+        expect(CROSS_SECTION_FILL_ENABLED).toBe(true);
     });
 });
 
@@ -454,13 +456,13 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         render();
         const terrainSwatch = container.querySelector('[data-testid="picker-swatch-terrain-1"]');
         const waterSwatch = container.querySelector('[data-testid="picker-swatch-water-10"]');
-        // rgb(184, 153, 104) === #B89968 (TERRAIN_PALETTE[0], slot 0 for the
+        // rgb(175, 73, 29) === #AF491D (TERRAIN_PALETTE[0], slot 0 for the
         // one-and-only checked terrain) — jsdom normalises inline hex styles
         // to rgb() on read-back, so compare against the browser-normalised form.
-        expect(terrainSwatch.style.backgroundColor).toBe('rgb(184, 153, 104)');
-        expect(waterSwatch.style.backgroundColor).toBe('rgb(91, 192, 255)');
-        expect(TERRAIN_PALETTE[0]).toBe('#B89968');
-        expect(WATER_PALETTE[0]).toBe('#5BC0FF');
+        expect(terrainSwatch.style.backgroundColor).toBe('rgb(175, 73, 29)');
+        expect(waterSwatch.style.backgroundColor).toBe('rgb(0, 110, 178)');
+        expect(TERRAIN_PALETTE[0]).toBe('#AF491D');
+        expect(WATER_PALETTE[0]).toBe('#006EB2');
     });
 
     it('an unchecked, uncheckable-status row never gets a swatch colour', () => {
@@ -493,7 +495,7 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         // swatch and permanently disagree with its trace after a redraw.
         render({ checkedScenarioIds: [12, 13] });
         const readySwatch = container.querySelector('[data-testid="picker-swatch-water-13"]');
-        expect(readySwatch.style.backgroundColor).toBe('rgb(91, 192, 255)');
+        expect(readySwatch.style.backgroundColor).toBe('rgb(0, 110, 178)');
         const goneSwatch = container.querySelector('[data-testid="picker-swatch-water-12"]');
         expect(goneSwatch.style.backgroundColor).toBe('transparent');
     });
@@ -504,15 +506,15 @@ describe('TerrainProfilePanel — picker-as-legend (TASK-2256)', () => {
         render({ checkedTerrainIds: [3, 1, 2] });
         // Stable picker-LIST order (not check order): row 1 -> slot 0, row 2
         // -> slot 1, row 3 -> slot 2 — same guarantee getColorSlot documents.
-        // TERRAIN_PALETTE = ['#B89968', '#D08770', '#A3BE8C']; jsdom
+        // TERRAIN_PALETTE = ['#AF491D', '#CC9719', '#45762D']; jsdom
         // normalises inline hex styles to rgb() on read-back (see the AC1
         // swatch test above).
         const swatch1 = container.querySelector('[data-testid="picker-swatch-terrain-1"]');
         const swatch2 = container.querySelector('[data-testid="picker-swatch-terrain-2"]');
         const swatch3 = container.querySelector('[data-testid="picker-swatch-terrain-3"]');
-        expect(swatch1.style.backgroundColor).toBe('rgb(184, 153, 104)');
-        expect(swatch2.style.backgroundColor).toBe('rgb(208, 135, 112)');
-        expect(swatch3.style.backgroundColor).toBe('rgb(163, 190, 140)');
+        expect(swatch1.style.backgroundColor).toBe('rgb(175, 73, 29)');
+        expect(swatch2.style.backgroundColor).toBe('rgb(204, 151, 25)');
+        expect(swatch3.style.backgroundColor).toBe('rgb(69, 118, 45)');
     });
 
     it('a ready water row shows its run date', () => {
@@ -684,10 +686,10 @@ describe('TerrainProfilePanel — picker legend mirrors the displayed chart (TAS
                 { key: 'stage_b', role: 'stage', scenarioId: 13, label: 'Scenario Stale' }
             ]
         });
-        expect(container.querySelector('[data-testid="picker-swatch-terrain-1"]').style.backgroundColor).toBe('rgb(184, 153, 104)');
+        expect(container.querySelector('[data-testid="picker-swatch-terrain-1"]').style.backgroundColor).toBe('rgb(175, 73, 29)');
         expect(container.querySelector('[data-testid="picker-swatch-terrain-2"]').style.backgroundColor).toBe('transparent');
-        expect(container.querySelector('[data-testid="picker-swatch-water-10"]').style.backgroundColor).toBe('rgb(91, 192, 255)');
-        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(56, 178, 163)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-10"]').style.backgroundColor).toBe('rgb(0, 110, 178)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(7, 162, 151)');
     });
 
     it('a scenario un-published AFTER it was drawn keeps its plotted-line swatch, and the surviving row keeps ITS chart colour (no phantom trace, no slot-shift)', () => {
@@ -708,16 +710,16 @@ describe('TerrainProfilePanel — picker legend mirrors the displayed chart (TAS
         });
         const row12 = container.querySelector('[data-testid="picker-row-water-12"]');
         expect(row12.className).toContain('sv-picker-row-disabled');
-        expect(container.querySelector('[data-testid="picker-swatch-water-12"]').style.backgroundColor).toBe('rgb(91, 192, 255)');
-        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(56, 178, 163)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-12"]').style.backgroundColor).toBe('rgb(0, 110, 178)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(7, 162, 151)');
     });
 
     it('before the first draw (no chart) the swatch still PREVIEWS the live selection', () => {
         // samples null -> no chart -> preview mode -> buildCheckedSlotMap: the
         // two checked ready scenarios take slots 0 and 1 by list order.
         render({ samples: null, traces: null });
-        expect(container.querySelector('[data-testid="picker-swatch-water-10"]').style.backgroundColor).toBe('rgb(91, 192, 255)');
-        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(56, 178, 163)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-10"]').style.backgroundColor).toBe('rgb(0, 110, 178)');
+        expect(container.querySelector('[data-testid="picker-swatch-water-13"]').style.backgroundColor).toBe('rgb(7, 162, 151)');
         // A disabled (no-stage) row shows no preview swatch.
         expect(container.querySelector('[data-testid="picker-swatch-water-12"]').style.backgroundColor).toBe('transparent');
     });

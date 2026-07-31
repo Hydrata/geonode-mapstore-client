@@ -140,18 +140,37 @@ export function computeYRange(dataTraces, opts) {
 // that SAME stable-checked-order, so a trace's index within its own role
 // subset (computed below in buildCrossSectionData) IS its colour slot — no
 // second lookup needed to keep swatch-colour === trace-colour (AC1).
-export const TERRAIN_PALETTE = ['#B89968', '#D08770', '#A3BE8C'];
-export const WATER_PALETTE = ['#5BC0FF', '#38B2A3', '#8C9BFF'];
-const TERRAIN_FILL_ALPHA = 0.30;
-const WATER_FILL_ALPHA = 0.25;
+// TASK-2585 (epic 2580 W2 UAT round 2) — operator ask: "increase the breadth
+// of the terrain and water colour palettes, the contrast is very hard to
+// read right now. Stronger colours...". The original 3 slots per family sat
+// within a narrow ~30pt hue band at pastel saturation/lightness (36-50% sat),
+// so adjacent slots read as near-identical at a glance. Each family's 3 slots
+// now span a WIDE hue + lightness range at higher saturation (rust / ochre-
+// gold / deep olive for terrain; strong blue / teal / indigo for water) while
+// staying inside its family's character (earthy vs watery) — no logic here
+// changed, only these six hex values (+ the fill alpha below).
+export const TERRAIN_PALETTE = ['#AF491D', '#CC9719', '#45762D'];
+export const WATER_PALETTE = ['#006EB2', '#07A297', '#1B24DA'];
+// TASK-2585 — one shared alpha for both families' fills (operator ask: "30%
+// opacity so they read better when on top of each other too"); previously
+// TERRAIN_FILL_ALPHA=0.30 / WATER_FILL_ALPHA=0.25 (unused while fill was
+// disabled) — unified since the operator asked for one consistent figure.
+const CROSS_SECTION_FILL_ALPHA = 0.30;
 
-// TASK-2269 (epic 2249 W5) — the terrain/water area FILL is disabled for now
+// TASK-2269 (epic 2249 W5) — the terrain/water area FILL was disabled
 // (operator UAT 2026-07-14: "the shading is not working properly, it extended
 // off the graph — drop it for now until the rest is sorted"; the 'tozeroy'
 // terrain fill spilled below the relief-clamped y-axis). The fill-SELECTION
-// logic in buildCrossSectionData is preserved intact and re-enables by flipping
-// this flag; the TASK-2273 water<terrain mask makes re-enabling artefact-free.
-export const CROSS_SECTION_FILL_ENABLED = false;
+// logic in buildCrossSectionData was preserved intact behind this flag, and
+// the TASK-2273 water<terrain mask (below) was written specifically to make
+// re-enabling artefact-free.
+// TASK-2585 (epic 2580 W2 UAT round 2) — RE-ENABLED at 30% opacity per the
+// operator's explicit ask for overlap legibility ("so they read better when
+// on top of each other too"); the 2273 mask + the "no inverted fill" rules
+// are unchanged by this wave and still gate exactly which trace fills. If a
+// future visual pass finds a live rendering defect, flip this back to false
+// rather than re-litigating the palette/alpha work above.
+export const CROSS_SECTION_FILL_ENABLED = true;
 
 /**
  * TASK-2577 (gap in TASK-2572) — does the STORED chart (the `traces` array
@@ -243,13 +262,13 @@ export function terrainColor(slot) {
 // (ColorUtils.js, tinycolor-backed) — reuse the framework's colour-parsing
 // rather than hand-rolling a #rrggbb regex.
 export function terrainFillColor(slot) {
-    return colorToRgbaStr(terrainColor(slot), TERRAIN_FILL_ALPHA);
+    return colorToRgbaStr(terrainColor(slot), CROSS_SECTION_FILL_ALPHA);
 }
 export function waterColor(slot) {
     return WATER_PALETTE[slot] || WATER_PALETTE[WATER_PALETTE.length - 1];
 }
 export function waterFillColor(slot) {
-    return colorToRgbaStr(waterColor(slot), WATER_FILL_ALPHA);
+    return colorToRgbaStr(waterColor(slot), CROSS_SECTION_FILL_ALPHA);
 }
 
 /**
@@ -300,9 +319,10 @@ export function buildCrossSectionData(samples, traces, opts) {
     if (demTraces.length === 0) return [];
     const stageTraces = traces.filter(t => t && t.role === 'stage');
     const scenarioTerrainById = (opts && opts.scenarioTerrainById) || {};
-    // TASK-2269 — the fill is disabled by default (module constant); an explicit
-    // opts.enableFill overrides it so the preserved fill-selection logic stays
-    // unit-testable for a safe future re-enable.
+    // The module constant (CROSS_SECTION_FILL_ENABLED) sets the default — ON
+    // since TASK-2585 (was OFF, TASK-2269); an explicit opts.enableFill
+    // overrides it either way so the fill-selection logic below stays
+    // unit-testable regardless of the current default.
     const fillEnabled = (opts && Object.prototype.hasOwnProperty.call(opts, 'enableFill'))
         ? !!opts.enableFill
         : CROSS_SECTION_FILL_ENABLED;
@@ -370,8 +390,8 @@ export function buildCrossSectionData(samples, traces, opts) {
             connectgaps: false,
             line: { color: terrainColor(i), width: 2 },
             // Only slot-1 (i===0) is a filled area — slots 2-3 are lines.
-            // TASK-2269: the fill is gated OFF for now (lines only) but the
-            // selection logic stays so it re-enables by flipping the flag.
+            // TASK-2585: fillEnabled defaults ON (was OFF, TASK-2269); the
+            // selection logic (which slot fills) is unchanged either way.
             ...(i === 0 && fillEnabled ? { fill: 'tozeroy', fillcolor: terrainFillColor(i) } : {})
         });
         // Immediately after slot-1, splice in the filling water (if any) so
@@ -386,9 +406,9 @@ export function buildCrossSectionData(samples, traces, opts) {
                     name: fillingStage.waterLabel || fillingStage.label || 'Water surface',
                     type: 'scatter',
                     mode: 'lines',
-                    // TASK-2269: fill gated OFF for now; TASK-2273 mask keeps the
-                    // water from ever sitting below terrain so re-enabling 'tonexty'
-                    // stays artefact-free.
+                    // TASK-2585: fillEnabled defaults ON; the TASK-2273 mask keeps
+                    // the water from ever sitting below terrain so this 'tonexty'
+                    // fill stays artefact-free.
                     ...(fillEnabled ? { fill: 'tonexty', fillcolor: waterFillColor(0) } : {}),
                     connectgaps: false,
                     line: { color: waterColor(0), width: 2 }
