@@ -738,6 +738,40 @@ const _terrainLayerMatchesModel = (layer, model) => {
     return !!ln && (ln === model?.gn_layer_name || ln === model?.gn_layer_hillshade_name);
 };
 
+// TASK-2579 (W2 UAT round 2) — prune STALE-GENERATION combined-surface layers.
+// Every combined-surface re-derive REPUBLISHES the output terrain under a
+// brand-new Dataset name (title slug + fresh cog hash) — it does NOT delete
+// the previous generation's GeoServer Datasets server-side, so the probe
+// above resolves 200 (still exists) and KEEPS them: correct for the generic
+// ghost case, but wrong here, because we are not guessing about deletion —
+// the SAME terrain id is verifiably alive in terrainModels, just pointing at
+// different current names. Identity alone proves staleness, no probe needed.
+//
+// Anchored to the `ele_<id>_` prefix (the Terrain PK baked into BOTH the
+// elevation and `_hillshade_` layer names — see layerOrderEpics.js's
+// identical convention), so this can only ever match a layer against the
+// SAME terrain id it names — never another terrain's layers, never a
+// non-terrain layer, and never a terrain with no live model (that stays on
+// the probe path above, unchanged).
+const _staleGenerationTerrainId = (layer) => {
+    const match = bareName(layer?.name).match(/^ele_(\d+)_/);
+    return match ? match[1] : null;
+};
+
+const _isStaleGenerationLayer = (layer, terrainModels) => {
+    const tid = _staleGenerationTerrainId(layer);
+    if (tid === null) return false;
+    const model = terrainModels.find(m => String(m?.id) === tid);
+    if (!model) return false; // no live model with this id — handled by the probe path
+    // Only prune once the terrain's CURRENT layer names are actually known.
+    // A terrain mid-derive (status='creating', gn_layer_name/hillshade still
+    // null) has no current alternates yet — we cannot yet tell "prior
+    // generation" from "the only generation there is", so leave it alone.
+    // (pollingEpics.js orphanStatus/buildTerrainAddSequence own that race.)
+    if (!model.gn_layer_name && !model.gn_layer_hillshade_name) return false;
+    return !_terrainLayerMatchesModel(layer, model);
+};
+
 export const pruneOrphanTerrainLayersEpic = (action$, store) =>
     action$
         .ofType(SET_ANUGA_TERRAIN_DATA)
@@ -745,13 +779,36 @@ export const pruneOrphanTerrainLayersEpic = (action$, store) =>
             const state = store.getState();
             if (!canEditAnugaMap(state)) return Rx.Observable.empty();
             const terrainModels = state?.anuga?.resources?.terrain || [];
-            const candidates = (state?.layers?.flat || [])
-                .filter(l => l?.group === 'Input Data.Terrain')
+            const terrainLayers = (state?.layers?.flat || [])
+                .filter(l => l?.group === 'Input Data.Terrain');
+
+            // Tier 1 — stale-generation layers of a terrain we KNOW is alive:
+            // remove immediately, no network probe (see comment above).
+            const staleGeneration = terrainLayers
+                .filter(l => _isStaleGenerationLayer(l, terrainModels));
+            const staleGenerationIds = new Set(staleGeneration.map(l => l.id));
+
+            // Tier 2 — layers matching NO model at all (possibly a fully
+            // deleted terrain): unchanged, still gated on a PK probe.
+            const candidates = terrainLayers
+                .filter(l => !staleGenerationIds.has(l.id))
                 .filter(l => !terrainModels.some(m => _terrainLayerMatchesModel(l, m)));
-            if (candidates.length === 0) return Rx.Observable.empty();
-            // Probe every candidate's Dataset by PK in parallel. A candidate
-            // survives (maps to null) on anything but a hard 404, so a transient
-            // publish race or a still-valid derived surface is never deleted.
+
+            const removeActionsFor = (layers) => layers.flatMap(l => [removeNode(l.id, 'layers'), removeLayer(l.id)]);
+
+            if (candidates.length === 0) {
+                if (staleGeneration.length === 0) return Rx.Observable.empty();
+                // Drop each stale-generation layer (DEM + hillshade are
+                // separate layers) and persist the pruned tree ONCE so they
+                // do not return — this is also the load-path self-heal: a
+                // saved map carrying pre-fix stale rows gets cleaned the
+                // first time terrain data arrives after reload.
+                return Rx.Observable.of(...removeActionsFor(staleGeneration), saveDirectContent());
+            }
+            // Probe every remaining candidate's Dataset by PK in parallel. A
+            // candidate survives (maps to null) on anything but a hard 404,
+            // so a transient publish race or a still-valid derived surface
+            // is never deleted.
             return Rx.Observable
                 .forkJoin(
                     candidates.map(layer =>
@@ -763,12 +820,8 @@ export const pruneOrphanTerrainLayersEpic = (action$, store) =>
                 )
                 .switchMap(probed => {
                     const ghosts = probed.filter(Boolean);
-                    if (ghosts.length === 0) return Rx.Observable.empty();
-                    // Drop each ghost (DEM + hillshade are separate layers) and
-                    // persist the pruned tree ONCE so they do not return.
-                    return Rx.Observable.of(
-                        ...ghosts.flatMap(l => [removeNode(l.id, 'layers'), removeLayer(l.id)]),
-                        saveDirectContent()
-                    );
+                    const toRemove = [...staleGeneration, ...ghosts];
+                    if (toRemove.length === 0) return Rx.Observable.empty();
+                    return Rx.Observable.of(...removeActionsFor(toRemove), saveDirectContent());
                 });
         });
