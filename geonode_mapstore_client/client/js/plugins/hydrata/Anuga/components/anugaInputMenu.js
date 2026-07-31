@@ -50,6 +50,13 @@ import {
     twDeleteSurface,
     twDerive
 } from '../../TerrainWorkbench/actionsTerrainWorkbench';
+// TASK-2580 (W2-reaim change 3a) — close the Inputs menu when the "Combined
+// surface" button opens the stand-alone panel (mirrors TASK-1648's 'Define
+// import area' precedent: terrainBboxPanel.js dispatches this same action on
+// its own draw-start button, and MergeTerrainsPanel is ALSO mounted at the
+// anugaContainer level — see the TASK-1648 note above — so closing the Inputs
+// menu here can never unmount it).
+import { setAnugaInputMenu } from '../actions/uiActions';
 // TASK-1440 (W9): Networks action creators removed from this file — the Networks
 // pane is now a self-contained shared component (shared/NetworksPane.js) that
 // carries its own connect() and is rendered in the Hydrology panel.
@@ -865,6 +872,11 @@ class AnugaInputMenuClass extends React.Component {
         onTwSelectSurfaceForTerrain: PropTypes.func,
         // TASK-1800 (W1.9 UAT): open the stand-alone "Merge terrains" panel.
         onOpenMergeTerrainsPanel: PropTypes.func,
+        // TASK-2580 (W2-reaim change 3a): close the Inputs menu on the same
+        // click — optional (guarded at the call site) so an unconnected/test
+        // mount that omits it is safe (mirrors terrainBboxPanel.js's own
+        // setAnugaInputMenu propType, which carries no defaultProps entry).
+        setAnugaInputMenu: PropTypes.func,
         onUpdateTerrainRow: PropTypes.func
     };
 
@@ -1580,6 +1592,10 @@ class AnugaInputMenuClass extends React.Component {
                         onClick={() => {
                             this.props.onOpenMergeTerrainsPanel();
                             this.props.onTwLoadData();
+                            // TASK-2580 (W2-reaim change 3a): close/unhighlight the
+                            // parent Inputs menu — the panel is mounted at the
+                            // anugaContainer level so this can't unmount it.
+                            if (this.props.setAnugaInputMenu) this.props.setAnugaInputMenu(false);
                             trackEvent('button', 'click', 'anuga-input-menu-open-merge-terrains');
                         }}
                     >
@@ -2015,6 +2031,8 @@ const mapDispatchToProps = ( dispatch ) => {
         },
         // TASK-1800 (W1.9 UAT): open the stand-alone "Merge terrains" side panel.
         onOpenMergeTerrainsPanel: () => dispatch(setTerrainWorkbenchVisible(true)),
+        // TASK-2580 (W2-reaim change 3a): close the Inputs menu on the same click.
+        setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
         // TASK-1645 (W1.5) / TASK-1671 (W1.6) — recipe builder actions.
         onTwLoadData: () => dispatch(twLoadData()),
         onTwSelectSurface: (id) => dispatch(twSelectSurface(id)),

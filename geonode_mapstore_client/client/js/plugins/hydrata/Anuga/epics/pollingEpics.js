@@ -1032,8 +1032,35 @@ const orphanStatus = (process, state, refreshAttempted) => {
     // catalogue fetch as soon as visibility/gnresource gates open.)
     if (!resources?.terrainLoaded) return 'unknown';
     const terrain = resources.terrain;
-    if (Array.isArray(terrain) && terrain.some(e => e?.id === terrainId)) {
-        return 'present';
+    const match = Array.isArray(terrain) ? terrain.find(e => e?.id === terrainId) : undefined;
+    if (match) {
+        // (d) TASK-2579 — the row can EXIST but be present-but-STALE: the
+        // analysis-surface derive creates its output Terrain row
+        // status='creating' at derive start, and the FE can fetch the
+        // terrain list mid-derive — so at publish-completion time the row
+        // is found, but status!=='ready' or gn_layer_name is still null.
+        // Treating that as decisive 'present' (the old behaviour) lets
+        // buildTerrainAddSequence addLayer the new ele_<id>_* layers
+        // BEFORE the terrain list ever refreshes, so _buildTerrainGroups
+        // (anugaInputMenu.js) can't match them to a fresh model — the
+        // combined-surface publish lands as an ungrouped stand-alone
+        // pickup instead of nested in its own Terrain group.
+        //
+        // Treat present-but-stale like the absent-row case: defer as
+        // 'unknown' so the SAME refresh-then-defer machinery below
+        // forces one terrain-list refetch (SET_ANUGA_TERRAIN_DATA) before
+        // this candidate is ever classified 'present' — by the time the
+        // layers get added, the model is already fresh and groups
+        // correctly. Bounded by the SAME refreshAttempted loop-guard as
+        // the absent-row branch: after one refresh attempt, give up
+        // waiting for freshness and classify 'present' anyway (the
+        // layers still need to land even if the BE genuinely never
+        // converges) rather than deferring forever.
+        const publishComplete = match.status === 'ready' && !!match.gn_layer_name;
+        if (publishComplete || (refreshAttempted && refreshAttempted.has(process.id))) {
+            return 'present';
+        }
+        return 'unknown';
     }
     // (c) terrain_id is set, terrain list is loaded, but id is missing.
     // First miss for this process: defer + caller dispatches initAnuga.

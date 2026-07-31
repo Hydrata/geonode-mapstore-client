@@ -16,6 +16,7 @@ import React from "react";
 import { OverlayTrigger, Tooltip, Button } from 'react-bootstrap';
 const PropTypes = require('prop-types');
 
+import Message from '@mapstore/framework/components/I18N/Message';
 import {ErrorStrip, StatusBadge} from "../../SimpleView/components/primitives";
 
 // ── TASK-1645 (W1.5) / TASK-1671 (W1.6): AnalysisSurface recipe builder ────
@@ -38,6 +39,15 @@ const TW_PARAM_DEFAULTS = {
 // Resolution = target_resolution_m if the user provided it, else finest
 //              native_resolution_m among the selected terrains.
 //
+// TASK-2582 (W2a): an optional 4th argument, extentWgs84 [minLon, minLat,
+// maxLon, maxLat], constrains the union bbox to its intersection with the
+// Merge extent the user drew. Decision (CLOSED): null = full union; an extent
+// BEYOND the union is clipped BACK to the union (the modeller cannot inflate
+// the output by drawing outside the DEM stack) — a plain bbox intersection
+// gives exactly that: when extentWgs84 fully contains the union the
+// intersection collapses to the union unchanged, and when it is smaller the
+// intersection collapses to the extent.
+//
 // lat_m  ≈ 111 320 m/°  (standard constant)
 // lon_m  ≈ 111 320 · cos(mean_lat) m/°
 //
@@ -45,7 +55,7 @@ const TW_PARAM_DEFAULTS = {
 // Returns null if not enough metadata is available to estimate.
 const MAX_OUTPUT_GB = 10;
 
-function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
+function estimateOutputSize(selectedInputs, terrains, targetResolutionM, extentWgs84 = null) {
     if (!selectedInputs || selectedInputs.length === 0) return null;
     // Collect bbox + resolution for each selected terrain.
     let unionWest = null;
@@ -77,12 +87,29 @@ function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
         ? targetResolutionM
         : finestResM;
 
-    const meanLat = (unionSouth + unionNorth) / 2;
+    // TASK-2582: intersect the union bbox with the Merge extent (if any).
+    let west = unionWest;
+    let south = unionSouth;
+    let east = unionEast;
+    let north = unionNorth;
+    if (Array.isArray(extentWgs84) && extentWgs84.length === 4) {
+        const [exWest, exSouth, exEast, exNorth] = extentWgs84;
+        west = Math.max(unionWest, exWest);
+        south = Math.max(unionSouth, exSouth);
+        east = Math.min(unionEast, exEast);
+        north = Math.min(unionNorth, exNorth);
+        if (west >= east || south >= north) {
+            // No overlap between the drawn extent and the DEM-stack union.
+            return { estimatedGB: 0, tooLarge: false };
+        }
+    }
+
+    const meanLat = (south + north) / 2;
     const latMPerDeg = 111320;
     const lonMPerDeg = 111320 * Math.cos(meanLat * Math.PI / 180);
 
-    const widthM = Math.abs(unionEast - unionWest) * lonMPerDeg;
-    const heightM = Math.abs(unionNorth - unionSouth) * latMPerDeg;
+    const widthM = Math.abs(east - west) * lonMPerDeg;
+    const heightM = Math.abs(north - south) * latMPerDeg;
     const areaM2 = widthM * heightM;
 
     const pixels = areaM2 / (effectiveResM * effectiveResM);
@@ -90,6 +117,31 @@ function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
     const estimatedGB = bytes / (1024 ** 3);
 
     return { estimatedGB, tooLarge: estimatedGB > MAX_OUTPUT_GB };
+}
+
+// TASK-2582: format an estimateOutputSize() result as a short display string
+// ("~340 MB" / "~1.2 GB"). Shared by the derive-confirm dialog (authoritative,
+// Create-click) and the live estimate row in the recipe builder (same
+// function, so the two numbers can never disagree per-se — see module doc).
+function formatEstimateSize(sizeEstimate) {
+    if (!sizeEstimate) return null;
+    return sizeEstimate.estimatedGB < 1
+        ? `~${(sizeEstimate.estimatedGB * 1024).toFixed(0)} MB`
+        : `~${sizeEstimate.estimatedGB.toFixed(1)} GB`;
+}
+
+// TASK-2582: rough WGS84 extent dimensions in km, for the "~W x H km" Merge
+// extent summary row. Same lat/lon-to-metres constants as estimateOutputSize
+// above (not exported — a small display-only helper local to this module).
+function mergeExtentDimsKm(bbox) {
+    if (!Array.isArray(bbox) || bbox.length !== 4) return null;
+    const [minLon, minLat, maxLon, maxLat] = bbox;
+    const meanLat = (minLat + maxLat) / 2;
+    const latMPerDeg = 111320;
+    const lonMPerDeg = 111320 * Math.cos(meanLat * Math.PI / 180);
+    const widthKm = Math.abs(maxLon - minLon) * lonMPerDeg / 1000;
+    const heightKm = Math.abs(maxLat - minLat) * latMPerDeg / 1000;
+    return { widthKm: widthKm.toFixed(1), heightKm: heightKm.toFixed(1) };
 }
 
 function TWStaleBadge({ isStale }) {
@@ -254,11 +306,9 @@ TWDemStackPicker.defaultProps = { disabled: false };
 // sizeEstimate = { estimatedGB, tooLarge } | null
 function TWDeriveConfirmDialog({ sizeEstimate, onConfirm, onCancel }) {
     const tooLarge = sizeEstimate && sizeEstimate.tooLarge;
-    const gbStr = sizeEstimate
-        ? sizeEstimate.estimatedGB < 1
-            ? `~${(sizeEstimate.estimatedGB * 1024).toFixed(0)} MB`
-            : `~${sizeEstimate.estimatedGB.toFixed(1)} GB`
-        : null;
+    // TASK-2582: shared with the live estimate row (formatEstimateSize) so the
+    // confirm-dialog number and the live number are computed identically.
+    const gbStr = formatEstimateSize(sizeEstimate);
     return (
         <div className="sv-tw-derive-confirm-overlay" data-testid="derive-confirm-dialog" role="dialog" aria-modal="true" aria-label="Confirm derive">
             <div className="sv-tw-derive-confirm-box">
@@ -313,9 +363,33 @@ class TWRecipeBuilder extends React.Component {
         saving: PropTypes.bool,
         saveError: PropTypes.string,
         onUpdate: PropTypes.func.isRequired,
-        onDerive: PropTypes.func.isRequired
+        onDerive: PropTypes.func.isRequired,
+        // TASK-2582 (W2a): Merge extent — client-side draw state (owned by the
+        // terrainWorkbench slice) + its lifecycle callbacks. mergeExtent is
+        // WGS84 [minLon, minLat, maxLon, maxLat] | null (null = full union).
+        mergeExtent: PropTypes.array,
+        mergeExtentDrawing: PropTypes.bool,
+        onStartMergeExtentDraw: PropTypes.func,
+        onCancelMergeExtentDraw: PropTypes.func,
+        onClearMergeExtent: PropTypes.func,
+        // TASK-2580 (W2-reaim change 2): notified whenever the derive-confirm
+        // dialog opens/closes, so the hosting MergeTerrainsPanel can toggle a
+        // growth modifier class on the MovablePanel (CSS-only — see
+        // terrainWorkbench.css's --confirm-open rule).
+        onConfirmOpenChange: PropTypes.func
     };
-    static defaultProps = { deriving: false, deriveError: null, saving: false, saveError: null };
+    static defaultProps = {
+        deriving: false,
+        deriveError: null,
+        saving: false,
+        saveError: null,
+        mergeExtent: null,
+        mergeExtentDrawing: false,
+        onStartMergeExtentDraw: () => {},
+        onCancelMergeExtentDraw: () => {},
+        onClearMergeExtent: () => {},
+        onConfirmOpenChange: () => {}
+    };
 
     // Build default-seamless inputs from the new BE shape `inputs_ordered`.
     // inputs_ordered = [{id, terrain, priority, unmodified}]
@@ -333,6 +407,10 @@ class TWRecipeBuilder extends React.Component {
         super(props);
         const s = props.surface;
         this.state = {
+            // TASK-2580 (W2-reaim change 1): Combined surface NAME. Initial value
+            // = the surface's current title (PLACEHOLDER_SURFACE.title for a
+            // not-yet-created surface — MergeTerrainsPanel.js).
+            title: s.title ?? '',
             feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
             target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
             // TASK-1671: single ordered DEM stack (replaces designInputs + regional_terrain)
@@ -343,12 +421,13 @@ class TWRecipeBuilder extends React.Component {
         };
     }
 
-    componentDidUpdate(prevProps) {
+    componentDidUpdate(prevProps, prevState) {
         // Re-sync when switching surface or when the server updates inputs_ordered.
         if (prevProps.surface.id !== this.props.surface.id) {
             const s = this.props.surface;
             // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({
+                title: s.title ?? '',
                 feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
                 target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
                 inputs: TWRecipeBuilder._inputsFromSurface(s),
@@ -358,26 +437,76 @@ class TWRecipeBuilder extends React.Component {
         } else if (prevProps.surface.inputs_ordered !== this.props.surface.inputs_ordered) {
             // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({ inputs: TWRecipeBuilder._inputsFromSurface(this.props.surface) });
+        } else if (prevProps.surface.title !== this.props.surface.title) {
+            // The BE re-fetch after a successful PATCH/derive can bring back a
+            // title the user didn't just type locally (e.g. a stale response
+            // racing a second edit) — resync so the field never shows a value
+            // the server has already superseded.
+            // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
+            this.setState({ title: this.props.surface.title ?? '' });
+        }
+        // TASK-2580 (W2-reaim change 2): confirm-dialog open/close transition —
+        // tell the parent panel (className toggle -> CSS growth) and, as the
+        // too-small-viewport / previously-pinned-height fallback, scroll the
+        // dialog into view. The CSS class handles the common case; this is a
+        // harmless no-op when the dialog is already fully on-screen.
+        if (prevState.confirmOpen !== this.state.confirmOpen) {
+            if (this.props.onConfirmOpenChange) this.props.onConfirmOpenChange(this.state.confirmOpen);
+            if (this.state.confirmOpen && this._confirmBoxEl && typeof this._confirmBoxEl.scrollIntoView === 'function') {
+                this._confirmBoxEl.scrollIntoView({ block: 'nearest' });
+            }
         }
     }
 
     handleParam = (key, val) => this.setState({ [key]: val });
 
+    // TASK-2580 (W2-reaim change 1): Combined surface NAME — free-typing local
+    // state, PATCHed on blur via the EXISTING twUpdateSurfaceEpic path (the
+    // same PATCH the BE sibling's dispatch-race fix already covers), NOT
+    // folded into the derive body (a body-only param would hit that race).
+    handleTitleChange = (value) => this.setState({ title: value });
+
+    handleTitleBlur = () => {
+        const { surface, onUpdate } = this.props;
+        // A not-yet-created placeholder surface (surface.id null — see
+        // MergeTerrainsPanel.PLACEHOLDER_SURFACE) has nothing to PATCH yet;
+        // the typed name simply becomes the field's local starting value,
+        // exactly like feather_width_m/target_resolution_m are ALSO
+        // local-only until the surface is first created/derived.
+        if (surface.id === null || surface.id === undefined) return;
+        const title = (this.state.title || '').trim();
+        // No-op when unchanged so tabbing through the field without editing
+        // never fires a spurious PATCH.
+        if (title === (surface.title || '')) return;
+        onUpdate(surface.id, { title });
+    };
+
+    // TASK-2582 (simplify-pass): the parsed target_resolution_m is needed both
+    // at Create-click (handleDeriveClick) and on every render (the live
+    // estimate row) — one parse helper instead of two copies of the same
+    // `parseFloat(...) || null` line.
+    _targetResolutionM() {
+        return parseFloat(this.state.target_resolution_m) || null;
+    }
+
     // AC#3 + AC#4: Derive → compute size estimate → show confirm dialog.
     // The actual derive is dispatched only after user confirms.
     handleDeriveClick = () => {
-        const { inputs, target_resolution_m } = this.state;
-        const { terrains } = this.props;
-        const targetResM = parseFloat(target_resolution_m) || null;
-        const sizeEstimate = estimateOutputSize(inputs, terrains, targetResM);
+        const { inputs } = this.state;
+        const { terrains, mergeExtent } = this.props;
+        // TASK-2582: the confirm-dialog estimate is authoritative at Create-click —
+        // same function + same mergeExtent as the live row, so they can't disagree.
+        const sizeEstimate = estimateOutputSize(inputs, terrains, this._targetResolutionM(), mergeExtent);
         this.setState({ confirmOpen: true, sizeEstimate });
     };
 
     handleConfirmDerive = () => {
-        const { surface, onDerive } = this.props;
+        const { surface, onDerive, mergeExtent } = this.props;
         const { inputs, feather_width_m, target_resolution_m } = this.state;
         this.setState({ confirmOpen: false });
         // TASK-1671: dispatch atomic derive — body carries inputs + merge params.
+        // TASK-2582: merge_extent_wgs84 rides the same body as a sibling key,
+        // null when no extent has been drawn (full union).
         const body = {
             inputs: inputs.map(inp => ({
                 terrain_id: inp.terrain_id,
@@ -385,7 +514,8 @@ class TWRecipeBuilder extends React.Component {
                 unmodified: !!inp.unmodified
             })),
             feather_width_m: parseFloat(feather_width_m),
-            target_resolution_m: parseFloat(target_resolution_m)
+            target_resolution_m: parseFloat(target_resolution_m),
+            merge_extent_wgs84: mergeExtent || null
         };
         onDerive(surface.id, body);
     };
@@ -404,13 +534,94 @@ class TWRecipeBuilder extends React.Component {
         return true;
     }
 
+    // TASK-2582 (W2a): 'Set extent' draw + summary/Clear + live output estimate.
+    // The button flips to Cancel while drawing (mergeExtentDrawing, owned by the
+    // terrainWorkbench slice via a NEW owner-isolated draw — 'merge-extent',
+    // mirroring terrainBboxEpic.js's terrain-bbox pattern). The live estimate is
+    // recomputed on EVERY render — extent/resolution/DEM-stack changes all flow
+    // through render() — using the exact same estimateOutputSize() the confirm
+    // dialog uses at Create-click, so the two numbers can never disagree.
+    renderMergeExtentSection() {
+        const {
+            mergeExtent, mergeExtentDrawing,
+            onStartMergeExtentDraw, onCancelMergeExtentDraw, onClearMergeExtent,
+            terrains, saving, deriving
+        } = this.props;
+        const { inputs } = this.state;
+        const liveEstimate = estimateOutputSize(inputs, terrains, this._targetResolutionM(), mergeExtent);
+        const dims = mergeExtentDimsKm(mergeExtent);
+        return (
+            <div className="sv-tw-merge-extent-section" data-testid="merge-extent-section">
+                <div className="sv-tw-merge-extent-row">
+                    <Button
+                        bsSize="small"
+                        bsStyle={mergeExtentDrawing ? 'info' : 'default'}
+                        className="sv-tw-save-btn"
+                        onClick={mergeExtentDrawing ? onCancelMergeExtentDraw : onStartMergeExtentDraw}
+                        disabled={saving || deriving}
+                        data-testid="merge-extent-set-btn"
+                    >
+                        {mergeExtentDrawing
+                            ? <Message msgId="hydrata.anuga.mergeExtentCancelButton" />
+                            : <Message msgId="hydrata.anuga.mergeExtentSetButton" />}
+                    </Button>
+                    {dims && (
+                        <span className="sv-tw-merge-extent-summary" data-testid="merge-extent-summary">
+                            <Message msgId="hydrata.anuga.mergeExtentSummary" msgParams={{widthKm: dims.widthKm, heightKm: dims.heightKm}} />
+                            <button
+                                type="button"
+                                className="sv-tw-icon-btn"
+                                onClick={onClearMergeExtent}
+                                disabled={saving || deriving}
+                                data-testid="merge-extent-clear-btn"
+                            >
+                                <Message msgId="hydrata.anuga.mergeExtentClearButton" />
+                            </button>
+                        </span>
+                    )}
+                </div>
+                {liveEstimate && (
+                    <div
+                        className={`sv-tw-merge-extent-estimate${liveEstimate.tooLarge ? ' sv-tw-merge-extent-estimate--toolarge' : ''}`}
+                        data-testid="merge-extent-live-estimate"
+                    >
+                        <Message msgId="hydrata.anuga.mergeExtentEstimateLabel" msgParams={{size: formatEstimateSize(liveEstimate)}} />
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     render() {
         const { surface, terrains, deriving, deriveError, saving, saveError } = this.props;
-        const { feather_width_m, target_resolution_m, inputs, confirmOpen, sizeEstimate } = this.state;
+        const { title, feather_width_m, target_resolution_m, inputs, confirmOpen, sizeEstimate } = this.state;
         const canDerive = this._canDerive();
         const allUnmodified = inputs.length > 0 && inputs.every(d => d.unmodified);
         return (
             <div className="sv-tw-recipe-builder" data-testid="recipe-builder">
+                {/* TASK-2580 (W2-reaim change 1): Combined surface NAME — ABOVE the
+                    'Merge terrains' layering UI (operator UAT). Wired to
+                    AnalysisSurface.title via the EXISTING twUpdateSurfaceEpic PATCH
+                    path (onUpdate), fired on blur — NOT the derive body (see
+                    handleTitleBlur). The derived terrain's title
+                    (`f'{surface.title} (derived)'`, tasks.py) and the derive
+                    Process label both read this field, so a rename here flows
+                    everywhere with zero BE change. */}
+                <div className="sv-tw-field sv-tw-combined-surface-name-field" data-testid="combined-surface-name-row">
+                    <label htmlFor="combined-surface-name-input" className="sv-tw-label sv-tw-label-normalcase">
+                        <Message msgId="hydrata.anuga.combinedSurfaceNameLabel" />
+                    </label>
+                    <input
+                        id="combined-surface-name-input"
+                        type="text"
+                        className="sv-tw-title-input"
+                        value={title}
+                        onChange={(e) => this.handleTitleChange(e.target.value)}
+                        onBlur={this.handleTitleBlur}
+                        disabled={saving || deriving}
+                        data-testid="combined-surface-name-input"
+                    />
+                </div>
                 {/* TASK-1671: single DEM stack (replaces TWDesignInputPicker + regional terrain picker) */}
                 <TWDemStackPicker
                     terrains={terrains}
@@ -439,6 +650,8 @@ class TWRecipeBuilder extends React.Component {
                         <input type="number" className="sv-tw-number-input" value={target_resolution_m} min="0.1" step="0.1" onChange={(e) => this.handleParam('target_resolution_m', e.target.value)} disabled={saving || deriving} data-testid="target-res-input"/>
                     </div>
                     {/* TASK-1671: Save parameters button REMOVED — params saved atomically on derive */}
+                    {/* TASK-2582 (W2a): 'Set extent' lives directly under Target resolution (m). */}
+                    {this.renderMergeExtentSection()}
                 </div>
                 {/* TASK-1674: tw-error -> shared ErrorStrip. The {saveError && …} guard is
                     kept (rather than leaning on ErrorStrip's self-hide) so the data-testid
@@ -470,13 +683,19 @@ class TWRecipeBuilder extends React.Component {
                         </div>
                     )}
                 </div>
-                {/* TASK-1671: Size-confirm dialog */}
+                {/* TASK-1671: Size-confirm dialog.
+                    TASK-2580 (W2-reaim change 2): the wrapping ref is the
+                    too-small-viewport / previously-pinned-height scrollIntoView
+                    fallback (componentDidUpdate above) — the CSS growth
+                    (--confirm-open) handles the common case. */}
                 {confirmOpen && (
-                    <TWDeriveConfirmDialog
-                        sizeEstimate={sizeEstimate}
-                        onConfirm={this.handleConfirmDerive}
-                        onCancel={this.handleCancelDerive}
-                    />
+                    <div ref={(el) => { this._confirmBoxEl = el; }}>
+                        <TWDeriveConfirmDialog
+                            sizeEstimate={sizeEstimate}
+                            onConfirm={this.handleConfirmDerive}
+                            onCancel={this.handleCancelDerive}
+                        />
+                    </div>
                 )}
                 <TWSeamQAPanel enforcementLog={surface.enforcement_log}/>
             </div>
@@ -496,6 +715,9 @@ class TWRecipeBuilder extends React.Component {
 export {
     TW_PARAM_DEFAULTS,
     estimateOutputSize,
+    // TASK-2582 (W2a): Merge extent — live output estimate + summary formatting.
+    formatEstimateSize,
+    mergeExtentDimsKm,
     TWStaleBadge,
     TWSeamQAPanel,
     TWDemStackPicker,

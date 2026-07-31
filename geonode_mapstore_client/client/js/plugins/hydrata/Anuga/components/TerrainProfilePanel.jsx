@@ -27,6 +27,15 @@
  *
  * Mounted at the container level (like TerrainBboxPanel) so closing the Inputs
  * menu can't unmount it mid-draw; self-gates on profilePanelVisible.
+ *
+ * TASK-2585 (epic 2580 W2 UAT round 3) — operator ask: "make the whole panel
+ * re-sizable and movable". The panel now rides the shared MovablePanel
+ * primitive (drag by header, native corner resize, position/size persisted
+ * per panelId 'crossSectionProfile' on the anuga ui slice) — the SAME
+ * primitive TerrainBboxPanel/MergeTerrainsPanel/DemRampLegend already use.
+ * See renderChart()'s ResizeObserver wiring for how the Plotly chart stays in
+ * sync with a resized panel (react-plotly's own `useResizeHandler` only
+ * listens for a WINDOW resize, which a panel-internal drag never fires).
  */
 import React from 'react';
 import { connect } from 'react-redux';
@@ -36,7 +45,10 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import PlotlyChart from '@mapstore/framework/components/charts/PlotlyChart';
 import { colorToRgbaStr } from '../../../../../MapStore2/web/client/utils/ColorUtils';
-import { PanelHeader } from '../../SimpleView/components/primitives';
+// TASK-2585 (W2 UAT round 3) — the panel now rides the shared draggable +
+// resizable floating-panel primitive (drag/resize + per-panelId persistence)
+// instead of the fixed right-docked PanelHeader/footer shell below.
+import MovablePanel from '../../shared/components/MovablePanel';
 import {
     setProfilePanelVisible,
     startProfileDraw,
@@ -48,7 +60,10 @@ import {
     // this component already exposes (mapDispatchToProps below).
     clearProfileLine as clearProfileLineAction,
     toggleCheckedTerrain,
-    toggleCheckedScenario
+    toggleCheckedScenario,
+    // TASK-2585 (W2 UAT round 3) — persists the MovablePanel position/size
+    // for this panel (same action every other MovablePanel consumer uses).
+    setMovablePanelState
 } from '../actionsAnuga';
 import { hasDemReady } from '../epics/cursorElevationEpic';
 import {
@@ -140,18 +155,77 @@ export function computeYRange(dataTraces, opts) {
 // that SAME stable-checked-order, so a trace's index within its own role
 // subset (computed below in buildCrossSectionData) IS its colour slot — no
 // second lookup needed to keep swatch-colour === trace-colour (AC1).
-export const TERRAIN_PALETTE = ['#B89968', '#D08770', '#A3BE8C'];
-export const WATER_PALETTE = ['#5BC0FF', '#38B2A3', '#8C9BFF'];
-const TERRAIN_FILL_ALPHA = 0.30;
-const WATER_FILL_ALPHA = 0.25;
+// TASK-2585 (epic 2580 W2 UAT round 2) — operator ask: "increase the breadth
+// of the terrain and water colour palettes, the contrast is very hard to
+// read right now. Stronger colours...". The original 3 slots per family sat
+// within a narrow ~30pt hue band at pastel saturation/lightness (36-50% sat),
+// so adjacent slots read as near-identical at a glance. Each family's 3 slots
+// now span a WIDE hue + lightness range at higher saturation (rust / ochre-
+// gold / deep olive for terrain; strong blue / teal / indigo for water) while
+// staying inside its family's character (earthy vs watery) — no logic here
+// changed, only these six hex values (+ the fill alpha below).
+export const TERRAIN_PALETTE = ['#AF491D', '#CC9719', '#45762D'];
+export const WATER_PALETTE = ['#006EB2', '#07A297', '#1B24DA'];
+// TASK-2585 — one shared alpha for both families' fills (operator ask: "30%
+// opacity so they read better when on top of each other too"); previously
+// TERRAIN_FILL_ALPHA=0.30 / WATER_FILL_ALPHA=0.25 (unused while fill was
+// disabled) — unified since the operator asked for one consistent figure.
+const CROSS_SECTION_FILL_ALPHA = 0.30;
+// TASK-2585 (epic 2580 W2 UAT round 3) — operator ask: "The lines in the
+// actual graph should be 0.7 opacity." Applies ONLY to the plotted chart
+// line STROKES (terrainLineColor/waterLineColor below) — the picker/legend
+// swatches stay FULL-STRENGTH solid (terrainColor/waterColor, unchanged;
+// they must stay maximally legible as the chart's legend, LOCKED decision
+// #5) — only the in-chart lines soften.
+const CROSS_SECTION_LINE_ALPHA = 0.7;
 
-// TASK-2269 (epic 2249 W5) — the terrain/water area FILL is disabled for now
+// TASK-2269 (epic 2249 W5) — the terrain/water area FILL was disabled
 // (operator UAT 2026-07-14: "the shading is not working properly, it extended
 // off the graph — drop it for now until the rest is sorted"; the 'tozeroy'
 // terrain fill spilled below the relief-clamped y-axis). The fill-SELECTION
-// logic in buildCrossSectionData is preserved intact and re-enables by flipping
-// this flag; the TASK-2273 water<terrain mask makes re-enabling artefact-free.
+// logic in buildCrossSectionData was preserved intact behind this flag, and
+// the TASK-2273 water<terrain mask (below) was written specifically to make
+// re-enabling artefact-free.
+// TASK-2585 (epic 2580 W2 UAT round 2) — briefly RE-ENABLED at 30% opacity;
+// TASK-2585 (round 3, operator UAT live on the wider palettes) — REVERTED
+// back OFF ("remove the shaded fill area"). Back to false, same as the
+// original W5 disable — the fill-SELECTION logic + the opt-in escape hatch
+// (`opts.enableFill`, buildCrossSectionData below) are UNCHANGED, so a future
+// pass can re-enable with zero rework, same as last time.
 export const CROSS_SECTION_FILL_ENABLED = false;
+
+/**
+ * TASK-2577 (gap in TASK-2572) — does the STORED chart (the `traces` array
+ * from the last draw, profileTraces in redux) reference a terrain that has
+ * SINCE become superseded (a datum-shift conversion stamps
+ * metadata.superseded_by, TASK-2326/2327 — same predicate as
+ * getTerrainPickerRows/terrainEpics.js's supersededLayerNames)?
+ *
+ * The chart is sample-on-draw BY DESIGN (traces are stored at END_DRAWING,
+ * TASK-2261/2262) — it never live-resamples — so a conversion that happens
+ * AFTER a line was drawn leaves the plotted DEM trace silently stale (still
+ * showing the pre-conversion ellipsoid elevation) with nothing on screen
+ * saying so. This surfaces that staleness as a hint; it does not touch the
+ * chart data itself (display-only, same policy as
+ * supersededTerrainVisibilityEpic — never persists supersede state).
+ *
+ * `terrainResources` is the RAW state.anuga.resources.terrain list — NOT
+ * getTerrainPickerRows, which already excludes superseded rows and so could
+ * never detect one. Clears itself on the next redraw with no extra
+ * bookkeeping: profileEndDrawingEpic builds `traces` from
+ * getTerrainPickerRows (TASK-2577), which already excludes superseded
+ * terrains, so a fresh draw can never reference one again.
+ */
+export function hasSupersededTraceTerrain(traces, terrainResources) {
+    if (!Array.isArray(traces) || traces.length === 0) return false;
+    const supersededIds = new Set(
+        (terrainResources || [])
+            .filter(t => t && t.metadata && t.metadata.superseded_by)
+            .map(t => t.id)
+    );
+    if (supersededIds.size === 0) return false;
+    return traces.some(t => t && t.role === 'dem' && supersededIds.has(t.terrainId));
+}
 
 /**
  * TASK-2262 — the checked-in-picker-list-order slot for EVERY row in `rows`,
@@ -210,13 +284,25 @@ export function terrainColor(slot) {
 // (ColorUtils.js, tinycolor-backed) — reuse the framework's colour-parsing
 // rather than hand-rolling a #rrggbb regex.
 export function terrainFillColor(slot) {
-    return colorToRgbaStr(terrainColor(slot), TERRAIN_FILL_ALPHA);
+    return colorToRgbaStr(terrainColor(slot), CROSS_SECTION_FILL_ALPHA);
+}
+// TASK-2585 (W2 UAT round 3) — the CHART LINE stroke, at 0.7 alpha. Same
+// hex->rgba helper as terrainFillColor above, different alpha constant. The
+// picker swatch keeps calling terrainColor() (full strength) directly — this
+// is only for the line drawn inside buildCrossSectionData.
+export function terrainLineColor(slot) {
+    return colorToRgbaStr(terrainColor(slot), CROSS_SECTION_LINE_ALPHA);
 }
 export function waterColor(slot) {
     return WATER_PALETTE[slot] || WATER_PALETTE[WATER_PALETTE.length - 1];
 }
 export function waterFillColor(slot) {
-    return colorToRgbaStr(waterColor(slot), WATER_FILL_ALPHA);
+    return colorToRgbaStr(waterColor(slot), CROSS_SECTION_FILL_ALPHA);
+}
+// TASK-2585 (W2 UAT round 3) — the CHART LINE stroke, at 0.7 alpha (see
+// terrainLineColor above).
+export function waterLineColor(slot) {
+    return colorToRgbaStr(waterColor(slot), CROSS_SECTION_LINE_ALPHA);
 }
 
 /**
@@ -267,9 +353,11 @@ export function buildCrossSectionData(samples, traces, opts) {
     if (demTraces.length === 0) return [];
     const stageTraces = traces.filter(t => t && t.role === 'stage');
     const scenarioTerrainById = (opts && opts.scenarioTerrainById) || {};
-    // TASK-2269 — the fill is disabled by default (module constant); an explicit
-    // opts.enableFill overrides it so the preserved fill-selection logic stays
-    // unit-testable for a safe future re-enable.
+    // The module constant (CROSS_SECTION_FILL_ENABLED) sets the default — OFF
+    // (TASK-2269, reverted again by TASK-2585 round 3 after a brief round-2
+    // re-enable); an explicit opts.enableFill overrides it either way so the
+    // fill-selection logic below stays unit-testable regardless of the
+    // current default.
     const fillEnabled = (opts && Object.prototype.hasOwnProperty.call(opts, 'enableFill'))
         ? !!opts.enableFill
         : CROSS_SECTION_FILL_ENABLED;
@@ -335,10 +423,13 @@ export function buildCrossSectionData(samples, traces, opts) {
             type: 'scatter',
             mode: 'lines',
             connectgaps: false,
-            line: { color: terrainColor(i), width: 2 },
+            // TASK-2585 (W2 UAT round 3) — the line STROKE renders at 0.7
+            // alpha (terrainLineColor); the fillcolor below (when enabled)
+            // stays at its own 30% alpha (terrainFillColor) — unrelated knobs.
+            line: { color: terrainLineColor(i), width: 2 },
             // Only slot-1 (i===0) is a filled area — slots 2-3 are lines.
-            // TASK-2269: the fill is gated OFF for now (lines only) but the
-            // selection logic stays so it re-enables by flipping the flag.
+            // TASK-2585: fillEnabled defaults OFF again (round 3 revert); the
+            // selection logic (which slot fills) is unchanged either way.
             ...(i === 0 && fillEnabled ? { fill: 'tozeroy', fillcolor: terrainFillColor(i) } : {})
         });
         // Immediately after slot-1, splice in the filling water (if any) so
@@ -353,12 +444,13 @@ export function buildCrossSectionData(samples, traces, opts) {
                     name: fillingStage.waterLabel || fillingStage.label || 'Water surface',
                     type: 'scatter',
                     mode: 'lines',
-                    // TASK-2269: fill gated OFF for now; TASK-2273 mask keeps the
-                    // water from ever sitting below terrain so re-enabling 'tonexty'
+                    // TASK-2585: fillEnabled defaults OFF again (round 3 revert);
+                    // when a caller opts in the TASK-2273 mask keeps the water
+                    // from ever sitting below terrain so this 'tonexty' fill
                     // stays artefact-free.
                     ...(fillEnabled ? { fill: 'tonexty', fillcolor: waterFillColor(0) } : {}),
                     connectgaps: false,
-                    line: { color: waterColor(0), width: 2 }
+                    line: { color: waterLineColor(0), width: 2 }
                 });
             }
         }
@@ -377,10 +469,48 @@ export function buildCrossSectionData(samples, traces, opts) {
             type: 'scatter',
             mode: 'lines',
             connectgaps: false,
-            line: { color: waterColor(j), width: 2 }
+            line: { color: waterLineColor(j), width: 2 }
         });
     });
     return data;
+}
+
+// TASK-2585 (epic 2580 W2 UAT round 3) — MovablePanel panelId; persisted
+// position/size lives at state.anuga.ui.movablePanels[CROSS_SECTION_PANEL_ID]
+// (same convention as terrainBbox / mergeTerrains / demRampLegend).
+export const CROSS_SECTION_PANEL_ID = 'crossSectionProfile';
+
+// The panel's old CSS spot was right-docked (right:20px, base
+// .simple-view-panel min-width:500px, top: var(--sv-panel-top, 65px) — see
+// anuga.css). MovablePanel positions via a translate offset from the
+// viewport's top-left, so this mimics that same on-screen spot for the
+// FIRST open (matches defaultBboxPosition/defaultLegendPosition's own
+// precedent in terrainBboxPanel.js / DemRampLegend.js); MovablePanel clamps
+// it back on-screen anyway once the user actually drags it. Width (500) must
+// match the CSS width rule below (.sv-profile-panel).
+const DEFAULT_PROFILE_PANEL_WIDTH = 500;
+function defaultProfilePanelPosition() {
+    if (typeof window === 'undefined') return { x: 20, y: 65 };
+    return { x: Math.max(20, window.innerWidth - DEFAULT_PROFILE_PANEL_WIDTH - 20), y: 65 };
+}
+
+// TASK-2585 (W2 UAT round 3, tweak 3) — the panel is now resizable
+// (MovablePanel's native CSS corner-resize handle), but PlotlyChart's own
+// `useResizeHandler` prop (react-plotly.js factory.js) only reacts to a
+// WINDOW 'resize' event — a panel-internal drag never fires one, so the
+// chart would otherwise stay frozen at its mount-time pixel size while the
+// panel around it grows/shrinks (the explicit fail case the acceptance
+// criteria rules out: "a resized panel with a frozen chart is a fail").
+// TerrainProfilePanelClass wires a ResizeObserver on the chart's own
+// container (see attachChartResizeObserver below) and calls this on every
+// observed size change — it synthesises a window 'resize' event so the
+// EXISTING useResizeHandler wiring calls Plotly.Plots.resize() with no new
+// Plotly import needed here (config={{responsive:true}} alone does not
+// auto-resize on a container change in this bundled plotly.js build — no
+// ResizeObserver reference exists anywhere in it).
+export function triggerChartReflow() {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    window.dispatchEvent(new Event('resize'));
 }
 
 export class TerrainProfilePanelClass extends React.Component {
@@ -402,7 +532,15 @@ export class TerrainProfilePanelClass extends React.Component {
         checkedTerrainIds: PropTypes.array,
         checkedScenarioIds: PropTypes.array,
         toggleCheckedTerrain: PropTypes.func,
-        toggleCheckedScenario: PropTypes.func
+        toggleCheckedScenario: PropTypes.func,
+        // TASK-2577 — RAW terrain resources (not picker rows, which already
+        // exclude superseded terrains) so the stored-chart staleness hint
+        // can detect one.
+        terrainResources: PropTypes.array,
+        // TASK-2585 (W2 UAT round 3) — persisted MovablePanel position/size
+        // + its setter (same shape as terrainBboxPanel.js/MergeTerrainsPanel).
+        panelState: PropTypes.object,
+        onPanelStateChange: PropTypes.func
     };
 
     static defaultProps = {
@@ -410,11 +548,57 @@ export class TerrainProfilePanelClass extends React.Component {
         scenarioRows: [],
         checkedTerrainIds: [],
         checkedScenarioIds: [],
+        terrainResources: [],
         clearProfile: () => {},
         clearProfileLine: () => {},
         toggleCheckedTerrain: () => {},
-        toggleCheckedScenario: () => {}
+        toggleCheckedScenario: () => {},
+        onPanelStateChange: () => {}
     };
+
+    // TASK-2585 (W2 UAT round 3) — attach/detach the chart ResizeObserver on
+    // mount/update/unmount. See attachChartResizeObserver's own doc for why
+    // this is needed at all (react-plotly's useResizeHandler only hears a
+    // WINDOW resize).
+    componentDidMount() {
+        this.syncChartResizeObserver();
+    }
+
+    componentDidUpdate() {
+        this.syncChartResizeObserver();
+    }
+
+    componentWillUnmount() {
+        this.detachChartResizeObserver();
+    }
+
+    // Re-sync the observer to whatever DOM node is CURRENTLY the chart
+    // container (renderChart() returns null — no container at all — until
+    // there is data to plot, and a Clear/redraw can swap it out for a fresh
+    // node). A no-op when already wired to the same element.
+    syncChartResizeObserver() {
+        const el = this.chartContainerEl;
+        if (!el) {
+            this.detachChartResizeObserver();
+            return;
+        }
+        if (this._chartResizeObserverEl === el) return;
+        this.detachChartResizeObserver();
+        // Guarded (not every test/older-browser environment has it) — no
+        // reflow-on-resize wiring rather than a crash when it's absent.
+        if (typeof window === 'undefined' || typeof window.ResizeObserver === 'undefined') return;
+        this._chartResizeObserver = new window.ResizeObserver(() => triggerChartReflow());
+        this._chartResizeObserver.observe(el);
+        this._chartResizeObserverEl = el;
+    }
+
+    detachChartResizeObserver() {
+        if (this._chartResizeObserver) {
+            this._chartResizeObserver.disconnect();
+        }
+        this._chartResizeObserver = null;
+        this._chartResizeObserverEl = null;
+    }
 
     handleClose = () => {
         this.props.setProfilePanelVisible(false);
@@ -612,7 +796,17 @@ export class TerrainProfilePanelClass extends React.Component {
         };
         const layout = { ...CROSS_SECTION_LAYOUT, xaxis, yaxis };
         return (
-            <div className="sv-profile-chart" data-testid="profile-chart" style={{ width: '100%', height: 240 }}>
+            <div
+                className="sv-profile-chart"
+                data-testid="profile-chart"
+                // TASK-2585 (W2 UAT round 3) — ref feeds syncChartResizeObserver
+                // (componentDidMount/componentDidUpdate above); flex:1 1 auto
+                // (anuga.css) lets this container GROW past its 240px basis
+                // when the panel is resized taller, and the ResizeObserver then
+                // tells Plotly to reflow to whatever size this ends up at.
+                ref={(el) => { this.chartContainerEl = el; }}
+                style={{ width: '100%', height: 240 }}
+            >
                 <PlotlyChart
                     data={data}
                     layout={layout}
@@ -699,6 +893,21 @@ export class TerrainProfilePanelClass extends React.Component {
                         <Message msgId="hydrata.anuga.profileEmpty" />
                     </div> : null
                 }
+                {/* TASK-2577 — the chart is sample-on-draw (never live-
+                    resampled); if a stored trace's terrain has since become
+                    superseded, say so rather than silently plotting a DEM
+                    the rest of the UI no longer considers current. Clears
+                    on the next redraw with no extra state (see
+                    hasSupersededTraceTerrain doc). */}
+                {hasSamples && hasSupersededTraceTerrain(this.props.traces, this.props.terrainResources) ?
+                    <div
+                        className="alert alert-warning sv-profile-terrain-superseded"
+                        data-testid="profile-terrain-superseded-hint"
+                        style={{ padding: '6px 10px', marginBottom: 10 }}
+                    >
+                        <Message msgId="hydrata.anuga.crossSectionTerrainSupersededHint" />
+                    </div> : null
+                }
                 {this.renderChart()}
             </React.Fragment>
         );
@@ -706,31 +915,35 @@ export class TerrainProfilePanelClass extends React.Component {
 
     render() {
         if (!this.props.visible) return null;
+        const persist = this.props.onPanelStateChange || (() => {});
         return (
-            <div className={'simple-view-panel sv-profile-panel'} data-testid="profile-panel">
-                {/* TASK-2274 (live-verified 2026-07-14): extraClassName was
-                    "h4 sv-legend-heading" — the "h4" Bootstrap heading class
-                    contributes ONLY its default margin:8px 0 here (the title's
-                    font-size/weight are already set by PanelHeader's own inline
-                    titleStyle, which always wins over a class), and that
-                    margin pushes the WHOLE header (the close chip's
-                    position:relative containing block) down 8px — the DEM
-                    legend's PanelHeader usage (MovablePanel, extraClassName
-                    "sv-movable-panel-header", no "h4") carries no such margin,
-                    which is why the close chip sat visibly further from the
-                    panel's top edge here. Dropping "h4" equalises the two. */}
-                <PanelHeader
-                    extraClassName="sv-legend-heading"
-                    title={<Message msgId="hydrata.anuga.crossSectionPanelTitle" />}
-                    onClose={this.handleClose}
-                />
+            // TASK-2585 (epic 2580 W2 UAT round 3) — MovablePanel replaces the
+            // fixed right-docked PanelHeader/footer shell: drag by header,
+            // native corner resize, position/size persisted per panelId
+            // 'crossSectionProfile' (same convention as TerrainBboxPanel /
+            // MergeTerrainsPanel / DemRampLegend's FloatingDemLegendPanel —
+            // see those for the sibling idiom this mirrors). defaultPosition
+            // mimics the old right-docked spot so the panel looks unchanged
+            // until the user actually drags/resizes it.
+            <MovablePanel
+                panelId={CROSS_SECTION_PANEL_ID}
+                className="sv-profile-panel"
+                title={<Message msgId="hydrata.anuga.crossSectionPanelTitle" />}
+                onClose={this.handleClose}
+                position={this.props.panelState?.position}
+                size={this.props.panelState?.size}
+                defaultPosition={defaultProfilePanelPosition()}
+                onMove={(position) => persist(CROSS_SECTION_PANEL_ID, { position })}
+                onResize={(size) => persist(CROSS_SECTION_PANEL_ID, { size })}
+            >
                 {/* TASK-2274 — sv-profile-body (anuga.css) owns its own
                     padding + the flex/overflow rules that make it scroll
-                    independently within the panel's max-height, now that
-                    the outer .sv-profile-panel padding is neutralised
-                    (matches the DEM legend MovablePanel's zero-outer-padding
-                    treatment — see movablePanel.css). */}
-                <div className="sv-profile-body">
+                    independently within the panel's max-height. TASK-2585 —
+                    now nested inside MovablePanel's own .sv-movable-panel-body
+                    (which anuga.css turns into a flex column scoped to THIS
+                    panel only, so the chart below can flex-grow into a
+                    resize) rather than owning the panel's outer chrome. */}
+                <div data-testid="profile-panel" className="sv-profile-body">
                     {this.renderBody()}
                 </div>
                 <div className={'simple-view-panel-footer'}>
@@ -738,7 +951,7 @@ export class TerrainProfilePanelClass extends React.Component {
                         <Message msgId="hydrata.anuga.profileCancel" />
                     </Button>
                 </div>
-            </div>
+            </MovablePanel>
         );
     }
 }
@@ -763,7 +976,13 @@ const mapStateToProps = (state) => ({
     terrainRows: getTerrainPickerRows(state),
     scenarioRows: getScenarioPickerRows(state),
     checkedTerrainIds: state?.anuga?.ui?.checkedTerrainIds || [],
-    checkedScenarioIds: state?.anuga?.ui?.checkedScenarioIds || []
+    checkedScenarioIds: state?.anuga?.ui?.checkedScenarioIds || [],
+    // TASK-2577 — RAW list (not terrainRows above, which already excludes
+    // superseded rows) so hasSupersededTraceTerrain can detect one.
+    terrainResources: state?.anuga?.resources?.terrain || [],
+    // TASK-2585 (W2 UAT round 3) — persisted MovablePanel position/size for
+    // this panelId (same selector shape as the other MovablePanel consumers).
+    panelState: state?.anuga?.ui?.movablePanels?.[CROSS_SECTION_PANEL_ID]
 });
 
 const mapDispatchToProps = (dispatch) => ({
@@ -778,7 +997,10 @@ const mapDispatchToProps = (dispatch) => ({
     // the current map draw before wiping anything.
     clearProfileLine: () => dispatch(clearProfileLineAction()),
     toggleCheckedTerrain: (id) => dispatch(toggleCheckedTerrain(id)),
-    toggleCheckedScenario: (id) => dispatch(toggleCheckedScenario(id))
+    toggleCheckedScenario: (id) => dispatch(toggleCheckedScenario(id)),
+    // TASK-2585 (W2 UAT round 3) — persist the MovablePanel position/size
+    // per panelId (same action every other MovablePanel consumer uses).
+    onPanelStateChange: (panelId, patch) => dispatch(setMovablePanelState(panelId, patch))
 });
 
 export const TerrainProfilePanel = connect(mapStateToProps, mapDispatchToProps)(TerrainProfilePanelClass);

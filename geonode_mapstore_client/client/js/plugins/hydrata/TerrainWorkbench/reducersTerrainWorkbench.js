@@ -40,7 +40,9 @@ import {
     TW_DERIVE_SUCCESS,
     TW_DERIVE_ERROR,
     TW_DERIVE_COMPLETE,
-    TW_DERIVE_COMPLETE_ERROR
+    TW_DERIVE_COMPLETE_ERROR,
+    TW_SET_MERGE_EXTENT_DRAWING,
+    TW_SET_MERGE_EXTENT
 } from './actionsTerrainWorkbench';
 
 const defaultState = {
@@ -56,7 +58,11 @@ const defaultState = {
     saveError: null,
     derivingProcessId: null,
     deriving: false,
-    deriveError: null
+    deriveError: null,
+    // TASK-2582 (W2a) — Merge extent: client-side-only draw state.
+    // mergeExtent: WGS84 [minLon, minLat, maxLon, maxLat] | null (null = full union).
+    mergeExtentDrawing: false,
+    mergeExtent: null
 };
 
 /** Merge an updated surface into the surfaces list by id. */
@@ -147,7 +153,11 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
     case TW_DERIVE:
         return { ...state, deriving: true, deriveError: null, derivingProcessId: null };
     case TW_DERIVE_SUCCESS:
-        return { ...state, deriving: true, derivingProcessId: action.processId };
+        // UAT 2026-07-30: derive accepted (202 + process_id) — the TaskMonitor
+        // owns progress from here, so close the Combined-surface panel. The
+        // ERROR case deliberately keeps visible untouched: the panel hosts the
+        // derive ErrorStrip and must stay open to show a failure.
+        return { ...state, deriving: true, derivingProcessId: action.processId, visible: false };
     case TW_DERIVE_ERROR:
         return { ...state, deriving: false, deriveError: action.error };
     case TW_DERIVE_COMPLETE:
@@ -159,6 +169,13 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
         };
     case TW_DERIVE_COMPLETE_ERROR:
         return { ...state, deriving: false, deriveError: action.error };
+
+    // ── Merge extent (TASK-2582, W2a) ───────────────────────────────────
+    case TW_SET_MERGE_EXTENT_DRAWING:
+        return { ...state, mergeExtentDrawing: action.active };
+    case TW_SET_MERGE_EXTENT:
+        // Setting (drawn) OR clearing (Clear -> null) both end the draw.
+        return { ...state, mergeExtent: action.extent, mergeExtentDrawing: false };
 
     default:
         return state;

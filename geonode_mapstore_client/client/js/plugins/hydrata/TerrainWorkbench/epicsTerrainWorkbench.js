@@ -14,10 +14,18 @@
  *   twSetDesignInputsEpic   — kept for backward compat (no longer dispatched by UI)
  *   twDeriveEpic            — POST /derive/ with atomic body → store process_id
  *   twDeriveCompleteEpic    — watch TaskMonitor, on complete re-fetch surface + addLayer
+ *   twMergeExtentEndDrawingEpic — TASK-2582 (W2a): owner-isolated ('merge-extent')
+ *                                 rectangle-draw lifecycle for the Merge extent.
  */
 import Rx from 'rxjs';
 import { show } from '../../../../MapStore2/web/client/actions/notifications';
+// TASK-2582 (W2a) — Merge extent draw lifecycle: owner-isolated rectangle
+// draw, mirroring terrainBboxEpic.js's terrain-bbox pattern under a NEW owner.
+import { END_DRAWING, changeDrawingStatus } from '../../../../MapStore2/web/client/actions/draw';
 import { getProjectId } from '../Anuga/selectorsAnuga';
+// TASK-2582: reuse (import, don't copy-paste) the shared bbox-extraction
+// helper terrainBboxEndDrawingEpic already uses for its own owner.
+import { extractBboxFromDrawAction } from '../Anuga/epics/terrainBboxEpic';
 // TASK-1649 (W1.5): open Tasks Panel when derive starts.
 import { toggleTaskMonitorPanel } from '../TaskMonitor/actionsTaskMonitor';
 // TASK-1804: analytics instrumentation for terrain merge/conform lifecycle.
@@ -46,7 +54,10 @@ import {
     twDeriveSuccess,
     twDeriveError,
     twDeriveComplete,
-    twDeriveCompleteError
+    twDeriveCompleteError,
+    // TASK-2582 (W2a) — Merge extent draw lifecycle.
+    setMergeExtentDrawing,
+    setMergeExtent
 } from './actionsTerrainWorkbench';
 import {
     listTerrains,
@@ -419,4 +430,36 @@ export const twDeriveCompleteEpic = (action$, store) =>
                     }
                     return Rx.Observable.empty();
                 });
+        });
+
+// ── Merge extent draw lifecycle (TASK-2582, W2a) ────────────────────────────
+//
+// 'Set extent' starts a rectangle draw with owner='merge-extent' (a NEW,
+// isolated owner — see MergeTerrainsPanel.js's mapDispatchToProps). On
+// END_DRAWING for this owner: extract + normalise the bbox via the SHARED
+// extractBboxFromDrawAction helper (imported from terrainBboxEpic.js — never
+// copy-pasted), reset the draw interaction (mirrors terrainBboxEpic.js's
+// TERRAIN_BBOX_DRAW_RESET precedent so the 'merge-extent' owner never leaks a
+// stale BBOX drawMethod into the next tool), then store the WGS84 extent.
+// An unreadable draw (extractBboxFromDrawAction returns null) just resets the
+// drawing flag — no draw-state leak, no error surfaced (the user re-clicks
+// 'Set extent' to retry, mirroring the terrain-bbox 'Cancel' cleanliness bar).
+const MERGE_EXTENT_DRAW_RESET = changeDrawingStatus('stop', '', 'merge-extent', [], {});
+
+export const twMergeExtentEndDrawingEpic = (action$) =>
+    action$
+        .ofType(END_DRAWING)
+        .filter((action) => action.owner === 'merge-extent')
+        .switchMap((action) => {
+            const bbox = extractBboxFromDrawAction(action);
+            if (!bbox) {
+                return Rx.Observable.of(
+                    MERGE_EXTENT_DRAW_RESET,
+                    setMergeExtentDrawing(false)
+                );
+            }
+            return Rx.Observable.of(
+                MERGE_EXTENT_DRAW_RESET,
+                setMergeExtent(bbox)
+            );
         });

@@ -535,7 +535,10 @@ describe('Polling Epics', () => {
                     // V2P-714 sibling-orphan: terrain_id must be set + the
                     // terrain row must be in the loaded list to classify
                     // as 'present' (not orphaned).
-                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 99 }] } }
+                    // TASK-2579: status/gn_layer_name set — a fresh (publish-
+                    // complete) row, so orphanStatus classifies 'present'
+                    // immediately with no refresh round-trip.
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 99, status: 'ready', gn_layer_name: 'geonode:ele_99_dem' }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -598,7 +601,8 @@ describe('Polling Epics', () => {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [], groups: [] },
-                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 100 }] } }
+                    // TASK-2579: fresh row — publish-complete, no refresh needed.
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 100, status: 'ready', gn_layer_name: 'geonode:ele_first_dem' }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -848,7 +852,8 @@ describe('Polling Epics', () => {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [], groups: [] },
-                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 11 }, { id: 12 }] } }
+                    // TASK-2579: id:12 (the candidate) is fresh — publish-complete.
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 11 }, { id: 12, status: 'ready', gn_layer_name: 'geonode:ele_12_dem' }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -923,7 +928,8 @@ describe('Polling Epics', () => {
             // 'unknown' classification: deferred — nothing emitted yet.
             const addsAfterTick1 = emitted.filter(a => a.type === 'ADD_LAYER').length;
             // Now state loads in with the matching terrain → re-tick.
-            anugaState = { resources: { terrainLoaded: true, terrain: [{ id: 99 }] } };
+            // TASK-2579: fresh (publish-complete) row once loaded.
+            anugaState = { resources: { terrainLoaded: true, terrain: [{ id: 99, status: 'ready', gn_layer_name: 'geonode:ele_99_dem' }] } };
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
             try {
                 expect(addsAfterTick1).toBe(0);
@@ -1251,6 +1257,171 @@ describe('Polling Epics', () => {
             });
         });
 
+        // TASK-2579 (follow-up to TASK-2565) — a terrain_create completion whose
+        // matched terrain row EXISTS but is present-but-STALE (born
+        // status='creating' at derive start, fetched mid-derive) must be
+        // treated like the absent-row case: defer + force ONE terrain-list
+        // refresh, re-evaluate on SET_ANUGA_TERRAIN_DATA. Without this, the
+        // combined-surface publish's layers get addLayer'd against a stale
+        // model and _buildTerrainGroups can't group them (they land as an
+        // ungrouped stand-alone pickup instead of nested in their own group).
+        describe('taskCompleteLayerEpic — present-but-stale terrain row (TASK-2579)', () => {
+            it('AC1: a present-but-stale row (status=creating, no gn_layer_name) triggers exactly ONE refresh, then regroups once SET_ANUGA_TERRAIN_DATA delivers a fresh row', (done) => {
+                let resources = { terrainLoaded: true, terrain: [{ id: 447, status: 'creating', gn_layer_name: null }] };
+                const store = {
+                    getState: () => ({
+                        taskMonitor: { processes: { byId: {} } },
+                        layers: { flat: [], groups: [] },
+                        // No projectId in state → the refresh takes the
+                        // defensive initAnuga() fallback (same convention as
+                        // the other bare-state tests above) rather than an
+                        // axios terrain GET — production refetches only the
+                        // terrain list, but the convergence asserted here
+                        // (ONE refresh, then present-on-freshen) is identical.
+                        anuga: { resources }
+                    })
+                };
+                const { subject, action$ } = liveActions();
+                const emitted = [];
+                const sub = taskCompleteLayerEpic(action$, store)
+                    .subscribe(a => emitted.push(a), err => done(err));
+                const tickProcess = {
+                    id: 'combined-surface-447',
+                    process_type: 'terrain_create',
+                    status: 'complete',
+                    metadata: {
+                        terrain_id: 447,
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_447_utm_dem', type: 'wms', url: '/geoserver/ows' },
+                            { name: 'geonode:ele_447_hillshade_dem', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                };
+                // Tick 1: row found but stale → 'unknown' (NOT 'present') →
+                // no layers yet, but exactly one refresh is requested.
+                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                const addsAfterTick1 = emitted.filter(a => a.type === 'ADD_LAYER').length;
+                const initsAfterTick1 = emitted.filter(a => a.type === INIT_ANUGA).length;
+                // The refresh lands and the row is now publish-complete.
+                resources = { terrainLoaded: true, terrain: [{ id: 447, status: 'ready', gn_layer_name: 'geonode:ele_447_utm_dem' }] };
+                subject.next({ type: SET_ANUGA_TERRAIN_DATA, data: resources.terrain });
+                try {
+                    expect(addsAfterTick1).toBe(0);
+                    // The refresh-then-defer fallback (no projectId in state).
+                    expect(initsAfterTick1).toBe(1);
+                    // Now fresh → 'present' → both layers added, model already
+                    // fresh so _buildTerrainGroups groups them correctly.
+                    const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                    expect(adds.length).toBe(2);
+                    // Total is 2, not a redundant SECOND classification-refresh:
+                    // 1 from tick1's refresh-then-defer fallback above, plus 1
+                    // from buildTerrainAddSequence's OWN unconditional post-add
+                    // initAnuga() (pre-existing behaviour, a05fed73ef 2026-05-01
+                    // — every successful terrain_create completion fires this,
+                    // independent of whether refresh-then-defer ever engaged).
+                    expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(2);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            });
+
+            it('AC2: a fresh row (ready + gn_layer_name) on the FIRST tick dispatches NO redundant refresh', (done) => {
+                const store = {
+                    getState: () => ({
+                        taskMonitor: { processes: { byId: {} } },
+                        layers: { flat: [], groups: [] },
+                        anuga: {
+                            resources: {
+                                terrainLoaded: true,
+                                terrain: [{ id: 448, status: 'ready', gn_layer_name: 'geonode:ele_448_dem' }]
+                            }
+                        }
+                    })
+                };
+                const { subject, action$ } = liveActions();
+                const emitted = [];
+                const sub = taskCompleteLayerEpic(action$, store)
+                    .subscribe(a => emitted.push(a), err => done(err));
+                subject.next({
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 'fresh-448',
+                        process_type: 'terrain_create',
+                        status: 'complete',
+                        metadata: {
+                            terrain_id: 448,
+                            is_first_upload: false,
+                            mapstore_layers: [
+                                { name: 'geonode:ele_448_dem', type: 'wms', url: '/geoserver/ows' }
+                            ]
+                        }
+                    }]
+                });
+                try {
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                    // Decisive 'present' on the very first tick — no EXTRA
+                    // refresh-then-defer fallback was needed. The single
+                    // INIT_ANUGA present is buildTerrainAddSequence's OWN
+                    // unconditional post-add dispatch (pre-existing,
+                    // a05fed73ef 2026-05-01 — fires for every successful
+                    // terrain_create add regardless of this task's gate); a
+                    // redundant SECOND one would mean 'present' was reached
+                    // via the refresh-then-defer path instead of immediately.
+                    expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            });
+
+            it('AC3: loop-guard still terminates when the row NEVER freshens — proceeds present-decisive after exactly one refresh, no infinite re-request', (done) => {
+                let resources = { terrainLoaded: true, terrain: [{ id: 449, status: 'creating', gn_layer_name: null }] };
+                const store = {
+                    getState: () => ({
+                        taskMonitor: { processes: { byId: {} } },
+                        layers: { flat: [], groups: [] },
+                        anuga: { resources }
+                    })
+                };
+                const { subject, action$ } = liveActions();
+                const emitted = [];
+                const sub = taskCompleteLayerEpic(action$, store)
+                    .subscribe(a => emitted.push(a), err => done(err));
+                const tickProcess = {
+                    id: 'never-freshens-449',
+                    process_type: 'terrain_create',
+                    status: 'complete',
+                    metadata: {
+                        terrain_id: 449,
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_449_dem', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                };
+                // Tick 1: stale → 'unknown' → one refresh requested.
+                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                // The re-entry delivers the SAME stale row — it never freshens.
+                subject.next({ type: SET_ANUGA_TERRAIN_DATA, data: resources.terrain });
+                try {
+                    // refreshAttempted already holds this process id from tick 1,
+                    // so tick 2 gives up waiting and classifies 'present'
+                    // (decisive, handled) rather than deferring forever.
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                    // 1 from tick1's refresh-then-defer fallback + 1 from
+                    // buildTerrainAddSequence's own unconditional post-add
+                    // dispatch once 'present' is reached on tick2 (see AC1).
+                    expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(2);
+                    // A third tick (e.g. a later poll) must be a no-op — already
+                    // marked handled, exactly like the true-orphan convergence.
+                    subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                    expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(2);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            });
+        });
 
         it('refetches ONLY the terrain list (not a full initAnuga) on an orphan first-miss when a projectId is set', (done) => {
             // UAT-2026-06-29 finding #1 (option C residual) — the production path
@@ -1712,7 +1883,8 @@ describe('Polling Epics', () => {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [], groups: [] },
-                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 88 }] } }
+                    // TASK-2579: fresh row — publish-complete.
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 88, status: 'ready', gn_layer_name: 'geonode:ele_88_dem' }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -1761,7 +1933,8 @@ describe('Polling Epics', () => {
                     anuga: {
                         resources: {
                             terrainLoaded: true,
-                            terrain: [{ id: 200, styling_mode: 'traditional' }]
+                            // TASK-2579: fresh row (publish-complete) — styling_mode gate under test.
+                            terrain: [{ id: 200, styling_mode: 'traditional', status: 'ready', gn_layer_name: 'geonode:ele_200_dem' }]
                         }
                     }
                 })
@@ -1806,7 +1979,8 @@ describe('Polling Epics', () => {
                     anuga: {
                         resources: {
                             terrainLoaded: true,
-                            terrain: [{ id: 201, styling_mode: 'dynamic' }]
+                            // TASK-2579: fresh row (publish-complete) — styling_mode gate under test.
+                            terrain: [{ id: 201, styling_mode: 'dynamic', status: 'ready', gn_layer_name: 'geonode:ele_201_dem' }]
                         }
                     }
                 })
@@ -1855,7 +2029,8 @@ describe('Polling Epics', () => {
                     anuga: {
                         resources: {
                             terrainLoaded: true,
-                            terrain: [{ id: 999 }] // terrain present but NO styling_mode field
+                            // TASK-2579: fresh row (publish-complete) but NO styling_mode field.
+                            terrain: [{ id: 999, status: 'ready', gn_layer_name: 'geonode:ele_999_dem' }]
                         }
                     }
                 })

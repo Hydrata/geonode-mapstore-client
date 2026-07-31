@@ -1098,6 +1098,146 @@ describe('ANUGA Epics', () => {
                     done();
                 });
         });
+
+        // ─────────────────────────────────────────────────────────────────
+        // TASK-2579 (W2 UAT round 2, operator map 82) — a combined surface
+        // that is re-derived REPUBLISHES under a brand-new Dataset name each
+        // time; the terrain row (14227) stays the SAME id but its
+        // gn_layer_name/gn_layer_hillshade_name move on. The prior
+        // generation's Datasets are NOT deleted server-side, so the generic
+        // ghost probe above resolves 200 and keeps them — this is the
+        // dangling-standalone-row defect. Identity (same live terrain id,
+        // name not among its current alternates) proves staleness without
+        // a probe.
+        // ─────────────────────────────────────────────────────────────────
+        describe('TASK-2579 stale-generation prune', () => {
+            const terrain14227 = {
+                id: 14227,
+                gn_layer_name: 'ele_14227_utm_combined_surface_derived_cog369657659bbd',
+                gn_layer_hillshade_name: 'ele_14227_hillshade_combined_surface_derived_cog44f5819ed1ef'
+            };
+            const currentDem = {
+                id: 'current-dem-uuid',
+                name: 'geonode:ele_14227_utm_combined_surface_derived_cog369657659bbd',
+                group: 'Input Data.Terrain',
+                geonode_id: 9001
+            };
+            const currentHillshade = {
+                id: 'current-hill-uuid',
+                name: 'geonode:ele_14227_hillshade_combined_surface_derived_cog44f5819ed1ef',
+                group: 'Input Data.Terrain',
+                geonode_id: 9002
+            };
+            // An earlier ERRORED generation of the SAME terrain id — this is
+            // the exact pair left dangling on map 82.
+            const staleDem = {
+                id: 'stale-dem-uuid',
+                name: 'geonode:ele_14227_utm_combined_surface_derived_cogb10f6df579a6',
+                group: 'Input Data.Terrain',
+                geonode_id: 9003
+            };
+            const staleHillshade = {
+                id: 'stale-hill-uuid',
+                name: 'geonode:ele_14227_hillshade_combined_surface_derived_cogb10f6df579a6',
+                group: 'Input Data.Terrain',
+                geonode_id: 9004
+            };
+
+            it('removes BOTH stale elevation + hillshade forms with NO network probe, keeps the current generation', (done) => {
+                const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [terrain14227] }]);
+                const emitted = [];
+                pruneOrphanTerrainLayersEpic(action$, storeWith({
+                    terrain: [terrain14227],
+                    flat: [currentDem, currentHillshade, staleDem, staleHillshade]
+                })).subscribe(a => emitted.push(a), done, () => {
+                    // 2 stale layers x (removeNode + removeLayer) + one saveDirectContent
+                    expect(emitted.length).toBe(5);
+                    const removedLayerIds = emitted.filter(a => a.type === REMOVE_LAYER).map(a => a.layerId);
+                    expect(removedLayerIds).toContain('stale-dem-uuid');
+                    expect(removedLayerIds).toContain('stale-hill-uuid');
+                    expect(removedLayerIds).toNotContain('current-dem-uuid');
+                    expect(removedLayerIds).toNotContain('current-hill-uuid');
+                    expect(emitted[emitted.length - 1].type).toBe(GN_SAVE_CONTENT);
+                    // identity alone proves staleness — never hits the Datasets API
+                    expect(mockAxios.history.get.length).toBe(0);
+                    done();
+                });
+            });
+
+            it('self-heals a freshly-loaded saved map already carrying stale rows (operator map 82) once terrain data arrives', (done) => {
+                // Models the reload path: the blob already has the stale pair
+                // baked in from before this fix; SET_ANUGA_TERRAIN_DATA is the
+                // FIRST/only signal that terrain data is now known.
+                const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [terrain14227] }]);
+                const emitted = [];
+                pruneOrphanTerrainLayersEpic(action$, storeWith({
+                    terrain: [terrain14227],
+                    flat: [staleDem, staleHillshade, currentDem, currentHillshade]
+                })).subscribe(a => emitted.push(a), done, () => {
+                    const removedLayerIds = emitted.filter(a => a.type === REMOVE_LAYER).map(a => a.layerId);
+                    expect(removedLayerIds.sort()).toEqual(['stale-dem-uuid', 'stale-hill-uuid'].sort());
+                    expect(emitted.filter(a => a.type === GN_SAVE_CONTENT).length).toBe(1);
+                    done();
+                });
+            });
+
+            it('leaves another live terrain\'s layers and non-terrain-pattern layers untouched', (done) => {
+                const otherLayer = {
+                    id: 'other-live-uuid',
+                    name: 'geonode:ele_510_utm_spa_dcp3_cog',
+                    group: 'Input Data.Terrain',
+                    geonode_id: 9010
+                };
+                const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [terrain14227, liveModel] }]);
+                const emitted = [];
+                pruneOrphanTerrainLayersEpic(action$, storeWith({
+                    terrain: [terrain14227, liveModel],
+                    flat: [currentDem, currentHillshade, staleDem, staleHillshade, otherLayer]
+                })).subscribe(a => emitted.push(a), done, () => {
+                    const removedLayerIds = emitted.filter(a => a.type === REMOVE_LAYER).map(a => a.layerId);
+                    expect(removedLayerIds).toContain('stale-dem-uuid');
+                    expect(removedLayerIds).toContain('stale-hill-uuid');
+                    // 510's own current layer is a different id-prefix entirely
+                    expect(removedLayerIds).toNotContain('other-live-uuid');
+                    expect(removedLayerIds.length).toBe(2);
+                    done();
+                });
+            });
+
+            it('does not prune a mid-derive terrain\'s prior generation before its NEW name is known (falls back to the safe probe)', (done) => {
+                const creatingTerrain = { id: 14227, gn_layer_name: null, gn_layer_hillshade_name: null, status: 'creating' };
+                // The old generation's Dataset is still genuinely live mid-derive.
+                mockAxios.onGet('/api/v2/datasets/9003/').reply(200, { pk: 9003 });
+                mockAxios.onGet('/api/v2/datasets/9004/').reply(200, { pk: 9004 });
+                const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [creatingTerrain] }]);
+                const emitted = [];
+                pruneOrphanTerrainLayersEpic(action$, storeWith({
+                    terrain: [creatingTerrain],
+                    flat: [staleDem, staleHillshade]
+                })).subscribe(a => emitted.push(a), done, () => {
+                    // No live current-name is known yet, so identity cannot decide —
+                    // falls back to the probe path, which correctly keeps a still-
+                    // existing Dataset (200).
+                    expect(emitted.length).toBe(0);
+                    done();
+                });
+            });
+
+            it('is idempotent — re-running over the post-prune state does not re-dispatch (loop-guard)', (done) => {
+                const action$ = mockActions([{ type: SET_ANUGA_TERRAIN_DATA, data: [terrain14227] }]);
+                const emitted = [];
+                // Same state a reducer would produce AFTER the first run's
+                // removeLayer actions have already applied: the stale pair is gone.
+                pruneOrphanTerrainLayersEpic(action$, storeWith({
+                    terrain: [terrain14227],
+                    flat: [currentDem, currentHillshade]
+                })).subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    expect(mockAxios.history.get.length).toBe(0);
+                    done();
+                });
+            });
+        });
     });
 
     // ─────────────────────────────────────────────────────────────────────

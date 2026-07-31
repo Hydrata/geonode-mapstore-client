@@ -65,6 +65,32 @@
     padding: 0;
 }
 
+/* TASK-2580 (W2-reaim change 2) — operator UAT: the Create-click confirm
+ * dialog (TWDeriveConfirmDialog) rendered at the bottom of the fixed-height
+ * scroll area below the fold, forcing a scroll to discover it. While it is
+ * open (MergeTerrainsPanel.js toggles this class via TWRecipeBuilder's
+ * onConfirmOpenChange) let the panel grow further toward the viewport edge —
+ * auto/max-content height (no hardcoded pixel maths on the confirm box
+ * itself), just a taller max-height cap than the steady-state recipe view so
+ * more content fits before the body's own overflow-y:auto has to kick in.
+ * scrollIntoView (recipeBuilderComponents.js componentDidUpdate) is the
+ * fallback for a genuinely too-small viewport, or a panel the user has
+ * already manually resized (native `resize:both`) to a fixed height smaller
+ * than this cap — this CSS bump alone can't help in that case. */
+.simple-view-panel.sv-movable-panel.sv-merge-terrains-panel.sv-merge-terrains-panel--confirm-open {
+    max-height: calc(100vh - 20px);
+}
+
+/* TASK-2580 (W2-reaim change 3b) — 'Set extent' hides the panel (display:none
+ * only — the panel element stays mounted, so TWRecipeBuilder's local recipe
+ * state is never destroyed) so the modeller has an unobstructed map to draw
+ * the extent against. Driven by mergeExtentDrawing (MergeTerrainsPanel.js) —
+ * see its render() comment for why this flag alone is sufficient to also
+ * auto-reshow on every draw-exit path. */
+.simple-view-panel.sv-movable-panel.sv-merge-terrains-panel.sv-merge-terrains-panel--hidden-for-draw {
+    display: none;
+}
+
 /* ── Empty-state hint ──────────────────────────────────────────────────────
  * TASK-1800 (W1.9 UAT r2): the surface LIST chrome (.sv-tw-surface-list /
  * -header / -item / -title / -title-input / -delete and the green .sv-tw-new-btn)
@@ -129,24 +155,42 @@
     border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
 }
 
+/* TASK-2580 (W2-reaim change 1): the Combined surface NAME field
+ * (recipeBuilderComponents.js's TWRecipeBuilder, above the DEM stack) rides
+ * this rule. Gotcha 2 (memory reference-simple-view-panel-css.md /
+ * BUILD-A-PANEL-GUIDE.md): `.msgapi .simple-view-panel input` sits at
+ * specificity (0,3,1) and forces background-color/border/border-radius on
+ * every input inside a simple-view-panel — it OUTRANKS this single-class rule,
+ * so the background/border/radius declarations need !important (the guide's
+ * documented fix) to actually read as the borderless "click to rename"
+ * title-input this was designed as. width:100% + box-sizing let it size
+ * correctly outside a flex parent (the field also stands alone, not only in a
+ * .sv-tw-recipe-header row). */
 .sv-tw-title-input {
     flex: 1;
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
     font-size: 14px;
     font-family: var(--sv-font-family);
     font-weight: 600;
     color: #fff;
-    background: transparent;
-    border: 0;
-    border-bottom: 1px solid transparent;
-    border-radius: 0;
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid transparent !important;
+    border-radius: 0 !important;
     padding: 2px 4px;
 }
 
 .sv-tw-title-input:focus {
     outline: none;
-    border-bottom-color: rgba(255, 255, 255, 0.55);
-    background: transparent;
+    border-bottom-color: rgba(255, 255, 255, 0.55) !important;
+    background: transparent !important;
+}
+
+.sv-tw-title-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .sv-tw-title-input::placeholder {
@@ -346,6 +390,40 @@
 .sv-tw-number-input:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+}
+
+/* ── Merge extent (TASK-2582, W2a) — 'Set extent'/Cancel + summary/Clear +
+ * live output estimate. Sits directly under the Target resolution (m) row
+ * inside .sv-tw-param-grid's parent .sv-tw-params-section. ─────────────────── */
+.sv-tw-merge-extent-section {
+    margin-top: 8px;
+}
+
+.sv-tw-merge-extent-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sv-tw-merge-extent-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
+    color: var(--sv-text);
+}
+
+.sv-tw-merge-extent-estimate {
+    font-size: 11.5px;
+    font-family: var(--sv-font-family);
+    color: var(--sv-text-dim);
+    margin-top: 6px;
+}
+
+.sv-tw-merge-extent-estimate--toolarge {
+    color: var(--sv-text-danger, rgb(244, 185, 183));
 }
 
 /* Secondary "Save" buttons — mirror .sv-anuga-btn-compare (muted blue) */
