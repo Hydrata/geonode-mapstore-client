@@ -1,11 +1,19 @@
+{% comment %}
+TASK-2612: the tracker is served SAME-ORIGIN under the neutral /_t/ prefix
+(an nginx proxy to the Umami box — see geonode-https.j2 in the deploy repo).
+The third-party analytics.hydrata.com hostname is blocklist-shaped, and
+privacy tooling silently dropped real users' sessions. The script derives its
+collect endpoint from its own src, so /_t/api/send rides the same first-party
+prefix — do NOT add data-host-url pointing back at analytics.hydrata.com.
+{% endcomment %}
 {% if job_name == 'hydratabase' %}
-<script async src="https://analytics.hydrata.com/script.js" data-website-id="cef30b67-8b37-4d4c-b071-e76845f1237c"></script>
+<script async src="/_t/script.js" data-website-id="cef30b67-8b37-4d4c-b071-e76845f1237c"></script>
 {% elif job_name == 'swamm' %}
-<script async src="https://analytics.hydrata.com/script.js" data-website-id="33a5a5d7-0770-4144-b9b1-340dde9e6d91"></script>
+<script async src="/_t/script.js" data-website-id="33a5a5d7-0770-4144-b9b1-340dde9e6d91"></script>
 {% elif job_name == 'sararaportal' %}
-<script async src="https://analytics.hydrata.com/script.js" data-website-id="f37ab13a-1d23-421c-aaf8-0994ed6c6fa4"></script>
+<script async src="/_t/script.js" data-website-id="f37ab13a-1d23-421c-aaf8-0994ed6c6fa4"></script>
 {% elif job_name == 'nicp' %}
-<script async src="https://analytics.hydrata.com/script.js" data-website-id="71afa04e-a81a-4cb8-bd56-fc98fcf6ac25"></script>
+<script async src="/_t/script.js" data-website-id="71afa04e-a81a-4cb8-bd56-fc98fcf6ac25"></script>
 {% endif %}
 <script>
 (function() {
