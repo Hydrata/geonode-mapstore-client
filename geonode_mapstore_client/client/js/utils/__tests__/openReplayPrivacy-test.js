@@ -3,9 +3,10 @@
  *
  * These lock in the two CRITICAL token-leak fixes the wave-review surfaced
  * (access_token in tile/API URLs; userDetails token payloads in REFRESH_SUCCESS/
- * SESSION_VALID redux actions) plus the email-as-username guard. The masking is
- * LOAD-BEARING — a silent regression here would ship live tokens to the replay
- * store — so these assertions are deliberately concrete.
+ * SESSION_VALID redux actions). The masking is LOAD-BEARING — a silent
+ * regression here would ship live tokens to the replay store — so these
+ * assertions are deliberately concrete. (The 1511-era email-as-username drop
+ * was removed by TASK-2376: the username IS the identity key, emails included.)
  */
 
 import expect from 'expect';
@@ -77,9 +78,9 @@ describe('openReplayPrivacy', () => {
         it('returns the username handle', () => {
             expect(extractUsername({ username: 'jdoe' })).toBe('jdoe');
         });
-        it('returns "" when the candidate looks like an email (email-as-username guard)', () => {
-            expect(extractUsername({ username: 'jdoe@example.com' })).toBe('');
-            expect(extractUsername({ name: 'a.b@hydrata.com' })).toBe('');
+        it('passes email-shaped usernames through unchanged (TASK-2376 — most real users have email-as-username)', () => {
+            expect(extractUsername({ username: 'jdoe@example.com' })).toBe('jdoe@example.com');
+            expect(extractUsername({ name: 'a.b@hydrata.com' })).toBe('a.b@hydrata.com');
         });
         it('falls back name -> preferred_username -> info.username', () => {
             expect(extractUsername({ name: 'Jane' })).toBe('Jane');
@@ -107,8 +108,8 @@ describe('openReplayPrivacy', () => {
             expect(resolveOpenReplayUserId(null, false)).toBe('');
             expect(resolveOpenReplayUserId({}, false)).toBe('');
         });
-        it('never ships a PII email as the userID', () => {
-            expect(resolveOpenReplayUserId({ username: 'jdoe@example.com' }, false)).toBe('');
+        it('stamps an email-shaped username as the userID (TASK-2376)', () => {
+            expect(resolveOpenReplayUserId({ username: 'jdoe@example.com' }, false)).toBe('jdoe@example.com');
         });
     });
 });
