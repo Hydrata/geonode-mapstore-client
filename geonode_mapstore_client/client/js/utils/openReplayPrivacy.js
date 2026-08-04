@@ -117,21 +117,23 @@ export function sanitizeReduxAction(action) {
     } catch (e) { return action; }
 }
 
-// The cohort handle for setUserID, or '' when none — or when the candidate looks
-// like an email (a site using email-as-username would otherwise ship PII).
+// The handle for setUserID, or '' when none. Email-shaped usernames pass
+// through unchanged: username is the fleet identity key (DB · Umami · replay),
+// and most real users have email-as-username — dropping them left their replay
+// sessions permanently anonymous (TASK-2376; replay is self-hosted and
+// consent-gated, so the email stays on our own box).
 export function extractUsername(user) {
     if (!user) { return ''; }
-    const candidate = user.username
+    return user.username
         || user.name
         || (user.info && (user.info.preferred_username || user.info.username))
         || '';
-    return /.+@.+\..+/.test(candidate) ? '' : candidate;
 }
 
 // The OpenReplay userID to stamp for `user`, or '' to skip — the pure decision
 // behind setUserID (TASK-2129 W3 F1). Skips when already stamped (idempotent —
-// setUserID once per session) OR when extractUsername yields '' (anonymous, or
-// a PII-looking email we must not ship). Why this exists: the replay session
+// setUserID once per session) OR when extractUsername yields '' (still
+// anonymous). Why this exists: the replay session
 // usually STARTS anonymous — a visitor lands on the public homepage (which is
 // also the login page), so the boot-time setUserID sees no user and no-ops;
 // a later login never re-stamped it, leaving sessions.user_id NULL and the

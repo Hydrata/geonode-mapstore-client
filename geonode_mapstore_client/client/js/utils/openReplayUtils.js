@@ -50,7 +50,7 @@ let _userStamped = false;
 // Stamp the OpenReplay userID for `user` exactly once, on a started tracker.
 // Shared by boot-start (below) and the mid-session login path
 // (setOpenReplayUser). No-op when inert, not started, already stamped, or the
-// user is anonymous / PII-looking (resolveOpenReplayUserId returns ''). Never
+// user is still anonymous (resolveOpenReplayUserId returns ''). Never
 // throws into the app.
 function applyUserId(tracker, user) {
     const id = resolveOpenReplayUserId(user, _userStamped);
