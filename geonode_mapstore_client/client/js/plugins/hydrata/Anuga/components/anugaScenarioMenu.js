@@ -58,8 +58,6 @@ import {ScenarioHeaderActions} from './scenarioHeaderActions';
 // TASK-2240 (epic 2237 W1.2) — the custom portaled overflow (kebab) menu
 // replacing the old New Scenario/Compare/Duplicate header cluster.
 import {AnugaScenarioOverflowMenu} from './anugaScenarioOverflowMenu';
-// TASK-2194 (epic 2190 W2) — the FE staff-gate precedent (is_staff OR is_superuser).
-import {isStaffUser} from './AnugaRunsDashboard/runsDashboardUtils';
 // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge data source.
 import {getAccountSummaryState} from '../../Paywall/account/reducer';
 import {SectionHeader} from "../../SimpleView/components/primitives";
@@ -1353,10 +1351,15 @@ const mapStateToProps = (state) => {
         structures: state?.anuga?.resources?.structures,
         meshRegions: state?.anuga?.resources?.meshRegions,
         networks: state?.anuga?.resources?.networks,
-        // TASK-2194 (epic 2190 W2) — staff gate (FE precedent:
-        // runsDashboardUtils.isStaffUser) + compute-target site config
-        // hydrated by loadAnugaComputeConfigEpic onto state.anuga.ui.
-        isStaff: isStaffUser(state?.security?.user),
+        // TASK-2194 (epic 2190 W2) — compute-target site config hydrated by
+        // loadAnugaComputeConfigEpic onto state.anuga.ui. TASK-2644 (epic
+        // 2635 W1): the gate itself moved off is_staff onto the gn_anuga
+        // tester capability (state.anuga.ui.canSelectComputeTarget, sourced
+        // from AnugaConfigView's can_select_compute_target field) —
+        // deliberately with no is_staff back-compat bridge (2635-D3). The
+        // prop stays named `isStaff` downstream (ScenarioPane /
+        // ScenarioErrorStrip) — only ITS SOURCE changed.
+        isStaff: !!state?.anuga?.ui?.canSelectComputeTarget,
         availableComputeTargets: state?.anuga?.ui?.availableComputeTargets,
         defaultComputeTarget: state?.anuga?.ui?.defaultComputeTarget,
         // TASK-2194 (review fix) — per-scenario session choices (ui slot, so

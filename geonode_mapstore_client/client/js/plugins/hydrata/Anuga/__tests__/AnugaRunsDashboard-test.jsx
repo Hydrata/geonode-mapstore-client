@@ -1,11 +1,12 @@
 /**
- * TASK-1964/1965 (epic 1952 W5) — /runs staff dashboard + CPU-vs-GPU showcase.
+ * TASK-1964/1965 (epic 1952 W5) — /runs tester dashboard + CPU-vs-GPU showcase.
  *
  * Covers:
  *   - runsDashboardUtils pure helpers (server/client filter split, chart
  *     aggregators) — no DOM, no network.
- *   - the client-side staff gate (b): a resolved non-staff user is denied
- *     and never fires the ledger fetch.
+ *   - the client-side gate (b): a resolved user WITHOUT the tester
+ *     capability is denied and never fires the ledger fetch (TASK-2644,
+ *     epic 2635 W1 — moved off is_staff, no back-compat bridge, 2635-D3).
  *   - the runs grid renders rows from a mocked API payload.
  *   - a filter narrows BOTH the grid and (by construction, since they share
  *     the same filteredRecords) the charts.
@@ -32,7 +33,6 @@ import {
     buildTriVsWalltimeSeries,
     buildCostPerRunSeries,
     buildSuccessRateSeries,
-    isStaffUser,
     SERVER_FILTER_KEYS
 } from '../components/AnugaRunsDashboard/runsDashboardUtils';
 
@@ -142,13 +142,6 @@ describe('runsDashboardUtils (pure helpers)', () => {
         expect(cpu.success).toBe(1);
     });
 
-    it('isStaffUser is true for is_staff OR is_superuser, false otherwise', () => {
-        expect(isStaffUser({ is_staff: true })).toBe(true);
-        expect(isStaffUser({ is_superuser: true })).toBe(true);
-        expect(isStaffUser({ is_staff: false, is_superuser: false })).toBe(false);
-        expect(isStaffUser(null)).toBe(false);
-        expect(isStaffUser(undefined)).toBe(false);
-    });
 });
 
 describe('AnugaRunsDashboard (component)', () => {
@@ -167,11 +160,11 @@ describe('AnugaRunsDashboard (component)', () => {
         mockAxios.restore();
     });
 
-    it('denies a resolved non-staff user and never calls the ledger API', (done) => {
+    it('denies a resolved user without the tester capability and never calls the ledger API', (done) => {
         mockAxios.onGet(LEDGER_URL).reply(200, { count: FIXTURE_RECORDS.length, results: FIXTURE_RECORDS });
 
         ReactDOM.render(
-            <AnugaRunsDashboard user={{ is_staff: false, is_superuser: false }} />,
+            <AnugaRunsDashboard user={{ is_staff: false, is_superuser: false }} canSelectComputeTarget={false} />,
             host
         );
 
@@ -183,10 +176,30 @@ describe('AnugaRunsDashboard (component)', () => {
         }, 10);
     });
 
-    it('renders grid rows from a mocked API payload for a staff user', (done) => {
+    // TASK-2644 (epic 2635 W1, 2635-D3 anti-vacuity arm) — is_staff ALONE,
+    // with the capability explicitly absent, is now denied too: proves the
+    // gate reads the capability, not is_staff. Fails RED at pre-2644 HEAD
+    // (a resolved is_staff user used to render the dashboard regardless).
+    it('denies a resolved is_staff user WITHOUT the tester capability', (done) => {
         mockAxios.onGet(LEDGER_URL).reply(200, { count: FIXTURE_RECORDS.length, results: FIXTURE_RECORDS });
 
-        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+        ReactDOM.render(
+            <AnugaRunsDashboard user={{ is_staff: true, is_superuser: false }} canSelectComputeTarget={false} />,
+            host
+        );
+
+        setTimeout(() => {
+            expect(host.querySelector('[data-testid="anuga-runs-denied"]')).toExist();
+            expect(host.querySelector('[data-testid="anuga-runs-dashboard"]')).toBe(null);
+            expect(mockAxios.history.get.length).toBe(0);
+            done();
+        }, 10);
+    });
+
+    it('renders grid rows from a mocked API payload for a tester-capability user', (done) => {
+        mockAxios.onGet(LEDGER_URL).reply(200, { count: FIXTURE_RECORDS.length, results: FIXTURE_RECORDS });
+
+        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: false }} canSelectComputeTarget />, host);
 
         setTimeout(() => {
             expect(host.querySelector('[data-testid="anuga-runs-dashboard"]')).toExist();
@@ -203,7 +216,7 @@ describe('AnugaRunsDashboard (component)', () => {
     it('renders a Target column with compute_target verbatim and em-dash for historical nulls (TASK-2195)', (done) => {
         mockAxios.onGet(LEDGER_URL).reply(200, { count: FIXTURE_RECORDS.length, results: FIXTURE_RECORDS });
 
-        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} canSelectComputeTarget />, host);
 
         setTimeout(() => {
             const header = host.querySelector('[data-testid="anuga-runs-grid-header-compute_target"]');
@@ -229,7 +242,7 @@ describe('AnugaRunsDashboard (component)', () => {
     it('a client-side filter narrows both the grid and the chart panels', (done) => {
         mockAxios.onGet(LEDGER_URL).reply(200, { count: FIXTURE_RECORDS.length, results: FIXTURE_RECORDS });
 
-        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} canSelectComputeTarget />, host);
 
         setTimeout(() => {
             expect(host.querySelectorAll('[data-testid="anuga-runs-grid-row"]').length).toBe(4);
@@ -253,7 +266,7 @@ describe('AnugaRunsDashboard (component)', () => {
     it('renders >=3 chart types plus the CPU-vs-GPU benchmark showcase', (done) => {
         mockAxios.onGet(LEDGER_URL).reply(200, { count: FIXTURE_RECORDS.length, results: FIXTURE_RECORDS });
 
-        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} canSelectComputeTarget />, host);
 
         setTimeout(() => {
             expect(host.querySelector('[data-testid="anuga-chart-tri-vs-walltime"]')).toExist();
@@ -271,7 +284,7 @@ describe('AnugaRunsDashboard (component)', () => {
     it('empty-state: the showcase still renders when the live ledger returns 0 rows', (done) => {
         mockAxios.onGet(LEDGER_URL).reply(200, { count: 0, results: [] });
 
-        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+        ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} canSelectComputeTarget />, host);
 
         setTimeout(() => {
             expect(host.querySelector('[data-testid="anuga-runs-empty"]')).toExist();
@@ -313,7 +326,7 @@ describe('AnugaRunsDashboard (component)', () => {
                 }
             };
             mockAxios.onGet(LEDGER_URL).reply(200, { count: 1, results: [record] });
-            ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+            ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} canSelectComputeTarget />, host);
 
             setTimeout(() => {
                 const ra = host.querySelector('[data-testid="ard-prov-link-run_anuga"]');
@@ -357,7 +370,7 @@ describe('AnugaRunsDashboard (component)', () => {
                 }
             };
             mockAxios.onGet(LEDGER_URL).reply(200, { count: 1, results: [record] });
-            ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+            ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} canSelectComputeTarget />, host);
 
             setTimeout(() => {
                 const badge = host.querySelector('[data-testid="ard-prov-badge"]');
@@ -386,7 +399,7 @@ describe('AnugaRunsDashboard (component)', () => {
                 }
             };
             mockAxios.onGet(LEDGER_URL).reply(200, { count: 1, results: [record] });
-            ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} />, host);
+            ReactDOM.render(<AnugaRunsDashboard user={{ is_staff: true }} canSelectComputeTarget />, host);
 
             setTimeout(() => {
                 const badge = host.querySelector('[data-testid="ard-prov-badge"]');

@@ -133,4 +133,33 @@ describe('TASK-2194 uiReducer SET_ANUGA_COMPUTE_CONFIG', () => {
         const stateMissing = uiReducer(undefined, setAnugaComputeConfig({}));
         expect(stateMissing.meshDivergenceThreshold).toBe(null);
     });
+
+    // TASK-2644 (epic 2635 W1) — canSelectComputeTarget: the gn_anuga
+    // tester capability, NOT is_staff (2635-D3, no back-compat bridge).
+    describe('TASK-2644 canSelectComputeTarget', () => {
+        it('initial state: not hydrated yet (false, fail-closed default)', () => {
+            const state = uiReducer(undefined, {type: '@@INIT'});
+            expect(state.canSelectComputeTarget).toBe(false);
+        });
+
+        it('hydrates true from can_select_compute_target: true', () => {
+            const state = uiReducer(undefined, setAnugaComputeConfig({
+                available_compute_targets: ['local'],
+                default_compute_target: 'local',
+                can_select_compute_target: true
+            }));
+            expect(state.canSelectComputeTarget).toBe(true);
+        });
+
+        it('is shape-tolerant: anything but a literal true yields false', () => {
+            expect(uiReducer(undefined, setAnugaComputeConfig({
+                can_select_compute_target: 'true'
+            })).canSelectComputeTarget).toBe(false);
+            expect(uiReducer(undefined, setAnugaComputeConfig({
+                can_select_compute_target: 1
+            })).canSelectComputeTarget).toBe(false);
+            expect(uiReducer(undefined, setAnugaComputeConfig({})).canSelectComputeTarget).toBe(false);
+            expect(uiReducer(undefined, setAnugaComputeConfig(null)).canSelectComputeTarget).toBe(false);
+        });
+    });
 });

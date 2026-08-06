@@ -1184,7 +1184,14 @@ describe('anugaScenarioMenu — session compute-target rides the ui slot (TASK-2
     function mountWithScenario(store, scenario) {
         store.dispatch(setAnugaComputeConfig({
             available_compute_targets: ['batch-x4', 'batch-x32'],
-            default_compute_target: 'batch-x32'
+            default_compute_target: 'batch-x32',
+            // TASK-2644 (epic 2635 W1) — this describe block's `security`
+            // reducer stubs is_staff:true (see makeRealStore below), which
+            // pre-2644 was itself sufficient to show the selector. The gate
+            // moved onto this capability field (2635-D3: no is_staff
+            // bridge) — these specs are about session-target PERSISTENCE,
+            // not the gate itself, so grant it explicitly as a precondition.
+            can_select_compute_target: true
         }));
         store.dispatch(setAnugaScenarioData([scenario]));
         store.dispatch(selectAnugaScenario(scenario));
@@ -1202,6 +1209,28 @@ describe('anugaScenarioMenu — session compute-target rides the ui slot (TASK-2
     afterEach(() => {
         ReactDOM.unmountComponentAtNode(container);
         document.body.removeChild(container);
+    });
+
+    // TASK-2644 (epic 2635 W1 AC6, 2635-D3 anti-vacuity arm) — the connected
+    // mapStateToProps reads state.anuga.ui.canSelectComputeTarget, NOT
+    // state.security.user.is_staff. makeRealStore's security reducer stubs
+    // is_staff:true unconditionally; WITHOUT the capability granted the
+    // selector must not render even though is_staff is true. Fails RED at
+    // pre-2644 HEAD (is_staff:true alone used to be sufficient).
+    it('the compute-target selector does NOT render for is_staff:true without the tester capability', () => {
+        const store = makeRealStore();
+        store.dispatch(setAnugaComputeConfig({
+            available_compute_targets: ['batch-x4', 'batch-x32'],
+            default_compute_target: 'batch-x32'
+            // can_select_compute_target deliberately omitted (defaults false).
+        }));
+        const scenario = serverScenario(94, 'built');
+        store.dispatch(setAnugaScenarioData([scenario]));
+        store.dispatch(selectAnugaScenario(scenario));
+        ReactDOM.render(<Provider store={store}><AnugaScenarioMenu /></Provider>, container);
+
+        expect(store.getState().security.user.is_staff).toBe(true);
+        expect(container.querySelector('#compute_target')).toBe(null);
     });
 
     it('(i) picking a target leaves the scenario saved (unsaved stays false) and Build and Run POSTs the chosen target', () => {

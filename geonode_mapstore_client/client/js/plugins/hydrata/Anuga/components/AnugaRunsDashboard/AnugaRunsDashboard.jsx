@@ -1,22 +1,27 @@
 /**
- * TASK-1964 (epic 1952 W5.1) — staff-only run-actuals dashboard, mounted at
- * /runs (see geonode_mapstore_client/views.py::runs_dashboard,
+ * TASK-1964 (epic 1952 W5.1) — tester-capability run-actuals dashboard,
+ * mounted at /runs (see geonode_mapstore_client/views.py::runs_dashboard,
  * templates/geonode-mapstore-client/pages/runs.html, js/apps/gn-runs.jsx).
  *
- * Triple-defended staff gate (per the epic brief):
- *   (a) server-side: the Django view is wrapped in staff_member_required
- *       (redirects non-staff before this bundle even loads);
- *   (b) client-side: this component re-checks `user` (passed down from
- *       gn-runs.jsx's getAccountInfo() call) and renders a denial message
- *       instead of fetching/rendering the ledger for a non-staff user —
+ * Triple-defended gate (per the epic brief; TASK-2644, epic 2635 W1 MOVED
+ * every layer off is_staff onto the gn_anuga tester capability —
+ * deliberately with no is_staff back-compat bridge, 2635-D3):
+ *   (a) server-side: the Django view is wrapped in a tester-capability
+ *       check (redirects non-testers before this bundle even loads);
+ *   (b) client-side: this component re-checks `canSelectComputeTarget`
+ *       (fetched by gn-runs.jsx from GET /api/v2/anuga/config/'s
+ *       can_select_compute_target field) and renders a denial message
+ *       instead of fetching/rendering the ledger for a non-tester —
  *       belt-and-braces in case the page is ever reached some other way;
- *   (c) the API itself (/api/v2/anuga/admin/runs/) is IsAdminUser — a
- *       non-staff fetch 401/403s regardless of (a)/(b).
+ *   (c) the API itself (/api/v2/anuga/admin/runs/) is IsTester — a
+ *       non-tester fetch 401/403s regardless of (a)/(b).
  *
- * `user` is optional: when the caller can't/hasn't resolved it yet (undefined)
- * we render the dashboard rather than block on it — the server gate (a) and
- * API gate (c) still hold. `null` (resolved, anonymous) or a non-staff user
- * object trips the client gate (b).
+ * `user` is still passed down (identity display / future use) and is
+ * optional: when the caller can't/hasn't resolved it yet (undefined) we
+ * render the dashboard rather than block on it — the server gate (a) and
+ * API gate (c) still hold. `canSelectComputeTarget` is the actual gate
+ * value; `user` resolved to `null` (anonymous) or non-null trips the
+ * client gate (b) once capability is known to be absent.
  *
  * Layout (redesigned to match the Hydrata frontend, answering a PM's four
  * questions — what ran, when, trends, and what drives runtime/cost):
@@ -30,8 +35,7 @@ import { listAdminRunLedger } from '../../api/anugaApi';
 import {
     applyClientFilters,
     buildServerParams,
-    getDefaultClientFilters,
-    isStaffUser
+    getDefaultClientFilters
 } from './runsDashboardUtils';
 import FiltersSidebar from './FiltersSidebar';
 import RunsGrid from './RunsGrid';
@@ -46,14 +50,14 @@ import SuccessRateChart from './charts/SuccessRateChart';
 // for why the two data sources are kept separate).
 import CpuVsGpuShowcase from './charts/CpuVsGpuShowcase';
 
-const AnugaRunsDashboard = ({ user }) => {
+const AnugaRunsDashboard = ({ user, canSelectComputeTarget }) => {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [serverFilters, setServerFilters] = useState({});
     const [clientFilters, setClientFilters] = useState(getDefaultClientFilters());
 
-    const denied = user !== undefined && user !== null && !isStaffUser(user);
+    const denied = user !== undefined && user !== null && !canSelectComputeTarget;
 
     const fetchRuns = useCallback((filters) => {
         setLoading(true);
@@ -164,6 +168,12 @@ const AnugaRunsDashboard = ({ user }) => {
             </section>
         </div>
     );
+};
+
+// TASK-2644 — fail-closed default: an unresolved/absent config fetch never
+// widens access (a missing prop denies exactly like an explicit false).
+AnugaRunsDashboard.defaultProps = {
+    canSelectComputeTarget: false
 };
 
 export default AnugaRunsDashboard;

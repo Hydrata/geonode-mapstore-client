@@ -733,16 +733,21 @@ export const patchTerrainStylingMode = (projectId, terrainId, stylingMode) =>
 //     available_compute_targets: ['local'|'batch-x4'|...],  // site allowlist
 //     default_compute_target: '<target>' | null,
 //     mesh_divergence_threshold: number  // TASK-2211 (W3.2, epic 2204, od-4)
+//     can_select_compute_target: bool  // TASK-2644 (epic 2635 W1) — the
+//       REQUESTING user's own gn_anuga tester-capability resolution
 //   }
 // Per-site values are sourced from Ansible inventory. On network error we
 // fall back to the legacy 'local' backend default with an EMPTY target
-// allowlist — an empty allowlist hides the staff compute-target selector,
-// so dispatch omits compute_target and the server default applies (the
+// allowlist — an empty allowlist hides the compute-target selector, so
+// dispatch omits compute_target and the server default applies (the
 // server is the real gate either way). mesh_divergence_threshold is
 // deliberately OMITTED from the fallback (undefined, not a guessed number)
 // — uiReducer.js's shape-tolerant SET_ANUGA_COMPUTE_CONFIG case leaves it
 // null, and scenarioHelpers.getMeshDivergence falls back to
 // DEFAULT_MESH_DIVERGENCE_THRESHOLD when the prop is null/undefined.
+// can_select_compute_target is likewise OMITTED (undefined) on fallback —
+// uiReducer.js treats anything but a literal `true` as false, so a network
+// error fails closed (selector hidden) rather than ever defaulting shown.
 export function getAnugaConfig() {
     return axios.get('/api/v2/anuga/config/')
         .then(r => r.data)
