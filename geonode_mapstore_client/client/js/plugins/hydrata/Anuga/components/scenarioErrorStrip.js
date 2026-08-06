@@ -35,12 +35,14 @@ import {findScenarioStatus, ERROR_CLASS_MESSAGE_IDS, tailLines, capChars, buildC
  *     `latest_run.cloudwatch_log_tail` when there's no in-process log to
  *     show — the CloudWatch backstop for entrypoint deaths where nothing
  *     useful was POSTed); collapsed by default so the strip stays compact
- *   - a staff-only AWS Console CloudWatch deep link (gated by the SAME
- *     is_staff/is_superuser precedent as the compute-target selector —
- *     TASK-2194, epic 2190 W2 — see AnugaRunsDashboard/runsDashboardUtils
- *     .isStaffUser); renders nothing for non-staff even when the BE has
- *     already captured log_group_name/log_stream_name (those are not
- *     secret, but the AWS console link itself is a staff affordance)
+ *   - a tester-only AWS Console CloudWatch deep link (gated by the SAME
+ *     `isStaff` prop as the compute-target selector — TASK-2194, epic 2190
+ *     W2; TASK-2644, epic 2635 W1 re-sourced that prop from the gn_anuga
+ *     tester capability rather than is_staff, see anugaScenarioMenu.js's
+ *     mapStateToProps — this component's own prop shape is unchanged);
+ *     renders nothing without the capability even when the BE has already
+ *     captured log_group_name/log_stream_name (those are not secret, but
+ *     the AWS console link itself is a tester affordance)
  */
 
 const LOG_TAIL_MAX_LINES = 40;

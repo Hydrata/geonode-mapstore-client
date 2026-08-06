@@ -1,0 +1,44 @@
+/* TASK-2638 (epic 2635 W1) — beta notice banner. Full-width top strip
+   (unlike the corner-toast .sv-run-polling-paused-banner it borrows tokens
+   from) since this is a site-wide promise, not a scenario-scoped alert. */
+.sv-beta-notice-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1090;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 6px 36px 6px 12px;
+    background: var(--sv-info-bg, rgba(91, 192, 222, 0.16));
+    border-bottom: 1px solid var(--sv-info-border, #5bc0de);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.sv-beta-notice-banner-text {
+    color: var(--sv-info-color, #d9edf7);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.sv-beta-notice-banner-dismiss {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--sv-info-color, #d9edf7);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+.sv-beta-notice-banner-dismiss:hover {
+    opacity: 0.7;
+}

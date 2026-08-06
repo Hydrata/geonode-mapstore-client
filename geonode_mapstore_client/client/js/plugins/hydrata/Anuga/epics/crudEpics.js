@@ -293,6 +293,30 @@ export const runAnugaScenarioEpic = (action$, _store) =>
                     if (status === 429 && data?.error_code === 'FREE_CAP_EXCEEDED') {
                         return Rx.Observable.of(setMeterCapExceeded(data.detail));
                     }
+                    // TASK-2645 (epic 2635 W1) — a 400 PRICING_UNAVAILABLE
+                    // (gn_anuga.estimate.band() refuses to price rather than
+                    // ever default to $0 — see its docstring) is NOT a
+                    // billing state and must NOT go through the compute-
+                    // meter modal like the two branches above (OPERATOR
+                    // DIRECTION 2026-08-06: "pricing estimates are still
+                    // provided ... we use our current formula even if it's
+                    // bad" — this is the literal fix for the Run button
+                    // otherwise doing nothing at all). A plain notification
+                    // is the whole fix: tell the user what to DO (normally:
+                    // build the mesh first), not the raw error code.
+                    if (status === 400 && data?.error_code === 'PRICING_UNAVAILABLE') {
+                        // memory: mapstore-show-notification-level-second-arg —
+                        // show(opts, level) takes level as the SECOND
+                        // positional argument; a `level` key inside opts is
+                        // silently overwritten by the 'success' default.
+                        return Rx.Observable.of(show(
+                            {
+                                title: 'Cannot price this run yet',
+                                message: 'Build the mesh first, then try running again.'
+                            },
+                            'warning'
+                        ));
+                    }
                     return Rx.Observable.empty();
                 })
         );
