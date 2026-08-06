@@ -233,5 +233,60 @@ describe('AnugaPlaybackLayer', () => {
             };
             waitForMesh();
         });
+
+        // TASK-2632 (W5.1) — minimal GL smoke check (per the wave brief:
+        // "keep GL smoke tests minimal ... SwiftShader slow") that the
+        // velocity FBO pass + instanced arrow overlay draw call actually
+        // links/runs without a GL error against a real mesh. NAMED SKIP
+        // (wave brief: "GL shell wiring may skip, name the skip case"): this
+        // does NOT also assert on AnugaPlaybackFlowVizRenderer.
+        // debugReadVelocityField()'s numeric readback here — a
+        // gl.readPixels of the full 512x512 RGBA32F FBO hangs/times out
+        // under this project's headless karma launcher (ChromeHeadlessCI,
+        // `--disable-gpu` -> SwiftShader software path; confirmed by
+        // isolating render() alone, which passes in <1s, from the readback,
+        // which alone exceeded a 15s mocha timeout with zero GL error
+        // reported first). That numeric "texture is non-zero where flow
+        // exists" proof — the wave brief's own "port the FBO/particle
+        // readback DEBUG technique into your live verification" — runs
+        // instead against the REAL browser during this wave's live-verify
+        // pass (see the W5 wave report), not this automated suite. Broader
+        // math coverage (density/scale variations, screen-space grid
+        // sampling, arrow length/colour/direction formulas) is headlessly
+        // covered by playbackFlowViz-test.js.
+        it('flowVizEnabled: velocity FBO + arrow overlay render without a GL error', (done) => {
+            const layer = Layers.createLayer(LAYER_TYPE, {
+                id: 'playback-flowviz-gl-smoke',
+                mesh: {
+                    nodeX: Float32Array.from([0, 10, 0, 10]),
+                    nodeY: Float32Array.from([0, 0, 10, 10]),
+                    elevation: Float32Array.from([1, 2, 3, 4]),
+                    friction: Float32Array.from([0.03, 0.03, 0.05, 0.05]),
+                    vertexInradius: Float32Array.from([2, 2, 3, 3]),
+                    faceNodeConnectivity: Int32Array.from([0, 1, 2, 1, 3, 2]),
+                    epsg: 32756, xllcorner: 500000, yllcorner: 6900000
+                },
+                frame0: { depth: Float32Array.from([1, 2, 3, 4]), xVelocity: Float32Array.from([0.5, 0.5, 0.5, 0.5]), yVelocity: Float32Array.from([0, 0, 0, 0]) },
+                frame1: { depth: Float32Array.from([2, 3, 4, 5]), xVelocity: Float32Array.from([0.5, 0.5, 0.5, 0.5]), yVelocity: Float32Array.from([0, 0, 0, 0]) }
+            });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const gl = renderer.gl;
+            const frameState = { viewState: { center: [500005, 6900005], resolution: 0.2, rotation: 0 }, size: [64, 64], pixelRatio: 1 };
+            const waitForMesh = () => {
+                if (renderer.meshReady) {
+                    renderer.render({
+                        viewState: frameState.viewState, size: frameState.size, pixelRatio: 1, opacity: 1,
+                        mixT: 0.5, colorMode: 'depth', colorMax: 10, colorMin: 0,
+                        wetThreshold: 0.005, g: 9.8, rhoW: 1023, dt: 1.2,
+                        flowVizEnabled: true, arrowDensity: 16, arrowScale: 1
+                    });
+                    expect(gl.getError()).toBe(gl.NO_ERROR);
+                    done();
+                    return;
+                }
+                setTimeout(waitForMesh, 10);
+            };
+            waitForMesh();
+        });
     });
 });

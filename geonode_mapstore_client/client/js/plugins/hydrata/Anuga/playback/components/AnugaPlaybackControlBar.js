@@ -24,9 +24,11 @@ import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
+import { changeLayerProperties } from '@mapstore/framework/actions/layers';
 
 import { PLAYBACK_STATUS, MIN_SPEED, MAX_SPEED } from '../playbackController';
 import { availableQuantityIds } from '../playbackDerivedQuantities';
+import { DEFAULT_ARROW_DENSITY_PX, DEFAULT_ARROW_SCALE } from '../playbackFlowViz';
 import {
     playbackInit,
     playbackPlay,
@@ -88,10 +90,44 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         onSetSpeed: PropTypes.func,
         onSetQuantity: PropTypes.func,
         onSetIdentifyArmed: PropTypes.func,
-        onSetLegendOpen: PropTypes.func
+        onSetLegendOpen: PropTypes.func,
+        onChangeLayerProperties: PropTypes.func
     };
 
-    state = { manifestUrlDraft: '' };
+    // TASK-2632 (W5.1) — flow-viz overlay knobs are LOCAL component state,
+    // not `anugaPlayback` reducer state (same reasoning as `wireframe`,
+    // which has never had reducer-level state either — a pure visual
+    // rendering toggle, orthogonal to the buffer-then-play/timeline state
+    // machine `playbackController.js` owns). Applied to the layer directly
+    // via `changeLayerProperties` on every change.
+    state = {
+        manifestUrlDraft: '',
+        flowVizEnabled: false,
+        arrowDensity: DEFAULT_ARROW_DENSITY_PX,
+        arrowScale: DEFAULT_ARROW_SCALE
+    };
+
+    // A small "update local state, then push a field subset of it to the
+    // layer via changeLayerProperties" helper — kept generic (a field-picker
+    // callback, not a hardcoded field list) so a LATER overlay control
+    // (e.g. a second toggle group) can reuse it without duplicating this
+    // setState-then-dispatch wiring.
+    applyLayerProps(patch, pickFields) {
+        this.setState(patch, () => {
+            const { playback, onChangeLayerProperties } = this.props;
+            if (playback && playback.layerId && onChangeLayerProperties) {
+                onChangeLayerProperties(playback.layerId, pickFields(this.state));
+            }
+        });
+    }
+
+    setFlowVizProps(patch) {
+        this.applyLayerProps(patch, (s) => ({
+            flowVizEnabled: s.flowVizEnabled,
+            arrowDensity: s.arrowDensity,
+            arrowScale: s.arrowScale
+        }));
+    }
 
     renderLoader() {
         return (
@@ -192,6 +228,41 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     <Message msgId="hydrata.playback.legend" />
                 </button>
 
+                <button
+                    className={`btn sv-glass-button sv-playback-flowviz-toggle ${this.state.flowVizEnabled ? 'active' : ''}`}
+                    data-testid="anuga-playback-flowviz-toggle"
+                    onClick={() => this.setFlowVizProps({ flowVizEnabled: !this.state.flowVizEnabled })}
+                    title="Velocity arrow overlay"
+                >
+                    <Message msgId="hydrata.playback.flowViz" />
+                </button>
+                {this.state.flowVizEnabled ? (
+                    <span className="sv-playback-flowviz-controls" data-testid="anuga-playback-flowviz-controls">
+                        <input
+                            type="range"
+                            className="sv-playback-flowviz-density"
+                            data-testid="anuga-playback-flowviz-density"
+                            min={16}
+                            max={160}
+                            step={4}
+                            value={this.state.arrowDensity}
+                            title="Arrow density (px spacing)"
+                            onChange={(e) => this.setFlowVizProps({ arrowDensity: Number(e.target.value) })}
+                        />
+                        <input
+                            type="range"
+                            className="sv-playback-flowviz-scale"
+                            data-testid="anuga-playback-flowviz-scale"
+                            min={0.25}
+                            max={3}
+                            step={0.25}
+                            value={this.state.arrowScale}
+                            title="Arrow scale"
+                            onChange={(e) => this.setFlowVizProps({ arrowScale: Number(e.target.value) })}
+                        />
+                    </span>
+                ) : null}
+
                 {isBuffering ? (
                     <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
                         {statusMsgId ? <Message msgId={statusMsgId} /> : null}
@@ -225,7 +296,8 @@ const mapDispatchToProps = {
     onSetSpeed: playbackSetSpeed,
     onSetQuantity: playbackSetQuantity,
     onSetIdentifyArmed: playbackSetIdentifyArmed,
-    onSetLegendOpen: playbackSetLegendOpen
+    onSetLegendOpen: playbackSetLegendOpen,
+    onChangeLayerProperties: changeLayerProperties
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(AnugaPlaybackControlBarComponent);

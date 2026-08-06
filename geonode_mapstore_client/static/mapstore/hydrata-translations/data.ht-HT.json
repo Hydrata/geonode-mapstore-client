@@ -572,6 +572,7 @@
         "loadStore": "Chaje",
         "inspect": "Enspekte",
         "legend": "Legann",
+        "flowViz": "Kouran",
         "degraded": "Koneksyon lan — jwe degrade",
         "status": {
           "loadingManifest": "K ap chaje…",

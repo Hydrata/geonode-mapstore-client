@@ -572,6 +572,7 @@
         "loadStore": "Cargar",
         "inspect": "Inspeccionar",
         "legend": "Leyenda",
+        "flowViz": "Flujo",
         "degraded": "Conexión lenta — reproducción degradada",
         "status": {
           "loadingManifest": "Cargando…",

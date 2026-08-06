@@ -171,7 +171,15 @@ function create(options = {}, map) {
                 wetThreshold: olLayer.get('wetThreshold') || 1e-5,
                 g: olLayer.get('g') || 9.8,
                 rhoW: olLayer.get('rhoW') || 1000,
-                dt: olLayer.get('dt') || 0
+                dt: olLayer.get('dt') || 0,
+                // TASK-2632 (W5.1) — velocity-arrow overlay toggle/controls,
+                // a plain layer-level rendering setting (same class as
+                // `wireframe` above — NOT plumbed through the anugaPlayback
+                // controller reducer, which owns buffer-then-play/timeline
+                // state, not visual overlay knobs).
+                flowVizEnabled: !!olLayer.get('flowVizEnabled'),
+                arrowDensity: olLayer.get('arrowDensity'),
+                arrowScale: olLayer.get('arrowScale')
             });
         }
     });
@@ -184,6 +192,9 @@ function create(options = {}, map) {
     olLayer.set('g', options.g || 9.8);
     olLayer.set('rhoW', options.rhoW || 1000);
     olLayer.set('dt', options.dt || 0);
+    olLayer.set('flowVizEnabled', !!options.flowVizEnabled);
+    olLayer.set('arrowDensity', options.arrowDensity);
+    olLayer.set('arrowScale', options.arrowScale);
     // Internal handle update() needs — not an OL/observable property.
     olLayer.__anugaPlaybackRenderer = renderer;
 
@@ -262,6 +273,15 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (newOptions.dt !== oldOptions.dt) {
         layer.set('dt', newOptions.dt || 0);
+    }
+    if (newOptions.flowVizEnabled !== oldOptions.flowVizEnabled) {
+        layer.set('flowVizEnabled', !!newOptions.flowVizEnabled);
+    }
+    if (newOptions.arrowDensity !== oldOptions.arrowDensity) {
+        layer.set('arrowDensity', newOptions.arrowDensity);
+    }
+    if (newOptions.arrowScale !== oldOptions.arrowScale) {
+        layer.set('arrowScale', newOptions.arrowScale);
     }
     if (newOptions.opacity !== oldOptions.opacity) {
         layer.setOpacity(newOptions.opacity !== undefined ? newOptions.opacity : 1);

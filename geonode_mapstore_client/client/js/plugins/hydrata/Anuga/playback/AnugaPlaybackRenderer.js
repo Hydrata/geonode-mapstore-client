@@ -35,6 +35,7 @@ import {
 } from './playbackColormap';
 import { QUANTITY_MODE_INDEX } from './playbackDerivedQuantities';
 import { buildWireframeIndices, buildProjectionMatrix } from './playbackMeshGeometry';
+import { AnugaPlaybackFlowVizRenderer } from './AnugaPlaybackFlowVizRenderer';
 
 const WIRE_COLOR = [0.9, 0.95, 1.0, 0.35];
 const QUANTITY_IDS = Object.keys(QUANTITY_RAMPS);
@@ -128,6 +129,14 @@ export class AnugaPlaybackRenderer {
         this.nIndices = 0;
         this.nWireIndices = 0;
         this.meshReady = false;
+
+        // TASK-2632 (W5.1) — the velocity FBO + instanced-arrow overlay is a
+        // composed sub-renderer (own program/VAO/texture objects, own math
+        // module) rather than inlined here, so its GL-calls-only shell stays
+        // as thin/testable as this class's own. Gracefully no-ops end to end
+        // on a GPU/browser without EXT_color_buffer_float(_half) — see its
+        // own header.
+        this.flowViz = new AnugaPlaybackFlowVizRenderer(gl);
     }
 
     /**
@@ -166,6 +175,21 @@ export class AnugaPlaybackRenderer {
         this.nWireIndices = wireIndices.length;
 
         this.meshReady = true;
+
+        // TASK-2632 (W5.1) — the flow-viz overlay reuses THESE SAME
+        // posBuf/qty0Buf/qty1Buf/idxBuf (no buffer data is duplicated), plus
+        // the mesh's own world-frame bbox (for its bbox-ortho sampling
+        // window) — rebuilt whenever the mesh (re)loads, same lifecycle as
+        // the mesh/wire VAOs above.
+        this.flowViz.setMeshBuffers({
+            posBuf: this.posBuf,
+            qty0Buf: this.qty0Buf,
+            qty1Buf: this.qty1Buf,
+            idxBuf: this.idxBuf,
+            nIndices: this.nIndices,
+            x3857,
+            y3857
+        });
     }
 
     /**
@@ -225,12 +249,16 @@ export class AnugaPlaybackRenderer {
      * @param {number} [params.g] store attr `g`
      * @param {number} [params.rhoW] store attr `rho_w`
      * @param {number} [params.dt] frame-mixed dt(t), seconds
+     * @param {boolean} [params.flowVizEnabled] TASK-2632 (W5.1) velocity-arrow overlay toggle
+     * @param {number} [params.arrowDensity] screen-space grid spacing, px (smaller = denser)
+     * @param {number} [params.arrowScale] multiplier on the computed max arrow length
      * @returns {HTMLCanvasElement}
      */
     render({
         viewState, size, pixelRatio, opacity, wireframe = false, mixT = 0,
         colorMode = 'depth', colorMax = 1, colorMin = 0, wetThreshold = 1e-5,
-        g = 9.8, rhoW = 1000, dt = 0
+        g = 9.8, rhoW = 1000, dt = 0,
+        flowVizEnabled = false, arrowDensity, arrowScale
     }) {
         const gl = this.gl;
         const canvas = this.canvas;
@@ -282,6 +310,22 @@ export class AnugaPlaybackRenderer {
         gl.drawElements(gl.TRIANGLES, this.nIndices, gl.UNSIGNED_INT, 0);
         gl.bindVertexArray(null);
 
+        // TASK-2632 (W5.1) — the flow-viz arrow overlay draws BETWEEN the
+        // scalar mesh fill and the wireframe pass (AC), so wireframe stays
+        // the topmost layer. renderVelocityField rebinds the FBO/viewport
+        // to the offscreen velocity texture's own size; restore the main
+        // canvas viewport before drawing arrows into it.
+        if (flowVizEnabled) {
+            const bboxOrtho = this.flowViz.renderVelocityField({ mixT, wetThreshold });
+            gl.viewport(0, 0, width, height);
+            if (bboxOrtho) {
+                this.flowViz.renderArrows({
+                    bboxOrtho, viewState, sizeCssPx: size, wetThreshold,
+                    density: arrowDensity, scale: arrowScale
+                });
+            }
+        }
+
         if (wireframe && this.nWireIndices > 0) {
             gl.useProgram(this.wireProgram);
             gl.bindVertexArray(this.wireVao);
@@ -304,6 +348,11 @@ export class AnugaPlaybackRenderer {
                 gl.deleteTexture(this.lutTextures[mode]);
             }
         });
+        // TASK-2632 (W5.1) — free the composed flow-viz sub-renderer's own
+        // FBO/texture/program/VAO objects too (the W2 wave report's
+        // simplify-pass finding — "dispose() existed but nothing ever called
+        // it" — applies equally to a sub-renderer added later).
+        this.flowViz.dispose();
     }
 }
 

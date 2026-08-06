@@ -188,3 +188,81 @@ export function applyProjectionMatrix(m, x, y) {
         m[1] * x + m[4] * y + m[7]
     ];
 }
+
+/**
+ * The axis-aligned world-frame bounding box of the mesh's vertex positions
+ * (already-reprojected x3857/y3857 — same frame as aPos/the renderer's
+ * posBuf), used by the flow-viz overlay's bbox-ortho window
+ * (TASK-2632, W5.1 — playbackFlowViz.computeBboxOrtho) — computed once per
+ * mesh load, not per frame.
+ * @param {Float64Array|Float32Array|number[]} x3857
+ * @param {Float64Array|Float32Array|number[]} y3857
+ * @returns {[number, number, number, number]} [minX, minY, maxX, maxY]
+ */
+export function computeMeshBounds(x3857, y3857) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < x3857.length; i++) {
+        const x = x3857[i];
+        const y = y3857[i];
+        if (x < minX) {
+            minX = x;
+        }
+        if (x > maxX) {
+            maxX = x;
+        }
+        if (y < minY) {
+            minY = y;
+        }
+        if (y > maxY) {
+            maxY = y;
+        }
+    }
+    return [minX, minY, maxX, maxY];
+}
+
+/**
+ * Build the INVERSE of buildProjectionMatrix — clip(NDC)-space -> world
+ * meters (TASK-2632, W5.1, epic 2618). The flow-viz arrow overlay samples a
+ * grid fixed in SCREEN pixels (not a grid fixed in world meters, which is
+ * what the W0.3 spike did — see playbackFlowViz.js's header for why that
+ * departure matters for the AC's "constant density at every zoom" / QGIS
+ * "on user grid" parity requirement): each grid point starts as an NDC
+ * coordinate, which this matrix maps back to the world-meters point the
+ * velocity FBO's bbox-normalized UV needs.
+ *
+ * buildProjectionMatrix's forward map is a pure rotation + independent
+ * per-axis scale (halfW, halfH) + translation — no shear — so its inverse is
+ * closed-form (rotation inverse = transpose, since R is orthonormal) rather
+ * than a general 3x3 adjugate/cofactor computation:
+ *   forward:  clip.x = ( cosR*dx + sinR*dy) / halfW
+ *             clip.y = (-sinR*dx + cosR*dy) / halfH   where d = world - center
+ *   inverse:  dx = cosR*halfW*clip.x - sinR*halfH*clip.y
+ *             dy = sinR*halfW*clip.x + cosR*halfH*clip.y
+ *             world = center + d
+ * Feed the result through applyProjectionMatrix(inv, ndcX, ndcY) — same
+ * generic 3x3-apply helper the forward matrix already uses, so a caller
+ * doesn't need a second "apply" function for the inverse direction.
+ * @param {{center:[number,number], resolution:number, rotation?:number}} viewState
+ * @param {[number,number]} sizeCssPx [width,height] in CSS pixels (frameState.size)
+ * @returns {Float32Array} length 9, column-major (ready for gl.uniformMatrix3fv(loc, false, m))
+ */
+export function buildInverseProjectionMatrix(viewState, sizeCssPx) {
+    const { center, resolution, rotation = 0 } = viewState || {};
+    const [cx, cy] = center || [0, 0];
+    const [width, height] = sizeCssPx || [0, 0];
+    if (!(resolution > 0) || !(width > 0) || !(height > 0)) {
+        throw new Error('playbackMeshGeometry.buildInverseProjectionMatrix: resolution/width/height must be > 0');
+    }
+    const halfW = (resolution * width) / 2;
+    const halfH = (resolution * height) / 2;
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+    return new Float32Array([
+        cosR * halfW, sinR * halfW, 0, // col0 (clip.x basis)
+        -sinR * halfH, cosR * halfH, 0, // col1 (clip.y basis)
+        cx, cy, 1 // col2 (translation)
+    ]);
+}

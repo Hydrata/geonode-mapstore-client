@@ -572,6 +572,7 @@
         "loadStore": "Charger",
         "inspect": "Inspecter",
         "legend": "Légende",
+        "flowViz": "Débit",
         "degraded": "Connexion lente — lecture dégradée",
         "status": {
           "loadingManifest": "Chargement…",

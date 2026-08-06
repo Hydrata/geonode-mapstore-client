@@ -14,7 +14,9 @@ import {
     computeMixFactor,
     computeVertexInradius,
     buildProjectionMatrix,
-    applyProjectionMatrix
+    applyProjectionMatrix,
+    buildInverseProjectionMatrix,
+    computeMeshBounds
 } from '../playbackMeshGeometry';
 import { FIXTURE_PHYSICAL, FIXTURE_MESH } from './fixtures/fixturePlaybackStore';
 
@@ -197,6 +199,64 @@ describe('playbackMeshGeometry', () => {
             expect(() => buildProjectionMatrix({ center: [0, 0], resolution: 0 }, [800, 600])).toThrow();
             expect(() => buildProjectionMatrix({ center: [0, 0], resolution: 10 }, [0, 600])).toThrow();
             expect(() => buildProjectionMatrix({ center: [0, 0], resolution: 10 }, [800, 0])).toThrow();
+        });
+    });
+
+    describe('buildInverseProjectionMatrix (TASK-2632, W5.1 — screen-space arrow grid sampling)', () => {
+        it('round-trips buildProjectionMatrix: forward(world)->clip, inverse(clip)->world recovers the original point', () => {
+            // Small-magnitude center (matches this file's other buildProjectionMatrix
+            // tests) — both matrices are Float32Array by design (ready for
+            // gl.uniformMatrix3fv), and a large raw EPSG:3857 center (~1e6)
+            // stored directly in m[6]/m[7] carries float32 rounding on the
+            // order of magnitude*1.2e-7 ≈ 0.1m, which is irrelevant for GPU
+            // velocity-field UV sampling but would false-fail a tight
+            // world-scale tolerance here — not what this test is checking.
+            const viewState = { center: [1000, 2000], resolution: 3.7, rotation: 0.4 };
+            const size = [1024, 768];
+            const fwd = buildProjectionMatrix(viewState, size);
+            const inv = buildInverseProjectionMatrix(viewState, size);
+            const worldPoints = [[1000, 2000], [800, 2500], [1300, 1700]];
+            worldPoints.forEach(([wx, wy]) => {
+                const [clipX, clipY] = applyProjectionMatrix(fwd, wx, wy);
+                const [rx, ry] = applyProjectionMatrix(inv, clipX, clipY);
+                expect(Math.abs(rx - wx) < 1e-2).toBe(true);
+                expect(Math.abs(ry - wy) < 1e-2).toBe(true);
+            });
+        });
+
+        it('maps clip-space origin back to the view center', () => {
+            const inv = buildInverseProjectionMatrix({ center: [1000, 2000], resolution: 10, rotation: 0 }, [800, 600]);
+            const [wx, wy] = applyProjectionMatrix(inv, 0, 0);
+            expect(Math.abs(wx - 1000) < 1e-3).toBe(true);
+            expect(Math.abs(wy - 2000) < 1e-3).toBe(true);
+        });
+
+        it('throws for non-positive resolution/width/height (same guard as the forward matrix)', () => {
+            expect(() => buildInverseProjectionMatrix({ center: [0, 0], resolution: 0 }, [800, 600])).toThrow();
+            expect(() => buildInverseProjectionMatrix({ center: [0, 0], resolution: 10 }, [0, 600])).toThrow();
+            expect(() => buildInverseProjectionMatrix({ center: [0, 0], resolution: 10 }, [800, 0])).toThrow();
+        });
+    });
+
+    describe('computeMeshBounds (TASK-2632, W5.1 — flow-viz bbox-ortho window input)', () => {
+        it('returns the axis-aligned bbox of the given vertex arrays', () => {
+            const x = Float64Array.from([10, -5, 20, 3]);
+            const y = Float64Array.from([100, 50, 75, 200]);
+            expect(computeMeshBounds(x, y)).toEqual([-5, 50, 20, 200]);
+        });
+
+        it('a single-vertex mesh yields a degenerate (zero-area) bbox at that point', () => {
+            expect(computeMeshBounds(Float32Array.from([42]), Float32Array.from([7]))).toEqual([42, 7, 42, 7]);
+        });
+
+        it('matches the real fixture mesh reprojected bounds independently computed via min/max reduce', () => {
+            const x = FIXTURE_PHYSICAL.node_x;
+            const y = FIXTURE_PHYSICAL.node_y;
+            const [minX, minY, maxX, maxY] = computeMeshBounds(Float64Array.from(x), Float64Array.from(y));
+            expect(minX).toBe(Math.min(...x));
+            expect(maxX).toBe(Math.max(...x));
+            expect(minY).toBe(Math.min(...y));
+            expect(maxY).toBe(Math.max(...y));
         });
     });
 });
