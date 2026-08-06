@@ -61,6 +61,12 @@ import {TerrainProfilePanel} from './TerrainProfilePanel';
 // (the whole point of floating it); self-gates on a dynamic-mode terrain pair
 // being present + the user-closed flag.
 import {FloatingDemLegendPanel} from './DemRampLegend';
+// TASK-2627 (W3.1, epic 2618) — Anuga-owned playback controller bar. Mounted
+// at container level (self-gates internally: renders its manifest-URL loader
+// when no run is active, the full transport bar once one is) so it survives
+// closing/opening the Inputs/Scenario/Results menus, matching every other
+// container-level panel's rationale above.
+import AnugaPlaybackControlBar from '../playback/components/AnugaPlaybackControlBar';
 // TASK-1869 (W5.4) — vertical-exaggeration slider for the 3D Cesium terrain.
 // GATED (TASK-1870/epic-1871): the slider is visually inert in prod — it sets
 // scene.verticalExaggeration but the GeoServerBILTerrainProvider mesh never
@@ -383,6 +389,15 @@ export class AnugaContainer extends React.Component {
                         present and on the user-closed flag, so it survives
                         closing the Inputs menu. */}
                     <FloatingDemLegendPanel/>
+                    {/* TASK-2627 (W3.1, epic 2618) — playback controller bar.
+                        Gated on the Results group being open (the natural
+                        entry point for viewing a completed run's playback
+                        store — no separate run-picker exists yet, see the
+                        component's own header note) rather than mounted on
+                        every map view unconditionally. */}
+                    {this.props.openMenuGroupId === 'Results' && this.props.canViewAnugaMap && this.props.hasEPSGset ?
+                        <AnugaPlaybackControlBar/> : null
+                    }
                     {/* TASK-1869 (W5.4): vertical-exaggeration slider for the 3D
                         Cesium terrain. GATED until TASK-1870 (epic 1871) makes it
                         actually move the mesh — it is visually inert today, so the

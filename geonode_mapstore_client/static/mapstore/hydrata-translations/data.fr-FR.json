@@ -568,6 +568,19 @@
         "idfDeriveYearRangeTooltip": "10yr utilise les 10 dernières années d'ERA5 (rapide); 75yr utilise 1950–2026 (périodes de retour plus robustes). Les points couverts par GPEX répondent instantanément.",
         "idfDeriveScreeningDisclaimer": "Niveau de criblage GPEX — usage de pré-conception uniquement. Résultats dérivés de niveaux de retour mondiaux précomputés (GPEX MEV v4, CC-BY). Valider avec des données de jauge locale avant utilisation en conception."
       },
+      "playback": {
+        "loadStore": "Charger",
+        "inspect": "Inspecter",
+        "legend": "Légende",
+        "degraded": "Connexion lente — lecture dégradée",
+        "status": {
+          "loadingManifest": "Chargement…",
+          "buffering": "Mise en mémoire tampon…",
+          "seeking": "Mise en mémoire tampon de la cible de défilement…",
+          "stalled": "Mise en mémoire tampon — en attente de données…",
+          "error": "Échec du chargement du magasin de lecture"
+        }
+      },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",
         "aquiferType": "Type d'aquifère",

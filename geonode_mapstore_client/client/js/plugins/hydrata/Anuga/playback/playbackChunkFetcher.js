@@ -28,6 +28,22 @@ import { gunzip, decodeTypedArray, dequantize, chunkKey } from './playbackDecode
 import { PlaybackChunkCache } from './playbackChunkCache';
 
 /**
+ * TASK-2627 (W3.1) live-verify fix: a bare `fetchImpl = fetch` default
+ * parameter captures a DETACHED reference to the native `fetch` — calling
+ * it as `fetchImpl(url)` (a plain function call, not `window.fetch(url)`)
+ * throws `TypeError: Failed to execute 'fetch' on 'Window': Illegal
+ * invocation` in a real browser (native fetch's WebIDL brand-check requires
+ * the correct receiver; `this` is `undefined` in a strict-mode plain call).
+ * Every karma test here injects its OWN fetchImpl (a plain function with no
+ * receiver check), so this never surfaced until the real production epic
+ * path (no injected fetchImpl -> this default) ran on a real page — see the
+ * W3 wave report. Wrapping in an arrow function keeps `fetch(...)` as a
+ * syntactic global-scope call (implicitly `globalThis.fetch(...)`), which
+ * preserves the correct receiver.
+ */
+const defaultFetch = (...args) => fetch(...args);
+
+/**
  * Fetch and parse the playback manifest (TASK-2623's `GET
  * .../runs/<id>/playback-manifest/` action, or an equivalent same-origin/dev
  * URL — this module never assumes an S3 origin, it only ever follows
@@ -36,7 +52,7 @@ import { PlaybackChunkCache } from './playbackChunkCache';
  * @param {typeof fetch} [fetchImpl]
  * @returns {Promise<object>}
  */
-export async function fetchPlaybackManifest(manifestUrl, fetchImpl = fetch) {
+export async function fetchPlaybackManifest(manifestUrl, fetchImpl = defaultFetch) {
     const response = await fetchImpl(manifestUrl, { credentials: 'same-origin' });
     if (!response.ok) {
         throw new Error(`playbackChunkFetcher.fetchPlaybackManifest: GET ${manifestUrl} failed with status ${response.status}`);
@@ -68,7 +84,7 @@ export class PlaybackChunkFetcher {
      * @param {PlaybackChunkCache} [options.cache]
      * @param {typeof fetch} [options.fetchImpl]
      */
-    constructor({ manifest, refreshManifest, cache, fetchImpl = fetch } = {}) {
+    constructor({ manifest, refreshManifest, cache, fetchImpl = defaultFetch } = {}) {
         if (!manifest) {
             throw new Error('PlaybackChunkFetcher: manifest is required');
         }

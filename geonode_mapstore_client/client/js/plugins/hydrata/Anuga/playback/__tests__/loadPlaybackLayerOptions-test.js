@@ -8,7 +8,7 @@
 
 /* TASK-2626 (W2.2, epic 2618) — loadPlaybackLayerOptions tests. */
 import expect from 'expect';
-import { loadPlaybackMesh, loadPlaybackFrame, loadPlaybackLayerOptions } from '../loadPlaybackLayerOptions';
+import { loadPlaybackMesh, loadPlaybackFrame, loadPlaybackLayerOptions, loadPlaybackTime } from '../loadPlaybackLayerOptions';
 import { PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { FIXTURE_STORE_FILES, FIXTURE_MANIFEST, FIXTURE_PHYSICAL, FIXTURE_MESH } from './fixtures/fixturePlaybackStore';
 
@@ -65,6 +65,24 @@ describe('loadPlaybackLayerOptions', () => {
                 const depthQ = FIXTURE_MANIFEST.quantization.depth;
                 for (let n = 0; n < FIXTURE_MESH.nNode; n++) {
                     expect(Math.abs(frame.depth[n] - FIXTURE_PHYSICAL.depth[11][n]) <= depthQ.scale + 1e-6).toBe(true);
+                }
+                done();
+            }).catch(done);
+        });
+    });
+
+    describe('loadPlaybackTime (TASK-2627, W3.1 controller seam extension)', () => {
+        it('decodes the real per-timestep simulation-second array', (done) => {
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetch });
+            loadPlaybackTime(fetcher).then((time) => {
+                expect(time.length).toBe(FIXTURE_MESH.nTime);
+                for (let i = 0; i < time.length; i++) {
+                    expect(Math.abs(time[i] - FIXTURE_PHYSICAL.time[i]) < 1e-9).toBe(true);
+                }
+                // Strictly ascending — playbackController.findTimestepBracket
+                // assumes this (schema §1: output timesteps are monotonic).
+                for (let i = 1; i < time.length; i++) {
+                    expect(time[i] > time[i - 1]).toBe(true);
                 }
                 done();
             }).catch(done);

@@ -568,6 +568,19 @@
         "idfDeriveYearRangeTooltip": "10yr usa los últimos 10 años de ERA5 (rápido); 75yr usa 1950–2026 (períodos de retorno más robustos). Los puntos cubiertos por GPEX responden al instante.",
         "idfDeriveScreeningDisclaimer": "Grado de detección GPEX — solo para uso previo al diseño. Resultados derivados de niveles de retorno globales precomputados (GPEX MEV v4, CC-BY). Validar contra datos de estaciones locales antes de usar en diseño."
       },
+      "playback": {
+        "loadStore": "Cargar",
+        "inspect": "Inspeccionar",
+        "legend": "Leyenda",
+        "degraded": "Conexión lenta — reproducción degradada",
+        "status": {
+          "loadingManifest": "Cargando…",
+          "buffering": "Almacenando en búfer…",
+          "seeking": "Almacenando en búfer el objetivo de desplazamiento…",
+          "stalled": "Almacenando en búfer — esperando datos…",
+          "error": "Error al cargar el almacén de reproducción"
+        }
+      },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",
         "aquiferType": "Tipo de acuífero",

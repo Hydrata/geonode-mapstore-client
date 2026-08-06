@@ -568,6 +568,19 @@
         "idfDeriveYearRangeTooltip": "10yr uses the last 10 years of ERA5 data (quick); 75yr uses 1950–2026 (more robust return periods). GPEX-covered points return instantly regardless of this setting.",
         "idfDeriveScreeningDisclaimer": "GPEX screening grade — pre-design use only. Results are derived from global pre-computed return levels (GPEX MEV v4, CC-BY). Validate against local gauge data before use in design."
       },
+      "playback": {
+        "loadStore": "Load",
+        "inspect": "Inspect",
+        "legend": "Legend",
+        "degraded": "Slow connection — playback degraded",
+        "status": {
+          "loadingManifest": "Loading…",
+          "buffering": "Buffering…",
+          "seeking": "Buffering scrub target…",
+          "stalled": "Buffering — waiting for data…",
+          "error": "Playback store failed to load"
+        }
+      },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",
         "aquiferType": "Aquifer Type",

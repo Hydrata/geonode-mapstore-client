@@ -568,6 +568,19 @@
         "idfDeriveYearRangeTooltip": "10yr itilize 10 dènye ane ERA5 (vit); 75yr itilize 1950–2026 (peryòd retounen pi solid). Pwen GPEX kouvri retounen tousuit.",
         "idfDeriveScreeningDisclaimer": "Nivo depistaj GPEX — pou itilizasyon pre-konsepsyon sèlman. Rezilta derive nan nivo retounen global pre-kalkile (GPEX MEV v4, CC-BY). Valide ak done joj lokal anvan itilize nan konsepsyon."
       },
+      "playback": {
+        "loadStore": "Chaje",
+        "inspect": "Enspekte",
+        "legend": "Legann",
+        "degraded": "Koneksyon lan — jwe degrade",
+        "status": {
+          "loadingManifest": "K ap chaje…",
+          "buffering": "K ap tanpon…",
+          "seeking": "K ap tanpon sib defile a…",
+          "stalled": "K ap tanpon — ap tann done…",
+          "error": "Depo jwe a echwe pou chaje"
+        }
+      },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",
         "aquiferType": "Tip akifè",

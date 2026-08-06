@@ -2971,3 +2971,90 @@ span.sv-scenario-run-price--short {
     border-color: var(--sv-accent-blue, #5bc0ff);
     color: #0b1a26;
 }
+
+/* TASK-2627 (W3.1, epic 2618) — Anuga-owned playback transport bar. Reuses
+   the MapStore Timeline plugin's VISUAL language (bottom-docked, dark glass
+   bar) without touching that plugin (D7 — locked). Sits above Timeline's own
+   z-index band so both can never overlap on the same map (Timeline is not
+   mounted on Anuga result maps today, but this keeps the stacking order
+   correct if that ever changes). */
+.sv-playback-bar {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    background: var(--sv-panel-bg, rgba(20, 24, 28, 0.88));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: Montserrat, sans-serif;
+    font-size: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.sv-playback-bar--loader {
+    gap: 6px;
+}
+.sv-playback-manifest-input {
+    min-width: 260px;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: inherit;
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+.sv-playback-bar .sv-glass-button {
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: inherit;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.sv-playback-bar .sv-glass-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+.sv-playback-bar .sv-glass-button.active {
+    background: var(--sv-accent-blue, #5bc0ff);
+    border-color: var(--sv-accent-blue, #5bc0ff);
+    color: #0b1a26;
+}
+.sv-playback-bar .sv-glass-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.sv-playback-playpause {
+    min-width: 32px;
+    text-align: center;
+}
+.sv-playback-scrubber {
+    width: 220px;
+}
+.sv-playback-readout {
+    min-width: 90px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+.sv-playback-speed,
+.sv-playback-quantity {
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: inherit;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+}
+.sv-playback-buffering {
+    color: var(--sv-accent-blue, #5bc0ff);
+    white-space: nowrap;
+}
+.sv-playback-degraded {
+    color: #f0a830;
+    white-space: nowrap;
+}

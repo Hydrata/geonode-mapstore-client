@@ -105,6 +105,23 @@ export async function loadPlaybackLayerOptions(manifest, fetcherOptions = {}, ti
     return { mesh, frame0, frame1, mixT: 0 };
 }
 
+/**
+ * Fetch + decode the store's `time` array (schema §1: 1D, single-chunk,
+ * float64 simulation-seconds per output timestep) — TASK-2627 (W3.1)
+ * extension of this seam: the playback controller's mixT/timestep advance
+ * (playbackController.findTimestepBracket) needs REAL per-timestep sim time
+ * (ANUGA output steps are not evenly spaced), not an assumed fixed cadence.
+ * Not part of loadPlaybackLayerOptions's own {mesh, frame0, frame1, mixT}
+ * convenience path (that stays scoped to a single already-known timestep
+ * pair) — this is a separate static-array load a controller calls once at
+ * init, alongside loadPlaybackMesh.
+ * @param {PlaybackChunkFetcher} fetcher
+ * @returns {Promise<Float64Array>}
+ */
+export async function loadPlaybackTime(fetcher) {
+    return fetcher.fetchAndDecodeChunk('time', [0], { dtype: 'float64', byteorder: 'little' });
+}
+
 // Re-exported so a caller can pre-compute a chunk's cache key without
 // duplicating the '<array>/c/<t>/<n>' template (e.g. for progress logging).
 export { chunkKey, decodeTypedArray, gunzip };
