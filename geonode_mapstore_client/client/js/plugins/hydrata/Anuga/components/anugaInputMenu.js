@@ -88,6 +88,8 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
 import {MeshWorkflow} from "./MeshWorkflow";
+// W6.1 (TASK-2630) — Built-mesh binary preview (pre-run, any size).
+import {loadBuiltMeshLayerOptions} from "../playback/builtMeshBinary";
 // Merge note (5.x→epic 2026-06-15): union of TASK-1652 reorder imports and
 // TASK-1720/1721 styling-mode/contour imports.
 import {addLayer, moveNode, sortNode, changeLayerProperties, removeLayer} from "../../../../../MapStore2/web/client/actions/layers";
@@ -918,6 +920,9 @@ class AnugaInputMenuClass extends React.Component {
             meshWorkflowOpen: false,
             // W6 (TASK-1424) — built mesh roster: array of MeshRun API objects, null = not loaded
             builtMeshes: null,
+            // W6.1 (TASK-2630) — run_id currently loading its WebGL Built-mesh
+            // preview (drives BuiltMeshRoster's per-row busy state); null = idle.
+            previewingBuiltMeshRunId: null,
             // TASK-1652 (W1.5) — terrain hierarchy: Set of terrain model IDs
             // whose derivative rows (hillshade, etc.) are expanded.
             expandedTerrainIds: new Set(),
@@ -996,6 +1001,30 @@ class AnugaInputMenuClass extends React.Component {
 
     _toggleMeshWorkflow = () => {
         this.setState(prev => ({meshWorkflowOpen: !prev.meshWorkflowOpen}));
+    };
+
+    // W6.1 (TASK-2630) — "Preview (any size)" button on a BuiltMeshRoster row
+    // above the render threshold: fetch the binary Built-mesh export and add
+    // it as an `anuga-playback` layer (wireframe-only, no quantities — no SWW
+    // exists pre-run). Reuses `onAddMeshLayer` (a plain `dispatch(addLayer(
+    // layer))`) — the SAME generic dispatcher the existing MVT
+    // mesh_triangle_render button already uses, so no new Redux plumbing.
+    _handlePreviewBuiltMesh = (meshRun) => {
+        if (!meshRun || !meshRun.run_id) return;
+        if (!this.props.onAddMeshLayer) return;
+        this.setState({previewingBuiltMeshRunId: meshRun.run_id});
+        loadBuiltMeshLayerOptions(meshRun.run_id)
+            .then((layerOptions) => {
+                this.props.onAddMeshLayer(layerOptions);
+                this.setState({previewingBuiltMeshRunId: null});
+            })
+            .catch(() => {
+                // Never let a fetch/decode failure crash the panel — the
+                // button just returns to its idle state (same "never let a
+                // reprojection failure crash the map" posture as
+                // AnugaPlaybackLayer.loadMesh).
+                this.setState({previewingBuiltMeshRunId: null});
+            });
     };
 
     componentDidMount() {
@@ -1698,7 +1727,7 @@ class AnugaInputMenuClass extends React.Component {
             : null;
 
         // W5.1: MeshWorkflow state
-        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen, meshPreviewProgress, builtMeshes} = this.state;
+        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen, meshPreviewProgress, builtMeshes, previewingBuiltMeshRunId} = this.state;
         const hasScenario = !!this.props.selectedScenarioId;
         const scenario = this.props.selectedScenario || null;
         // W5.3: check if the mesh triangle render layer is already in the flat layer list
@@ -1731,6 +1760,13 @@ class AnugaInputMenuClass extends React.Component {
                     onAddMeshLayer={this.props.onAddMeshLayer}
                     isMeshLayerAdded={isMeshLayerAdded}
                     builtMeshes={builtMeshes}
+                    // renderThreshold intentionally omitted — MeshWorkflow's
+                    // default (150000) mirrors PreviewSection's own
+                    // `result.render_threshold || 150000` fallback; no FE
+                    // config surface for settings.MESH_RENDER_MAX_TRIANGLES
+                    // exists yet (documented in the W6 wave report).
+                    onPreviewBuiltMesh={this._handlePreviewBuiltMesh}
+                    previewingRunId={previewingBuiltMeshRunId}
                 />
             </div>
         );

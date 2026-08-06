@@ -113,10 +113,33 @@ function reprojectMeshAsync(mesh) {
         };
         // localX/localY are transferred (not copied) — the caller must not
         // reuse mesh.nodeX/nodeY after this call.
-        worker.postMessage(
-            { requestId: 1, localX: mesh.nodeX, localY: mesh.nodeY, epsg: mesh.epsg, xllcorner: mesh.xllcorner, yllcorner: mesh.yllcorner },
-            [mesh.nodeX.buffer, mesh.nodeY.buffer]
-        );
+        //
+        // TASK-2630 (W6.1) fix: postMessage's transfer list throws a
+        // SYNCHRONOUS DataCloneError when the same ArrayBuffer appears
+        // twice — which happens whenever a caller's nodeX/nodeY are views
+        // over ONE shared buffer (e.g. builtMeshBinary.js's single-response
+        // decode) rather than two independently-fetched chunks (the only
+        // shape this call site had seen before). That throw was previously
+        // UNGUARDED (only `new Worker()` above had a try/catch), so it
+        // propagated out of this Promise executor as a silent rejection —
+        // `loadMesh`'s `.catch(() => {})` swallowed it, leaving the mesh
+        // permanently unloaded with no error surfaced (caught live via
+        // builtMeshBinary's karma GL smoke test hanging at mocha's default
+        // timeout — see the W6 wave report). Same defensive fallback as
+        // the Worker-construction guard above: fall back to the same-thread
+        // path rather than leave the promise unsettled.
+        try {
+            worker.postMessage(
+                { requestId: 1, localX: mesh.nodeX, localY: mesh.nodeY, epsg: mesh.epsg, xllcorner: mesh.xllcorner, yllcorner: mesh.yllcorner },
+                [mesh.nodeX.buffer, mesh.nodeY.buffer]
+            );
+        } catch (e) {
+            if (!settled) {
+                settled = true;
+                cleanup();
+                resolve(runInline());
+            }
+        }
     });
 }
 

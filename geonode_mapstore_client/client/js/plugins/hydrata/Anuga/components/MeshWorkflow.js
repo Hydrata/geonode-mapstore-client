@@ -302,7 +302,8 @@ MeshTriangleLayerSection.defaultProps = {
 };
 
 /**
- * BuiltMeshRoster — W6 (TASK-1424)
+ * BuiltMeshRoster — W6 (TASK-1424); W6.1 (TASK-2630) adds the per-row
+ * "Preview on map" button for a mesh ABOVE the render threshold.
  *
  * Read-only list of built meshes (MeshRun records) for the selected scenario.
  * Each row shows: Run date, triangle count (element_count), node count.
@@ -313,10 +314,27 @@ MeshTriangleLayerSection.defaultProps = {
  * counts only. A future BE persistence subtask could add a mesh_qa JSONField
  * to MeshRun (see novel_questions in W6 wave report).
  *
+ * W6.1 (TASK-2630): below `renderThreshold`, the EXISTING GeoServer MVT
+ * `mesh_triangle_render` layer (MeshTriangleLayerSection above) already
+ * covers a geometry preview — no button needed here. ABOVE the threshold,
+ * that MVT path is unavailable (mesh_store.populate_mesh_triangle_geom
+ * skips it server-side) and the mesh previously had NO visual preview at
+ * all; each such row gets a "Preview on map (any size)" button that fetches
+ * `.../runs/{run_id}/built-mesh-binary/` and adds the SAME custom WebGL2
+ * playback layer in wireframe-only mode (D2, review #11 — new export +
+ * endpoint, not a settings bump).
+ *
  * Props:
- *   builtMeshes: array of MeshRun API objects, or null/empty when none built.
+ *   builtMeshes: array of MeshRun API objects (now carrying `run_id` —
+ *     W6.1), or null/empty when none built.
+ *   renderThreshold: mirrors PreviewSection's `result.render_threshold`
+ *     convention (settings.MESH_RENDER_MAX_TRIANGLES, default 150000).
+ *   onPreviewBuiltMesh: (meshRun) => void — fetches + adds the WebGL layer;
+ *     absent/null hides the button entirely (no dead affordance).
+ *   previewingRunId: run_id currently loading, for the button's own busy
+ *     state (no shared spinner state needed elsewhere).
  */
-export function BuiltMeshRoster({builtMeshes}) {
+export function BuiltMeshRoster({builtMeshes, renderThreshold, onPreviewBuiltMesh, previewingRunId}) {
     return (
         <div className="sv-anuga-mesh-workflow-section sv-anuga-built-mesh-roster">
             <div className="sv-anuga-built-mesh-roster-header">
@@ -334,16 +352,34 @@ export function BuiltMeshRoster({builtMeshes}) {
                                 <th>{'Date'}</th>
                                 <th>{'Triangles'}</th>
                                 <th>{'Nodes'}</th>
+                                <th>{'Preview'}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {builtMeshes.map(mr => (
-                                <tr key={mr.id} data-testid={'built-mesh-row-' + mr.id}>
-                                    <td>{mr.created_at ? new Date(mr.created_at).toLocaleDateString() : '—'}</td>
-                                    <td>{(mr.element_count || 0).toLocaleString()}</td>
-                                    <td>{(mr.node_count || 0).toLocaleString()}</td>
-                                </tr>
-                            ))}
+                            {builtMeshes.map(mr => {
+                                const aboveThreshold = (mr.element_count || 0) > renderThreshold;
+                                const isPreviewing = previewingRunId === mr.run_id;
+                                return (
+                                    <tr key={mr.id} data-testid={'built-mesh-row-' + mr.id}>
+                                        <td>{mr.created_at ? new Date(mr.created_at).toLocaleDateString() : '—'}</td>
+                                        <td>{(mr.element_count || 0).toLocaleString()}</td>
+                                        <td>{(mr.node_count || 0).toLocaleString()}</td>
+                                        <td>
+                                            {aboveThreshold && onPreviewBuiltMesh ? (
+                                                <button
+                                                    className="btn btn-xs btn-default sv-anuga-built-mesh-preview-btn"
+                                                    disabled={isPreviewing}
+                                                    onClick={() => onPreviewBuiltMesh(mr)}
+                                                    title="Above the render threshold — preview via the WebGL2 mesh renderer (wireframe, any size)"
+                                                    data-testid={'built-mesh-preview-btn-' + mr.id}
+                                                >
+                                                    {isPreviewing ? 'Loading…' : 'Preview (any size)'}
+                                                </button>
+                                            ) : null}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </Table>
                 </div>
@@ -355,13 +391,22 @@ export function BuiltMeshRoster({builtMeshes}) {
 BuiltMeshRoster.propTypes = {
     builtMeshes: PropTypes.arrayOf(PropTypes.shape({
         id: PropTypes.number,
+        run_id: PropTypes.number,
         node_count: PropTypes.number,
         element_count: PropTypes.number,
         materialized: PropTypes.bool,
         created_at: PropTypes.string
-    }))
+    })),
+    renderThreshold: PropTypes.number,
+    onPreviewBuiltMesh: PropTypes.func,
+    previewingRunId: PropTypes.number
 };
-BuiltMeshRoster.defaultProps = {builtMeshes: null};
+BuiltMeshRoster.defaultProps = {
+    builtMeshes: null,
+    renderThreshold: 150000,
+    onPreviewBuiltMesh: null,
+    previewingRunId: null
+};
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -388,7 +433,10 @@ export function MeshWorkflow({
     scenario,
     onAddMeshLayer,
     isMeshLayerAdded,
-    builtMeshes
+    builtMeshes,
+    renderThreshold,
+    onPreviewBuiltMesh,
+    previewingRunId
 }) {
     // Only show the mesh triangle layer button when the last preview confirmed
     // the mesh is below the render threshold.
@@ -426,8 +474,13 @@ export function MeshWorkflow({
                         />
                     )}
                     <ImportExportSection/>
-                    {/* W6 (TASK-1424) — Built meshes roster */}
-                    <BuiltMeshRoster builtMeshes={builtMeshes}/>
+                    {/* W6 (TASK-1424) — Built meshes roster; W6.1 (TASK-2630) adds the per-row WebGL preview button */}
+                    <BuiltMeshRoster
+                        builtMeshes={builtMeshes}
+                        renderThreshold={renderThreshold}
+                        onPreviewBuiltMesh={onPreviewBuiltMesh}
+                        previewingRunId={previewingRunId}
+                    />
                     <div className="sv-anuga-mesh-workflow-section sv-anuga-mesh-workflow-hint">
                         <span className="sv-anuga-mesh-workflow-hint-text">
                             {'Resolution field on each mesh region is a target edge length (m). '}
@@ -459,11 +512,16 @@ MeshWorkflow.propTypes = {
     // W6 (TASK-1424): built meshes roster — array of MeshRun objects
     builtMeshes: PropTypes.arrayOf(PropTypes.shape({
         id: PropTypes.number,
+        run_id: PropTypes.number,
         node_count: PropTypes.number,
         element_count: PropTypes.number,
         materialized: PropTypes.bool,
         created_at: PropTypes.string
-    }))
+    })),
+    // W6.1 (TASK-2630): above-threshold Built-mesh WebGL preview
+    renderThreshold: PropTypes.number,
+    onPreviewBuiltMesh: PropTypes.func,
+    previewingRunId: PropTypes.number
 };
 
 MeshWorkflow.defaultProps = {
@@ -473,7 +531,10 @@ MeshWorkflow.defaultProps = {
     scenario: null,
     onAddMeshLayer: null,
     isMeshLayerAdded: false,
-    builtMeshes: null
+    builtMeshes: null,
+    renderThreshold: 150000,
+    onPreviewBuiltMesh: null,
+    previewingRunId: null
 };
 
 export default MeshWorkflow;
