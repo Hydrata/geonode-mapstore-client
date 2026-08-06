@@ -1,0 +1,148 @@
+/**
+ * Copyright 2026, GeoSolutions Sas.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * playbackMeshGeometry — pure geometry/buffer-packing helpers for the
+ * AnugaPlaybackLayer WebGL2 mesh renderer (TASK-2626, W2.2, epic 2618). No
+ * GL/DOM/OL types here — every export is a plain-data transform so the
+ * layer's actual `render(frameState)` stays a thin GL-calls-only shell
+ * (spec: "Keep GL smoke tests minimal in karma ... math already covered
+ * headlessly").
+ */
+
+/**
+ * Build a deduplicated GL_LINES edge-index buffer for wireframe rendering
+ * from a (nFace, 3) face_node_connectivity array (schema §2 — the same int32
+ * array the fetcher decodes as-is, no dequantization). Each triangle
+ * contributes edges (v0,v1) (v1,v2) (v2,v0); an edge shared by two
+ * triangles (any interior mesh edge) is only emitted once.
+ * @param {Int32Array|number[]} faceNodeConnectivity flat, row-major (nFace*3)
+ * @returns {Uint32Array} flat pairs [a0,b0, a1,b1, ...] for gl.LINES
+ */
+export function buildWireframeIndices(faceNodeConnectivity) {
+    const n = faceNodeConnectivity.length;
+    if (n % 3 !== 0) {
+        throw new Error('playbackMeshGeometry.buildWireframeIndices: length must be a multiple of 3');
+    }
+    const seen = new Set();
+    const edges = [];
+    const addEdge = (a, b) => {
+        const lo = a < b ? a : b;
+        const hi = a < b ? b : a;
+        const key = lo * 4294967296 + hi; // safe: vertex indices are well under 2^32 for any real mesh
+        if (!seen.has(key)) {
+            seen.add(key);
+            edges.push(lo, hi);
+        }
+    };
+    for (let f = 0; f < n; f += 3) {
+        const v0 = faceNodeConnectivity[f];
+        const v1 = faceNodeConnectivity[f + 1];
+        const v2 = faceNodeConnectivity[f + 2];
+        addEdge(v0, v1);
+        addEdge(v1, v2);
+        addEdge(v2, v0);
+    }
+    return Uint32Array.from(edges);
+}
+
+/**
+ * Interleave per-vertex depth/x_velocity/y_velocity (already-dequantized
+ * physical Float32Arrays, same length) into one vec3-per-vertex buffer for
+ * the GPU attribute upload (matches the W0.3 spike's packed qty0/qty1
+ * buffers — depth in .x, velocity components in .y/.z).
+ * @param {Float32Array} depth
+ * @param {Float32Array} xVelocity
+ * @param {Float32Array} yVelocity
+ * @returns {Float32Array} length depth.length * 3
+ */
+export function packQuantityVec3(depth, xVelocity, yVelocity) {
+    const n = depth.length;
+    if (xVelocity.length !== n || yVelocity.length !== n) {
+        throw new Error('playbackMeshGeometry.packQuantityVec3: depth/xVelocity/yVelocity length mismatch');
+    }
+    const out = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+        out[i * 3] = depth[i];
+        out[i * 3 + 1] = xVelocity[i];
+        out[i * 3 + 2] = yVelocity[i];
+    }
+    return out;
+}
+
+/**
+ * Linear mix factor in [0,1] between two known-time samples t0Seconds and
+ * t1Seconds for a playhead at nowSeconds — the `uMixT` the two-buffer
+ * shader interpolates aQty0/aQty1 with. Clamped (never extrapolates past
+ * either buffer). t1Seconds === t0Seconds (a degenerate/final-frame window)
+ * returns 0 rather than dividing by zero.
+ * @param {number} nowSeconds
+ * @param {number} t0Seconds
+ * @param {number} t1Seconds
+ * @returns {number}
+ */
+export function computeMixFactor(nowSeconds, t0Seconds, t1Seconds) {
+    if (t1Seconds === t0Seconds) {
+        return 0;
+    }
+    const t = (nowSeconds - t0Seconds) / (t1Seconds - t0Seconds);
+    return Math.min(1, Math.max(0, t));
+}
+
+/**
+ * Build the column-major 3x3 world->clip-space matrix for an OL
+ * `render(frameState)` callback, from the frame's viewState — the layer
+ * owns its own WebGL2 canvas/context (no ol/webgl/Helper), so it must build
+ * this itself rather than relying on ol's internal WebGL pipeline.
+ *
+ * Derivation: for world point p, let d = p - center, rotated by -rotation
+ * to align with screen axes, then normalized by the world-space half-extent
+ * of the viewport (resolution is world-units-per-CSS-pixel):
+ *   clip.x = (cos(rot)*dx + sin(rot)*dy) / halfWidthWorld
+ *   clip.y = (-sin(rot)*dx + cos(rot)*dy) / halfHeightWorld
+ * WebGL clip-space +Y already renders as "up" on screen (no manual Y-flip),
+ * so a rotation=0 map with north-up world data renders north-up.
+ * @param {{center:[number,number], resolution:number, rotation?:number}} viewState
+ * @param {[number,number]} sizeCssPx [width,height] in CSS pixels (frameState.size)
+ * @returns {Float32Array} length 9, column-major (ready for gl.uniformMatrix3fv(loc, false, m))
+ */
+export function buildProjectionMatrix(viewState, sizeCssPx) {
+    const { center, resolution, rotation = 0 } = viewState || {};
+    const [cx, cy] = center || [0, 0];
+    const [width, height] = sizeCssPx || [0, 0];
+    if (!(resolution > 0) || !(width > 0) || !(height > 0)) {
+        throw new Error('playbackMeshGeometry.buildProjectionMatrix: resolution/width/height must be > 0');
+    }
+    const halfW = (resolution * width) / 2;
+    const halfH = (resolution * height) / 2;
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+    // column-major: [col0(3), col1(3), col2(3)]
+    return new Float32Array([
+        cosR / halfW, -sinR / halfH, 0, // col0 (x basis)
+        sinR / halfW, cosR / halfH, 0, // col1 (y basis)
+        (-cx * cosR - cy * sinR) / halfW, (cx * sinR - cy * cosR) / halfH, 1 // col2 (translation)
+    ]);
+}
+
+/**
+ * Apply a 3x3 column-major matrix (as built by buildProjectionMatrix) to a
+ * homogeneous 2D point [x, y, 1]. Test-only helper (production code applies
+ * the matrix on the GPU) — kept here so the projection matrix's correctness
+ * can be asserted without duplicating the multiply in every test file.
+ * @param {Float32Array|number[]} m length-9 column-major 3x3
+ * @param {number} x
+ * @param {number} y
+ * @returns {[number, number]}
+ */
+export function applyProjectionMatrix(m, x, y) {
+    return [
+        m[0] * x + m[3] * y + m[6],
+        m[1] * x + m[4] * y + m[7]
+    ];
+}
