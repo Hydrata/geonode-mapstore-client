@@ -879,14 +879,22 @@ class AnugaInputMenuClass extends React.Component {
         // mount that omits it is safe (mirrors terrainBboxPanel.js's own
         // setAnugaInputMenu propType, which carries no defaultProps entry).
         setAnugaInputMenu: PropTypes.func,
-        onUpdateTerrainRow: PropTypes.func
+        onUpdateTerrainRow: PropTypes.func,
+        // TASK-2631 (W6.2, epic 2618) — explicit ownProp from anugaContainer.js
+        // (this component carries its OWN connect(), so it does not inherit
+        // the container's plugin-cfg ownProps automatically). Gates the W6.1
+        // Built-mesh WebGL preview button — see renderMeshPane's use below.
+        resultsPlaybackEnabled: PropTypes.bool
     };
 
     static defaultProps = {
         // TASK-1800: the "Combined surface" header button calls these
         // unconditionally; default to no-ops so an unconnected/test mount is safe.
         onOpenMergeTerrainsPanel: () => {},
-        onTwLoadData: () => {}
+        onTwLoadData: () => {},
+        // TASK-2631 — dark by construction, mirrors anugaContainer.js's
+        // paywallEnabled/resultsPlaybackEnabled defaultProps.
+        resultsPlaybackEnabled: false
     };
 
     constructor(props) {
@@ -1765,7 +1773,12 @@ class AnugaInputMenuClass extends React.Component {
                     // `result.render_threshold || 150000` fallback; no FE
                     // config surface for settings.MESH_RENDER_MAX_TRIANGLES
                     // exists yet (documented in the W6 wave report).
-                    onPreviewBuiltMesh={this._handlePreviewBuiltMesh}
+                    // TASK-2631 (W6.2) — null (not the handler) when the
+                    // playback flag is dark: BuiltMeshRoster already treats a
+                    // null onPreviewBuiltMesh as "hide the button entirely, no
+                    // dead affordance" (see its own propTypes/render — built
+                    // W6.1), so gating here needs no new conditional there.
+                    onPreviewBuiltMesh={this.props.resultsPlaybackEnabled ? this._handlePreviewBuiltMesh : null}
                     previewingRunId={previewingBuiltMeshRunId}
                 />
             </div>
