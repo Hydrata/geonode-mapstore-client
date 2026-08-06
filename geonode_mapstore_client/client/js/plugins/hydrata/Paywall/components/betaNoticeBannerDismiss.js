@@ -9,8 +9,14 @@
  * bug this guards against). A username-less caller (not yet resolved,
  * anonymous) never reads/writes anything — fail toward SHOWING the banner,
  * never toward silently hiding it for nobody in particular.
+ *
+ * TASK-2653 (epic 2635 W4, ruling 2635-D6) — versioned to `.v2.`: the banner
+ * copy gained an engine-update disclosure line, and testers who dismissed
+ * the pre-D6 banner (almost certainly all of them, active all week) must
+ * see it re-shown exactly once. Old `.dismissed.<user>` keys are simply
+ * left inert in localStorage — no migration/cleanup code reads them.
  */
-const DISMISS_KEY_PREFIX = 'hydrata.betaNoticeBanner.dismissed.';
+const DISMISS_KEY_PREFIX = 'hydrata.betaNoticeBanner.dismissed.v2.';
 
 export const isDismissedFor = (username) => {
     if (!username || typeof window === 'undefined' || !window.localStorage) return false;

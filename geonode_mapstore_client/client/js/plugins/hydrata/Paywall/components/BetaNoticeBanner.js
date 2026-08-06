@@ -15,9 +15,18 @@
  * regardless of whether the Billing tab is ever opened — see
  * accountEpics.js's triggerFetchAccountSummaryOnInitEpic) — never a
  * hardcoded literal, and never duplicated/recomputed here.
+ *
+ * TASK-2653 (epic 2635 W4, ruling 2635-D6) added the trailing
+ * `betaEngineUpdateNotice` i18n line — the "accept + flag" mitigation for
+ * the W5 GPU rebake shipping mid-beta with no cross-engine parity gate.
+ * That copy is deliberately EVERGREEN (no version/SHA/date/target name):
+ * it must stay true both before and after the cutover. See
+ * betaNoticeBannerDismiss.js for the paired dismiss-key version bump that
+ * makes the amended banner re-show to prior dismissers.
  */
 import React from 'react';
 const PropTypes = require('prop-types');
+import Message from '@mapstore/framework/components/I18N/Message';
 import './betaNoticeBanner.css';
 
 const BetaNoticeBanner = ({ visible, balance, loaded, onDismiss }) => {
@@ -34,6 +43,8 @@ const BetaNoticeBanner = ({ visible, balance, loaded, onDismiss }) => {
                 {'Hydrata is currently in beta.'}
                 {creditClause}
                 {' Payments are in test mode — no card will be charged.'}
+                {' '}
+                <Message msgId="hydrata.anuga.betaEngineUpdateNotice" />
             </span>
             <button
                 type="button"

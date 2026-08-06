@@ -44,8 +44,12 @@ afterEach(() => {
     // Scope the clear to this suite's own dismissal keys only — other
     // Karma suites in the same session may use localStorage for unrelated
     // things (e.g. paywallEpics.js's checkout-pending anchor).
+    // TASK-2653 clears BOTH the pre-v2 key format (some specs below seed it
+    // directly to prove it is now inert) and the current v2 format that
+    // setDismissedFor/isDismissedFor actually read/write.
     ['e2e_regular', 'e2e_staff'].forEach((u) => {
         window.localStorage.removeItem(`hydrata.betaNoticeBanner.dismissed.${u}`);
+        window.localStorage.removeItem(`hydrata.betaNoticeBanner.dismissed.v2.${u}`);
     });
 });
 
@@ -144,5 +148,41 @@ describe('TASK-2638 BetaNoticeBanner', () => {
         // agrees on both surfaces without contradiction.
         expect(formatCostEstimate(0)).toBe('Free');
         expect(bandForEstimate(0, '0.5', [[2, '1'], [5, '2'], [null, '5']])).toBe(0);
+    });
+});
+
+// TASK-2653 (epic 2635 W4, ruling 2635-D6) — the "accept + flag" mitigation
+// for the W5 GPU rebake: an evergreen engine-update disclosure line, and a
+// versioned dismiss key so it re-shows exactly once to users who already
+// dismissed the pre-D6 banner.
+describe('TASK-2653 BetaNoticeBanner — engine-update line + dismiss-key v2', () => {
+    it('the evergreen engine-update line renders (no IntlProvider in this suite, so the msgId text itself is the render proof — same convention as billingTabPanel-test.js)', () => {
+        const store = makeStore({ jobName: 'hydratabase' });
+        ReactDOM.render(<Provider store={store}><BetaNoticeBannerContainer /></Provider>, host);
+        const text = host.querySelector('[data-testid="sv-beta-notice-banner-text"]').textContent;
+        expect(text).toInclude('hydrata.anuga.betaEngineUpdateNotice');
+    });
+
+    it('an OLD (pre-v2) dismissal key does NOT suppress the banner', () => {
+        // Seed exactly the literal pre-D6 key format — a prior dismisser's
+        // localStorage, untouched by this epic wave.
+        window.localStorage.setItem('hydrata.betaNoticeBanner.dismissed.e2e_regular', '1');
+        const store = makeStore({ jobName: 'hydratabase', username: 'e2e_regular' });
+        ReactDOM.render(<Provider store={store}><BetaNoticeBannerContainer /></Provider>, host);
+        expect(host.querySelector('[data-testid="sv-beta-notice-banner"]')).toExist();
+    });
+
+    it('dismissing writes the v2 key and suppresses on next mount', () => {
+        const store = makeStore({ jobName: 'hydratabase', username: 'e2e_regular' });
+        ReactDOM.render(<Provider store={store}><BetaNoticeBannerContainer /></Provider>, host);
+        expect(host.querySelector('[data-testid="sv-beta-notice-banner"]')).toExist();
+
+        host.querySelector('[data-testid="sv-beta-notice-banner-dismiss"]').click();
+        expect(window.localStorage.getItem('hydrata.betaNoticeBanner.dismissed.v2.e2e_regular')).toBe('1');
+
+        ReactDOM.unmountComponentAtNode(host);
+        const reloadedStore = makeStore({ jobName: 'hydratabase', username: 'e2e_regular' });
+        ReactDOM.render(<Provider store={reloadedStore}><BetaNoticeBannerContainer /></Provider>, host);
+        expect(host.querySelector('[data-testid="sv-beta-notice-banner"]')).toBe(null);
     });
 });
