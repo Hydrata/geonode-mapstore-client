@@ -41,6 +41,13 @@ import { getToken } from '../../../../../MapStore2/web/client/utils/SecurityUtil
 // is preserved on a wrapper so it only exists in the meshes-present branch.
 import { Table } from '../../SimpleView/components/primitives';
 
+// Mirrors settings.MESH_RENDER_MAX_TRIANGLES' own default (mesh_store.py) —
+// used wherever the FE needs a fallback threshold and the last preview/roster
+// response didn't carry its own render_threshold (TASK-2630, W6.1: extracted
+// so PreviewSection's pre-existing fallback and BuiltMeshRoster/MeshWorkflow's
+// new defaultProps can't drift apart).
+const DEFAULT_RENDER_THRESHOLD = 150000;
+
 // Inline Spinner from React-Spinner (already a MapStore2 dep via anugaInputMenu).
 // We lazily require it so this file does not add a new npm dep.
 let Spinner = null;
@@ -97,7 +104,7 @@ export function PreviewSection({status, result, error, hasScenario, onStart, pro
     if (status === 'done' && result) {
         const tc = result.triangle_count;
         const aboveThreshold = result.above_render_threshold;
-        const threshold = result.render_threshold || 150000;
+        const threshold = result.render_threshold || DEFAULT_RENDER_THRESHOLD;
         if (aboveThreshold) {
             // W6 (TASK-1421): explicit "too large" banner with actionable guidance.
             resultLabel = (
@@ -403,7 +410,7 @@ BuiltMeshRoster.propTypes = {
 };
 BuiltMeshRoster.defaultProps = {
     builtMeshes: null,
-    renderThreshold: 150000,
+    renderThreshold: DEFAULT_RENDER_THRESHOLD,
     onPreviewBuiltMesh: null,
     previewingRunId: null
 };
@@ -532,7 +539,7 @@ MeshWorkflow.defaultProps = {
     onAddMeshLayer: null,
     isMeshLayerAdded: false,
     builtMeshes: null,
-    renderThreshold: 150000,
+    renderThreshold: DEFAULT_RENDER_THRESHOLD,
     onPreviewBuiltMesh: null,
     previewingRunId: null
 };
