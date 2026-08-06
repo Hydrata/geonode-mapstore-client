@@ -42,4 +42,9 @@ membership.keys().forEach(membership);
 // in this subset too.
 var i18n = require.context('./js/plugins/hydrata/Anuga/__tests__', false, /anugaI18n-test\.jsx?$/);
 i18n.keys().forEach(i18n);
+// TASK-2638 (epic 2635 W1) — the beta notice banner. Same reason as every
+// line above: Paywall/components/__tests__ is a NEW directory with no
+// existing context here, so its spec executes nothing until named.
+var betaBanner = require.context('./js/plugins/hydrata/Paywall/components/__tests__', false, /-test\.jsx?$/);
+betaBanner.keys().forEach(betaBanner);
 module.exports = paywall;
