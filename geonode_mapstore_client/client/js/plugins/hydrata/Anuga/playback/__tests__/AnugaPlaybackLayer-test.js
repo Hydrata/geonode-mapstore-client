@@ -186,5 +186,52 @@ describe('AnugaPlaybackLayer', () => {
             const frameState = { viewState: { center: [500000, 6900000], resolution: 25, rotation: 0.1 }, size: [400, 300], pixelRatio: 2 };
             expect(() => layer.render(frameState, null)).toNotThrow();
         });
+
+        // TASK-2629 (W4.1) — minimal GL smoke check (per the wave brief:
+        // "keep GL smoke tests minimal ... SwiftShader slow") that every one
+        // of the eight uColorMode branches actually links/draws without a GL
+        // error against a REAL mesh (incl. the new friction/inradius static
+        // attributes) — the math itself is covered headlessly by
+        // playbackDerivedQuantities-test.js/playbackShaders-test.js; this
+        // only proves the GPU pipeline (LUT bind, attribute layout, uniform
+        // wiring) doesn't fall over for any of the eight modes.
+        it('renders all eight derived-quantity colorModes against a real mesh without a GL error', (done) => {
+            const layer = Layers.createLayer(LAYER_TYPE, {
+                id: 'playback-gl-smoke',
+                mesh: {
+                    nodeX: Float32Array.from([0, 10, 0, 10]),
+                    nodeY: Float32Array.from([0, 0, 10, 10]),
+                    elevation: Float32Array.from([1, 2, 3, 4]),
+                    friction: Float32Array.from([0.03, 0.03, 0.05, 0.05]),
+                    vertexInradius: Float32Array.from([2, 2, 3, 3]),
+                    faceNodeConnectivity: Int32Array.from([0, 1, 2, 1, 3, 2]),
+                    epsg: 32756, xllcorner: 500000, yllcorner: 6900000
+                },
+                frame0: { depth: Float32Array.from([1, 2, 3, 4]), xVelocity: Float32Array.from([0.5, 0.5, 0.5, 0.5]), yVelocity: Float32Array.from([0, 0, 0, 0]) },
+                frame1: { depth: Float32Array.from([2, 3, 4, 5]), xVelocity: Float32Array.from([0.5, 0.5, 0.5, 0.5]), yVelocity: Float32Array.from([0, 0, 0, 0]) }
+            });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const gl = renderer.gl;
+            const frameState = { viewState: { center: [500000, 6900000], resolution: 1, rotation: 0 }, size: [64, 64], pixelRatio: 1 };
+            // setMesh runs off a microtask (async reprojection, see
+            // AnugaPlaybackLayer.loadMesh) — poll until it lands rather than
+            // assuming a fixed number of ticks.
+            const waitForMesh = () => {
+                if (renderer.meshReady) {
+                    ['depth', 'speed', 'stage', 'div', 'hazard', 'froude', 'shear', 'courant'].forEach((colorMode) => {
+                        renderer.render({
+                            viewState: frameState.viewState, size: frameState.size, pixelRatio: 1, opacity: 1,
+                            mixT: 0.4, colorMode, colorMax: 10, colorMin: 0,
+                            wetThreshold: 0.005, g: 9.8, rhoW: 1023, dt: 1.2
+                        });
+                        expect(gl.getError()).toBe(gl.NO_ERROR);
+                    });
+                    done();
+                    return;
+                }
+                setTimeout(waitForMesh, 10);
+            };
+            waitForMesh();
+        });
     });
 });

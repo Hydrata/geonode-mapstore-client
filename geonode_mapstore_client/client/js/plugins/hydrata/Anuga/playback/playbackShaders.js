@@ -18,6 +18,17 @@
  * baked the authoritative `compute_velocity` (B7 solver_epsilon) formula
  * into the store server-side, so re-deriving it client-side from momentum
  * would be redundant and risks drifting from the schema's own convention.
+ *
+ * TASK-2629 (W4.1) extends the two primitive colour modes (depth/speed) to
+ * the full eight-quantity derived-quantity menu (glossary: "a formula, not
+ * a dataset" — every mode below is computed per-vertex from primitives
+ * already resident on the GPU, no new stored arrays/fetches). Mirrors
+ * playbackDerivedQuantities.js's formulas + QUANTITY_MODE_INDEX exactly —
+ * see that module's header for the formula citations (AIDR hazard table,
+ * Manning shear, Courant/celerity). aFriction/aInradius are new STATIC
+ * per-vertex attributes (friction: store's real per-vertex Manning n;
+ * inradius: the store's per-FACE inradius broadcast to vertices by
+ * playbackMeshGeometry.computeVertexInradius — see AnugaPlaybackRenderer.setMesh).
  */
 
 // aQty0/aQty1 = (depth, x_velocity, y_velocity) at the two buffered
@@ -29,20 +40,68 @@ layout(location=0) in vec2 aPos;
 layout(location=1) in float aElev;
 layout(location=2) in vec3 aQty0;
 layout(location=3) in vec3 aQty1;
+layout(location=4) in float aFriction;
+layout(location=5) in float aInradius;
 uniform mat3 uProj;
 uniform float uMixT;
-uniform int uColorMode; // 0 = depth, 1 = speed
+// 0=depth 1=speed 2=stage 3=dIV 4=hazard 5=froude 6=shear 7=courant —
+// playbackDerivedQuantities.QUANTITY_MODE_INDEX, kept in lockstep by
+// playbackColormap-test.js.
+uniform int uColorMode;
 uniform float uColorMax;
-uniform float uWetThreshold;
+uniform float uColorMin; // non-zero only for stage's per-run rescale (mode 2)
+uniform float uWetThreshold; // store's minimum_storable_height (NOT hardcoded)
+uniform float uG; // store attr g (9.8), NOT the textbook 9.81
+uniform float uRhoW; // store attr rho_w
+uniform float uDt; // frame-mixed dt(t), SECONDS — approximate/global-dt (review F6)
 out float vValue;
 out float vWet;
+
+float classifyHazardIndex(float d, float v) {
+  // AIDR Guideline 7-3 (2017) Table 2, p.11 — see playbackDerivedQuantities.js
+  // AIDR_HAZARD_TABLE / AIDR_HAZARD_CITATION for the authoritative source;
+  // this is a hand transcription of the SAME six thresholds (GLSL cannot
+  // import the JS/JSON table at runtime) — kept identical by the karma GL
+  // smoke test in playbackColormap-test.js.
+  float dv = d * v;
+  if (dv <= 0.3 && d <= 0.3 && v <= 2.0) return 0.0;
+  if (dv <= 0.6 && d <= 0.5 && v <= 2.0) return 1.0;
+  if (dv <= 0.6 && d <= 1.2 && v <= 2.0) return 2.0;
+  if (dv <= 1.0 && d <= 2.0 && v <= 2.0) return 3.0;
+  if (dv <= 4.0 && d <= 4.0 && v <= 4.0) return 4.0;
+  return 5.0;
+}
+
 void main() {
   vec3 q = mix(aQty0, aQty1, uMixT);
   float depth = max(q.x, 0.0);
   float wet = step(uWetThreshold, depth);
   float speed = length(q.yz) * wet;
-  float raw = (uColorMode == 0) ? depth : speed;
-  vValue = clamp(raw / max(uColorMax, 1e-9), 0.0, 1.0);
+  // Guarded (never zero) denominator for the div-heavy formulas below —
+  // schema §8: "GLSL divide-by-zero is undefined per spec ... the mask
+  // should be applied before the formula" — dry cells still render the flat
+  // dry-ground tint in the fragment shader regardless of this value.
+  float safeDepth = max(depth, 1e-6);
+
+  float raw;
+  if (uColorMode == 0) {
+    raw = depth;
+  } else if (uColorMode == 1) {
+    raw = speed;
+  } else if (uColorMode == 2) {
+    raw = aElev + depth; // stage
+  } else if (uColorMode == 3) {
+    raw = depth * speed; // dIV
+  } else if (uColorMode == 4) {
+    raw = classifyHazardIndex(depth, speed) * wet; // hazard class index 0..5
+  } else if (uColorMode == 5) {
+    raw = (speed / sqrt(uG * safeDepth)) * wet; // Froude
+  } else if (uColorMode == 6) {
+    raw = (uRhoW * uG * aFriction * aFriction * speed * speed / pow(safeDepth, 1.0 / 3.0)) * wet; // Manning shear
+  } else {
+    raw = (sqrt(uG * safeDepth) * uDt / max(aInradius, 1e-6)) * wet; // Courant (celerity*dt/inradius)
+  }
+  vValue = clamp((raw - uColorMin) / max(uColorMax - uColorMin, 1e-9), 0.0, 1.0);
   vWet = wet;
   vec3 clip = uProj * vec3(aPos, 1.0);
   gl_Position = vec4(clip.xy, 0.0, 1.0);

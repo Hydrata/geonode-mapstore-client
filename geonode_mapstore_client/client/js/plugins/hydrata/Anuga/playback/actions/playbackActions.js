@@ -41,8 +41,8 @@ export function playbackInit(runId, layerId, manifestUrl) {
     return { type: PLAYBACK_INIT, runId, layerId, manifestUrl };
 }
 
-export function playbackManifestLoaded({ runId, manifest, mesh, time, quantization, nTime, nNode, chunkLengthT, totalChunks }) {
-    return { type: PLAYBACK_MANIFEST_LOADED, runId, manifest, mesh, time, quantization, nTime, nNode, chunkLengthT, totalChunks };
+export function playbackManifestLoaded({ runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks }) {
+    return { type: PLAYBACK_MANIFEST_LOADED, runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks };
 }
 
 export function playbackManifestFailed(runId, error) {

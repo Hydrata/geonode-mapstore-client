@@ -24,6 +24,7 @@ import {
     mergeBufferedChunks,
     findTimestepBracket,
     colorMaxForQuantity,
+    colorMinForQuantity,
     playbackControllerReducer as reduce
 } from '../playbackController';
 import {
@@ -152,6 +153,48 @@ describe('playbackController', () => {
             expect(colorMaxForQuantity('depth', null)).toBe(1);
             expect(colorMaxForQuantity('speed', {})).toBe(1);
         });
+
+        // TASK-2629 (W4.1) — the six new derived quantities. hazard/froude/
+        // shear/courant are FIXED caps (mirror playbackColormap.js's own
+        // constants — cross-checked, not re-derived); div/stage rescale from
+        // the manifest/run like depth/speed already did.
+        it('hazard is the fixed classIndex cap (0..5, H1-H6), independent of quantization', () => {
+            expect(colorMaxForQuantity('hazard', quantization)).toBe(5);
+            expect(colorMaxForQuantity('hazard', null)).toBe(5);
+        });
+        it('froude/shear/courant use their own fixed engineering caps regardless of quantization', () => {
+            expect(colorMaxForQuantity('froude', null)).toBe(3.0);
+            expect(colorMaxForQuantity('shear', null)).toBe(500);
+            expect(colorMaxForQuantity('courant', null)).toBe(4.0);
+        });
+        it('div uses the depth*velocity product bound from quantization', () => {
+            expect(colorMaxForQuantity('div', quantization)).toBe(22.15 * 3.72);
+        });
+        it('div falls back to a sane default with no quantization', () => {
+            expect(colorMaxForQuantity('div', null)).toBe(20);
+        });
+        it('stage rescales to this run\'s own [elevationMin, elevationMax+depthMax] span', () => {
+            const context = { elevationMin: 10, elevationMax: 15 };
+            expect(colorMaxForQuantity('stage', quantization, context)).toBe(15 + 22.15);
+        });
+        it('stage falls back to elevationMin+1 when the span is degenerate (no depth range)', () => {
+            expect(colorMaxForQuantity('stage', null, { elevationMin: 10, elevationMax: 10 })).toBe(11);
+        });
+    });
+
+    describe('colorMinForQuantity (AC: only stage is non-zero — a datum-absolute field)', () => {
+        it('every non-stage quantity is 0', () => {
+            ['depth', 'speed', 'div', 'hazard', 'froude', 'shear', 'courant'].forEach((q) => {
+                expect(colorMinForQuantity(q, { elevationMin: 42 })).toBe(0);
+            });
+        });
+        it('stage uses the run\'s own elevationMin', () => {
+            expect(colorMinForQuantity('stage', { elevationMin: -3.5 })).toBe(-3.5);
+        });
+        it('stage falls back to 0 with no context', () => {
+            expect(colorMinForQuantity('stage')).toBe(0);
+            expect(colorMinForQuantity('stage', {})).toBe(0);
+        });
     });
 
     describe('INIT / MANIFEST_LOADED / MANIFEST_FAILED', () => {
@@ -172,6 +215,54 @@ describe('playbackController', () => {
             expect(s.mesh).toBe(mesh);
             expect(s.playheadSeconds).toBe(0);
             expect(s.currentTimestep).toBe(0);
+        });
+
+        // TASK-2629 (W4.1) — the store-attr fields the six new formulas need,
+        // read from schema_metadata (never hardcoded past the initial-state
+        // fallback) and from the mesh's own elevation range.
+        it('MANIFEST_LOADED reads hasDt/g/rhoW/wetThreshold from schema_metadata and elevationMin/Max from the mesh', () => {
+            const mesh = { nodeX: new Float32Array([0]), elevationMin: -2, elevationMax: 12 };
+            const dtMs = new Float32Array([NaN, 500, 500]);
+            const s = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm', schema_metadata: { has_dt: true, g: 9.8, rho_w: 1023, minimum_storable_height: 0.005 } },
+                    mesh, dtMs, time: TIME, nTime: TIME.length, nNode: 6, chunkLengthT: 10, totalChunks: 2, quantization: {}
+                }));
+            expect(s.hasDt).toBe(true);
+            expect(s.g).toBe(9.8);
+            expect(s.rhoW).toBe(1023);
+            expect(s.wetThreshold).toBe(0.005);
+            expect(s.elevationMin).toBe(-2);
+            expect(s.elevationMax).toBe(12);
+            expect(s.dtMs).toBe(dtMs);
+        });
+        it('MANIFEST_LOADED falls back to the initial-state defaults when schema_metadata omits a field', () => {
+            const s = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({ runId: 7, manifest: { id: 'm' }, time: TIME, nTime: TIME.length, nNode: 6, chunkLengthT: 10, totalChunks: 2 }));
+            expect(s.hasDt).toBe(false);
+            expect(s.g).toBe(9.8);
+            expect(s.rhoW).toBe(1000);
+            expect(s.wetThreshold).toBe(1e-5);
+        });
+        it('AC: a MANIFEST_LOADED for the current run that flips hasDt to false falls a courant selection back to depth (state-consistency invariant — the picker itself can never offer courant with hasDt=false, but state must not silently keep an unavailable value either)', () => {
+            // bufferedState()/loadedState() hard-code runId=7 — a SECOND
+            // MANIFEST_LOADED for that SAME runId (not a fresh INIT, which
+            // already resets quantity to depth on its own) is the only way
+            // to exercise this branch directly.
+            const wasCourant = bufferedState({ quantity: 'courant', hasDt: true, runId: 7 });
+            const s = reduce(wasCourant, playbackManifestLoaded({
+                runId: 7, manifest: { id: 'm2', schema_metadata: { has_dt: false } },
+                time: TIME, nTime: TIME.length, nNode: 6, chunkLengthT: 10, totalChunks: 2
+            }));
+            expect(s.quantity).toBe('depth');
+        });
+        it('a non-courant selection survives a repeat MANIFEST_LOADED for the same run unchanged', () => {
+            const wasSpeed = bufferedState({ quantity: 'speed', runId: 7 });
+            const s = reduce(wasSpeed, playbackManifestLoaded({
+                runId: 7, manifest: { id: 'm2', schema_metadata: { has_dt: false } },
+                time: TIME, nTime: TIME.length, nNode: 6, chunkLengthT: 10, totalChunks: 2
+            }));
+            expect(s.quantity).toBe('speed');
         });
         it('ignores a MANIFEST_LOADED for a superseded runId', () => {
             const afterInit = reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1'));
@@ -343,6 +434,26 @@ describe('playbackController', () => {
         it('SET_QUANTITY defaults an unknown value to depth', () => {
             const s = reduce(bufferedState(), playbackSetQuantity('bogus'));
             expect(s.quantity).toBe('depth');
+        });
+
+        // TASK-2629 (W4.1) — AC: "Courant hidden gracefully when dt absent".
+        // The picker already filters via availableQuantityIds, but the
+        // reducer itself must independently reject an unavailable selection
+        // too (defence in depth — a caller must never be able to force an
+        // unavailable quantity into state merely by dispatching directly).
+        it('rejects courant when hasDt is false (state keeps its previous quantity)', () => {
+            const s = reduce(bufferedState({ hasDt: false, quantity: 'depth' }), playbackSetQuantity('courant'));
+            expect(s.quantity).toBe('depth');
+        });
+        it('accepts courant when hasDt is true', () => {
+            const s = reduce(bufferedState({ hasDt: true }), playbackSetQuantity('courant'));
+            expect(s.quantity).toBe('courant');
+        });
+        it('every non-courant quantity is selectable regardless of hasDt', () => {
+            ['depth', 'speed', 'stage', 'div', 'hazard', 'froude', 'shear'].forEach((q) => {
+                const s = reduce(bufferedState({ hasDt: false }), playbackSetQuantity(q));
+                expect(s.quantity).toBe(q);
+            });
         });
     });
 

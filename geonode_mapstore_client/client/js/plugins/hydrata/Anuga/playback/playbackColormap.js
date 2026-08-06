@@ -68,6 +68,115 @@ export const VELOCITY_SLD_STOPS = [
 ];
 export const VELOCITY_SLD_MAX = 6; // m/s — velocity_6ms.sld's own cap
 
+/**
+ * TASK-2629 (W4.1) — dIV (depth-integrated velocity, glossary: numerically
+ * the D*V hazard-conveyance product) mirrors the real
+ * /opt/hydrata/apps/gn_anuga/slds/depth_integrated_velocity_5m2s.sld
+ * ColorMapEntry stops verbatim (a viridis ramp, first stop fully
+ * transparent at 0 — dry/still cells render invisible rather than a solid
+ * colour). The file is misnamed ("5m2s") but its own stops cap at 20 m²/s,
+ * which this mirrors literally rather than trusting the filename.
+ */
+export const DIV_SLD_STOPS = [
+    { quantity: 0, color: [68, 1, 84] }, // #440154
+    { quantity: 0.3, color: [68, 1, 84] }, // #440154
+    { quantity: 1, color: [68, 1, 84] }, // #440154
+    { quantity: 3, color: [59, 82, 139] }, // #3b528b
+    { quantity: 5, color: [33, 145, 140] }, // #21918c
+    { quantity: 10, color: [94, 201, 98] }, // #5ec962
+    { quantity: 20, color: [253, 231, 37] } // #fde725
+];
+export const DIV_SLD_MAX = 20; // m²/s — depth_integrated_velocity_5m2s.sld's own cap
+
+/**
+ * TASK-2629 (W4.1) — quantities with NO real SLD precedent (stage_max.sld
+ * exists but is a datum-ABSOLUTE, project-relative, occasionally-negative
+ * elevation ramp — the wrong shape for this renderer's fixed zero-based
+ * `value/colorMax` LUT, see AnugaPlaybackRenderer's per-run stage rescale;
+ * Froude/shear/Courant have no SLD at all) — stops defined in code, same
+ * {quantity, color} structure as the SLD-derived tables above so they share
+ * buildQuantityColormapLUT unchanged. Not a formal palette; chosen for clear
+ * low->high visual separation, documented here rather than silently
+ * invented in the renderer.
+ */
+export const STAGE_RAMP_STOPS = [
+    { quantity: 0, color: [33, 102, 172] }, // #2166ac — low (matches stage_max.sld's low-end blue)
+    { quantity: 0.25, color: [103, 169, 207] }, // #67a9cf
+    { quantity: 0.5, color: [209, 229, 240] }, // light blue
+    { quantity: 0.75, color: [253, 219, 199] }, // light tan
+    { quantity: 1, color: [178, 24, 43] } // #b2182b — high
+]; // fractional stops of the RUN's own [elevationMin, elevationMax+depthMax] span — see colorMinForQuantity
+
+export const FROUDE_RAMP_STOPS = [
+    { quantity: 0, color: [49, 130, 189] }, // subcritical, calm — blue
+    { quantity: 0.5, color: [116, 196, 118] }, // green
+    { quantity: 1.0, color: [255, 237, 111] }, // critical (Fr=1) — yellow
+    { quantity: 1.5, color: [253, 141, 60] }, // orange
+    { quantity: 3.0, color: [165, 15, 21] } // supercritical — dark red
+];
+export const FROUDE_RAMP_MAX = 3.0;
+
+export const SHEAR_RAMP_STOPS = [
+    { quantity: 0, color: [237, 248, 233] }, // pale green
+    { quantity: 10, color: [161, 217, 155] },
+    { quantity: 50, color: [116, 196, 118] },
+    { quantity: 100, color: [255, 237, 111] },
+    { quantity: 250, color: [253, 141, 60] },
+    { quantity: 500, color: [165, 15, 21] } // Pa
+];
+export const SHEAR_RAMP_MAX = 500; // Pa — engineering default, no SLD precedent
+
+export const COURANT_RAMP_STOPS = [
+    { quantity: 0, color: [26, 152, 80] }, // stable — green
+    { quantity: 0.5, color: [166, 217, 106] },
+    { quantity: 1.0, color: [255, 255, 191] }, // at the CFL=1 boundary — yellow
+    { quantity: 2.0, color: [253, 174, 97] },
+    { quantity: 4.0, color: [215, 48, 39] } // well past stable — red
+];
+export const COURANT_RAMP_MAX = 4.0;
+
+/**
+ * TASK-2629 (W4.1) — AIDR H1-H6 discrete hazard classes (playbackDerivedQuantities.
+ * AIDR_HAZARD_TABLE / AIDR_HAZARD_CITATION). NOT a continuous physical ramp —
+ * six fixed classes, blue (safe) through red (severe), loosely following the
+ * AIDR Guideline 7-3 Figure 6 visual scheme (the guideline publishes the
+ * classification boundaries in Table 2, not official swatch hex values, so
+ * these are a chosen, documented palette, not a transcription).
+ */
+export const HAZARD_CLASS_COLORS = [
+    { classIndex: 0, className: 'H1', color: [121, 134, 203] }, // blue-lavender — generally safe
+    { classIndex: 1, className: 'H2', color: [79, 195, 247] }, // light blue — unsafe for small vehicles
+    { classIndex: 2, className: 'H3', color: [129, 199, 132] }, // green — unsafe for vehicles/children/elderly
+    { classIndex: 3, className: 'H4', color: [220, 231, 117] }, // yellow-green — unsafe for vehicles and people
+    { classIndex: 4, className: 'H5', color: [255, 202, 40] }, // amber — + buildings vulnerable to damage
+    { classIndex: 5, className: 'H6', color: [211, 47, 47] } // red — + buildings vulnerable to failure
+];
+
+/**
+ * TASK-2629 (W4.1) — one map, keyed by the SAME quantity ids as
+ * playbackDerivedQuantities.QUANTITY_IDS, from which BOTH AnugaPlaybackRenderer
+ * (the live GL LUT) and PlaybackLegend (the swatch list) build their
+ * colours — the single place that can never let the legend and the render
+ * disagree (W3's own stated goal, extended to all eight quantities). `max`
+ * is the LUT's colorMax for a FIXED-cap ramp; `stage`'s `max` of 1 is a
+ * placeholder — stage rescales PER RUN (colorMinForStage/colorMaxForStage
+ * in playbackController.js), unlike every other fixed SLD-style cap.
+ */
+export const QUANTITY_RAMPS = Object.freeze({
+    depth: { stops: DEPTH_SLD_STOPS, max: DEPTH_SLD_MAX, discrete: false },
+    speed: { stops: VELOCITY_SLD_STOPS, max: VELOCITY_SLD_MAX, discrete: false },
+    div: { stops: DIV_SLD_STOPS, max: DIV_SLD_MAX, discrete: false },
+    stage: { stops: STAGE_RAMP_STOPS, max: 1, discrete: false },
+    froude: { stops: FROUDE_RAMP_STOPS, max: FROUDE_RAMP_MAX, discrete: false },
+    shear: { stops: SHEAR_RAMP_STOPS, max: SHEAR_RAMP_MAX, discrete: false },
+    courant: { stops: COURANT_RAMP_STOPS, max: COURANT_RAMP_MAX, discrete: false },
+    hazard: {
+        stops: HAZARD_CLASS_COLORS.map((c) => ({ quantity: c.classIndex, classIndex: c.classIndex, className: c.className, color: c.color })),
+        max: HAZARD_CLASS_COLORS.length - 1,
+        discrete: true
+    }
+});
+
 function lerp(a, b, t) {
     return a + (b - a) * t;
 }
@@ -128,20 +237,58 @@ export function buildQuantityColormapLUT(stops, colorMax, size = 256) {
 }
 
 /**
- * Upload a LUT byte array (from buildColormapLUT) as a CLAMP_TO_EDGE,
- * LINEAR-filtered RGBA8 2D texture (1 x N, sampled as a 1D ramp — matches
+ * TASK-2629 (W4.1) — build a DISCRETE (step-function, not interpolated) LUT
+ * for the AIDR hazard classes: unlike buildQuantityColormapLUT (which
+ * LINEARLY BLENDS between adjacent stops' colours), every texel maps to
+ * exactly ONE class's flat colour — a continuous ramp would show illegal
+ * "H2.5"-style blended colours at class boundaries, actively misleading for
+ * a classification (AC: "the legend must render discrete classes"). Pairs
+ * with uploadLUTTexture's NEAREST filter option so no GPU-side sampling
+ * blend can reintroduce a blend at the seam either.
+ * @param {Array<{classIndex: number, color: number[]}>} classStops ordered by classIndex, 0..N-1
+ * @param {number} colorMax the shader's uColorMax for hazard (= N-1, the last classIndex)
+ * @param {number} [size=256]
+ * @returns {Uint8Array}
+ */
+export function buildDiscreteColormapLUT(classStops, colorMax, size = 256) {
+    if (!Array.isArray(classStops) || classStops.length < 1) {
+        throw new Error('playbackColormap.buildDiscreteColormapLUT: classStops must have at least 1 entry');
+    }
+    if (!(colorMax > 0)) {
+        throw new Error('playbackColormap.buildDiscreteColormapLUT: colorMax must be > 0');
+    }
+    const data = new Uint8Array(size * 4);
+    const n = classStops.length;
+    for (let i = 0; i < size; i++) {
+        const value = (i / (size - 1)) * colorMax;
+        const idx = Math.max(0, Math.min(n - 1, Math.round(value)));
+        const c = classStops[idx].color;
+        data[i * 4 + 0] = c[0];
+        data[i * 4 + 1] = c[1];
+        data[i * 4 + 2] = c[2];
+        data[i * 4 + 3] = 255;
+    }
+    return data;
+}
+
+/**
+ * Upload a LUT byte array (from buildColormapLUT/buildDiscreteColormapLUT)
+ * as a CLAMP_TO_EDGE RGBA8 2D texture (1 x N, sampled as a 1D ramp — matches
  * the W0.3 spike's `texture(uLUT, vec2(vValue, 0.5))` sampling convention).
  * @param {WebGL2RenderingContext} gl
  * @param {Uint8Array} lutData
  * @param {number} size texel count (lutData.length / 4)
+ * @param {'linear'|'nearest'} [filter='linear'] NEAREST for discrete
+ *   (hazard-class) LUTs — see buildDiscreteColormapLUT's header.
  * @returns {WebGLTexture}
  */
-export function uploadLUTTexture(gl, lutData, size) {
+export function uploadLUTTexture(gl, lutData, size, filter = 'linear') {
+    const glFilter = filter === 'nearest' ? gl.NEAREST : gl.LINEAR;
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);

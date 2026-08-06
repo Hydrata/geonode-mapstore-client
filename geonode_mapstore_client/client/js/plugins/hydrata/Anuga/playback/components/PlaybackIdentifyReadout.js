@@ -23,6 +23,18 @@ function formatMetric(v, digits = 3) {
     return typeof v === 'number' && isFinite(v) ? v.toFixed(digits) : '—';
 }
 
+// TASK-2629 (W4.1) — one row per derived quantity, shown whenever
+// sampleFieldAtPoint actually computed it (stage/shear/courant are
+// conditional on geometry/constants being passed — see playbackIdentify.js's
+// header; on a wet cell every field the current store supports is present).
+const EXTRA_ROWS = [
+    { field: 'stage', testId: 'playback-identify-stage', label: 'Stage', unit: 'm' },
+    { field: 'div', testId: 'playback-identify-div', label: 'Depth-integrated velocity', unit: 'm²/s' },
+    { field: 'froude', testId: 'playback-identify-froude', label: 'Froude number', unit: '' },
+    { field: 'shear', testId: 'playback-identify-shear', label: 'Manning shear stress', unit: 'Pa' },
+    { field: 'courant', testId: 'playback-identify-courant', label: 'Courant number (approx.)', unit: '' }
+];
+
 export class PlaybackIdentifyReadoutComponent extends React.Component {
     static propTypes = {
         result: PropTypes.object,
@@ -56,6 +68,18 @@ export class PlaybackIdentifyReadoutComponent extends React.Component {
                             <span className="sv-playback-identify-label">Velocity</span>
                             <span className="sv-playback-identify-value">{formatMetric(result.speed)} m/s</span>
                         </div>
+                        {result.hazardClass ? (
+                            <div className="sv-playback-identify-row" data-testid="playback-identify-hazard">
+                                <span className="sv-playback-identify-label">Flood hazard</span>
+                                <span className="sv-playback-identify-value">{result.hazardClass}</span>
+                            </div>
+                        ) : null}
+                        {EXTRA_ROWS.filter((row) => typeof result[row.field] === 'number').map((row) => (
+                            <div className="sv-playback-identify-row" key={row.field} data-testid={row.testId}>
+                                <span className="sv-playback-identify-label">{row.label}</span>
+                                <span className="sv-playback-identify-value">{formatMetric(result[row.field])}{row.unit ? ` ${row.unit}` : ''}</span>
+                            </div>
+                        ))}
                     </div>
                 )}
                 <div className="sv-playback-identify-readout-surface" data-testid="playback-identify-surface-note">

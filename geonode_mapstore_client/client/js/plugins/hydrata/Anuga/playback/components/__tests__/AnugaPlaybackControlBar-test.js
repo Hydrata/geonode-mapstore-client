@@ -120,4 +120,24 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         expect(onSetQuantity.calls.length).toBe(1);
         expect(onSetQuantity.calls[0].arguments[0]).toBe('speed');
     });
+
+    // TASK-2629 (W4.1) — AC: "Courant hidden gracefully when dt absent".
+    it('quantity picker lists all eight options (incl. Courant) when hasDt is true', () => {
+        const state = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 10, hasDt: true };
+        render({ playback: state });
+        const select = container.querySelector('[data-testid="anuga-playback-quantity"]');
+        const values = Array.from(select.options).map((o) => o.value);
+        expect(values.length).toBe(8);
+        expect(values).toContain('courant');
+    });
+    it('quantity picker omits ONLY Courant when hasDt is false', () => {
+        const state = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 10, hasDt: false };
+        render({ playback: state });
+        const select = container.querySelector('[data-testid="anuga-playback-quantity"]');
+        const values = Array.from(select.options).map((o) => o.value);
+        expect(values.length).toBe(7);
+        expect(values).toNotContain('courant');
+        expect(values).toContain('depth');
+        expect(values).toContain('hazard');
+    });
 });

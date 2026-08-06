@@ -26,6 +26,7 @@ const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 
 import { PLAYBACK_STATUS, MIN_SPEED, MAX_SPEED } from '../playbackController';
+import { availableQuantityIds } from '../playbackDerivedQuantities';
 import {
     playbackInit,
     playbackPlay,
@@ -38,6 +39,20 @@ import {
 } from '../actions/playbackActions';
 
 const SPEED_OPTIONS = [0.25, 0.5, 1, 2, 4, 8].filter((s) => s >= MIN_SPEED && s <= MAX_SPEED);
+
+// TASK-2629 (W4.1) — plain-text option labels (matches the existing
+// hardcoded-English convention this <select> already used for depth/speed;
+// glossary-exact terms per the AC: "Derived quantity"/"Courant number").
+const QUANTITY_OPTION_LABEL = {
+    depth: 'Depth',
+    speed: 'Velocity',
+    stage: 'Stage',
+    div: 'Depth-integrated velocity (dIV)',
+    hazard: 'Flood hazard (H1–H6)',
+    froude: 'Froude number',
+    shear: 'Manning shear stress',
+    courant: 'Courant number (approx.)'
+};
 
 function makeId(prefix) {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -155,8 +170,9 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     value={playback.quantity}
                     onChange={(e) => this.props.onSetQuantity(e.target.value)}
                 >
-                    <option value="depth">Depth</option>
-                    <option value="speed">Velocity (speed)</option>
+                    {availableQuantityIds(playback.hasDt).map((id) => (
+                        <option key={id} value={id}>{QUANTITY_OPTION_LABEL[id]}</option>
+                    ))}
                 </select>
 
                 <button

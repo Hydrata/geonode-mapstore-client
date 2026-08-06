@@ -29,6 +29,7 @@
  * ahead of data that hasn't arrived ("no stream and hope").
  */
 import { computeMixFactor } from './playbackMeshGeometry';
+import { availableQuantityIds } from './playbackDerivedQuantities';
 import {
     PLAYBACK_INIT,
     PLAYBACK_MANIFEST_LOADED,
@@ -82,10 +83,17 @@ export function createInitialPlaybackState() {
         chunkLengthT: 10,
         totalChunks: 0,
         time: null, // Float64Array|null — per-timestep simulation seconds
+        dtMs: null, // Float32Array|null — per-timestep global dt, MILLISECONDS (schema O2); dt_ms[0] always NaN
+        hasDt: false, // store attr `has_dt` — gates Courant's menu availability (AC: graceful omission)
+        wetThreshold: 1e-5, // store attr `minimum_storable_height` (the h_min display mask floor) — never hardcoded past this fallback
+        g: 9.8, // store attr `g`
+        rhoW: 1000, // store attr `rho_w`
+        elevationMin: 0, // this run's own elevation range — `stage`'s per-run rescale (elevation is unquantized, no valid_min/max attr)
+        elevationMax: 0,
         currentTimestep: 0,
         playheadSeconds: 0,
         mixT: 0,
-        quantity: 'depth', // 'depth' | 'speed'
+        quantity: 'depth', // one of playbackDerivedQuantities.QUANTITY_IDS
         speed: DEFAULT_SPEED,
         bufferedChunks: [], // sorted, deduped time-chunk indices confirmed cached (all 3 quantity arrays)
         bufferWindowRadius: DEFAULT_WINDOW_RADIUS,
@@ -175,34 +183,86 @@ export function findTimestepBracket(time, playheadSeconds) {
     return { currentTimestep: n - 1, mixT: 0 };
 }
 
+function velocityAbsMax(quantization) {
+    const vx = quantization.x_velocity || {};
+    const vy = quantization.y_velocity || {};
+    const vmax = Math.max(
+        Math.abs(vx.valid_max || 0), Math.abs(vx.valid_min || 0),
+        Math.abs(vy.valid_max || 0), Math.abs(vy.valid_min || 0)
+    );
+    return vmax > 0 ? vmax : 1;
+}
+
+function depthValidMax(quantization) {
+    const d = quantization.depth || {};
+    return d.valid_max > 0 ? d.valid_max : 1;
+}
+
+// AIDR classification runs classIndex 0..5 (H1..H6) — the LUT's own fixed
+// colorMax, independent of any manifest/quantization data (mirrors
+// playbackColormap.QUANTITY_RAMPS.hazard.max, HAZARD_CLASS_COLORS.length-1;
+// kept as a literal here too so this module never needs to import the GL
+// colormap module just for one constant).
+const HAZARD_COLOR_MAX = 5;
+
 /**
- * The renderer's `colorMax` uniform for the active quantity, derived from
- * the manifest's own quantization ranges (the exporter's real per-store
- * max, not a hardcoded guess) — 'depth' uses the depth array's valid_max;
- * 'speed' (velocity magnitude, derived in-shader from x/y_velocity) uses
- * the larger of the two velocity components' symmetric range, since speed
- * = length(vx,vy) can exceed either component alone. Falls back to 1 (never
- * 0 — a colorMax of 0 would divide-by-clamp everything to white/nodata in
- * the shader) when quantization metadata is absent.
- * @param {'depth'|'speed'} quantity
+ * The renderer's `colorMax` uniform for the active quantity (TASK-2629,
+ * W4.1 extends this from {depth,speed} to all eight), derived from the
+ * manifest's own quantization ranges / store attrs — never a hardcoded
+ * guess. Falls back to 1 (never 0 — a colorMax of 0 would divide-by-clamp
+ * everything to white/nodata in the shader) when metadata is absent.
+ * `context` carries the extra per-run facts colorMax needs beyond
+ * quantization (stage's elevation range, shear/froude/courant's need for
+ * g/rhoW only affect the SHADER math, not colorMax, so they are not needed
+ * here).
+ * @param {string} quantity one of playbackDerivedQuantities.QUANTITY_IDS
  * @param {object|null} quantization manifest.quantization
+ * @param {{elevationMin?: number, elevationMax?: number}} [context]
  * @returns {number}
  */
-export function colorMaxForQuantity(quantity, quantization) {
+export function colorMaxForQuantity(quantity, quantization, context = {}) {
+    if (quantity === 'hazard') {
+        return HAZARD_COLOR_MAX;
+    }
+    if (quantity === 'froude') {
+        return 3.0; // playbackColormap.FROUDE_RAMP_MAX
+    }
+    if (quantity === 'shear') {
+        return 500; // playbackColormap.SHEAR_RAMP_MAX (Pa)
+    }
+    if (quantity === 'courant') {
+        return 4.0; // playbackColormap.COURANT_RAMP_MAX
+    }
+    if (quantity === 'div') {
+        return quantization ? Math.max(velocityAbsMax(quantization) * depthValidMax(quantization), 1) : 20;
+    }
+    if (quantity === 'stage') {
+        const { elevationMin = 0, elevationMax = 0 } = context || {};
+        const depthMax = quantization ? depthValidMax(quantization) : 0;
+        return elevationMax + depthMax > elevationMin ? elevationMax + depthMax : elevationMin + 1;
+    }
     if (!quantization) {
         return 1;
     }
     if (quantity === 'speed') {
-        const vx = quantization.x_velocity || {};
-        const vy = quantization.y_velocity || {};
-        const vmax = Math.max(
-            Math.abs(vx.valid_max || 0), Math.abs(vx.valid_min || 0),
-            Math.abs(vy.valid_max || 0), Math.abs(vy.valid_min || 0)
-        );
-        return vmax > 0 ? vmax : 1;
+        return velocityAbsMax(quantization);
     }
-    const d = quantization.depth || {};
-    return d.valid_max > 0 ? d.valid_max : 1;
+    return depthValidMax(quantization);
+}
+
+/**
+ * The renderer's `colorMin` uniform — non-zero ONLY for `stage` (a datum-
+ * absolute elevation field, so its per-run visible range does not start at
+ * zero the way every other quantity's does). Every other quantity is 0.
+ * @param {string} quantity
+ * @param {{elevationMin?: number}} [context]
+ * @returns {number}
+ */
+export function colorMinForQuantity(quantity, context = {}) {
+    if (quantity === 'stage') {
+        return (context && context.elevationMin) || 0;
+    }
+    return 0;
 }
 
 function requiredWindowFor(state, currentTimestep) {
@@ -234,6 +294,14 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         if (action.runId !== state.runId) {
             return state;
         }
+        const meta = (action.manifest && action.manifest.schema_metadata) || {};
+        const hasDt = !!meta.has_dt;
+        // AC: "Courant hidden gracefully when dt absent" — a run switched
+        // INTO from a Courant-selected previous run must not keep an
+        // unavailable quantity selected (availableQuantityIds already
+        // filters the picker; this keeps state itself consistent even for a
+        // caller that dispatches SET_QUANTITY before the picker re-renders).
+        const quantity = (state.quantity === 'courant' && !hasDt) ? 'depth' : state.quantity;
         return {
             ...state,
             manifest: action.manifest,
@@ -244,6 +312,14 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             chunkLengthT: action.chunkLengthT || state.chunkLengthT,
             totalChunks: action.totalChunks,
             time: action.time || null,
+            dtMs: action.dtMs || null,
+            hasDt,
+            wetThreshold: meta.minimum_storable_height > 0 ? meta.minimum_storable_height : state.wetThreshold,
+            g: meta.g || state.g,
+            rhoW: meta.rho_w || state.rhoW,
+            elevationMin: action.mesh ? action.mesh.elevationMin || 0 : state.elevationMin,
+            elevationMax: action.mesh ? action.mesh.elevationMax || 0 : state.elevationMax,
+            quantity,
             status: PLAYBACK_STATUS.BUFFERING,
             currentTimestep: 0,
             playheadSeconds: action.time ? action.time[0] : 0,
@@ -362,8 +438,15 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // AC: "controller state survives quantity switching" — depth and
         // x_velocity/y_velocity are always fetched together per frame
         // (loadPlaybackFrame), so switching which one colours the mesh never
-        // touches buffering/timestep/play state.
-        return { ...state, quantity: action.quantity === 'speed' ? 'speed' : 'depth' };
+        // touches buffering/timestep/play state. Every derived quantity is a
+        // FORMULA over those same two arrays (+static geometry) — no new
+        // fetch is ever needed to switch. Rejects an unavailable quantity
+        // (AC: Courant hidden gracefully when dt absent) rather than
+        // silently accepting a selection the picker should never have
+        // offered.
+        const requested = action.quantity;
+        const available = availableQuantityIds(state.hasDt);
+        return { ...state, quantity: available.includes(requested) ? requested : state.quantity };
     }
     case PLAYBACK_SET_IDENTIFY_ARMED: {
         return { ...state, identifyArmed: !!action.armed, identifyResult: action.armed ? state.identifyResult : null };

@@ -308,6 +308,40 @@ describe('playbackEpics', () => {
             }, 50);
         });
 
+        // TASK-2629 (W4.1) — the store-derived constants the shader's new
+        // derived-quantity uniforms need, dispatched alongside
+        // mesh/mixT/colorMode/colorMax exactly like those already were.
+        it('dispatches colorMin/wetThreshold/g/rhoW/dt alongside the existing colorMode/colorMax props', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
+            fetcherRegistry.set(4, fetcher);
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
+            const pb = {
+                ...createInitialPlaybackState(),
+                runId: 4, layerId: 'layer-4', manifest: FIXTURE_MANIFEST, mesh,
+                nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
+                currentTimestep: 2, mixT: 0.25, quantity: 'stage', quantization: FIXTURE_MANIFEST.quantization,
+                wetThreshold: 0.005, g: 9.8, rhoW: 1023, elevationMin: 1, elevationMax: 9,
+                dtMs: Float32Array.from([NaN, 500, 500, 500]), currentTimestepDt: 2
+            };
+            const store = makeStore(pb);
+            const { subject, action$ } = makeActionsSubject();
+            playbackSyncLayerEpic(action$, store).subscribe((a) => {
+                restore();
+                try {
+                    expect(a.newProperties.wetThreshold).toBe(0.005);
+                    expect(a.newProperties.g).toBe(9.8);
+                    expect(a.newProperties.rhoW).toBe(1023);
+                    expect(a.newProperties.colorMin).toBe(1); // stage's own elevationMin rescale
+                    expect(typeof a.newProperties.dt).toBe('number');
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackTick(1));
+        });
+
         it('reuses the SAME cloned layer-mesh object across repeated dispatches (does not defeat AnugaPlaybackLayer\'s own re-reproject reference check)', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
@@ -406,6 +440,42 @@ describe('playbackEpics', () => {
                 done();
             }, done);
             subject.next({ type: 'CLICK_ON_MAP', point: { rawPos: [99999999, 99999999] } });
+        });
+
+        // TASK-2629 (W4.1) — geometry (elevation/friction/vertexInradius)
+        // and constants (g/rhoW/dt) flow from `pb.mesh`/`pb` into
+        // sampleFieldAtPoint, so the readout's six new fields are populated
+        // via the SAME store-derived values the layer renders with.
+        it('passes elevation/friction/vertexInradius + g/rhoW/dtSeconds through so stage/shear/courant are populated', (done) => {
+            const meshWithGeometry = {
+                ...mesh,
+                elevation: new Float32Array([5, 5, 5, 5]),
+                friction: new Float32Array([0.05, 0.05, 0.05, 0.05]),
+                vertexInradius: new Float32Array([2, 2, 2, 2])
+            };
+            const state = {
+                anugaPlayback: {
+                    ...createInitialPlaybackState(), identifyArmed: true, mesh: meshWithGeometry,
+                    layerId: 'layer-id', currentTimestep: 0, quantity: 'depth',
+                    g: 9.8, rhoW: 1023, dtMs: Float32Array.from([NaN, 1000]), hasDt: true
+                },
+                layers: { flat: [{ id: 'layer-id', frame0, frame1, mixT: 0 }] }
+            };
+            const store = { getState: () => state };
+            const { subject, action$ } = makeActionsSubject();
+            const { x, y } = reprojectMeshVertices(meshWithGeometry.nodeX, meshWithGeometry.nodeY, meshWithGeometry);
+            playbackIdentifyEpic(action$, store).subscribe((a) => {
+                try {
+                    expect(a.result.located).toBe(true);
+                    expect(a.result.stage).toBe(6); // elevation 5 + depth 1 (frame0 node0)
+                    expect(typeof a.result.shear).toBe('number');
+                    expect(typeof a.result.courant).toBe('number');
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next({ type: 'CLICK_ON_MAP', point: { rawPos: [x[0], y[0]] } });
         });
     });
 });

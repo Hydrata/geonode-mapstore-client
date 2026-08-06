@@ -20,8 +20,14 @@ import {
     DEPTH_SLD_MAX,
     VELOCITY_SLD_STOPS,
     VELOCITY_SLD_MAX,
-    buildQuantityColormapLUT
+    DIV_SLD_STOPS,
+    DIV_SLD_MAX,
+    HAZARD_CLASS_COLORS,
+    QUANTITY_RAMPS,
+    buildQuantityColormapLUT,
+    buildDiscreteColormapLUT
 } from '../playbackColormap';
+import { QUANTITY_IDS, AIDR_HAZARD_CLASS_COUNT } from '../playbackDerivedQuantities';
 
 describe('playbackColormap', () => {
     describe('buildQuantityColormapLUT (TASK-2628 — real SLD stops, non-uniform spacing)', () => {
@@ -92,6 +98,77 @@ describe('playbackColormap', () => {
             const tex = uploadLUTTexture(gl, lut, 256);
             expect(tex).toBeTruthy();
             expect(gl.getError()).toBe(gl.NO_ERROR);
+        });
+
+        it('accepts a `nearest` filter (used for the discrete hazard LUT) without a GL error', function() {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl2');
+            if (!gl) {
+                this.skip();
+                return;
+            }
+            const lut = buildDiscreteColormapLUT(HAZARD_CLASS_COLORS, HAZARD_CLASS_COLORS.length - 1, 256);
+            const tex = uploadLUTTexture(gl, lut, 256, 'nearest');
+            expect(tex).toBeTruthy();
+            expect(gl.getError()).toBe(gl.NO_ERROR);
+        });
+    });
+
+    // TASK-2629 (W4.1)
+    describe('DIV_SLD_STOPS (mirrors the real depth_integrated_velocity_5m2s.sld verbatim)', () => {
+        it('starts at 0 (transparent-in-the-SLD, opaque here) and caps at 20 m²/s', () => {
+            expect(DIV_SLD_STOPS[0].quantity).toBe(0);
+            expect(DIV_SLD_STOPS[DIV_SLD_STOPS.length - 1].quantity).toBe(20);
+            expect(DIV_SLD_MAX).toBe(20);
+        });
+    });
+
+    describe('buildDiscreteColormapLUT (AC: "the legend must render discrete classes")', () => {
+        it('every texel is EXACTLY one class colour — no interpolated blend between classes', () => {
+            const lut = buildDiscreteColormapLUT(HAZARD_CLASS_COLORS, HAZARD_CLASS_COLORS.length - 1, 60);
+            const seenColors = new Set();
+            for (let i = 0; i < 60; i++) {
+                seenColors.add(`${lut[i * 4]},${lut[i * 4 + 1]},${lut[i * 4 + 2]}`);
+            }
+            const validColors = new Set(HAZARD_CLASS_COLORS.map((c) => c.color.join(',')));
+            seenColors.forEach((c) => expect(validColors.has(c)).toBe(true));
+        });
+
+        it('texel 0 is class 0 (H1) and the last texel is the last class (H6)', () => {
+            const size = 256;
+            const colorMax = HAZARD_CLASS_COLORS.length - 1;
+            const lut = buildDiscreteColormapLUT(HAZARD_CLASS_COLORS, colorMax, size);
+            expect([lut[0], lut[1], lut[2]]).toEqual(HAZARD_CLASS_COLORS[0].color);
+            const lastIdx = (size - 1) * 4;
+            expect([lut[lastIdx], lut[lastIdx + 1], lut[lastIdx + 2]]).toEqual(HAZARD_CLASS_COLORS[HAZARD_CLASS_COLORS.length - 1].color);
+        });
+
+        it('rejects a non-positive colorMax', () => {
+            expect(() => buildDiscreteColormapLUT(HAZARD_CLASS_COLORS, 0, 256)).toThrow();
+        });
+    });
+
+    describe('HAZARD_CLASS_COLORS (AC: discrete AIDR classes)', () => {
+        it('has exactly AIDR_HAZARD_CLASS_COUNT (6, H1-H6) entries, in classIndex order', () => {
+            expect(HAZARD_CLASS_COLORS.length).toBe(AIDR_HAZARD_CLASS_COUNT);
+            expect(HAZARD_CLASS_COLORS.map((c) => c.classIndex)).toEqual([0, 1, 2, 3, 4, 5]);
+            expect(HAZARD_CLASS_COLORS.map((c) => c.className)).toEqual(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+        });
+    });
+
+    describe('QUANTITY_RAMPS (single source both the renderer and the legend build colours from)', () => {
+        it('has one entry per playbackDerivedQuantities.QUANTITY_IDS, each with stops + max', () => {
+            QUANTITY_IDS.forEach((id) => {
+                expect(QUANTITY_RAMPS[id]).toBeTruthy();
+                expect(Array.isArray(QUANTITY_RAMPS[id].stops)).toBe(true);
+                expect(QUANTITY_RAMPS[id].stops.length).toBeGreaterThan(0);
+                expect(typeof QUANTITY_RAMPS[id].max).toBe('number');
+            });
+        });
+
+        it('only `hazard` is marked discrete', () => {
+            const discreteIds = QUANTITY_IDS.filter((id) => QUANTITY_RAMPS[id].discrete);
+            expect(discreteIds).toEqual(['hazard']);
         });
     });
 });

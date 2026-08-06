@@ -31,10 +31,11 @@ import { addLayer, changeLayerProperties } from '@mapstore/framework/actions/lay
 import { CLICK_ON_MAP } from '@mapstore/framework/actions/map';
 
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
-import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
+import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
 import { reprojectMeshVertices } from '../playbackReproject';
 import { sampleFieldAtPoint } from '../playbackIdentify';
-import { timestepToChunkIndex, colorMaxForQuantity } from '../playbackController';
+import { timestepToChunkIndex, colorMaxForQuantity, colorMinForQuantity } from '../playbackController';
+import { mixDtSeconds } from '../playbackDerivedQuantities';
 import {
     PLAYBACK_INIT,
     PLAYBACK_PLAY,
@@ -113,12 +114,33 @@ export function playbackInitEpic(action$, store) {
             const fetcher = new PlaybackChunkFetcher({ manifest });
             fetcherRegistry.set(runId, fetcher);
             lastSyncedTimestep.delete(runId);
-            const [mesh, time] = await Promise.all([loadPlaybackMesh(fetcher), loadPlaybackTime(fetcher)]);
+            // TASK-2629 (W4.1) — dt_ms loads alongside mesh/time (a small,
+            // single-chunk array, schema §1). CORRECTION (live-verify, W4
+            // resume): a has_dt=false store's dt_ms array is uniformly the
+            // fill value (NaN) — the real W1 exporter does NOT write a chunk
+            // file for an all-fill-value chunk (a standard Zarr sparse-chunk
+            // optimisation: an absent chunk reads back as fill_value), so
+            // the manifest has NO chunk_urls entry for 'dt_ms/c/0' on every
+            // has_dt=false run (both real on-box stores). Without this
+            // catch, PlaybackChunkFetcher's missing-chunk_urls-entry throw
+            // propagated out of the Promise.all and failed the ENTIRE
+            // manifest load (MANIFEST_FAILED) for ANY has_dt=false run — the
+            // opposite of "graceful Courant-only omission" (AC). `dtMs: null`
+            // is a fully supported value everywhere it is read
+            // (mixDtSeconds/`!dtMs` guard, playbackController's own
+            // `dtMs: null` initial-state default), and `hasDt` is derived
+            // independently from `schema_metadata.has_dt`, never from
+            // whether this fetch succeeded.
+            const [mesh, time, dtMs] = await Promise.all([
+                loadPlaybackMesh(fetcher),
+                loadPlaybackTime(fetcher),
+                loadPlaybackDt(fetcher).catch(() => null)
+            ]);
             const meta = manifest.schema_metadata || {};
             const nTime = meta.n_time || time.length;
             const totalChunks = Math.ceil(nTime / CHUNK_LENGTH_T);
             return playbackManifestLoaded({
-                runId, manifest, mesh, time, quantization: manifest.quantization,
+                runId, manifest, mesh, time, dtMs, quantization: manifest.quantization,
                 nTime, nNode: meta.n_node || mesh.nodeX.length, chunkLengthT: CHUNK_LENGTH_T, totalChunks
             });
         })()).catch((error) => Rx.Observable.of(playbackManifestFailed(runId, String((error && error.message) || error))));
@@ -247,11 +269,21 @@ export function playbackSyncLayerEpic(action$, store) {
         if (!fetcher) {
             return Rx.Observable.empty();
         }
+        const nextTimestepForDt = pb.nTime ? Math.min(pb.currentTimestep + 1, pb.nTime - 1) : pb.currentTimestep + 1;
+        const context = { elevationMin: pb.elevationMin, elevationMax: pb.elevationMax };
         const baseProps = {
             mesh: getLayerMesh(pb),
             mixT: pb.mixT,
             colorMode: pb.quantity,
-            colorMax: colorMaxForQuantity(pb.quantity, pb.quantization)
+            colorMax: colorMaxForQuantity(pb.quantity, pb.quantization, context),
+            colorMin: colorMinForQuantity(pb.quantity, context),
+            // TASK-2629 (W4.1) — the store's OWN wet floor/g/rho_w (never
+            // hardcoded — read from schema_metadata at manifest-load) plus
+            // the frame-mixed dt(t) in SECONDS for the Courant formula.
+            wetThreshold: pb.wetThreshold,
+            g: pb.g,
+            rhoW: pb.rhoW,
+            dt: mixDtSeconds(pb.dtMs, pb.currentTimestep, nextTimestepForDt, pb.mixT)
         };
         if (lastSyncedTimestep.get(pb.runId) === pb.currentTimestep) {
             return Rx.Observable.of(changeLayerProperties(pb.layerId, baseProps));
@@ -320,10 +352,18 @@ export function playbackIdentifyEpic(action$, store) {
             if (!reproj) {
                 return null;
             }
+            // TASK-2629 (W4.1) — the SAME store-derived wet floor/g/rhoW/dt
+            // the layer is currently rendering with (never a second source
+            // of truth), so the readout's six new derived-quantity fields
+            // can't disagree with what's on screen.
+            const nextTimestepForDt = pb.nTime ? Math.min(pb.currentTimestep + 1, pb.nTime - 1) : pb.currentTimestep + 1;
             const result = sampleFieldAtPoint(
                 { x3857: reproj.x3857, y3857: reproj.y3857, faceNodeConnectivity: pb.mesh.faceNodeConnectivity },
                 layer.frame0, layer.frame1, layer.mixT || 0,
-                rawPos[0], rawPos[1]
+                rawPos[0], rawPos[1],
+                pb.wetThreshold,
+                { elevation: pb.mesh.elevation, friction: pb.mesh.friction, inradius: pb.mesh.vertexInradius },
+                { g: pb.g, rhoW: pb.rhoW, dtSeconds: mixDtSeconds(pb.dtMs, pb.currentTimestep, nextTimestepForDt, pb.mixT) }
             );
             return playbackSetIdentifyResult({
                 ...result,

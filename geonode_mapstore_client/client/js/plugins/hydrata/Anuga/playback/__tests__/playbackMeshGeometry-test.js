@@ -12,12 +12,53 @@ import {
     buildWireframeIndices,
     packQuantityVec3,
     computeMixFactor,
+    computeVertexInradius,
     buildProjectionMatrix,
     applyProjectionMatrix
 } from '../playbackMeshGeometry';
 import { FIXTURE_PHYSICAL, FIXTURE_MESH } from './fixtures/fixturePlaybackStore';
 
 describe('playbackMeshGeometry', () => {
+    describe('computeVertexInradius (TASK-2629, W4.1 — per-face inradius broadcast to per-vertex, MIN of incident faces)', () => {
+        it('a single triangle: every one of its 3 vertices gets that face\'s own inradius', () => {
+            const faces = Int32Array.from([0, 1, 2]);
+            const faceInradius = Float32Array.from([5]);
+            const result = computeVertexInradius(faces, faceInradius, 3);
+            expect(Array.from(result)).toEqual([5, 5, 5]);
+        });
+
+        it('a shared vertex takes the MINIMUM of its incident faces (conservative — smaller inradius = larger Courant)', () => {
+            // Two triangles sharing vertex 1: face0=(0,1,2) r=10, face1=(1,3,4) r=3.
+            const faces = Int32Array.from([0, 1, 2, 1, 3, 4]);
+            const faceInradius = Float32Array.from([10, 3]);
+            const result = computeVertexInradius(faces, faceInradius, 5);
+            expect(result[0]).toBe(10); // only face0
+            expect(result[1]).toBe(3); // face0 AND face1 -> min(10,3)=3
+            expect(result[2]).toBe(10); // only face0
+            expect(result[3]).toBe(3); // only face1
+            expect(result[4]).toBe(3); // only face1
+        });
+
+        it('a vertex with no incident face gets 0 (never Infinity leaking into the shader)', () => {
+            const faces = Int32Array.from([0, 1, 2]);
+            const faceInradius = Float32Array.from([7]);
+            const result = computeVertexInradius(faces, faceInradius, 4); // vertex 3 unused
+            expect(result[3]).toBe(0);
+        });
+
+        it('matches the real fixture mesh (4 triangles, near-uniform inradius): every vertex resolves to its OWN incident-face minimum', () => {
+            const flat = Int32Array.from(FIXTURE_PHYSICAL.face_node_connectivity.flat());
+            const faceInradius = Float32Array.from(FIXTURE_PHYSICAL.inradius);
+            const result = computeVertexInradius(flat, faceInradius, FIXTURE_MESH.nNode);
+            // vertex 0 is incident to face 0 ONLY -> exactly face 0's inradius.
+            expect(Math.abs(result[0] - faceInradius[0]) < 1e-5).toBe(true);
+            // vertex 1 is incident to faces 0,1,2 -> the minimum of the three.
+            expect(Math.abs(result[1] - Math.min(faceInradius[0], faceInradius[1], faceInradius[2])) < 1e-5).toBe(true);
+            // vertex 5 is incident to face 3 ONLY -> exactly face 3's inradius.
+            expect(Math.abs(result[5] - faceInradius[3]) < 1e-5).toBe(true);
+        });
+    });
+
     describe('buildWireframeIndices', () => {
         it('emits 3 deduplicated edges for two triangles sharing one edge (a quad split in half)', () => {
             // Quad 0-1-2-3 split into triangles (0,1,2) and (0,2,3): shares edge (0,2).

@@ -22,32 +22,64 @@
  */
 import { PlaybackChunkFetcher } from './playbackChunkFetcher';
 import { chunkKey, decodeTypedArray, gunzip } from './playbackDecode';
+import { computeVertexInradius } from './playbackMeshGeometry';
 
-const STATIC_ARRAYS = ['node_x', 'node_y', 'elevation', 'face_node_connectivity'];
+const STATIC_ARRAYS = ['node_x', 'node_y', 'elevation', 'friction', 'inradius', 'face_node_connectivity'];
 
 async function fetchStaticArray(fetcher, arrayName, dtype) {
     return fetcher.fetchAndDecodeChunk(arrayName, arrayName === 'face_node_connectivity' ? [0, 0] : [0], { dtype, byteorder: 'little' });
 }
 
+function minMax(arr) {
+    let min = Infinity;
+    let max = -Infinity;
+    for (let i = 0; i < arr.length; i++) {
+        if (arr[i] < min) {
+            min = arr[i];
+        }
+        if (arr[i] > max) {
+            max = arr[i];
+        }
+    }
+    return { min, max };
+}
+
 /**
  * Build the mesh geometry object AnugaPlaybackLayer expects, from a
- * manifest's static (non-time-chunked) arrays.
+ * manifest's static (non-time-chunked) arrays. TASK-2629 (W4.1) extends this
+ * with `friction` (per-vertex Manning's n, schema §2 — needed by the shear
+ * formula) and `inradius` (per-FACE, schema §2 — broadcast to per-vertex
+ * `vertexInradius` here via playbackMeshGeometry.computeVertexInradius so
+ * the renderer can treat it as a plain static vertex attribute like
+ * elevation/friction; needed by the Courant formula), plus the run's own
+ * elevation min/max (the `stage` quantity's per-run rescale range —
+ * elevation is NOT quantized so it carries no valid_min/valid_max attr the
+ * way depth/velocity do, schema §2).
  * @param {PlaybackChunkFetcher} fetcher
- * @returns {Promise<{nodeX: Float32Array, nodeY: Float32Array, elevation: Float32Array, faceNodeConnectivity: Int32Array, epsg: *, xllcorner: number, yllcorner: number}>}
+ * @returns {Promise<{nodeX: Float32Array, nodeY: Float32Array, elevation: Float32Array, friction: Float32Array, inradius: Float32Array, vertexInradius: Float32Array, faceNodeConnectivity: Int32Array, elevationMin: number, elevationMax: number, epsg: *, xllcorner: number, yllcorner: number}>}
  */
 export async function loadPlaybackMesh(fetcher) {
-    const [nodeX, nodeY, elevation, faceNodeConnectivity] = await Promise.all([
+    const [nodeX, nodeY, elevation, friction, inradius, faceNodeConnectivity] = await Promise.all([
         fetchStaticArray(fetcher, 'node_x', 'float32'),
         fetchStaticArray(fetcher, 'node_y', 'float32'),
         fetchStaticArray(fetcher, 'elevation', 'float32'),
+        fetchStaticArray(fetcher, 'friction', 'float32'),
+        fetchStaticArray(fetcher, 'inradius', 'float32'),
         fetchStaticArray(fetcher, 'face_node_connectivity', 'int32')
     ]);
     const meta = fetcher.manifest.schema_metadata || {};
+    const vertexInradius = computeVertexInradius(faceNodeConnectivity, inradius, nodeX.length);
+    const { min: elevationMin, max: elevationMax } = minMax(elevation);
     return {
         nodeX,
         nodeY,
         elevation,
+        friction,
+        inradius,
+        vertexInradius,
         faceNodeConnectivity,
+        elevationMin,
+        elevationMax,
         epsg: meta.epsg,
         xllcorner: meta.xllcorner || 0,
         yllcorner: meta.yllcorner || 0
@@ -120,6 +152,21 @@ export async function loadPlaybackLayerOptions(manifest, fetcherOptions = {}, ti
  */
 export async function loadPlaybackTime(fetcher) {
     return fetcher.fetchAndDecodeChunk('time', [0], { dtype: 'float64', byteorder: 'little' });
+}
+
+/**
+ * Fetch + decode the store's `dt_ms` array (schema §1/§5 O2 — 1D,
+ * single-chunk, float32 milliseconds per output timestep; `dt_ms[0]` is
+ * ALWAYS invalid/NaN by convention) — TASK-2629 (W4.1) extension of this
+ * seam: the Courant formula needs dt(t), and the store's own `has_dt` attr
+ * (read by the caller from schema_metadata) is what gates whether this is
+ * meaningful data or an all-NaN placeholder array (schema §5: "Absence is
+ * first-class").
+ * @param {PlaybackChunkFetcher} fetcher
+ * @returns {Promise<Float32Array>}
+ */
+export async function loadPlaybackDt(fetcher) {
+    return fetcher.fetchAndDecodeChunk('dt_ms', [0], { dtype: 'float32', byteorder: 'little' });
 }
 
 // Re-exported so a caller can pre-compute a chunk's cache key without

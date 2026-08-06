@@ -76,6 +76,48 @@ export function packQuantityVec3(depth, xVelocity, yVelocity) {
 }
 
 /**
+ * Broadcast the per-FACE `inradius` array (schema §2 — the minimum
+ * centroid-to-edge-midpoint distance, one value per triangle) to a
+ * per-VERTEX array the two-buffer vertex shader can consume as a plain
+ * static attribute alongside elevation/friction (TASK-2629, W4.1). A vertex
+ * takes the MINIMUM inradius among its incident faces — the conservative
+ * choice for a risk indicator (Courant = celerity*dt/inradius: a SMALLER
+ * inradius yields a LARGER, more hazardous Courant number; schema §2's own
+ * B6 amendment flags "the unconservative direction for a risk indicator" as
+ * the failure mode to avoid). A vertex with no incident face (degenerate
+ * input) gets 0.
+ * @param {Int32Array|number[]} faceNodeConnectivity flat, row-major (nFace*3)
+ * @param {Float32Array|number[]} faceInradius length nFace
+ * @param {number} nNode
+ * @returns {Float32Array} length nNode
+ */
+export function computeVertexInradius(faceNodeConnectivity, faceInradius, nNode) {
+    const out = new Float32Array(nNode).fill(Infinity);
+    const nFace = faceInradius.length;
+    for (let f = 0; f < nFace; f++) {
+        const r = faceInradius[f];
+        const i0 = faceNodeConnectivity[f * 3];
+        const i1 = faceNodeConnectivity[f * 3 + 1];
+        const i2 = faceNodeConnectivity[f * 3 + 2];
+        if (r < out[i0]) {
+            out[i0] = r;
+        }
+        if (r < out[i1]) {
+            out[i1] = r;
+        }
+        if (r < out[i2]) {
+            out[i2] = r;
+        }
+    }
+    for (let i = 0; i < nNode; i++) {
+        if (!isFinite(out[i])) {
+            out[i] = 0;
+        }
+    }
+    return out;
+}
+
+/**
  * Linear mix factor in [0,1] between two known-time samples t0Seconds and
  * t1Seconds for a playhead at nowSeconds — the `uMixT` the two-buffer
  * shader interpolates aQty0/aQty1 with. Clamped (never extrapolates past

@@ -125,11 +125,17 @@ function loadMesh(renderer, olLayer, mesh) {
         return;
     }
     reprojectMeshAsync(mesh).then(({ x3857, y3857 }) => {
+        // friction/inradius (TASK-2629, W4.1) are STATIC per-vertex arrays
+        // like elevation — never transferred to the reprojection worker (only
+        // nodeX/nodeY are, see reprojectMeshAsync's header), so they are safe
+        // to read straight off `mesh` here with no clone/detach concern.
         renderer.setMesh({
             x3857,
             y3857,
             elevation: mesh.elevation,
-            faceNodeConnectivity: mesh.faceNodeConnectivity
+            faceNodeConnectivity: mesh.faceNodeConnectivity,
+            friction: mesh.friction,
+            inradius: mesh.vertexInradius
         });
         olLayer.changed(); // request a repaint now that the mesh is ready
     }).catch(() => {
@@ -156,7 +162,16 @@ function create(options = {}, map) {
                 mixT: olLayer.get('mixT') || 0,
                 colorMode: olLayer.get('colorMode') || 'depth',
                 colorMax: olLayer.get('colorMax') || 1,
-                wetThreshold: olLayer.get('wetThreshold') || 1e-5
+                colorMin: olLayer.get('colorMin') || 0,
+                // TASK-2629 (W4.1) — the store's OWN minimum_storable_height/
+                // g/rho_w, never a hardcoded guess; the 1e-5/9.8/1000 fallbacks
+                // below only cover a caller that never set these (e.g. a karma
+                // GL smoke test) — production always sets them from schema_metadata
+                // (playbackEpics.playbackSyncLayerEpic's baseProps).
+                wetThreshold: olLayer.get('wetThreshold') || 1e-5,
+                g: olLayer.get('g') || 9.8,
+                rhoW: olLayer.get('rhoW') || 1000,
+                dt: olLayer.get('dt') || 0
             });
         }
     });
@@ -164,7 +179,11 @@ function create(options = {}, map) {
     olLayer.set('mixT', options.mixT || 0);
     olLayer.set('colorMode', options.colorMode || 'depth');
     olLayer.set('colorMax', options.colorMax || 1);
+    olLayer.set('colorMin', options.colorMin || 0);
     olLayer.set('wetThreshold', options.wetThreshold || 1e-5);
+    olLayer.set('g', options.g || 9.8);
+    olLayer.set('rhoW', options.rhoW || 1000);
+    olLayer.set('dt', options.dt || 0);
     // Internal handle update() needs — not an OL/observable property.
     olLayer.__anugaPlaybackRenderer = renderer;
 
@@ -228,6 +247,21 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (newOptions.colorMax !== oldOptions.colorMax) {
         layer.set('colorMax', newOptions.colorMax || 1);
+    }
+    if (newOptions.colorMin !== oldOptions.colorMin) {
+        layer.set('colorMin', newOptions.colorMin || 0);
+    }
+    if (newOptions.wetThreshold !== oldOptions.wetThreshold) {
+        layer.set('wetThreshold', newOptions.wetThreshold || 1e-5);
+    }
+    if (newOptions.g !== oldOptions.g) {
+        layer.set('g', newOptions.g || 9.8);
+    }
+    if (newOptions.rhoW !== oldOptions.rhoW) {
+        layer.set('rhoW', newOptions.rhoW || 1000);
+    }
+    if (newOptions.dt !== oldOptions.dt) {
+        layer.set('dt', newOptions.dt || 0);
     }
     if (newOptions.opacity !== oldOptions.opacity) {
         layer.setOpacity(newOptions.opacity !== undefined ? newOptions.opacity : 1);

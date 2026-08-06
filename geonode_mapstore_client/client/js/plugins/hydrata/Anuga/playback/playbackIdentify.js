@@ -25,7 +25,20 @@
  * face-centroid max values) — a peak-frame identify at the same point can
  * visibly differ from the *_max raster's reading at that pixel. Every
  * result names `surface: 'vertex-smoothed'` so callers/UI can label it.
+ *
+ * TASK-2629 (W4.1) extends sampleFieldAtPoint to report all eight derived
+ * quantities at the clicked point (not just depth/speed) via
+ * playbackDerivedQuantities' shared formulas — so the identify readout can
+ * never disagree with the shader's own per-vertex computation.
  */
+import {
+    computeStage,
+    computeDIV,
+    computeFroude,
+    computeShear,
+    computeCourant,
+    classifyHazard
+} from './playbackDerivedQuantities';
 
 const DEFAULT_WET_THRESHOLD = 1e-5;
 
@@ -97,7 +110,14 @@ export function barycentricInterpolate(bary, v0, v1, v2) {
 
 /**
  * Sample the smoothed vertex field at a click point, mixing frame0/frame1
- * by mixT exactly like the renderer's two-buffer shader.
+ * by mixT exactly like the renderer's two-buffer shader. TASK-2629 (W4.1):
+ * `geometry` (elevation/friction/inradius, all per-vertex, all STATIC —
+ * same arrays the renderer's aElev/aFriction/aInradius attributes upload)
+ * and `constants` (g/rhoW/dtSeconds, from the store's own attrs — see
+ * playbackController's manifest-load wiring) are OPTIONAL: omitting them
+ * still returns depth/velocity/speed exactly as W3 shipped (backward
+ * compatible with every existing caller/test), just without the six
+ * derived-quantity fields.
  * @param {{x3857: (Float64Array|number[]), y3857: (Float64Array|number[]), faceNodeConnectivity: (Int32Array|number[])}} mesh reprojected mesh (renderer's own x3857/y3857 — NOT the raw local nodeX/nodeY)
  * @param {{depth: Float32Array, xVelocity: Float32Array, yVelocity: Float32Array}} frame0
  * @param {{depth: Float32Array, xVelocity: Float32Array, yVelocity: Float32Array}} frame1
@@ -105,9 +125,11 @@ export function barycentricInterpolate(bary, v0, v1, v2) {
  * @param {number} px
  * @param {number} py
  * @param {number} [wetThreshold]
- * @returns {{located: boolean, surface: 'vertex-smoothed', faceIndex?: number, depth?: number, xVelocity?: number, yVelocity?: number, speed?: number, wet?: boolean}}
+ * @param {{elevation?: Float32Array, friction?: Float32Array, inradius?: Float32Array}} [geometry]
+ * @param {{g?: number, rhoW?: number, dtSeconds?: number}} [constants]
+ * @returns {{located: boolean, surface: 'vertex-smoothed', faceIndex?: number, depth?: number, xVelocity?: number, yVelocity?: number, speed?: number, wet?: boolean, stage?: number, div?: number, froude?: number, shear?: number, courant?: number, hazardClass?: string, hazardClassIndex?: number}}
  */
-export function sampleFieldAtPoint(mesh, frame0, frame1, mixT, px, py, wetThreshold = DEFAULT_WET_THRESHOLD) {
+export function sampleFieldAtPoint(mesh, frame0, frame1, mixT, px, py, wetThreshold = DEFAULT_WET_THRESHOLD, geometry = {}, constants = {}) {
     const located = locatePointInMesh(mesh.x3857, mesh.y3857, mesh.faceNodeConnectivity, px, py);
     if (!located) {
         return { located: false, surface: 'vertex-smoothed' };
@@ -122,14 +144,42 @@ export function sampleFieldAtPoint(mesh, frame0, frame1, mixT, px, py, wetThresh
     const wet = depth >= wetThreshold;
     const xVelocity = wet ? barycentricInterpolate(bary, mixedXVel[0], mixedXVel[1], mixedXVel[2]) : 0;
     const yVelocity = wet ? barycentricInterpolate(bary, mixedYVel[0], mixedYVel[1], mixedYVel[2]) : 0;
-    return {
+    const speed = Math.sqrt(xVelocity * xVelocity + yVelocity * yVelocity);
+    const result = {
         located: true,
         surface: 'vertex-smoothed',
         faceIndex,
         depth,
         xVelocity,
         yVelocity,
-        speed: Math.sqrt(xVelocity * xVelocity + yVelocity * yVelocity),
+        speed,
         wet
     };
+    const { elevation, friction, inradius } = geometry;
+    if (elevation) {
+        const elev = barycentricInterpolate(bary, elevation[i0], elevation[i1], elevation[i2]);
+        result.stage = computeStage(elev, depth);
+    }
+    result.div = computeDIV(depth, speed);
+    const g = constants.g || 9.8;
+    const rhoW = constants.rhoW || 1000;
+    result.froude = computeFroude(depth, speed, g);
+    if (friction) {
+        const n = barycentricInterpolate(bary, friction[i0], friction[i1], friction[i2]);
+        result.shear = computeShear(depth, speed, n, rhoW, g);
+    }
+    if (inradius) {
+        const r = barycentricInterpolate(bary, inradius[i0], inradius[i1], inradius[i2]);
+        // Gated on `wet` explicitly (not just computeCourant's own d<=0
+        // guard) to match the shader's `* wet` mask and the Python parity
+        // reference's `if (wet and has_dt)` — a depth strictly between 0 and
+        // wetThreshold is "dry" by the store's own convention even though it
+        // is d>0, and courant is the one formula that does not already fall
+        // to 0 via a zeroed `speed` the way froude/shear do.
+        result.courant = wet ? computeCourant(depth, constants.dtSeconds || 0, r, g) : 0;
+    }
+    const hazard = classifyHazard(depth, speed);
+    result.hazardClass = hazard.className;
+    result.hazardClassIndex = hazard.classIndex;
+    return result;
 }
