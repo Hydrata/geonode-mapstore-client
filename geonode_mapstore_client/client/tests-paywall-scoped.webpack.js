@@ -47,4 +47,11 @@ i18n.keys().forEach(i18n);
 // existing context here, so its spec executes nothing until named.
 var betaBanner = require.context('./js/plugins/hydrata/Paywall/components/__tests__', false, /-test\.jsx?$/);
 betaBanner.keys().forEach(betaBanner);
+// TASK-2645 (epic 2635 W1) — PRICING_UNAVAILABLE handling in
+// runAnugaScenarioEpic. Same reason as every line above: the existing
+// /epicsAnuga-test\.jsx?$/ context at the top matches by FILENAME only, so
+// this new file (deliberately named to NOT match that or any other
+// existing pattern here) executes nothing until named.
+var pricingUnavailable = require.context('./js/plugins/hydrata/Anuga/__tests__', false, /pricingUnavailableEpic-test\.jsx?$/);
+pricingUnavailable.keys().forEach(pricingUnavailable);
 module.exports = paywall;
