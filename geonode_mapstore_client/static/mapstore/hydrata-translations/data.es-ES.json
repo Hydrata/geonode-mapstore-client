@@ -573,6 +573,7 @@
         "inspect": "Inspeccionar",
         "legend": "Leyenda",
         "flowViz": "Flujo",
+        "particles": "Estelas",
         "degraded": "Conexión lenta — reproducción degradada",
         "status": {
           "loadingManifest": "Cargando…",

@@ -29,6 +29,7 @@ import { changeLayerProperties } from '@mapstore/framework/actions/layers';
 import { PLAYBACK_STATUS, MIN_SPEED, MAX_SPEED } from '../playbackController';
 import { availableQuantityIds } from '../playbackDerivedQuantities';
 import { DEFAULT_ARROW_DENSITY_PX, DEFAULT_ARROW_SCALE } from '../playbackFlowViz';
+import { DEFAULT_PARTICLE_GRID, DEFAULT_SPEED_EXAGGERATION } from '../playbackParticles';
 import {
     playbackInit,
     playbackPlay,
@@ -104,14 +105,17 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         manifestUrlDraft: '',
         flowVizEnabled: false,
         arrowDensity: DEFAULT_ARROW_DENSITY_PX,
-        arrowScale: DEFAULT_ARROW_SCALE
+        arrowScale: DEFAULT_ARROW_SCALE,
+        // TASK-2633 (W5.2) — same reasoning as the flow-viz state above:
+        // local component state, applied via changeLayerProperties.
+        particlesEnabled: false,
+        particleDensity: DEFAULT_PARTICLE_GRID,
+        particleSpeedExaggeration: DEFAULT_SPEED_EXAGGERATION
     };
 
-    // A small "update local state, then push a field subset of it to the
-    // layer via changeLayerProperties" helper — kept generic (a field-picker
-    // callback, not a hardcoded field list) so a LATER overlay control
-    // (e.g. a second toggle group) can reuse it without duplicating this
-    // setState-then-dispatch wiring.
+    // Shared by setFlowVizProps/setParticleProps below — both are "update
+    // local state, then push a field subset of it to the layer via
+    // changeLayerProperties"; only WHICH fields differs.
     applyLayerProps(patch, pickFields) {
         this.setState(patch, () => {
             const { playback, onChangeLayerProperties } = this.props;
@@ -126,6 +130,14 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
             flowVizEnabled: s.flowVizEnabled,
             arrowDensity: s.arrowDensity,
             arrowScale: s.arrowScale
+        }));
+    }
+
+    setParticleProps(patch) {
+        this.applyLayerProps(patch, (s) => ({
+            particlesEnabled: s.particlesEnabled,
+            particleDensity: s.particleDensity,
+            particleSpeedExaggeration: s.particleSpeedExaggeration
         }));
     }
 
@@ -259,6 +271,41 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             value={this.state.arrowScale}
                             title="Arrow scale"
                             onChange={(e) => this.setFlowVizProps({ arrowScale: Number(e.target.value) })}
+                        />
+                    </span>
+                ) : null}
+
+                <button
+                    className={`btn sv-glass-button sv-playback-particles-toggle ${this.state.particlesEnabled ? 'active' : ''}`}
+                    data-testid="anuga-playback-particles-toggle"
+                    onClick={() => this.setParticleProps({ particlesEnabled: !this.state.particlesEnabled })}
+                    title="Particle trails"
+                >
+                    <Message msgId="hydrata.playback.particles" />
+                </button>
+                {this.state.particlesEnabled ? (
+                    <span className="sv-playback-particles-controls" data-testid="anuga-playback-particles-controls">
+                        <input
+                            type="range"
+                            className="sv-playback-particles-density"
+                            data-testid="anuga-playback-particles-density"
+                            min={32}
+                            max={256}
+                            step={16}
+                            value={this.state.particleDensity}
+                            title="Particle density (grid side length)"
+                            onChange={(e) => this.setParticleProps({ particleDensity: Number(e.target.value) })}
+                        />
+                        <input
+                            type="range"
+                            className="sv-playback-particles-exaggeration"
+                            data-testid="anuga-playback-particles-exaggeration"
+                            min={0.25}
+                            max={5}
+                            step={0.25}
+                            value={this.state.particleSpeedExaggeration}
+                            title="Speed exaggeration"
+                            onChange={(e) => this.setParticleProps({ particleSpeedExaggeration: Number(e.target.value) })}
                         />
                     </span>
                 ) : null}

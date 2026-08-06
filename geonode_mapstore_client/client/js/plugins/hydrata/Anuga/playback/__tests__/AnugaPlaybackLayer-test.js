@@ -288,5 +288,54 @@ describe('AnugaPlaybackLayer', () => {
             };
             waitForMesh();
         });
+
+        // TASK-2633 (W5.2) — minimal GL smoke check, same NAMED SKIP as the
+        // TASK-2632 test above (no readPixels-based numeric readback here —
+        // confirmed to hang under this project's headless SwiftShader
+        // launcher; the particle system doesn't even own a readback helper
+        // for the SAME reason). Proves the advection step + trail
+        // fade/composite + point draw pipeline links/runs across TWO
+        // consecutive frames (so the ping-pong swap itself is exercised)
+        // without a GL error, both alone and combined with the W5.1 arrow
+        // overlay (both read the SAME velocity texture the same frame).
+        it('particlesEnabled: advection + trail render across two frames without a GL error, combined with flowVizEnabled', (done) => {
+            const layer = Layers.createLayer(LAYER_TYPE, {
+                id: 'playback-particles-gl-smoke',
+                mesh: {
+                    nodeX: Float32Array.from([0, 10, 0, 10]),
+                    nodeY: Float32Array.from([0, 0, 10, 10]),
+                    elevation: Float32Array.from([1, 2, 3, 4]),
+                    friction: Float32Array.from([0.03, 0.03, 0.05, 0.05]),
+                    vertexInradius: Float32Array.from([2, 2, 3, 3]),
+                    faceNodeConnectivity: Int32Array.from([0, 1, 2, 1, 3, 2]),
+                    epsg: 32756, xllcorner: 500000, yllcorner: 6900000
+                },
+                frame0: { depth: Float32Array.from([1, 2, 3, 4]), xVelocity: Float32Array.from([0.5, 0.5, 0.5, 0.5]), yVelocity: Float32Array.from([0, 0, 0, 0]) },
+                frame1: { depth: Float32Array.from([2, 3, 4, 5]), xVelocity: Float32Array.from([0.5, 0.5, 0.5, 0.5]), yVelocity: Float32Array.from([0, 0, 0, 0]) }
+            });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const gl = renderer.gl;
+            const frameState = { viewState: { center: [500005, 6900005], resolution: 0.2, rotation: 0 }, size: [64, 64], pixelRatio: 1 };
+            const waitForMesh = () => {
+                if (renderer.meshReady) {
+                    const renderOnce = () => renderer.render({
+                        viewState: frameState.viewState, size: frameState.size, pixelRatio: 1, opacity: 1,
+                        mixT: 0.5, colorMode: 'depth', colorMax: 10, colorMin: 0,
+                        wetThreshold: 0.005, g: 9.8, rhoW: 1023, dt: 1.2,
+                        flowVizEnabled: true, arrowDensity: 16, arrowScale: 1,
+                        particlesEnabled: true, particleDensity: 32, particleSpeedExaggeration: 1
+                    });
+                    renderOnce();
+                    expect(gl.getError()).toBe(gl.NO_ERROR);
+                    renderOnce(); // second frame — exercises the ping-pong swap + camera-key-unchanged (no trail reset) path
+                    expect(gl.getError()).toBe(gl.NO_ERROR);
+                    expect(renderer.particles.getGridSize()).toBe(32);
+                    done();
+                    return;
+                }
+                setTimeout(waitForMesh, 10);
+            };
+            waitForMesh();
+        });
     });
 });

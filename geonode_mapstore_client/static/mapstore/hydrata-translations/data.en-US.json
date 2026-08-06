@@ -573,6 +573,7 @@
         "inspect": "Inspect",
         "legend": "Legend",
         "flowViz": "Flow",
+        "particles": "Trails",
         "degraded": "Slow connection — playback degraded",
         "status": {
           "loadingManifest": "Loading…",

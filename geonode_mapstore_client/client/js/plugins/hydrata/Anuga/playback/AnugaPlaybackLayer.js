@@ -144,6 +144,47 @@ function loadMesh(renderer, olLayer, mesh) {
     });
 }
 
+/**
+ * TASK-2633 (W5.2) — particles must keep animating on a FROZEN (paused)
+ * field just as much as an evolving one (AC), but `ol/layer/Layer`'s
+ * `render(frameState)` hook is otherwise purely REACTIVE — OL only calls it
+ * when the map itself has a reason to repaint (interaction, an explicit
+ * `layer.changed()`, an ACTIVE playback tick's own `changeLayerProperties`).
+ * With playback paused and the camera still, nothing would ever call
+ * render() again, and the particle overlay would visibly freeze despite
+ * `particlesEnabled`. This self-driving rAF loop is the fix: while
+ * `particlesEnabled` is true, it repeatedly calls `olLayer.changed()` (a
+ * cheap OL dirty-flag) to keep requesting repaints, and stops itself the
+ * frame `particlesEnabled` goes false or the layer is removed (own
+ * eviction discipline, AC) — never runs when nothing needs it.
+ * @param {import('ol/layer/Layer').default} olLayer
+ * @returns {{start: function(): void, stop: function(): void}}
+ */
+function makeParticleAnimLoop(olLayer) {
+    let frameHandle = null;
+    const tick = () => {
+        if (!olLayer.get('particlesEnabled')) {
+            frameHandle = null;
+            return;
+        }
+        olLayer.changed();
+        frameHandle = requestAnimationFrame(tick);
+    };
+    return {
+        start() {
+            if (frameHandle === null) {
+                frameHandle = requestAnimationFrame(tick);
+            }
+        },
+        stop() {
+            if (frameHandle !== null) {
+                cancelAnimationFrame(frameHandle);
+                frameHandle = null;
+            }
+        }
+    };
+}
+
 function create(options = {}, map) {
     const renderer = new AnugaPlaybackRenderer();
 
@@ -179,7 +220,13 @@ function create(options = {}, map) {
                 // state, not visual overlay knobs).
                 flowVizEnabled: !!olLayer.get('flowVizEnabled'),
                 arrowDensity: olLayer.get('arrowDensity'),
-                arrowScale: olLayer.get('arrowScale')
+                arrowScale: olLayer.get('arrowScale'),
+                // TASK-2633 (W5.2) — particle-trail overlay toggle/controls,
+                // same plain layer-level-setting class as the arrow overlay
+                // above.
+                particlesEnabled: !!olLayer.get('particlesEnabled'),
+                particleDensity: olLayer.get('particleDensity'),
+                particleSpeedExaggeration: olLayer.get('particleSpeedExaggeration')
             });
         }
     });
@@ -195,8 +242,19 @@ function create(options = {}, map) {
     olLayer.set('flowVizEnabled', !!options.flowVizEnabled);
     olLayer.set('arrowDensity', options.arrowDensity);
     olLayer.set('arrowScale', options.arrowScale);
+    olLayer.set('particlesEnabled', !!options.particlesEnabled);
+    olLayer.set('particleDensity', options.particleDensity);
+    olLayer.set('particleSpeedExaggeration', options.particleSpeedExaggeration);
     // Internal handle update() needs — not an OL/observable property.
     olLayer.__anugaPlaybackRenderer = renderer;
+
+    // TASK-2633 (W5.2) — start the self-driving repaint loop immediately if
+    // particles are enabled from creation; update() also starts/stops it on
+    // a later toggle (see below). Internal handle, not an OL property.
+    olLayer.__anugaParticleAnimLoop = makeParticleAnimLoop(olLayer);
+    if (options.particlesEnabled) {
+        olLayer.__anugaParticleAnimLoop.start();
+    }
 
     // This layer has NO ol Source (it self-manages a WebGL2 canvas via the
     // `render` hook above) — MapStore's generic <Layer> wrapper
@@ -215,6 +273,10 @@ function create(options = {}, map) {
         if (map) {
             map.removeLayer(olLayer);
         }
+        // TASK-2633 (W5.2) — stop the self-driving repaint loop FIRST (own
+        // eviction discipline, AC): otherwise it would keep calling
+        // `olLayer.changed()` on a layer no longer attached to any map.
+        olLayer.__anugaParticleAnimLoop.stop();
         // Free GL buffers/VAOs/programs/textures — nothing else releases
         // them once the layer drops out of the map (simplify-pass finding,
         // W2 wave report: dispose() existed but nothing ever called it).
@@ -282,6 +344,22 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (newOptions.arrowScale !== oldOptions.arrowScale) {
         layer.set('arrowScale', newOptions.arrowScale);
+    }
+    if (newOptions.particlesEnabled !== oldOptions.particlesEnabled) {
+        layer.set('particlesEnabled', !!newOptions.particlesEnabled);
+        // TASK-2633 (W5.2) — start/stop the self-driving repaint loop in
+        // lockstep with the toggle (see makeParticleAnimLoop's header).
+        if (newOptions.particlesEnabled) {
+            layer.__anugaParticleAnimLoop.start();
+        } else {
+            layer.__anugaParticleAnimLoop.stop();
+        }
+    }
+    if (newOptions.particleDensity !== oldOptions.particleDensity) {
+        layer.set('particleDensity', newOptions.particleDensity);
+    }
+    if (newOptions.particleSpeedExaggeration !== oldOptions.particleSpeedExaggeration) {
+        layer.set('particleSpeedExaggeration', newOptions.particleSpeedExaggeration);
     }
     if (newOptions.opacity !== oldOptions.opacity) {
         layer.setOpacity(newOptions.opacity !== undefined ? newOptions.opacity : 1);

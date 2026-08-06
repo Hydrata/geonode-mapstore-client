@@ -36,6 +36,8 @@ import {
 import { QUANTITY_MODE_INDEX } from './playbackDerivedQuantities';
 import { buildWireframeIndices, buildProjectionMatrix } from './playbackMeshGeometry';
 import { AnugaPlaybackFlowVizRenderer } from './AnugaPlaybackFlowVizRenderer';
+import { AnugaPlaybackParticleRenderer } from './AnugaPlaybackParticleRenderer';
+import { clampParticleGrid } from './playbackParticles';
 
 const WIRE_COLOR = [0.9, 0.95, 1.0, 0.35];
 const QUANTITY_IDS = Object.keys(QUANTITY_RAMPS);
@@ -137,6 +139,17 @@ export class AnugaPlaybackRenderer {
         // on a GPU/browser without EXT_color_buffer_float(_half) — see its
         // own header.
         this.flowViz = new AnugaPlaybackFlowVizRenderer(gl);
+        // TASK-2633 (W5.2) — the particle-advection + trails overlay shares
+        // the SAME float-texture format flowViz already picked (one
+        // extension probe, not two) and samples flowViz's velocity texture
+        // every frame rather than owning its own copy.
+        this.particles = new AnugaPlaybackParticleRenderer(gl, this.flowViz.format);
+        // Real wall-clock dt for particle advection — INDEPENDENT of the
+        // playback transport's own sim-time dt (uDt/mixT): particles must
+        // keep animating on a frozen (paused) field just as much as an
+        // evolving one (AC), so their own step needs real elapsed seconds
+        // between successive render() calls, not the sim clock.
+        this._lastParticleFrameTimeMs = null;
     }
 
     /**
@@ -252,13 +265,17 @@ export class AnugaPlaybackRenderer {
      * @param {boolean} [params.flowVizEnabled] TASK-2632 (W5.1) velocity-arrow overlay toggle
      * @param {number} [params.arrowDensity] screen-space grid spacing, px (smaller = denser)
      * @param {number} [params.arrowScale] multiplier on the computed max arrow length
+     * @param {boolean} [params.particlesEnabled] TASK-2633 (W5.2) particle-trail overlay toggle
+     * @param {number} [params.particleDensity] particle-grid side length (playbackParticles.clampParticleGrid)
+     * @param {number} [params.particleSpeedExaggeration] multiplier on the advection speed scale
      * @returns {HTMLCanvasElement}
      */
     render({
         viewState, size, pixelRatio, opacity, wireframe = false, mixT = 0,
         colorMode = 'depth', colorMax = 1, colorMin = 0, wetThreshold = 1e-5,
         g = 9.8, rhoW = 1000, dt = 0,
-        flowVizEnabled = false, arrowDensity, arrowScale
+        flowVizEnabled = false, arrowDensity, arrowScale,
+        particlesEnabled = false, particleDensity, particleSpeedExaggeration
     }) {
         const gl = this.gl;
         const canvas = this.canvas;
@@ -310,20 +327,43 @@ export class AnugaPlaybackRenderer {
         gl.drawElements(gl.TRIANGLES, this.nIndices, gl.UNSIGNED_INT, 0);
         gl.bindVertexArray(null);
 
-        // TASK-2632 (W5.1) — the flow-viz arrow overlay draws BETWEEN the
-        // scalar mesh fill and the wireframe pass (AC), so wireframe stays
-        // the topmost layer. renderVelocityField rebinds the FBO/viewport
-        // to the offscreen velocity texture's own size; restore the main
-        // canvas viewport before drawing arrows into it.
-        if (flowVizEnabled) {
+        // TASK-2632/2633 (W5.1/W5.2) — flow-viz arrows and particle trails
+        // draw BETWEEN the scalar mesh fill and the wireframe pass (AC), so
+        // wireframe stays the topmost layer. Both overlays share ONE
+        // velocity-field render this frame (never rebuilt per-overlay —
+        // wave brief: "the texture is ALSO W5.2's advection source. Build
+        // it once in 2632"). renderVelocityField rebinds the FBO/viewport to
+        // the offscreen velocity texture's own size; restore the main
+        // canvas viewport before drawing either overlay into it.
+        if (flowVizEnabled || particlesEnabled) {
             const bboxOrtho = this.flowViz.renderVelocityField({ mixT, wetThreshold });
             gl.viewport(0, 0, width, height);
-            if (bboxOrtho) {
+            if (flowVizEnabled && bboxOrtho) {
                 this.flowViz.renderArrows({
                     bboxOrtho, viewState, sizeCssPx: size, wetThreshold,
                     density: arrowDensity, scale: arrowScale
                 });
             }
+            if (particlesEnabled && bboxOrtho) {
+                const gridSize = clampParticleGrid(particleDensity);
+                this.particles.ensureParticles(gridSize);
+                const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                const dtSec = this._lastParticleFrameTimeMs !== null
+                    ? Math.min(0.1, Math.max(0, (nowMs - this._lastParticleFrameTimeMs) / 1000))
+                    : (1 / 60);
+                this._lastParticleFrameTimeMs = nowMs;
+                const velocityTexture = this.flowViz.getVelocityTexture();
+                this.particles.step({ velocityTexture, dtSec, speedExaggeration: particleSpeedExaggeration });
+                this.particles.renderTrails({
+                    velocityTexture, bboxOrtho, projMatrix, viewState, sizeCssPx: size,
+                    canvasWidth: width, canvasHeight: height, wetThreshold, trailsEnabled: true
+                });
+            }
+        }
+        if (!particlesEnabled) {
+            // Reset the dt baseline while particles are off, so re-enabling
+            // later doesn't compute one giant dt from a stale timestamp.
+            this._lastParticleFrameTimeMs = null;
         }
 
         if (wireframe && this.nWireIndices > 0) {
@@ -348,11 +388,15 @@ export class AnugaPlaybackRenderer {
                 gl.deleteTexture(this.lutTextures[mode]);
             }
         });
-        // TASK-2632 (W5.1) — free the composed flow-viz sub-renderer's own
-        // FBO/texture/program/VAO objects too (the W2 wave report's
-        // simplify-pass finding — "dispose() existed but nothing ever called
-        // it" — applies equally to a sub-renderer added later).
+        // TASK-2632/2633 (W5.1/W5.2) — free the composed flow-viz + particle
+        // sub-renderers' own FBO/texture/program/VAO objects too (the W2
+        // wave report's simplify-pass finding — "dispose() existed but
+        // nothing ever called it" — applies equally to sub-renderers added
+        // later; AC: "own the memory/context-loss handling ... free
+        // particle textures/FBOs on layer removal via the existing
+        // detached-layer .remove() path").
         this.flowViz.dispose();
+        this.particles.dispose();
     }
 }
 

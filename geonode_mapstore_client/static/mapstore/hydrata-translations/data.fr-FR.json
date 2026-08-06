@@ -573,6 +573,7 @@
         "inspect": "Inspecter",
         "legend": "Légende",
         "flowViz": "Débit",
+        "particles": "Traînées",
         "degraded": "Connexion lente — lecture dégradée",
         "status": {
           "loadingManifest": "Chargement…",
