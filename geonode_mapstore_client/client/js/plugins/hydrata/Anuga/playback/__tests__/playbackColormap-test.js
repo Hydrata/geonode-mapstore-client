@@ -6,72 +6,73 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-/* TASK-2626 (W2.2, epic 2618) — playbackColormap tests. */
+/*
+ * TASK-2626 (W2.2, epic 2618) — playbackColormap tests.
+ * The W0.3 spike's evenly-spaced buildColormapLUT/DEPTH_COLORMAP_STOPS
+ * placeholder was REMOVED in TASK-2628 (W3.2) once the renderer switched to
+ * the real SLD-derived quantity stops below (Phase 1.7 simplify pass, epic
+ * 2618 W3 wave report) — buildQuantityColormapLUT is its replacement.
+ */
 import expect from 'expect';
-import { DEPTH_COLORMAP_STOPS, buildColormapLUT, uploadLUTTexture } from '../playbackColormap';
+import {
+    uploadLUTTexture,
+    DEPTH_SLD_STOPS,
+    DEPTH_SLD_MAX,
+    VELOCITY_SLD_STOPS,
+    VELOCITY_SLD_MAX,
+    buildQuantityColormapLUT
+} from '../playbackColormap';
 
 describe('playbackColormap', () => {
-    describe('buildColormapLUT', () => {
-        it('produces an RGBA8 buffer of the requested size', () => {
-            const lut = buildColormapLUT(DEPTH_COLORMAP_STOPS, 256);
-            expect(lut.length).toBe(256 * 4);
-            expect(lut instanceof Uint8Array).toBe(true);
+    describe('buildQuantityColormapLUT (TASK-2628 — real SLD stops, non-uniform spacing)', () => {
+        it('texel 0 matches the first SLD stop exactly (value=0)', () => {
+            const lut = buildQuantityColormapLUT(DEPTH_SLD_STOPS, DEPTH_SLD_MAX, 256);
+            const [r, g, b] = DEPTH_SLD_STOPS[0].color;
+            expect([lut[0], lut[1], lut[2], lut[3]]).toEqual([r, g, b, 255]);
         });
 
-        it('the first texel matches the first stop exactly (t=0)', () => {
-            const lut = buildColormapLUT(DEPTH_COLORMAP_STOPS, 256);
-            const [r, g, b] = DEPTH_COLORMAP_STOPS[0];
-            expect(lut[0]).toBe(r);
-            expect(lut[1]).toBe(g);
-            expect(lut[2]).toBe(b);
-            expect(lut[3]).toBe(255);
-        });
-
-        it('the last texel matches the last stop exactly (t=1)', () => {
-            const lut = buildColormapLUT(DEPTH_COLORMAP_STOPS, 256);
-            const [r, g, b] = DEPTH_COLORMAP_STOPS[DEPTH_COLORMAP_STOPS.length - 1];
+        it('the last texel matches the last SLD stop exactly (value=colorMax)', () => {
+            const lut = buildQuantityColormapLUT(DEPTH_SLD_STOPS, DEPTH_SLD_MAX, 256);
+            const [r, g, b] = DEPTH_SLD_STOPS[DEPTH_SLD_STOPS.length - 1].color;
             const last = 255 * 4;
-            expect(lut[last]).toBe(r);
-            expect(lut[last + 1]).toBe(g);
-            expect(lut[last + 2]).toBe(b);
+            expect([lut[last], lut[last + 1], lut[last + 2]]).toEqual([r, g, b]);
         });
 
-        it('alpha is always opaque (255)', () => {
-            const lut = buildColormapLUT(DEPTH_COLORMAP_STOPS, 64);
-            for (let i = 0; i < 64; i++) {
-                expect(lut[i * 4 + 3]).toBe(255);
-            }
+        it('a value beyond the SLD max clamps to the saturated last colour (not extrapolated/black)', () => {
+            // colorMax deliberately set BELOW the real store's valid_max (a
+            // flood can exceed the SLD's fixed 6m cap) — every texel past the
+            // last stop's own colorMax-relative position must saturate.
+            const bigColorMax = 22; // e.g. a real 22m flood-depth store
+            const lut = buildQuantityColormapLUT(DEPTH_SLD_STOPS, bigColorMax, 256);
+            const [r, g, b] = DEPTH_SLD_STOPS[DEPTH_SLD_STOPS.length - 1].color;
+            const last = 255 * 4;
+            expect([lut[last], lut[last + 1], lut[last + 2]]).toEqual([r, g, b]);
         });
 
-        it('is monotonically smooth: no two adjacent texels differ by more than one linear step could produce', () => {
-            const size = 256;
-            const lut = buildColormapLUT(DEPTH_COLORMAP_STOPS, size);
-            // Max possible per-texel-step delta for any channel, across the
-            // whole stop list (worst single segment jump / segment texel span).
-            const nSeg = DEPTH_COLORMAP_STOPS.length - 1;
-            let maxSegDelta = 0;
-            for (let s = 0; s < nSeg; s++) {
-                for (let c = 0; c < 3; c++) {
-                    maxSegDelta = Math.max(maxSegDelta, Math.abs(DEPTH_COLORMAP_STOPS[s + 1][c] - DEPTH_COLORMAP_STOPS[s][c]));
-                }
-            }
-            const texelsPerSeg = (size - 1) / nSeg;
-            const maxStepDelta = Math.ceil(maxSegDelta / texelsPerSeg) + 1;
-            for (let i = 1; i < size; i++) {
-                for (let c = 0; c < 3; c++) {
-                    const delta = Math.abs(lut[i * 4 + c] - lut[(i - 1) * 4 + c]);
-                    expect(delta <= maxStepDelta).toBe(true, `channel ${c} jumped ${delta} at texel ${i} (max expected ${maxStepDelta})`);
-                }
-            }
+        it('respects the SLD non-uniform spacing: the near-zero bucket (0-0.1m of a 6m ramp) stays flat, not a 3/10 evenly-spread gradient', () => {
+            const lut = buildQuantityColormapLUT(DEPTH_SLD_STOPS, DEPTH_SLD_MAX, 256);
+            // 0.1m / 6m ~= 1.7% of the ramp -> texel index ~4; DEPTH_SLD_STOPS[0..2]
+            // are all the SAME colour (#daffe4), so texels well within that
+            // span must be identical, not already blending toward #b1f5ff.
+            const texelAt = (value) => {
+                const i = Math.round((value / DEPTH_SLD_MAX) * 255);
+                return [lut[i * 4], lut[i * 4 + 1], lut[i * 4 + 2]];
+            };
+            expect(texelAt(0.02)).toEqual(DEPTH_SLD_STOPS[0].color);
+            expect(texelAt(0.09)).toEqual(DEPTH_SLD_STOPS[0].color);
         });
 
-        it('rejects fewer than 2 stops', () => {
-            expect(() => buildColormapLUT([[0, 0, 0]], 256)).toThrow();
-            expect(() => buildColormapLUT([], 256)).toThrow();
+        it('velocity ramp: interpolates correctly between two real stops', () => {
+            const lut = buildQuantityColormapLUT(VELOCITY_SLD_STOPS, VELOCITY_SLD_MAX, 256);
+            // Midpoint of [0, 0.5] (both m/s) -> exact midpoint of their colours.
+            const i = Math.round((0.25 / VELOCITY_SLD_MAX) * 255);
+            const expectedR = Math.round((VELOCITY_SLD_STOPS[0].color[0] + VELOCITY_SLD_STOPS[1].color[0]) / 2);
+            expect(Math.abs(lut[i * 4] - expectedR) <= 1).toBe(true);
         });
 
-        it('rejects a size below 2', () => {
-            expect(() => buildColormapLUT(DEPTH_COLORMAP_STOPS, 1)).toThrow();
+        it('rejects a non-positive colorMax', () => {
+            expect(() => buildQuantityColormapLUT(DEPTH_SLD_STOPS, 0, 256)).toThrow();
+            expect(() => buildQuantityColormapLUT(DEPTH_SLD_STOPS, -1, 256)).toThrow();
         });
     });
 
@@ -87,7 +88,7 @@ describe('playbackColormap', () => {
                 this.skip();
                 return;
             }
-            const lut = buildColormapLUT(DEPTH_COLORMAP_STOPS, 256);
+            const lut = buildQuantityColormapLUT(DEPTH_SLD_STOPS, DEPTH_SLD_MAX, 256);
             const tex = uploadLUTTexture(gl, lut, 256);
             expect(tex).toBeTruthy();
             expect(gl.getError()).toBe(gl.NO_ERROR);

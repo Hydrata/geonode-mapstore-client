@@ -579,7 +579,15 @@
           "seeking": "Almacenando en búfer el objetivo de desplazamiento…",
           "stalled": "Almacenando en búfer — esperando datos…",
           "error": "Error al cargar el almacén de reproducción"
-        }
+        },
+        "legendTitleDepth": "Profundidad (m)",
+        "legendTitleSpeed": "Velocidad (m/s)",
+        "legendExceedsSld": "Escala extendida a {colorMax} {unit} — esta simulación supera la escala estándar de 6 {unit}",
+        "legendToleranceNote": "Los valores provienen del campo de vértices suavizado, no de las capas ráster *_max — una lectura en el fotograma de pico puede diferir visiblemente del COG *_max en el mismo punto.",
+        "identifyReadoutTitle": "Inspeccionar",
+        "identifyReadoutNoData": "Sin datos de malla en este punto",
+        "identifyReadoutSurface": "Campo de vértices suavizado (no el ráster *_max)",
+        "identifyReadoutDry": "Suelo seco"
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

@@ -21,9 +21,12 @@ import {
     playbackBufferEpic,
     playbackTickEpic,
     playbackSyncLayerEpic,
+    playbackIdentifyEpic,
     fetcherRegistry,
     TICK_INTERVAL_MS
 } from '../playbackEpics';
+import { reprojectMeshVertices } from '../../playbackReproject';
+import { PLAYBACK_SET_IDENTIFY_RESULT, playbackSetIdentifyArmed } from '../../actions/playbackActions';
 import { ADD_LAYER, CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
 import { PlaybackChunkFetcher } from '../../playbackChunkFetcher';
 import {
@@ -235,7 +238,7 @@ describe('playbackEpics', () => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
             fetcherRegistry.set(1, fetcher);
-            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode) };
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
             const pb = {
                 ...createInitialPlaybackState(),
                 runId: 1, layerId: 'layer-1', manifest: FIXTURE_MANIFEST, mesh,
@@ -249,7 +252,14 @@ describe('playbackEpics', () => {
                 try {
                     expect(a.type).toBe(CHANGE_LAYER_PROPERTIES);
                     expect(a.layer).toBe('layer-1');
-                    expect(a.newProperties.mesh).toBe(mesh);
+                    // NOT the same reference (TASK-2628 live-verify fix): the
+                    // layer's worker reprojection transfers/detaches
+                    // nodeX/nodeY's buffers, so the epic hands it a CLONE and
+                    // keeps `mesh` (== pb.mesh, Redux's own copy) intact for
+                    // any other reader (e.g. playbackIdentifyEpic).
+                    expect(a.newProperties.mesh).toNotBe(mesh);
+                    expect(a.newProperties.mesh.nodeX.length).toBe(mesh.nodeX.length);
+                    expect(mesh.nodeX.length).toBe(FIXTURE_MESH.nNode); // pb.mesh itself untouched
                     expect(a.newProperties.mixT).toBe(0.25);
                     expect(a.newProperties.colorMode).toBe('depth');
                     expect(a.newProperties.frame0.depth.length).toBe(FIXTURE_MESH.nNode);
@@ -266,7 +276,7 @@ describe('playbackEpics', () => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
             fetcherRegistry.set(2, fetcher);
-            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode) };
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
             const basePb = {
                 ...createInitialPlaybackState(),
                 runId: 2, layerId: 'layer-2', manifest: FIXTURE_MANIFEST, mesh,
@@ -296,6 +306,106 @@ describe('playbackEpics', () => {
                 store.__setPlayback({ ...basePb, mixT: 0.6 });
                 subject.next(playbackTick(2));
             }, 50);
+        });
+
+        it('reuses the SAME cloned layer-mesh object across repeated dispatches (does not defeat AnugaPlaybackLayer\'s own re-reproject reference check)', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
+            fetcherRegistry.set(3, fetcher);
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
+            const basePb = {
+                ...createInitialPlaybackState(), runId: 3, layerId: 'layer-3', manifest: FIXTURE_MANIFEST, mesh,
+                nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10, currentTimestep: 0, mixT: 0, quantization: FIXTURE_MANIFEST.quantization
+            };
+            const store = makeStore(basePb);
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackSyncLayerEpic(action$, store).subscribe((a) => {
+                seen.push(a);
+                if (seen.length === 2) {
+                    restore();
+                    try {
+                        expect(seen[1].newProperties.mesh).toBe(seen[0].newProperties.mesh);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }
+            }, done);
+            subject.next(playbackTick(1));
+            setTimeout(() => {
+                store.__setPlayback({ ...basePb, mixT: 0.4 }); // same timestep, mesh reference unchanged
+                subject.next(playbackTick(2));
+            }, 50);
+        });
+    });
+
+    describe('playbackIdentifyEpic (TASK-2628, W3.2)', () => {
+        // A tiny 4-node square (UTM zone 56S, matches the fixture's georef)
+        // so the reprojected click point is hand-computable.
+        const mesh = {
+            nodeX: new Float32Array([0, 10, 0, 10]),
+            nodeY: new Float32Array([0, 0, 10, 10]),
+            faceNodeConnectivity: new Int32Array([0, 1, 2, 1, 3, 2]),
+            epsg: 32756,
+            xllcorner: 500000,
+            yllcorner: 6900000
+        };
+        const frame0 = { depth: new Float32Array([1, 2, 3, 4]), xVelocity: new Float32Array([0, 0, 0, 0]), yVelocity: new Float32Array([0, 0, 0, 0]) };
+        const frame1 = { depth: new Float32Array([2, 4, 6, 8]), xVelocity: new Float32Array([0, 0, 0, 0]), yVelocity: new Float32Array([0, 0, 0, 0]) };
+
+        function makeIdentifyState({ armed = true } = {}) {
+            return {
+                anugaPlayback: { ...createInitialPlaybackState(), identifyArmed: armed, mesh, layerId: 'layer-id', currentTimestep: 0, quantity: 'depth' },
+                layers: { flat: [{ id: 'layer-id', frame0, frame1, mixT: 0 }] }
+            };
+        }
+
+        it('dispatches SET_IDENTIFY_RESULT with the interpolated smoothed-vertex value when a click lands on the mesh', (done) => {
+            const { x, y } = reprojectMeshVertices(mesh.nodeX, mesh.nodeY, mesh);
+            // Node 0's own reprojected position -> exact hit, bary weight 1 on node 0.
+            const clickPoint = { rawPos: [x[0], y[0]] };
+            const state = makeIdentifyState();
+            const store = { getState: () => state };
+            const { subject, action$ } = makeActionsSubject();
+            playbackIdentifyEpic(action$, store).subscribe((a) => {
+                try {
+                    expect(a.type).toBe(PLAYBACK_SET_IDENTIFY_RESULT);
+                    expect(a.result.located).toBe(true);
+                    expect(a.result.surface).toBe('vertex-smoothed');
+                    expect(a.result.depth).toBe(1); // frame0's node-0 value, mixT=0
+                    expect(a.result.quantity).toBe('depth');
+                    expect(a.result.timestepIndex).toBe(0);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next({ type: 'CLICK_ON_MAP', point: clickPoint });
+        });
+
+        it('is a no-op when identify is not armed', (done) => {
+            const state = makeIdentifyState({ armed: false });
+            const store = { getState: () => state };
+            const { subject, action$ } = makeActionsSubject();
+            let fired = false;
+            playbackIdentifyEpic(action$, store).subscribe(() => { fired = true; });
+            subject.next({ type: 'CLICK_ON_MAP', point: { rawPos: [0, 0] } });
+            setTimeout(() => {
+                expect(fired).toBe(false);
+                done();
+            }, 50);
+        });
+
+        it('dispatches located:false for a click well outside the mesh', (done) => {
+            const state = makeIdentifyState();
+            const store = { getState: () => state };
+            const { subject, action$ } = makeActionsSubject();
+            playbackIdentifyEpic(action$, store).subscribe((a) => {
+                expect(a.result.located).toBe(false);
+                done();
+            }, done);
+            subject.next({ type: 'CLICK_ON_MAP', point: { rawPos: [99999999, 99999999] } });
         });
     });
 });

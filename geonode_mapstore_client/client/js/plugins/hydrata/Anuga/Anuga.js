@@ -12,7 +12,9 @@ import {
     playbackInitEpic,
     playbackBufferEpic,
     playbackTickEpic,
-    playbackSyncLayerEpic
+    playbackSyncLayerEpic,
+    // TASK-2628 (W3.2) — click-to-inspect at the current timestep.
+    playbackIdentifyEpic
 } from './playback/epics/playbackEpics';
 import anugaContainer from "./components/anugaContainer";
 import {
@@ -348,6 +350,8 @@ export default createPlugin('Anuga', {
         playbackInitEpic,
         playbackBufferEpic,
         playbackTickEpic,
-        playbackSyncLayerEpic
+        playbackSyncLayerEpic,
+        // TASK-2628 (W3.2) — click-to-inspect at the current timestep.
+        playbackIdentifyEpic
     }
 });

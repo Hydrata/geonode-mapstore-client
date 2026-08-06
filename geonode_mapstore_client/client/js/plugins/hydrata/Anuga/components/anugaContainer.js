@@ -67,6 +67,12 @@ import {FloatingDemLegendPanel} from './DemRampLegend';
 // closing/opening the Inputs/Scenario/Results menus, matching every other
 // container-level panel's rationale above.
 import AnugaPlaybackControlBar from '../playback/components/AnugaPlaybackControlBar';
+// TASK-2628 (W3.2, epic 2618) — playback legend (floating, MovablePanel) +
+// click-to-inspect readout. Both self-gate (legend on legendOpen, readout on
+// identifyResult being non-null) so they are safe to mount unconditionally
+// alongside the control bar.
+import { FloatingPlaybackLegendPanel } from '../playback/components/PlaybackLegend';
+import PlaybackIdentifyReadout from '../playback/components/PlaybackIdentifyReadout';
 // TASK-1869 (W5.4) — vertical-exaggeration slider for the 3D Cesium terrain.
 // GATED (TASK-1870/epic-1871): the slider is visually inert in prod — it sets
 // scene.verticalExaggeration but the GeoServerBILTerrainProvider mesh never
@@ -398,6 +404,13 @@ export class AnugaContainer extends React.Component {
                     {this.props.openMenuGroupId === 'Results' && this.props.canViewAnugaMap && this.props.hasEPSGset ?
                         <AnugaPlaybackControlBar/> : null
                     }
+                    {/* TASK-2628 — legend + identify readout. Mounted
+                        unconditionally (not gated on the Results group like
+                        the control bar) since a click-to-inspect result or an
+                        open legend should stay visible even if the operator
+                        switches menus; both self-gate on their own redux flags. */}
+                    <FloatingPlaybackLegendPanel/>
+                    <PlaybackIdentifyReadout/>
                     {/* TASK-1869 (W5.4): vertical-exaggeration slider for the 3D
                         Cesium terrain. GATED until TASK-1870 (epic 1871) makes it
                         actually move the mesh — it is visually inert today, so the

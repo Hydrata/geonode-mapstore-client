@@ -27,7 +27,14 @@ import {
     WIRE_FRAGMENT_SHADER,
     linkProgram
 } from './playbackShaders';
-import { buildColormapLUT, uploadLUTTexture, DEPTH_COLORMAP_STOPS } from './playbackColormap';
+import {
+    uploadLUTTexture,
+    buildQuantityColormapLUT,
+    DEPTH_SLD_STOPS,
+    DEPTH_SLD_MAX,
+    VELOCITY_SLD_STOPS,
+    VELOCITY_SLD_MAX
+} from './playbackColormap';
 import { buildWireframeIndices, buildProjectionMatrix } from './playbackMeshGeometry';
 
 const WIRE_COLOR = [0.9, 0.95, 1.0, 0.35];
@@ -56,7 +63,19 @@ export class AnugaPlaybackRenderer {
             uColor: gl.getUniformLocation(this.wireProgram, 'uColor')
         };
 
-        this.lutTexture = uploadLUTTexture(gl, buildColormapLUT(DEPTH_COLORMAP_STOPS, 256), 256);
+        // TASK-2628 (W3.2) — one LUT PER quantity, each built from that
+        // quantity's own real SLD colour stops (depth_6m.sld /
+        // velocity_6ms.sld — see playbackColormap.js's header), so the
+        // legend and the live render can never show two different ramps for
+        // "depth" vs "speed". colorMax is passed per-render (the caller's
+        // display-range choice — e.g. the store's own valid_max for a flood
+        // that exceeds the SLD's fixed 6-unit cap); the LUT itself only
+        // needs rebuilding when colorMax actually changes.
+        this.lutTextures = { depth: null, speed: null };
+        this.lutColorMax = { depth: null, speed: null };
+        this.sldStops = { depth: DEPTH_SLD_STOPS, speed: VELOCITY_SLD_STOPS };
+        this._ensureLUT(gl, 'depth', DEPTH_SLD_MAX);
+        this._ensureLUT(gl, 'speed', VELOCITY_SLD_MAX);
 
         this.posBuf = gl.createBuffer();
         this.elevBuf = gl.createBuffer();
@@ -141,6 +160,27 @@ export class AnugaPlaybackRenderer {
     }
 
     /**
+     * (Re)build the LUT texture for one colour mode only when its display
+     * colorMax has actually changed (a fresh texture upload per render
+     * would be wasteful — colorMax only changes when the operator switches
+     * quantity or a new store's quantization loads).
+     * @param {WebGL2RenderingContext} gl
+     * @param {'depth'|'speed'} mode
+     * @param {number} colorMax
+     */
+    _ensureLUT(gl, mode, colorMax) {
+        if (this.lutTextures[mode] && this.lutColorMax[mode] === colorMax) {
+            return;
+        }
+        if (this.lutTextures[mode]) {
+            gl.deleteTexture(this.lutTextures[mode]);
+        }
+        const lutData = buildQuantityColormapLUT(this.sldStops[mode], colorMax, 256);
+        this.lutTextures[mode] = uploadLUTTexture(gl, lutData, 256);
+        this.lutColorMax[mode] = colorMax;
+    }
+
+    /**
      * @param {object} params
      * @param {{center:[number,number], resolution:number, rotation?:number}} params.viewState
      * @param {[number,number]} params.size CSS pixels
@@ -178,6 +218,11 @@ export class AnugaPlaybackRenderer {
         }
 
         const projMatrix = buildProjectionMatrix(viewState, size);
+        // TASK-2628 — pick (and lazily rebuild, on colorMax change) the LUT
+        // for the ACTIVE quantity, built from that quantity's own real SLD
+        // stops (playbackColormap.js), so depth and speed never share a ramp.
+        const mode = colorMode === 'speed' ? 'speed' : 'depth';
+        this._ensureLUT(gl, mode, colorMax > 0 ? colorMax : 1);
 
         gl.useProgram(this.meshProgram);
         gl.bindVertexArray(this.meshVao);
@@ -187,7 +232,7 @@ export class AnugaPlaybackRenderer {
         gl.uniform1f(this.meshUniforms.uColorMax, colorMax);
         gl.uniform1f(this.meshUniforms.uWetThreshold, wetThreshold);
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this.lutTexture);
+        gl.bindTexture(gl.TEXTURE_2D, this.lutTextures[mode]);
         gl.uniform1i(this.meshUniforms.uLUT, 0);
         gl.drawElements(gl.TRIANGLES, this.nIndices, gl.UNSIGNED_INT, 0);
         gl.bindVertexArray(null);
@@ -209,7 +254,11 @@ export class AnugaPlaybackRenderer {
         [this.posBuf, this.elevBuf, this.qty0Buf, this.qty1Buf, this.idxBuf, this.wireIdxBuf].forEach((b) => gl.deleteBuffer(b));
         [this.meshVao, this.wireVao].forEach((v) => gl.deleteVertexArray(v));
         [this.meshProgram, this.wireProgram].forEach((p) => gl.deleteProgram(p));
-        gl.deleteTexture(this.lutTexture);
+        Object.keys(this.lutTextures).forEach((mode) => {
+            if (this.lutTextures[mode]) {
+                gl.deleteTexture(this.lutTextures[mode]);
+            }
+        });
     }
 }
 

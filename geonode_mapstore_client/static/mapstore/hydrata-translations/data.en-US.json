@@ -579,7 +579,15 @@
           "seeking": "Buffering scrub target…",
           "stalled": "Buffering — waiting for data…",
           "error": "Playback store failed to load"
-        }
+        },
+        "legendTitleDepth": "Depth (m)",
+        "legendTitleSpeed": "Velocity (m/s)",
+        "legendExceedsSld": "Ramp extended to {colorMax} {unit} — this run exceeds the standard 6 {unit} scale",
+        "legendToleranceNote": "Values read the smoothed vertex field, not the *_max raster layers — a peak-frame reading here can differ visibly from the *_max COG at the same point.",
+        "identifyReadoutTitle": "Inspect",
+        "identifyReadoutNoData": "No mesh data at this point",
+        "identifyReadoutSurface": "Smoothed vertex field (not *_max raster)",
+        "identifyReadoutDry": "Dry ground"
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",

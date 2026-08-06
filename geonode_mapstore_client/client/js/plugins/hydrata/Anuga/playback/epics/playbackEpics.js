@@ -28,9 +28,12 @@
  */
 import Rx from 'rxjs';
 import { addLayer, changeLayerProperties } from '@mapstore/framework/actions/layers';
+import { CLICK_ON_MAP } from '@mapstore/framework/actions/map';
 
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
+import { reprojectMeshVertices } from '../playbackReproject';
+import { sampleFieldAtPoint } from '../playbackIdentify';
 import { timestepToChunkIndex, colorMaxForQuantity } from '../playbackController';
 import {
     PLAYBACK_INIT,
@@ -46,7 +49,8 @@ import {
     playbackManifestFailed,
     playbackChunksBuffered,
     playbackChunkBufferError,
-    playbackTick
+    playbackTick,
+    playbackSetIdentifyResult
 } from '../actions/playbackActions';
 
 // ~20Hz controller clock. NOT a render-fps claim (memory:
@@ -204,6 +208,32 @@ export function playbackTickEpic(action$) {
  * currentTimestep actually changed; a pure mixT/quantity change within the
  * same bracket dispatches a cheap property-only update every tick.
  */
+// runId -> {sourceMesh, layerMesh}. TASK-2628 live-verify catch:
+// AnugaPlaybackLayer's worker reprojection TRANSFERS (detaches)
+// mesh.nodeX/nodeY's ArrayBuffers by design (W2 wave report — the transfer
+// IS the proof the worker ran). Handing `pb.mesh` straight to the layer
+// therefore detaches the SAME object still referenced by Redux state —
+// silently zeroing pb.mesh.nodeX/nodeY for every OTHER reader (e.g.
+// playbackIdentifyEpic's own reprojection). Cloning nodeX/nodeY into a
+// layer-only mesh object (cached by source-mesh reference, so it stays
+// STABLE across repeated dispatches and doesn't defeat the layer's own
+// `newOptions.mesh !== oldOptions.mesh` re-reproject check) lets the layer
+// safely transfer its private copy while `pb.mesh` stays intact forever.
+const layerMeshCache = new Map();
+
+function getLayerMesh(pb) {
+    if (!pb.mesh) {
+        return null;
+    }
+    const cached = layerMeshCache.get(pb.runId);
+    if (cached && cached.sourceMesh === pb.mesh) {
+        return cached.layerMesh;
+    }
+    const layerMesh = { ...pb.mesh, nodeX: Float32Array.from(pb.mesh.nodeX), nodeY: Float32Array.from(pb.mesh.nodeY) };
+    layerMeshCache.set(pb.runId, { sourceMesh: pb.mesh, layerMesh });
+    return layerMesh;
+}
+
 export function playbackSyncLayerEpic(action$, store) {
     const trigger$ = action$.ofType(
         PLAYBACK_MANIFEST_LOADED, PLAYBACK_TICK, PLAYBACK_SEEK, PLAYBACK_CHUNKS_BUFFERED, PLAYBACK_SET_QUANTITY
@@ -218,7 +248,7 @@ export function playbackSyncLayerEpic(action$, store) {
             return Rx.Observable.empty();
         }
         const baseProps = {
-            mesh: pb.mesh,
+            mesh: getLayerMesh(pb),
             mixT: pb.mixT,
             colorMode: pb.quantity,
             colorMax: colorMaxForQuantity(pb.quantity, pb.quantization)
@@ -237,4 +267,71 @@ export function playbackSyncLayerEpic(action$, store) {
             return changeLayerProperties(pb.layerId, { ...baseProps, frame0, frame1 });
         }).catch(() => Rx.Observable.empty());
     });
+}
+
+// runId -> {mesh, x3857, y3857} — the reprojected mesh vertices identify
+// needs (the renderer's OWN EPSG:3857 coordinate space, NOT the raw local
+// mesh nodeX/nodeY the fetcher decodes). Reprojecting all ~50k+ vertices on
+// EVERY click would be wasteful; cached per runId, invalidated whenever
+// `pb.mesh` is a different reference (a new run/store loaded).
+const reprojectedMeshCache = new Map();
+
+function getReprojectedMesh(pb) {
+    if (!pb.mesh) {
+        return null;
+    }
+    const cached = reprojectedMeshCache.get(pb.runId);
+    if (cached && cached.mesh === pb.mesh) {
+        return cached;
+    }
+    const { x, y } = reprojectMeshVertices(pb.mesh.nodeX, pb.mesh.nodeY, pb.mesh);
+    const entry = { mesh: pb.mesh, x3857: x, y3857: y };
+    reprojectedMeshCache.set(pb.runId, entry);
+    return entry;
+}
+
+/**
+ * TASK-2628 (W3.2) — click-to-inspect at the current timestep. Gated on
+ * `identifyArmed` (the controller bar's "Inspect" toggle) so a normal map
+ * click (GFI, vector edit, etc. — the existing click-disambiguation system,
+ * untouched by this epic) is not hijacked by default. Reads the SAME
+ * frame0/frame1/mixT the layer is currently rendering (off the map's own
+ * layers slice, not re-fetched) so the readout can never show a value the
+ * screen isn't also showing.
+ */
+export function playbackIdentifyEpic(action$, store) {
+    return action$.ofType(CLICK_ON_MAP)
+        .map((action) => {
+            const state = store.getState();
+            const pb = state.anugaPlayback;
+            if (!pb || !pb.identifyArmed || !pb.mesh) {
+                return null;
+            }
+            const layer = ((state.layers && state.layers.flat) || []).find((l) => l.id === pb.layerId);
+            if (!layer || !layer.frame0 || !layer.frame1) {
+                return null;
+            }
+            const point = action.point;
+            const rawPos = point && point.rawPos;
+            if (!rawPos || rawPos[0] === undefined || rawPos[1] === undefined) {
+                return null;
+            }
+            const reproj = getReprojectedMesh(pb);
+            if (!reproj) {
+                return null;
+            }
+            const result = sampleFieldAtPoint(
+                { x3857: reproj.x3857, y3857: reproj.y3857, faceNodeConnectivity: pb.mesh.faceNodeConnectivity },
+                layer.frame0, layer.frame1, layer.mixT || 0,
+                rawPos[0], rawPos[1]
+            );
+            return playbackSetIdentifyResult({
+                ...result,
+                x: rawPos[0],
+                y: rawPos[1],
+                timestepIndex: pb.currentTimestep,
+                quantity: pb.quantity
+            });
+        })
+        .filter((a) => !!a);
 }

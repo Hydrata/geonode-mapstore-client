@@ -579,7 +579,15 @@
           "seeking": "K ap tanpon sib defile a…",
           "stalled": "K ap tanpon — ap tann done…",
           "error": "Depo jwe a echwe pou chaje"
-        }
+        },
+        "legendTitleDepth": "Pwofondè (m)",
+        "legendTitleSpeed": "Vitès (m/s)",
+        "legendExceedsSld": "Echèl la ap etann rive {colorMax} {unit} — kouri sa a depase echèl estanda 6 {unit} la",
+        "legendToleranceNote": "Valè yo soti nan chan somè lise a, pa nan kouch raster *_max yo — yon lekti nan kad pik la ka diferan ak COG *_max la nan menm pwen an.",
+        "identifyReadoutTitle": "Enspekte",
+        "identifyReadoutNoData": "Pa gen done maj nan pwen sa a",
+        "identifyReadoutSurface": "Chan somè lise (pa raster *_max)",
+        "identifyReadoutDry": "Tè sèk"
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",
