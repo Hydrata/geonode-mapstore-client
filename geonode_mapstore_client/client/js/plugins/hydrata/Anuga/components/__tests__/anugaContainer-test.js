@@ -15,7 +15,13 @@
  * semantics (explicit visibleIntroduction wins; absent key defaults to true).
  */
 import expect from 'expect';
-import { mapStateToProps } from '../anugaContainer';
+import { mapStateToProps, AnugaContainer } from '../anugaContainer';
+
+describe('AnugaContainer resultsPlaybackEnabled (TASK-2631, W6.2 — dark-ship default)', () => {
+    it('defaults to false — the whole playback surface (control bar, legend, identify readout, W6.1 preview button) ships dark by construction', () => {
+        expect(AnugaContainer.defaultProps.resultsPlaybackEnabled).toBe(false);
+    });
+});
 
 describe('anugaContainer mapStateToProps (TASK-1491 anon null-guard)', () => {
     it('does not throw when state.simpleView is undefined (anon viewer)', () => {
