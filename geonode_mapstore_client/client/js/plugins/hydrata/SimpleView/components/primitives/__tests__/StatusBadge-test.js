@@ -73,6 +73,47 @@ describe('SimpleView StatusBadge primitive (TASK-1664 W2)', () => {
         });
     });
 
+    describe('Liveness state class mapping (TASK-2689, epic 2662)', () => {
+        // Server-derived D5 liveness states TaskMonitor renders verbatim
+        // (TASK-2674). First-class entries — none may fall through to the
+        // is-unknown question-mark fallback.
+        const cases = [
+            { status: 'stalled',          expectedClass: 'is-stalled',          expectedGlyph: 'glyphicon-hourglass' },
+            { status: 'zombie-candidate', expectedClass: 'is-zombie-candidate', expectedGlyph: 'glyphicon-alert' },
+            { status: 'provisioning',     expectedClass: 'is-provisioning',     expectedGlyph: 'glyphicon-cloud' }
+        ];
+
+        cases.forEach(({ status, expectedClass, expectedGlyph }) => {
+            it(`status="${status}" adds class ${expectedClass} (not is-unknown)`, (done) => {
+                ReactDOM.render(<StatusBadge status={status} />, container, () => {
+                    const el = container.querySelector('.sv-status-badge');
+                    expect(el.className).toInclude(expectedClass);
+                    expect(el.className).toNotInclude('is-unknown');
+                    done();
+                });
+            });
+
+            it(`status="${status}" glyph is ${expectedGlyph}`, (done) => {
+                ReactDOM.render(<StatusBadge status={status} showGlyph />, container, () => {
+                    const glyph = container.querySelector('.sv-status-badge-glyph');
+                    expect(glyph).toExist();
+                    expect(glyph.className).toInclude(expectedGlyph);
+                    expect(glyph.className).toNotInclude('glyphicon-question-sign');
+                    done();
+                });
+            });
+        });
+
+        it('liveness badges keep the compact variant', (done) => {
+            ReactDOM.render(<StatusBadge status="zombie-candidate" compact />, container, () => {
+                const el = container.querySelector('.sv-status-badge');
+                expect(el.className).toInclude('is-zombie-candidate');
+                expect(el.className).toInclude('is-compact');
+                done();
+            });
+        });
+    });
+
     describe('Label prop', () => {
         it('renders the status string as text when label is not provided', (done) => {
             ReactDOM.render(<StatusBadge status="running" />, container, () => {
