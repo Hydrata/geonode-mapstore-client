@@ -168,11 +168,12 @@ const resultsMenuMapDispatchToProps = (dispatch) => ({
         const run = scenario.latest_complete_run;
         dispatch(playbackInit(String(run.id), ANUGA_RESULTS_PLAYBACK_LAYER_ID, buildPlaybackManifestUrl(run.id)));
         // Focus fully moves to the player: close Scenarios if it was open
-        // (same action handleViewResults already dispatches below) and make
-        // sure Results stays the open group (a no-op when already open —
-        // this row is only reachable while it is).
+        // (same action handleViewResults dispatches for the other entry
+        // point into this — TASK-2684). No setOpenMenuGroupId('Results')
+        // here — simplify pass: this component only ever mounts while
+        // Results is ALREADY the open group (simpleViewContainer.js), so
+        // that dispatch was a guaranteed no-op every time.
         dispatch(setAnugaScenarioMenu(false));
-        dispatch(setOpenMenuGroupId('Results'));
         trackEvent('button', 'click', 'anuga-results-menu-select-scenario');
     }
 });
