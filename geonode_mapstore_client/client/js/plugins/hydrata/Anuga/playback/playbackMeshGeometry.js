@@ -24,6 +24,84 @@
  * @param {Int32Array|number[]} faceNodeConnectivity flat, row-major (nFace*3)
  * @returns {Uint32Array} flat pairs [a0,b0, a1,b1, ...] for gl.LINES
  */
+// TASK-2686 (W6.75.4, epic 2618) — wireframe legibility at scale. The
+// >=500k / <50k boundary the AC states directly (below this, behaviour must
+// be byte-identical to today; the reference point IS the AC's own <50k
+// "unchanged" case, not a newly-invented constant).
+export const WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES = 50000;
+// A large mesh (e.g. 505k triangles = ~10x the reference) still shows SOME
+// edges rather than fading toward invisible — cap how far the stride grows.
+export const WIREFRAME_MAX_DECIMATION_STRIDE = 12;
+// The wireframe must never fully vanish, however dense the mesh — a faint
+// but present overlay beats a silently-empty one.
+export const WIREFRAME_MIN_OPACITY = 0.08;
+
+/**
+ * How many edges to SKIP between each drawn edge, for a mesh of
+ * `triangleCount` triangles — one of the two legibility levers (with
+ * wireframeOpacityForTriangleCount) TASK-2686 applies together: at
+ * >=500k triangles the RAW edge count so far exceeds screen resolution at
+ * any practical working zoom that overlapping semi-transparent lines alone
+ * still saturate toward solid white (accumulated coverage 1-(1-alpha)^k
+ * approaches 1 as the per-pixel edge-overlap count k grows) — cutting the
+ * NUMBER of edges drawn directly reduces k, which opacity alone cannot.
+ * Below the reference triangle count this returns 1 (draw every edge — the
+ * AC's explicit small-mesh "unchanged" case).
+ * @param {number} triangleCount
+ * @returns {number} >= 1
+ */
+export function wireframeDecimationStride(triangleCount) {
+    if (!(triangleCount > WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES)) {
+        return 1;
+    }
+    const raw = Math.round(triangleCount / WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES);
+    return Math.min(WIREFRAME_MAX_DECIMATION_STRIDE, Math.max(1, raw));
+}
+
+/**
+ * Edge opacity for a mesh of `triangleCount` triangles — the second
+ * legibility lever, applied ALONGSIDE (not instead of) decimation above.
+ * Falls off as sqrt(reference/triangleCount) — softer than a linear falloff
+ * so a moderately-large mesh (e.g. 100k) isn't punished as hard as the
+ * decimation stride already punishes edge COUNT; floored at
+ * WIREFRAME_MIN_OPACITY so the overlay never fully disappears. Below the
+ * reference triangle count this returns `baseAlpha` UNCHANGED (AC: small
+ * mesh behaviour is byte-identical to today).
+ * @param {number} triangleCount
+ * @param {number} [baseAlpha=0.35] WIRE_COLOR's existing alpha channel
+ * @returns {number}
+ */
+export function wireframeOpacityForTriangleCount(triangleCount, baseAlpha = 0.35) {
+    if (!(triangleCount > WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES)) {
+        return baseAlpha;
+    }
+    const scale = Math.sqrt(WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES / triangleCount);
+    return Math.max(WIREFRAME_MIN_OPACITY, baseAlpha * scale);
+}
+
+/**
+ * Thin a buildWireframeIndices edge-pair buffer down to every `stride`-th
+ * EDGE (not vertex — the array is [a0,b0, a1,b1, ...] pairs), preserving
+ * order. `stride<=1` returns the input unchanged (identity — the small-mesh
+ * AC case never touches this at all in practice, since the renderer only
+ * calls it when wireframeDecimationStride(...) > 1, but the identity case is
+ * kept correct/testable on its own).
+ * @param {Uint32Array|number[]} indices flat edge pairs
+ * @param {number} stride
+ * @returns {Uint32Array}
+ */
+export function decimateWireframeIndices(indices, stride) {
+    if (!(stride > 1)) {
+        return Uint32Array.from(indices);
+    }
+    const nEdges = indices.length / 2;
+    const out = [];
+    for (let e = 0; e < nEdges; e += stride) {
+        out.push(indices[e * 2], indices[e * 2 + 1]);
+    }
+    return Uint32Array.from(out);
+}
+
 export function buildWireframeIndices(faceNodeConnectivity) {
     const n = faceNodeConnectivity.length;
     if (n % 3 !== 0) {

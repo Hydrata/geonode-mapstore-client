@@ -34,7 +34,10 @@ import {
     QUANTITY_RAMPS
 } from './playbackColormap';
 import { QUANTITY_MODE_INDEX } from './playbackDerivedQuantities';
-import { buildWireframeIndices, buildProjectionMatrix } from './playbackMeshGeometry';
+import {
+    buildWireframeIndices, buildProjectionMatrix,
+    wireframeDecimationStride, wireframeOpacityForTriangleCount, decimateWireframeIndices
+} from './playbackMeshGeometry';
 import { AnugaPlaybackFlowVizRenderer } from './AnugaPlaybackFlowVizRenderer';
 import { AnugaPlaybackParticleRenderer } from './AnugaPlaybackParticleRenderer';
 import { clampParticleGrid } from './playbackParticles';
@@ -151,6 +154,9 @@ export class AnugaPlaybackRenderer {
         this.nIndices = 0;
         this.nWireIndices = 0;
         this.meshReady = false;
+        // TASK-2686 — set for real in setMesh once triangleCount is known;
+        // this default just matches WIRE_COLOR's own alpha (small-mesh AC).
+        this._wireOpacity = WIRE_COLOR[3];
 
         // TASK-2632 (W5.1) — the velocity FBO + instanced-arrow overlay is a
         // composed sub-renderer (own program/VAO/texture objects, own math
@@ -202,10 +208,22 @@ export class AnugaPlaybackRenderer {
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, faceNodeConnectivity, gl.STATIC_DRAW);
         this.nIndices = faceNodeConnectivity.length;
 
-        const wireIndices = buildWireframeIndices(faceNodeConnectivity);
+        // TASK-2686 (W6.75.4) — legibility at scale: a >=500k-triangle mesh's
+        // FULL wireframe (every edge, fixed opacity) whites out the viewport
+        // at any practical zoom (edge count alone, not per-frame draw cost,
+        // is the problem — see wireframeDecimationStride's docstring), so
+        // decimate the edge buffer AND dim it together, computed once here
+        // (mesh load), not per frame. Below the AC's reference triangle
+        // count both are no-ops — byte-identical to pre-TASK-2686 output.
+        const triangleCount = faceNodeConnectivity.length / 3;
+        const stride = wireframeDecimationStride(triangleCount);
+        const wireIndices = stride > 1
+            ? decimateWireframeIndices(buildWireframeIndices(faceNodeConnectivity), stride)
+            : buildWireframeIndices(faceNodeConnectivity);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.wireIdxBuf);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wireIndices, gl.STATIC_DRAW);
         this.nWireIndices = wireIndices.length;
+        this._wireOpacity = wireframeOpacityForTriangleCount(triangleCount, WIRE_COLOR[3]);
 
         this.meshReady = true;
 
@@ -390,8 +408,22 @@ export class AnugaPlaybackRenderer {
             gl.useProgram(this.wireProgram);
             gl.bindVertexArray(this.wireVao);
             gl.uniformMatrix3fv(this.wireUniforms.uProj, false, projMatrix);
-            gl.uniform4fv(this.wireUniforms.uColor, WIRE_COLOR);
+            // TASK-2686 (W6.75.4) — this._wireOpacity is
+            // wireframeOpacityForTriangleCount's result (set in setMesh),
+            // WIRE_COLOR[3] unchanged for a small (<50k triangle) mesh. Blend
+            // must be explicitly enabled here: WIRE_COLOR always carried an
+            // alpha channel, but nothing upstream of this task ever turned
+            // blending ON for this draw call, so it was silently ignored —
+            // every edge drew fully OPAQUE regardless of the shader's alpha
+            // output (part of the "~95% white-out" root cause, not just edge
+            // density). Explicitly disabled after so it never leaks into
+            // whatever the OL compositor assumes about this canvas's state
+            // on the next paint.
+            gl.uniform4f(this.wireUniforms.uColor, WIRE_COLOR[0], WIRE_COLOR[1], WIRE_COLOR[2], this._wireOpacity);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             gl.drawElements(gl.LINES, this.nWireIndices, gl.UNSIGNED_INT, 0);
+            gl.disable(gl.BLEND);
             gl.bindVertexArray(null);
         }
 

@@ -16,7 +16,14 @@ import {
     buildProjectionMatrix,
     applyProjectionMatrix,
     buildInverseProjectionMatrix,
-    computeMeshBounds
+    computeMeshBounds,
+    // TASK-2686 (W6.75.4, epic 2618) — wireframe legibility at scale.
+    wireframeDecimationStride,
+    wireframeOpacityForTriangleCount,
+    decimateWireframeIndices,
+    WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES,
+    WIREFRAME_MAX_DECIMATION_STRIDE,
+    WIREFRAME_MIN_OPACITY
 } from '../playbackMeshGeometry';
 import { FIXTURE_PHYSICAL, FIXTURE_MESH } from './fixtures/fixturePlaybackStore';
 
@@ -116,6 +123,97 @@ describe('playbackMeshGeometry', () => {
 
         it('rejects a length not divisible by 3', () => {
             expect(() => buildWireframeIndices(new Int32Array([0, 1, 2, 3]))).toThrow();
+        });
+    });
+
+    // TASK-2686 (W6.75.4, epic 2618) — the 505k-triangle wireframe overlay
+    // is a ~95% white-out at any practical zoom (root cause: every edge at a
+    // fixed opacity, AND blending was never enabled for the draw call at
+    // all — see AnugaPlaybackRenderer.js's render() comment). Two levers,
+    // applied together, gated on the mesh's OWN triangle count (a static,
+    // known-at-load-time signal — no zoom/resolution coupling, so a small
+    // mesh's behaviour can never regress just because it happens to be
+    // viewed zoomed out).
+    describe('wireframeDecimationStride / wireframeOpacityForTriangleCount (TASK-2686 — legibility at scale)', () => {
+        it('AC: a small mesh (<50k triangles) is COMPLETELY unchanged — stride 1, opacity = baseAlpha exactly', () => {
+            expect(wireframeDecimationStride(1000)).toBe(1);
+            expect(wireframeDecimationStride(49999)).toBe(1);
+            expect(wireframeOpacityForTriangleCount(1000, 0.35)).toBe(0.35);
+            expect(wireframeOpacityForTriangleCount(49999, 0.35)).toBe(0.35);
+        });
+
+        it('exactly AT the reference boundary is still unchanged (strictly-greater-than gate, matching other epic thresholds)', () => {
+            expect(wireframeDecimationStride(WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES)).toBe(1);
+            expect(wireframeOpacityForTriangleCount(WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES, 0.35)).toBe(0.35);
+        });
+
+        it('a 505k-triangle mesh (the real Merewether fixture size) decimates by ~10x and dims well below baseAlpha', () => {
+            const stride = wireframeDecimationStride(505000);
+            expect(stride).toBeGreaterThan(1);
+            expect(stride).toBe(10); // round(505000/50000) = 10.1 -> 10
+            const opacity = wireframeOpacityForTriangleCount(505000, 0.35);
+            expect(opacity).toBeLessThan(0.35);
+            expect(opacity).toBeGreaterThanOrEqualTo(WIREFRAME_MIN_OPACITY);
+        });
+
+        it('stride is capped at WIREFRAME_MAX_DECIMATION_STRIDE for an extremely large mesh', () => {
+            const stride = wireframeDecimationStride(50000000); // 1000x reference
+            expect(stride).toBe(WIREFRAME_MAX_DECIMATION_STRIDE);
+        });
+
+        it('opacity is floored at WIREFRAME_MIN_OPACITY — the overlay never fully disappears', () => {
+            const opacity = wireframeOpacityForTriangleCount(50000000, 0.35);
+            expect(opacity).toBe(WIREFRAME_MIN_OPACITY);
+        });
+
+        it('both levers are MONOTONIC in triangle count above the reference (a bigger mesh is never MORE prominent than a smaller one)', () => {
+            const sizes = [60000, 100000, 250000, 505000, 1000000];
+            let prevStride = 1;
+            let prevOpacity = 0.35;
+            sizes.forEach((n) => {
+                const s = wireframeDecimationStride(n);
+                const o = wireframeOpacityForTriangleCount(n, 0.35);
+                expect(s).toBeGreaterThanOrEqualTo(prevStride);
+                expect(o).toBeLessThanOrEqualTo(prevOpacity);
+                prevStride = s;
+                prevOpacity = o;
+            });
+        });
+    });
+
+    describe('decimateWireframeIndices', () => {
+        it('stride 1 (or below) returns the input unchanged (identity)', () => {
+            const indices = Uint32Array.from([0, 1, 1, 2, 2, 3, 3, 0]);
+            expect(Array.from(decimateWireframeIndices(indices, 1))).toEqual(Array.from(indices));
+            expect(Array.from(decimateWireframeIndices(indices, 0))).toEqual(Array.from(indices));
+        });
+
+        it('keeps every Nth EDGE (pair), not every Nth index', () => {
+            // 6 edges: (0,1) (2,3) (4,5) (6,7) (8,9) (10,11) — stride 2 keeps
+            // edges 0, 2, 4 -> (0,1) (4,5) (8,9).
+            const indices = Uint32Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+            const out = decimateWireframeIndices(indices, 2);
+            expect(Array.from(out)).toEqual([0, 1, 4, 5, 8, 9]);
+        });
+
+        it('never fabricates an edge that was not in the input (every emitted pair is a real edge from the source array)', () => {
+            const faces = Int32Array.from(
+                Array.from({ length: 300 }, (_, i) => [i, i + 1, i + 2]).flat()
+            );
+            const full = buildWireframeIndices(faces);
+            const decimated = decimateWireframeIndices(full, 4);
+            const fullPairs = new Set();
+            for (let i = 0; i < full.length; i += 2) {
+                fullPairs.add(`${full[i]}-${full[i + 1]}`);
+            }
+            for (let i = 0; i < decimated.length; i += 2) {
+                expect(fullPairs.has(`${decimated[i]}-${decimated[i + 1]}`)).toBe(true);
+            }
+            expect(decimated.length).toBeLessThan(full.length);
+        });
+
+        it('an empty input decimates to an empty output', () => {
+            expect(decimateWireframeIndices(new Uint32Array([]), 5).length).toBe(0);
         });
     });
 
