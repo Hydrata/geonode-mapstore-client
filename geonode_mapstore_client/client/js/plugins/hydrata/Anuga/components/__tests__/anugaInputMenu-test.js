@@ -1726,3 +1726,210 @@ describe('TASK-2572 _buildTerrainGroups superseded-terrain filtering', () => {
         expect(ids.indexOf('l-552-hs') > -1).toBe(true);
     });
 });
+
+// ---------------------------------------------------------------------------
+// TASK-2657 (W6.5, epic 2618) — built-mesh preview UX: auto-zoom, in-flight
+// guard, and scenario-id fallback hydration for the roster's own fetch.
+// ---------------------------------------------------------------------------
+describe('TASK-2657a — _zoomToBuiltMeshExtent (built-mesh preview auto-zoom)', () => {
+    it('computes a padded extent + normalized EPSG crs and calls onZoomToExtent once', () => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        const calls = [];
+        // NOTE: _zoomToBuiltMeshExtent is a class-property arrow function
+        // (instance property, assigned in the constructor), NOT a prototype
+        // method — Object.create(Local.prototype) would not have it; a real
+        // `new` call is required.
+        const instance = new Local({ onZoomToExtent: (...args) => calls.push(args) });
+        const mesh = {
+            nodeX: Float32Array.from([500000, 500100, 500000, 500100]),
+            nodeY: Float32Array.from([6900000, 6900000, 6900050, 6900050]),
+            epsg: '32756'
+        };
+        instance._zoomToBuiltMeshExtent(mesh);
+        expect(calls.length).toBe(1);
+        const [extent, crs, maxZoom] = calls[0];
+        expect(crs).toBe('EPSG:32756');
+        expect(typeof maxZoom).toBe('number');
+        // Padded OUTWARD from the raw node bbox [500000,6900000,500100,6900050].
+        expect(extent[0]).toBeLessThan(500000);
+        expect(extent[1]).toBeLessThan(6900000);
+        expect(extent[2]).toBeGreaterThan(500100);
+        expect(extent[3]).toBeGreaterThan(6900050);
+    });
+
+    // TRAP (live-verify, W6.5): a tiny mesh extent + a maxZoom hint made
+    // MapStore's ZOOM_TO_EXTENT epic reset to a WORLD view instead of
+    // clamping — padding to a sane minimum footprint is the guard.
+    it('pads a TINY (near-zero) extent up to a sane minimum footprint', () => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        const calls = [];
+        // NOTE: _zoomToBuiltMeshExtent is a class-property arrow function
+        // (instance property, assigned in the constructor), NOT a prototype
+        // method — Object.create(Local.prototype) would not have it; a real
+        // `new` call is required.
+        const instance = new Local({ onZoomToExtent: (...args) => calls.push(args) });
+        // A degenerate 5m x 5m mesh — the class of fixture that triggered
+        // the WORLD-view reset live.
+        const mesh = {
+            nodeX: Float32Array.from([500000, 500005, 500000, 500005]),
+            nodeY: Float32Array.from([6900000, 6900000, 6900005, 6900005]),
+            epsg: 32756
+        };
+        instance._zoomToBuiltMeshExtent(mesh);
+        const [extent] = calls[0];
+        const width = extent[2] - extent[0];
+        const height = extent[3] - extent[1];
+        expect(width).toBeGreaterThan(100);
+        expect(height).toBeGreaterThan(100);
+    });
+
+    it('is a no-op when the mesh has no nodes or onZoomToExtent is absent', () => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        const instance = new Local({ onZoomToExtent: () => { throw new Error('should not be called'); } });
+        expect(() => instance._zoomToBuiltMeshExtent(null)).toNotThrow();
+        expect(() => instance._zoomToBuiltMeshExtent({ nodeX: [] })).toNotThrow();
+        const instance2 = new Local({});
+        expect(() => instance2._zoomToBuiltMeshExtent({ nodeX: [1], nodeY: [1] })).toNotThrow();
+    });
+});
+
+describe('TASK-2657b — _handlePreviewBuiltMesh in-flight guard (no concurrent fetches)', () => {
+    let originalFetch;
+    beforeEach(() => { originalFetch = window.fetch; });
+    afterEach(() => { window.fetch = originalFetch; });
+
+    function buildMeshBinaryBuffer() {
+        // header (nodeCount=1, faceCount=1) + 1 x/y float32 + 3 int32 face indices,
+        // matching builtMeshBinary.decodeBuiltMeshBinary's wire format.
+        const buf = new ArrayBuffer(8 + 4 + 4 + 12);
+        const dv = new DataView(buf);
+        dv.setUint32(0, 1, true);
+        dv.setUint32(4, 1, true);
+        dv.setFloat32(8, 500000, true);
+        dv.setFloat32(12, 6900000, true);
+        dv.setInt32(16, 0, true);
+        dv.setInt32(20, 0, true);
+        dv.setInt32(24, 0, true);
+        return buf;
+    }
+
+    it('a second call while a load is in flight does not fire a second fetch', (done) => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        let fetchCalls = 0;
+        window.fetch = () => {
+            fetchCalls += 1;
+            return Promise.resolve({
+                ok: true,
+                headers: { get: () => '32756' },
+                arrayBuffer: () => Promise.resolve(buildMeshBinaryBuffer())
+            });
+        };
+        const addLayerCalls = [];
+        // _handlePreviewBuiltMesh is a class-property arrow function
+        // (instance property), so a real `new` call is required — see
+        // TASK-2657a's tests above for the same note.
+        const instance = new Local({
+            onAddMeshLayer: (opts) => addLayerCalls.push(opts),
+            onZoomToExtent: () => {}
+        });
+        instance.setState = (patch) => { instance.state = { ...instance.state, ...(typeof patch === 'function' ? patch(instance.state) : patch) }; };
+
+        instance._handlePreviewBuiltMesh({ run_id: 900 });
+        instance._handlePreviewBuiltMesh({ run_id: 900 }); // same-tick second click
+        setTimeout(() => {
+            try {
+                expect(fetchCalls).toBe(1);
+                expect(addLayerCalls.length).toBe(1);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, 20);
+    });
+
+    it('a subsequent call after the first resolves DOES fire a new fetch', (done) => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        let fetchCalls = 0;
+        window.fetch = () => {
+            fetchCalls += 1;
+            return Promise.resolve({
+                ok: true,
+                headers: { get: () => '32756' },
+                arrayBuffer: () => Promise.resolve(buildMeshBinaryBuffer())
+            });
+        };
+        const instance = new Local({ onAddMeshLayer: () => {}, onZoomToExtent: () => {} });
+        instance.setState = (patch) => { instance.state = { ...instance.state, ...(typeof patch === 'function' ? patch(instance.state) : patch) }; };
+
+        instance._handlePreviewBuiltMesh({ run_id: 901 });
+        setTimeout(() => {
+            instance._handlePreviewBuiltMesh({ run_id: 901 });
+            setTimeout(() => {
+                try {
+                    expect(fetchCalls).toBe(2);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 20);
+        }, 20);
+    });
+});
+
+describe('TASK-2657c — built-mesh roster hydrates without a prior Hydraulics-panel visit', () => {
+    let originalFetch;
+    beforeEach(() => { originalFetch = window.fetch; });
+    afterEach(() => { window.fetch = originalFetch; });
+
+    it('componentDidMount fetches built meshes using scenarios[0].id when selectedScenarioId is still null', () => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        const urls = [];
+        window.fetch = (url) => {
+            urls.push(url);
+            return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+        };
+        const instance = new Local({
+            projectId: 42,
+            selectedScenarioId: null,
+            scenarios: [{ id: 77 }, { id: 78 }]
+        });
+        instance.componentDidMount();
+        expect(urls.length).toBe(1);
+        expect(urls[0]).toContain('/projects/42/scenarios/77/built-meshes/');
+    });
+
+    it('does not fetch on mount when neither selectedScenarioId nor any scenario is available', () => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        let called = false;
+        window.fetch = () => { called = true; return Promise.resolve({ ok: true, json: () => Promise.resolve([]) }); };
+        const instance = new Local({ projectId: 42, selectedScenarioId: null, scenarios: [] });
+        instance.componentDidMount();
+        expect(called).toBe(false);
+    });
+
+    it('componentDidUpdate re-fetches once scenarios arrive asynchronously after mount (selectedScenarioId still null)', () => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        const urls = [];
+        window.fetch = (url) => {
+            urls.push(url);
+            return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+        };
+        const prevProps = { projectId: 42, selectedScenarioId: null, scenarios: [], isCreatingAnugaLayer: false };
+        const instance = new Local(prevProps);
+        instance.componentDidMount(); // no scenarios yet -> no fetch
+        expect(urls.length).toBe(0);
+        instance.props = { ...prevProps, scenarios: [{ id: 55 }] };
+        instance.componentDidUpdate(prevProps);
+        expect(urls.length).toBe(1);
+        expect(urls[0]).toContain('/scenarios/55/built-meshes/');
+    });
+
+    it('an explicit selectedScenarioId still wins over scenarios[0]', () => {
+        const { AnugaInputMenuClass: Local } = require('../anugaInputMenu');
+        const urls = [];
+        window.fetch = (url) => { urls.push(url); return Promise.resolve({ ok: true, json: () => Promise.resolve([]) }); };
+        const instance = new Local({ projectId: 42, selectedScenarioId: 99, scenarios: [{ id: 55 }] });
+        instance.componentDidMount();
+        expect(urls[0]).toContain('/scenarios/99/built-meshes/');
+    });
+});

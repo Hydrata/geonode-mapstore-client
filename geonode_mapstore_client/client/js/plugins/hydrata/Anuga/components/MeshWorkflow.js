@@ -342,6 +342,13 @@ MeshTriangleLayerSection.defaultProps = {
  *     state (no shared spinner state needed elsewhere).
  */
 export function BuiltMeshRoster({builtMeshes, renderThreshold, onPreviewBuiltMesh, previewingRunId}) {
+    // TASK-2657d (W6.5, epic 2618) — `onPreviewBuiltMesh` is already the
+    // SAME dark-flag signal anugaInputMenu.js passes down (null when
+    // resultsPlaybackEnabled is off — see its own render() comment on
+    // TASK-2631/W6.2); reusing it here means the "Preview" column header
+    // (which previously rendered even with the flag dark, cosmetic UAT
+    // finding) needs no second flag threaded through just for this.
+    const showPreviewColumn = !!onPreviewBuiltMesh;
     return (
         <div className="sv-anuga-mesh-workflow-section sv-anuga-built-mesh-roster">
             <div className="sv-anuga-built-mesh-roster-header">
@@ -359,7 +366,7 @@ export function BuiltMeshRoster({builtMeshes, renderThreshold, onPreviewBuiltMes
                                 <th>{'Date'}</th>
                                 <th>{'Triangles'}</th>
                                 <th>{'Nodes'}</th>
-                                <th>{'Preview'}</th>
+                                {showPreviewColumn ? <th>{'Preview'}</th> : null}
                             </tr>
                         </thead>
                         <tbody>
@@ -371,19 +378,21 @@ export function BuiltMeshRoster({builtMeshes, renderThreshold, onPreviewBuiltMes
                                         <td>{mr.created_at ? new Date(mr.created_at).toLocaleDateString() : '—'}</td>
                                         <td>{(mr.element_count || 0).toLocaleString()}</td>
                                         <td>{(mr.node_count || 0).toLocaleString()}</td>
-                                        <td>
-                                            {aboveThreshold && onPreviewBuiltMesh ? (
-                                                <button
-                                                    className="btn btn-xs btn-default sv-anuga-built-mesh-preview-btn"
-                                                    disabled={isPreviewing}
-                                                    onClick={() => onPreviewBuiltMesh(mr)}
-                                                    title="Above the render threshold — preview via the WebGL2 mesh renderer (wireframe, any size)"
-                                                    data-testid={'built-mesh-preview-btn-' + mr.id}
-                                                >
-                                                    {isPreviewing ? 'Loading…' : 'Preview (any size)'}
-                                                </button>
-                                            ) : null}
-                                        </td>
+                                        {showPreviewColumn ? (
+                                            <td>
+                                                {aboveThreshold ? (
+                                                    <button
+                                                        className="btn btn-xs btn-default sv-anuga-built-mesh-preview-btn"
+                                                        disabled={isPreviewing}
+                                                        onClick={() => onPreviewBuiltMesh(mr)}
+                                                        title="Above the render threshold — preview via the WebGL2 mesh renderer (wireframe, any size)"
+                                                        data-testid={'built-mesh-preview-btn-' + mr.id}
+                                                    >
+                                                        {isPreviewing ? 'Loading…' : 'Preview (any size)'}
+                                                    </button>
+                                                ) : null}
+                                            </td>
+                                        ) : null}
                                     </tr>
                                 );
                             })}

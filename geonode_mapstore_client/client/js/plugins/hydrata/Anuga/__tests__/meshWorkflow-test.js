@@ -401,6 +401,30 @@ describe('W6 BuiltMeshRoster — built mesh table (TASK-1424)', () => {
         expect(btn.textContent).toContain('Loading…');
         expect(btn.disabled).toBe(true);
     });
+
+    // TASK-2657d (W6.5, epic 2618) — the "Preview" column header (and its
+    // empty <td> cells) previously rendered even when the flag is dark
+    // (onPreviewBuiltMesh null — cosmetic UAT finding).
+    describe('Preview column visibility (TASK-2657d)', () => {
+        it('hides the "Preview" header AND every row\'s empty cell when onPreviewBuiltMesh is null (dark flag), even for an above-threshold mesh', () => {
+            const meshes = [{id: 5, run_id: 500, node_count: 80001, element_count: 160000, materialized: false, created_at: '2026-06-01T12:00:00Z'}];
+            div = renderIntoDiv(<BuiltMeshRoster builtMeshes={meshes} renderThreshold={150000} onPreviewBuiltMesh={null}/>);
+            const headers = Array.from(div.querySelectorAll('th')).map(h => h.textContent);
+            expect(headers).toNotContain('Preview');
+            expect(headers.length).toBe(3); // Date, Triangles, Nodes only
+            const row = div.querySelector('[data-testid="built-mesh-row-5"]');
+            expect(row.querySelectorAll('td').length).toBe(3); // no 4th (Preview) cell at all
+            expect(div.querySelector('[data-testid="built-mesh-preview-btn-5"]')).toNotExist();
+        });
+
+        it('shows the "Preview" header when onPreviewBuiltMesh is provided (flag on)', () => {
+            const meshes = [{id: 6, run_id: 600, node_count: 80001, element_count: 160000, materialized: false, created_at: '2026-06-01T12:00:00Z'}];
+            div = renderIntoDiv(<BuiltMeshRoster builtMeshes={meshes} renderThreshold={150000} onPreviewBuiltMesh={() => {}}/>);
+            const headers = Array.from(div.querySelectorAll('th')).map(h => h.textContent);
+            expect(headers).toContain('Preview');
+            expect(headers.length).toBe(4);
+        });
+    });
 });
 
 // ---------------------------------------------------------------------------
