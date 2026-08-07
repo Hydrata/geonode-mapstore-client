@@ -181,6 +181,31 @@ describe('AnugaPlaybackLayer', () => {
             expect(el1).toBe(el2);
         });
 
+        // TASK-2655 (W6.5, epic 2618) — BLOCKER regression. A `position:
+        // static` canvas composites UNDER OL's `.ol-layer` basemap div (CSS
+        // paint order stacks positioned elements above static ones
+        // regardless of DOM order) — every pixel renders correctly and the
+        // composited page still shows nothing. `gl.readPixels`/GL-level
+        // assertions are STRUCTURALLY BLIND to this failure class (they
+        // read the back buffer, never the composited page) — this is why
+        // 5,401 green karma tests and every prior wave's live-dispatch
+        // check missed it (W6 UAT findings). Only a DOM-level style
+        // assertion catches a regression back to the default.
+        it('BLOCKER regression: the canvas is absolutely positioned at creation, never `static` (DOM-level assert — a GL readback assert does NOT catch this)', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-position-regression' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            expect(renderer.canvas.style.position).toBe('absolute');
+            expect(renderer.canvas.style.top).toBe('0px');
+            expect(renderer.canvas.style.left).toBe('0px');
+            // Also assert on the actual element render() hands back to OL
+            // for DOM attachment — proves the SAME element is positioned,
+            // not a copy that happens to differ from the one OL appends.
+            const frameState = { viewState: { center: [0, 0], resolution: 100, rotation: 0 }, size: [200, 150], pixelRatio: 1 };
+            const rendered = layer.render(frameState, null);
+            expect(rendered).toBe(renderer.canvas);
+            expect(rendered.style.position).toBe('absolute');
+        });
+
         it('render(frameState) does not throw before any mesh has loaded (blank-canvas path)', () => {
             const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-6' });
             const frameState = { viewState: { center: [500000, 6900000], resolution: 25, rotation: 0.1 }, size: [400, 300], pixelRatio: 2 };

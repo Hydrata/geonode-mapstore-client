@@ -45,6 +45,26 @@ const QUANTITY_IDS = Object.keys(QUANTITY_RAMPS);
 export class AnugaPlaybackRenderer {
     constructor() {
         this.canvas = document.createElement('canvas');
+        // TASK-2655 (W6.5, epic 2618) — BLOCKER fix. This element is handed
+        // back from render() below and OL's own composite renderer (core OL
+        // code this class deliberately does not own/edit — see
+        // AnugaPlaybackLayer.js's header) appends it as a direct child of
+        // `.ol-layers`. Its DEFAULT `position: static` sits next to the
+        // sibling `.ol-layer` tile-composite div, which IS `position:
+        // absolute` — and CSS paint order stacks every positioned element
+        // above every static one regardless of DOM order, so a static
+        // canvas composites UNDER the basemap no matter how correctly it
+        // draws (W6 UAT proof chain: meshReady===true, gl.readPixels
+        // returned the full drawn band, yet the composited page showed
+        // nothing; canvas.style.position='absolute' made it appear
+        // instantly, correctly geo-aligned). Setting this HERE, before OL
+        // or anything else ever touches the element, means the canvas can
+        // never be observed — even for one frame — in its unpositioned
+        // state. top/left pin it to the layer container's own origin (OL
+        // sizes the container itself; this element only needs to fill it).
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.top = '0px';
+        this.canvas.style.left = '0px';
         this.gl = this.canvas.getContext('webgl2', { antialias: true, preserveDrawingBuffer: false });
         if (!this.gl) {
             throw new Error('AnugaPlaybackRenderer: WebGL2 is not available in this browser');
