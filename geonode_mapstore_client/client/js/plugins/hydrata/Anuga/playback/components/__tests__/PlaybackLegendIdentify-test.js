@@ -151,4 +151,54 @@ describe('PlaybackIdentifyReadout — TASK-2628', () => {
         ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result} />, container);
         expect(container.querySelector('[data-testid="playback-identify-hazard"]').textContent).toContain('H3');
     });
+
+    // TASK-2656b (W6.5, epic 2618) — UAT: the panel's CSS bottom-left anchor
+    // clips at the viewport edge once the result grows past a couple of
+    // rows. The clamp logic must not depend on whichever incidental CSS
+    // this karma bundle happens to have pulled in (the readout component
+    // itself imports no CSS — anuga.css is only reachable transitively via
+    // OTHER *-test.js files sharing this one webpack build), so the rect is
+    // overridden directly on the DOM node to simulate an out-of-viewport
+    // box regardless of real layout, then a result change (adds rows, the
+    // same trigger a real taller readout hits) is used to exercise
+    // componentDidUpdate's re-clamp path.
+    describe('viewport clamping', () => {
+        it('clamps an out-of-viewport box back inside the visible window', () => {
+            const result1 = { located: true, surface: 'vertex-smoothed', depth: 1, speed: 2, wet: true };
+            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result1} />, container);
+            const el = container.querySelector('[data-testid="playback-identify-readout"]');
+            expect(el).toExist();
+
+            // Simulate the UAT repro: a box straddling the bottom-left edge
+            // (partly off-screen on both axes).
+            el.getBoundingClientRect = () => ({
+                left: -40, top: window.innerHeight + 20, width: 200, height: 150,
+                right: 160, bottom: window.innerHeight + 170
+            });
+
+            const result2 = { ...result1, stage: 11.5, div: 2, froude: 0.64 };
+            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result2} />, container);
+
+            expect(el.style.left).toNotBe(''); // clamp applied an inline override
+            const left = parseFloat(el.style.left);
+            const top = parseFloat(el.style.top);
+            expect(left).toBeGreaterThanOrEqualTo(0);
+            expect(top).toBeGreaterThanOrEqualTo(0);
+            expect(left + 200).toBeLessThanOrEqualTo(window.innerWidth);
+            expect(top + 150).toBeLessThanOrEqualTo(window.innerHeight);
+        });
+
+        it('leaves position untouched when the box already fits (no gratuitous inline style)', () => {
+            const result = { located: true, surface: 'vertex-smoothed', depth: 1, speed: 2, wet: true };
+            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result} />, container);
+            const el = container.querySelector('[data-testid="playback-identify-readout"]');
+            el.getBoundingClientRect = () => ({ left: 8, top: 8, width: 200, height: 150, right: 208, bottom: 158 });
+
+            const result2 = { ...result, stage: 11.5 };
+            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result2} />, container);
+
+            expect(el.style.left).toBe('');
+            expect(el.style.top).toBe('');
+        });
+    });
 });

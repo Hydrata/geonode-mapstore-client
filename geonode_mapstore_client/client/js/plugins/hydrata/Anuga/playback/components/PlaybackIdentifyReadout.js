@@ -13,11 +13,22 @@
  * operator arms "Inspect" and clicks the mesh — see
  * epics/playbackEpics.js's playbackIdentifyEpic). Always names the surface
  * it reports (AC: "the readout should say which surface it reports").
+ *
+ * TASK-2656b (W6.5, epic 2618) — the panel's CSS anchor is a fixed
+ * `bottom-left` offset (anuga.css's `.sv-playback-identify-readout`), which
+ * clips on a short/narrow viewport once the result grows past a couple of
+ * rows (UAT: labels unreadable at the bottom-left viewport edge). Clamped
+ * in JS rather than pure CSS because the box's own height varies with which
+ * derived-quantity rows are present in `result` — no CSS-only rule can know
+ * that ahead of layout. Clamps AFTER every result/mount so a longer result
+ * (more rows) re-clamps, not just the first paint.
  */
 import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
+
+const VIEWPORT_MARGIN_PX = 8;
 
 function formatMetric(v, digits = 3) {
     return typeof v === 'number' && isFinite(v) ? v.toFixed(digits) : '—';
@@ -41,13 +52,68 @@ export class PlaybackIdentifyReadoutComponent extends React.Component {
         quantity: PropTypes.string
     };
 
+    state = {
+        // Inline override on top of the CSS default bottom-left anchor —
+        // null until a clamp pass finds the CSS-default box would spill
+        // off-screen (the common case never pays for an inline style).
+        clampStyle: null
+    };
+
+    componentDidMount() {
+        this._clampToViewport();
+    }
+
+    componentDidUpdate(prevProps) {
+        // A different/larger result can change the panel's height (more
+        // derived-quantity rows) even though `located` stays true, so
+        // re-clamp on every result change, not just the first mount.
+        if (prevProps.result !== this.props.result) {
+            this._clampToViewport();
+        }
+    }
+
+    /**
+     * Re-measures the panel against its CSS-default position, then applies
+     * an inline left/top/bottom/right override only if that default box
+     * would spill past the viewport edge. Resets to the CSS default first
+     * so a SHRINKING result (fewer rows) can un-clamp — otherwise a stale
+     * inline override from a taller previous result would linger forever.
+     */
+    _clampToViewport() {
+        const node = this._rootRef;
+        if (!node || typeof window === 'undefined') {
+            return;
+        }
+        this.setState({ clampStyle: null }, () => {
+            const el = this._rootRef;
+            if (!el) {
+                return;
+            }
+            const rect = el.getBoundingClientRect();
+            const maxLeft = Math.max(VIEWPORT_MARGIN_PX, window.innerWidth - rect.width - VIEWPORT_MARGIN_PX);
+            const maxTop = Math.max(VIEWPORT_MARGIN_PX, window.innerHeight - rect.height - VIEWPORT_MARGIN_PX);
+            const left = Math.min(Math.max(rect.left, VIEWPORT_MARGIN_PX), maxLeft);
+            const top = Math.min(Math.max(rect.top, VIEWPORT_MARGIN_PX), maxTop);
+            if (left !== rect.left || top !== rect.top) {
+                this.setState({
+                    clampStyle: { left: `${left}px`, top: `${top}px`, bottom: 'auto', right: 'auto' }
+                });
+            }
+        });
+    }
+
     render() {
         const { result } = this.props;
         if (!result) {
             return null;
         }
         return (
-            <div className="sv-playback-identify-readout" data-testid="playback-identify-readout">
+            <div
+                className="sv-playback-identify-readout"
+                data-testid="playback-identify-readout"
+                style={this.state.clampStyle || undefined}
+                ref={(el) => { this._rootRef = el; }}
+            >
                 <div className="sv-playback-identify-readout-title"><Message msgId="hydrata.playback.identifyReadoutTitle" /></div>
                 {!result.located ? (
                     <div className="sv-playback-identify-readout-body" data-testid="playback-identify-no-data">

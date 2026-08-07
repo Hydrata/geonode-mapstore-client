@@ -14,7 +14,10 @@ import {
     playbackTickEpic,
     playbackSyncLayerEpic,
     // TASK-2628 (W3.2) — click-to-inspect at the current timestep.
-    playbackIdentifyEpic
+    playbackIdentifyEpic,
+    // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
+    // Inspect is armed.
+    playbackSuppressIdentifyEpic
 } from './playback/epics/playbackEpics';
 import anugaContainer from "./components/anugaContainer";
 import {
@@ -352,6 +355,9 @@ export default createPlugin('Anuga', {
         playbackTickEpic,
         playbackSyncLayerEpic,
         // TASK-2628 (W3.2) — click-to-inspect at the current timestep.
-        playbackIdentifyEpic
+        playbackIdentifyEpic,
+        // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
+        // Inspect is armed; restores mapInfo.enabled verbatim on disarm.
+        playbackSuppressIdentifyEpic
     }
 });

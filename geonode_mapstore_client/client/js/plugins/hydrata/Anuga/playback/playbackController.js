@@ -45,7 +45,8 @@ import {
     PLAYBACK_RESET,
     PLAYBACK_SET_IDENTIFY_ARMED,
     PLAYBACK_SET_IDENTIFY_RESULT,
-    PLAYBACK_SET_LEGEND_OPEN
+    PLAYBACK_SET_LEGEND_OPEN,
+    PLAYBACK_SET_WIREFRAME
 } from './actions/playbackActions';
 
 export const PLAYBACK_STATUS = Object.freeze({
@@ -104,7 +105,9 @@ export function createInitialPlaybackState() {
         pendingPlay: false,
         identifyArmed: false,
         identifyResult: null,
-        legendOpen: false
+        legendOpen: false,
+        // TASK-2656d (W6.5) — real wireframe toggle, default OFF (AC).
+        wireframe: false
     };
 }
 
@@ -456,6 +459,9 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
     }
     case PLAYBACK_SET_LEGEND_OPEN: {
         return { ...state, legendOpen: !!action.open };
+    }
+    case PLAYBACK_SET_WIREFRAME: {
+        return { ...state, wireframe: !!action.enabled };
     }
     case PLAYBACK_RESET: {
         return createInitialPlaybackState();

@@ -140,4 +140,37 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         expect(values).toContain('depth');
         expect(values).toContain('hazard');
     });
+
+    // TASK-2656d (W6.5, epic 2618) — real wireframe toggle (was hardcoded
+    // `false` in playbackEpics.js baseProps with no control anywhere).
+    describe('wireframe toggle (TASK-2656d)', () => {
+        it('reflects playback.wireframe in its active class and calls onSetWireframe(!current) on click', () => {
+            const onSetWireframe = expect.createSpy();
+            const state = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 10, wireframe: false };
+            render({ playback: state, onSetWireframe });
+            const btn = container.querySelector('[data-testid="anuga-playback-wireframe-toggle"]');
+            expect(btn).toBeTruthy();
+            expect(btn.className).toNotContain('active');
+            TestUtils.Simulate.click(btn);
+            expect(onSetWireframe.calls.length).toBe(1);
+            expect(onSetWireframe.calls[0].arguments[0]).toBe(true);
+        });
+
+        it('shows active when playback.wireframe is true and toggles it back off', () => {
+            const onSetWireframe = expect.createSpy();
+            const state = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 10, wireframe: true };
+            render({ playback: state, onSetWireframe });
+            const btn = container.querySelector('[data-testid="anuga-playback-wireframe-toggle"]');
+            expect(btn.className).toContain('active');
+            TestUtils.Simulate.click(btn);
+            expect(onSetWireframe.calls[0].arguments[0]).toBe(false);
+        });
+
+        it('defaults to OFF (AC) when playback.wireframe is not set', () => {
+            const state = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 10 };
+            render({ playback: state });
+            const btn = container.querySelector('[data-testid="anuga-playback-wireframe-toggle"]');
+            expect(btn.className).toNotContain('active');
+        });
+    });
 });

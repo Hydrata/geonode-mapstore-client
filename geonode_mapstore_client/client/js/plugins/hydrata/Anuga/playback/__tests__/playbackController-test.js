@@ -41,6 +41,7 @@ import {
     playbackSetIdentifyArmed,
     playbackSetIdentifyResult,
     playbackSetLegendOpen,
+    playbackSetWireframe,
     playbackReset
 } from '../actions/playbackActions';
 
@@ -71,6 +72,8 @@ describe('playbackController', () => {
             expect(s.bufferedChunks).toEqual([]);
             expect(s.identifyArmed).toBe(false);
             expect(s.legendOpen).toBe(false);
+            // TASK-2656d (W6.5) — AC: wireframe toggle default OFF.
+            expect(s.wireframe).toBe(false);
         });
     });
 
@@ -470,6 +473,28 @@ describe('playbackController', () => {
         it('legend open/close toggles legendOpen only', () => {
             const s = reduce(bufferedState(), playbackSetLegendOpen(true));
             expect(s.legendOpen).toBe(true);
+        });
+    });
+
+    // TASK-2656d (W6.5, epic 2618) — real wireframe toggle (was hardcoded
+    // `false` in playbackEpics.js's addLayer baseProps, no way to flip it).
+    describe('wireframe toggle (TASK-2656d)', () => {
+        it('SET_WIREFRAME(true) flips wireframe only, leaving other state untouched', () => {
+            const before = bufferedState({ quantity: 'speed', mixT: 0.3 });
+            const after = reduce(before, playbackSetWireframe(true));
+            expect(after.wireframe).toBe(true);
+            expect(after.quantity).toBe('speed');
+            expect(after.mixT).toBe(0.3);
+            expect(after.status).toBe(before.status);
+        });
+        it('SET_WIREFRAME(false) turns it back off', () => {
+            const on = reduce(bufferedState(), playbackSetWireframe(true));
+            const off = reduce(on, playbackSetWireframe(false));
+            expect(off.wireframe).toBe(false);
+        });
+        it('coerces a truthy/falsy non-boolean argument to a real boolean', () => {
+            expect(reduce(bufferedState(), playbackSetWireframe(1)).wireframe).toBe(true);
+            expect(reduce(bufferedState(), playbackSetWireframe(0)).wireframe).toBe(false);
         });
     });
 

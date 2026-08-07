@@ -22,12 +22,14 @@ import {
     playbackTickEpic,
     playbackSyncLayerEpic,
     playbackIdentifyEpic,
+    playbackSuppressIdentifyEpic,
     fetcherRegistry,
     TICK_INTERVAL_MS
 } from '../playbackEpics';
 import { reprojectMeshVertices } from '../../playbackReproject';
-import { PLAYBACK_SET_IDENTIFY_RESULT, playbackSetIdentifyArmed } from '../../actions/playbackActions';
+import { PLAYBACK_SET_IDENTIFY_RESULT, playbackSetIdentifyArmed, playbackSetWireframe } from '../../actions/playbackActions';
 import { ADD_LAYER, CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
+import { CHANGE_MAPINFO_STATE } from '@mapstore/framework/actions/mapInfo';
 import { PlaybackChunkFetcher } from '../../playbackChunkFetcher';
 import {
     playbackInit,
@@ -372,6 +374,39 @@ describe('playbackEpics', () => {
                 subject.next(playbackTick(2));
             }, 50);
         });
+
+        // TASK-2656d (W6.5, epic 2618) — was hardcoded `false` here; now
+        // reads the controller's own `wireframe` field, and a bare toggle
+        // (no tick/seek/quantity change) must still reach the layer since
+        // it's the only trigger available while PAUSED.
+        it('passes pb.wireframe through to changeLayerProperties, and SET_WIREFRAME alone (no tick) triggers a dispatch', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
+            fetcherRegistry.set(5, fetcher);
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
+            const pb = {
+                ...createInitialPlaybackState(),
+                runId: 5, layerId: 'layer-5', manifest: FIXTURE_MANIFEST, mesh,
+                nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
+                currentTimestep: 0, mixT: 0, quantity: 'depth', quantization: FIXTURE_MANIFEST.quantization,
+                wireframe: true
+            };
+            const store = makeStore(pb);
+            const { subject, action$ } = makeActionsSubject();
+            playbackSyncLayerEpic(action$, store).subscribe((a) => {
+                restore();
+                try {
+                    expect(a.type).toBe(CHANGE_LAYER_PROPERTIES);
+                    expect(a.newProperties.wireframe).toBe(true);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            // No PLAYBACK_TICK/SEEK/SET_QUANTITY at all — only the wireframe
+            // toggle itself, which must be its own trigger.
+            subject.next(playbackSetWireframe(true));
+        });
     });
 
     describe('playbackIdentifyEpic (TASK-2628, W3.2)', () => {
@@ -476,6 +511,63 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next({ type: 'CLICK_ON_MAP', point: { rawPos: [x[0], y[0]] } });
+        });
+    });
+
+    // TASK-2656c (W6.5, epic 2618) — a playback Inspect click also fired the
+    // generic MapStore GFI "Select a feature" popup over the identify
+    // readout (UAT finding). onMapClick (web/client/epics/identify.js)
+    // reacts to the same CLICK_ON_MAP action, gated on mapInfo.enabled.
+    describe('playbackSuppressIdentifyEpic (TASK-2656c, W6.5)', () => {
+        it('disables mapInfo when Inspect is armed', (done) => {
+            const store = { getState: () => ({ mapInfo: { enabled: true } }) };
+            const { subject, action$ } = makeActionsSubject();
+            playbackSuppressIdentifyEpic(action$, store).subscribe((a) => {
+                try {
+                    expect(a.type).toBe(CHANGE_MAPINFO_STATE);
+                    expect(a.enabled).toBe(false);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackSetIdentifyArmed(true));
+        });
+
+        it('restores mapInfo to whatever it was before arming, on disarm (AC: unaffected when playback inactive)', (done) => {
+            const store = { getState: () => ({ mapInfo: { enabled: true } }) };
+            const { subject, action$ } = makeActionsSubject();
+            const results = [];
+            playbackSuppressIdentifyEpic(action$, store).subscribe((a) => results.push(a));
+            subject.next(playbackSetIdentifyArmed(true));
+            subject.next(playbackSetIdentifyArmed(false));
+            setTimeout(() => {
+                try {
+                    expect(results.length).toBe(2);
+                    expect(results[0].enabled).toBe(false);
+                    expect(results[1].enabled).toBe(true);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 20);
+        });
+
+        it('never turns mapInfo ON on disarm if it was already OFF before arming', (done) => {
+            const store = { getState: () => ({ mapInfo: { enabled: false } }) };
+            const { subject, action$ } = makeActionsSubject();
+            const results = [];
+            playbackSuppressIdentifyEpic(action$, store).subscribe((a) => results.push(a));
+            subject.next(playbackSetIdentifyArmed(true));
+            subject.next(playbackSetIdentifyArmed(false));
+            setTimeout(() => {
+                try {
+                    expect(results[1].enabled).toBe(false);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 20);
         });
     });
 });

@@ -29,6 +29,16 @@
 import Rx from 'rxjs';
 import { addLayer, changeLayerProperties } from '@mapstore/framework/actions/layers';
 import { CLICK_ON_MAP } from '@mapstore/framework/actions/map';
+// TASK-2656c (W6.5, epic 2618) — suppressing the generic GetFeatureInfo
+// popup while playback Inspect is armed. `changeMapInfoState` is the SAME
+// plain core action several other MapStore2 plugins already dispatch to
+// suppress the identify-on-click popup while THEIR own tool owns the click
+// (Itinerary/StreetView/Isochrone/longitudinalProfile/geoProcessing epics —
+// grep `changeMapInfoState` in web/client/epics/geoProcessing.js for the
+// precedent). Importing/dispatching a core action is not editing the fork
+// (see AnugaPlaybackLayer.js's header on that distinction).
+import { changeMapInfoState } from '@mapstore/framework/actions/mapInfo';
+import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
@@ -46,6 +56,8 @@ import {
     PLAYBACK_CHUNKS_BUFFERED,
     PLAYBACK_SET_QUANTITY,
     PLAYBACK_RESET,
+    PLAYBACK_SET_IDENTIFY_ARMED,
+    PLAYBACK_SET_WIREFRAME,
     playbackManifestLoaded,
     playbackManifestFailed,
     playbackChunksBuffered,
@@ -258,7 +270,12 @@ function getLayerMesh(pb) {
 
 export function playbackSyncLayerEpic(action$, store) {
     const trigger$ = action$.ofType(
-        PLAYBACK_MANIFEST_LOADED, PLAYBACK_TICK, PLAYBACK_SEEK, PLAYBACK_CHUNKS_BUFFERED, PLAYBACK_SET_QUANTITY
+        PLAYBACK_MANIFEST_LOADED, PLAYBACK_TICK, PLAYBACK_SEEK, PLAYBACK_CHUNKS_BUFFERED, PLAYBACK_SET_QUANTITY,
+        // TASK-2656d (W6.5) — a wireframe toggle while PAUSED has no other
+        // trigger to ride (TICK only fires while playing) — without this,
+        // the toggle would silently wait for the next play/seek/quantity
+        // change to actually reach the layer.
+        PLAYBACK_SET_WIREFRAME
     );
     return trigger$.switchMap(() => {
         const pb = store.getState().anugaPlayback;
@@ -283,7 +300,13 @@ export function playbackSyncLayerEpic(action$, store) {
             wetThreshold: pb.wetThreshold,
             g: pb.g,
             rhoW: pb.rhoW,
-            dt: mixDtSeconds(pb.dtMs, pb.currentTimestep, nextTimestepForDt, pb.mixT)
+            dt: mixDtSeconds(pb.dtMs, pb.currentTimestep, nextTimestepForDt, pb.mixT),
+            // TASK-2656d (W6.5) — real wireframe toggle (was hardcoded
+            // `false` here; the renderer's own wireProgram already existed
+            // and unused). Controller state (pb.wireframe), NOT the local
+            // component state the flow-viz/particle overlay knobs use — see
+            // playbackActions.js's PLAYBACK_SET_WIREFRAME header.
+            wireframe: !!pb.wireframe
         };
         if (lastSyncedTimestep.get(pb.runId) === pb.currentTimestep) {
             return Rx.Observable.of(changeLayerProperties(pb.layerId, baseProps));
@@ -374,4 +397,36 @@ export function playbackIdentifyEpic(action$, store) {
             });
         })
         .filter((a) => !!a);
+}
+
+// TASK-2656c (W6.5, epic 2618) — module-level, not redux state (a raw
+// boolean the operator's own prior GFI-tool setting, not playback domain
+// state — same "escape hatch" posture as fetcherRegistry above). Restored
+// verbatim on disarm so a playback Inspect session can never leave
+// mapInfo.enabled in a DIFFERENT state than it found it, whichever way that
+// was (AC: "normal identify on non-playback layers must be unaffected when
+// playback inactive").
+let mapInfoEnabledBeforeArm = null;
+
+/**
+ * TASK-2656c (W6.5) — a playback Inspect click ALSO fired the generic
+ * MapStore GetFeatureInfo "Select a feature" popup over the identify
+ * readout (UAT finding): `onMapClick` (web/client/epics/identify.js) reacts
+ * to the SAME CLICK_ON_MAP action this epic file's own playbackIdentifyEpic
+ * listens to, gated on `mapInfo.enabled`. Arms/disarms in lockstep with
+ * PLAYBACK_SET_IDENTIFY_ARMED — the SAME toggle playbackIdentifyEpic itself
+ * already gates on — so the two flows can never disagree about whose click
+ * this is.
+ */
+export function playbackSuppressIdentifyEpic(action$, store) {
+    return action$.ofType(PLAYBACK_SET_IDENTIFY_ARMED)
+        .map((action) => {
+            if (action.armed) {
+                mapInfoEnabledBeforeArm = mapInfoEnabledSelector(store.getState());
+                return changeMapInfoState(false);
+            }
+            const restore = mapInfoEnabledBeforeArm === null ? true : mapInfoEnabledBeforeArm;
+            mapInfoEnabledBeforeArm = null;
+            return changeMapInfoState(restore);
+        });
 }

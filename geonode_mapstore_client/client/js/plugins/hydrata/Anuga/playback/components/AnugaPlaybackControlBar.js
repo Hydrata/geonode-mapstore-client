@@ -38,7 +38,8 @@ import {
     playbackSetSpeed,
     playbackSetQuantity,
     playbackSetIdentifyArmed,
-    playbackSetLegendOpen
+    playbackSetLegendOpen,
+    playbackSetWireframe
 } from '../actions/playbackActions';
 
 const SPEED_OPTIONS = [0.25, 0.5, 1, 2, 4, 8].filter((s) => s >= MIN_SPEED && s <= MAX_SPEED);
@@ -92,15 +93,23 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         onSetQuantity: PropTypes.func,
         onSetIdentifyArmed: PropTypes.func,
         onSetLegendOpen: PropTypes.func,
+        onSetWireframe: PropTypes.func,
         onChangeLayerProperties: PropTypes.func
     };
 
     // TASK-2632 (W5.1) — flow-viz overlay knobs are LOCAL component state,
-    // not `anugaPlayback` reducer state (same reasoning as `wireframe`,
-    // which has never had reducer-level state either — a pure visual
-    // rendering toggle, orthogonal to the buffer-then-play/timeline state
-    // machine `playbackController.js` owns). Applied to the layer directly
-    // via `changeLayerProperties` on every change.
+    // not `anugaPlayback` reducer state — pure visual rendering toggles,
+    // orthogonal to the buffer-then-play/timeline state machine
+    // `playbackController.js` owns. Applied to the layer directly via
+    // `changeLayerProperties` on every change.
+    //
+    // `wireframe` (TASK-2656d, W6.5) is the ONE exception to that pattern:
+    // it now IS reducer state (playbackController's own `wireframe` field,
+    // dispatched via playbackSetWireframe/PLAYBACK_SET_WIREFRAME and synced
+    // to the layer by playbackSyncLayerEpic's baseProps, NOT
+    // changeLayerProperties from here) — a real transport-level rendering
+    // mode the operator expects to persist across this bar's own
+    // mount/unmount, unlike the flow-viz/particle knobs below.
     state = {
         manifestUrlDraft: '',
         flowVizEnabled: false,
@@ -240,6 +249,25 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     <Message msgId="hydrata.playback.legend" />
                 </button>
 
+                {/* TASK-2656d (W6.5) — real wireframe toggle over the render
+                    threshold's fill (default OFF); the renderer's own
+                    wireProgram already existed, unused, on a live run.
+                    Plain-text label (matching the play/pause glyph button
+                    above, NOT the <Message> siblings either side of it) —
+                    this wave's declared gmc scope is
+                    js/plugins/hydrata/Anuga/** only; the translations JSON
+                    lives outside it (static/mapstore/hydrata-translations),
+                    so a new msgId here would render its own raw key text
+                    with a missing-message console warning on every frame. */}
+                <button
+                    className={`btn sv-glass-button sv-playback-wireframe-toggle ${playback.wireframe ? 'active' : ''}`}
+                    data-testid="anuga-playback-wireframe-toggle"
+                    onClick={() => this.props.onSetWireframe(!playback.wireframe)}
+                    title="Overlay mesh triangle edges"
+                >
+                    {'Wireframe'}
+                </button>
+
                 <button
                     className={`btn sv-glass-button sv-playback-flowviz-toggle ${this.state.flowVizEnabled ? 'active' : ''}`}
                     data-testid="anuga-playback-flowviz-toggle"
@@ -344,6 +372,7 @@ const mapDispatchToProps = {
     onSetQuantity: playbackSetQuantity,
     onSetIdentifyArmed: playbackSetIdentifyArmed,
     onSetLegendOpen: playbackSetLegendOpen,
+    onSetWireframe: playbackSetWireframe,
     onChangeLayerProperties: changeLayerProperties
 };
 

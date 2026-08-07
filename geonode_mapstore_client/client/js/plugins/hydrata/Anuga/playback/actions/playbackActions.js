@@ -29,6 +29,15 @@ export const PLAYBACK_RESET = 'PLAYBACK:RESET';
 export const PLAYBACK_SET_IDENTIFY_ARMED = 'PLAYBACK:SET_IDENTIFY_ARMED';
 export const PLAYBACK_SET_IDENTIFY_RESULT = 'PLAYBACK:SET_IDENTIFY_RESULT';
 export const PLAYBACK_SET_LEGEND_OPEN = 'PLAYBACK:SET_LEGEND_OPEN';
+// TASK-2656d (W6.5, epic 2618) — real wireframe toggle (operator-requested
+// for manual UAT: "they want to see meshes"). Controller state, not
+// component-local like flowVizEnabled/particlesEnabled — those are pure
+// visual overlay knobs with no bearing on the buffer-then-play state
+// machine, but wireframe was ALREADY plumbed as a first-class
+// AnugaPlaybackLayer option since W2.2 (the built-mesh preview path has
+// used it since W6.1) — this only adds the missing "let the operator turn
+// it on for a live run" path, reusing the same option end to end.
+export const PLAYBACK_SET_WIREFRAME = 'PLAYBACK:SET_WIREFRAME';
 
 /**
  * Start (or restart) a playback controller for one run. `layerId` is the
@@ -95,4 +104,8 @@ export function playbackSetIdentifyResult(result) {
 
 export function playbackSetLegendOpen(open) {
     return { type: PLAYBACK_SET_LEGEND_OPEN, open };
+}
+
+export function playbackSetWireframe(enabled) {
+    return { type: PLAYBACK_SET_WIREFRAME, enabled: !!enabled };
 }
