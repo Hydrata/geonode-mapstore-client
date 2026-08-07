@@ -419,6 +419,67 @@ describe('playbackController', () => {
             expect(ticked.status).toBe(PLAYBACK_STATUS.PAUSED);
             expect(ticked.currentTimestep).toBe(TIME.length - 1);
         });
+
+        // TASK-2685 (W6.75.3, epic 2618) — Play at end-of-timeline is dead:
+        // reproduced in the 2026-08-07 W6.5 manual UAT. PAUSED is the
+        // DEDICATED "reached the end" status (createInitialPlaybackState's
+        // comment; PLAYBACK_PAUSE always lands mid-timeline in READY, never
+        // PAUSED) — Play must rewind-and-play from PAUSED rather than
+        // resuming from the frozen end-of-timeline playhead (which the OLD
+        // code did: it flipped straight back to PLAYING with playheadSeconds
+        // still >= the last time value, so the very next TICK's `atEnd`
+        // check fired immediately — one dead PLAYING frame, then back to
+        // PAUSED, with currentTimestep never leaving the last frame:
+        // "the button looks live and does nothing").
+        it('AC: Play from PAUSED (end-of-timeline) rewinds to the first frame and plays — no manual scrub required', () => {
+            const playing = { ...reduce(bufferedState(), playbackPlay()), lastTickMs: 0 };
+            const atEnd = reduce(playing, playbackTick(1000000)); // way past t=360
+            expect(atEnd.status).toBe(PLAYBACK_STATUS.PAUSED);
+            expect(atEnd.currentTimestep).toBe(TIME.length - 1);
+
+            const replayed = reduce(atEnd, playbackPlay());
+            expect(replayed.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(replayed.currentTimestep).toBe(0);
+            expect(replayed.playheadSeconds).toBe(TIME[0]);
+            expect(replayed.mixT).toBe(0);
+
+            // AND it actually MOVES on the next tick — the regression this
+            // guards: the old code's very next TICK immediately re-hit
+            // `atEnd` and flipped back to PAUSED with zero visible motion.
+            // 35s > TIME's 30s first step, so this crosses into timestep 1
+            // (not just a mixT nudge within timestep 0 — genuine frame
+            // advance, matching the other large-jump TICK tests in this file).
+            const tickedAgain = reduce({ ...replayed, lastTickMs: 0 }, playbackTick(35000));
+            expect(tickedAgain.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(tickedAgain.currentTimestep).toBeGreaterThan(0);
+        });
+
+        it('Play from PAUSED still respects buffer-then-play when frame 0\'s window is NOT buffered (rewound position, not a bypass)', () => {
+            // Reach PAUSED, then simulate frame 0's chunk having been evicted/
+            // never (re)buffered — bufferedChunks emptied.
+            const playing = { ...reduce(bufferedState(), playbackPlay()), lastTickMs: 0 };
+            const atEnd = { ...reduce(playing, playbackTick(1000000)), bufferedChunks: [] };
+            expect(atEnd.status).toBe(PLAYBACK_STATUS.PAUSED);
+
+            const replayed = reduce(atEnd, playbackPlay());
+            expect(replayed.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(replayed.pendingPlay).toBe(true);
+            expect(replayed.currentTimestep).toBe(0); // rewound even though it must wait to buffer
+
+            const resumed = reduce(replayed, playbackChunksBuffered([0]));
+            expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(resumed.currentTimestep).toBe(0);
+        });
+
+        it('AC: Play mid-timeline (paused via PLAYBACK_PAUSE, status READY) is UNCHANGED — resumes from the current position, no rewind', () => {
+            const playing = reduce(bufferedState(), playbackPlay());
+            const seeked = reduce(playing, playbackSeek(5));
+            const paused = reduce(seeked, playbackPause());
+            expect(paused.status).toBe(PLAYBACK_STATUS.READY); // NOT PAUSED — mid-timeline pause is a different status
+            const resumed = reduce(paused, playbackPlay());
+            expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(resumed.currentTimestep).toBe(5); // unchanged — no rewind
+        });
     });
 
     describe('SET_SPEED / SET_QUANTITY', () => {

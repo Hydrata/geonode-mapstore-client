@@ -363,12 +363,29 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         if (state.status === PLAYBACK_STATUS.PLAYING) {
             return state;
         }
-        if (isCurrentWindowBuffered(state)) {
-            return { ...state, status: PLAYBACK_STATUS.PLAYING, pendingPlay: false, lastTickMs: null };
+        // TASK-2685 (W6.75.3, epic 2618) — Play at end-of-timeline is dead:
+        // PAUSED is the DEDICATED "reached the end" status (see
+        // createInitialPlaybackState's comment; a mid-timeline user pause
+        // via PLAYBACK_PAUSE always lands in READY, never PAUSED — an
+        // unambiguous signal). Rewind to the first frame BEFORE the normal
+        // buffered-window check below, so a still-buffered frame 0 starts
+        // playing immediately and an evicted one goes through the SAME
+        // buffer-then-play/pendingPlay path every other Play press does —
+        // no separate rewind-only code path to keep in sync. Without this,
+        // the old code re-entered PLAYING with the playhead still AT/PAST
+        // the last timestep, so the very next TICK's own `atEnd` check
+        // fired immediately — one dead frame, then straight back to
+        // PAUSED, with currentTimestep never advancing (control looks
+        // live, does nothing).
+        const base = state.status === PLAYBACK_STATUS.PAUSED
+            ? { ...state, currentTimestep: 0, playheadSeconds: state.time ? state.time[0] : 0, mixT: 0 }
+            : state;
+        if (isCurrentWindowBuffered(base)) {
+            return { ...base, status: PLAYBACK_STATUS.PLAYING, pendingPlay: false, lastTickMs: null };
         }
         return {
-            ...state,
-            status: state.status === PLAYBACK_STATUS.SEEKING ? state.status : PLAYBACK_STATUS.BUFFERING,
+            ...base,
+            status: base.status === PLAYBACK_STATUS.SEEKING ? base.status : PLAYBACK_STATUS.BUFFERING,
             pendingPlay: true
         };
     }
