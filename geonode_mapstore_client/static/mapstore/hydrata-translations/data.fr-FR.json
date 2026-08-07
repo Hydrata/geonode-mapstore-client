@@ -670,6 +670,11 @@
         "statusPending": "En attente",
         "statusRunning": "En cours",
         "statusStalled": "Bloqué",
+        "statusProvisioning": "Provisionnement",
+        "statusUnresponsive": "Sans réponse",
+        "eta": "Temps restant",
+        "wedgedAdvisory": "CPU faible",
+        "wedgedAdvisoryTitle": "Battements reçus mais CPU proche de zéro — simple avertissement",
         "statusComplete": "Terminé",
         "statusError": "Erreur",
         "statusCancelled": "Annulée"

@@ -670,6 +670,11 @@
         "statusPending": "Pendiente",
         "statusRunning": "En ejecución",
         "statusStalled": "Estancado",
+        "statusProvisioning": "Aprovisionando",
+        "statusUnresponsive": "Sin respuesta",
+        "eta": "Tiempo restante",
+        "wedgedAdvisory": "CPU baja",
+        "wedgedAdvisoryTitle": "Se reciben latidos pero la CPU está casi a cero — solo aviso",
         "statusComplete": "Completo",
         "statusError": "Error",
         "statusCancelled": "Cancelada"

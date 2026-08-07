@@ -7,7 +7,8 @@ import {
     pollActiveCountEpic,
     pollProcessListEpic,
     loadProcessDetailEpic,
-    cancelProcessEpic
+    cancelProcessEpic,
+    processListsEqual
 } from '../epicsTaskMonitor';
 import {
     TM_START_POLLING,
@@ -44,8 +45,7 @@ import {
     getProcessesByType,
     getProcessForObject,
     getFilteredProcesses,
-    isActiveProcess,
-    STALE_MS
+    isActiveProcess
 } from '../selectorsTaskMonitor';
 import processReducer from '../reducers/processReducer';
 import uiReducer from '../reducers/uiReducer';
@@ -1070,54 +1070,59 @@ describe('TaskMonitor', () => {
     });
 
     // =========================================================================
-    // TASK-1887 — isActiveProcess + staleness-aware getFilteredProcesses
+    // TASK-2674 (epic 2662 W2.4) — isActiveProcess reads SERVER liveness.
+    // The FE-side clock-staleness heuristic is DELETED: liveness is a fact the
+    // serializer derives from last_heartbeat (D5/D7); the FE renders it
+    // verbatim and never does timestamp math again.
     // =========================================================================
-    describe('TASK-1887 isActiveProcess', () => {
-        const now = Date.now();
-        const freshUpdated = new Date(now - 60000).toISOString();          // 1 min ago → fresh
-        const staleUpdated = new Date(now - STALE_MS - 60000).toISOString(); // STALE_MS+1min → stale
+    describe('TASK-2674 isActiveProcess (server-truth liveness)', () => {
+        // An ANCIENT updated timestamp everywhere below: under the deleted
+        // clock heuristic this made every row "stalled". Server liveness
+        // must now be the ONLY input, so these prove no clock math remains.
+        const ancientUpdated = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
         it('returns false for null/undefined process', () => {
-            expect(isActiveProcess(null, now)).toBe(false);
-            expect(isActiveProcess(undefined, now)).toBe(false);
+            expect(isActiveProcess(null)).toBe(false);
+            expect(isActiveProcess(undefined)).toBe(false);
         });
 
-        it('returns false for terminal statuses regardless of updated timestamp', () => {
-            expect(isActiveProcess({ status: 'complete', updated: freshUpdated }, now)).toBe(false);
-            expect(isActiveProcess({ status: 'error', updated: freshUpdated }, now)).toBe(false);
-            expect(isActiveProcess({ status: 'cancelled', updated: freshUpdated }, now)).toBe(false);
+        it('returns false for terminal statuses (server sends liveness=null for them)', () => {
+            expect(isActiveProcess({ status: 'complete', liveness: null })).toBe(false);
+            expect(isActiveProcess({ status: 'error', liveness: null })).toBe(false);
+            expect(isActiveProcess({ status: 'cancelled', liveness: null })).toBe(false);
         });
 
-        it('returns true for pending/running with fresh updated', () => {
-            expect(isActiveProcess({ status: 'running', updated: freshUpdated }, now)).toBe(true);
-            expect(isActiveProcess({ status: 'pending', updated: freshUpdated }, now)).toBe(true);
+        it('returns true for running/pending with liveness=live — even with an ancient updated', () => {
+            expect(isActiveProcess({ status: 'running', liveness: 'live', updated: ancientUpdated })).toBe(true);
+            expect(isActiveProcess({ status: 'pending', liveness: 'live', updated: ancientUpdated })).toBe(true);
         });
 
-        it('returns false for running with stale updated (STALE_MS exceeded)', () => {
-            expect(isActiveProcess({ status: 'running', updated: staleUpdated }, now)).toBe(false);
+        it('provisioning exemption: provisioning rows stay active regardless of age (D5 — a Batch queue can hold a job for hours)', () => {
+            expect(isActiveProcess({ status: 'running', liveness: 'provisioning', updated: ancientUpdated })).toBe(true);
+            expect(isActiveProcess({ status: 'pending', liveness: 'provisioning', updated: ancientUpdated })).toBe(true);
         });
 
-        it('returns false for pending with stale updated', () => {
-            expect(isActiveProcess({ status: 'pending', updated: staleUpdated }, now)).toBe(false);
+        it('returns false when the SERVER says stalled — even with a fresh updated', () => {
+            const freshUpdated = new Date(Date.now() - 5000).toISOString();
+            expect(isActiveProcess({ status: 'running', liveness: 'stalled', updated: freshUpdated })).toBe(false);
+            expect(isActiveProcess({ status: 'pending', liveness: 'stalled', updated: freshUpdated })).toBe(false);
         });
 
-        it('returns true for running with NO updated field (conservative — assume alive)', () => {
-            expect(isActiveProcess({ status: 'running' }, now)).toBe(true);
+        it('returns false when the SERVER says zombie-candidate', () => {
+            expect(isActiveProcess({ status: 'running', liveness: 'zombie-candidate' })).toBe(false);
         });
 
-        it('STALE_MS is exported and a sane positive staleness window (FE-only stalled-badge signal)', () => {
-            expect(typeof STALE_MS).toBe('number');
-            // FE-only display signal (no BE reaper — TASK-1888 removed). Keep it a
-            // few poll-cycles wide so a slow-but-alive worker is not flagged early.
-            expect(STALE_MS > 0).toBe(true);
-            expect(STALE_MS <= 900000).toBe(true);
+        it('returns true for running with NO liveness field (synthetic FE rows, e.g. terrain-export) — conservative', () => {
+            expect(isActiveProcess({ status: 'running' })).toBe(true);
+        });
+
+        it('wedged is ADVISORY-ONLY (D5): a wedged live row is still active', () => {
+            expect(isActiveProcess({ status: 'running', liveness: 'live', wedged: true })).toBe(true);
         });
     });
 
-    describe('TASK-1887 getFilteredProcesses excludes stale running from active filter', () => {
-        const now = Date.now();
-        const freshUpdated = new Date(now - 60000).toISOString();
-        const staleUpdated = new Date(now - STALE_MS - 60000).toISOString();
+    describe('TASK-2674 getFilteredProcesses honours server liveness in the active filter', () => {
+        const ancientUpdated = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
         const makeState = (processes, filter = 'active') => ({
             taskMonitor: {
@@ -1130,30 +1135,74 @@ describe('TaskMonitor', () => {
             }
         });
 
-        it('stale running row is excluded from active filter', () => {
+        it('server-stalled running row is excluded from active filter; live row stays', () => {
             const state = makeState([
-                { id: 1, status: 'running', updated: freshUpdated },
-                { id: 2, status: 'running', updated: staleUpdated }
+                { id: 1, status: 'running', liveness: 'live' },
+                { id: 2, status: 'running', liveness: 'stalled' }
             ], 'active');
             const filtered = getFilteredProcesses(state);
             expect(filtered.length).toBe(1);
             expect(filtered[0].id).toBe(1);
         });
 
-        it('stale running row IS included in "all" filter', () => {
+        it('zombie-candidate row is excluded from active filter', () => {
             const state = makeState([
-                { id: 1, status: 'running', updated: staleUpdated }
-            ], 'all');
-            const filtered = getFilteredProcesses(state);
-            expect(filtered.length).toBe(1);
+                { id: 1, status: 'running', liveness: 'zombie-candidate' }
+            ], 'active');
+            expect(getFilteredProcesses(state).length).toBe(0);
         });
 
-        it('pending row with stale updated is excluded from active filter', () => {
+        it('provisioning row with an ancient updated IS included in active (exemption)', () => {
             const state = makeState([
-                { id: 1, status: 'pending', updated: staleUpdated }
+                { id: 1, status: 'running', liveness: 'provisioning', updated: ancientUpdated }
             ], 'active');
-            const filtered = getFilteredProcesses(state);
-            expect(filtered.length).toBe(0);
+            expect(getFilteredProcesses(state).length).toBe(1);
+        });
+
+        it('server-stalled row IS included in "all" filter', () => {
+            const state = makeState([
+                { id: 1, status: 'running', liveness: 'stalled' }
+            ], 'all');
+            expect(getFilteredProcesses(state).length).toBe(1);
+        });
+    });
+
+    // =========================================================================
+    // TASK-2674 — poll dedup must SEE read-time-derived transitions.
+    // liveness/wedged are derived by the serializer at READ time from
+    // last_heartbeat vs now: a live→stalled flip arrives with id/status/
+    // updated/progress_pct all unchanged. If processListsEqual ignored them,
+    // distinctUntilChanged would suppress the tick and the panel would show
+    // "live" forever — the exact lie this epic deletes.
+    // =========================================================================
+    describe('TASK-2674 processListsEqual sees liveness/wedged transitions', () => {
+        const base = { id: 1, status: 'running', updated: '2026-08-07T00:00:00Z', progress_pct: 50 };
+
+        it('equal lists (same liveness/wedged) are equal', () => {
+            expect(processListsEqual(
+                [{ ...base, liveness: 'live', wedged: false }],
+                [{ ...base, liveness: 'live', wedged: false }]
+            )).toBe(true);
+        });
+
+        it('a live→stalled flip with NO other field changing is NOT equal', () => {
+            expect(processListsEqual(
+                [{ ...base, liveness: 'live' }],
+                [{ ...base, liveness: 'stalled' }]
+            )).toBe(false);
+        });
+
+        it('a wedged flip with NO other field changing is NOT equal', () => {
+            expect(processListsEqual(
+                [{ ...base, liveness: 'live', wedged: false }],
+                [{ ...base, liveness: 'live', wedged: true }]
+            )).toBe(false);
+        });
+
+        it('still detects the pre-existing transitions (status/updated/progress_pct)', () => {
+            expect(processListsEqual([base], [{ ...base, progress_pct: 60 }])).toBe(false);
+            expect(processListsEqual([base], [{ ...base, status: 'complete' }])).toBe(false);
+            expect(processListsEqual([base], [{ ...base, updated: '2026-08-07T00:01:00Z' }])).toBe(false);
         });
     });
 });

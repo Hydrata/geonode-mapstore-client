@@ -5,44 +5,34 @@
  * to read TaskMonitor state without coupling.
  */
 
-// TASK-1887 (epic 1884 W3): staleness window for a RUNNING process.
-//
-// A Process whose `updated` timestamp has not advanced for STALE_MS is
-// treated as STALLED — the badge switches from a spinning "Running" to a
-// static "Stalled" label, and the progress bar is hidden. This is a purely
-// FE display signal: there is NO BE reaper (the TASK-1888 reaper was removed
-// after review found a stale `updated` is NOT a reliable dead-worker signal —
-// healthy long phases like ERA5 fetch / GeoServer publish don't advance it).
-// The stalled badge surfaces lingering tasks so a user can clear them by hand.
-//
-// Poll cadence: closed-panel=10s, open-panel=3s. 5 minutes gives ~100 missed
-// open-panel ticks before the FE signals stalled — a generous window that
-// flags a likely-stuck task without crying wolf on a slow-but-alive worker.
-export const STALE_MS = 300000; // 5 min — FE-only stalled-badge signal (no BE reaper; users clear lingering tasks)
-
 /**
  * isActiveProcess — exported so BOTH getFilteredProcesses and the epic's
  * setActiveCount use the SAME predicate (no duplicated status-list literal).
  *
+ * TASK-2674 (epic 2662 W2.4): liveness is SERVER truth. The serializer
+ * derives `liveness` (provisioning | live | stalled | zombie-candidate;
+ * null for terminal rows) at read time from last_heartbeat (D5/D7) — the
+ * FE-side five-minute clock heuristic (TASK-1887) is deleted and the FE
+ * never derives liveness again.
+ *
  * A process is "active" iff:
  *   - status is pending OR running, AND
- *   - (now - Date.parse(p.updated)) < STALE_MS
+ *   - the server has not declared it stalled / zombie-candidate.
  *
- * A running row whose updated timestamp is stale is considered "stalled" and
- * drops out of the active count / active filter list. The process record itself
- * stays in the store (the BE hasn't terminated it yet); ProcessRow renders a
- * "Stalled" badge instead of a spinning "Running" one.
+ * `provisioning` rows are active regardless of age (staleness-EXEMPT: a
+ * Batch queue can legitimately hold a job for hours before the container
+ * starts). A MISSING liveness field (synthetic FE rows like terrain-export,
+ * or older payload shapes) is treated as alive — conservative, matching the
+ * old "no timestamp → assume alive" stance. `wedged` is ADVISORY-ONLY (D5)
+ * and never demotes a row out of the active set.
  *
- * @param {object} p   Process object from the store.
- * @param {number} now Current timestamp (ms). Pass Date.now() in production;
- *                     injectable in tests for determinism.
+ * @param {object} p Process object from the store.
  * @returns {boolean}
  */
-export const isActiveProcess = (p, now) => {
+export const isActiveProcess = (p) => {
     if (!p) return false;
     if (p.status !== 'pending' && p.status !== 'running') return false;
-    if (!p.updated) return true; // no timestamp → assume alive (conservative)
-    return (now - Date.parse(p.updated)) < STALE_MS;
+    return p.liveness !== 'stalled' && p.liveness !== 'zombie-candidate';
 };
 
 export const getProcesses = (state) => state?.taskMonitor?.processes?.byId || {};
@@ -81,16 +71,16 @@ export const getProcessForObject = (state, processType, objectId) => {
 export const getFilteredProcesses = (state) => {
     const byId = getProcesses(state);
     const filter = getFilter(state);
-    const now = Date.now();
     return getAllProcessIds(state)
         .map(id => byId[id])
         .filter(p => {
             if (!p) return false;
             switch (filter) {
-            // TASK-1887: active filter excludes stale running rows (they are
-            // stalled — the BE hasn't reaped them yet, but the FE demotes them
-            // so they don't pollute the "active" count display).
-            case 'active': return isActiveProcess(p, now);
+            // TASK-2674: active filter excludes rows the SERVER declares
+            // stalled/zombie-candidate (the BE hasn't reaped them yet, but
+            // they don't pollute the "active" count display; they remain
+            // visible under the "all" filter with their liveness badge).
+            case 'active': return isActiveProcess(p);
             case 'completed': return p.status === 'complete';
             case 'failed': return p.status === 'error';
             case 'all': return true;
