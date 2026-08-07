@@ -162,24 +162,64 @@ describe('PlaybackIdentifyReadout — TASK-2628', () => {
     // box regardless of real layout, then a result change (adds rows, the
     // same trigger a real taller readout hits) is used to exercise
     // componentDidUpdate's re-clamp path.
+    //
+    // LIVE-CAUGHT REGRESSION (W6.5 self-verify, not karma): the first cut of
+    // this clamp wrote a viewport-relative left/top straight onto the
+    // element's CSS-default `position: absolute` — but `absolute` positions
+    // relative to the nearest POSITIONED ANCESTOR, not the viewport,
+    // wherever that ancestor happens to sit. In the real app (nested deep in
+    // MapStore's layout) that put the "fixed" panel at `top:1004px,
+    // left:-297px` on a 766px-tall window — MORE broken than the original
+    // bug. A plain `document.body`-appended container (no offset ancestor)
+    // does not reproduce this — body's own origin ≈ the viewport origin, so
+    // `absolute` and `fixed` looked identical there (same class of "test
+    // data hides the bug" trap as an xllcorner=0 SWW fixture, memory:
+    // reference-prove-the-detector-before-trusting-a-zero). This describe
+    // wraps its container in an OFFSET positioned ancestor so a viewport-
+    // relative write onto an `absolute`-positioned element would land
+    // visibly wrong, the same way the real layout did.
     describe('viewport clamping', () => {
-        it('clamps an out-of-viewport box back inside the visible window', () => {
+        let offsetAncestor;
+        let offsetContainer;
+        beforeEach(() => {
+            offsetAncestor = document.createElement('div');
+            offsetAncestor.style.position = 'absolute';
+            offsetAncestor.style.left = '300px';
+            offsetAncestor.style.top = '200px';
+            document.body.appendChild(offsetAncestor);
+            offsetContainer = document.createElement('div');
+            offsetAncestor.appendChild(offsetContainer);
+        });
+        afterEach(() => {
+            ReactDOM.unmountComponentAtNode(offsetContainer);
+            document.body.removeChild(offsetAncestor);
+        });
+
+        it('clamps an out-of-viewport box back inside the visible window (position:fixed, not absolute)', () => {
             const result1 = { located: true, surface: 'vertex-smoothed', depth: 1, speed: 2, wet: true };
-            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result1} />, container);
-            const el = container.querySelector('[data-testid="playback-identify-readout"]');
+            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result1} />, offsetContainer);
+            const el = offsetContainer.querySelector('[data-testid="playback-identify-readout"]');
             expect(el).toExist();
 
             // Simulate the UAT repro: a box straddling the bottom-left edge
-            // (partly off-screen on both axes).
+            // (partly off-screen on both axes), measured in VIEWPORT space —
+            // exactly what the real getBoundingClientRect() returns.
             el.getBoundingClientRect = () => ({
                 left: -40, top: window.innerHeight + 20, width: 200, height: 150,
                 right: 160, bottom: window.innerHeight + 170
             });
 
             const result2 = { ...result1, stage: 11.5, div: 2, froude: 0.64 };
-            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result2} />, container);
+            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result2} />, offsetContainer);
 
             expect(el.style.left).toNotBe(''); // clamp applied an inline override
+            // The regression: writing viewport-relative coordinates onto a
+            // `position: absolute` element (relative to offsetAncestor,
+            // itself offset 300/200 from the viewport) would land it at the
+            // WRONG place. `fixed` is unambiguous — its own containing block
+            // IS the viewport here, so this assertion is the one that would
+            // have caught the live bug.
+            expect(el.style.position).toBe('fixed');
             const left = parseFloat(el.style.left);
             const top = parseFloat(el.style.top);
             expect(left).toBeGreaterThanOrEqualTo(0);
@@ -190,12 +230,12 @@ describe('PlaybackIdentifyReadout — TASK-2628', () => {
 
         it('leaves position untouched when the box already fits (no gratuitous inline style)', () => {
             const result = { located: true, surface: 'vertex-smoothed', depth: 1, speed: 2, wet: true };
-            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result} />, container);
-            const el = container.querySelector('[data-testid="playback-identify-readout"]');
+            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result} />, offsetContainer);
+            const el = offsetContainer.querySelector('[data-testid="playback-identify-readout"]');
             el.getBoundingClientRect = () => ({ left: 8, top: 8, width: 200, height: 150, right: 208, bottom: 158 });
 
             const result2 = { ...result, stage: 11.5 };
-            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result2} />, container);
+            ReactDOM.render(<PlaybackIdentifyReadoutComponent result={result2} />, offsetContainer);
 
             expect(el.style.left).toBe('');
             expect(el.style.top).toBe('');

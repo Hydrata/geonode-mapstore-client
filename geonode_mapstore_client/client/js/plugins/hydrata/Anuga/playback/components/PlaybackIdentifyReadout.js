@@ -95,8 +95,22 @@ export class PlaybackIdentifyReadoutComponent extends React.Component {
             const left = Math.min(Math.max(rect.left, VIEWPORT_MARGIN_PX), maxLeft);
             const top = Math.min(Math.max(rect.top, VIEWPORT_MARGIN_PX), maxTop);
             if (left !== rect.left || top !== rect.top) {
+                // getBoundingClientRect() is ALWAYS viewport-relative, but the
+                // CSS default here is `position: absolute` (anuga.css), which
+                // positions relative to the nearest POSITIONED ANCESTOR — not
+                // the viewport. This component is nested deep inside
+                // MapStore's layout, whose positioned ancestors sit well
+                // below/right of the viewport origin, so writing a
+                // viewport-relative `left`/`top` straight onto an
+                // `absolute`-positioned element landed it far off-screen
+                // (caught live, W6.5: rect showed `top:1004px, left:-297px`
+                // on a 766px-tall window). `position: fixed` establishes ITS
+                // OWN containing block at the viewport (mdn: the initial
+                // containing block, barring a transformed/filtered ancestor —
+                // not the case here), so a viewport-relative left/top is
+                // finally the same coordinate space the measurement used.
                 this.setState({
-                    clampStyle: { left: `${left}px`, top: `${top}px`, bottom: 'auto', right: 'auto' }
+                    clampStyle: { position: 'fixed', left: `${left}px`, top: `${top}px`, bottom: 'auto', right: 'auto' }
                 });
             }
         });
