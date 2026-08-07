@@ -273,6 +273,7 @@
         "meshComparisonLabel": "Bati: {actual} triyang (estime {estimate})",
         "results": "Rezilta",
         "viewResults": "Wè Rezilta",
+        "resultsNoRuns": "Poko gen senaryo ki gen egzekisyon konplè ak rezilta.",
         "retry": "Eseye ankò",
         "retryError": "Echèk nan eseye ankò",
         "retrySuccess": "Egzekisyon reinisyalize — pare pou relanse",

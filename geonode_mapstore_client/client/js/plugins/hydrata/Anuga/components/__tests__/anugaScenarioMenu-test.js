@@ -37,7 +37,13 @@ import { Simulate } from 'react-dom/test-utils';
 import { Provider } from 'react-redux';
 import { createStore, combineReducers } from 'redux';
 
-import { AnugaScenarioMenu, AnugaScenarioMenuClass } from '../anugaScenarioMenu';
+import {
+    AnugaScenarioMenu, AnugaScenarioMenuClass,
+    // TASK-2684 (W6.75.2, epic 2618) — Results menu redesign exports.
+    AnugaResultsMenu, AnugaResultsMenuClass,
+    buildPlaybackManifestUrl, scenarioHasActivatablePlayback, ANUGA_RESULTS_PLAYBACK_LAYER_ID
+} from '../anugaScenarioMenu';
+import { PLAYBACK_INIT } from '../../playback/actions/playbackActions';
 // TASK-2194 (review fix) — real reducer tree + action creators for the
 // session compute-target integration block (drives the REAL store paths the
 // original fixture-seeded specs bypassed).
@@ -54,7 +60,7 @@ import {
     BUILD_SCENARIO
 } from '../../actionsAnuga';
 
-function makeStore({archiveFilter = 'none', scenariosArr = []} = {}) {
+function makeStore({archiveFilter = 'none', scenariosArr = [], anugaPlayback} = {}) {
     const byId = {};
     const allIds = [];
     scenariosArr.forEach(s => {
@@ -71,7 +77,10 @@ function makeStore({archiveFilter = 'none', scenariosArr = []} = {}) {
                 structures: [], meshRegions: [], networks: []
             }
         },
-        security: { user: { pk: 9999 } }
+        security: { user: { pk: 9999 } },
+        // TASK-2684 — AnugaResultsMenu reads this for the "active" row
+        // highlight; defaults to no run loaded (IDLE-equivalent runId null).
+        anugaPlayback: anugaPlayback || { runId: null, layerId: null }
     };
     const dispatched = [];
     return {
@@ -399,6 +408,39 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(container.querySelector('.sv-anuga-btn-view-results')).toNotExist();
         });
 
+        // TASK-2684 (W6.75.2, epic 2618) — View Results now activates
+        // playback for the scenario instead of toggling the 3 static
+        // max-raster layers' visibility.
+        it('clicking View Results dispatches playbackInit with the run id, the stable layer id, and the run\'s manifest URL', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_complete_run: {id: 501, status: 'complete', has_playback_store: true}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            container.querySelector('.sv-anuga-btn-view-results').click();
+            const initAction = store.__actions().find(a => a.type === PLAYBACK_INIT);
+            expect(initAction).toExist();
+            expect(initAction.runId).toBe('501');
+            expect(initAction.layerId).toBe(ANUGA_RESULTS_PLAYBACK_LAYER_ID);
+            expect(initAction.manifestUrl).toBe(buildPlaybackManifestUrl(501));
+        });
+
+        it('clicking View Results is a no-op (pre-authorized tradeoff) when the complete run has no playback store', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_complete_run: {id: 501, status: 'complete', has_playback_store: false}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            container.querySelector('.sv-anuga-btn-view-results').click();
+            expect(store.__actions().find(a => a.type === PLAYBACK_INIT)).toNotExist();
+        });
+
         // TASK-2243 (epic 2237 W2.1) — the freshness banner relocated into
         // the notices panel (scenarioPane.js's ScenarioNoticesPanel, nested
         // INSIDE this same AnugaScenarioMenu tree via renderPane), under new
@@ -469,6 +511,206 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(container.querySelector('.sv-anuga-scenario-results-freshness-failed-hint')).toNotExist();
             expect(container.querySelector('.sv-anuga-scenario-results-freshness-building-hint')).toNotExist();
         });
+    });
+});
+
+// TASK-2684 (W6.75.2, epic 2618) — Results menu simplification: one row per
+// scenario, no per-quantity (Depth/Velocity/Depth Integrated Velocity)
+// selectors or their column.
+describe('scenarioHasActivatablePlayback / buildPlaybackManifestUrl (pure helpers)', () => {
+    it('buildPlaybackManifestUrl mirrors the built-mesh-binary sibling action\'s URL shape', () => {
+        expect(buildPlaybackManifestUrl(501)).toBe('/api/v2/anuga/runs/501/playback-manifest/');
+    });
+
+    it('a complete run WITH has_playback_store is activatable', () => {
+        expect(scenarioHasActivatablePlayback({latest_complete_run: {id: 1, has_playback_store: true}})).toBe(true);
+    });
+
+    it('a complete run WITHOUT has_playback_store is NOT activatable (pre-authorized tradeoff)', () => {
+        expect(scenarioHasActivatablePlayback({latest_complete_run: {id: 1, has_playback_store: false}})).toBe(false);
+        expect(scenarioHasActivatablePlayback({latest_complete_run: {id: 1}})).toBe(false);
+    });
+
+    it('no complete run at all is NOT activatable', () => {
+        expect(scenarioHasActivatablePlayback({latest_complete_run: null})).toBe(false);
+        expect(scenarioHasActivatablePlayback({})).toBe(false);
+        expect(scenarioHasActivatablePlayback(null)).toBe(false);
+    });
+});
+
+describe('AnugaResultsMenuClass (unconnected — rendering logic)', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('renders exactly one row per scenario with an activatable run, labelled with the scenario name', () => {
+        const scenarios = [
+            makeScenario(1, 'Baseline', {latest_complete_run: {id: 101, has_playback_store: true}}),
+            makeScenario(2, 'Upstream diversion', {latest_complete_run: {id: 102, has_playback_store: true}})
+        ];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={() => {}} />,
+            container
+        );
+        const rows = container.querySelectorAll('.sv-anuga-results-row');
+        expect(rows.length).toBe(2);
+        expect(rows[0].textContent).toBe('Baseline');
+        expect(rows[1].textContent).toBe('Upstream diversion');
+    });
+
+    it('AC: no Depth / Velocity / Depth Integrated Velocity selectors or column anywhere in the output', () => {
+        const scenarios = [makeScenario(1, 'Baseline', {latest_complete_run: {id: 101, has_playback_store: true}})];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={() => {}} />,
+            container
+        );
+        const text = container.textContent;
+        expect(text).toNotMatch(/Depth Integrated Velocity/);
+        expect(text).toNotMatch(/\bVelocity\b/);
+        // A bare "Depth" WOULD false-positive on a scenario literally named
+        // "Depth" — not a concern here (fixture scenario names above), so a
+        // direct substring check is safe and simpler than a DOM-structure walk.
+        expect(text).toNotMatch(/\bDepth\b/);
+    });
+
+    it('excludes a scenario with no complete run (row absent, not a dead affordance)', () => {
+        const scenarios = [
+            makeScenario(1, 'Baseline', {latest_complete_run: {id: 101, has_playback_store: true}}),
+            makeScenario(2, 'No runs yet', {latest_complete_run: null})
+        ];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={() => {}} />,
+            container
+        );
+        const rows = container.querySelectorAll('.sv-anuga-results-row');
+        expect(rows.length).toBe(1);
+        expect(rows[0].textContent).toBe('Baseline');
+    });
+
+    it('excludes a scenario whose complete run has NO playback store (pre-authorized tradeoff — same treatment as no complete run)', () => {
+        const scenarios = [
+            makeScenario(1, 'Baseline', {latest_complete_run: {id: 101, has_playback_store: true}}),
+            makeScenario(2, 'Legacy run', {latest_complete_run: {id: 102, has_playback_store: false}})
+        ];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={() => {}} />,
+            container
+        );
+        const rows = container.querySelectorAll('.sv-anuga-results-row');
+        expect(rows.length).toBe(1);
+        expect(rows[0].textContent).toBe('Baseline');
+    });
+
+    it('renders a clear non-actionable empty state when NO scenario has an activatable run', () => {
+        const scenarios = [makeScenario(1, 'Baseline', {latest_complete_run: null})];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={() => {}} />,
+            container
+        );
+        expect(container.querySelectorAll('.sv-anuga-results-row').length).toBe(0);
+        expect(container.querySelector('[data-testid="anuga-results-empty"]')).toExist();
+    });
+
+    it('marks the row matching activeRunId as active; only ONE row is ever active', () => {
+        const scenarios = [
+            makeScenario(1, 'Baseline', {latest_complete_run: {id: 101, has_playback_store: true}}),
+            makeScenario(2, 'Alternate', {latest_complete_run: {id: 102, has_playback_store: true}})
+        ];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={'102'} onSelectScenario={() => {}} />,
+            container
+        );
+        const rows = container.querySelectorAll('.sv-anuga-results-row');
+        const activeRows = [...rows].filter(r => r.className.includes('active'));
+        expect(activeRows.length).toBe(1);
+        expect(activeRows[0].textContent).toBe('Alternate');
+    });
+
+    it('clicking a row calls onSelectScenario with that scenario', () => {
+        const scenario = makeScenario(1, 'Baseline', {latest_complete_run: {id: 101, has_playback_store: true}});
+        let selected = null;
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={[scenario]} activeRunId={null} onSelectScenario={(s) => { selected = s; }} />,
+            container
+        );
+        container.querySelector('.sv-anuga-results-row').click();
+        expect(selected).toBe(scenario);
+    });
+});
+
+describe('AnugaResultsMenu (connected)', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('selecting a scenario dispatches playbackInit (activates playback) and closes the Scenarios menu', () => {
+        const s1 = makeScenario(21, 'Baseline', {latest_complete_run: {id: 501, has_playback_store: true}});
+        const store = makeStore({scenariosArr: [s1]});
+        ReactDOM.render(
+            <Provider store={store}><AnugaResultsMenu /></Provider>,
+            container
+        );
+        container.querySelector('.sv-anuga-results-row').click();
+        const actions = store.__actions();
+        const initAction = actions.find(a => a.type === PLAYBACK_INIT);
+        expect(initAction).toExist();
+        expect(initAction.runId).toBe('501');
+        expect(initAction.layerId).toBe(ANUGA_RESULTS_PLAYBACK_LAYER_ID);
+        expect(initAction.manifestUrl).toBe(buildPlaybackManifestUrl(501));
+        // setAnugaScenarioMenu(false) — SET_ANUGA_SCENARIO_MENU action type,
+        // imported indirectly via its dispatched shape (no new import needed:
+        // asserting the visible flag lands on the payload is enough here).
+        expect(actions.some(a => a.visible === false)).toBe(true);
+    });
+
+    it('GIVEN a second scenario is selected THEN the first is no longer the active run (never two active at once)', () => {
+        const s1 = makeScenario(21, 'Baseline', {latest_complete_run: {id: 501, has_playback_store: true}});
+        const s2 = makeScenario(22, 'Alternate', {latest_complete_run: {id: 502, has_playback_store: true}});
+        // Simulate scenario 1 already active (as if a prior PLAYBACK_INIT landed).
+        const store = makeStore({scenariosArr: [s1, s2], anugaPlayback: {runId: '501', layerId: ANUGA_RESULTS_PLAYBACK_LAYER_ID}});
+        ReactDOM.render(
+            <Provider store={store}><AnugaResultsMenu /></Provider>,
+            container
+        );
+        const rows = container.querySelectorAll('.sv-anuga-results-row');
+        const s1Row = [...rows].find(r => r.textContent === 'Baseline');
+        const s2Row = [...rows].find(r => r.textContent === 'Alternate');
+        expect(s1Row.className).toContain('active');
+        expect(s2Row.className).toNotContain('active');
+        // Select scenario 2 — the SAME stable layerId means playbackInitEpic
+        // replaces the single active run in place (playbackController's
+        // reducer state is a runId/layerId singleton), never two active runs.
+        s2Row.click();
+        const initAction = store.__actions().find(a => a.type === PLAYBACK_INIT);
+        expect(initAction.runId).toBe('502');
+        expect(initAction.layerId).toBe(ANUGA_RESULTS_PLAYBACK_LAYER_ID); // SAME id as scenario 1's — replaces in place
+    });
+
+    it('clicking a non-actionable row is impossible — the row is simply absent', () => {
+        const s1 = makeScenario(21, 'No runs', {latest_complete_run: null});
+        const store = makeStore({scenariosArr: [s1]});
+        ReactDOM.render(
+            <Provider store={store}><AnugaResultsMenu /></Provider>,
+            container
+        );
+        expect(container.querySelectorAll('.sv-anuga-results-row').length).toBe(0);
+        expect(store.__actions().find(a => a.type === PLAYBACK_INIT)).toNotExist();
     });
 });
 

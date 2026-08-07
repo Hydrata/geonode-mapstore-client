@@ -273,6 +273,7 @@
         "meshComparisonLabel": "Construido: {actual} triángulos (estimado {estimate})",
         "results": "Resultados",
         "viewResults": "Ver Resultados",
+        "resultsNoRuns": "Ningún escenario tiene ejecuciones completadas con resultados todavía.",
         "retry": "Reintentar",
         "retryError": "Error al reintentar",
         "retrySuccess": "Ejecución reiniciada — lista para relanzar",

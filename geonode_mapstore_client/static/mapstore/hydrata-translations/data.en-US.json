@@ -273,6 +273,7 @@
         "meshComparisonLabel": "Built: {actual} triangles (estimated {estimate})",
         "results": "Results",
         "viewResults": "View Results",
+        "resultsNoRuns": "No scenarios have completed runs with results yet.",
         "retry": "Retry",
         "retryError": "Failed to retry run",
         "retrySuccess": "Run reset — ready to re-run",

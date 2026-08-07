@@ -3151,3 +3151,41 @@ span.sv-scenario-run-price--short {
     margin-top: 6px;
     line-height: 1.3;
 }
+
+/* TASK-2684 (W6.75.2, epic 2618) — Results menu: one row per scenario.
+   Same box/pill language as .sv-subheading-row (simpleView.css), but each
+   row is itself the clickable affordance (no expand/collapse, no nested
+   per-quantity rows). */
+.sv-anuga-results-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+}
+.sv-anuga-results-row {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    margin: 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: Montserrat, sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+}
+.sv-anuga-results-row:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+.sv-anuga-results-row.active {
+    border-color: var(--sv-input-blue, #5178af);
+    background-color: rgba(81, 120, 175, 0.35);
+}
+.sv-anuga-results-empty {
+    padding: 10px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.4;
+}
