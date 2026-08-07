@@ -670,6 +670,11 @@
         "statusPending": "Pending",
         "statusRunning": "Running",
         "statusStalled": "Stalled",
+        "statusProvisioning": "Provisioning",
+        "statusUnresponsive": "Unresponsive",
+        "eta": "ETA",
+        "wedgedAdvisory": "Low CPU",
+        "wedgedAdvisoryTitle": "Heartbeats are arriving but CPU is near zero — advisory only",
         "statusComplete": "Complete",
         "statusError": "Error",
         "statusCancelled": "Cancelled"

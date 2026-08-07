@@ -19,9 +19,6 @@ import React from 'react';
 const PropTypes = require('prop-types');
 import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {StatusBadge, ProgressBar} from '../../SimpleView/components/primitives';
-// TASK-1887: import STALE_MS so staleness is computed from the same constant
-// as getFilteredProcesses and isActiveProcess (no duplicated literal).
-import { STALE_MS } from '../selectorsTaskMonitor';
 
 // hydrata.taskMonitor.statusRunning / statusPending / statusComplete /
 // statusError / statusCancelled — the exact key scheme the legacy span used
@@ -30,10 +27,41 @@ import { STALE_MS } from '../selectorsTaskMonitor';
 const statusMsgId = (status) =>
     `hydrata.taskMonitor.status${status.charAt(0).toUpperCase()}${status.slice(1)}`;
 
-// TASK-1887: stalled-specific i18n key — a running row whose updated timestamp
-// has not advanced for STALE_MS shows a distinct "Stalled" badge instead of
-// a spinning "Running" one (the BE hasn't reaped it yet).
-const STALLED_MSG_ID = 'hydrata.taskMonitor.statusStalled';
+// TASK-2674 (epic 2662 W2.4): liveness is SERVER truth (serializer-derived
+// from last_heartbeat, D5/D7) — the FE clock-staleness heuristic is deleted.
+// Each non-live liveness state maps to its own badge + i18n key:
+//   stalled           — >3 missed heartbeats (server threshold)
+//   zombie-candidate  — >15 min silent; reaper confirms before acting, so the
+//                       user-facing label is "Unresponsive", not "zombie"
+//   provisioning      — no telemetry event yet; staleness-EXEMPT (a Batch
+//                       queue can hold a job for hours before the container
+//                       starts). Only badged while there is no progress yet:
+//                       processes that never speak telemetry (celery types)
+//                       read provisioning forever server-side, and once
+//                       progress_pct is being written the working status
+//                       badge is the truthful display.
+const LIVENESS_BADGES = {
+    'stalled': { badge: 'stalled', msgId: 'hydrata.taskMonitor.statusStalled' },
+    'zombie-candidate': { badge: 'zombie-candidate', msgId: 'hydrata.taskMonitor.statusUnresponsive' },
+    'provisioning': { badge: 'provisioning', msgId: 'hydrata.taskMonitor.statusProvisioning' }
+};
+
+// Liveness states in which the row is NOT making progress — suppress the
+// progress bar (a frozen mid-bar on a stuck process is misleading).
+const isSilent = (liveness) => liveness === 'stalled' || liveness === 'zombie-candidate';
+
+/**
+ * Compact "2h 15m" / "3m 20s" / "45s" rendering of the server's eta_seconds.
+ * Returns null for anything non-numeric or negative (render nothing).
+ * Exported for tests.
+ */
+export const formatEtaSeconds = (etaSeconds) => {
+    if (typeof etaSeconds !== 'number' || !isFinite(etaSeconds) || etaSeconds < 0) return null;
+    const s = Math.round(etaSeconds);
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+    return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+};
 
 const typeIcons = {
     anuga_run: 'glyphicon-flash',
@@ -46,19 +74,8 @@ const typeIcons = {
     comparison: 'glyphicon-transfer'
 };
 
-// TASK-1887: detect whether a running process has gone stale (no update for STALE_MS).
-// Stale running = stalled. Other statuses are never stale by this definition.
-const isStale = (process) => {
-    if (process.status !== 'running') return false;
-    if (!process.updated) return false;
-    return (Date.now() - Date.parse(process.updated)) >= STALE_MS;
-};
-
-// Map TaskMonitor process status → StatusBadge status.
-// TASK-1887: a stalled running row gets a distinct 'stalled' badge status
-// (distinct CSS class via StatusBadge's is-<status> convention).
-const toBadgeStatus = (status, stalled) => {
-    if (stalled) return 'stalled';
+// Map TaskMonitor process status → StatusBadge status token.
+const toBadgeStatus = (status) => {
     switch (status) {
     case 'running':   return 'running';
     case 'pending':   return 'pending';
@@ -67,6 +84,19 @@ const toBadgeStatus = (status, stalled) => {
     case 'cancelled': return 'cancelled';
     default:          return 'pending';
     }
+};
+
+// TASK-2674: which liveness badge (if any) overrides the plain status badge.
+// stalled/zombie-candidate ALWAYS override; provisioning only until the row
+// shows progress (see LIVENESS_BADGES comment). Terminal rows arrive with
+// liveness=null and synthetic FE rows (terrain-export) carry no liveness at
+// all — both fall through to the plain status badge.
+const livenessBadge = (process) => {
+    const entry = LIVENESS_BADGES[process.liveness];
+    if (!entry) return null;
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+    if (process.liveness === 'provisioning' && process.progress_pct != null) return null;
+    return entry;
 };
 
 // 'processing' renders as "Processing Results" so users see the post-evolve
@@ -100,27 +130,57 @@ class ProcessRow extends React.Component {
         const messages = (this.context && this.context.messages) || {};
         const icon = typeIcons[process.process_type] || 'glyphicon-cog';
 
-        // TASK-1887: stalled detection. A stale running row shows no progress
-        // bar (mid-bar on a stuck process is misleading) and a distinct stalled
-        // badge instead of a spinning "Running" one.
-        const stalled = isStale(process);
+        // TASK-2674: liveness rendered VERBATIM from the server (no FE clock
+        // math). Badge precedence:
+        //   1. server stalled / zombie-candidate  → their badges, always
+        //   2. pending + status_detail            → detailAsBadge (existing
+        //      pending sub-state contract, e.g. "Built")
+        //   3. provisioning (no progress yet)     → Provisioning badge
+        //   4. plain status badge
+        const lBadge = livenessBadge(process);
+        const silent = isSilent(process.liveness);
 
-        // showProgress: only for actively-running rows with a known progress_pct.
-        // Stalled, complete, error, cancelled rows must never render a progress bar.
+        // showProgress: only for running rows with a known progress_pct that
+        // the server does not declare silent. Complete/error/cancelled rows
+        // never render a progress bar.
         // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
-        const showProgress = process.status === 'running' && !stalled && process.progress_pct != null;
+        const showProgress = process.status === 'running' && !silent && process.progress_pct != null;
+
+        // ETA is server-computed (eta_seconds, D7) and only meaningful next
+        // to a live progress bar.
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+        const etaText = showProgress && process.eta_seconds != null
+            ? formatEtaSeconds(process.eta_seconds)
+            : null;
+
+        // Container-reported phase (mesh-gen, evolve, …) — its own line, only
+        // while the process is non-terminal (a frozen last phase is noise).
+        const showPhase = !!process.phase
+            && (process.status === 'pending' || process.status === 'running');
 
         const detailAsBadge = process.status === 'pending' && !!process.status_detail;
         // Restore the translated status label dropped in the 1665 primitive
-        // migration (TASK-1679). For the pending-detail sub-state the badge keeps
-        // showing the formatted status_detail; otherwise it shows the localised
-        // status word instead of StatusBadge's raw-key fallback.
-        // TASK-1887: stalled rows use the dedicated STALLED_MSG_ID key.
-        const badgeLabel = detailAsBadge
-            ? formatStatusDetail(process.status_detail)
-            : stalled
-                ? getMessageById(messages, STALLED_MSG_ID)
-                : getMessageById(messages, statusMsgId(process.status));
+        // migration (TASK-1679). Badge precedence per the TASK-2674 comment
+        // above; every label flows through getMessageById (i18n). When
+        // `silent` is true `lBadge` is always set (both silent states have
+        // LIVENESS_BADGES entries).
+        let badgeStatus;
+        let badgeLabel;
+        if (silent || (lBadge && !detailAsBadge)) {
+            badgeStatus = lBadge.badge;
+            badgeLabel = getMessageById(messages, lBadge.msgId);
+        } else if (detailAsBadge) {
+            badgeStatus = toBadgeStatus(process.status);
+            badgeLabel = formatStatusDetail(process.status_detail);
+        } else {
+            badgeStatus = toBadgeStatus(process.status);
+            badgeLabel = getMessageById(messages, statusMsgId(process.status));
+        }
+
+        // wedged: ADVISORY-ONLY (D5) — heartbeating but ~0 CPU. A small hint
+        // beside the badge; never changes the badge, the progress bar, or the
+        // active filter (a GPU-bound engine legitimately idles the CPU).
+        const wedged = process.wedged === true;
 
         // TASK-1887: show a truncated error_message snippet in the COLLAPSED row
         // when status=error so the user sees the failure reason without expanding.
@@ -141,8 +201,16 @@ class ProcessRow extends React.Component {
                 <div className="sv-tm-row-content">
                     <div className="sv-tm-row-header">
                         <span className="sv-tm-process-name">{process.name}</span>
+                        {wedged ? (
+                            <span
+                                className="sv-tm-wedged-advisory"
+                                title={getMessageById(messages, 'hydrata.taskMonitor.wedgedAdvisoryTitle')}
+                            >
+                                {getMessageById(messages, 'hydrata.taskMonitor.wedgedAdvisory')}
+                            </span>
+                        ) : null}
                         <StatusBadge
-                            status={toBadgeStatus(process.status, stalled)}
+                            status={badgeStatus}
                             label={badgeLabel}
                             compact
                         />
@@ -150,8 +218,14 @@ class ProcessRow extends React.Component {
                     {!detailAsBadge && process.status_detail ? (
                         <span className="sv-tm-status-detail">{formatStatusDetail(process.status_detail)}</span>
                     ) : null}
+                    {showPhase ? (
+                        <span className="sv-tm-phase">{formatStatusDetail(process.phase)}</span>
+                    ) : null}
                     {showProgress ? (
                         <ProgressBar pct={process.progress_pct} />
+                    ) : null}
+                    {etaText ? (
+                        <span className="sv-tm-eta">{`${getMessageById(messages, 'hydrata.taskMonitor.eta')} ${etaText}`}</span>
                     ) : null}
                     {errorSnippet ? (
                         <span className="sv-tm-error-message">{errorSnippet}</span>

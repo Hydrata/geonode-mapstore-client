@@ -60,3 +60,22 @@
     flex-direction: column;
     box-shadow: -2px 0 8px rgba(0, 0, 0, 0.4);
 }
+
+/* TASK-2674 (epic 2662 W2.4) — server-truth telemetry elements in ProcessRow.
+   Same muted small-text treatment as .sv-tm-status-detail (simpleView.css). */
+.sv-tm-phase,
+.sv-tm-eta {
+    font-size: var(--sv-font-size, 12px);
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    margin-top: 2px;
+}
+
+/* wedged is ADVISORY-ONLY (D5): a quiet hint beside the badge, deliberately
+   NOT an alarm colour — heartbeats are arriving; nothing may act on this. */
+.sv-tm-wedged-advisory {
+    font-size: var(--sv-font-size, 12px);
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    margin-right: 6px;
+    white-space: nowrap;
+    cursor: help;
+}

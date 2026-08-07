@@ -670,6 +670,11 @@
         "statusPending": "Ap tann",
         "statusRunning": "Ap kouri",
         "statusStalled": "Bloke",
+        "statusProvisioning": "Ap prepare",
+        "statusUnresponsive": "Pa reponn",
+        "eta": "Tan ki rete",
+        "wedgedAdvisory": "CPU fèb",
+        "wedgedAdvisoryTitle": "Batman kè ap rive men CPU prèske zewo — avètisman sèlman",
         "statusComplete": "Fini",
         "statusError": "Erè",
         "statusCancelled": "Anile"

@@ -19,14 +19,14 @@
  * changed from hand-rolled tm-badge-* to StatusBadge primitive (.sv-status-badge).
  * The detailAsBadge and status_detail behaviours are structurally preserved.
  *
- * TASK-1887: staleness guard (stalled badge + no progress bar + inline error
- * snippet) asserted in the describe block below.
+ * TASK-2674 (epic 2662 W2.4): the FE clock-staleness heuristic is DELETED.
+ * Liveness/phase/ETA/wedged arrive from the serializer and are rendered
+ * verbatim — asserted in the server-truth describe block below.
  */
 import expect from 'expect';
 import React from 'react';
 import mountWithProviders from '../../../../../__tests__/helpers/mountWithProviders';
-import ProcessRow from '../ProcessRow';
-import { STALE_MS } from '../../selectorsTaskMonitor';
+import ProcessRow, { formatEtaSeconds } from '../ProcessRow';
 
 const noop = () => {};
 
@@ -172,51 +172,219 @@ describe('TASK-743 ProcessRow DOM', () => {
 });
 
 // ============================================================================
-// TASK-1887 — staleness guard (stalled badge, no progress bar, error snippet)
+// TASK-2674 (epic 2662 W2.4) — ProcessRow renders SERVER truth verbatim:
+// liveness drives the stalled/unresponsive/provisioning badges, phase and
+// eta_seconds render as their own elements, wedged is advisory-only display.
+// The FE never derives liveness (clock heuristic deleted) — proven by feeding
+// timestamps that would have inverted every verdict under the old heuristic.
 // ============================================================================
 
-describe('TASK-1887 ProcessRow staleness', () => {
-    // Stale timestamp: older than STALE_MS so isStale() returns true.
-    const staleUpdated = new Date(Date.now() - STALE_MS - 60000).toISOString();
-    // Fresh timestamp: well within STALE_MS.
-    const freshUpdated = new Date(Date.now() - 30000).toISOString();
+describe('TASK-2674 ProcessRow server-truth liveness', () => {
+    // Under the deleted heuristic: ancient => "stalled", fresh => "running".
+    // Server liveness must now win in BOTH directions.
+    const ancientUpdated = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const freshUpdated = new Date(Date.now() - 5000).toISOString();
 
-    it('stale running row shows no progress bar', () => {
+    it('liveness=stalled shows the stalled badge even with a FRESH updated (server wins)', () => {
         const { container } = mountWithProviders(
             <ProcessRow
-                process={{ id: 1, name: 'Upload', process_type: 'terrain_create', status: 'running', progress_pct: 50, updated: staleUpdated }}
-                onClick={noop}
-            />
-        );
-        // AC-3: showProgress false for stale running → no progress bar
-        expect(container.querySelector('.sv-progress-track')).toNotExist();
-    });
-
-    it('fresh running row still shows progress bar', () => {
-        const { container } = mountWithProviders(
-            <ProcessRow
-                process={{ id: 2, name: 'Upload', process_type: 'terrain_create', status: 'running', progress_pct: 50, updated: freshUpdated }}
-                onClick={noop}
-            />
-        );
-        expect(container.querySelector('.sv-progress-track')).toExist();
-    });
-
-    it('stale running row shows a stalled badge (distinct i18n key)', () => {
-        const { container } = mountWithProviders(
-            <ProcessRow
-                process={{ id: 3, name: 'Upload', process_type: 'terrain_create', status: 'running', updated: staleUpdated }}
+                process={{ id: 1, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'stalled', updated: freshUpdated }}
                 onClick={noop}
             />
         );
         const badge = container.querySelector('.sv-status-badge');
         expect(badge).toExist();
-        // The badge resolves via getMessageById with STALLED_MSG_ID
-        // (no catalogue in test → returns the msgId unchanged — named proof).
         expect(badge.textContent).toInclude('hydrata.taskMonitor.statusStalled');
-        // Must NOT be the standard running key
         expect(badge.textContent).toNotInclude('hydrata.taskMonitor.statusRunning');
     });
+
+    it('liveness=live keeps the Running badge + progress bar even with an ANCIENT updated (the epic-2662 bug: healthy long runs were flagged stalled)', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 2, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'live', progress_pct: 50, updated: ancientUpdated }}
+                onClick={noop}
+            />
+        );
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge.textContent).toInclude('hydrata.taskMonitor.statusRunning');
+        expect(container.querySelector('.sv-progress-track')).toExist();
+    });
+
+    it('liveness=stalled suppresses the progress bar (mid-bar on a stuck process is misleading)', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 3, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'stalled', progress_pct: 50 }}
+                onClick={noop}
+            />
+        );
+        expect(container.querySelector('.sv-progress-track')).toNotExist();
+    });
+
+    it('liveness=zombie-candidate shows the unresponsive badge and no progress bar', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 4, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'zombie-candidate', progress_pct: 50 }}
+                onClick={noop}
+            />
+        );
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge.textContent).toInclude('hydrata.taskMonitor.statusUnresponsive');
+        expect(container.querySelector('.sv-progress-track')).toNotExist();
+    });
+
+    it('provisioning exemption: running + liveness=provisioning + no progress shows the Provisioning badge — never stalled — regardless of age', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 5, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'provisioning', progress_pct: null, updated: ancientUpdated }}
+                onClick={noop}
+            />
+        );
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge.textContent).toInclude('hydrata.taskMonitor.statusProvisioning');
+        expect(badge.textContent).toNotInclude('hydrata.taskMonitor.statusStalled');
+    });
+
+    it('provisioning with progress_pct present falls back to the status badge (celery types never heartbeat but ARE working)', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 6, name: 'Upload', process_type: 'layer_create', status: 'running', liveness: 'provisioning', progress_pct: 40 }}
+                onClick={noop}
+            />
+        );
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge.textContent).toInclude('hydrata.taskMonitor.statusRunning');
+        expect(container.querySelector('.sv-progress-track')).toExist();
+    });
+
+    it('pending detail sub-state still wins over provisioning (existing detailAsBadge contract)', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 7, name: 'Run', process_type: 'anuga_run', status: 'pending', status_detail: 'built', liveness: 'provisioning' }}
+                onClick={noop}
+            />
+        );
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge.textContent).toInclude('Built');
+        expect(badge.textContent).toNotInclude('statusProvisioning');
+    });
+
+    it('no liveness field (synthetic FE rows / terminal rows) renders the plain status badge', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 8, name: 'Export', process_type: 'terrain_export', status: 'running', updated: ancientUpdated }}
+                onClick={noop}
+            />
+        );
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge.textContent).toInclude('hydrata.taskMonitor.statusRunning');
+    });
+});
+
+describe('TASK-2674 ProcessRow phase / ETA / wedged rendering', () => {
+    it('renders the server phase as its own .sv-tm-phase line (capitalized) for a non-terminal row', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 1, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'live', phase: 'evolve' }}
+                onClick={noop}
+            />
+        );
+        const phase = container.querySelector('.sv-tm-phase');
+        expect(phase).toExist();
+        expect(phase.textContent).toInclude('Evolve');
+    });
+
+    it('does NOT render .sv-tm-phase on terminal rows (a frozen last phase is noise)', () => {
+        ['complete', 'error', 'cancelled'].forEach(status => {
+            const { container } = mountWithProviders(
+                <ProcessRow
+                    process={{ id: status, name: 'Run', process_type: 'anuga_run', status, phase: 'evolve' }}
+                    onClick={noop}
+                />
+            );
+            expect(container.querySelector('.sv-tm-phase')).toNotExist();
+        });
+    });
+
+    it('does NOT render .sv-tm-phase when phase is null/absent', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 2, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'live', phase: null }}
+                onClick={noop}
+            />
+        );
+        expect(container.querySelector('.sv-tm-phase')).toNotExist();
+    });
+
+    it('renders the server eta_seconds as .sv-tm-eta alongside the progress bar', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 3, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'live', progress_pct: 40, eta_seconds: 200 }}
+                onClick={noop}
+            />
+        );
+        const eta = container.querySelector('.sv-tm-eta');
+        expect(eta).toExist();
+        expect(eta.textContent).toInclude('3m 20s');
+    });
+
+    it('no .sv-tm-eta when eta_seconds is null/absent', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 4, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'live', progress_pct: 40, eta_seconds: null }}
+                onClick={noop}
+            />
+        );
+        expect(container.querySelector('.sv-tm-eta')).toNotExist();
+    });
+
+    it('no .sv-tm-eta when the progress bar is suppressed (stalled row with a leftover eta)', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 5, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'stalled', progress_pct: 40, eta_seconds: 200 }}
+                onClick={noop}
+            />
+        );
+        expect(container.querySelector('.sv-tm-eta')).toNotExist();
+    });
+
+    it('wedged=true renders the .sv-tm-wedged-advisory hint WITHOUT changing the badge (ADVISORY-ONLY, D5)', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 6, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'live', wedged: true }}
+                onClick={noop}
+            />
+        );
+        expect(container.querySelector('.sv-tm-wedged-advisory')).toExist();
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge.textContent).toInclude('hydrata.taskMonitor.statusRunning');
+    });
+
+    it('wedged=false/absent renders no advisory hint', () => {
+        const { container } = mountWithProviders(
+            <ProcessRow
+                process={{ id: 7, name: 'Run', process_type: 'anuga_run', status: 'running', liveness: 'live', wedged: false }}
+                onClick={noop}
+            />
+        );
+        expect(container.querySelector('.sv-tm-wedged-advisory')).toNotExist();
+    });
+
+    it('formatEtaSeconds formats seconds / minutes / hours and rejects junk', () => {
+        expect(formatEtaSeconds(45)).toBe('45s');
+        expect(formatEtaSeconds(200)).toBe('3m 20s');
+        expect(formatEtaSeconds(3600)).toBe('1h 0m');
+        expect(formatEtaSeconds(4530)).toBe('1h 15m');
+        expect(formatEtaSeconds(0)).toBe('0s');
+        expect(formatEtaSeconds(-5)).toBe(null);
+        expect(formatEtaSeconds(null)).toBe(null);
+        expect(formatEtaSeconds(undefined)).toBe(null);
+        expect(formatEtaSeconds('soon')).toBe(null);
+        expect(formatEtaSeconds(NaN)).toBe(null);
+    });
+});
+
+describe('TASK-1887 ProcessRow error snippet (retained behaviour)', () => {
+    const freshUpdated = new Date(Date.now() - 30000).toISOString();
 
     it('complete/error/cancelled rows never render a progress bar', () => {
         ['complete', 'error', 'cancelled'].forEach(status => {
