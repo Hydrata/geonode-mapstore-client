@@ -29,8 +29,10 @@ import {
     computeArrowMaxLengthPx,
     arrowSpeedColor,
     isArrowVisible,
+    composeNdcToVelocityUvMatrix,
     FLOWVIZ_ARROW_VERTEX_SHADER
 } from '../playbackFlowViz';
+import { buildInverseProjectionMatrix, applyProjectionMatrix } from '../playbackMeshGeometry';
 import { DERIVED_QUANTITY_FIXTURE } from './fixtures/fixtureDerivedQuantities';
 
 describe('playbackFlowViz', () => {
@@ -205,6 +207,47 @@ describe('playbackFlowViz', () => {
         it('samples via textureLod (NOT texture()) — implicit-LOD texture() is fragment-only in a GLSL ES 3.00 vertex shader', () => {
             expect(FLOWVIZ_ARROW_VERTEX_SHADER).toMatch(/textureLod\(uVelTex, uv, 0\.0\)/);
             expect(FLOWVIZ_ARROW_VERTEX_SHADER).toNotMatch(/[^d]texture\(uVelTex/);
+        });
+
+        // TASK-2661 (W6.75.1) audit — uNdcToUv replaces the former separate
+        // uInvProj/uBboxOrtho pair (see composeNdcToVelocityUvMatrix's
+        // docstring: same class of fp32-large-number GPU defect as the
+        // particle/trail bug, applied to velocity-UV sampling rather than
+        // glyph position).
+        it('uses the single CPU-precomposed uNdcToUv matrix, not a separate uInvProj/uBboxOrtho pair', () => {
+            expect(FLOWVIZ_ARROW_VERTEX_SHADER).toMatch(/uniform mat3 uNdcToUv;/);
+            expect(FLOWVIZ_ARROW_VERTEX_SHADER).toNotMatch(/uInvProj/);
+            expect(FLOWVIZ_ARROW_VERTEX_SHADER).toNotMatch(/uBboxOrtho/);
+            expect(FLOWVIZ_ARROW_VERTEX_SHADER).toMatch(/vec2 uv = \(uNdcToUv \* vec3\(ndcX, ndcY, 1\.0\)\)\.xy;/);
+        });
+    });
+
+    describe('composeNdcToVelocityUvMatrix (TASK-2661 audit — arrow velocity-sampling fp32 fix)', () => {
+        const bboxOrtho = { cx: 16891852.555, cy: -3879000, halfW: 253.66, halfH: 253.66 };
+        // View centred elsewhere from the bbox (the general, worst realistic
+        // case — buildInverseProjectionMatrix's translation is the VIEW
+        // centre, not the bbox centre, so they must NOT be assumed equal).
+        const viewState = { center: [16891900, -3878900], resolution: 1, rotation: 0.05 };
+        const sizeCssPx = [1000, 800];
+
+        it('matches the JS-double reference (invProj world reconstruction + bbox-UV normalize), composed with no precision loss', () => {
+            const ndcToUv = composeNdcToVelocityUvMatrix(viewState, sizeCssPx, bboxOrtho);
+            const invProj = buildInverseProjectionMatrix(viewState, sizeCssPx);
+            [[-0.5, 0.3], [0.2, -0.7], [0.0, 0.0]].forEach(([ndcX, ndcY]) => {
+                const [worldX, worldY] = applyProjectionMatrix(invProj, ndcX, ndcY);
+                const refUvX = (worldX - bboxOrtho.cx) / (2 * bboxOrtho.halfW) + 0.5;
+                const refUvY = (worldY - bboxOrtho.cy) / (2 * bboxOrtho.halfH) + 0.5;
+                const [uvX, uvY] = applyProjectionMatrix(ndcToUv, ndcX, ndcY);
+                expect(Math.abs(uvX - refUvX)).toBeLessThan(1e-5);
+                expect(Math.abs(uvY - refUvY)).toBeLessThan(1e-5);
+            });
+        });
+
+        it('produces O(1)-magnitude coefficients — no raw world coordinate reaches the GPU uniform upload', () => {
+            const ndcToUv = composeNdcToVelocityUvMatrix(viewState, sizeCssPx, bboxOrtho);
+            ndcToUv.forEach((v) => {
+                expect(Math.abs(v)).toBeLessThan(1e4);
+            });
         });
     });
 

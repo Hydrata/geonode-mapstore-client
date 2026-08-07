@@ -24,7 +24,7 @@
  * scalar mesh, which always renders regardless of this class's support).
  */
 import { linkProgram } from './playbackShaders';
-import { buildInverseProjectionMatrix, computeMeshBounds } from './playbackMeshGeometry';
+import { computeMeshBounds } from './playbackMeshGeometry';
 import {
     VEL_TEX_SIZE,
     pickVelocityTextureFormat,
@@ -32,6 +32,7 @@ import {
     computeBboxOrtho,
     computeArrowGridDimensions,
     computeArrowMaxLengthPx,
+    composeNdcToVelocityUvMatrix,
     DEFAULT_ARROW_DENSITY_PX,
     DEFAULT_ARROW_SCALE,
     ARROW_Q_REF,
@@ -69,8 +70,10 @@ export class AnugaPlaybackFlowVizRenderer {
         };
         this.arrowUniforms = {
             uVelTex: gl.getUniformLocation(this.arrowProgram, 'uVelTex'),
-            uInvProj: gl.getUniformLocation(this.arrowProgram, 'uInvProj'),
-            uBboxOrtho: gl.getUniformLocation(this.arrowProgram, 'uBboxOrtho'),
+            // TASK-2661 audit — CPU-precomposed NDC->velocity-UV matrix,
+            // replacing the former separate uInvProj/uBboxOrtho pair (see
+            // composeNdcToVelocityUvMatrix's docstring).
+            uNdcToUv: gl.getUniformLocation(this.arrowProgram, 'uNdcToUv'),
             uCols: gl.getUniformLocation(this.arrowProgram, 'uCols'),
             uRows: gl.getUniformLocation(this.arrowProgram, 'uRows'),
             uQRef: gl.getUniformLocation(this.arrowProgram, 'uQRef'),
@@ -197,15 +200,16 @@ export class AnugaPlaybackFlowVizRenderer {
         const [widthCss, heightCss] = sizeCssPx;
         const spacingPx = Math.max(4, density || DEFAULT_ARROW_DENSITY_PX);
         const { cols, rows, count } = computeArrowGridDimensions(widthCss, heightCss, spacingPx);
-        const invProj = buildInverseProjectionMatrix(viewState, sizeCssPx);
+        // TASK-2661 audit — CPU-precomposed NDC->velocity-UV matrix, JS
+        // float64 throughout (see composeNdcToVelocityUvMatrix's docstring).
+        const ndcToUv = composeNdcToVelocityUvMatrix(viewState, sizeCssPx, bboxOrtho);
         const maxLenPx = computeArrowMaxLengthPx(spacingPx) * Math.max(0.1, scale || DEFAULT_ARROW_SCALE);
         gl.useProgram(this.arrowProgram);
         gl.bindVertexArray(this.arrowVao);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.velTex);
         gl.uniform1i(this.arrowUniforms.uVelTex, 0);
-        gl.uniformMatrix3fv(this.arrowUniforms.uInvProj, false, invProj);
-        gl.uniform4f(this.arrowUniforms.uBboxOrtho, bboxOrtho.cx, bboxOrtho.cy, bboxOrtho.halfW, bboxOrtho.halfH);
+        gl.uniformMatrix3fv(this.arrowUniforms.uNdcToUv, false, ndcToUv);
         gl.uniform1i(this.arrowUniforms.uCols, cols);
         gl.uniform1i(this.arrowUniforms.uRows, rows);
         gl.uniform1f(this.arrowUniforms.uQRef, ARROW_Q_REF);

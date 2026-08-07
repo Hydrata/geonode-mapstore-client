@@ -39,10 +39,14 @@
  *      (bbox-normalized UV), so on-screen density changed with zoom (packed
  *      together zoomed-out, sparse zoomed-in). The AC wants QGIS "mesh
  *      vectors on a user grid" parity — CONSTANT density on screen at every
- *      zoom. This module instead samples a grid FIXED IN SCREEN PIXELS
- *      (`uInvProj` maps each screen grid point back to world meters to
- *      sample the velocity texture) — see playbackMeshGeometry.js's
- *      buildInverseProjectionMatrix.
+ *      zoom. This module instead samples a grid FIXED IN SCREEN PIXELS,
+ *      mapped back to the velocity texture's UV space by `uNdcToUv`
+ *      (TASK-2661, W6.75.1: a single CPU-precomposed matrix folding
+ *      playbackMeshGeometry.js's buildInverseProjectionMatrix together with
+ *      the bbox-UV normalize step — see composeNdcToVelocityUvMatrix below;
+ *      originally two separate uniforms, `uInvProj`/`uBboxOrtho`, whose
+ *      GPU-side fp32 world-meter reconstruction was the same class of
+ *      large-number defect the particle/trail fix addresses).
  *
  * No GL/DOM here except the two extension-probe helpers (only call
  * `gl.getExtension`, trivially mockable) — every other export is a pure
@@ -144,6 +148,53 @@ export function worldToVelocityUv(worldX, worldY, bboxOrtho) {
         (worldX - cx) / (2 * halfW) + 0.5,
         (worldY - cy) / (2 * halfH) + 0.5
     ];
+}
+
+/**
+ * TASK-2661 (W6.75.1, epic 2618) audit finding — FLOWVIZ_ARROW_VERTEX_SHADER
+ * reconstructs world meters from `uInvProj * vec3(ndc,1)` ON THE GPU in
+ * fp32, THEN subtracts `uBboxOrtho.xy` (also a raw ~1e7-magnitude uniform)
+ * to get the velocity-sample UV — the SAME class of large-number GPU
+ * intermediate as the particle bug this task fixes. Measured (Math.fround
+ * simulation, Merewether bbox, view centred on the bbox): max
+ * |world.x(fp32) - world.x(double)| ~= 1.55m, ~1.6 texels of velocity-FBO
+ * sampling error at a 512px store. UNLIKE the particle/trail bug, this does
+ * NOT move the arrow GLYPH's screen position — FLOWVIZ_ARROW_VERTEX_SHADER's
+ * gl_Position comes directly from the integer grid column/row (`ndcX`/
+ * `ndcY`, no fp32 world round-trip) plus a small px offset; `world`/`uv` are
+ * used ONLY to sample the velocity texture (affects which cell's
+ * direction/length/colour an arrow draws, not where it draws) — so arrows
+ * never showed the trails' visible position-lattice ("hides a snap under
+ * glyph size" is the closest true description: the error is real but
+ * manifests as sub-glyph sampling jitter in a smooth field, not a visible
+ * screen-space snap). Applying the SAME CPU-precomposition treatment
+ * anyway (cheap, matrix-only, and removes a genuine fp32 defect): compose
+ * uInvProj with the bbox-normalize step into ONE JS-float64 NDC->UV matrix,
+ * so no raw world coordinate ever reaches the GPU.
+ * @param {{center:[number,number], resolution:number, rotation?:number}} viewState
+ * @param {[number,number]} sizeCssPx
+ * @param {{cx:number,cy:number,halfW:number,halfH:number}} bboxOrtho
+ * @returns {Float32Array} length-9 column-major 3x3, NDC(screen) -> velocity-UV
+ */
+export function composeNdcToVelocityUvMatrix(viewState, sizeCssPx, bboxOrtho) {
+    const { center, resolution, rotation = 0 } = viewState || {};
+    const [viewCx, viewCy] = center || [0, 0];
+    const [width, height] = sizeCssPx || [0, 0];
+    const { cx, cy, halfW, halfH } = bboxOrtho;
+    const halfWView = (resolution * width) / 2;
+    const halfHView = (resolution * height) / 2;
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+    // world.x = cosR*halfWView*ndcX - sinR*halfHView*ndcY + viewCx
+    // world.y = sinR*halfWView*ndcX + cosR*halfHView*ndcY + viewCy
+    // uv.x = (world.x - cx) / (2*halfW) + 0.5 ; uv.y analogous — all JS doubles.
+    const invW = 1 / (2 * halfW);
+    const invH = 1 / (2 * halfH);
+    return new Float32Array([
+        cosR * halfWView * invW, sinR * halfWView * invH, 0,
+        -sinR * halfHView * invW, cosR * halfHView * invH, 0,
+        (viewCx - cx) * invW + 0.5, (viewCy - cy) * invH + 0.5, 1
+    ]);
 }
 
 /**
@@ -293,12 +344,18 @@ void main() { fragColor = vec4(vVelDepth.xy, 0.0, vVelDepth.z); }`;
 // texture, then drawn AT that same screen point (offset by the arrow shape
 // in px) — so density stays constant across zoom instead of the mesh's
 // world-fixed sample grid.
+// TASK-2661 audit — uNdcToUv is the CPU-precomposed
+// composeNdcToVelocityUvMatrix(viewState, sizeCssPx, bboxOrtho) result
+// (JS float64 composition of the inverse-projection with the bbox-UV
+// normalize step); replaces the former separate uInvProj/uBboxOrtho pair,
+// which reconstructed world meters ON THE GPU in fp32 before sampling (see
+// composeNdcToVelocityUvMatrix's docstring for the measured, sub-glyph
+// manifestation of that defect).
 export const FLOWVIZ_ARROW_VERTEX_SHADER = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aShape;
 uniform sampler2D uVelTex;
-uniform mat3 uInvProj;      // NDC(screen) -> world meters (playbackMeshGeometry.buildInverseProjectionMatrix)
-uniform vec4 uBboxOrtho;    // cx, cy, halfW, halfH — SAME window the velocity FBO renders into
+uniform mat3 uNdcToUv;      // NDC(screen) -> velocity-UV, CPU-precomposed (see composeNdcToVelocityUvMatrix)
 uniform int uCols;
 uniform int uRows;
 uniform float uQRef;        // unit discharge (m2/s) that draws a full-length arrow
@@ -313,8 +370,7 @@ void main() {
   int row = id / uCols;
   float ndcX = ((float(col) + 0.5) / float(uCols)) * 2.0 - 1.0;
   float ndcY = ((float(row) + 0.5) / float(uRows)) * 2.0 - 1.0;
-  vec3 world = uInvProj * vec3(ndcX, ndcY, 1.0);
-  vec2 uv = (world.xy - uBboxOrtho.xy) / (2.0 * uBboxOrtho.zw) + 0.5;
+  vec2 uv = (uNdcToUv * vec3(ndcX, ndcY, 1.0)).xy;
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   // textureLod, NOT texture(): implicit-LOD texture() is fragment-stage-only
   // in GLSL ES 3.00 — a vertex shader must supply the LOD explicitly.

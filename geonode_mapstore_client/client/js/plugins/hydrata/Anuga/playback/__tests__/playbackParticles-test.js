@@ -27,8 +27,11 @@ import {
     buildCameraKey,
     hasCameraMoved,
     initialParticlePositions,
-    PARTICLE_ADVECT_FRAGMENT_SHADER
+    composePosToClipMatrix,
+    PARTICLE_ADVECT_FRAGMENT_SHADER,
+    PARTICLE_RENDER_VERTEX_SHADER
 } from '../playbackParticles';
+import { buildProjectionMatrix, applyProjectionMatrix } from '../playbackMeshGeometry';
 
 describe('playbackParticles', () => {
     describe('computeAdvectionSpeedScale (the "speed exaggeration" control)', () => {
@@ -162,6 +165,117 @@ describe('playbackParticles', () => {
             n = 0;
             const b = initialParticlePositions(3, seq);
             expect(Array.from(a)).toEqual(Array.from(b));
+        });
+    });
+
+    describe('composePosToClipMatrix (TASK-2661, W6.75.1 — "trails vertical-grid" fp32 fix)', () => {
+        // Real Merewether S3-run fixture bbox (spec citation): an Australian
+        // longitude, cx > 2^24 (16777216) where the OLD shader math's fp32
+        // ULP is ~2m. cy is a representative NSW latitude (Merewether,
+        // ~-32.95 deg) — its magnitude (~3.88e6) sits BELOW 2^24, which is
+        // exactly why the live bug's screen-Y stayed sub-pixel while
+        // screen-X snapped to a lattice (this module's header).
+        const bboxOrtho = { cx: 16891852.555, cy: -3879000, halfW: 253.66, halfH: 253.66 };
+        const viewState = { center: [bboxOrtho.cx, bboxOrtho.cy], resolution: 1, rotation: 0 };
+        const sizeCssPx = [1000, 800];
+        const projMatrix = buildProjectionMatrix(viewState, sizeCssPx);
+
+        // Fround-simulates the OLD (buggy) shader exactly:
+        //   localMeters = uBboxOrtho.xy + (pos*2-1)*uBboxOrtho.zw   (fp32 GPU ops)
+        //   clip = uProj * vec3(localMeters, 1)                     (fp32 GPU ops)
+        // uBboxOrtho/uProj are uploaded via gl.uniform*, which rounds every
+        // component to fp32 on upload — Math.fround on each raw scalar
+        // reproduces that rounding.
+        function oldShaderScreenPx(u, v) {
+            const fr = Math.fround;
+            const cx = fr(bboxOrtho.cx);
+            const cy = fr(bboxOrtho.cy);
+            const halfW = fr(bboxOrtho.halfW);
+            const halfH = fr(bboxOrtho.halfH);
+            const m = Array.from(projMatrix, fr);
+            const lmx = fr(cx + fr(fr(u * 2 - 1) * halfW));
+            const lmy = fr(cy + fr(fr(v * 2 - 1) * halfH));
+            const clipx = fr(fr(fr(m[0] * lmx) + fr(m[3] * lmy)) + m[6]);
+            const clipy = fr(fr(fr(m[1] * lmx) + fr(m[4] * lmy)) + m[7]);
+            return [
+                fr((clipx * 0.5 + 0.5) * sizeCssPx[0]),
+                fr((clipy * 0.5 + 0.5) * sizeCssPx[1])
+            ];
+        }
+
+        // Fround-simulates the NEW shader: clip = uPosToClip * vec3(pos,1),
+        // where uPosToClip is composePosToClipMatrix's JS-float64-composed
+        // result (already an O(1)-magnitude Float32Array by construction —
+        // no raw world coordinate ever reaches the GPU).
+        function newShaderScreenPx(u, v, posToClip) {
+            const fr = Math.fround;
+            const m = posToClip; // already Float32Array (fp32)
+            const clipx = fr(fr(fr(m[0] * u) + fr(m[3] * v)) + m[6]);
+            const clipy = fr(fr(fr(m[1] * u) + fr(m[4] * v)) + m[7]);
+            return [
+                fr((clipx * 0.5 + 0.5) * sizeCssPx[0]),
+                fr((clipy * 0.5 + 0.5) * sizeCssPx[1])
+            ];
+        }
+
+        function maxAdjacentStep(values) {
+            const sorted = [...new Set(values)].sort((a, b) => a - b);
+            let max = 0;
+            for (let i = 1; i < sorted.length; i++) {
+                max = Math.max(max, sorted[i] - sorted[i - 1]);
+            }
+            return max;
+        }
+
+        // A dense sweep over 20% of the bbox in BOTH axes (spec's proof
+        // methodology: "52 distinct screen-x ... vs 299 screen-y ... over
+        // 20% of the bbox").
+        const N = 2000;
+        const samples = [];
+        for (let i = 0; i < N; i++) {
+            samples.push([0.4 + 0.2 * (i / N), 0.4 + 0.2 * ((i * 37 % N) / N)]);
+        }
+
+        it('CONTROL — the OLD math (raw uBboxOrtho/uProj fp32 reconstruction) quantizes screen-X to a multi-pixel lattice', () => {
+            const xs = samples.map(([u, v]) => oldShaderScreenPx(u, v)[0]);
+            const maxStepX = maxAdjacentStep(xs);
+            // Measured (this fixture): ~3.9px steps — comfortably above 1px,
+            // proving the OLD math fails the sub-pixel bar the NEW math must
+            // clear below. Bound loosely (>1px) so the assertion tracks the
+            // BUG'S CLASS, not an exact float-rounding coincidence.
+            expect(maxStepX).toBeGreaterThan(1);
+        });
+
+        it('NEW — composePosToClipMatrix keeps distinct-screen-position steps sub-pixel in BOTH axes', () => {
+            const posToClip = composePosToClipMatrix(bboxOrtho, projMatrix);
+            const xs = samples.map(([u, v]) => newShaderScreenPx(u, v, posToClip)[0]);
+            const ys = samples.map(([u, v]) => newShaderScreenPx(u, v, posToClip)[1]);
+            expect(maxAdjacentStep(xs)).toBeLessThan(1);
+            expect(maxAdjacentStep(ys)).toBeLessThan(1);
+        });
+
+        it('matches a JS-double reference projection (no precision regression vs the mathematically exact transform)', () => {
+            const posToClip = composePosToClipMatrix(bboxOrtho, projMatrix);
+            [[0.5, 0.5], [0.1, 0.9], [0.73, 0.22]].forEach(([u, v]) => {
+                const localX = bboxOrtho.cx + (u * 2 - 1) * bboxOrtho.halfW;
+                const localY = bboxOrtho.cy + (v * 2 - 1) * bboxOrtho.halfH;
+                const [refClipX, refClipY] = applyProjectionMatrix(projMatrix, localX, localY);
+                const [clipX, clipY] = applyProjectionMatrix(posToClip, u, v);
+                expect(Math.abs(clipX - refClipX)).toBeLessThan(1e-4);
+                expect(Math.abs(clipY - refClipY)).toBeLessThan(1e-4);
+            });
+        });
+    });
+
+    describe('PARTICLE_RENDER_VERTEX_SHADER GLSL<->JS wiring (TASK-2661)', () => {
+        it('uses the single CPU-precomposed uPosToClip matrix, not a separate uProj/uBboxOrtho pair', () => {
+            expect(PARTICLE_RENDER_VERTEX_SHADER).toMatch(/uniform mat3 uPosToClip;/);
+            expect(PARTICLE_RENDER_VERTEX_SHADER).toNotMatch(/uProj/);
+            expect(PARTICLE_RENDER_VERTEX_SHADER).toNotMatch(/uBboxOrtho/);
+        });
+
+        it('every GPU intermediate for the output position is now O(1) — one matrix multiply, no world-meter reconstruction', () => {
+            expect(PARTICLE_RENDER_VERTEX_SHADER).toMatch(/vec3 clip = uPosToClip \* vec3\(pos, 1\.0\);/);
         });
     });
 

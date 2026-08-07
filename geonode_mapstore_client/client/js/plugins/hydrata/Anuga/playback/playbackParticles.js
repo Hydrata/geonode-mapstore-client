@@ -116,6 +116,60 @@ export function pickRespawnRate(
 }
 
 /**
+ * TASK-2661 (W6.75.1, epic 2618) — CPU float64 pre-composed pos->clip
+ * matrix, fixing the "trails vertical-grid" bug (root-caused live 2026-08-07
+ * during W6.5 UAT, epic comment #1617): PARTICLE_RENDER_VERTEX_SHADER used
+ * to reconstruct `localMeters = uBboxOrtho.xy + (pos*2-1)*uBboxOrtho.zw` ON
+ * THE GPU in fp32 — at an Australian-longitude bbox centre (cx ~ 16.9e6 m,
+ * magnitude > 2^24) that addition itself quantizes to the fp32 ULP grid at
+ * that magnitude (~2m), and `uProj * vec3(localMeters,1)` then carries that
+ * quantization straight through to clip space: screen-X snapped to a
+ * 3.75-7.5 device-px lattice while screen-Y (whose bbox centre, at typical
+ * southern-hemisphere latitudes, sits below 2^24) stayed sub-pixel — trail
+ * accumulation rendered the lattice as vertical columns (Math.fround
+ * simulation: 51-52 distinct screen-X positions vs ~5000 distinct
+ * screen-Y over a 20%-of-bbox sweep at a practical working zoom).
+ *
+ * The fix composes uProj (world->clip) with the affine
+ * `[0,1]^2 -> world bbox` map (`localMeters = bboxOrtho.xy +
+ * (pos*2-1)*bboxOrtho.zw`) into ONE matrix, ENTIRELY in JS double
+ * precision — `uProj`'s own entries are already safe (moderate magnitude:
+ * its translation term is `(-cx*cosR-cy*sinR)/halfWView`, a single
+ * already-reduced quantity, never a raw world coordinate added to a small
+ * delta at fp32 on the GPU) so multiplying it by the affine matrix in JS
+ * doubles and uploading ONLY the resulting O(1)-magnitude coefficients
+ * eliminates every large-number GPU intermediate. The shader becomes
+ * `clip = uPosToClip * vec3(pos, 1.0)` — see PARTICLE_RENDER_VERTEX_SHADER.
+ *
+ * Matrix pre-composition only (wave brief's explicit boundary) — no
+ * shader-architecture rework, and the mesh path's OWN world-frame fp32
+ * (~2m x geo-accuracy bound) is untouched (separate follow-up, out of
+ * scope here).
+ * @param {{cx:number,cy:number,halfW:number,halfH:number}} bboxOrtho
+ * @param {Float32Array|number[]} projMatrix length-9 column-major 3x3 (buildProjectionMatrix's output)
+ * @returns {Float32Array} length-9 column-major 3x3, ready for gl.uniformMatrix3fv
+ */
+export function composePosToClipMatrix(bboxOrtho, projMatrix) {
+    const { cx, cy, halfW, halfH } = bboxOrtho;
+    const m = projMatrix;
+    // affine: world = bboxOrtho.xy + (pos*2-1)*bboxOrtho.zw
+    //   worldX = (2*halfW)*u + (cx - halfW)
+    //   worldY = (2*halfH)*v + (cy - halfH)
+    // composed = projMatrix * affine (column-major 3x3 multiply), all in JS doubles.
+    const ax = 2 * halfW;
+    const ay = 2 * halfH;
+    const tx = cx - halfW;
+    const ty = cy - halfH;
+    return new Float32Array([
+        m[0] * ax, m[1] * ax, m[2] * ax,
+        m[3] * ay, m[4] * ay, m[5] * ay,
+        m[0] * tx + m[3] * ty + m[6],
+        m[1] * tx + m[4] * ty + m[7],
+        m[2] * tx + m[5] * ty + m[8]
+    ]);
+}
+
+/**
  * A stable string identity for the current camera pose + canvas size —
  * screen-space trails are meaningless across a camera move (AC/wave brief:
  * "trails RESET on any camera move ... reproject (or gracefully re-seed)");
@@ -208,21 +262,26 @@ void main() {
 
 // Point-render program: fetches position from the ping-pong texture
 // per-instance via gl_VertexID (attribute-less draw, matches the spike).
+// TASK-2661 (W6.75.1) — uPosToClip is the CPU-precomposed
+// composePosToClipMatrix(bboxOrtho, projMatrix) result (JS float64
+// composition of uProj with the [0,1]^2->world-bbox affine): every GPU
+// intermediate here is now O(1), eliminating the fp32 world-meter lattice
+// (see this module's header + composePosToClipMatrix's docstring). Replaces
+// the former separate uProj/uBboxOrtho pair (which reconstructed world
+// meters ON THE GPU in fp32 — the root cause).
 export const PARTICLE_RENDER_VERTEX_SHADER = `#version 300 es
 precision highp float;
 uniform sampler2D uPosTex;
 uniform int uGridSize;
-uniform mat3 uProj;        // same interactive-camera matrix as the main mesh
+uniform mat3 uPosToClip;   // CPU-precomposed pos[0,1]->clip, see composePosToClipMatrix
 uniform float uPointSize;
-uniform vec4 uBboxOrtho;   // cx, cy, halfW, halfH — SAME window the velocity FBO renders into
 out vec2 vPos;
 void main() {
   int id = gl_VertexID;
   ivec2 texel = ivec2(id % uGridSize, id / uGridSize);
   vec2 pos = texelFetch(uPosTex, texel, 0).rg; // [0,1] normalized over the run bbox
   vPos = pos; // speed/depth looked up in the FRAGMENT shader (proven-working path — spike comment)
-  vec2 localMeters = uBboxOrtho.xy + (pos * 2.0 - 1.0) * uBboxOrtho.zw;
-  vec3 clip = uProj * vec3(localMeters, 1.0);
+  vec3 clip = uPosToClip * vec3(pos, 1.0);
   gl_Position = vec4(clip.xy, 0.0, 1.0);
   gl_PointSize = uPointSize;
 }`;

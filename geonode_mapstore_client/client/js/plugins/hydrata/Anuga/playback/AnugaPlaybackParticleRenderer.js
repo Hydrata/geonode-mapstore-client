@@ -38,6 +38,7 @@ import {
     initialParticlePositions,
     buildCameraKey,
     hasCameraMoved,
+    composePosToClipMatrix,
     PARTICLE_ADVECT_VERTEX_SHADER,
     PARTICLE_ADVECT_FRAGMENT_SHADER,
     PARTICLE_RENDER_VERTEX_SHADER,
@@ -89,9 +90,10 @@ export class AnugaPlaybackParticleRenderer {
             uPosTex: gl.getUniformLocation(this.renderProgram, 'uPosTex'),
             uVelTex: gl.getUniformLocation(this.renderProgram, 'uVelTex'),
             uGridSize: gl.getUniformLocation(this.renderProgram, 'uGridSize'),
-            uProj: gl.getUniformLocation(this.renderProgram, 'uProj'),
+            // TASK-2661 — CPU-precomposed pos->clip matrix (composePosToClipMatrix),
+            // replacing the former separate uProj/uBboxOrtho pair.
+            uPosToClip: gl.getUniformLocation(this.renderProgram, 'uPosToClip'),
             uPointSize: gl.getUniformLocation(this.renderProgram, 'uPointSize'),
-            uBboxOrtho: gl.getUniformLocation(this.renderProgram, 'uBboxOrtho'),
             uMinSpeed: gl.getUniformLocation(this.renderProgram, 'uMinSpeed'),
             uWetThreshold: gl.getUniformLocation(this.renderProgram, 'uWetThreshold')
         };
@@ -277,8 +279,10 @@ export class AnugaPlaybackParticleRenderer {
         gl.bindTexture(gl.TEXTURE_2D, velocityTexture);
         gl.uniform1i(this.renderUniforms.uVelTex, 1);
         gl.uniform1i(this.renderUniforms.uGridSize, this.gridSize);
-        gl.uniformMatrix3fv(this.renderUniforms.uProj, false, projMatrix);
-        gl.uniform4f(this.renderUniforms.uBboxOrtho, bboxOrtho.cx, bboxOrtho.cy, bboxOrtho.halfW, bboxOrtho.halfH);
+        // TASK-2661 — compose pos->clip in JS float64 (never a raw world
+        // coordinate on the GPU); see composePosToClipMatrix's docstring.
+        const posToClip = composePosToClipMatrix(bboxOrtho, projMatrix);
+        gl.uniformMatrix3fv(this.renderUniforms.uPosToClip, false, posToClip);
         gl.uniform1f(this.renderUniforms.uMinSpeed, PARTICLE_MIN_SPEED);
         gl.uniform1f(this.renderUniforms.uWetThreshold, wetThreshold || 1e-5);
         gl.uniform1f(this.renderUniforms.uPointSize, pointSize || 1.6);
