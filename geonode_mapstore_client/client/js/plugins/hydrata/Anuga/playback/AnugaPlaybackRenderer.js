@@ -155,8 +155,10 @@ export class AnugaPlaybackRenderer {
         this.nWireIndices = 0;
         this.meshReady = false;
         // TASK-2686 — set for real in setMesh once triangleCount is known;
-        // this default just matches WIRE_COLOR's own alpha (small-mesh AC).
+        // these defaults just match the small-mesh AC (byte-identical to
+        // pre-TASK-2686: full WIRE_COLOR alpha, blending never enabled).
         this._wireOpacity = WIRE_COLOR[3];
+        this._wireBlendEnabled = false;
 
         // TASK-2632 (W5.1) — the velocity FBO + instanced-arrow overlay is a
         // composed sub-renderer (own program/VAO/texture objects, own math
@@ -224,6 +226,18 @@ export class AnugaPlaybackRenderer {
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wireIndices, gl.STATIC_DRAW);
         this.nWireIndices = wireIndices.length;
         this._wireOpacity = wireframeOpacityForTriangleCount(triangleCount, WIRE_COLOR[3]);
+        // Adversarial-review fix (still TASK-2686): `stride > 1` is the SAME
+        // gate wireframeDecimationStride/wireframeOpacityForTriangleCount
+        // already use — reused here (not re-derived) so all three legibility
+        // decisions can never disagree about which side of the AC's <50k
+        // "unchanged" boundary this mesh falls on. Blending is enabled ONLY
+        // above that boundary — see render()'s draw call for why: enabling
+        // it unconditionally would have changed the SMALL-mesh case's
+        // rendering too (opaque -> translucent lines), which the AC
+        // explicitly forbids ("no regression for the case that already
+        // works"), even though _wireOpacity itself already correctly stays
+        // at WIRE_COLOR's original alpha for that case.
+        this._wireBlendEnabled = stride > 1;
 
         this.meshReady = true;
 
@@ -408,22 +422,30 @@ export class AnugaPlaybackRenderer {
             gl.useProgram(this.wireProgram);
             gl.bindVertexArray(this.wireVao);
             gl.uniformMatrix3fv(this.wireUniforms.uProj, false, projMatrix);
-            // TASK-2686 (W6.75.4) — this._wireOpacity is
-            // wireframeOpacityForTriangleCount's result (set in setMesh),
-            // WIRE_COLOR[3] unchanged for a small (<50k triangle) mesh. Blend
-            // must be explicitly enabled here: WIRE_COLOR always carried an
-            // alpha channel, but nothing upstream of this task ever turned
-            // blending ON for this draw call, so it was silently ignored —
-            // every edge drew fully OPAQUE regardless of the shader's alpha
-            // output (part of the "~95% white-out" root cause, not just edge
-            // density). Explicitly disabled after so it never leaks into
-            // whatever the OL compositor assumes about this canvas's state
-            // on the next paint.
-            gl.uniform4f(this.wireUniforms.uColor, WIRE_COLOR[0], WIRE_COLOR[1], WIRE_COLOR[2], this._wireOpacity);
-            gl.enable(gl.BLEND);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-            gl.drawElements(gl.LINES, this.nWireIndices, gl.UNSIGNED_INT, 0);
-            gl.disable(gl.BLEND);
+            // TASK-2686 (W6.75.4) — this._wireBlendEnabled/this._wireOpacity
+            // are set together in setMesh, both gated on the SAME <50k
+            // triangle boundary. Below it: byte-identical to before this
+            // task — original WIRE_COLOR uniform4fv call, blending never
+            // touched (was never enabled for this draw call at all, so
+            // WIRE_COLOR's alpha channel was always silently discarded —
+            // every edge drew fully opaque; changing that for EVERY mesh
+            // size would have altered the small-mesh case's actual
+            // rendered pixels, which the AC forbids, even though the
+            // computed opacity VALUE alone already stayed unchanged).
+            // Above it: dimmed + blended, on top of the edge-buffer
+            // decimation already applied in setMesh — together these are
+            // the two legibility levers (AC: "zoom-gating, edge
+            // opacity/width tuning, edge decimation, or a combination").
+            if (this._wireBlendEnabled) {
+                gl.uniform4f(this.wireUniforms.uColor, WIRE_COLOR[0], WIRE_COLOR[1], WIRE_COLOR[2], this._wireOpacity);
+                gl.enable(gl.BLEND);
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+                gl.drawElements(gl.LINES, this.nWireIndices, gl.UNSIGNED_INT, 0);
+                gl.disable(gl.BLEND);
+            } else {
+                gl.uniform4fv(this.wireUniforms.uColor, WIRE_COLOR);
+                gl.drawElements(gl.LINES, this.nWireIndices, gl.UNSIGNED_INT, 0);
+            }
             gl.bindVertexArray(null);
         }
 
