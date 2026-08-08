@@ -1186,6 +1186,32 @@ span.sv-menu-row-glyph {
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
 }
 
+/* ── Liveness states (TASK-2689, epic 2662) ──
+   Server-derived D5 liveness rendered verbatim by TaskMonitor (TASK-2674).
+   stalled = warn (no heartbeat >3min); zombie-candidate = error-adjacent
+   (no heartbeat >15min, reaper will DescribeJobs-confirm before acting);
+   provisioning = pending-adjacent (queued, no event yet — normal for a
+   Batch job waiting for placement). Display-only; sv tokens only. */
+.sv-status-badge.is-stalled {
+    background: rgba(240, 173, 78, 0.20);
+    color: var(--sv-status-warn, #f0e08a);
+}
+
+.sv-status-badge.is-zombie-candidate {
+    /* error-adjacent, not full is-err: a CANDIDATE awaiting DescribeJobs
+       confirmation — outlined danger rather than solid-failure fill. */
+    background: rgba(217, 83, 79, 0.12);
+    color: var(--sv-text-danger, #ffb3b3);
+    box-shadow: inset 0 0 0 1px rgba(217, 83, 79, 0.35);
+}
+
+.sv-status-badge.is-provisioning {
+    /* pending-adjacent but visibly quieter than is-pending: the row is
+       waiting on infrastructure, not on the user. */
+    background: rgba(240, 173, 78, 0.10);
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+}
+
 .sv-status-badge-glyph {
     font-size: 10px;
 }

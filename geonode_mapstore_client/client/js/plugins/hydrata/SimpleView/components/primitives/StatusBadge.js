@@ -2,9 +2,13 @@ import React from "react";
 import PropTypes from 'prop-types';
 
 /**
- * StatusBadge — 5-state inline status pill.
+ * StatusBadge — inline status pill.
  *
- * States: running | pending | complete | error | cancelled
+ * Process states: running | pending | complete | error | cancelled
+ * Liveness states (TASK-2689, epic 2662): stalled | zombie-candidate |
+ *   provisioning — the server-derived D5 liveness values TaskMonitor renders
+ *   verbatim (TASK-2674). Display-only styling: stalled reads as warn,
+ *   zombie-candidate as error-adjacent, provisioning as pending-adjacent.
  *
  * Best-of-breed source:
  *   anuga.css  .sv-anuga-scenario-category-item-tag.is-ok/.is-warn/.is-err
@@ -22,7 +26,11 @@ const STATUS_MAP = {
     pending: { cssState: 'is-pending',   glyph: 'glyphicon-time' },
     complete: { cssState: 'is-ok',        glyph: 'glyphicon-ok' },
     error: { cssState: 'is-err',       glyph: 'glyphicon-exclamation-sign' },
-    cancelled: { cssState: 'is-cancelled', glyph: 'glyphicon-ban-circle' }
+    cancelled: { cssState: 'is-cancelled', glyph: 'glyphicon-ban-circle' },
+    // TASK-2689 — liveness states (no heartbeat >3min / >15min / no event yet)
+    stalled: { cssState: 'is-stalled', glyph: 'glyphicon-hourglass' },
+    'zombie-candidate': { cssState: 'is-zombie-candidate', glyph: 'glyphicon-alert' },
+    provisioning: { cssState: 'is-provisioning', glyph: 'glyphicon-cloud' }
 };
 
 const StatusBadge = ({ status, label, showGlyph, compact }) => {
