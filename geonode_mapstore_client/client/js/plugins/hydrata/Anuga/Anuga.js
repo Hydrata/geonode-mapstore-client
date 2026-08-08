@@ -2,6 +2,23 @@ import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtil
 import anuga from "./reducersAnuga";
 // TASK-1645 (W1.5): terrainWorkbench reducer re-homed here; plugin shell dissolved.
 import terrainWorkbench from '../TerrainWorkbench/reducersTerrainWorkbench';
+// TASK-2627 (W3.1, epic 2618) — Anuga-owned playback controller slice + epics.
+// Registered as `anugaPlayback`, NOT `playback` — MapStore2 core already
+// owns `state.playback` for its own Timeline plugin (found live: a second
+// reducer under the same key silently produced `state.playback === {}`,
+// neither reducer's default state — see playbackEpics.js's header note).
+import anugaPlayback from './playback/reducers/playbackReducer';
+import {
+    playbackInitEpic,
+    playbackBufferEpic,
+    playbackTickEpic,
+    playbackSyncLayerEpic,
+    // TASK-2628 (W3.2) — click-to-inspect at the current timestep.
+    playbackIdentifyEpic,
+    // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
+    // Inspect is armed.
+    playbackSuppressIdentifyEpic
+} from './playback/epics/playbackEpics';
 import anugaContainer from "./components/anugaContainer";
 import {
     initAnugaEpic,
@@ -184,7 +201,10 @@ export default createPlugin('Anuga', {
     reducers: {
         anuga,
         // TASK-1645 (W1.5): terrainWorkbench slice registered under Anuga plugin.
-        terrainWorkbench
+        terrainWorkbench,
+        // TASK-2627 (W3.1, epic 2618) — playback controller slice (anugaPlayback,
+        // not playback — see the import comment above).
+        anugaPlayback
     },
     epics: {
         initAnugaEpic,
@@ -325,6 +345,19 @@ export default createPlugin('Anuga', {
         twDeriveEpic,
         twDeriveCompleteEpic,
         // TASK-2582 (W2a) — Merge extent draw lifecycle (owner-isolated 'merge-extent').
-        twMergeExtentEndDrawingEpic
+        twMergeExtentEndDrawingEpic,
+        // TASK-2627 (W3.1, epic 2618) — playback controller: manifest/mesh/time
+        // load, buffer-window prefetch, the ~20Hz playhead clock, and syncing
+        // {mesh, frame0, frame1, mixT, colorMode, colorMax} onto the real
+        // AnugaPlaybackLayer via the standard changeLayerProperties action.
+        playbackInitEpic,
+        playbackBufferEpic,
+        playbackTickEpic,
+        playbackSyncLayerEpic,
+        // TASK-2628 (W3.2) — click-to-inspect at the current timestep.
+        playbackIdentifyEpic,
+        // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
+        // Inspect is armed; restores mapInfo.enabled verbatim on disarm.
+        playbackSuppressIdentifyEpic
     }
 });

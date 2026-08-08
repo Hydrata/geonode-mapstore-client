@@ -350,6 +350,81 @@ describe('W6 BuiltMeshRoster — built mesh table (TASK-1424)', () => {
         expect(headerTexts).toContain('Triangles');
         expect(headerTexts).toContain('Nodes');
     });
+
+    // -----------------------------------------------------------------------
+    // W6.1 (TASK-2630) — above-threshold "Preview on map" button
+    // -----------------------------------------------------------------------
+
+    it('shows NO preview button for a mesh at/below the render threshold', () => {
+        const meshes = [{id: 1, run_id: 100, node_count: 500, element_count: 1000, materialized: true, created_at: '2026-06-01T12:00:00Z'}];
+        div = renderIntoDiv(
+            <BuiltMeshRoster builtMeshes={meshes} renderThreshold={150000} onPreviewBuiltMesh={() => {}}/>
+        );
+        expect(div.querySelector('[data-testid="built-mesh-preview-btn-1"]')).toNotExist();
+    });
+
+    it('shows a preview button for a mesh ABOVE the render threshold, calling onPreviewBuiltMesh with the row on click', () => {
+        const calls = [];
+        const meshes = [{id: 2, run_id: 200, node_count: 80001, element_count: 160000, materialized: false, created_at: '2026-06-01T12:00:00Z'}];
+        div = renderIntoDiv(
+            <BuiltMeshRoster
+                builtMeshes={meshes}
+                renderThreshold={150000}
+                onPreviewBuiltMesh={(mr) => calls.push(mr)}
+            />
+        );
+        const btn = div.querySelector('[data-testid="built-mesh-preview-btn-2"]');
+        expect(btn).toExist();
+        expect(btn.textContent).toContain('Preview (any size)');
+        ReactTestUtils.Simulate.click(btn);
+        expect(calls.length).toBe(1);
+        expect(calls[0].run_id).toBe(200);
+    });
+
+    it('hides the preview button entirely when onPreviewBuiltMesh is not provided (no dead affordance)', () => {
+        const meshes = [{id: 3, run_id: 300, node_count: 80001, element_count: 160000, materialized: false, created_at: '2026-06-01T12:00:00Z'}];
+        div = renderIntoDiv(<BuiltMeshRoster builtMeshes={meshes} renderThreshold={150000}/>);
+        expect(div.querySelector('[data-testid="built-mesh-preview-btn-3"]')).toNotExist();
+    });
+
+    it('shows the busy "Loading…" label and disables the button while previewingRunId matches this row', () => {
+        const meshes = [{id: 4, run_id: 400, node_count: 80001, element_count: 160000, materialized: false, created_at: '2026-06-01T12:00:00Z'}];
+        div = renderIntoDiv(
+            <BuiltMeshRoster
+                builtMeshes={meshes}
+                renderThreshold={150000}
+                onPreviewBuiltMesh={() => {}}
+                previewingRunId={400}
+            />
+        );
+        const btn = div.querySelector('[data-testid="built-mesh-preview-btn-4"]');
+        expect(btn.textContent).toContain('Loading…');
+        expect(btn.disabled).toBe(true);
+    });
+
+    // TASK-2657d (W6.5, epic 2618) — the "Preview" column header (and its
+    // empty <td> cells) previously rendered even when the flag is dark
+    // (onPreviewBuiltMesh null — cosmetic UAT finding).
+    describe('Preview column visibility (TASK-2657d)', () => {
+        it('hides the "Preview" header AND every row\'s empty cell when onPreviewBuiltMesh is null (dark flag), even for an above-threshold mesh', () => {
+            const meshes = [{id: 5, run_id: 500, node_count: 80001, element_count: 160000, materialized: false, created_at: '2026-06-01T12:00:00Z'}];
+            div = renderIntoDiv(<BuiltMeshRoster builtMeshes={meshes} renderThreshold={150000} onPreviewBuiltMesh={null}/>);
+            const headers = Array.from(div.querySelectorAll('th')).map(h => h.textContent);
+            expect(headers).toNotContain('Preview');
+            expect(headers.length).toBe(3); // Date, Triangles, Nodes only
+            const row = div.querySelector('[data-testid="built-mesh-row-5"]');
+            expect(row.querySelectorAll('td').length).toBe(3); // no 4th (Preview) cell at all
+            expect(div.querySelector('[data-testid="built-mesh-preview-btn-5"]')).toNotExist();
+        });
+
+        it('shows the "Preview" header when onPreviewBuiltMesh is provided (flag on)', () => {
+            const meshes = [{id: 6, run_id: 600, node_count: 80001, element_count: 160000, materialized: false, created_at: '2026-06-01T12:00:00Z'}];
+            div = renderIntoDiv(<BuiltMeshRoster builtMeshes={meshes} renderThreshold={150000} onPreviewBuiltMesh={() => {}}/>);
+            const headers = Array.from(div.querySelectorAll('th')).map(h => h.textContent);
+            expect(headers).toContain('Preview');
+            expect(headers.length).toBe(4);
+        });
+    });
 });
 
 // ---------------------------------------------------------------------------

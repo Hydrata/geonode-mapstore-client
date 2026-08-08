@@ -80,7 +80,7 @@ import AnugaInputStarterCard from "./anugaInputStarterCard";
 // terrains" header button that opens the stand-alone recipe-builder panel.
 import {MergeTerrainsIcon} from "../../TerrainWorkbench/components/MergeTerrainsPanel";
 
-import {canEditAnugaMap, getProjectId, getSelectedScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {canEditAnugaMap, getProjectId, getSelectedScenario, getScenariosArray} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import {deleteTerrain} from "@js/plugins/hydrata/Anuga/actions/dataActions";
 // TASK-2327 (epic 2323): non-blocking vertical-datum badge on the terrain row.
 import TerrainDatumBadge from "@js/plugins/hydrata/Anuga/components/terrainDatumBadge";
@@ -88,6 +88,13 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
 import {MeshWorkflow} from "./MeshWorkflow";
+// W6.1 (TASK-2630) — Built-mesh binary preview (pre-run, any size).
+import {loadBuiltMeshLayerOptions} from "../playback/builtMeshBinary";
+// TASK-2657a (W6.5) — normalizes the binary export's raw epsg header value
+// (e.g. "32756") into proj4/MapStore's "EPSG:32756" string form for the
+// auto-zoom's CRS argument. SAME helper AnugaPlaybackLayer.isCompatible
+// already uses for the identical UTM-code shape (no second parser).
+import {normalizeEpsgCode} from "../playback/playbackReproject";
 // Merge note (5.x→epic 2026-06-15): union of TASK-1652 reorder imports and
 // TASK-1720/1721 styling-mode/contour imports.
 import {addLayer, moveNode, sortNode, changeLayerProperties, removeLayer} from "../../../../../MapStore2/web/client/actions/layers";
@@ -153,6 +160,26 @@ const stripModelPrefix = (name) => {
     const idx = name.indexOf(': ');
     return idx >= 0 ? name.slice(idx + 2) : name;
 };
+
+// TASK-2657c (W6.5, epic 2618) — the built-mesh roster is
+// selectedScenarioId-scoped (state.anuga.scenarios.selectedId), but that
+// Redux field is populated ONLY by anugaScenarioMenu's own bootstrap effect
+// (the Hydraulics panel — see its componentDidMount/componentDidUpdate,
+// which dispatch SELECT_ANUGA_SCENARIO). On a fresh page load, opening
+// Inputs -> Mesh BEFORE ever visiting Hydraulics leaves selectedScenarioId
+// null even though the scenario LIST (state.anuga.scenarios.byId) is
+// already populated project-wide by the initAnuga bootstrap — so the
+// roster read "No built meshes yet" until the operator happened to visit
+// the other panel first (UAT finding). Falling back to the first scenario
+// (same id anugaScenarioMenu would itself auto-select) hydrates the
+// roster's OWN data dependency without touching cross-panel selection
+// state — `scenarios` is already sorted ascending by id
+// (selectorsAnuga.getScenariosArray).
+function resolveScenarioId(props) {
+    if (props.selectedScenarioId) return props.selectedScenarioId;
+    const first = props.scenarios && props.scenarios[0];
+    return first ? first.id : null;
+}
 
 const selectPendingByModel = createSelector(
     [
@@ -849,6 +876,10 @@ class AnugaInputMenuClass extends React.Component {
         // W3.1 (TASK-1266)
         projectId: PropTypes.number,
         selectedScenarioId: PropTypes.number,
+        // TASK-2657c (W6.5) — full scenario list, so the built-mesh roster
+        // can resolve a scenario id even before selectedScenarioId itself
+        // has been set app-wide (see resolveScenarioId's header).
+        scenarios: PropTypes.array,
         // W5.1 (TASK-1273)
         selectedScenario: PropTypes.object,
         // W5.3 (TASK-1275)
@@ -877,14 +908,22 @@ class AnugaInputMenuClass extends React.Component {
         // mount that omits it is safe (mirrors terrainBboxPanel.js's own
         // setAnugaInputMenu propType, which carries no defaultProps entry).
         setAnugaInputMenu: PropTypes.func,
-        onUpdateTerrainRow: PropTypes.func
+        onUpdateTerrainRow: PropTypes.func,
+        // TASK-2631 (W6.2, epic 2618) — explicit ownProp from anugaContainer.js
+        // (this component carries its OWN connect(), so it does not inherit
+        // the container's plugin-cfg ownProps automatically). Gates the W6.1
+        // Built-mesh WebGL preview button — see renderMeshPane's use below.
+        resultsPlaybackEnabled: PropTypes.bool
     };
 
     static defaultProps = {
         // TASK-1800: the "Combined surface" header button calls these
         // unconditionally; default to no-ops so an unconnected/test mount is safe.
         onOpenMergeTerrainsPanel: () => {},
-        onTwLoadData: () => {}
+        onTwLoadData: () => {},
+        // TASK-2631 — dark by construction, mirrors anugaContainer.js's
+        // paywallEnabled/resultsPlaybackEnabled defaultProps.
+        resultsPlaybackEnabled: false
     };
 
     constructor(props) {
@@ -918,6 +957,9 @@ class AnugaInputMenuClass extends React.Component {
             meshWorkflowOpen: false,
             // W6 (TASK-1424) — built mesh roster: array of MeshRun API objects, null = not loaded
             builtMeshes: null,
+            // W6.1 (TASK-2630) — run_id currently loading its WebGL Built-mesh
+            // preview (drives BuiltMeshRoster's per-row busy state); null = idle.
+            previewingBuiltMeshRunId: null,
             // TASK-1652 (W1.5) — terrain hierarchy: Set of terrain model IDs
             // whose derivative rows (hillshade, etc.) are expanded.
             expandedTerrainIds: new Set(),
@@ -998,11 +1040,89 @@ class AnugaInputMenuClass extends React.Component {
         this.setState(prev => ({meshWorkflowOpen: !prev.meshWorkflowOpen}));
     };
 
+    // W6.1 (TASK-2630) — "Preview (any size)" button on a BuiltMeshRoster row
+    // above the render threshold: fetch the binary Built-mesh export and add
+    // it as an `anuga-playback` layer (wireframe-only, no quantities — no SWW
+    // exists pre-run). Reuses `onAddMeshLayer` (a plain `dispatch(addLayer(
+    // layer))`) — the SAME generic dispatcher the existing MVT
+    // mesh_triangle_render button already uses, so no new Redux plumbing.
+    //
+    // TASK-2657b (W6.5) — `this._previewBuiltMeshInFlight` is a plain
+    // instance flag, checked SYNCHRONOUSLY before anything else in this
+    // handler runs, closing a window `this.state.previewingBuiltMeshRunId`
+    // alone cannot: the per-row `disabled` attribute the roster already
+    // applies only takes effect once React commits the next render, so two
+    // click events landing in the same task (rapid manual clicks, or an
+    // automation driver's back-to-back `.click()` calls) can both reach
+    // this handler before that commit — the UAT's "concurrent 4MB
+    // refetches" repro. A state-only guard depends on that commit timing;
+    // this flag does not.
+    _handlePreviewBuiltMesh = (meshRun) => {
+        if (!meshRun || !meshRun.run_id) return;
+        if (!this.props.onAddMeshLayer) return;
+        if (this._previewBuiltMeshInFlight) return;
+        this._previewBuiltMeshInFlight = true;
+        this.setState({previewingBuiltMeshRunId: meshRun.run_id});
+        loadBuiltMeshLayerOptions(meshRun.run_id)
+            .then((layerOptions) => {
+                this.props.onAddMeshLayer(layerOptions);
+                // TASK-2657a (W6.5) — auto-zoom to the previewed mesh: the
+                // click previously appeared to do nothing when the mesh sat
+                // off-viewport (compounded the W6.5 compositing blocker
+                // during diagnosis — nothing rendered AND nothing panned
+                // there to look at).
+                this._zoomToBuiltMeshExtent(layerOptions.mesh);
+                this._previewBuiltMeshInFlight = false;
+                this.setState({previewingBuiltMeshRunId: null});
+            })
+            .catch(() => {
+                // Never let a fetch/decode failure crash the panel — the
+                // button just returns to its idle state (same "never let a
+                // reprojection failure crash the map" posture as
+                // AnugaPlaybackLayer.loadMesh).
+                this._previewBuiltMeshInFlight = false;
+                this.setState({previewingBuiltMeshRunId: null});
+            });
+    };
+
+    // TASK-2657a (W6.5) — zoom to the built mesh's own extent (raw,
+    // ALREADY-ABSOLUTE UTM nodeX/nodeY per builtMeshBinary.js's header —
+    // no xllcorner/yllcorner offset to add). TRAP (live-verify): a TINY
+    // extent (a narrow synthetic ribbon mesh, ~5-60m across one axis)
+    // combined with a maxZoom hint makes MapStore's ZOOM_TO_EXTENT epic
+    // reset to a WORLD view instead of clamping to the deepest sane zoom —
+    // padding to a sane minimum footprint (not driving the OL view
+    // directly) sidesteps it without needing a live map/view reference here.
+    _zoomToBuiltMeshExtent = (mesh) => {
+        if (!mesh || !mesh.nodeX || !mesh.nodeX.length || !this.props.onZoomToExtent) return;
+        const {nodeX, nodeY, epsg} = mesh;
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (let i = 0; i < nodeX.length; i++) {
+            if (nodeX[i] < minX) minX = nodeX[i];
+            if (nodeX[i] > maxX) maxX = nodeX[i];
+            if (nodeY[i] < minY) minY = nodeY[i];
+            if (nodeY[i] > maxY) maxY = nodeY[i];
+        }
+        if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) return;
+        const MIN_SPAN_M = 200;
+        const width = Math.max(maxX - minX, 1);
+        const height = Math.max(maxY - minY, 1);
+        const padX = Math.max(width * 0.15, (MIN_SPAN_M - width) / 2, 20);
+        const padY = Math.max(height * 0.15, (MIN_SPAN_M - height) / 2, 20);
+        const crs = normalizeEpsgCode(epsg) || 'EPSG:4326';
+        this.props.onZoomToExtent([minX - padX, minY - padY, maxX + padX, maxY + padY], crs, 18);
+    };
+
     componentDidMount() {
         // W6 (TASK-1424): fetch built meshes on initial mount in case a scenario is
         // already selected (AnugaInputMenu is unmounted/remounted each time the panel
         // is opened, so the scenario is often pre-selected on first render).
-        if (this.props.selectedScenarioId) {
+        // TASK-2657c (W6.5): resolveScenarioId falls back to the first
+        // scenario in the list when nothing is YET selected app-wide.
+        if (resolveScenarioId(this.props)) {
             this._fetchBuiltMeshes();
         }
     }
@@ -1023,8 +1143,13 @@ class AnugaInputMenuClass extends React.Component {
             this.lastSubmittedCategory = null;
         }
 
-        // W6 (TASK-1424): re-fetch built meshes when the selected scenario changes.
-        if (prevProps.selectedScenarioId !== this.props.selectedScenarioId) {
+        // W6 (TASK-1424): re-fetch built meshes when the selected scenario
+        // changes. TASK-2657c (W6.5): compares the RESOLVED id (falls back
+        // to scenarios[0] the same way componentDidMount above does) so a
+        // scenario list that arrives asynchronously after mount — with
+        // selectedScenarioId still null — still triggers the fetch once it
+        // lands, not just an explicit cross-panel selection.
+        if (resolveScenarioId(prevProps) !== resolveScenarioId(this.props)) {
             this._fetchBuiltMeshes();
         }
     }
@@ -1034,7 +1159,7 @@ class AnugaInputMenuClass extends React.Component {
     // Falls back to empty array on any error so the roster renders 'No built meshes yet'.
     _fetchBuiltMeshes = () => {
         const projectId = this.props.projectId;
-        const scenarioId = this.props.selectedScenarioId;
+        const scenarioId = resolveScenarioId(this.props);
         if (!projectId || !scenarioId) {
             this.setState({builtMeshes: []});
             return;
@@ -1698,7 +1823,7 @@ class AnugaInputMenuClass extends React.Component {
             : null;
 
         // W5.1: MeshWorkflow state
-        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen, meshPreviewProgress, builtMeshes} = this.state;
+        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen, meshPreviewProgress, builtMeshes, previewingBuiltMeshRunId} = this.state;
         const hasScenario = !!this.props.selectedScenarioId;
         const scenario = this.props.selectedScenario || null;
         // W5.3: check if the mesh triangle render layer is already in the flat layer list
@@ -1731,6 +1856,18 @@ class AnugaInputMenuClass extends React.Component {
                     onAddMeshLayer={this.props.onAddMeshLayer}
                     isMeshLayerAdded={isMeshLayerAdded}
                     builtMeshes={builtMeshes}
+                    // renderThreshold intentionally omitted — MeshWorkflow's
+                    // default (150000) mirrors PreviewSection's own
+                    // `result.render_threshold || 150000` fallback; no FE
+                    // config surface for settings.MESH_RENDER_MAX_TRIANGLES
+                    // exists yet (documented in the W6 wave report).
+                    // TASK-2631 (W6.2) — null (not the handler) when the
+                    // playback flag is dark: BuiltMeshRoster already treats a
+                    // null onPreviewBuiltMesh as "hide the button entirely, no
+                    // dead affordance" (see its own propTypes/render — built
+                    // W6.1), so gating here needs no new conditional there.
+                    onPreviewBuiltMesh={this.props.resultsPlaybackEnabled ? this._handlePreviewBuiltMesh : null}
+                    previewingRunId={previewingBuiltMeshRunId}
                 />
             </div>
         );
@@ -1900,6 +2037,8 @@ const mapStateToProps = (state) => {
         // W3.1 (TASK-1266) — For preview mesh: project id + selected scenario id
         projectId: getProjectId(state),
         selectedScenarioId: state?.anuga?.scenarios?.selectedId || null,
+        // TASK-2657c (W6.5) — see resolveScenarioId's header.
+        scenarios: getScenariosArray(state),
         // W5.1 (TASK-1273) — Full scenario object for cost estimate in MeshWorkflow
         selectedScenario: getSelectedScenario(state),
         // W5.3 (TASK-1275) — Layer list to detect if mesh_triangle_render is already added

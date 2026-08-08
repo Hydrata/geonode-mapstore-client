@@ -40,6 +40,16 @@ import {
 // the dock component (MapStore core) is never forked.
 import './hydrata/LongitudinalProfile/longitudinalProfileOverride.css';
 
+// TASK-2626 (W2.2, epic 2618) — eager side-effect registration of the
+// 'anuga-playback' OL layer type (Layers.registerType). MUST stay eager:
+// the Anuga plugin itself is lazy-loaded a few lines below
+// (AnugaPlugin: toModulePlugin(...)), but Layers.createLayer('anuga-playback',
+// ...) can run from persisted map state before that chunk ever resolves —
+// an unregistered type fails SILENTLY (Layers.js returns null, no error).
+// See AnugaPlaybackLayer.js's module doc for the full trap writeup and the
+// mount-order test that proves this ordering (TASK-2580-class regression).
+import './hydrata/Anuga/playback/AnugaPlaybackLayer';
+
 let epicsNamesToExclude = [
     'loadGeostoryEpic',
     'reloadGeoStoryOnLoginLogout',

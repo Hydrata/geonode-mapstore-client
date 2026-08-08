@@ -2971,3 +2971,221 @@ span.sv-scenario-run-price--short {
     border-color: var(--sv-accent-blue, #5bc0ff);
     color: #0b1a26;
 }
+
+/* TASK-2627 (W3.1, epic 2618) — Anuga-owned playback transport bar. Reuses
+   the MapStore Timeline plugin's VISUAL language (bottom-docked, dark glass
+   bar) without touching that plugin (D7 — locked). Sits above Timeline's own
+   z-index band so both can never overlap on the same map (Timeline is not
+   mounted on Anuga result maps today, but this keeps the stacking order
+   correct if that ever changes). */
+.sv-playback-bar {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    background: var(--sv-panel-bg, rgba(20, 24, 28, 0.88));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: Montserrat, sans-serif;
+    font-size: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.sv-playback-bar--loader {
+    gap: 6px;
+}
+.sv-playback-manifest-input {
+    min-width: 260px;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: inherit;
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+.sv-playback-bar .sv-glass-button {
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: inherit;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.sv-playback-bar .sv-glass-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+.sv-playback-bar .sv-glass-button.active {
+    background: var(--sv-accent-blue, #5bc0ff);
+    border-color: var(--sv-accent-blue, #5bc0ff);
+    color: #0b1a26;
+}
+.sv-playback-bar .sv-glass-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.sv-playback-playpause {
+    min-width: 32px;
+    text-align: center;
+}
+.sv-playback-scrubber {
+    width: 220px;
+}
+.sv-playback-readout {
+    min-width: 90px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+.sv-playback-speed,
+.sv-playback-quantity {
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: inherit;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+}
+.sv-playback-buffering {
+    color: var(--sv-accent-blue, #5bc0ff);
+    white-space: nowrap;
+}
+.sv-playback-degraded {
+    color: #f0a830;
+    white-space: nowrap;
+}
+
+/* TASK-2628 (W3.2, epic 2618) — playback legend, mirrors .sv-dem-legend-*. */
+.sv-playback-legend {
+    padding: 6px 4px 8px 4px;
+    margin-top: 2px;
+}
+.sv-playback-legend-header {
+    margin-bottom: 4px;
+}
+.sv-playback-legend-title {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.sv-playback-legend-stops {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.sv-playback-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 14px;
+}
+.sv-playback-legend-swatch {
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 16px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.sv-playback-legend-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.8);
+    font-variant-numeric: tabular-nums;
+}
+.sv-playback-legend-note {
+    font-size: 10px;
+    color: rgba(245, 200, 120, 0.9);
+    margin-top: 6px;
+}
+.sv-playback-legend-tolerance {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-top: 6px;
+    line-height: 1.3;
+}
+.sv-movable-panel.sv-playback-legend-panel {
+    width: 220px;
+}
+
+/* TASK-2628 — click-to-inspect readout, floats bottom-left above the
+   playback bar so it never overlaps the transport controls. */
+.sv-playback-identify-readout {
+    position: absolute;
+    left: 16px;
+    bottom: 60px;
+    z-index: 999;
+    min-width: 160px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: var(--sv-panel-bg, rgba(20, 24, 28, 0.88));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: Montserrat, sans-serif;
+    font-size: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.sv-playback-identify-readout-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 4px;
+}
+.sv-playback-identify-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    line-height: 16px;
+}
+.sv-playback-identify-value {
+    font-variant-numeric: tabular-nums;
+}
+.sv-playback-identify-readout-surface {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 6px;
+    line-height: 1.3;
+}
+
+/* TASK-2684 (W6.75.2, epic 2618) — Results menu: one row per scenario.
+   Same box/pill language as .sv-subheading-row (simpleView.css), but each
+   row is itself the clickable affordance (no expand/collapse, no nested
+   per-quantity rows). */
+.sv-anuga-results-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+}
+.sv-anuga-results-row {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    margin: 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: Montserrat, sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+}
+.sv-anuga-results-row:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+.sv-anuga-results-row.active {
+    border-color: var(--sv-input-blue, #5178af);
+    background-color: rgba(81, 120, 175, 0.35);
+}
+.sv-anuga-results-empty {
+    padding: 10px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.4;
+}

@@ -47,7 +47,10 @@ import {
     selectedScenarios as selectedScenariosSelector
 } from "../selectorsAnuga";
 import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
-import {changeLayerProperties} from '../../../../../MapStore2/web/client/actions/layers';
+// TASK-2684 (W6.75.2, epic 2618) — Results-row selection dispatches playback
+// activation directly (replaces the old per-quantity changeLayerProperties
+// visibility toggle this file used to dispatch here).
+import {playbackInit} from '../playback/actions/playbackActions';
 import {
     validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES,
     getMeshDivergence, getMeshComparison
@@ -61,6 +64,119 @@ import {AnugaScenarioOverflowMenu} from './anugaScenarioOverflowMenu';
 // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge data source.
 import {getAccountSummaryState} from '../../Paywall/account/reducer';
 import {SectionHeader} from "../../SimpleView/components/primitives";
+
+// TASK-2684 (W6.75.2, epic 2618) — Results menu simplification.
+//
+// Stable OL layer id for the Results-menu playback surface: reusing the SAME
+// id across scenario selections means playbackInitEpic's `layerExists` check
+// finds the layer already on the map and skips addLayer (see
+// playbackEpics.js), so switching scenarios replaces the SINGLE active run
+// in place — playbackController's own reducer state is a runId/layerId
+// singleton (createInitialPlaybackState), never multi-run — rather than
+// ever having two playback layers/runs live at once (AC: "never two active
+// at once").
+export const ANUGA_RESULTS_PLAYBACK_LAYER_ID = 'anuga-results-playback';
+
+/**
+ * The presigned-manifest endpoint for a run's TASK-2622 playback store
+ * (apps/gn_anuga/api_v2.py RunViewSetV2.playback_manifest, `has_playback_store`
+ * gates whether it 404s) — same `/api/v2/anuga/runs/<id>/<action>/` URL shape
+ * builtMeshBinary.js already uses for the sibling built-mesh-binary action.
+ * @param {number|string} runId
+ * @returns {string}
+ */
+export function buildPlaybackManifestUrl(runId) {
+    return `/api/v2/anuga/runs/${runId}/playback-manifest/`;
+}
+
+/**
+ * Whether a scenario's latest COMPLETE run actually has a playback store to
+ * activate — the pre-authorized W6.75 tradeoff: a complete run with no
+ * playback store (has_playback_store false, or absent — e.g. a pre-TASK-2623
+ * run) is treated identically to "no complete run at all" (AC: "row absent
+ * or clearly non-actionable"), not a new empty/error product surface.
+ * @param {object} scenario
+ * @returns {boolean}
+ */
+export function scenarioHasActivatablePlayback(scenario) {
+    return !!(scenario && scenario.latest_complete_run && scenario.latest_complete_run.has_playback_store);
+}
+
+/**
+ * AnugaResultsMenu — TASK-2684 (W6.75.2): replaces the old Results TOC group
+ * (a miller-columns rail of [Depth, Velocity, Depth Integrated Velocity]
+ * quantity selectors, each expanding to a per-scenario checkbox row — see
+ * this task's spec CONTEXT / apps/gn_anuga/utils.py's get_anuga_group,
+ * `Results.<Quantity>`) with exactly one row per scenario, labelled with the
+ * scenario name. Selecting a row activates playback for that scenario
+ * (dispatches playbackInit with the run's presigned-manifest URL) instead of
+ * toggling the three static max-raster COGs' visibility — those layers stay
+ * on the map as DATA (untouched), just no longer exposed as a user-facing
+ * selector here (AC). Mounted by simpleViewContainer.js in place of the
+ * generic MenuRows component when openMenuGroupId === 'Results'.
+ */
+export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}) => {
+    const actionable = (scenarios || []).filter(scenarioHasActivatablePlayback);
+    if (actionable.length === 0) {
+        return (
+            <div className="sv-menu-rows-container sv-anuga-results-menu">
+                <div className="sv-anuga-results-empty" data-testid="anuga-results-empty">
+                    <Message msgId="hydrata.anuga.resultsNoRuns" />
+                </div>
+            </div>
+        );
+    }
+    return (
+        <div className="sv-menu-rows-container sv-anuga-results-menu">
+            {actionable.map((scenario) => {
+                const run = scenario.latest_complete_run;
+                const active = activeRunId !== null && activeRunId !== undefined && String(activeRunId) === String(run.id);
+                return (
+                    <button
+                        key={scenario.id}
+                        type="button"
+                        className={'sv-anuga-results-row' + (active ? ' active' : '')}
+                        data-testid={`anuga-results-row-${scenario.id}`}
+                        onClick={() => onSelectScenario(scenario)}
+                    >
+                        {scenario.name}
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
+AnugaResultsMenuClass.propTypes = {
+    scenarios: PropTypes.array,
+    activeRunId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    onSelectScenario: PropTypes.func
+};
+
+const resultsMenuMapStateToProps = (state) => ({
+    scenarios: getScenariosArray(state),
+    activeRunId: state && state.anugaPlayback && state.anugaPlayback.runId
+});
+
+const resultsMenuMapDispatchToProps = (dispatch) => ({
+    onSelectScenario: (scenario) => {
+        if (!scenarioHasActivatablePlayback(scenario)) {
+            return;
+        }
+        const run = scenario.latest_complete_run;
+        dispatch(playbackInit(String(run.id), ANUGA_RESULTS_PLAYBACK_LAYER_ID, buildPlaybackManifestUrl(run.id)));
+        // Focus fully moves to the player: close Scenarios if it was open
+        // (same action handleViewResults dispatches for the other entry
+        // point into this — TASK-2684). No setOpenMenuGroupId('Results')
+        // here — simplify pass: this component only ever mounts while
+        // Results is ALREADY the open group (simpleViewContainer.js), so
+        // that dispatch was a guaranteed no-op every time.
+        dispatch(setAnugaScenarioMenu(false));
+        trackEvent('button', 'click', 'anuga-results-menu-select-scenario');
+    }
+});
+
+export const AnugaResultsMenu = connect(resultsMenuMapStateToProps, resultsMenuMapDispatchToProps)(AnugaResultsMenuClass);
 
 /**
  * Miller-columns container for the ANUGA scenarios panel.
@@ -246,8 +362,8 @@ class AnugaScenarioMenuClass extends React.Component {
       runAnugaScenario: PropTypes.func,
       setSessionComputeTarget: PropTypes.func,
       openTaskMonitorForRun: PropTypes.func,
-      // ISSUE 32 (TASK-1429): View results button on completion.
-      flatLayers: PropTypes.array,
+      // ISSUE 32 (TASK-1429), redesigned TASK-2684: View results button —
+      // now activates playback (no longer needs flatLayers).
       onViewResults: PropTypes.func
   };
 
@@ -467,11 +583,11 @@ class AnugaScenarioMenuClass extends React.Component {
       }
   };
 
-  // ISSUE 32 (TASK-1429): Close Scenarios, open Results, activate only this
-  // scenario's 3 result layers.
+  // ISSUE 32 (TASK-1429), redesigned TASK-2684: Close Scenarios, open
+  // Results, activate playback for this scenario (onViewResults).
   handleViewResults = (scenario) => {
       if (this.props.onViewResults) {
-          this.props.onViewResults(scenario, this.props.flatLayers || []);
+          this.props.onViewResults(scenario);
       }
       if (this.props.setOpenMenuGroupId) {
           this.props.setOpenMenuGroupId('Results');
@@ -1375,8 +1491,6 @@ const mapStateToProps = (state) => {
         currentUserId: state?.security?.user?.pk,
         selectedScenarios: selected,
         readyToCompare: selected.length === 2,
-        // ISSUE 32 (TASK-1429): flat layer list for view-results visibility toggling.
-        flatLayers: state?.layers?.flat || [],
         // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge. Kill-switch
         // mirrors the Anuga plugin's own cfg (same localConfig.json block
         // MembershipPanel's paywallEnabled reads, via ownProps there — this
@@ -1412,27 +1526,23 @@ const mapDispatchToProps = (dispatch) => ({
     openTaskMonitorForRun: () => dispatch(toggleTaskMonitorPanel(true)),
     // TASK-2205 (W0.2 epic 2204) — the gap-suggestion link's click handler.
     onOpenMergeTerrainsPanel: () => dispatch(setTerrainWorkbenchVisible(true)),
-    // ISSUE 32 (TASK-1429): turn on only this scenario's 3 result layers,
-    // turn off all other layers in the Results group.
-    // TASK-2078: layer-name visibility toggle is a RESULT consumer per D1 —
-    // reads latest_complete_run (the run whose COGs are actually on the
-    // map), not latest_run (which may be a newer in-flight/errored run with
-    // no result layers to show yet).
-    onViewResults: (scenario, flatLayers) => {
-        const run = scenario?.latest_complete_run;
-        if (!run) return;
-        const thisRunLayerNames = [
-            run.gn_layer_depth_max?.name,
-            run.gn_layer_velocity_max?.name,
-            run.gn_layer_depth_integrated_velocity_max?.name
-        ].filter(Boolean);
-        const resultLayers = flatLayers.filter(
-            l => l?.group && l.group.startsWith('Results.')
-        );
-        resultLayers.forEach(layer => {
-            const shouldBeVisible = !!layer.name && thisRunLayerNames.includes(layer.name);
-            dispatch(changeLayerProperties(layer.id, {visibility: shouldBeVisible}));
-        });
+    // ISSUE 32 (TASK-1429), redesigned TASK-2684 (W6.75.2, epic 2618): the
+    // "View Results" button used to turn on this scenario's 3 static
+    // max-raster layers (Depth/Velocity/DIV) and turn off every other
+    // scenario's — the very per-quantity selector the Results menu redesign
+    // removes. It now activates PLAYBACK for this scenario instead (AC:
+    // "selecting it activates playback for that scenario"), the SAME action
+    // AnugaResultsMenu's row click dispatches (scenarioHasActivatablePlayback
+    // gate — a run with no playback store, e.g. pre-TASK-2623, is a no-op
+    // here rather than falling back to the just-removed layer toggle).
+    // TASK-2078's D1 "RESULT consumer" contract is preserved unchanged:
+    // reads latest_complete_run, never latest_run.
+    onViewResults: (scenario) => {
+        if (!scenarioHasActivatablePlayback(scenario)) {
+            return;
+        }
+        const run = scenario.latest_complete_run;
+        dispatch(playbackInit(String(run.id), ANUGA_RESULTS_PLAYBACK_LAYER_ID, buildPlaybackManifestUrl(run.id)));
     },
     // TASK-2420 — over-balance estimate badge -> Account panel, Billing tab.
     onOpenAccountBilling: () => {

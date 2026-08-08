@@ -34,6 +34,11 @@ import {setOpenMenuGroupId, setVisibleIntroduction, setVisibleLegendPanel} from 
 import "../simpleView.css";
 import LegendPanel from "./simpleViewLegend";
 import {MenuRows} from "./simpleViewMenuRows";
+// TASK-2684 (W6.75.2, epic 2618) — the Results menu is Anuga-owned content
+// (one row per scenario + playback activation, not a generic layer-group
+// tree), so it replaces MenuRows for openMenuGroupId === 'Results' only;
+// every other group (Input Data, basemaps, ...) is unaffected below.
+import {AnugaResultsMenu} from "../../Anuga/components/anugaScenarioMenu";
 import Introduction from "../components/simpleViewIntroduction";
 import {SimpleViewAttributeForm} from "../components/simpleViewAttributeForm";
 import {SimpleViewAttributeResult} from "../components/simpleViewAttributeResult";
@@ -327,6 +332,13 @@ export class SimpleViewContainer extends React.Component {
                     switch (this.props?.openMenuGroupId) {
                     case null: return null;
                     case undefined: return null;
+                    // TASK-2684 — Anuga-owned one-row-per-scenario content,
+                    // not the generic layer-group tree.
+                    case 'Results': return (
+                        <div className={'simple-view-panel simple-view-panel--miller'}>
+                            <AnugaResultsMenu/>
+                        </div>
+                    );
                     default: return (
                         <div className={'simple-view-panel simple-view-panel--miller'}>
                             <MenuRows/>

@@ -61,6 +61,18 @@ import {TerrainProfilePanel} from './TerrainProfilePanel';
 // (the whole point of floating it); self-gates on a dynamic-mode terrain pair
 // being present + the user-closed flag.
 import {FloatingDemLegendPanel} from './DemRampLegend';
+// TASK-2627 (W3.1, epic 2618) — Anuga-owned playback controller bar. Mounted
+// at container level (self-gates internally: renders its manifest-URL loader
+// when no run is active, the full transport bar once one is) so it survives
+// closing/opening the Inputs/Scenario/Results menus, matching every other
+// container-level panel's rationale above.
+import AnugaPlaybackControlBar from '../playback/components/AnugaPlaybackControlBar';
+// TASK-2628 (W3.2, epic 2618) — playback legend (floating, MovablePanel) +
+// click-to-inspect readout. Both self-gate (legend on legendOpen, readout on
+// identifyResult being non-null) so they are safe to mount unconditionally
+// alongside the control bar.
+import { FloatingPlaybackLegendPanel } from '../playback/components/PlaybackLegend';
+import PlaybackIdentifyReadout from '../playback/components/PlaybackIdentifyReadout';
 // TASK-1869 (W5.4) — vertical-exaggeration slider for the 3D Cesium terrain.
 // GATED (TASK-1870/epic-1871): the slider is visually inert in prod — it sets
 // scene.verticalExaggeration but the GeoServerBILTerrainProvider mesh never
@@ -121,12 +133,27 @@ export class AnugaContainer extends React.Component {
         // the user clicks (rather than only discovering it via a 402). Ships
         // dark (false) until localConfig.json's Anuga plugin cfg is flipped
         // alongside the operator's PAYWALL_ENABLED flip.
-        paywallEnabled: PropTypes.bool
+        paywallEnabled: PropTypes.bool,
+        // TASK-2631 (W6.2, epic 2618) — results playback plugin-cfg kill-switch,
+        // SAME mechanism as paywallEnabled directly above (an ownProp spread
+        // from the Anuga plugin's localConfig `cfg` block — see this.props
+        // usage below, no mapStateToProps entry). Gates the WHOLE playback
+        // surface (control bar, legend, identify readout, the W6.1 Built-mesh
+        // WebGL preview button) so a dark flag hides every entry point, not
+        // just the primary one (AC: "a dark flag that still registers dead UI
+        // is not dark" — the underlying `anuga-playback` OL layer TYPE stays
+        // eagerly registered regardless, per D5's mount-order requirement;
+        // only the UI that could ever CREATE one is gated). Ships dark (false)
+        // until localConfig.json's Anuga plugin cfg is flipped alongside the
+        // operator's RESULTS_PLAYBACK_ENABLED flip (hydrata.com first).
+        resultsPlaybackEnabled: PropTypes.bool
     };
 
     static defaultProps = {
         // TASK-2399 — see the propTypes comment; dark by construction.
-        paywallEnabled: false
+        paywallEnabled: false,
+        // TASK-2631 — see the propTypes comment; dark by construction.
+        resultsPlaybackEnabled: false
     };
 
     constructor(props) {
@@ -353,7 +380,16 @@ export class AnugaContainer extends React.Component {
                     {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
                     {mapFooterTarget ? ReactDOM.createPortal(<ElevationReadout />, mapFooterTarget) : null}
                     {resultsPanelTarget ? ReactDOM.createPortal(this.renderResultsProfileButton(), resultsPanelTarget) : null}
-                    {this.props.showAnugaInputMenu ? <AnugaInputMenu/> : null}
+                    {/* TASK-2631 (W6.2) — resultsPlaybackEnabled is an explicit
+                        JSX ownProp here (AnugaInputMenu carries its OWN
+                        connect(), so it does not inherit this container's
+                        plugin-cfg ownProps automatically — react-redux merges
+                        an explicit ownProp under stateProps/dispatchProps,
+                        same shape connect() always uses). Gates the W6.1
+                        Built-mesh WebGL preview button (MeshWorkflow's
+                        BuiltMeshRoster) — part of "the whole playback
+                        surface" this flag darkens. */}
+                    {this.props.showAnugaInputMenu ? <AnugaInputMenu resultsPlaybackEnabled={this.props.resultsPlaybackEnabled}/> : null}
                     {this.props.canViewAnugaMap && this.props.hasEPSGset && this.props.showAnugaScenarioMenu ?
                         <AnugaScenarioMenu/> : null
                     }
@@ -383,6 +419,33 @@ export class AnugaContainer extends React.Component {
                         present and on the user-closed flag, so it survives
                         closing the Inputs menu. */}
                     <FloatingDemLegendPanel/>
+                    {/* TASK-2627 (W3.1, epic 2618) — playback controller bar.
+                        Gated on the Results group being open (the natural
+                        entry point for viewing a completed run's playback
+                        store — no separate run-picker exists yet, see the
+                        component's own header note) rather than mounted on
+                        every map view unconditionally.
+                        TASK-2631 (W6.2) — ALSO gated on resultsPlaybackEnabled
+                        (dark ship, see the propTypes comment above): the
+                        primary entry point into the whole playback surface. */}
+                    {this.props.resultsPlaybackEnabled && this.props.openMenuGroupId === 'Results' && this.props.canViewAnugaMap && this.props.hasEPSGset ?
+                        <AnugaPlaybackControlBar/> : null
+                    }
+                    {/* TASK-2628 — legend + identify readout. Mounted
+                        unconditionally (not gated on the Results group like
+                        the control bar) since a click-to-inspect result or an
+                        open legend should stay visible even if the operator
+                        switches menus; both self-gate on their own redux flags.
+                        TASK-2631 (W6.2) — ALSO gated on resultsPlaybackEnabled:
+                        belt-and-braces (neither flag can be set without the
+                        gated control bar above ever mounting to dispatch the
+                        actions that would set them, by inspection of every
+                        dispatch site for the two flags they self-gate on —
+                        but an explicit gate here removes any future
+                        regression path that could open either independently
+                        of the flag, and costs nothing to add now). */}
+                    {this.props.resultsPlaybackEnabled ? <FloatingPlaybackLegendPanel/> : null}
+                    {this.props.resultsPlaybackEnabled ? <PlaybackIdentifyReadout/> : null}
                     {/* TASK-1869 (W5.4): vertical-exaggeration slider for the 3D
                         Cesium terrain. GATED until TASK-1870 (epic 1871) makes it
                         actually move the mesh — it is visually inert today, so the
