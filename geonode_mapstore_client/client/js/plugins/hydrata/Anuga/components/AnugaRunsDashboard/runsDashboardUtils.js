@@ -136,7 +136,16 @@ export const buildSuccessRateSeries = (records = []) => {
     }));
 };
 
-export const isStaffUser = (user) => !!(user && (user.is_staff || user.is_superuser));
+// TASK-2644 (epic 2635 W1) — isStaffUser REMOVED. The staff-gate precedent
+// this module used to export (is_staff OR is_superuser) was the exact
+// privilege-escalation hole the task closes: testing compute dispatch no
+// longer requires admin access. Consumers now receive a plain
+// `canSelectComputeTarget` boolean sourced from the BE's
+// gn_anuga.capabilities.is_tester() resolution (AnugaConfigView's
+// can_select_compute_target field, threaded through state.anuga.ui or a
+// direct prop) — there is nothing left to derive from a `user` object here,
+// so no replacement helper is needed. Deliberately NO is_staff back-compat
+// bridge (2635-D3).
 
 // -- Shared presentation tokens --------------------------------------------
 // The CPU/GPU duality is the dashboard's visual spine: CPU = Hydrata brand

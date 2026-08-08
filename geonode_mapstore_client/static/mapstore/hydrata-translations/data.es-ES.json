@@ -243,6 +243,7 @@
           "title": "Error en el pago",
           "message": "No se pudo iniciar el pago. Por favor, intentelo de nuevo."
         },
+        "betaEngineUpdateNotice": "Durante la beta, es posible que actualicemos el motor de cálculo; los resultados del mismo modelo pueden variar ligeramente entre ejecuciones.",
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "El Mesh aparecerá aquí cuando se construya un escenario.",
@@ -700,6 +701,11 @@
         "statusPending": "Pendiente",
         "statusRunning": "En ejecución",
         "statusStalled": "Estancado",
+        "statusProvisioning": "Aprovisionando",
+        "statusUnresponsive": "Sin respuesta",
+        "eta": "Tiempo restante",
+        "wedgedAdvisory": "CPU baja",
+        "wedgedAdvisoryTitle": "Se reciben latidos pero la CPU está casi a cero — solo aviso",
         "statusComplete": "Completo",
         "statusError": "Error",
         "statusCancelled": "Cancelada"

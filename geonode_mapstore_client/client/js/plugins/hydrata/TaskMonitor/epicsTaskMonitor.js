@@ -27,9 +27,9 @@ import { LOGIN_SUCCESS, SESSION_VALID } from '@mapstore/framework/actions/securi
 import { INIT_ANUGA } from '../Anuga/actions/uiActions';
 import { getProjectId } from '../Anuga/selectorsAnuga';
 import { getTerrainDownloadUrl } from '../Anuga/api/anugaApi';
-// TASK-1887: import isActiveProcess so the epic's setActiveCount uses the
-// SAME predicate as getFilteredProcesses (no duplicated status-list literal).
-// ACTIVE_STATES literal removed (TASK-1887 dead-code simplify: replaced by isActiveProcess).
+// isActiveProcess: the epic's setActiveCount uses the SAME predicate as
+// getFilteredProcesses (no duplicated status-list literal). TASK-2674: the
+// predicate reads SERVER liveness (FE staleness heuristic deleted).
 import { isActiveProcess } from './selectorsTaskMonitor';
 
 const filterToParams = (filter) => {
@@ -43,9 +43,16 @@ const filterToParams = (filter) => {
 // Suppress no-op ticks: if a poll returns a byte-equivalent process list the
 // dispatch chain (reducer rebuild + every TM_SET_PROCESSES listener including
 // taskCompleteLayerEpic's orphan-classification + localStorage walk) re-runs
-// for nothing. id+status+updated+progress_pct covers every transition any
-// downstream consumer reacts to.
-const processListsEqual = (a, b) =>
+// for nothing. id+status+updated+progress_pct covers every WRITTEN transition
+// any downstream consumer reacts to (every server-side fold bumps `updated`,
+// so phase/eta_seconds changes always ride an `updated` change).
+//
+// TASK-2674: liveness + wedged must be compared EXPLICITLY — the serializer
+// derives them at READ time from last_heartbeat vs now, so a live→stalled
+// (or wedged) flip can arrive with every written field unchanged. Without
+// these two terms distinctUntilChanged would suppress that tick and the
+// panel would show "live" forever. Exported for tests.
+export const processListsEqual = (a, b) =>
     a === b || (
         Array.isArray(a) && Array.isArray(b) &&
         a.length === b.length &&
@@ -54,7 +61,9 @@ const processListsEqual = (a, b) =>
             return p?.id === q?.id
                 && p?.status === q?.status
                 && p?.updated === q?.updated
-                && p?.progress_pct === q?.progress_pct;
+                && p?.progress_pct === q?.progress_pct
+                && p?.liveness === q?.liveness
+                && p?.wedged === q?.wedged;
         })
     );
 
@@ -115,12 +124,12 @@ export const pollActiveCountEpic = (action$, store) =>
                 })
                 .distinctUntilChanged(processListsEqual)
                 .concatMap(processes => {
-                    // TASK-1887: use isActiveProcess (same predicate as getFilteredProcesses)
-                    // so badge dot and active list always agree.
-                    const now = Date.now();
+                    // TASK-2674: isActiveProcess (same predicate as
+                    // getFilteredProcesses — badge dot and active list always
+                    // agree) now reads SERVER liveness; no clock argument.
                     return Rx.Observable.of(
                         setProcesses(processes),
-                        setActiveCount(processes.filter(p => isActiveProcess(p, now)).length)
+                        setActiveCount(processes.filter(p => isActiveProcess(p)).length)
                     );
                 })
         );
@@ -163,11 +172,10 @@ export const pollProcessListEpic = (action$, store) =>
                     const filter = store.getState()?.taskMonitor?.ui?.filter || 'active';
                     const emissions = [setProcesses(processes)];
                     if (filter === 'active') {
-                        // TASK-1887: use isActiveProcess (same predicate as getFilteredProcesses)
-                        // so badge dot and active list always agree.
-                        const now = Date.now();
+                        // TASK-2674: isActiveProcess (same predicate as
+                        // getFilteredProcesses) reads SERVER liveness.
                         emissions.push(setActiveCount(
-                            processes.filter(p => isActiveProcess(p, now)).length
+                            processes.filter(p => isActiveProcess(p)).length
                         ));
                     }
                     return Rx.Observable.of(...emissions);

@@ -1746,6 +1746,33 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
+        // TASK-2645 (epic 2635 W1, part 2) — "confirm the scenario pane and
+        // header chip never silently show nothing" for the null/zero/real
+        // trio. W0 (TASK-2636) found unpriceability is normal pre-build
+        // state (or closed historical instrumentation gaps), NOT a live
+        // defect, so no BE/formula change is warranted here (estimate.py is
+        // untouched, no fallback price introduced — AC3). This test PINS
+        // that "nothing shown" is the deliberate, narrow pre-build state —
+        // baseScenario carries neither estimate field nor a latest_run — and
+        // NOT a general silent-failure: the complementary half (a user who
+        // actually clicks Run in this exact state gets a visible message,
+        // never a silent no-op) is proven by pricingUnavailableEpic-test.js.
+        it('TASK-2645: a genuinely never-estimated, never-built scenario shows NO estimate section (deliberate — the Run-click message is the actual fix, see pricingUnavailableEpic-test.js)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={{...baseScenario, mesh_triangle_count_estimate: undefined, compute_cost_estimate: undefined}}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                />,
+                container,
+                () => {
+                    expect(container.querySelector('.anuga-scenario-estimate-section')).toNotExist();
+                    expect(container.querySelector('.anuga-scenario-mesh-comparison-section')).toNotExist();
+                    done();
+                }
+            );
+        });
+
         // TASK-2400 (dogfood F1 #2a) — a free-band ($0) pre-build estimate
         // must render 'Free', never a bare '$0.00' (a precise-looking,
         // billable-reading figure for what is actually a zero-cost run).

@@ -108,6 +108,11 @@ const initialState = {
     // allowlist (retired site)" hide it.
     availableComputeTargets: null,
     defaultComputeTarget: null,
+    // TASK-2644 (epic 2635 W1) — the gn_anuga tester capability gating the
+    // selector's RENDER (the BE dispatch gate is authoritative regardless).
+    // false = not hydrated yet OR the capability is genuinely absent —
+    // fail-closed default, same posture as availableComputeTargets above.
+    canSelectComputeTarget: false,
     // TASK-2211 (W3.2, epic 2204, AC#4) — the divergence-interrupt threshold
     // (GET /api/v2/anuga/config/'s mesh_divergence_threshold), hydrated by
     // the SAME SET_ANUGA_COMPUTE_CONFIG action as the two fields above.
@@ -248,7 +253,14 @@ export default (state = initialState, action) => {
             // separate typeof guard is needed.
             meshDivergenceThreshold: Number.isFinite(cfg.mesh_divergence_threshold)
                 ? cfg.mesh_divergence_threshold
-                : null
+                : null,
+            // TASK-2644 (epic 2635 W1) — the gn_anuga tester capability,
+            // NOT is_staff (2635-D3, no back-compat bridge). Fail-closed
+            // shape-tolerant like the fields above: anything but a literal
+            // boolean true (a missing key, a malformed payload, a network-
+            // error fallback) yields false — the compute-target selector
+            // stays hidden rather than ever defaulting to shown.
+            canSelectComputeTarget: cfg.can_select_compute_target === true
         };
     }
     // TASK-2194 (review fix) — record/clear one scenario's session choice.

@@ -243,6 +243,7 @@
           "title": "Checkout failed",
           "message": "Could not start checkout. Please try again."
         },
+        "betaEngineUpdateNotice": "During beta we may update the compute engine; results for the same model may change slightly between runs.",
         "mesh": "Mesh",
         "meshRegions": "Mesh",
         "meshWillAppear": "Mesh will appear here when a Scenario is built.",
@@ -700,6 +701,11 @@
         "statusPending": "Pending",
         "statusRunning": "Running",
         "statusStalled": "Stalled",
+        "statusProvisioning": "Provisioning",
+        "statusUnresponsive": "Unresponsive",
+        "eta": "ETA",
+        "wedgedAdvisory": "Low CPU",
+        "wedgedAdvisoryTitle": "Heartbeats are arriving but CPU is near zero — advisory only",
         "statusComplete": "Complete",
         "statusError": "Error",
         "statusCancelled": "Cancelled"

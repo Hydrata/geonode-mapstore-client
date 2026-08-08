@@ -9,7 +9,8 @@ from django.conf import settings
 from django.templatetags.static import static
 from rest_framework.response import Response
 from django.core.cache import cache
-from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.views.generic import TemplateView
 
 
@@ -177,15 +178,34 @@ class PluginsConfigView(APIView):
         return Response({"plugins": plugins})
 
 
-# TASK-1964 (epic 1952 W5.1) — staff-only run-actuals dashboard, top-level
-# /runs (operator: "stage the fe app at hydrata.com/runs", NOT /anuga/runs).
+# TASK-1964 (epic 1952 W5.1) — tester-capability run-actuals dashboard,
+# top-level /runs (operator: "stage the fe app at hydrata.com/runs", NOT
+# /anuga/runs).
 #
-# staff_member_required is the server-side leg of the triple staff gate (see
-# AnugaRunsDashboard.jsx header for the other two): a non-staff request is
-# redirected to the admin login rather than ever receiving the dashboard
-# HTML/bundle. The page itself does no further DB work — it just serves the
-# shell template; all data comes from the already-staff-gated
-# /api/v2/anuga/admin/runs/ API (TASK-1962, IsAdminUser).
-runs_dashboard = staff_member_required(
+# TASK-2644 (epic 2635 W1, 2635-D3) — was staff_member_required; MOVED off
+# is_staff onto the gn_anuga tester capability, with no back-compat bridge.
+# staff_member_required redirects an unauthorized request to /admin/login/,
+# which is a dead end for a tester who deliberately does NOT have is_staff
+# (GeoNode's AdminSite.has_permission requires is_staff even with valid
+# credentials) — so this is a real behavioural fix, not just a rename:
+# @login_required sends an anonymous request to the normal account login,
+# and an authenticated non-tester gets a 403 rather than a login loop. The
+# gn_anuga import is LOCAL to the check (not module-level) — this app has
+# no other gn_anuga dependency and the two apps ship in the same Django
+# process only on ANUGA-enabled sites. The page itself does no further DB
+# work — it just serves the shell template; all data comes from the
+# already tester-gated /api/v2/anuga/admin/runs/ API (TASK-1962 IsAdminUser
+# -> TASK-2644 IsTester).
+def _tester_required(view_func):
+    @login_required
+    def _wrapped(request, *args, **kwargs):
+        from gn_anuga.capabilities import is_tester
+        if not is_tester(request.user):
+            raise PermissionDenied
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
+runs_dashboard = _tester_required(
     TemplateView.as_view(template_name="geonode-mapstore-client/pages/runs.html")
 )

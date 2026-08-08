@@ -41,6 +41,7 @@ import { getGeoNodeConfig, getGeoNodeLocalConfig } from "@js/utils/APIUtils";
 // epic 1511 W3 (TASK-1516): OpenReplay session-replay integration. Inert unless
 // window.__GEONODE_CONFIG__.openReplay.projectKey is set server-side.
 import { getOpenReplayReduxMiddleware, startOpenReplayWithConsent, setOpenReplayUser } from "@js/utils/openReplayUtils";
+import { bootstrapAuthkeyWarmup, shouldAwaitAuthkeyWarmup } from "@js/utils/AuthkeyWarmupProbe";
 setObservableConfig(rxjsConfig);
 
 let actionListeners = {};
@@ -333,6 +334,20 @@ export function setupConfiguration({
         }
         : undefined;
 
+    // TASK-2659: warm GeoServer's authkey token->user cache BEFORE any OL tile
+    // source can mount, so a post-idle map open doesn't pay the cold-auth path
+    // on ~130 concurrent tile requests (the 15-20s "cold tiles" stampede).
+    // Fired here for EVERY authenticated page (starts the keepalive, so an SPA
+    // hop into a map minutes later is warm) but AWAITED at the tail only on
+    // map-destined pages — homepage/search/document boots must not pay a
+    // cold-auth wait for tiles they will never request. Fail-open and bounded
+    // by its internal timeout, so it can never block boot.
+    const authkeyWarmup = bootstrapAuthkeyWarmup(user?.info?.access_token);
+    const awaitAuthkeyWarmup = shouldAwaitAuthkeyWarmup({
+        hash: window.location.hash,
+        pathname: window.location.pathname
+    });
+
     // globlal window interface to interact with the django page
     const actionTrigger = generateActionTrigger(LOCATION_CHANGE);
     // similar implementation of MapStore2 API without the create part
@@ -455,6 +470,7 @@ export function setupConfiguration({
     const openReplayReduxMiddleware = getOpenReplayReduxMiddleware();
 
     return setupLocale(getLanguageKey(geoNodePageConfig.languageCode))
+        .then(() => (awaitAuthkeyWarmup ? authkeyWarmup : undefined))
         .then(() => ({
             query,
             securityState,
