@@ -421,7 +421,7 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             return state;
         }
         const nowMs = action.nowMs;
-        const lastTickMs = state.lastTickMs == null ? nowMs : state.lastTickMs;
+        const lastTickMs = (state.lastTickMs === null || state.lastTickMs === undefined) ? nowMs : state.lastTickMs;
         const elapsedSeconds = Math.max(0, (nowMs - lastTickMs) / 1000) * state.speed;
         const playheadSeconds = state.playheadSeconds + elapsedSeconds;
         const { currentTimestep, mixT } = findTimestepBracket(state.time, playheadSeconds);

@@ -59,12 +59,12 @@ export class PlaybackChunkCache {
      * signal for a caller, not an error).
      */
     get(key) {
-        if (!this._map.has(key)) {
-            return undefined;
+        let value;
+        if (this._map.has(key)) {
+            value = this._map.get(key);
+            this._map.delete(key);
+            this._map.set(key, value);
         }
-        const value = this._map.get(key);
-        this._map.delete(key);
-        this._map.set(key, value);
         return value;
     }
 

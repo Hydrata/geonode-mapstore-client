@@ -27,1008 +27,1008 @@
 // bytes+gzip codec chain every other chunk here uses, not an arbitrary edit.
 
 export const FIXTURE_STORE_FILES = {
-  "zarr.json": "ewogICJhdHRyaWJ1dGVzIjogewogICAgImZvcm1hdF92ZXJzaW9uIjogMSwKICAgICJ4bGxjb3JuZXIiOiA1MDAwMDAuMCwKICAgICJ5bGxjb3JuZXIiOiA2OTAwMDAwLjAsCiAgICAiZmFsc2VfZWFzdGluZyI6IDUwMDAwMC4wLAogICAgImZhbHNlX25vcnRoaW5nIjogMTAwMDAwMDAuMCwKICAgICJlcHNnIjogMzI3NTYsCiAgICAiem9uZSI6IDU2LAogICAgInZlbG9jaXR5X2NvbnZlbnRpb24iOiAic29sdmVyX2Vwc2lsb24iLAogICAgInZlbG9jaXR5X2Zvcm11bGEiOiAidSA9IHVoIC8gKGggKyBoMC9oKSIsCiAgICAidmVsb2NpdHlfcHJvdGVjdGlvbiI6IDFlLTA2LAogICAgIm1pbmltdW1fYWxsb3dlZF9oZWlnaHQiOiAxZS0wNSwKICAgICJkaXNwbGF5X21hc2tfaCI6IDFlLTA1LAogICAgIm1pbmltdW1fc3RvcmFibGVfaGVpZ2h0IjogMC4wMDUsCiAgICAiZyI6IDkuOCwKICAgICJyaG9fdyI6IDEwMjMuMCwKICAgICJidWlsZGluZ19tYW5uaW5nc19uIjogMTAuMCwKICAgICJmbG93X2FsZ29yaXRobSI6ICJERTAiLAogICAgIm1vZGVsX3N0YXJ0IjogIjE5NzAtMDEtMDFUMDA6MDA6MDArMDA6MDAiLAogICAgInRpbWVfdW5pdHMiOiAic2Vjb25kcyIsCiAgICAiaGFzX2R0IjogZmFsc2UsCiAgICAiZHRfc291cmNlIjogbnVsbCwKICAgICJzbW9vdGhpbmciOiAidmVydGV4LWF2ZXJhZ2VkIiwKICAgICJhbnVnYV92ZXJzaW9uIjogIjMuMy43LWZpeHR1cmUiLAogICAgInJldmlzaW9uX251bWJlciI6ICJmaXh0dXJlIiwKICAgICJyZXZpc2lvbl9kYXRlIjogImZpeHR1cmUiLAogICAgImNvZGVjIjogImd6aXAiLAogICAgImNvZGVjX2xldmVsIjogNgogIH0sCiAgInphcnJfZm9ybWF0IjogMywKICAibm9kZV90eXBlIjogImdyb3VwIgp9",
-  "y_velocity/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzLAogICAgNgogIF0sCiAgImRhdGFfdHlwZSI6ICJ1aW50MTYiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEwLAogICAgICAgIDYKICAgICAgXQogICAgfQogIH0sCiAgImNodW5rX2tleV9lbmNvZGluZyI6IHsKICAgICJuYW1lIjogImRlZmF1bHQiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJzZXBhcmF0b3IiOiAiLyIKICAgIH0KICB9LAogICJmaWxsX3ZhbHVlIjogMzI3NjcsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7CiAgICAic2NhbGUiOiA5LjE1NTQ4MzE3MzM3ODg2ZS0wNiwKICAgICJvZmZzZXQiOiAtMC4yOTk5OTc3MTcxNDIxMDUxLAogICAgInF1YW50aXplZF9kdHlwZSI6ICJ1aW50MTYiLAogICAgImJ5dGVvcmRlciI6ICJsaXR0bGUiLAogICAgInZhbGlkX21pbiI6IC0wLjI5OTk5NzcxNzE0MjEwNTEsCiAgICAidmFsaWRfbWF4IjogMC4yOTk5OTc3MTcxNDIxMDUxCiAgfSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
-  "y_velocity/c/1/0": "H4sIANdSdGoA/1ujtVprs9YqIPm/fg2Q3IjE3gBl0wICAOBq6z54AAAA",
-  "y_velocity/c/0/0": "H4sIANdSdGoA/z2IwQmAMBAEC7CTDdZ4kHI0iQEJ3MPX/S0iLdjAug+RY2+GofG/nCaeNbAk2oQjp44ALdDVKobc0TBRVGineGNXoXV5yKv8EC+tyJvon1dxYNOnvU0rGg14AAAA",
-  "x_velocity/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzLAogICAgNgogIF0sCiAgImRhdGFfdHlwZSI6ICJ1aW50MTYiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEwLAogICAgICAgIDYKICAgICAgXQogICAgfQogIH0sCiAgImNodW5rX2tleV9lbmNvZGluZyI6IHsKICAgICJuYW1lIjogImRlZmF1bHQiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJzZXBhcmF0b3IiOiAiLyIKICAgIH0KICB9LAogICJmaWxsX3ZhbHVlIjogMzI3NjcsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7CiAgICAic2NhbGUiOiA5LjE1NTQ4MzE3MzM3ODg2ZS0wNiwKICAgICJvZmZzZXQiOiAtMC4yOTk5OTc3MTcxNDIxMDUxLAogICAgInF1YW50aXplZF9kdHlwZSI6ICJ1aW50MTYiLAogICAgImJ5dGVvcmRlciI6ICJsaXR0bGUiLAogICAgInZhbGlkX21pbiI6IC0wLjI5OTk5NzcxNzE0MjEwNTEsCiAgICAidmFsaWRfbWF4IjogMC4yOTk5OTc3MTcxNDIxMDUxCiAgfSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
-  "x_velocity/c/0/0": "H4sIANdSdGoA/z3Juw2AMBAE0R7okxquIjfgEijhYkcOLBFY8g8PGyB0wT7NYfwXd+CYzgkWyMRdcdmpaoMiZzqBpYLdTC4emlzVXB5y0ya2vliXs7zkIZfPL3fJB1x4AAAA",
-  "x_velocity/c/1/0": "H4sIANdSdGoA//v9/+//j///Acn/9X+A9Gck9lcomxYQANAIjcd4AAAA",
-  "depth/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzLAogICAgNgogIF0sCiAgImRhdGFfdHlwZSI6ICJ1aW50MTYiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEwLAogICAgICAgIDYKICAgICAgXQogICAgfQogIH0sCiAgImNodW5rX2tleV9lbmNvZGluZyI6IHsKICAgICJuYW1lIjogImRlZmF1bHQiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJzZXBhcmF0b3IiOiAiLyIKICAgIH0KICB9LAogICJmaWxsX3ZhbHVlIjogMCwKICAiY29kZWNzIjogWwogICAgewogICAgICAibmFtZSI6ICJieXRlcyIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJlbmRpYW4iOiAibGl0dGxlIgogICAgICB9CiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJnemlwIiwKICAgICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICAgImxldmVsIjogNgogICAgICB9CiAgICB9CiAgXSwKICAiYXR0cmlidXRlcyI6IHsKICAgICJzY2FsZSI6IDUuNDkzMjQ3NjQ2MzM4NDgxZS0wNiwKICAgICJvZmZzZXQiOiAwLjAsCiAgICAicXVhbnRpemVkX2R0eXBlIjogInVpbnQxNiIsCiAgICAiYnl0ZW9yZGVyIjogImxpdHRsZSIsCiAgICAidmFsaWRfbWluIjogMC4wLAogICAgInZhbGlkX21heCI6IDAuMzU5OTk5OTg0NTAyNzkyMzYKICB9LAogICJ6YXJyX2Zvcm1hdCI6IDMsCiAgIm5vZGVfdHlwZSI6ICJhcnJheSIsCiAgInN0b3JhZ2VfdHJhbnNmb3JtZXJzIjogW10KfQ==",
-  "depth/c/1/0": "H4sIANdSdGoA/5Nxt+jrUw69uiqLgcHSr3COjPqqV6GlDAyhoatWrdb6/5+hgYEmAAC2c1ereAAAAA==",
-  "depth/c/0/0": "H4sIANdSdGoA/2NgQAAZdku+PuZQ0dVcDAyWfEUyMuyrtUJFGRiAIlpAMQcGBQaGIpnHFpZ8oaGrtRgY+pRl3I8LrsoKNWVgAKoMBaptAKpiOG7Yl/xYInTqKi8GhscWxwuLZFatCg0FWuAAlFf4v58hgYEBANTw5bB4AAAA",
-  "dt_ms/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzCiAgXSwKICAiZGF0YV90eXBlIjogImZsb2F0MzIiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEzCiAgICAgIF0KICAgIH0KICB9LAogICJjaHVua19rZXlfZW5jb2RpbmciOiB7CiAgICAibmFtZSI6ICJkZWZhdWx0IiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAic2VwYXJhdG9yIjogIi8iCiAgICB9CiAgfSwKICAiZmlsbF92YWx1ZSI6ICJOYU4iLAogICJjb2RlY3MiOiBbCiAgICB7CiAgICAgICJuYW1lIjogImJ5dGVzIiwKICAgICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICAgImVuZGlhbiI6ICJsaXR0bGUiCiAgICAgIH0KICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogImd6aXAiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAibGV2ZWwiOiA2CiAgICAgIH0KICAgIH0KICBdLAogICJhdHRyaWJ1dGVzIjoge30sCiAgInphcnJfZm9ybWF0IjogMywKICAibm9kZV90eXBlIjogImFycmF5IiwKICAic3RvcmFnZV90cmFuc2Zvcm1lcnMiOiBbXQp9",
-  "dt_ms/c/0": "H4sIAAAAAAAAA2NgOFDPQCIGAMqiY/M0AAAA",
-  "time/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzCiAgXSwKICAiZGF0YV90eXBlIjogImZsb2F0NjQiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEzCiAgICAgIF0KICAgIH0KICB9LAogICJjaHVua19rZXlfZW5jb2RpbmciOiB7CiAgICAibmFtZSI6ICJkZWZhdWx0IiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAic2VwYXJhdG9yIjogIi8iCiAgICB9CiAgfSwKICAiZmlsbF92YWx1ZSI6IDAuMCwKICAiY29kZWNzIjogWwogICAgewogICAgICAibmFtZSI6ICJieXRlcyIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJlbmRpYW4iOiAibGl0dGxlIgogICAgICB9CiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJnemlwIiwKICAgICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICAgImxldmVsIjogNgogICAgICB9CiAgICB9CiAgXSwKICAiYXR0cmlidXRlcyI6IHt9LAogICJ6YXJyX2Zvcm1hdCI6IDMsCiAgIm5vZGVfdHlwZSI6ICJhcnJheSIsCiAgInN0b3JhZ2VfdHJhbnNmb3JtZXJzIjogW10KfQ==",
-  "time/c/0": "H4sIANdSdGoA/2NgQAZ2DhDaD0I3hEH5cRD6QBJUPA1CO2RB5fMg9IMCqLoiCL2gBKq+zAEAno/I/GgAAAA=",
-  "inradius/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDQKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNAogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
-  "inradius/c/0": "H4sIANdSdGoA/yu7KeZQAsTlQFwMxAB4eIXWEAAAAA==",
-  "friction/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDYKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNgogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
-  "friction/c/0": "H4sIANdSdGoA/+O6rmzLhQUDAOjpqJ4YAAAA",
-  "elevation/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDYKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNgogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
-  "elevation/c/0": "H4sIANdSdGoA/2NgYGA4e+aM7dkzPnZAbDtrpqQdA0ODHQCA//NJGAAAAA==",
-  "face_node_connectivity/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDQsCiAgICAzCiAgXSwKICAiZGF0YV90eXBlIjogImludDMyIiwKICAiY2h1bmtfZ3JpZCI6IHsKICAgICJuYW1lIjogInJlZ3VsYXIiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJjaHVua19zaGFwZSI6IFsKICAgICAgICA0LAogICAgICAgIDMKICAgICAgXQogICAgfQogIH0sCiAgImNodW5rX2tleV9lbmNvZGluZyI6IHsKICAgICJuYW1lIjogImRlZmF1bHQiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJzZXBhcmF0b3IiOiAiLyIKICAgIH0KICB9LAogICJmaWxsX3ZhbHVlIjogLTEsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
-  "face_node_connectivity/c/0/0": "H4sIANdSdGoA/2NgYGBgBGJmKM2CxGaC8kE0K5QNAGeqW6AwAAAA",
-  "node_y/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDYKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNgogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
-  "node_y/c/0": "H4sIANdSdGoA/2NgQAYKjjAMAN//FdMYAAAA",
-  "node_x/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDYKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNgogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
-  "node_x/c/0": "H4sIANdSdGoA/2NgAAEFRwaGBY4MSGwAk7qIxxgAAAA="
+    "zarr.json": "ewogICJhdHRyaWJ1dGVzIjogewogICAgImZvcm1hdF92ZXJzaW9uIjogMSwKICAgICJ4bGxjb3JuZXIiOiA1MDAwMDAuMCwKICAgICJ5bGxjb3JuZXIiOiA2OTAwMDAwLjAsCiAgICAiZmFsc2VfZWFzdGluZyI6IDUwMDAwMC4wLAogICAgImZhbHNlX25vcnRoaW5nIjogMTAwMDAwMDAuMCwKICAgICJlcHNnIjogMzI3NTYsCiAgICAiem9uZSI6IDU2LAogICAgInZlbG9jaXR5X2NvbnZlbnRpb24iOiAic29sdmVyX2Vwc2lsb24iLAogICAgInZlbG9jaXR5X2Zvcm11bGEiOiAidSA9IHVoIC8gKGggKyBoMC9oKSIsCiAgICAidmVsb2NpdHlfcHJvdGVjdGlvbiI6IDFlLTA2LAogICAgIm1pbmltdW1fYWxsb3dlZF9oZWlnaHQiOiAxZS0wNSwKICAgICJkaXNwbGF5X21hc2tfaCI6IDFlLTA1LAogICAgIm1pbmltdW1fc3RvcmFibGVfaGVpZ2h0IjogMC4wMDUsCiAgICAiZyI6IDkuOCwKICAgICJyaG9fdyI6IDEwMjMuMCwKICAgICJidWlsZGluZ19tYW5uaW5nc19uIjogMTAuMCwKICAgICJmbG93X2FsZ29yaXRobSI6ICJERTAiLAogICAgIm1vZGVsX3N0YXJ0IjogIjE5NzAtMDEtMDFUMDA6MDA6MDArMDA6MDAiLAogICAgInRpbWVfdW5pdHMiOiAic2Vjb25kcyIsCiAgICAiaGFzX2R0IjogZmFsc2UsCiAgICAiZHRfc291cmNlIjogbnVsbCwKICAgICJzbW9vdGhpbmciOiAidmVydGV4LWF2ZXJhZ2VkIiwKICAgICJhbnVnYV92ZXJzaW9uIjogIjMuMy43LWZpeHR1cmUiLAogICAgInJldmlzaW9uX251bWJlciI6ICJmaXh0dXJlIiwKICAgICJyZXZpc2lvbl9kYXRlIjogImZpeHR1cmUiLAogICAgImNvZGVjIjogImd6aXAiLAogICAgImNvZGVjX2xldmVsIjogNgogIH0sCiAgInphcnJfZm9ybWF0IjogMywKICAibm9kZV90eXBlIjogImdyb3VwIgp9",
+    "y_velocity/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzLAogICAgNgogIF0sCiAgImRhdGFfdHlwZSI6ICJ1aW50MTYiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEwLAogICAgICAgIDYKICAgICAgXQogICAgfQogIH0sCiAgImNodW5rX2tleV9lbmNvZGluZyI6IHsKICAgICJuYW1lIjogImRlZmF1bHQiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJzZXBhcmF0b3IiOiAiLyIKICAgIH0KICB9LAogICJmaWxsX3ZhbHVlIjogMzI3NjcsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7CiAgICAic2NhbGUiOiA5LjE1NTQ4MzE3MzM3ODg2ZS0wNiwKICAgICJvZmZzZXQiOiAtMC4yOTk5OTc3MTcxNDIxMDUxLAogICAgInF1YW50aXplZF9kdHlwZSI6ICJ1aW50MTYiLAogICAgImJ5dGVvcmRlciI6ICJsaXR0bGUiLAogICAgInZhbGlkX21pbiI6IC0wLjI5OTk5NzcxNzE0MjEwNTEsCiAgICAidmFsaWRfbWF4IjogMC4yOTk5OTc3MTcxNDIxMDUxCiAgfSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
+    "y_velocity/c/1/0": "H4sIANdSdGoA/1ujtVprs9YqIPm/fg2Q3IjE3gBl0wICAOBq6z54AAAA",
+    "y_velocity/c/0/0": "H4sIANdSdGoA/z2IwQmAMBAEC7CTDdZ4kHI0iQEJ3MPX/S0iLdjAug+RY2+GofG/nCaeNbAk2oQjp44ALdDVKobc0TBRVGineGNXoXV5yKv8EC+tyJvon1dxYNOnvU0rGg14AAAA",
+    "x_velocity/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzLAogICAgNgogIF0sCiAgImRhdGFfdHlwZSI6ICJ1aW50MTYiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEwLAogICAgICAgIDYKICAgICAgXQogICAgfQogIH0sCiAgImNodW5rX2tleV9lbmNvZGluZyI6IHsKICAgICJuYW1lIjogImRlZmF1bHQiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJzZXBhcmF0b3IiOiAiLyIKICAgIH0KICB9LAogICJmaWxsX3ZhbHVlIjogMzI3NjcsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7CiAgICAic2NhbGUiOiA5LjE1NTQ4MzE3MzM3ODg2ZS0wNiwKICAgICJvZmZzZXQiOiAtMC4yOTk5OTc3MTcxNDIxMDUxLAogICAgInF1YW50aXplZF9kdHlwZSI6ICJ1aW50MTYiLAogICAgImJ5dGVvcmRlciI6ICJsaXR0bGUiLAogICAgInZhbGlkX21pbiI6IC0wLjI5OTk5NzcxNzE0MjEwNTEsCiAgICAidmFsaWRfbWF4IjogMC4yOTk5OTc3MTcxNDIxMDUxCiAgfSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
+    "x_velocity/c/0/0": "H4sIANdSdGoA/z3Juw2AMBAE0R7okxquIjfgEijhYkcOLBFY8g8PGyB0wT7NYfwXd+CYzgkWyMRdcdmpaoMiZzqBpYLdTC4emlzVXB5y0ya2vliXs7zkIZfPL3fJB1x4AAAA",
+    "x_velocity/c/1/0": "H4sIANdSdGoA//v9/+//j///Acn/9X+A9Gck9lcomxYQANAIjcd4AAAA",
+    "depth/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzLAogICAgNgogIF0sCiAgImRhdGFfdHlwZSI6ICJ1aW50MTYiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEwLAogICAgICAgIDYKICAgICAgXQogICAgfQogIH0sCiAgImNodW5rX2tleV9lbmNvZGluZyI6IHsKICAgICJuYW1lIjogImRlZmF1bHQiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJzZXBhcmF0b3IiOiAiLyIKICAgIH0KICB9LAogICJmaWxsX3ZhbHVlIjogMCwKICAiY29kZWNzIjogWwogICAgewogICAgICAibmFtZSI6ICJieXRlcyIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJlbmRpYW4iOiAibGl0dGxlIgogICAgICB9CiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJnemlwIiwKICAgICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICAgImxldmVsIjogNgogICAgICB9CiAgICB9CiAgXSwKICAiYXR0cmlidXRlcyI6IHsKICAgICJzY2FsZSI6IDUuNDkzMjQ3NjQ2MzM4NDgxZS0wNiwKICAgICJvZmZzZXQiOiAwLjAsCiAgICAicXVhbnRpemVkX2R0eXBlIjogInVpbnQxNiIsCiAgICAiYnl0ZW9yZGVyIjogImxpdHRsZSIsCiAgICAidmFsaWRfbWluIjogMC4wLAogICAgInZhbGlkX21heCI6IDAuMzU5OTk5OTg0NTAyNzkyMzYKICB9LAogICJ6YXJyX2Zvcm1hdCI6IDMsCiAgIm5vZGVfdHlwZSI6ICJhcnJheSIsCiAgInN0b3JhZ2VfdHJhbnNmb3JtZXJzIjogW10KfQ==",
+    "depth/c/1/0": "H4sIANdSdGoA/5Nxt+jrUw69uiqLgcHSr3COjPqqV6GlDAyhoatWrdb6/5+hgYEmAAC2c1ereAAAAA==",
+    "depth/c/0/0": "H4sIANdSdGoA/2NgQAAZdku+PuZQ0dVcDAyWfEUyMuyrtUJFGRiAIlpAMQcGBQaGIpnHFpZ8oaGrtRgY+pRl3I8LrsoKNWVgAKoMBaptAKpiOG7Yl/xYInTqKi8GhscWxwuLZFatCg0FWuAAlFf4v58hgYEBANTw5bB4AAAA",
+    "dt_ms/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzCiAgXSwKICAiZGF0YV90eXBlIjogImZsb2F0MzIiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEzCiAgICAgIF0KICAgIH0KICB9LAogICJjaHVua19rZXlfZW5jb2RpbmciOiB7CiAgICAibmFtZSI6ICJkZWZhdWx0IiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAic2VwYXJhdG9yIjogIi8iCiAgICB9CiAgfSwKICAiZmlsbF92YWx1ZSI6ICJOYU4iLAogICJjb2RlY3MiOiBbCiAgICB7CiAgICAgICJuYW1lIjogImJ5dGVzIiwKICAgICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICAgImVuZGlhbiI6ICJsaXR0bGUiCiAgICAgIH0KICAgIH0sCiAgICB7CiAgICAgICJuYW1lIjogImd6aXAiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAibGV2ZWwiOiA2CiAgICAgIH0KICAgIH0KICBdLAogICJhdHRyaWJ1dGVzIjoge30sCiAgInphcnJfZm9ybWF0IjogMywKICAibm9kZV90eXBlIjogImFycmF5IiwKICAic3RvcmFnZV90cmFuc2Zvcm1lcnMiOiBbXQp9",
+    "dt_ms/c/0": "H4sIAAAAAAAAA2NgOFDPQCIGAMqiY/M0AAAA",
+    "time/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDEzCiAgXSwKICAiZGF0YV90eXBlIjogImZsb2F0NjQiLAogICJjaHVua19ncmlkIjogewogICAgIm5hbWUiOiAicmVndWxhciIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgImNodW5rX3NoYXBlIjogWwogICAgICAgIDEzCiAgICAgIF0KICAgIH0KICB9LAogICJjaHVua19rZXlfZW5jb2RpbmciOiB7CiAgICAibmFtZSI6ICJkZWZhdWx0IiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAic2VwYXJhdG9yIjogIi8iCiAgICB9CiAgfSwKICAiZmlsbF92YWx1ZSI6IDAuMCwKICAiY29kZWNzIjogWwogICAgewogICAgICAibmFtZSI6ICJieXRlcyIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJlbmRpYW4iOiAibGl0dGxlIgogICAgICB9CiAgICB9LAogICAgewogICAgICAibmFtZSI6ICJnemlwIiwKICAgICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICAgImxldmVsIjogNgogICAgICB9CiAgICB9CiAgXSwKICAiYXR0cmlidXRlcyI6IHt9LAogICJ6YXJyX2Zvcm1hdCI6IDMsCiAgIm5vZGVfdHlwZSI6ICJhcnJheSIsCiAgInN0b3JhZ2VfdHJhbnNmb3JtZXJzIjogW10KfQ==",
+    "time/c/0": "H4sIANdSdGoA/2NgQAZ2DhDaD0I3hEH5cRD6QBJUPA1CO2RB5fMg9IMCqLoiCL2gBKq+zAEAno/I/GgAAAA=",
+    "inradius/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDQKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNAogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
+    "inradius/c/0": "H4sIANdSdGoA/yu7KeZQAsTlQFwMxAB4eIXWEAAAAA==",
+    "friction/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDYKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNgogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
+    "friction/c/0": "H4sIANdSdGoA/+O6rmzLhQUDAOjpqJ4YAAAA",
+    "elevation/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDYKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNgogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
+    "elevation/c/0": "H4sIANdSdGoA/2NgYGA4e+aM7dkzPnZAbDtrpqQdA0ODHQCA//NJGAAAAA==",
+    "face_node_connectivity/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDQsCiAgICAzCiAgXSwKICAiZGF0YV90eXBlIjogImludDMyIiwKICAiY2h1bmtfZ3JpZCI6IHsKICAgICJuYW1lIjogInJlZ3VsYXIiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJjaHVua19zaGFwZSI6IFsKICAgICAgICA0LAogICAgICAgIDMKICAgICAgXQogICAgfQogIH0sCiAgImNodW5rX2tleV9lbmNvZGluZyI6IHsKICAgICJuYW1lIjogImRlZmF1bHQiLAogICAgImNvbmZpZ3VyYXRpb24iOiB7CiAgICAgICJzZXBhcmF0b3IiOiAiLyIKICAgIH0KICB9LAogICJmaWxsX3ZhbHVlIjogLTEsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
+    "face_node_connectivity/c/0/0": "H4sIANdSdGoA/2NgYGBgBGJmKM2CxGaC8kE0K5QNAGeqW6AwAAAA",
+    "node_y/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDYKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNgogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
+    "node_y/c/0": "H4sIANdSdGoA/2NgQAYKjjAMAN//FdMYAAAA",
+    "node_x/zarr.json": "ewogICJzaGFwZSI6IFsKICAgIDYKICBdLAogICJkYXRhX3R5cGUiOiAiZmxvYXQzMiIsCiAgImNodW5rX2dyaWQiOiB7CiAgICAibmFtZSI6ICJyZWd1bGFyIiwKICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAiY2h1bmtfc2hhcGUiOiBbCiAgICAgICAgNgogICAgICBdCiAgICB9CiAgfSwKICAiY2h1bmtfa2V5X2VuY29kaW5nIjogewogICAgIm5hbWUiOiAiZGVmYXVsdCIsCiAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgInNlcGFyYXRvciI6ICIvIgogICAgfQogIH0sCiAgImZpbGxfdmFsdWUiOiAwLjAsCiAgImNvZGVjcyI6IFsKICAgIHsKICAgICAgIm5hbWUiOiAiYnl0ZXMiLAogICAgICAiY29uZmlndXJhdGlvbiI6IHsKICAgICAgICAiZW5kaWFuIjogImxpdHRsZSIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgIm5hbWUiOiAiZ3ppcCIsCiAgICAgICJjb25maWd1cmF0aW9uIjogewogICAgICAgICJsZXZlbCI6IDYKICAgICAgfQogICAgfQogIF0sCiAgImF0dHJpYnV0ZXMiOiB7fSwKICAiemFycl9mb3JtYXQiOiAzLAogICJub2RlX3R5cGUiOiAiYXJyYXkiLAogICJzdG9yYWdlX3RyYW5zZm9ybWVycyI6IFtdCn0=",
+    "node_x/c/0": "H4sIANdSdGoA/2NgAAEFRwaGBY4MSGwAk7qIxxgAAAA="
 };
 
 export const FIXTURE_GROUP_META = {
-  "attributes": {
-    "format_version": 1,
-    "xllcorner": 500000.0,
-    "yllcorner": 6900000.0,
-    "false_easting": 500000.0,
-    "false_northing": 10000000.0,
-    "epsg": 32756,
-    "zone": 56,
-    "velocity_convention": "solver_epsilon",
-    "velocity_formula": "u = uh / (h + h0/h)",
-    "velocity_protection": 1e-06,
-    "minimum_allowed_height": 1e-05,
-    "display_mask_h": 1e-05,
-    "minimum_storable_height": 0.005,
-    "g": 9.8,
-    "rho_w": 1023.0,
-    "building_mannings_n": 10.0,
-    "flow_algorithm": "DE0",
-    "model_start": "1970-01-01T00:00:00+00:00",
-    "time_units": "seconds",
-    "has_dt": false,
-    "dt_source": null,
-    "smoothing": "vertex-averaged",
-    "anuga_version": "3.3.7-fixture",
-    "revision_number": "fixture",
-    "revision_date": "fixture",
-    "codec": "gzip",
-    "codec_level": 6
-  },
-  "zarr_format": 3,
-  "node_type": "group"
+    "attributes": {
+        "format_version": 1,
+        "xllcorner": 500000.0,
+        "yllcorner": 6900000.0,
+        "false_easting": 500000.0,
+        "false_northing": 10000000.0,
+        "epsg": 32756,
+        "zone": 56,
+        "velocity_convention": "solver_epsilon",
+        "velocity_formula": "u = uh / (h + h0/h)",
+        "velocity_protection": 1e-06,
+        "minimum_allowed_height": 1e-05,
+        "display_mask_h": 1e-05,
+        "minimum_storable_height": 0.005,
+        "g": 9.8,
+        "rho_w": 1023.0,
+        "building_mannings_n": 10.0,
+        "flow_algorithm": "DE0",
+        "model_start": "1970-01-01T00:00:00+00:00",
+        "time_units": "seconds",
+        "has_dt": false,
+        "dt_source": null,
+        "smoothing": "vertex-averaged",
+        "anuga_version": "3.3.7-fixture",
+        "revision_number": "fixture",
+        "revision_date": "fixture",
+        "codec": "gzip",
+        "codec_level": 6
+    },
+    "zarr_format": 3,
+    "node_type": "group"
 };
 
 export const FIXTURE_ARRAY_META = {
-  "node_x": {
-    "shape": [
-      6
-    ],
-    "data_type": "float32",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          6
-        ]
-      }
+    "node_x": {
+        "shape": [
+            6
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    6
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
+    "node_y": {
+        "shape": [
+            6
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    6
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "fill_value": 0.0,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {},
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "node_y": {
-    "shape": [
-      6
-    ],
-    "data_type": "float32",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          6
-        ]
-      }
+    "face_node_connectivity": {
+        "shape": [
+            4,
+            3
+        ],
+        "data_type": "int32",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    4,
+                    3
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": -1,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
+    "elevation": {
+        "shape": [
+            6
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    6
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "fill_value": 0.0,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {},
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "face_node_connectivity": {
-    "shape": [
-      4,
-      3
-    ],
-    "data_type": "int32",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          4,
-          3
-        ]
-      }
+    "friction": {
+        "shape": [
+            6
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    6
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
+    "inradius": {
+        "shape": [
+            4
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    4
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "fill_value": -1,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {},
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "elevation": {
-    "shape": [
-      6
-    ],
-    "data_type": "float32",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          6
-        ]
-      }
+    "time": {
+        "shape": [
+            13
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    13
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
+    "dt_ms": {
+        "shape": [
+            13
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    13
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "fill_value": 0.0,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {},
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "friction": {
-    "shape": [
-      6
-    ],
-    "data_type": "float32",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          6
-        ]
-      }
+    "depth": {
+        "shape": [
+            13,
+            6
+        ],
+        "data_type": "uint16",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    10,
+                    6
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 0,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {
+            "scale": 5.493247646338481e-06,
+            "offset": 0.0,
+            "quantized_dtype": "uint16",
+            "byteorder": "little",
+            "valid_min": 0.0,
+            "valid_max": 0.35999998450279236
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
+    "x_velocity": {
+        "shape": [
+            13,
+            6
+        ],
+        "data_type": "uint16",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    10,
+                    6
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 32767,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {
+            "scale": 9.15548317337886e-06,
+            "offset": -0.2999977171421051,
+            "quantized_dtype": "uint16",
+            "byteorder": "little",
+            "valid_min": -0.2999977171421051,
+            "valid_max": 0.2999977171421051
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
     },
-    "fill_value": 0.0,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {},
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "inradius": {
-    "shape": [
-      4
-    ],
-    "data_type": "float32",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          4
-        ]
-      }
-    },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
-    },
-    "fill_value": 0.0,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {},
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "time": {
-    "shape": [
-      13
-    ],
-    "data_type": "float64",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          13
-        ]
-      }
-    },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
-    },
-    "fill_value": 0.0,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {},
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "dt_ms": {
-    "shape": [
-      13
-    ],
-    "data_type": "float32",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          13
-        ]
-      }
-    },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
-    },
-    "fill_value": "NaN",
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {},
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "depth": {
-    "shape": [
-      13,
-      6
-    ],
-    "data_type": "uint16",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          10,
-          6
-        ]
-      }
-    },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
-    },
-    "fill_value": 0,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {
-      "scale": 5.493247646338481e-06,
-      "offset": 0.0,
-      "quantized_dtype": "uint16",
-      "byteorder": "little",
-      "valid_min": 0.0,
-      "valid_max": 0.35999998450279236
-    },
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "x_velocity": {
-    "shape": [
-      13,
-      6
-    ],
-    "data_type": "uint16",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          10,
-          6
-        ]
-      }
-    },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
-    },
-    "fill_value": 32767,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {
-      "scale": 9.15548317337886e-06,
-      "offset": -0.2999977171421051,
-      "quantized_dtype": "uint16",
-      "byteorder": "little",
-      "valid_min": -0.2999977171421051,
-      "valid_max": 0.2999977171421051
-    },
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  },
-  "y_velocity": {
-    "shape": [
-      13,
-      6
-    ],
-    "data_type": "uint16",
-    "chunk_grid": {
-      "name": "regular",
-      "configuration": {
-        "chunk_shape": [
-          10,
-          6
-        ]
-      }
-    },
-    "chunk_key_encoding": {
-      "name": "default",
-      "configuration": {
-        "separator": "/"
-      }
-    },
-    "fill_value": 32767,
-    "codecs": [
-      {
-        "name": "bytes",
-        "configuration": {
-          "endian": "little"
-        }
-      },
-      {
-        "name": "gzip",
-        "configuration": {
-          "level": 6
-        }
-      }
-    ],
-    "attributes": {
-      "scale": 9.15548317337886e-06,
-      "offset": -0.2999977171421051,
-      "quantized_dtype": "uint16",
-      "byteorder": "little",
-      "valid_min": -0.2999977171421051,
-      "valid_max": 0.2999977171421051
-    },
-    "zarr_format": 3,
-    "node_type": "array",
-    "storage_transformers": []
-  }
+    "y_velocity": {
+        "shape": [
+            13,
+            6
+        ],
+        "data_type": "uint16",
+        "chunk_grid": {
+            "name": "regular",
+            "configuration": {
+                "chunk_shape": [
+                    10,
+                    6
+                ]
+            }
+        },
+        "chunk_key_encoding": {
+            "name": "default",
+            "configuration": {
+                "separator": "/"
+            }
+        },
+        "fill_value": 32767,
+        "codecs": [
+            {
+                "name": "bytes",
+                "configuration": {
+                    "endian": "little"
+                }
+            },
+            {
+                "name": "gzip",
+                "configuration": {
+                    "level": 6
+                }
+            }
+        ],
+        "attributes": {
+            "scale": 9.15548317337886e-06,
+            "offset": -0.2999977171421051,
+            "quantized_dtype": "uint16",
+            "byteorder": "little",
+            "valid_min": -0.2999977171421051,
+            "valid_max": 0.2999977171421051
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+    }
 };
 
 export const FIXTURE_MANIFEST = {
-  "bucket": "fixture-bucket",
-  "prefix": "playback/fixture_project_fixture_scenario_fixture_run/",
-  "chunk_urls": {
-    "zarr.json": "zarr.json",
-    "y_velocity/zarr.json": "y_velocity/zarr.json",
-    "y_velocity/c/1/0": "y_velocity/c/1/0",
-    "y_velocity/c/0/0": "y_velocity/c/0/0",
-    "x_velocity/zarr.json": "x_velocity/zarr.json",
-    "x_velocity/c/0/0": "x_velocity/c/0/0",
-    "x_velocity/c/1/0": "x_velocity/c/1/0",
-    "depth/zarr.json": "depth/zarr.json",
-    "depth/c/1/0": "depth/c/1/0",
-    "depth/c/0/0": "depth/c/0/0",
-    "dt_ms/zarr.json": "dt_ms/zarr.json",
-    "dt_ms/c/0": "dt_ms/c/0",
-    "time/zarr.json": "time/zarr.json",
-    "time/c/0": "time/c/0",
-    "inradius/zarr.json": "inradius/zarr.json",
-    "inradius/c/0": "inradius/c/0",
-    "friction/zarr.json": "friction/zarr.json",
-    "friction/c/0": "friction/c/0",
-    "elevation/zarr.json": "elevation/zarr.json",
-    "elevation/c/0": "elevation/c/0",
-    "face_node_connectivity/zarr.json": "face_node_connectivity/zarr.json",
-    "face_node_connectivity/c/0/0": "face_node_connectivity/c/0/0",
-    "node_y/zarr.json": "node_y/zarr.json",
-    "node_y/c/0": "node_y/c/0",
-    "node_x/zarr.json": "node_x/zarr.json",
-    "node_x/c/0": "node_x/c/0"
-  },
-  "schema_metadata": {
-    "format_version": 1,
-    "xllcorner": 500000.0,
-    "yllcorner": 6900000.0,
-    "false_easting": 500000.0,
-    "false_northing": 10000000.0,
-    "epsg": 32756,
-    "zone": 56,
-    "velocity_convention": "solver_epsilon",
-    "velocity_formula": "u = uh / (h + h0/h)",
-    "velocity_protection": 1e-06,
-    "minimum_allowed_height": 1e-05,
-    "display_mask_h": 1e-05,
-    "minimum_storable_height": 0.005,
-    "g": 9.8,
-    "rho_w": 1023.0,
-    "building_mannings_n": 10.0,
-    "flow_algorithm": "DE0",
-    "model_start": "1970-01-01T00:00:00+00:00",
-    "time_units": "seconds",
-    "has_dt": false,
-    "dt_source": null,
-    "smoothing": "vertex-averaged",
-    "anuga_version": "3.3.7-fixture",
-    "revision_number": "fixture",
-    "revision_date": "fixture",
-    "codec": "gzip",
-    "codec_level": 6
-  },
-  "quantization": {
-    "depth": {
-      "scale": 5.493247646338481e-06,
-      "offset": 0.0,
-      "quantized_dtype": "uint16",
-      "byteorder": "little",
-      "valid_min": 0.0,
-      "valid_max": 0.35999998450279236
+    "bucket": "fixture-bucket",
+    "prefix": "playback/fixture_project_fixture_scenario_fixture_run/",
+    "chunk_urls": {
+        "zarr.json": "zarr.json",
+        "y_velocity/zarr.json": "y_velocity/zarr.json",
+        "y_velocity/c/1/0": "y_velocity/c/1/0",
+        "y_velocity/c/0/0": "y_velocity/c/0/0",
+        "x_velocity/zarr.json": "x_velocity/zarr.json",
+        "x_velocity/c/0/0": "x_velocity/c/0/0",
+        "x_velocity/c/1/0": "x_velocity/c/1/0",
+        "depth/zarr.json": "depth/zarr.json",
+        "depth/c/1/0": "depth/c/1/0",
+        "depth/c/0/0": "depth/c/0/0",
+        "dt_ms/zarr.json": "dt_ms/zarr.json",
+        "dt_ms/c/0": "dt_ms/c/0",
+        "time/zarr.json": "time/zarr.json",
+        "time/c/0": "time/c/0",
+        "inradius/zarr.json": "inradius/zarr.json",
+        "inradius/c/0": "inradius/c/0",
+        "friction/zarr.json": "friction/zarr.json",
+        "friction/c/0": "friction/c/0",
+        "elevation/zarr.json": "elevation/zarr.json",
+        "elevation/c/0": "elevation/c/0",
+        "face_node_connectivity/zarr.json": "face_node_connectivity/zarr.json",
+        "face_node_connectivity/c/0/0": "face_node_connectivity/c/0/0",
+        "node_y/zarr.json": "node_y/zarr.json",
+        "node_y/c/0": "node_y/c/0",
+        "node_x/zarr.json": "node_x/zarr.json",
+        "node_x/c/0": "node_x/c/0"
     },
-    "x_velocity": {
-      "scale": 9.15548317337886e-06,
-      "offset": -0.2999977171421051,
-      "quantized_dtype": "uint16",
-      "byteorder": "little",
-      "valid_min": -0.2999977171421051,
-      "valid_max": 0.2999977171421051
+    "schema_metadata": {
+        "format_version": 1,
+        "xllcorner": 500000.0,
+        "yllcorner": 6900000.0,
+        "false_easting": 500000.0,
+        "false_northing": 10000000.0,
+        "epsg": 32756,
+        "zone": 56,
+        "velocity_convention": "solver_epsilon",
+        "velocity_formula": "u = uh / (h + h0/h)",
+        "velocity_protection": 1e-06,
+        "minimum_allowed_height": 1e-05,
+        "display_mask_h": 1e-05,
+        "minimum_storable_height": 0.005,
+        "g": 9.8,
+        "rho_w": 1023.0,
+        "building_mannings_n": 10.0,
+        "flow_algorithm": "DE0",
+        "model_start": "1970-01-01T00:00:00+00:00",
+        "time_units": "seconds",
+        "has_dt": false,
+        "dt_source": null,
+        "smoothing": "vertex-averaged",
+        "anuga_version": "3.3.7-fixture",
+        "revision_number": "fixture",
+        "revision_date": "fixture",
+        "codec": "gzip",
+        "codec_level": 6
     },
-    "y_velocity": {
-      "scale": 9.15548317337886e-06,
-      "offset": -0.2999977171421051,
-      "quantized_dtype": "uint16",
-      "byteorder": "little",
-      "valid_min": -0.2999977171421051,
-      "valid_max": 0.2999977171421051
-    }
-  },
-  "expires_at": "2026-08-06T23:59:59+00:00"
+    "quantization": {
+        "depth": {
+            "scale": 5.493247646338481e-06,
+            "offset": 0.0,
+            "quantized_dtype": "uint16",
+            "byteorder": "little",
+            "valid_min": 0.0,
+            "valid_max": 0.35999998450279236
+        },
+        "x_velocity": {
+            "scale": 9.15548317337886e-06,
+            "offset": -0.2999977171421051,
+            "quantized_dtype": "uint16",
+            "byteorder": "little",
+            "valid_min": -0.2999977171421051,
+            "valid_max": 0.2999977171421051
+        },
+        "y_velocity": {
+            "scale": 9.15548317337886e-06,
+            "offset": -0.2999977171421051,
+            "quantized_dtype": "uint16",
+            "byteorder": "little",
+            "valid_min": -0.2999977171421051,
+            "valid_max": 0.2999977171421051
+        }
+    },
+    "expires_at": "2026-08-06T23:59:59+00:00"
 };
 
 export const FIXTURE_PHYSICAL = {
-  "depth": [
-    [
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
+    "depth": [
+        [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        [
+            0.009999999776482582,
+            0.019999999552965164,
+            0.004999999888241291,
+            0.029999999329447746,
+            0.014999999664723873,
+            0.0
+        ],
+        [
+            0.019999999552965164,
+            0.03999999910593033,
+            0.009999999776482582,
+            0.05999999865889549,
+            0.029999999329447746,
+            0.0
+        ],
+        [
+            0.029999999329447746,
+            0.05999999865889549,
+            0.014999999664723873,
+            0.08999999612569809,
+            0.044999998062849045,
+            0.0
+        ],
+        [
+            0.03999999910593033,
+            0.07999999821186066,
+            0.019999999552965164,
+            0.11999999731779099,
+            0.05999999865889549,
+            0.0
+        ],
+        [
+            0.05000000074505806,
+            0.10000000149011612,
+            0.02500000037252903,
+            0.15000000596046448,
+            0.07500000298023224,
+            0.0
+        ],
+        [
+            0.05999999865889549,
+            0.11999999731779099,
+            0.029999999329447746,
+            0.17999999225139618,
+            0.08999999612569809,
+            0.0
+        ],
+        [
+            0.07000000029802322,
+            0.14000000059604645,
+            0.03500000014901161,
+            0.21000000834465027,
+            0.10500000417232513,
+            0.0
+        ],
+        [
+            0.07999999821186066,
+            0.1599999964237213,
+            0.03999999910593033,
+            0.23999999463558197,
+            0.11999999731779099,
+            0.0
+        ],
+        [
+            0.09000000357627869,
+            0.18000000715255737,
+            0.04500000178813934,
+            0.27000001072883606,
+            0.13500000536441803,
+            0.0
+        ],
+        [
+            0.10000000149011612,
+            0.20000000298023224,
+            0.05000000074505806,
+            0.30000001192092896,
+            0.15000000596046448,
+            0.0
+        ],
+        [
+            0.10999999940395355,
+            0.2199999988079071,
+            0.054999999701976776,
+            0.32999998331069946,
+            0.16499999165534973,
+            0.0
+        ],
+        [
+            0.11999999731779099,
+            0.23999999463558197,
+            0.05999999865889549,
+            0.35999998450279236,
+            0.17999999225139618,
+            0.0
+        ]
     ],
-    [
-      0.009999999776482582,
-      0.019999999552965164,
-      0.004999999888241291,
-      0.029999999329447746,
-      0.014999999664723873,
-      0.0
+    "x_velocity": [
+        [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        [
+            0.2970297038555145,
+            0.29925188422203064,
+            0.2884615361690521,
+            0.2996670603752136,
+            0.2986725866794586,
+            0.0
+        ],
+        [
+            0.29925188422203064,
+            0.2998126149177551,
+            0.2970297038555145,
+            0.29991671442985535,
+            0.2996670603752136,
+            0.0
+        ],
+        [
+            0.2996670603752136,
+            0.29991671442985535,
+            0.2986725866794586,
+            0.29996299743652344,
+            0.2998519539833069,
+            0.0
+        ],
+        [
+            0.2998126149177551,
+            0.2999531328678131,
+            0.29925188422203064,
+            0.29997918009757996,
+            0.29991671442985535,
+            0.0
+        ],
+        [
+            0.2998800575733185,
+            0.29997000098228455,
+            0.2995207607746124,
+            0.29998666048049927,
+            0.299946665763855,
+            0.0
+        ],
+        [
+            0.29991671442985535,
+            0.29997918009757996,
+            0.2996670603752136,
+            0.29999077320098877,
+            0.29996299743652344,
+            0.0
+        ],
+        [
+            0.29993879795074463,
+            0.29998472332954407,
+            0.299755334854126,
+            0.29999321699142456,
+            0.2999728322029114,
+            0.0
+        ],
+        [
+            0.2999531328678131,
+            0.2999882996082306,
+            0.2998126149177551,
+            0.2999948263168335,
+            0.29997918009757996,
+            0.0
+        ],
+        [
+            0.29996299743652344,
+            0.2999907433986664,
+            0.2998519539833069,
+            0.29999589920043945,
+            0.29998356103897095,
+            0.0
+        ],
+        [
+            0.29997000098228455,
+            0.29999250173568726,
+            0.2998800575733185,
+            0.29999667406082153,
+            0.29998666048049927,
+            0.0
+        ],
+        [
+            0.2999752163887024,
+            0.2999938130378723,
+            0.2999008595943451,
+            0.2999972701072693,
+            0.2999889850616455,
+            0.0
+        ],
+        [
+            0.29997918009757996,
+            0.2999948263168335,
+            0.29991671442985535,
+            0.2999977171421051,
+            0.29999077320098877,
+            0.0
+        ]
     ],
-    [
-      0.019999999552965164,
-      0.03999999910593033,
-      0.009999999776482582,
-      0.05999999865889549,
-      0.029999999329447746,
-      0.0
+    "y_velocity": [
+        [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        [
+            -0.1980198174715042,
+            -0.19950126111507416,
+            -0.192307710647583,
+            -0.19977803528308868,
+            -0.19911505281925201,
+            0.0
+        ],
+        [
+            -0.19950126111507416,
+            -0.1998750865459442,
+            -0.1980198174715042,
+            -0.19994446635246277,
+            -0.19977803528308868,
+            0.0
+        ],
+        [
+            -0.19977803528308868,
+            -0.19994446635246277,
+            -0.19911505281925201,
+            -0.19997531175613403,
+            -0.199901282787323,
+            0.0
+        ],
+        [
+            -0.1998750865459442,
+            -0.19996877014636993,
+            -0.19950126111507416,
+            -0.19998611509799957,
+            -0.19994446635246277,
+            0.0
+        ],
+        [
+            -0.19992004334926605,
+            -0.1999800205230713,
+            -0.19968052208423615,
+            -0.1999911069869995,
+            -0.19996444880962372,
+            0.0
+        ],
+        [
+            -0.19994446635246277,
+            -0.19998611509799957,
+            -0.19977803528308868,
+            -0.19999383389949799,
+            -0.19997531175613403,
+            0.0
+        ],
+        [
+            -0.19995920360088348,
+            -0.19998979568481445,
+            -0.1998368799686432,
+            -0.1999954730272293,
+            -0.19998186826705933,
+            0.0
+        ],
+        [
+            -0.19996877014636993,
+            -0.19999219477176666,
+            -0.1998750865459442,
+            -0.19999653100967407,
+            -0.19998611509799957,
+            0.0
+        ],
+        [
+            -0.19997531175613403,
+            -0.19999383389949799,
+            -0.199901282787323,
+            -0.19999726116657257,
+            -0.19998902082443237,
+            0.0
+        ],
+        [
+            -0.1999800205230713,
+            -0.1999950110912323,
+            -0.19992004334926605,
+            -0.19999778270721436,
+            -0.1999911069869995,
+            0.0
+        ],
+        [
+            -0.19998347759246826,
+            -0.19999586045742035,
+            -0.19993390142917633,
+            -0.1999981701374054,
+            -0.19999265670776367,
+            0.0
+        ],
+        [
+            -0.19998611509799957,
+            -0.19999653100967407,
+            -0.19994446635246277,
+            -0.19999845325946808,
+            -0.19999383389949799,
+            0.0
+        ]
     ],
-    [
-      0.029999999329447746,
-      0.05999999865889549,
-      0.014999999664723873,
-      0.08999999612569809,
-      0.044999998062849045,
-      0.0
+    "node_x": [
+        0.0,
+        10.0,
+        20.0,
+        0.0,
+        10.0,
+        20.0
     ],
-    [
-      0.03999999910593033,
-      0.07999999821186066,
-      0.019999999552965164,
-      0.11999999731779099,
-      0.05999999865889549,
-      0.0
+    "node_y": [
+        0.0,
+        0.0,
+        0.0,
+        10.0,
+        10.0,
+        10.0
     ],
-    [
-      0.05000000074505806,
-      0.10000000149011612,
-      0.02500000037252903,
-      0.15000000596046448,
-      0.07500000298023224,
-      0.0
+    "elevation": [
+        0.0,
+        0.10000000149011612,
+        0.20000000298023224,
+        0.05000000074505806,
+        0.15000000596046448,
+        0.25
     ],
-    [
-      0.05999999865889549,
-      0.11999999731779099,
-      0.029999999329447746,
-      0.17999999225139618,
-      0.08999999612569809,
-      0.0
+    "inradius": [
+        2.357022762298584,
+        2.357022285461426,
+        2.357023000717163,
+        2.3570220470428467
     ],
-    [
-      0.07000000029802322,
-      0.14000000059604645,
-      0.03500000014901161,
-      0.21000000834465027,
-      0.10500000417232513,
-      0.0
+    "face_node_connectivity": [
+        [
+            0,
+            1,
+            3
+        ],
+        [
+            1,
+            4,
+            3
+        ],
+        [
+            1,
+            2,
+            4
+        ],
+        [
+            2,
+            5,
+            4
+        ]
     ],
-    [
-      0.07999999821186066,
-      0.1599999964237213,
-      0.03999999910593033,
-      0.23999999463558197,
-      0.11999999731779099,
-      0.0
-    ],
-    [
-      0.09000000357627869,
-      0.18000000715255737,
-      0.04500000178813934,
-      0.27000001072883606,
-      0.13500000536441803,
-      0.0
-    ],
-    [
-      0.10000000149011612,
-      0.20000000298023224,
-      0.05000000074505806,
-      0.30000001192092896,
-      0.15000000596046448,
-      0.0
-    ],
-    [
-      0.10999999940395355,
-      0.2199999988079071,
-      0.054999999701976776,
-      0.32999998331069946,
-      0.16499999165534973,
-      0.0
-    ],
-    [
-      0.11999999731779099,
-      0.23999999463558197,
-      0.05999999865889549,
-      0.35999998450279236,
-      0.17999999225139618,
-      0.0
+    "time": [
+        0.0,
+        30.0,
+        60.0,
+        90.0,
+        120.0,
+        150.0,
+        180.0,
+        210.0,
+        240.0,
+        270.0,
+        300.0,
+        330.0,
+        360.0
     ]
-  ],
-  "x_velocity": [
-    [
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
-    ],
-    [
-      0.2970297038555145,
-      0.29925188422203064,
-      0.2884615361690521,
-      0.2996670603752136,
-      0.2986725866794586,
-      0.0
-    ],
-    [
-      0.29925188422203064,
-      0.2998126149177551,
-      0.2970297038555145,
-      0.29991671442985535,
-      0.2996670603752136,
-      0.0
-    ],
-    [
-      0.2996670603752136,
-      0.29991671442985535,
-      0.2986725866794586,
-      0.29996299743652344,
-      0.2998519539833069,
-      0.0
-    ],
-    [
-      0.2998126149177551,
-      0.2999531328678131,
-      0.29925188422203064,
-      0.29997918009757996,
-      0.29991671442985535,
-      0.0
-    ],
-    [
-      0.2998800575733185,
-      0.29997000098228455,
-      0.2995207607746124,
-      0.29998666048049927,
-      0.299946665763855,
-      0.0
-    ],
-    [
-      0.29991671442985535,
-      0.29997918009757996,
-      0.2996670603752136,
-      0.29999077320098877,
-      0.29996299743652344,
-      0.0
-    ],
-    [
-      0.29993879795074463,
-      0.29998472332954407,
-      0.299755334854126,
-      0.29999321699142456,
-      0.2999728322029114,
-      0.0
-    ],
-    [
-      0.2999531328678131,
-      0.2999882996082306,
-      0.2998126149177551,
-      0.2999948263168335,
-      0.29997918009757996,
-      0.0
-    ],
-    [
-      0.29996299743652344,
-      0.2999907433986664,
-      0.2998519539833069,
-      0.29999589920043945,
-      0.29998356103897095,
-      0.0
-    ],
-    [
-      0.29997000098228455,
-      0.29999250173568726,
-      0.2998800575733185,
-      0.29999667406082153,
-      0.29998666048049927,
-      0.0
-    ],
-    [
-      0.2999752163887024,
-      0.2999938130378723,
-      0.2999008595943451,
-      0.2999972701072693,
-      0.2999889850616455,
-      0.0
-    ],
-    [
-      0.29997918009757996,
-      0.2999948263168335,
-      0.29991671442985535,
-      0.2999977171421051,
-      0.29999077320098877,
-      0.0
-    ]
-  ],
-  "y_velocity": [
-    [
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
-    ],
-    [
-      -0.1980198174715042,
-      -0.19950126111507416,
-      -0.192307710647583,
-      -0.19977803528308868,
-      -0.19911505281925201,
-      0.0
-    ],
-    [
-      -0.19950126111507416,
-      -0.1998750865459442,
-      -0.1980198174715042,
-      -0.19994446635246277,
-      -0.19977803528308868,
-      0.0
-    ],
-    [
-      -0.19977803528308868,
-      -0.19994446635246277,
-      -0.19911505281925201,
-      -0.19997531175613403,
-      -0.199901282787323,
-      0.0
-    ],
-    [
-      -0.1998750865459442,
-      -0.19996877014636993,
-      -0.19950126111507416,
-      -0.19998611509799957,
-      -0.19994446635246277,
-      0.0
-    ],
-    [
-      -0.19992004334926605,
-      -0.1999800205230713,
-      -0.19968052208423615,
-      -0.1999911069869995,
-      -0.19996444880962372,
-      0.0
-    ],
-    [
-      -0.19994446635246277,
-      -0.19998611509799957,
-      -0.19977803528308868,
-      -0.19999383389949799,
-      -0.19997531175613403,
-      0.0
-    ],
-    [
-      -0.19995920360088348,
-      -0.19998979568481445,
-      -0.1998368799686432,
-      -0.1999954730272293,
-      -0.19998186826705933,
-      0.0
-    ],
-    [
-      -0.19996877014636993,
-      -0.19999219477176666,
-      -0.1998750865459442,
-      -0.19999653100967407,
-      -0.19998611509799957,
-      0.0
-    ],
-    [
-      -0.19997531175613403,
-      -0.19999383389949799,
-      -0.199901282787323,
-      -0.19999726116657257,
-      -0.19998902082443237,
-      0.0
-    ],
-    [
-      -0.1999800205230713,
-      -0.1999950110912323,
-      -0.19992004334926605,
-      -0.19999778270721436,
-      -0.1999911069869995,
-      0.0
-    ],
-    [
-      -0.19998347759246826,
-      -0.19999586045742035,
-      -0.19993390142917633,
-      -0.1999981701374054,
-      -0.19999265670776367,
-      0.0
-    ],
-    [
-      -0.19998611509799957,
-      -0.19999653100967407,
-      -0.19994446635246277,
-      -0.19999845325946808,
-      -0.19999383389949799,
-      0.0
-    ]
-  ],
-  "node_x": [
-    0.0,
-    10.0,
-    20.0,
-    0.0,
-    10.0,
-    20.0
-  ],
-  "node_y": [
-    0.0,
-    0.0,
-    0.0,
-    10.0,
-    10.0,
-    10.0
-  ],
-  "elevation": [
-    0.0,
-    0.10000000149011612,
-    0.20000000298023224,
-    0.05000000074505806,
-    0.15000000596046448,
-    0.25
-  ],
-  "inradius": [
-    2.357022762298584,
-    2.357022285461426,
-    2.357023000717163,
-    2.3570220470428467
-  ],
-  "face_node_connectivity": [
-    [
-      0,
-      1,
-      3
-    ],
-    [
-      1,
-      4,
-      3
-    ],
-    [
-      1,
-      2,
-      4
-    ],
-    [
-      2,
-      5,
-      4
-    ]
-  ],
-  "time": [
-    0.0,
-    30.0,
-    60.0,
-    90.0,
-    120.0,
-    150.0,
-    180.0,
-    210.0,
-    240.0,
-    270.0,
-    300.0,
-    330.0,
-    360.0
-  ]
 };
 
 export const FIXTURE_MESH = {
-  nNode: 6,
-  nFace: 4,
-  nTime: 13,
+    nNode: 6,
+    nFace: 4,
+    nTime: 13
 };

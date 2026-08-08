@@ -140,7 +140,7 @@ export class PlaybackChunkFetcher {
             return this._inflight.get(key);
         }
         const { dtype, byteorder = 'little', quantization } = decodeOpts || {};
-        const task = (async () => {
+        const task = (async() => {
             try {
                 const compressed = await this._fetchRawBytes(key);
                 const raw = await gunzip(compressed);

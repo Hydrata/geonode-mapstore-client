@@ -121,7 +121,7 @@ export function playbackInitEpic(action$, store) {
             mixT: 0
         }));
 
-        const load$ = Rx.Observable.fromPromise((async () => {
+        const load$ = Rx.Observable.fromPromise((async() => {
             const manifest = await fetchPlaybackManifest(manifestUrl);
             const fetcher = new PlaybackChunkFetcher({ manifest });
             fetcherRegistry.set(runId, fetcher);

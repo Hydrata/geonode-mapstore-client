@@ -130,7 +130,7 @@ export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}
         <div className="sv-menu-rows-container sv-anuga-results-menu">
             {actionable.map((scenario) => {
                 const run = scenario.latest_complete_run;
-                const active = activeRunId != null && String(activeRunId) === String(run.id);
+                const active = activeRunId !== null && activeRunId !== undefined && String(activeRunId) === String(run.id);
                 return (
                     <button
                         key={scenario.id}

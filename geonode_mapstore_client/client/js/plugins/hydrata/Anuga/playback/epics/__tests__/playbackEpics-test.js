@@ -27,16 +27,17 @@ import {
     TICK_INTERVAL_MS
 } from '../playbackEpics';
 import { reprojectMeshVertices } from '../../playbackReproject';
-import { PLAYBACK_SET_IDENTIFY_RESULT, playbackSetIdentifyArmed, playbackSetWireframe } from '../../actions/playbackActions';
 import { ADD_LAYER, CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
 import { CHANGE_MAPINFO_STATE } from '@mapstore/framework/actions/mapInfo';
 import { PlaybackChunkFetcher } from '../../playbackChunkFetcher';
 import {
+    PLAYBACK_SET_IDENTIFY_RESULT,
+    playbackSetIdentifyArmed,
+    playbackSetWireframe,
     playbackInit,
     playbackManifestLoaded,
     playbackPlay,
     playbackPause,
-    playbackChunksBuffered,
     playbackTick,
     PLAYBACK_MANIFEST_LOADED,
     PLAYBACK_MANIFEST_FAILED,

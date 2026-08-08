@@ -24,8 +24,6 @@ import { PlaybackChunkFetcher } from './playbackChunkFetcher';
 import { chunkKey, decodeTypedArray, gunzip } from './playbackDecode';
 import { computeVertexInradius } from './playbackMeshGeometry';
 
-const STATIC_ARRAYS = ['node_x', 'node_y', 'elevation', 'friction', 'inradius', 'face_node_connectivity'];
-
 async function fetchStaticArray(fetcher, arrayName, dtype) {
     return fetcher.fetchAndDecodeChunk(arrayName, arrayName === 'face_node_connectivity' ? [0, 0] : [0], { dtype, byteorder: 'little' });
 }

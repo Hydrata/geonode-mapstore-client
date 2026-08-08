@@ -96,13 +96,13 @@ describe('playbackMeshGeometry', () => {
             let expectedUnique = 0;
             for (let f = 0; f < flat.length; f += 3) {
                 const tri = [flat[f], flat[f + 1], flat[f + 2]];
-                [[tri[0], tri[1]], [tri[1], tri[2]], [tri[2], tri[0]]].forEach(([a, b]) => {
+                for (const [a, b] of [[tri[0], tri[1]], [tri[1], tri[2]], [tri[2], tri[0]]]) {
                     const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
                     if (!seen.has(key)) {
                         seen.add(key);
                         expectedUnique++;
                     }
-                });
+                }
             }
             expect(edgeCount).toBe(expectedUnique);
             expect(FIXTURE_MESH.nFace).toBe(4);
