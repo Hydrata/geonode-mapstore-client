@@ -79,3 +79,38 @@
     white-space: nowrap;
     cursor: help;
 }
+
+/* TASK-2691 (epic 2662 W5) — recorded hardware placement in ProcessDetail.
+   Same muted label / brighter value treatment as the sibling detail rows. The
+   block is absent from the DOM entirely when no sub-field is populated (see
+   ProcessDetail.hardwareItems), so there is no empty-state styling to write. */
+.sv-tm-hardware {
+    margin-bottom: 8px;
+}
+
+.sv-tm-hardware-title {
+    font-size: var(--sv-font-size, 12px);
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+
+.sv-tm-hardware-row {
+    display: flex;
+    gap: 6px;
+    padding: 1px 0;
+    font-size: var(--sv-font-size, 12px);
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+}
+
+.sv-tm-hardware-label {
+    flex: 0 0 auto;
+    min-width: 84px;
+}
+
+.sv-tm-hardware-value {
+    flex: 1 1 auto;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    word-break: break-word;
+}
