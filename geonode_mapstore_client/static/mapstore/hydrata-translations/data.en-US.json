@@ -708,7 +708,12 @@
         "wedgedAdvisoryTitle": "Heartbeats are arriving but CPU is near zero — advisory only",
         "statusComplete": "Complete",
         "statusError": "Error",
-        "statusCancelled": "Cancelled"
+        "statusCancelled": "Cancelled",
+        "hardware": "Hardware",
+        "hardwareInstanceType": "Instance",
+        "hardwareGpu": "GPU",
+        "hardwareCpu": "CPU",
+        "hardwareAvailabilityZone": "Zone"
       },
       "terrainWorkbench": {
         "terrain": "Terrain"

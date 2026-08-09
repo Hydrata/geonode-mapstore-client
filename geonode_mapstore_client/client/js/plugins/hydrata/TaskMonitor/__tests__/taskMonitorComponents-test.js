@@ -321,6 +321,144 @@ describe('TaskMonitor dark-glass migration (TASK-1665 W2)', () => {
                 }
             );
         });
+
+        // ── TASK-2691 (epic 2662 W5): recorded hardware placement ────────────
+        //
+        // `metadata.telemetry.hardware` is written by the `started` fold
+        // (apps/taskmonitor/telemetry.py) and reaches the FE already — it is a
+        // whole-blob field on both ProcessListSerializer and
+        // ProcessDetailSerializer, and the list stripper removes only
+        // `geometry`. No serializer change was needed; only this render site.
+        //
+        // ABSENCE is the common case (most process types never emit `started`),
+        // so the no-bag test below is the load-bearing one.
+
+        const renderDetail = (process, assert) => ReactDOM.render(
+            <ProcessDetail
+                process={process}
+                showLog={false}
+                onToggleLog={() => {}}
+                onCancel={() => {}}
+            />,
+            container,
+            assert
+        );
+
+        it('renders the hardware placement when metadata.telemetry.hardware is present', (done) => {
+            const hardware = {
+                cpu: {
+                    model_name: 'AMD EPYC 9R14', model: '17', cores: 8,
+                    stepping: '1', microcode: '0xa10113e', family: '25'
+                },
+                instance_type: 'g6e.2xlarge',
+                instance_id: 'i-0abc123def4567890',
+                availability_zone: 'us-west-2b',
+                gpu: {name: 'NVIDIA L40S', uuid: 'GPU-abc', vram_mib: 46068},
+                dmi: {product_name: 'g6e.2xlarge', board_asset_tag: 'i-0abc123def4567890'}
+            };
+            renderDetail(
+                makeProcess({metadata: {telemetry: {hardware}}}),
+                () => {
+                    const block = container.querySelector('.sv-tm-hardware');
+                    expect(block).toExist();
+                    expect(container.querySelector('.sv-tm-hardware-title')).toExist();
+                    // instance_type + gpu.name + cpu.model_name + availability_zone
+                    expect(container.querySelectorAll('.sv-tm-hardware-row').length).toBe(4);
+                    const text = block.textContent;
+                    expect(text).toInclude('g6e.2xlarge');
+                    expect(text).toInclude('NVIDIA L40S');
+                    expect(text).toInclude('us-west-2b');
+                    // the human CPU string, NOT the numeric /proc/cpuinfo "model"
+                    expect(text).toInclude('AMD EPYC 9R14');
+                    done();
+                }
+            );
+        });
+
+        it('renders NOTHING for hardware when the telemetry bag is absent', (done) => {
+            // The dominant case: every Celery-native process_type reaches the
+            // panel with no metadata.telemetry key at all. No header, no
+            // dashes, no empty section.
+            renderDetail(makeProcess(), () => {
+                expect(container.querySelector('.sv-tm-process-detail')).toExist();
+                expect(container.querySelector('.sv-tm-hardware')).toNotExist();
+                expect(container.querySelector('.sv-tm-hardware-title')).toNotExist();
+                expect(container.querySelectorAll('.sv-tm-hardware-row').length).toBe(0);
+                done();
+            });
+        });
+
+        it('renders NOTHING for hardware when metadata exists but carries no telemetry', (done) => {
+            renderDetail(
+                makeProcess({metadata: {download_url: 'https://example.test/x.tif'}}),
+                () => {
+                    expect(container.querySelector('.sv-tm-hardware')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('renders NOTHING for hardware when telemetry exists but carries no hardware', (done) => {
+            renderDetail(
+                makeProcess({metadata: {telemetry: {progress_history: [[1, 10]]}}}),
+                () => {
+                    expect(container.querySelector('.sv-tm-hardware')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('degrades gracefully when the hardware bag is present but all-null', (done) => {
+            // Spec §5 portability contract: off-AWS every AWS-specific field is
+            // null and nothing raises. With no populated sub-field the whole
+            // section is omitted rather than rendered as a row of blanks.
+            renderDetail(
+                makeProcess({
+                    metadata: {
+                        telemetry: {
+                            hardware: {
+                                cpu: null, instance_type: null, instance_id: null,
+                                availability_zone: null, gpu: null, dmi: null
+                            }
+                        }
+                    }
+                }),
+                () => {
+                    expect(container.querySelector('.sv-tm-process-detail')).toExist();
+                    expect(container.querySelector('.sv-tm-hardware')).toNotExist();
+                    expect(container.querySelectorAll('.sv-tm-hardware-row').length).toBe(0);
+                    done();
+                }
+            );
+        });
+
+        it('renders only the populated sub-fields (localhost: cpu only, AWS fields null)', (done) => {
+            // The real localhost shape: /proc/cpuinfo populates cpu, while DMI
+            // is not an EC2 shape and nvidia-smi/ECS metadata are absent.
+            renderDetail(
+                makeProcess({
+                    metadata: {
+                        telemetry: {
+                            hardware: {
+                                cpu: {model_name: 'AMD Ryzen 9 7950X', cores: 32},
+                                instance_type: null, instance_id: null,
+                                availability_zone: null, gpu: null,
+                                dmi: {product_name: 'B650 AORUS', board_asset_tag: 'Default string'}
+                            }
+                        }
+                    }
+                }),
+                () => {
+                    const block = container.querySelector('.sv-tm-hardware');
+                    expect(block).toExist();
+                    expect(container.querySelectorAll('.sv-tm-hardware-row').length).toBe(1);
+                    expect(block.textContent).toInclude('AMD Ryzen 9 7950X');
+                    // raw DMI strings are deliberately NOT surfaced
+                    expect(block.textContent).toNotInclude('B650 AORUS');
+                    done();
+                }
+            );
+        });
     });
 
     // ── ProcessLogViewer (delegates to LogViewer primitive) ───────────────────

@@ -708,7 +708,12 @@
         "wedgedAdvisoryTitle": "Batman kè ap rive men CPU prèske zewo — avètisman sèlman",
         "statusComplete": "Fini",
         "statusError": "Erè",
-        "statusCancelled": "Anile"
+        "statusCancelled": "Anile",
+        "hardware": "Materyèl",
+        "hardwareInstanceType": "Enstans",
+        "hardwareGpu": "GPU",
+        "hardwareCpu": "CPU",
+        "hardwareAvailabilityZone": "Zòn"
       },
       "terrainWorkbench": {
         "terrain": "Tèren"

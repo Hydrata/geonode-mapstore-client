@@ -708,7 +708,12 @@
         "wedgedAdvisoryTitle": "Se reciben latidos pero la CPU está casi a cero — solo aviso",
         "statusComplete": "Completo",
         "statusError": "Error",
-        "statusCancelled": "Cancelada"
+        "statusCancelled": "Cancelada",
+        "hardware": "Hardware",
+        "hardwareInstanceType": "Instancia",
+        "hardwareGpu": "GPU",
+        "hardwareCpu": "CPU",
+        "hardwareAvailabilityZone": "Zona"
       },
       "terrainWorkbench": {
         "terrain": "Terreno"

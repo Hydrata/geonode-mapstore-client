@@ -708,7 +708,12 @@
         "wedgedAdvisoryTitle": "Battements reçus mais CPU proche de zéro — simple avertissement",
         "statusComplete": "Terminé",
         "statusError": "Erreur",
-        "statusCancelled": "Annulée"
+        "statusCancelled": "Annulée",
+        "hardware": "Matériel",
+        "hardwareInstanceType": "Instance",
+        "hardwareGpu": "GPU",
+        "hardwareCpu": "CPU",
+        "hardwareAvailabilityZone": "Zone"
       },
       "terrainWorkbench": {
         "terrain": "Terrain"
