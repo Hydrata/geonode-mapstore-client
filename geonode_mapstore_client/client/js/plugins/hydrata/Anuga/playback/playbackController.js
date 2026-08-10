@@ -30,6 +30,7 @@
  */
 import { computeMixFactor } from './playbackMeshGeometry';
 import { availableQuantityIds } from './playbackDerivedQuantities';
+import { isUsableChunkLength } from './playbackChunkShape';
 import {
     PLAYBACK_INIT,
     PLAYBACK_MANIFEST_LOADED,
@@ -81,7 +82,10 @@ export function createInitialPlaybackState() {
         error: null,
         nTime: 0,
         nNode: 0,
-        chunkLengthT: 10,
+        // null until a manifest is loaded — TASK-2724 removed the `10` that
+        // used to sit here. No store means no chunk grid, and a placeholder
+        // chunk length is indistinguishable from a real one downstream.
+        chunkLengthT: null,
         totalChunks: 0,
         time: null, // Float64Array|null — per-timestep simulation seconds
         dtMs: null, // Float32Array|null — per-timestep global dt, MILLISECONDS (schema O2); dt_ms[0] always NaN
@@ -119,9 +123,21 @@ export function clampSpeed(speed) {
     return Math.min(MAX_SPEED, Math.max(MIN_SPEED, n));
 }
 
-/** Which O1 time-chunk a timestep index falls in. */
+/**
+ * Which time-chunk a timestep index falls in, at the STORE's own chunk length
+ * (playbackChunkShape.resolveChunkLengthT — never a constant, TASK-2724).
+ *
+ * Returns 0 when there is no usable chunk length, which is only reachable
+ * before a manifest has loaded (initial state's `chunkLengthT: null`); every
+ * caller gates on `totalChunks > 0` first. It does NOT stand in a plausible
+ * length: pretending 1 (the old `|| 1`) would silently answer with a real
+ * chunk index for a store whose grid is unknown.
+ */
 export function timestepToChunkIndex(timestepIndex, chunkLengthT) {
-    return Math.floor(timestepIndex / (chunkLengthT || 1));
+    if (!isUsableChunkLength(chunkLengthT)) {
+        return 0;
+    }
+    return Math.floor(timestepIndex / chunkLengthT);
 }
 
 /**
@@ -312,7 +328,9 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             quantization: action.quantization || null,
             nTime: action.nTime,
             nNode: action.nNode,
-            chunkLengthT: action.chunkLengthT || state.chunkLengthT,
+            // TASK-2724 — whatever the store declared, or null. Never carried
+            // over from a previous store, and never defaulted.
+            chunkLengthT: action.chunkLengthT || null,
             totalChunks: action.totalChunks,
             time: action.time || null,
             dtMs: action.dtMs || null,

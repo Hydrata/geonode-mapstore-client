@@ -42,6 +42,7 @@ import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
+import { QUANTITY_ARRAYS, resolveChunkLengthT } from '../playbackChunkShape';
 import { reprojectMeshVertices } from '../playbackReproject';
 import { sampleFieldAtPoint } from '../playbackIdentify';
 import { timestepToChunkIndex, colorMaxForQuantity, colorMinForQuantity } from '../playbackController';
@@ -72,11 +73,9 @@ import {
 // re-samples the sim-time playhead; the GPU still draws every rAF the
 // browser gives it via the layer's own `render(frameState)` hook.
 export const TICK_INTERVAL_MS = 50;
-// Schema §1's O1 time-chunk length — pinned the same way
-// loadPlaybackLayerOptions.loadPlaybackFrame defaults it.
-const CHUNK_LENGTH_T = 10;
+// The time-chunk length is NOT a constant here any more (TASK-2724, epic
+// 2706) — it is read per store from its own chunk_grid, see playbackChunkShape.
 const BUFFER_WINDOW_RADIUS = 2;
-const QUANTITY_ARRAYS = ['depth', 'x_velocity', 'y_velocity'];
 
 // runId -> PlaybackChunkFetcher. Exported so a test (or a future "switch
 // run" cleanup path) can inspect/clear it without reaching into closures.
@@ -123,6 +122,12 @@ export function playbackInitEpic(action$, store) {
 
         const load$ = Rx.Observable.fromPromise((async() => {
             const manifest = await fetchPlaybackManifest(manifestUrl);
+            // TASK-2724 — the store's OWN time-chunk length, before a single
+            // byte of mesh is downloaded. Throws (-> MANIFEST_FAILED, with the
+            // reason surfaced in the UI) on a store that does not declare it
+            // or whose quantity arrays disagree; there is deliberately no
+            // fallback, because guessing renders the wrong timestep silently.
+            const chunkLengthT = resolveChunkLengthT(manifest);
             const fetcher = new PlaybackChunkFetcher({ manifest });
             fetcherRegistry.set(runId, fetcher);
             lastSyncedTimestep.delete(runId);
@@ -150,10 +155,10 @@ export function playbackInitEpic(action$, store) {
             ]);
             const meta = manifest.schema_metadata || {};
             const nTime = meta.n_time || time.length;
-            const totalChunks = Math.ceil(nTime / CHUNK_LENGTH_T);
+            const totalChunks = Math.ceil(nTime / chunkLengthT);
             return playbackManifestLoaded({
                 runId, manifest, mesh, time, dtMs, quantization: manifest.quantization,
-                nTime, nNode: meta.n_node || mesh.nodeX.length, chunkLengthT: CHUNK_LENGTH_T, totalChunks
+                nTime, nNode: meta.n_node || mesh.nodeX.length, chunkLengthT, totalChunks
             });
         })()).catch((error) => Rx.Observable.of(playbackManifestFailed(runId, String((error && error.message) || error))));
 

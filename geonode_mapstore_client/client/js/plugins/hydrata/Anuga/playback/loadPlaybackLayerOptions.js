@@ -23,6 +23,7 @@
 import { PlaybackChunkFetcher } from './playbackChunkFetcher';
 import { chunkKey, decodeTypedArray, gunzip } from './playbackDecode';
 import { computeVertexInradius } from './playbackMeshGeometry';
+import { resolveChunkLengthT, isUsableChunkLength } from './playbackChunkShape';
 
 async function fetchStaticArray(fetcher, arrayName, dtype) {
     return fetcher.fetchAndDecodeChunk(arrayName, arrayName === 'face_node_connectivity' ? [0, 0] : [0], { dtype, byteorder: 'little' });
@@ -94,10 +95,20 @@ export async function loadPlaybackMesh(fetcher) {
  * @param {PlaybackChunkFetcher} fetcher
  * @param {number} timestepIndex absolute timestep index
  * @param {number} nNode
- * @param {number} [chunkLengthT=10] must match the store's O1 time-chunk length
+ * @param {number} chunkLengthT the STORE's own time-chunk length
+ *        (resolveChunkLengthT(manifest)). REQUIRED — TASK-2724 deleted the
+ *        `= 10` default: a wrong chunk length here is not an error, it is a
+ *        plausible flood surface for the wrong timestep.
  * @returns {Promise<{depth: Float32Array, xVelocity: Float32Array, yVelocity: Float32Array}>}
  */
-export async function loadPlaybackFrame(fetcher, timestepIndex, nNode, chunkLengthT = 10) {
+export async function loadPlaybackFrame(fetcher, timestepIndex, nNode, chunkLengthT) {
+    if (!isUsableChunkLength(chunkLengthT)) {
+        throw new Error(
+            `loadPlaybackFrame: chunkLengthT must be the store's own time-chunk length ` +
+            `(a positive integer from resolveChunkLengthT), got ${chunkLengthT}. There is no ` +
+            'safe default — assuming one reads the wrong row of the wrong chunk (TASK-2724).'
+        );
+    }
     const chunkIndex = Math.floor(timestepIndex / chunkLengthT);
     const rowInChunk = timestepIndex % chunkLengthT;
     const quantization = fetcher.manifest.quantization || {};
@@ -128,9 +139,12 @@ export async function loadPlaybackLayerOptions(manifest, fetcherOptions = {}, ti
     const nNode = mesh.nodeX.length;
     const nTime = (manifest.schema_metadata && manifest.schema_metadata.n_time) || undefined;
     const nextIndex = nTime ? Math.min(timestepIndex + 1, nTime - 1) : timestepIndex + 1;
+    // TASK-2724 — from the store's own chunk grid, never assumed. Throws on a
+    // store that does not declare it (same contract as playbackInitEpic).
+    const chunkLengthT = resolveChunkLengthT(manifest);
     const [frame0, frame1] = await Promise.all([
-        loadPlaybackFrame(fetcher, timestepIndex, nNode),
-        loadPlaybackFrame(fetcher, nextIndex, nNode)
+        loadPlaybackFrame(fetcher, timestepIndex, nNode, chunkLengthT),
+        loadPlaybackFrame(fetcher, nextIndex, nNode, chunkLengthT)
     ]);
     return { mesh, frame0, frame1, mixT: 0 };
 }
