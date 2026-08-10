@@ -65,6 +65,14 @@ export const PLAYBACK_STATUS = Object.freeze({
 export const DEFAULT_SPEED = 1;
 export const MIN_SPEED = 0.25;
 export const MAX_SPEED = 8;
+/**
+ * The window BEFORE any store is known. TASK-2708 (W1.2, epic 2706): this is
+ * no longer the playback window — once a manifest lands, both the radius and
+ * the (asymmetric) lookahead come from playbackMemoryPolicy's byte budget for
+ * that specific store, because a fixed chunk COUNT means a completely
+ * different byte cost on a 253k-node mesh and a 3.39M-node one (5.07 MiB vs
+ * 64.7 MiB per chunk). It survives only as the pre-manifest default.
+ */
 const DEFAULT_WINDOW_RADIUS = 2;
 // Graceful degradation (AC): after this many consecutive stalls, `degraded`
 // flips true so the UI can show a "slow connection" note rather than just
@@ -102,6 +110,15 @@ export function createInitialPlaybackState() {
         speed: DEFAULT_SPEED,
         bufferedChunks: [], // sorted, deduped time-chunk indices confirmed cached (all 3 quantity arrays)
         bufferWindowRadius: DEFAULT_WINDOW_RADIUS,
+        // TASK-2708 — chunks AHEAD of the playhead. Separate from the radius
+        // because playback runs forwards and the byte budget is finite: on a
+        // prod-scale chunk-10 store the plan is 0 behind / 1 ahead.
+        bufferWindowAhead: DEFAULT_WINDOW_RADIUS,
+        // TASK-2708 — the store's own memory plan
+        // (playbackMemoryPolicy.computePlaybackMemoryPlan), kept in state so
+        // the UI/diagnostics can show what was decided and why. null until a
+        // manifest lands; never defaulted.
+        memoryPlan: null,
         lastTickMs: null,
         stalledSinceMs: null,
         stallCount: 0,
@@ -332,6 +349,17 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             // over from a previous store, and never defaulted.
             chunkLengthT: action.chunkLengthT || null,
             totalChunks: action.totalChunks,
+            // TASK-2708 — the window is whatever this store's byte budget
+            // affords, not a constant. A plan is always present in production
+            // (playbackInitEpic computes it before dispatching); the fallback
+            // keeps a hand-built test action working.
+            memoryPlan: action.memoryPlan || null,
+            bufferWindowRadius: action.memoryPlan
+                ? action.memoryPlan.bufferWindowRadius
+                : state.bufferWindowRadius,
+            bufferWindowAhead: action.memoryPlan
+                ? action.memoryPlan.bufferWindowAhead
+                : state.bufferWindowAhead,
             time: action.time || null,
             dtMs: action.dtMs || null,
             hasDt,

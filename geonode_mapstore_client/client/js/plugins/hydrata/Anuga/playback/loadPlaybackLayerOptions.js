@@ -21,7 +21,7 @@
  * playback UX on top of both). This is the one seam both already need.
  */
 import { PlaybackChunkFetcher } from './playbackChunkFetcher';
-import { chunkKey, decodeTypedArray, gunzip } from './playbackDecode';
+import { chunkKey, decodeTypedArray, gunzip, dequantizeRow } from './playbackDecode';
 import { computeVertexInradius } from './playbackMeshGeometry';
 import { resolveChunkLengthT, isUsableChunkLength } from './playbackChunkShape';
 
@@ -99,6 +99,17 @@ export async function loadPlaybackMesh(fetcher) {
  *        (resolveChunkLengthT(manifest)). REQUIRED — TASK-2724 deleted the
  *        `= 10` default: a wrong chunk length here is not an error, it is a
  *        plausible flood surface for the wrong timestep.
+ *
+ * TASK-2708 (W1.2, epic 2706): the fetcher now caches the STORED uint16
+ * chunk, so this function — the one place that knows which single row of it
+ * the renderer actually wants — is where `physical = offset + stored * scale`
+ * happens. It is applied exactly once, to exactly nNode elements, and the
+ * quantization block comes from the manifest (the store's own attrs), never
+ * from anything the cache carries. Velocity is stored as VELOCITY (m/s,
+ * `u = uh / (h + h0/h)`, schema attrs velocity_convention/velocity_formula) —
+ * there is deliberately no momentum-to-velocity division here, and adding one
+ * would divide by depth twice.
+ *
  * @returns {Promise<{depth: Float32Array, xVelocity: Float32Array, yVelocity: Float32Array}>}
  */
 export async function loadPlaybackFrame(fetcher, timestepIndex, nNode, chunkLengthT) {
@@ -119,9 +130,9 @@ export async function loadPlaybackFrame(fetcher, timestepIndex, nNode, chunkLeng
     ]);
     const start = rowInChunk * nNode;
     return {
-        depth: depthChunk.slice(start, start + nNode),
-        xVelocity: xVelChunk.slice(start, start + nNode),
-        yVelocity: yVelChunk.slice(start, start + nNode)
+        depth: dequantizeRow(depthChunk, start, nNode, quantization.depth),
+        xVelocity: dequantizeRow(xVelChunk, start, nNode, quantization.x_velocity),
+        yVelocity: dequantizeRow(yVelChunk, start, nNode, quantization.y_velocity)
     };
 }
 

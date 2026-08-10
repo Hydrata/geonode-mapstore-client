@@ -19,6 +19,7 @@
 import expect from 'expect';
 import { PlaybackChunkFetcher, fetchPlaybackManifest } from '../playbackChunkFetcher';
 import { PlaybackChunkCache } from '../playbackChunkCache';
+import { dequantizeRow } from '../playbackDecode';
 import {
     FIXTURE_STORE_FILES,
     FIXTURE_MANIFEST,
@@ -82,7 +83,14 @@ describe('PlaybackChunkFetcher', () => {
         expect(() => new PlaybackChunkFetcher({})).toThrow();
     });
 
-    it('fetches, gunzips, decodes and dequantizes a real chunk end-to-end, matching FIXTURE_PHYSICAL', (done) => {
+    // TASK-2708 (W1.2, epic 2706) rewrote this spec's expectation, not its
+    // subject: fetchAndDecodeChunk no longer dequantizes, it caches the
+    // STORED uint16 and playbackDecode.dequantizeRow converts one frame's row
+    // at slice time. The old assertion still passed after that change purely
+    // because depth[0][0] is 0.0 and stored 0 dequantizes to 0.0 — a false
+    // pass — so it now asserts the dtype explicitly and checks a NON-zero
+    // sample through dequantizeRow.
+    it('fetches, gunzips and decodes a real chunk end-to-end, caching it in the STORED uint16 form', (done) => {
         const spy = [];
         const fetcher = new PlaybackChunkFetcher({
             manifest: FIXTURE_MANIFEST,
@@ -90,9 +98,13 @@ describe('PlaybackChunkFetcher', () => {
         });
         const quantization = FIXTURE_ARRAY_META.depth.attributes;
         fetcher.fetchAndDecodeChunk('depth', [0, 0], { dtype: 'uint16', byteorder: quantization.byteorder, quantization })
-            .then((physical) => {
-                expect(physical.length).toBe(10 * FIXTURE_MESH.nNode);
-                expect(Math.abs(physical[0] - FIXTURE_PHYSICAL.depth[0][0]) <= quantization.scale + 1e-6).toBe(true);
+            .then((stored) => {
+                expect(stored.constructor).toBe(Uint16Array);
+                expect(stored.length).toBe(10 * FIXTURE_MESH.nNode);
+                const nNode = FIXTURE_MESH.nNode;
+                const row = dequantizeRow(stored, 1 * nNode, nNode, quantization);
+                expect(Math.abs(row[0] - FIXTURE_PHYSICAL.depth[1][0]) <= quantization.scale + 1e-6).toBe(true);
+                expect(row[0] > 0).toBe(true);
                 // The chunk was requested as a Range GET (TASK-2625 AC: "ranged GETs").
                 expect(spy.length).toBe(1);
                 expect(spy[0].url).toBe('depth/c/0/0');

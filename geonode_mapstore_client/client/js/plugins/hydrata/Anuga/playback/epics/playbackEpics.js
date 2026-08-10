@@ -43,6 +43,7 @@ import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
 import { QUANTITY_ARRAYS, resolveChunkLengthT } from '../playbackChunkShape';
+import { computePlaybackMemoryPlan, readNodeCount } from '../playbackMemoryPolicy';
 import { reprojectMeshVertices } from '../playbackReproject';
 import { sampleFieldAtPoint } from '../playbackIdentify';
 import { timestepToChunkIndex, colorMaxForQuantity, colorMinForQuantity } from '../playbackController';
@@ -75,7 +76,11 @@ import {
 export const TICK_INTERVAL_MS = 50;
 // The time-chunk length is NOT a constant here any more (TASK-2724, epic
 // 2706) — it is read per store from its own chunk_grid, see playbackChunkShape.
-const BUFFER_WINDOW_RADIUS = 2;
+// Neither is the buffer window (TASK-2708) — it comes from the store's own
+// memory plan on pb.bufferWindowRadius / pb.bufferWindowAhead, and there is
+// deliberately no local fallback constant here any more: a `||`-style
+// fallback silently turned the plan's legitimate radius of ZERO back into 2,
+// which is the whole defect this task removes.
 
 // runId -> PlaybackChunkFetcher. Exported so a test (or a future "switch
 // run" cleanup path) can inspect/clear it without reaching into closures.
@@ -128,7 +133,19 @@ export function playbackInitEpic(action$, store) {
             // or whose quantity arrays disagree; there is deliberately no
             // fallback, because guessing renders the wrong timestep silently.
             const chunkLengthT = resolveChunkLengthT(manifest);
-            const fetcher = new PlaybackChunkFetcher({ manifest });
+            const meta0 = manifest.schema_metadata || {};
+            const nTime0 = meta0.n_time || 0;
+            // TASK-2708 (W1.2, epic 2706) — size the cache from THIS store
+            // before a single byte is fetched. nNode comes from the store's
+            // own chunk_shapes ([chunk_length_t, n_node]); the triangle count
+            // is not declared in the manifest, so the plan is refined below
+            // once face_node_connectivity has landed.
+            const nNode0 = readNodeCount(manifest);
+            const totalChunks0 = nTime0 && chunkLengthT ? Math.ceil(nTime0 / chunkLengthT) : undefined;
+            const initialPlan = nNode0
+                ? computePlaybackMemoryPlan({ nNode: nNode0, chunkLengthT, totalChunks: totalChunks0 })
+                : null;
+            const fetcher = new PlaybackChunkFetcher({ manifest, memoryPlan: initialPlan });
             fetcherRegistry.set(runId, fetcher);
             lastSyncedTimestep.delete(runId);
             // TASK-2629 (W4.1) — dt_ms loads alongside mesh/time (a small,
@@ -156,9 +173,20 @@ export function playbackInitEpic(action$, store) {
             const meta = manifest.schema_metadata || {};
             const nTime = meta.n_time || time.length;
             const totalChunks = Math.ceil(nTime / chunkLengthT);
+            const nNode = meta.n_node || mesh.nodeX.length;
+            // TASK-2708 — re-plan with the EXACT triangle count now that the
+            // mesh is here (the manifest-time plan had to estimate it), and
+            // push the corrected ceiling into the cache that is already live.
+            const memoryPlan = computePlaybackMemoryPlan({
+                nNode,
+                nFace: mesh.faceNodeConnectivity ? mesh.faceNodeConnectivity.length / 3 : undefined,
+                chunkLengthT,
+                totalChunks
+            });
+            fetcher.applyMemoryPlan(memoryPlan);
             return playbackManifestLoaded({
                 runId, manifest, mesh, time, dtMs, quantization: manifest.quantization,
-                nTime, nNode: meta.n_node || mesh.nodeX.length, chunkLengthT, totalChunks
+                nTime, nNode, chunkLengthT, totalChunks, memoryPlan
             });
         })()).catch((error) => Rx.Observable.of(playbackManifestFailed(runId, String((error && error.message) || error))));
 
@@ -189,14 +217,19 @@ export function playbackBufferEpic(action$, store) {
             return Rx.Observable.empty();
         }
         const centerChunk = timestepToChunkIndex(pb.currentTimestep, pb.chunkLengthT);
-        const window = fetcher.getPrefetchWindow(centerChunk, pb.totalChunks, pb.bufferWindowRadius);
+        // TASK-2708 — the SAME behind/ahead pair drives the "is it already
+        // buffered?" check and the actual prefetch, so the epic can never ask
+        // for a window it then refuses to recognise as complete.
+        const windowRadius = pb.bufferWindowRadius;
+        const windowAhead = pb.bufferWindowAhead;
+        const window = fetcher.getPrefetchWindow(centerChunk, pb.totalChunks, windowRadius, { ahead: windowAhead });
         const alreadyBuffered = new Set(pb.bufferedChunks);
         if (window.every((c) => alreadyBuffered.has(c))) {
             return Rx.Observable.empty();
         }
         const arrayConfigs = arrayConfigsFor(pb.quantization);
         return Rx.Observable.fromPromise(
-            fetcher.prefetchWindow(arrayConfigs, centerChunk, pb.totalChunks, { windowRadius: pb.bufferWindowRadius || BUFFER_WINDOW_RADIUS })
+            fetcher.prefetchWindow(arrayConfigs, centerChunk, pb.totalChunks, { windowRadius, windowAhead })
         ).mergeMap((results) => {
             // A chunk only counts as buffered once EVERY configured array
             // resolved ok for it — a partial-array chunk can't render a frame.

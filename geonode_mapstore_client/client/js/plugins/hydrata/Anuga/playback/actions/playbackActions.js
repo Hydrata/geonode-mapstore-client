@@ -50,8 +50,12 @@ export function playbackInit(runId, layerId, manifestUrl) {
     return { type: PLAYBACK_INIT, runId, layerId, manifestUrl };
 }
 
-export function playbackManifestLoaded({ runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks }) {
-    return { type: PLAYBACK_MANIFEST_LOADED, runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks };
+export function playbackManifestLoaded({ runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks, memoryPlan }) {
+    // `memoryPlan` (TASK-2708, W1.2, epic 2706) is the store's own residency
+    // plan — cache ceiling and prefetch window in BYTES, derived from its
+    // chunk footprint. It rides this action because the reducer owns
+    // bufferWindowRadius/bufferWindowAhead and the epic owns the fetcher.
+    return { type: PLAYBACK_MANIFEST_LOADED, runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks, memoryPlan };
 }
 
 export function playbackManifestFailed(runId, error) {

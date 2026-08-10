@@ -18,6 +18,16 @@
  * preserves insertion order, and re-inserting a key on every touch is
  * exactly the "move to the end = most-recently-used" primitive an LRU needs.
  */
+/**
+ * TASK-2708 (W1.2, epic 2706): this is a FALLBACK for a caller that has no
+ * store to size itself against (a test, a harness), NOT the playback client's
+ * ceiling any more. It used to be the ceiling, and that is precisely what
+ * froze the tab: at 3,393,075 nodes one chunk is twice this number, so no
+ * single element fit in its own cache and the LRU thrashed by construction.
+ * The real ceiling comes from playbackMemoryPolicy.computePlaybackMemoryPlan,
+ * derived from the store's own chunk footprint, and reaches this cache via
+ * PlaybackChunkFetcher's `memoryPlan` option / `resize()`.
+ */
 export const DEFAULT_MAX_BYTES = 64 * 1024 * 1024; // 64 MiB decoded, not compressed
 
 function byteLengthOf(value) {
@@ -43,6 +53,23 @@ export class PlaybackChunkCache {
 
     get size() {
         return this._map.size;
+    }
+
+    /**
+     * Re-ceiling an existing cache, evicting immediately if the new ceiling
+     * is lower. TASK-2708: the plan is built twice — once at manifest-load
+     * from the store's declared node count, then again with the exact face
+     * count as soon as face_node_connectivity has landed — so the ceiling has
+     * to be adjustable in place rather than only at construction.
+     * @param {number} maxBytes
+     */
+    resize(maxBytes) {
+        if (!(maxBytes > 0)) {
+            throw new Error('PlaybackChunkCache.resize: maxBytes must be > 0');
+        }
+        this.maxBytes = maxBytes;
+        this._evictToFit();
+        return this.maxBytes;
     }
 
     get totalBytes() {
