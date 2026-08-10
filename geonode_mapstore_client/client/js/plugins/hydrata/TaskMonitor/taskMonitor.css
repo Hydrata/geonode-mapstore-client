@@ -1,13 +1,35 @@
 /**
- * TaskMonitor plugin — button-positioning only.
+ * TaskMonitor plugin — button positioning, drawer geometry, and TaskMonitor-local
+ * content rules.
  *
- * TASK-1665 (W2 epic/1659-simpleview-design-system):
- * All panel + content CSS has been migrated to simpleView.css as sv-tm-* rules.
- * This file retains ONLY the button-column positioning rules so the Tasks button
- * continues to sit correctly below the SimpleView right-toolbar column.
+ * WHERE A NEW RULE GOES: shared panel chrome (header, title, filter bar, process
+ * + subtask rows, error message, detail actions, spinner, notification dot) lives
+ * in simpleView.css under the `TaskMonitor dark-glass migration — TASK-1665`
+ * banner, and that is still the right home for it. Styling that exists only
+ * because of a TaskMonitor-local feature may stay in this file. Either way the
+ * class keeps an sv-/simple- prefix: the `tm` prefix was ratcheted out of
+ * css-namespace-guard.js ALLOWED_PREFIXES in TASK-1680, and `npm run guard:css`
+ * is a required CI job.
  *
- * The --sv-tm-top var is published by SimpleViewContainer.updateWidgetPositions()
- * so this plugin stays correctly placed even when the toolbar grows/shrinks.
+ * WHAT IS HERE, grouped by provenance (descriptive, not an exhaustive inventory):
+ *   - Button-column positioning (#task-monitor-container, .sv-tm-button) — the
+ *     original TASK-1665 residue. The --sv-tm-top var is published by
+ *     SimpleViewContainer.updateWidgetPositions() so the Tasks button stays
+ *     correctly placed even when the toolbar grows/shrinks.
+ *   - Right-side drawer geometry (.simple-view-panel.sv-tm-container) — TASK-1665
+ *     off-screen-drawer fix, extended by TASK-1784; now a documented fallback
+ *     behind TaskMonitorPanel.jsx DRAWER_STYLE. See the note on the rule itself.
+ *   - Server-truth telemetry text (.sv-tm-phase, .sv-tm-eta,
+ *     .sv-tm-wedged-advisory) — TASK-2674 (epic 2662 W2.4).
+ *   - Recorded-hardware detail rows (.sv-tm-hardware*) — TASK-2691 (epic 2662 W5).
+ *
+ * WHY THIS HEADER IS PHRASED AS A CONVENTION: it previously claimed the file was
+ * "button-positioning only" and that ALL panel + content CSS had moved to
+ * simpleView.css. That was false the day it was written — the drawer-geometry rule
+ * landed hours later in the same TASK-1665 epic — and TASK-2674/2691 widened the
+ * gap. Nothing can catch a recurrence: css-namespace-guard.js strips comments
+ * before scanning, so no CI job ever reads this text. Avoid re-introducing a
+ * closed-world claim ("only", "all"); if you add a rule, you are the enforcement.
  */
 
 #task-monitor-container {
