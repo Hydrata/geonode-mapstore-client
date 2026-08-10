@@ -54,6 +54,12 @@ import {
     updateComputeInstanceEpic,
     updateAnugaModelTitle,
     compareScenarioEpic,
+    // TASK-2707 (epic 2706 W1.1) — Build / Build-and-Run. Exported from the
+    // barrel since TASK-2079 but NEVER enumerated here, so the epic never
+    // subscribed: every Build click dispatched BUILD_SCENARIO into a stream
+    // with no listener (no request, no error, no toast). Registration is the
+    // fix; epicRegistrationCompleteness-test.js is the guard against a repeat.
+    buildScenarioEpic,
     getAnugaResourcesEpic,
     manageTerrain3DEpic,
     // TASK-2572 — a terrain superseded by a datum-shift conversion has no TOC
@@ -240,6 +246,10 @@ export default createPlugin('Anuga', {
         updateComputeInstanceEpic,
         updateAnugaModelTitle,
         compareScenarioEpic,
+        // TASK-2707 (epic 2706 W1.1) — Build / Build-and-Run: POSTs
+        // /api/v2/anuga/projects/{p}/scenarios/{s}/build/ on BUILD_SCENARIO.
+        // Absent from this map until now; see the import-block note above.
+        buildScenarioEpic,
         getAnugaResourcesEpic,
         manageTerrain3DEpic,
         supersededTerrainVisibilityEpic,
