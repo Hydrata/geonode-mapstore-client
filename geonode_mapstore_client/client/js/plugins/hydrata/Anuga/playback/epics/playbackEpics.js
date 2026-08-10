@@ -90,6 +90,26 @@ export const fetcherRegistry = new Map();
 // changeLayerProperties({mixT}) instead of re-fetching/re-uploading frames.
 const lastSyncedTimestep = new Map();
 
+/**
+ * The timestep the layer's CURRENT frame0/frame1 were actually loaded for.
+ *
+ * TASK-2706 (W1 review) — this is `pb.currentTimestep` only while the sync
+ * epic is keeping up. When a frame load is REFUSED (see
+ * playbackSyncLayerEpic's catch below), no changeLayerProperties is
+ * dispatched at all, so the layer keeps rendering the older frames while
+ * `pb.currentTimestep` keeps advancing in the reducer. Stamping
+ * `pb.currentTimestep` on an Inspect readout in that state attributes the
+ * OLD numbers to the NEW timestep — a silently wrong depth reading, which is
+ * exactly what playbackIdentifyEpic's own header promises can never happen
+ * ("the readout can never show a value the screen isn't also showing").
+ * Undefined (nothing synced yet) falls back to the playhead; the identify
+ * epic's `!layer.frame0` guard already covers that case.
+ */
+function renderedTimestep(pb) {
+    const synced = lastSyncedTimestep.get(pb.runId);
+    return synced === undefined ? pb.currentTimestep : synced;
+}
+
 function arrayConfigsFor(quantization) {
     const q = quantization || {};
     const configs = {};
@@ -358,7 +378,32 @@ export function playbackSyncLayerEpic(action$, store) {
         ).map(([frame0, frame1]) => {
             lastSyncedTimestep.set(pb.runId, pb.currentTimestep);
             return changeLayerProperties(pb.layerId, { ...baseProps, frame0, frame1 });
-        }).catch(() => Rx.Observable.empty());
+        }).catch((error) => {
+            // TASK-2706 (W1 review) — a REFUSED frame must never be swallowed.
+            // Every fail-loud guard this wave added lands here
+            // (isUsableChunkLength in loadPlaybackLayerOptions, dequantizeRow's
+            // row-out-of-range and missing-{scale,offset} throws in
+            // playbackDecode), as does the pre-existing missing-chunk_urls
+            // throw in playbackChunkFetcher — reachable in production from an
+            // all-fill (unwritten) quantity chunk, the same Zarr sparse-chunk
+            // case playbackInitEpic already documents above for dt_ms.
+            // `Rx.Observable.empty()` dispatched NOTHING at all, so the layer
+            // went on rendering the PREVIOUS timestep's water under the new
+            // timestep's label with no error anywhere — refusing to guess is
+            // only worth anything if the refusal reaches someone.
+            //
+            // Reuses the existing chunk-buffer-error channel rather than
+            // inventing a state: its reducer case records `error` WITHOUT
+            // flipping status, so a transient failure still self-heals on the
+            // next tick (`lastSyncedTimestep` is deliberately left unset, so
+            // the retry is the same one that already happened — now with a
+            // breadcrumb, and with `renderedTimestep` keeping Inspect honest
+            // about which timestep the on-screen frames actually are).
+            return Rx.Observable.of(playbackChunkBufferError(
+                timestepToChunkIndex(pb.currentTimestep, pb.chunkLengthT),
+                String((error && error.message) || error)
+            ));
+        });
     });
 }
 
@@ -390,7 +435,10 @@ function getReprojectedMesh(pb) {
  * untouched by this epic) is not hijacked by default. Reads the SAME
  * frame0/frame1/mixT the layer is currently rendering (off the map's own
  * layers slice, not re-fetched) so the readout can never show a value the
- * screen isn't also showing.
+ * screen isn't also showing — and, since TASK-2706's W1 review, labels them
+ * with `renderedTimestep(pb)` (the timestep those frames were loaded for)
+ * rather than the playhead, which can have advanced past them after a
+ * refused frame load.
  */
 export function playbackIdentifyEpic(action$, store) {
     return action$.ofType(CLICK_ON_MAP)
@@ -417,20 +465,21 @@ export function playbackIdentifyEpic(action$, store) {
             // the layer is currently rendering with (never a second source
             // of truth), so the readout's six new derived-quantity fields
             // can't disagree with what's on screen.
-            const nextTimestepForDt = pb.nTime ? Math.min(pb.currentTimestep + 1, pb.nTime - 1) : pb.currentTimestep + 1;
+            const timestepIndex = renderedTimestep(pb);
+            const nextTimestepForDt = pb.nTime ? Math.min(timestepIndex + 1, pb.nTime - 1) : timestepIndex + 1;
             const result = sampleFieldAtPoint(
                 { x3857: reproj.x3857, y3857: reproj.y3857, faceNodeConnectivity: pb.mesh.faceNodeConnectivity },
                 layer.frame0, layer.frame1, layer.mixT || 0,
                 rawPos[0], rawPos[1],
                 pb.wetThreshold,
                 { elevation: pb.mesh.elevation, friction: pb.mesh.friction, inradius: pb.mesh.vertexInradius },
-                { g: pb.g, rhoW: pb.rhoW, dtSeconds: mixDtSeconds(pb.dtMs, pb.currentTimestep, nextTimestepForDt, pb.mixT) }
+                { g: pb.g, rhoW: pb.rhoW, dtSeconds: mixDtSeconds(pb.dtMs, timestepIndex, nextTimestepForDt, layer.mixT || 0) }
             );
             return playbackSetIdentifyResult({
                 ...result,
                 x: rawPos[0],
                 y: rawPos[1],
-                timestepIndex: pb.currentTimestep,
+                timestepIndex,
                 quantity: pb.quantity
             });
         })

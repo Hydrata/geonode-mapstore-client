@@ -201,15 +201,9 @@ function clamp(value, lo, hi) {
  */
 export function readNodeCount(manifest) {
     const shapes = (manifest && manifest.chunk_shapes) || {};
-    let found;
-    QUANTITY_ARRAYS.forEach((name) => {
-        const shape = shapes[name];
-        const n = Array.isArray(shape) ? shape[1] : undefined;
-        if (found === undefined && typeof n === 'number' && isFinite(n) && n > 0) {
-            found = n;
-        }
-    });
-    return found;
+    return QUANTITY_ARRAYS
+        .map((name) => (Array.isArray(shapes[name]) ? shapes[name][1] : undefined))
+        .find((n) => typeof n === 'number' && isFinite(n) && n > 0);
 }
 
 /**
@@ -307,18 +301,6 @@ export function computePlaybackMemoryPlan({
         budgetBytes,
         withinBudget: peakResidentBytes <= budgetBytes
     };
-}
-
-/**
- * The plan for a manifest, straight from the store's own metadata. `nFace` is
- * unknown until face_node_connectivity lands, so the caller re-derives with
- * the exact value then (see FACES_PER_NODE_ESTIMATE).
- * @param {object} manifest
- * @param {{chunkLengthT: number, totalChunks?: number, nNode?: number, nFace?: number, budgetBytes?: number}} options
- */
-export function planForManifest(manifest, options = {}) {
-    const nNode = options.nNode || readNodeCount(manifest);
-    return computePlaybackMemoryPlan({ ...options, nNode });
 }
 
 /** Human-readable one-liner for a log line or a test failure message. */

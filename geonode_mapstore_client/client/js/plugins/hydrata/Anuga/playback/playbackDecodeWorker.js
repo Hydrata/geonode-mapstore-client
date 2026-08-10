@@ -61,18 +61,28 @@ function rejectAllPending(reason) {
     entries.forEach((entry) => entry.fail(reason));
 }
 
-function disposeWorker(reason) {
+/**
+ * Drop the current worker and fail everything still waiting on it. The ONE
+ * thing the two callers disagree about is what happens next, so it is the
+ * only parameter: a resolved-to-null `nextReadyPromise` means "never retry"
+ * (every later request goes straight inline), `null` means "re-probe from
+ * scratch on the next request".
+ */
+function tearDownWorker(nextReadyPromise, reason) {
     const dead = worker;
     worker = null;
-    // A dead worker must never be retried: `workerReadyPromise` stays
-    // resolved-to-null so every later request goes straight inline.
-    workerReadyPromise = Promise.resolve(null);
+    workerReadyPromise = nextReadyPromise;
     if (dead) {
         try {
             dead.terminate();
         } catch (e) { /* already gone */ }
     }
     rejectAllPending(reason);
+}
+
+/** This worker is BROKEN (script failed, no pong, died mid-flight) — never retry it. */
+function disposeWorker(reason) {
+    tearDownWorker(Promise.resolve(null), reason);
 }
 
 function createWorker() {
@@ -198,15 +208,7 @@ export function decodeChunkOffThread(compressed, { dtype, byteorder = 'little' }
  * re-probes from scratch.
  */
 export function terminatePlaybackDecodeWorker() {
-    const dead = worker;
-    worker = null;
-    workerReadyPromise = null;
-    if (dead) {
-        try {
-            dead.terminate();
-        } catch (e) { /* already gone */ }
-    }
-    rejectAllPending('decode worker terminated');
+    tearDownWorker(null, 'decode worker terminated');
 }
 
 export default decodeChunkOffThread;

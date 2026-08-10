@@ -408,6 +408,46 @@ describe('playbackEpics', () => {
             // toggle itself, which must be its own trigger.
             subject.next(playbackSetWireframe(true));
         });
+
+        // TASK-2706 (W1 review) — every fail-loud guard this wave added throws
+        // inside loadPlaybackFrame, and `catch(() => Observable.empty())`
+        // dispatched NOTHING at all: the layer went on rendering the PREVIOUS
+        // timestep's water under the new timestep's label with no error
+        // anywhere. Refusing to guess is only worth something if the refusal
+        // reaches someone.
+        it('emits PLAYBACK_CHUNK_BUFFER_ERROR (not silence) when a frame load is refused', (done) => {
+            // The real production case named in the review: an all-fill
+            // (dry lead-in) quantity chunk is never written by the exporter,
+            // so the manifest carries no chunk_urls entry for it — the same
+            // Zarr sparse-chunk optimisation playbackInitEpic already handles
+            // for dt_ms.
+            const manifestMissingChunk = { ...FIXTURE_MANIFEST, chunk_urls: { ...FIXTURE_MANIFEST.chunk_urls } };
+            delete manifestMissingChunk.chunk_urls['depth/c/0/0'];
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: manifestMissingChunk, fetchImpl: fixtureFetchHandler });
+            fetcherRegistry.set(6, fetcher);
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
+            const pb = {
+                ...createInitialPlaybackState(),
+                runId: 6, layerId: 'layer-6', manifest: manifestMissingChunk, mesh,
+                nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
+                currentTimestep: 0, mixT: 0, quantity: 'depth', quantization: manifestMissingChunk.quantization
+            };
+            const store = makeStore(pb);
+            const { subject, action$ } = makeActionsSubject();
+            playbackSyncLayerEpic(action$, store).subscribe((a) => {
+                restore();
+                try {
+                    expect(a.type).toBe(PLAYBACK_CHUNK_BUFFER_ERROR);
+                    expect(a.chunkIndex).toBe(0);
+                    expect(a.error).toContain('chunk_urls');
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackTick(1));
+        });
     });
 
     describe('playbackIdentifyEpic (TASK-2628, W3.2)', () => {
@@ -512,6 +552,48 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next({ type: 'CLICK_ON_MAP', point: { rawPos: [x[0], y[0]] } });
+        });
+
+        // TASK-2706 (W1 review) — the other half of the swallowed-refusal
+        // defect: when a frame load is refused the layer keeps the OLD frames
+        // while pb.currentTimestep keeps advancing, so stamping the playhead
+        // on the readout published the old numbers under the new timestep.
+        // The readout must label the frames it actually sampled.
+        it('stamps the timestep the layer\'s frames were loaded for, not a playhead that ran ahead', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
+            fetcherRegistry.set(77, fetcher);
+            const syncPb = {
+                ...createInitialPlaybackState(),
+                runId: 77, layerId: 'layer-77', manifest: FIXTURE_MANIFEST,
+                mesh: { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) },
+                nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
+                currentTimestep: 2, mixT: 0, quantity: 'depth', quantization: FIXTURE_MANIFEST.quantization
+            };
+            const store = makeStore(syncPb);
+            const { subject, action$ } = makeActionsSubject();
+            // A real successful sync first — that is what records "the layer's
+            // frames are timestep 2".
+            playbackSyncLayerEpic(action$, store).subscribe(() => {
+                restore();
+                // Now the state a refused frame load leaves behind: playhead at
+                // 7, layer still holding the timestep-2 frames.
+                store.__setPlayback({ ...syncPb, mesh, identifyArmed: true, currentTimestep: 7 });
+                store.__setLayers([{ id: 'layer-77', frame0, frame1, mixT: 0 }]);
+                const { x, y } = reprojectMeshVertices(mesh.nodeX, mesh.nodeY, mesh);
+                playbackIdentifyEpic(action$, store).subscribe((a) => {
+                    try {
+                        expect(a.result.located).toBe(true);
+                        expect(a.result.depth).toBe(1); // frame0's node-0 value — the OLD frames
+                        expect(a.result.timestepIndex).toBe(2); // ...labelled as the OLD timestep
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }, done);
+                subject.next({ type: 'CLICK_ON_MAP', point: { rawPos: [x[0], y[0]] } });
+            }, done);
+            subject.next(playbackTick(1));
         });
     });
 
