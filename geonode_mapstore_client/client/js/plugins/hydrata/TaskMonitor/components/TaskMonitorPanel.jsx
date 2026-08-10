@@ -4,7 +4,9 @@
  * Structural-parity migration: preserves all DOM structure + behaviour exactly.
  * Replaces the light-theme (.tm-panel) shell with .simple-view-panel (dark-glass)
  * and migrates inner classes from tm-* to sv-tm-* (all styled in simpleView.css).
- * taskMonitor.css no longer carries any panel rules — only button-positioning remains.
+ * The panel CHROME moved to simpleView.css; taskMonitor.css keeps the button
+ * positioning, the drawer-geometry fallback described under TASK-1784 below, and
+ * the later TaskMonitor-local content rules (TASK-2674, TASK-2691).
  *
  * Visual shifts vs BEFORE (light theme) — enumerated for operator sign-off at W2 gate:
  *   See SIMPLEVIEW-BUILD-A-PANEL-GUIDE.md § "TaskMonitor 1665 visual-shift list".
