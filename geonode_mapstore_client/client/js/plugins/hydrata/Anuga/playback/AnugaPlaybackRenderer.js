@@ -36,7 +36,13 @@ import {
 import { QUANTITY_MODE_INDEX } from './playbackDerivedQuantities';
 import {
     buildWireframeIndices, buildProjectionMatrix,
-    wireframeDecimationStride, wireframeOpacityForTriangleCount, decimateWireframeIndices
+    wireframeDecimationStride, wireframeOpacityForTriangleCount,
+    // TASK-2734 (W3, epic 2706) — the allocation-free replacement for
+    // decimateWireframeIndices(buildWireframeIndices(...), stride) on a
+    // prod-scale mesh. decimateWireframeIndices itself is deliberately NOT
+    // imported here any more: nothing in this renderer builds a full edge set
+    // to thin down.
+    buildDecimatedWireframeIndices
 } from './playbackMeshGeometry';
 import { AnugaPlaybackFlowVizRenderer } from './AnugaPlaybackFlowVizRenderer';
 import { AnugaPlaybackParticleRenderer } from './AnugaPlaybackParticleRenderer';
@@ -153,6 +159,16 @@ export class AnugaPlaybackRenderer {
 
         this.nIndices = 0;
         this.nWireIndices = 0;
+        // TASK-2734 (W3, epic 2706) — lazy wireframe state. `_wireSourceFnc`
+        // is the mesh's own face_node_connectivity (a reference, not a copy),
+        // parked by setMesh so the FIRST render() with wireframe===true can
+        // build the edge buffer. `_wireBuildCount` is the memoisation witness
+        // the karma case asserts on (it must be 1 after any number of
+        // wireframe frames, and 0 while the wireframe is off).
+        this._wireSourceFnc = null;
+        this._wireStride = 1;
+        this._wireIndicesBuilt = false;
+        this._wireBuildCount = 0;
         this.meshReady = false;
         // TASK-2686 — set for real in setMesh once triangleCount is known;
         // these defaults just match the small-mesh AC (byte-identical to
@@ -219,12 +235,24 @@ export class AnugaPlaybackRenderer {
         // count both are no-ops — byte-identical to pre-TASK-2686 output.
         const triangleCount = faceNodeConnectivity.length / 3;
         const stride = wireframeDecimationStride(triangleCount);
-        const wireIndices = stride > 1
-            ? decimateWireframeIndices(buildWireframeIndices(faceNodeConnectivity), stride)
-            : buildWireframeIndices(faceNodeConnectivity);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.wireIdxBuf);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wireIndices, gl.STATIC_DRAW);
-        this.nWireIndices = wireIndices.length;
+        // TASK-2734 (W3, epic 2706) — THE EDGE BUFFER IS NO LONGER BUILT HERE.
+        // The wireframe flag defaults false (playbackController.js:130-131) and
+        // reaches the renderer only as a per-frame render() param, so on a
+        // prod-scale mesh this line spent a MEASURED 1,021.0 MiB / 3,139.9 ms
+        // producing a buffer whose only consumer is the draw call guarded by
+        // `wireframe && this.nWireIndices > 0` in render() — thrown away
+        // untouched unless the operator clicks Wireframe. Keep a REFERENCE to
+        // faceNodeConnectivity instead (zero retained bytes: the same array is
+        // already held for the whole session in redux at
+        // playbackController.js:344 and read at playbackEpics.js:471, and the
+        // residency plan already prices it via
+        // playbackMemoryPolicy.GEOMETRY_BYTES_PER_FACE) and build on the FIRST
+        // render() that actually asks for the wireframe — see
+        // _ensureWireframeIndices below.
+        this._wireSourceFnc = faceNodeConnectivity;
+        this._wireStride = stride;
+        this._wireIndicesBuilt = false;
+        this.nWireIndices = 0;
         this._wireOpacity = wireframeOpacityForTriangleCount(triangleCount, WIRE_COLOR[3]);
         // Adversarial-review fix (still TASK-2686): `stride > 1` is the SAME
         // gate wireframeDecimationStride/wireframeOpacityForTriangleCount
@@ -255,6 +283,45 @@ export class AnugaPlaybackRenderer {
             x3857,
             y3857
         });
+    }
+
+    /**
+     * TASK-2734 (W3, epic 2706) — build the wireframe edge buffer, ONCE, the
+     * first time a frame actually asks for it. Called from render() only when
+     * `wireframe === true`; a session that never enables the wireframe never
+     * runs a line of this.
+     *
+     * GL TRAP, and why this is not just the setMesh code moved. `wireIdxBuf`
+     * is bound as `wireVao`'s ELEMENT_ARRAY_BUFFER in the constructor. In
+     * setMesh that binding was safe because setMesh runs with NO VAO bound;
+     * render() does not have that luxury — binding ELEMENT_ARRAY_BUFFER while
+     * some other VAO is current MUTATES that VAO's element binding, which
+     * would silently redirect the MESH draw's indices. So: save the current
+     * VAO, unbind to the default VAO for the upload, and restore.
+     *
+     * The stride>1 path uses buildDecimatedWireframeIndices (one exactly-sized
+     * allocation). The stride===1 (<50k triangle) path still goes through
+     * buildWireframeIndices UNCHANGED — TASK-2686's AC pins that output
+     * byte-identical, and at that size the Set/Array cost is trivial anyway.
+     */
+    _ensureWireframeIndices() {
+        if (this._wireIndicesBuilt || !this._wireSourceFnc) {
+            return;
+        }
+        const gl = this.gl;
+        const stride = this._wireStride;
+        const wireIndices = stride > 1
+            ? buildDecimatedWireframeIndices(this._wireSourceFnc, stride)
+            : buildWireframeIndices(this._wireSourceFnc);
+        const previousVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.wireIdxBuf);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wireIndices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindVertexArray(previousVao);
+        this.nWireIndices = wireIndices.length;
+        this._wireIndicesBuilt = true;
+        this._wireBuildCount++;
     }
 
     /**
@@ -418,6 +485,13 @@ export class AnugaPlaybackRenderer {
             this._lastParticleFrameTimeMs = null;
         }
 
+        // TASK-2734 (W3, epic 2706) — build the edge buffer on the FIRST frame
+        // that asks for it. This MUST sit before the gate below: inside it,
+        // `this.nWireIndices > 0` would never be true on the first wireframe
+        // frame and the buffer could never be built at all.
+        if (wireframe) {
+            this._ensureWireframeIndices();
+        }
         if (wireframe && this.nWireIndices > 0) {
             gl.useProgram(this.wireProgram);
             gl.bindVertexArray(this.wireVao);
