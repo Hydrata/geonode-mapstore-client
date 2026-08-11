@@ -21,6 +21,8 @@ import {
     wireframeDecimationStride,
     wireframeOpacityForTriangleCount,
     decimateWireframeIndices,
+    // TASK-2734 (W3, epic 2706) — allocation-free decimated wireframe builder.
+    buildDecimatedWireframeIndices,
     WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES,
     WIREFRAME_MAX_DECIMATION_STRIDE,
     WIREFRAME_MIN_OPACITY
@@ -355,6 +357,100 @@ describe('playbackMeshGeometry', () => {
             expect(maxX).toBe(Math.max(...x));
             expect(minY).toBe(Math.min(...y));
             expect(maxY).toBe(Math.max(...y));
+        });
+    });
+
+    // TASK-2734 (W3, epic 2706) — AC5 VISUAL EQUIVALENCE for the
+    // decimated-direct builder that replaces
+    // decimateWireframeIndices(buildWireframeIndices(fnc), stride) on a
+    // prod-scale mesh. The pair is only "equivalent" if it draws essentially
+    // the same picture, and edge COUNT is the measurable proxy for that: the
+    // direct builder dedups by canonical orientation instead of a Set, which
+    // drops roughly half the BOUNDARY edges and nothing else.
+    describe('buildDecimatedWireframeIndices (TASK-2734)', () => {
+        // buildSyntheticMesh is a PRIVATE helper of playbackPerfSmoke-test.js
+        // (not exported), so this file carries its own copy of the grid loop —
+        // same shape, same winding: triCount = 2*(n-1)^2.
+        function buildGridFaceNodeConnectivity(n) {
+            const triCount = 2 * (n - 1) * (n - 1);
+            const fnc = new Int32Array(triCount * 3);
+            let t = 0;
+            for (let j = 0; j < n - 1; j++) {
+                for (let i = 0; i < n - 1; i++) {
+                    const a = j * n + i;
+                    const b = a + 1;
+                    const c = a + n;
+                    const d = c + 1;
+                    fnc[t++] = a; fnc[t++] = b; fnc[t++] = c;
+                    fnc[t++] = b; fnc[t++] = d; fnc[t++] = c;
+                }
+            }
+            return fnc;
+        }
+
+        it('a >=200,000-triangle grid decimates to within 10% of decimateWireframeIndices(buildWireframeIndices(...))', () => {
+            const N = 320; // 2*(320-1)^2 = 203,522 triangles -> stride 4
+            const fnc = buildGridFaceNodeConnectivity(N);
+            const triangleCount = fnc.length / 3;
+            expect(triangleCount).toBe(203522);
+            const stride = wireframeDecimationStride(triangleCount);
+            expect(stride).toBe(4);
+
+            const reference = decimateWireframeIndices(buildWireframeIndices(fnc), stride);
+            const direct = buildDecimatedWireframeIndices(fnc, stride);
+
+            // Measured on this box 2026-08-11: reference 152,962 indices,
+            // direct 152,642 (-0.21%) — the 320 dropped boundary edges.
+            const deltaFraction = Math.abs(direct.length - reference.length) / reference.length;
+            expect(deltaFraction).toBeLessThan(0.1);
+            expect(direct.length % 2).toBe(0);
+            expect(direct.length).toBeGreaterThan(0);
+        });
+
+        it('emits only real edges of the source mesh, and never the same undirected edge twice', () => {
+            const fnc = buildGridFaceNodeConnectivity(40); // 3,042 triangles
+            const direct = buildDecimatedWireframeIndices(fnc, 1);
+            const realEdges = new Set();
+            for (let f = 0; f < fnc.length; f += 3) {
+                const v0 = fnc[f];
+                const v1 = fnc[f + 1];
+                const v2 = fnc[f + 2];
+                [[v0, v1], [v1, v2], [v2, v0]].forEach(([a, b]) => {
+                    realEdges.add(a < b ? `${a}-${b}` : `${b}-${a}`);
+                });
+            }
+            const emitted = new Set();
+            for (let i = 0; i < direct.length; i += 2) {
+                const a = direct[i];
+                const b = direct[i + 1];
+                const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+                expect(realEdges.has(key)).toBe(true);
+                expect(emitted.has(key)).toBe(false);
+                emitted.add(key);
+            }
+            expect(emitted.size).toBeGreaterThan(0);
+        });
+
+        it('returns an exactly-sized Uint32Array (no over-allocation, no trailing zero pairs)', () => {
+            const fnc = buildGridFaceNodeConnectivity(60);
+            const direct = buildDecimatedWireframeIndices(fnc, 3);
+            expect(direct instanceof Uint32Array).toBe(true);
+            expect(direct.length).toBe(direct.byteLength / 4);
+            // Every slot was written: the only way a pair can be (0,0) is if
+            // the builder over-allocated, since edge (0,0) is degenerate.
+            let degenerate = 0;
+            for (let i = 0; i < direct.length; i += 2) {
+                if (direct[i] === 0 && direct[i + 1] === 0) { degenerate++; }
+            }
+            expect(degenerate).toBe(0);
+        });
+
+        it('rejects a face array whose length is not a multiple of 3', () => {
+            expect(() => buildDecimatedWireframeIndices(Int32Array.from([0, 1, 2, 3]), 2)).toThrow(/multiple of 3/);
+        });
+
+        it('an empty mesh yields an empty buffer', () => {
+            expect(buildDecimatedWireframeIndices(new Int32Array([]), 4).length).toBe(0);
         });
     });
 });

@@ -130,6 +130,88 @@ export function buildWireframeIndices(faceNodeConnectivity) {
 }
 
 /**
+ * TASK-2734 (W3, epic 2706) — the DECIMATED-DIRECT wireframe builder: emit
+ * only the edges that survive decimation, and never materialise the full
+ * edge set at all.
+ *
+ * WHY THIS EXISTS. buildWireframeIndices above is correct and stays exactly
+ * as it is for small meshes, but at prod scale it is the epic's single
+ * largest transient. On run 1328 (6,779,432 triangles / 3,393,075 nodes) it
+ * holds three structures alive simultaneously — a `Set` of ~10.2M composite
+ * keys, each computed as `lo * 4294967296 + hi` and therefore boxed by V8 as
+ * a HeapNumber (plus the OrderedHashSet's own doubling table), a growable JS
+ * Array of 20,338,296 elements, and an 81,353,184-byte `Uint32Array.from` of
+ * that array — for a MEASURED 1,021.0 MiB / 3,139.9 ms. decimateWireframeIndices
+ * then throws 11 of every 12 edges away (stride 12 at this triangle count).
+ * This function allocates exactly ONE Uint32Array, sized before it is filled.
+ *
+ * HOW. Two linear passes over faceNodeConnectivity: pass 1 counts the edges
+ * that pass the canonical-orientation test, pass 2 writes every `stride`-th
+ * one into an exactly-sized output. No Set, no growable Array, no full-size
+ * intermediate.
+ *
+ * DEDUP BY CANONICAL ORIENTATION, not by a `seen` Set. A triangle contributes
+ * (v0,v1) (v1,v2) (v2,v0); an edge shared by two consistently-wound triangles
+ * therefore appears once in each direction, so emitting only the occurrence
+ * with `v_i < v_j` yields each INTERIOR edge exactly once with no memory of
+ * what came before. The trade is that a BOUNDARY edge appears only once, so
+ * roughly half of them (those wound the "wrong" way) are dropped. Measured on
+ * the AC5 grid (n=320, 203,522 triangles, stride 4): 152,642 indices here vs
+ * 152,962 from decimateWireframeIndices(buildWireframeIndices(...), 4) — a
+ * 0.21% difference, all of it boundary edges, at a triangle density where a
+ * single screen pixel already carries many edges.
+ *
+ * @param {Int32Array|number[]} faceNodeConnectivity flat, row-major (nFace*3)
+ * @param {number} stride keep every `stride`-th surviving edge (<=1 keeps all)
+ * @returns {Uint32Array} flat pairs [a0,b0, a1,b1, ...] for gl.LINES
+ */
+export function buildDecimatedWireframeIndices(faceNodeConnectivity, stride) {
+    const n = faceNodeConnectivity.length;
+    if (n % 3 !== 0) {
+        throw new Error('playbackMeshGeometry.buildDecimatedWireframeIndices: length must be a multiple of 3');
+    }
+    const step = stride > 1 ? Math.floor(stride) : 1;
+
+    // Pass 1 — COUNT ONLY. Nothing is retained, so the peak here is the
+    // input array itself (which the caller already holds) plus three locals.
+    let candidates = 0;
+    for (let f = 0; f < n; f += 3) {
+        const v0 = faceNodeConnectivity[f];
+        const v1 = faceNodeConnectivity[f + 1];
+        const v2 = faceNodeConnectivity[f + 2];
+        if (v0 < v1) { candidates++; }
+        if (v1 < v2) { candidates++; }
+        if (v2 < v0) { candidates++; }
+    }
+    const kept = step > 1 ? Math.ceil(candidates / step) : candidates;
+    const out = new Uint32Array(kept * 2);
+
+    // Pass 2 — FILL. `e` counts surviving edges in emission order, exactly as
+    // decimateWireframeIndices indexes the buffer it is handed, so the two
+    // agree about WHICH edges a given stride keeps.
+    let e = 0;
+    let w = 0;
+    for (let f = 0; f < n; f += 3) {
+        const v0 = faceNodeConnectivity[f];
+        const v1 = faceNodeConnectivity[f + 1];
+        const v2 = faceNodeConnectivity[f + 2];
+        if (v0 < v1) {
+            if (e % step === 0) { out[w++] = v0; out[w++] = v1; }
+            e++;
+        }
+        if (v1 < v2) {
+            if (e % step === 0) { out[w++] = v1; out[w++] = v2; }
+            e++;
+        }
+        if (v2 < v0) {
+            if (e % step === 0) { out[w++] = v2; out[w++] = v0; }
+            e++;
+        }
+    }
+    return out;
+}
+
+/**
  * Interleave per-vertex depth/x_velocity/y_velocity (already-dequantized
  * physical Float32Arrays, same length) into one vec3-per-vertex buffer for
  * the GPU attribute upload (matches the W0.3 spike's packed qty0/qty1
