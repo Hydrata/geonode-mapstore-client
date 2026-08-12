@@ -606,16 +606,6 @@
         "pause": "Pause",
         "scrubber": "Timeline position",
         "speed": "Playback speed",
-        "quantity": {
-          "depth": "Depth",
-          "speed": "Velocity",
-          "stage": "Stage",
-          "div": "Depth-integrated velocity (dIV)",
-          "hazard": "Flood hazard (H1–H6)",
-          "froude": "Froude number",
-          "shear": "Manning shear stress",
-          "courant": "Courant number (approx.)"
-        },
         "opacity": "Layer opacity",
         "colorMax": "Colour scale maximum",
         "speedWholeRunIn": "Whole run in {d}",
@@ -632,7 +622,18 @@
         "arrowScale": "Arrow scale",
         "particleDensity": "Particle density (grid side length)",
         "speedExaggeration": "Speed exaggeration",
-        "manifestUrlPlaceholder": "Playback store manifest URL"
+        "manifestUrlPlaceholder": "Playback store manifest URL",
+        "quantityOption": {
+          "depth": "Depth",
+          "speed": "Velocity",
+          "stage": "Stage",
+          "div": "Depth-integrated velocity (dIV)",
+          "hazard": "Flood hazard (H1–H6)",
+          "froude": "Froude number",
+          "shear": "Manning shear stress",
+          "courant": "Courant number (approx.)"
+        },
+        "quantity": "Displayed quantity"
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",

@@ -606,16 +606,6 @@
         "pause": "Pause",
         "scrubber": "Position sur la chronologie",
         "speed": "Vitesse de lecture",
-        "quantity": {
-          "depth": "Hauteur d'eau",
-          "speed": "Vitesse",
-          "stage": "Cote d'eau",
-          "div": "Vitesse intégrée sur la hauteur (dIV)",
-          "hazard": "Aléa d'inondation (H1–H6)",
-          "froude": "Nombre de Froude",
-          "shear": "Contrainte de cisaillement de Manning",
-          "courant": "Nombre de Courant (approx.)"
-        },
         "opacity": "Opacité de la couche",
         "colorMax": "Maximum de l'échelle de couleurs",
         "speedWholeRunIn": "Simulation entière en {d}",
@@ -632,7 +622,18 @@
         "arrowScale": "Échelle des flèches",
         "particleDensity": "Densité des particules (côté de la grille)",
         "speedExaggeration": "Exagération de la vitesse",
-        "manifestUrlPlaceholder": "URL du manifeste du magasin de lecture"
+        "manifestUrlPlaceholder": "URL du manifeste du magasin de lecture",
+        "quantityOption": {
+          "depth": "Hauteur d'eau",
+          "speed": "Vitesse",
+          "stage": "Cote d'eau",
+          "div": "Vitesse intégrée sur la hauteur (dIV)",
+          "hazard": "Aléa d'inondation (H1–H6)",
+          "froude": "Nombre de Froude",
+          "shear": "Contrainte de cisaillement de Manning",
+          "courant": "Nombre de Courant (approx.)"
+        },
+        "quantity": "Grandeur affichée"
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

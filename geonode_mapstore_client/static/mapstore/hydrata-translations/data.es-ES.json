@@ -606,16 +606,6 @@
         "pause": "Pausa",
         "scrubber": "Posición en la línea de tiempo",
         "speed": "Velocidad de reproducción",
-        "quantity": {
-          "depth": "Calado",
-          "speed": "Velocidad",
-          "stage": "Cota de agua",
-          "div": "Velocidad integrada en calado (dIV)",
-          "hazard": "Peligrosidad de inundación (H1–H6)",
-          "froude": "Número de Froude",
-          "shear": "Tensión de corte de Manning",
-          "courant": "Número de Courant (aprox.)"
-        },
         "opacity": "Opacidad de la capa",
         "colorMax": "Máximo de la escala de color",
         "speedWholeRunIn": "Simulación completa en {d}",
@@ -632,7 +622,18 @@
         "arrowScale": "Escala de flechas",
         "particleDensity": "Densidad de partículas (lado de la cuadrícula)",
         "speedExaggeration": "Exageración de la velocidad",
-        "manifestUrlPlaceholder": "URL del manifiesto del almacén de reproducción"
+        "manifestUrlPlaceholder": "URL del manifiesto del almacén de reproducción",
+        "quantityOption": {
+          "depth": "Calado",
+          "speed": "Velocidad",
+          "stage": "Cota de agua",
+          "div": "Velocidad integrada en calado (dIV)",
+          "hazard": "Peligrosidad de inundación (H1–H6)",
+          "froude": "Número de Froude",
+          "shear": "Tensión de corte de Manning",
+          "courant": "Número de Courant (aprox.)"
+        },
+        "quantity": "Magnitud mostrada"
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

@@ -254,7 +254,17 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      */
     tr(msgId, fallback) {
         const resolved = getMessageById(this.context && this.context.messages || {}, msgId);
-        return (!resolved || resolved === msgId) ? fallback : resolved;
+        // A non-STRING resolution means the id addresses a sub-tree, not a
+        // message — `hydrata.playback.quantity` when `quantity.depth` etc.
+        // also exist. getMessageById happily returns that object and it
+        // stringifies to "[object Object]", which is what a screen reader
+        // would then announce. Found live on map 1461; karma cannot catch it
+        // because the specs render with no message catalogue at all, so every
+        // lookup misses and falls back.
+        if (typeof resolved !== 'string' || !resolved || resolved === msgId) {
+            return fallback;
+        }
+        return resolved;
     }
 
     // TASK-2744 (AC11, epic 2706) — the flow-viz/particle knobs are NO LONGER
@@ -537,7 +547,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     onChange={(e) => this.props.onSetQuantity(e.target.value)}
                 >
                     {availableQuantityIds(playback.hasDt).map((id) => (
-                        <option key={id} value={id}>{this.tr(`hydrata.playback.quantity.${id}`, QUANTITY_OPTION_LABEL[id])}</option>
+                        <option key={id} value={id}>{this.tr(`hydrata.playback.quantityOption.${id}`, QUANTITY_OPTION_LABEL[id])}</option>
                     ))}
                 </select>
 

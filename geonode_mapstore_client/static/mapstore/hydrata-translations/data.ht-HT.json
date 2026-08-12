@@ -606,16 +606,6 @@
         "pause": "Kanpe",
         "scrubber": "Pozisyon sou liy tan an",
         "speed": "Vitès lekti",
-        "quantity": {
-          "depth": "Pwofondè",
-          "speed": "Vitès",
-          "stage": "Nivo dlo",
-          "div": "Vitès entegre sou pwofondè (dIV)",
-          "hazard": "Danje inondasyon (H1–H6)",
-          "froude": "Nimewo Froude",
-          "shear": "Tansyon sizayman Manning",
-          "courant": "Nimewo Courant (apeprè)"
-        },
         "opacity": "Opasite kouch la",
         "colorMax": "Maksimòm echèl koulè a",
         "speedWholeRunIn": "Tout senaryo a nan {d}",
@@ -632,7 +622,18 @@
         "arrowScale": "Echèl flèch",
         "particleDensity": "Dansite patikil (longè kote kadriyaj la)",
         "speedExaggeration": "Egzajerasyon vitès",
-        "manifestUrlPlaceholder": "URL manifès depo lekti a"
+        "manifestUrlPlaceholder": "URL manifès depo lekti a",
+        "quantityOption": {
+          "depth": "Pwofondè",
+          "speed": "Vitès",
+          "stage": "Nivo dlo",
+          "div": "Vitès entegre sou pwofondè (dIV)",
+          "hazard": "Danje inondasyon (H1–H6)",
+          "froude": "Nimewo Froude",
+          "shear": "Tansyon sizayman Manning",
+          "courant": "Nimewo Courant (apeprè)"
+        },
+        "quantity": "Kantite ki afiche"
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",

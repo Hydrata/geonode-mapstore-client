@@ -499,4 +499,79 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             });
         });
     });
+
+    // TASK-2744 (AC7/AC10, epic 2706) — REGRESSION GUARD for a defect the rest
+    // of this file structurally cannot catch.
+    //
+    // Every other spec here renders the component bare, so `this.context` is
+    // {} and EVERY getMessageById lookup misses and falls back to English.
+    // That means no spec exercised the path where a lookup SUCCEEDS. Found
+    // live on map 1461: the quantity <select> announced "[object Object]",
+    // because the option labels had been nested under
+    // `hydrata.playback.quantity.*` while `hydrata.playback.quantity` was also
+    // the select's own label — so getMessageById resolved the id to the
+    // SUB-TREE and it stringified into the aria-label.
+    //
+    // The fix is two-part and this guards both: the option labels moved to
+    // `quantityOption.*`, and tr() now refuses any non-string resolution.
+    describe('translated labels with a real catalogue — TASK-2744 AC7/AC10', () => {
+        // React 16 legacy context: a provider parent is the only way to put
+        // `messages` where the component's contextTypes will see it.
+        class MessagesProvider extends React.Component {
+            static propTypes = { children: () => null, messages: () => null };
+            static childContextTypes = { messages: () => null };
+            getChildContext() {
+                return { messages: this.props.messages };
+            }
+            render() {
+                return this.props.children;
+            }
+        }
+
+        function renderWithMessages(messages, playback) {
+            ReactDOM.render(
+                <MessagesProvider messages={messages}>
+                    <AnugaPlaybackControlBarComponent playback={playback} />
+                </MessagesProvider>,
+                container
+            );
+        }
+
+        const loaded = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, time: [0, 60, 120] };
+
+        it('never announces "[object Object]" when a msgId also has child keys', () => {
+            renderWithMessages({
+                hydrata: { playback: {
+                    // the SHAPE that caused the live defect: a scalar label
+                    // beside a sub-tree of option labels
+                    quantity: 'Displayed quantity',
+                    quantityOption: { depth: 'Depth', speed: 'Velocity' },
+                    speed: 'Playback speed',
+                    scrubber: 'Timeline position'
+                } }
+            }, loaded);
+
+            const rows = [...container.querySelectorAll('.sv-playback-bar input[type=range], .sv-playback-bar select')];
+            rows.forEach((el) => {
+                const aria = el.getAttribute('aria-label');
+                expect(aria).toNotBe('[object Object]');
+                expect(String(aria).indexOf('object Object')).toBe(-1);
+            });
+            expect(container.querySelector('[data-testid="anuga-playback-quantity"]').getAttribute('aria-label'))
+                .toBe('Displayed quantity');
+        });
+
+        it('falls back to English rather than announcing a sub-tree', () => {
+            // `quantity` is ONLY a sub-tree here — no scalar at all
+            renderWithMessages({ hydrata: { playback: { quantity: { depth: 'Profondeur' } } } }, loaded);
+            const aria = container.querySelector('[data-testid="anuga-playback-quantity"]').getAttribute('aria-label');
+            expect(aria).toBe('Displayed quantity');
+        });
+
+        it('uses the catalogue when the id really does resolve to a string', () => {
+            renderWithMessages({ hydrata: { playback: { scrubber: 'Position sur la chronologie' } } }, loaded);
+            expect(container.querySelector('[data-testid="anuga-playback-scrubber"]').getAttribute('aria-label'))
+                .toBe('Position sur la chronologie');
+        });
+    });
 });
