@@ -69,6 +69,8 @@ import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFet
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
 import { QUANTITY_ARRAYS, resolveChunkLengthT } from '../playbackChunkShape';
 import { computePlaybackMemoryPlan, readNodeCount } from '../playbackMemoryPolicy';
+// TASK-2744 (AC20, epic 2706) — score the plan against a measurement.
+import { scorePlan, isForecastContradicted, describeScore } from '../playbackMemoryAudit';
 import { reprojectMeshVertices } from '../playbackReproject';
 import { sampleFieldAtPoint } from '../playbackIdentify';
 import {
@@ -94,6 +96,8 @@ import {
     PLAYBACK_SET_OVERLAY,
     PLAYBACK_SET_COLOR_MAX,
     playbackManifestLoaded,
+    playbackManifestFetched,
+    playbackLoadProgress,
     playbackManifestFailed,
     playbackChunksBuffered,
     playbackChunkBufferError,
@@ -210,6 +214,64 @@ function arrayConfigsFor(quantization) {
 }
 
 /**
+ * usedJSHeapSize, or null where the browser does not expose it (TASK-2744
+ * AC20). Never faked — a null observation scores as "unmeasured", which is
+ * honest, rather than as "within budget", which is the defect.
+ */
+export function readHeapBytes() {
+    const mem = typeof performance !== 'undefined' && performance.memory;
+    return mem && isFinite(mem.usedJSHeapSize) ? mem.usedJSHeapSize : null;
+}
+
+/**
+ * Reconcile the store's memory plan against what actually happened, and leave
+ * a breadcrumb when they disagree (TASK-2744 AC20).
+ *
+ * Console, not controller state: this is diagnostics about a prediction, not
+ * playback state the UI renders, and a `console.warn` is what makes the
+ * contradiction visible in the one place someone debugging a wedged tab is
+ * already looking. Returns the score so a test can assert on it.
+ */
+export function reportMemoryScore(memoryPlan, fetcher, baselineHeapBytes) {
+    const score = scorePlan(memoryPlan, {
+        accountedBytes: (memoryPlan && memoryPlan.fixedBytes || 0)
+            + (fetcher && typeof fetcher.residentBytes === 'function' ? fetcher.residentBytes() : 0),
+        heapBytes: readHeapBytes(),
+        baselineHeapBytes
+    });
+    if (isForecastContradicted(score)) {
+        // eslint-disable-next-line no-console
+        console.warn(`[playback] ${describeScore(score)}`);
+    }
+    return score;
+}
+
+/**
+ * How many store objects the mesh phase will fetch (TASK-2744 AC18).
+ *
+ * loadPlaybackMesh pulls six static arrays (node_x, node_y, elevation,
+ * friction, inradius, face_node_connectivity), plus `time` and `dt_ms`. A
+ * has_dt=false store has NO chunk_urls entry for dt_ms — the exporter skips an
+ * all-fill chunk — so it is counted only when the manifest actually offers it,
+ * otherwise progress would stall one object short of its own total forever.
+ */
+const MESH_PHASE_KEYS = [
+    'node_x/c/0', 'node_y/c/0', 'elevation/c/0', 'friction/c/0',
+    'inradius/c/0', 'face_node_connectivity/c/0', 'time/c/0'
+];
+
+export function countMeshObjects(manifest) {
+    const urls = (manifest && manifest.chunk_urls) || {};
+    let n = MESH_PHASE_KEYS.filter((k) => urls[k] !== undefined).length;
+    if (urls['dt_ms/c/0'] !== undefined) {
+        n += 1;
+    }
+    // A manifest whose key shape we do not recognise still gets an honest
+    // count rather than 0, which would render "3 of 0".
+    return n || MESH_PHASE_KEYS.length;
+}
+
+/**
  * PLAYBACK_INIT -> ensure the target layer exists (a bare 'anuga-playback'
  * placeholder — AnugaPlaybackLayer.create() tolerates no mesh/frames yet),
  * fetch the manifest, load the mesh + time array via the W2.1/W2.2 seam,
@@ -249,8 +311,22 @@ export function playbackInitEpic(action$, store) {
             }
         ));
 
-        const load$ = Rx.Observable.fromPromise((async() => {
+        async function runLoad(emit) {
+            // Sampled BEFORE a byte is fetched — a heap delta is only
+            // meaningful against a baseline taken before the allocation.
+            const baselineHeapBytes = readHeapBytes();
             const manifest = await fetchPlaybackManifest(manifestUrl);
+            // The manifest RESPONSE is in. Everything from here is the mesh
+            // download + unpack, and it must not keep wearing that label.
+            const meshObjectCount = countMeshObjects(manifest);
+            emit(playbackManifestFetched(runId, meshObjectCount));
+            let objectsLoaded = 0;
+            let bytesLoaded = 0;
+            const onProgress = ({ bytes }) => {
+                objectsLoaded += 1;
+                bytesLoaded += bytes || 0;
+                emit(playbackLoadProgress(runId, { objectsLoaded, objectCount: meshObjectCount, bytesLoaded }));
+            };
             // TASK-2724 — the store's OWN time-chunk length, before a single
             // byte of mesh is downloaded. Throws (-> MANIFEST_FAILED, with the
             // reason surfaced in the UI) on a store that does not declare it
@@ -269,7 +345,7 @@ export function playbackInitEpic(action$, store) {
             const initialPlan = nNode0
                 ? computePlaybackMemoryPlan({ nNode: nNode0, chunkLengthT, totalChunks: totalChunks0 })
                 : null;
-            const fetcher = new PlaybackChunkFetcher({ manifest, memoryPlan: initialPlan });
+            const fetcher = new PlaybackChunkFetcher({ manifest, memoryPlan: initialPlan, onProgress });
             fetcherRegistry.set(runId, fetcher);
             lastSyncedTimestep.delete(runId);
             // TASK-2629 (W4.1) — dt_ms loads alongside mesh/time (a small,
@@ -308,11 +384,48 @@ export function playbackInitEpic(action$, store) {
                 totalChunks
             });
             fetcher.applyMemoryPlan(memoryPlan);
-            return playbackManifestLoaded({
+            // TASK-2744 AC20 — SCORE THE FORECAST. `withinBudget` had zero
+            // readers anywhere, which is why it could report true at 711.8 MiB
+            // against an 800 MiB budget in a session whose heap peak was
+            // 840.7 MiB. This is the load peak: the mesh is fully decoded and
+            // the first chunks are cached, so it is the moment the prediction
+            // is about.
+            reportMemoryScore(memoryPlan, fetcher, baselineHeapBytes);
+            emit(playbackManifestLoaded({
                 runId, manifest, mesh, time, dtMs, quantization: manifest.quantization,
                 nTime, nNode, chunkLengthT, totalChunks, memoryPlan
-            });
-        })()).catch((error) => Rx.Observable.of(playbackManifestFailed(runId, String((error && error.message) || error))));
+            }));
+        }
+
+        // TASK-2744 (AC18, epic 2706) — Observable.create, not fromPromise.
+        //
+        // The whole load used to be ONE promise, so nothing at all was
+        // dispatched between PLAYBACK_INIT (status 'loading-manifest') and
+        // MANIFEST_LOADED. Measured on map 1461: a single opaque 46.4-second
+        // block wearing the 'loading-manifest' label, while the manifest
+        // endpoint itself answered in milliseconds. Emitting mid-flight is the
+        // whole point — a promise cannot do that.
+        const load$ = Rx.Observable.create((observer) => {
+            let cancelled = false;
+            const emit = (a) => {
+                if (!cancelled) {
+                    observer.next(a);
+                }
+            };
+            (async() => {
+                try {
+                    await runLoad(emit);
+                } catch (error) {
+                    emit(playbackManifestFailed(runId, String((error && error.message) || error)));
+                }
+                if (!cancelled) {
+                    observer.complete();
+                }
+            })();
+            return () => {
+                cancelled = true;
+            };
+        });
 
         return Rx.Observable.merge(ensureLayer$, load$);
     });
@@ -371,8 +484,13 @@ export function playbackBufferEpic(action$, store) {
                 .filter((c) => okCountByChunk[c] === requiredOk)
                 .map(Number);
             const actions = [];
-            if (fullyBuffered.length) {
-                actions.push(playbackChunksBuffered(fullyBuffered));
+            // TASK-2744 AC20 — report what the fetcher ACTUALLY holds, not the
+            // window we just asked for. `fullyBuffered` is "these arrived";
+            // the resident set is "these are still here", and after an LRU
+            // eviction those differ.
+            const resident = fetcher.residentChunkIndices(QUANTITY_ARRAYS);
+            if (fullyBuffered.length || resident.length !== (pb.bufferedChunks || []).length) {
+                actions.push(playbackChunksBuffered(resident, true));
             }
             errors.forEach((r) => actions.push(playbackChunkBufferError(r.chunkIndex, String((r.error && r.error.message) || r.error))));
             return actions.length ? Rx.Observable.of(...actions) : Rx.Observable.empty();

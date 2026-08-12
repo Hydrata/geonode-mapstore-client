@@ -582,7 +582,8 @@
           "buffering": "Buffering…",
           "seeking": "Buffering scrub target…",
           "stalled": "Buffering — waiting for data…",
-          "error": "Playback store failed to load"
+          "error": "Playback store failed to load",
+          "loadingMesh": "Downloading mesh"
         },
         "legendTitleDepth": "Depth (m)",
         "legendTitleSpeed": "Velocity (m/s)",

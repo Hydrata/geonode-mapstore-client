@@ -582,7 +582,8 @@
           "buffering": "Almacenando en búfer…",
           "seeking": "Almacenando en búfer el objetivo de desplazamiento…",
           "stalled": "Almacenando en búfer — esperando datos…",
-          "error": "Error al cargar el almacén de reproducción"
+          "error": "Error al cargar el almacén de reproducción",
+          "loadingMesh": "Descargando la malla"
         },
         "legendTitleDepth": "Profundidad (m)",
         "legendTitleSpeed": "Velocidad (m/s)",

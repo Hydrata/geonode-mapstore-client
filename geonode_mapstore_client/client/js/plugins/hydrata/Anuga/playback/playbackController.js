@@ -54,12 +54,19 @@ import {
     PLAYBACK_SET_WIREFRAME,
     PLAYBACK_SET_OPACITY,
     PLAYBACK_SET_OVERLAY,
-    PLAYBACK_SET_COLOR_MAX
+    PLAYBACK_SET_COLOR_MAX,
+    PLAYBACK_MANIFEST_FETCHED,
+    PLAYBACK_LOAD_PROGRESS
 } from './actions/playbackActions';
 
 export const PLAYBACK_STATUS = Object.freeze({
     IDLE: 'idle',
     LOADING_MANIFEST: 'loading-manifest',
+    // TASK-2744 AC18 — the phase AFTER the manifest response has landed:
+    // downloading and unpacking the store's static mesh arrays. On the
+    // prod-scale store this is >99% of the wait, and before this existed it
+    // wore the 'loading-manifest' label for its entire duration.
+    LOADING_MESH: 'loading-mesh',
     BUFFERING: 'buffering', // initial buffer, no playable window yet
     READY: 'ready', // buffered, paused (incl. after a normal pause)
     PLAYING: 'playing',
@@ -147,6 +154,9 @@ export function createInitialPlaybackState() {
         // the UI/diagnostics can show what was decided and why. null until a
         // manifest lands; never defaulted.
         memoryPlan: null,
+        // TASK-2744 AC18 — determinate load progress for the mesh phase.
+        // null when no load is in flight; never a fake percentage.
+        loadProgress: null,
         lastTickMs: null,
         stalledSinceMs: null,
         stallCount: 0,
@@ -432,6 +442,30 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             status: PLAYBACK_STATUS.LOADING_MANIFEST
         };
     }
+    // TASK-2744 AC18 — the manifest response landed; the mesh phase starts.
+    case PLAYBACK_MANIFEST_FETCHED: {
+        if (action.runId !== state.runId) {
+            return state;
+        }
+        return {
+            ...state,
+            status: PLAYBACK_STATUS.LOADING_MESH,
+            loadProgress: { objectsLoaded: 0, objectCount: action.objectCount || 0, bytesLoaded: 0 }
+        };
+    }
+    case PLAYBACK_LOAD_PROGRESS: {
+        if (action.runId !== state.runId) {
+            return state;
+        }
+        return {
+            ...state,
+            loadProgress: {
+                objectsLoaded: action.objectsLoaded,
+                objectCount: action.objectCount,
+                bytesLoaded: action.bytesLoaded
+            }
+        };
+    }
     case PLAYBACK_MANIFEST_LOADED: {
         // A superseded init (user switched runs before the first one's
         // manifest resolved) — drop the stale response.
@@ -483,6 +517,8 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             elevationMax: action.mesh ? action.mesh.elevationMax || 0 : state.elevationMax,
             quantity,
             status: PLAYBACK_STATUS.BUFFERING,
+            // TASK-2744 AC18 — the mesh phase is over; stop reporting it.
+            loadProgress: null,
             currentTimestep: 0,
             playheadSeconds: action.time ? action.time[0] : 0,
             mixT: 0
@@ -495,7 +531,14 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         return { ...state, status: PLAYBACK_STATUS.ERROR, error: action.error || 'manifest load failed' };
     }
     case PLAYBACK_CHUNKS_BUFFERED: {
-        const bufferedChunks = mergeBufferedChunks(state.bufferedChunks, action.chunkIndices);
+        // TASK-2744 AC20 — an authoritative report REPLACES the set. Union-only
+        // made `bufferedChunks` a record of "was fetched at some point", not
+        // "is resident", so it both overstated residency AND let
+        // isWindowBuffered wave through a window whose chunks had been evicted
+        // — suppressing the very refetch that would have corrected it.
+        const bufferedChunks = action.authoritative
+            ? mergeBufferedChunks([], action.chunkIndices)
+            : mergeBufferedChunks(state.bufferedChunks, action.chunkIndices);
         let status = state.status;
         let pendingPlay = state.pendingPlay;
         let stalledSinceMs = state.stalledSinceMs;

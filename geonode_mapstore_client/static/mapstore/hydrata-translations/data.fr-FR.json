@@ -582,7 +582,8 @@
           "buffering": "Mise en mémoire tampon…",
           "seeking": "Mise en mémoire tampon de la cible de défilement…",
           "stalled": "Mise en mémoire tampon — en attente de données…",
-          "error": "Échec du chargement du magasin de lecture"
+          "error": "Échec du chargement du magasin de lecture",
+          "loadingMesh": "Téléchargement du maillage"
         },
         "legendTitleDepth": "Profondeur (m)",
         "legendTitleSpeed": "Vitesse (m/s)",

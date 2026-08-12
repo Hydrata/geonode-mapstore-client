@@ -95,7 +95,7 @@ export class PlaybackChunkFetcher {
      *   same-thread one; production takes the worker).
      * @param {typeof fetch} [options.fetchImpl]
      */
-    constructor({ manifest, refreshManifest, cache, memoryPlan, decodeImpl, fetchImpl = defaultFetch } = {}) {
+    constructor({ manifest, refreshManifest, cache, memoryPlan, decodeImpl, fetchImpl = defaultFetch, onProgress } = {}) {
         if (!manifest) {
             throw new Error('PlaybackChunkFetcher: manifest is required');
         }
@@ -107,6 +107,13 @@ export class PlaybackChunkFetcher {
         );
         this.decodeImpl = decodeImpl || decodeChunkOffThread;
         this.fetchImpl = fetchImpl;
+        // TASK-2744 (AC18, epic 2706) — optional `({key, bytes}) => void`,
+        // invoked once per completed object at the single byte choke point
+        // below. The UI has no other way to know that the ~100 s after a
+        // manifest resolves is a mesh DOWNLOAD rather than a stuck request.
+        // Never throws into the fetch path: a reporting failure must not fail
+        // the load it is only describing.
+        this.onProgress = typeof onProgress === 'function' ? onProgress : null;
         // Per-relativeKey in-flight promises so a burst of prefetch requests
         // for the same chunk (e.g. two overlapping prefetch windows) collapse
         // into one network request instead of racing duplicate fetches.
@@ -150,7 +157,15 @@ export class PlaybackChunkFetcher {
         if (!response.ok && response.status !== 206) {
             throw new Error(`playbackChunkFetcher: fetch of '${relativeKey}' failed with status ${response.status}`);
         }
-        return response.arrayBuffer();
+        const buffer = await response.arrayBuffer();
+        if (this.onProgress) {
+            try {
+                this.onProgress({ key: relativeKey, bytes: buffer.byteLength });
+            } catch (e) {
+                // deliberately swallowed — see the constructor note
+            }
+        }
+        return buffer;
     }
 
     /**
@@ -219,6 +234,55 @@ export class PlaybackChunkFetcher {
      * @param {{ahead?: number}} [options] chunks AHEAD (default: windowRadius)
      * @returns {number[]}
      */
+    /**
+     * Which time-chunk indices are ACTUALLY resident right now (TASK-2744
+     * AC20).
+     *
+     * A chunk counts only when EVERY required array is present for it —
+     * precisely the invariant playbackController's `bufferedChunks` comment
+     * always claimed ("all 3 quantity arrays") but which nothing enforced
+     * after eviction. Cache keys are `${arrayName}/c/${t}/${nodeChunk}`
+     * (playbackDecode.chunkKey).
+     *
+     * Before this existed, `bufferedChunks` grew monotonically via
+     * mergeBufferedChunks and NOTHING removed an index when the LRU evicted
+     * it. Measured on map 1461: state claimed chunks [0,1,3] resident while
+     * the plan afforded 2 — and worse, isWindowBuffered then trusted the
+     * stale index, so a scrub to an evicted chunk never re-entered SEEKING
+     * and never refetched.
+     */
+    residentChunkIndices(arrayNames, nodeChunkIndex = 0) {
+        const names = arrayNames && arrayNames.length ? arrayNames : [];
+        if (!names.length) {
+            return [];
+        }
+        const counts = new Map();
+        this.cache.keys().forEach((key) => {
+            const parts = String(key).split('/');
+            // arrayName / 'c' / t / nodeChunk
+            if (parts.length !== 4 || parts[1] !== 'c') {
+                return;
+            }
+            if (names.indexOf(parts[0]) === -1 || Number(parts[3]) !== nodeChunkIndex) {
+                return;
+            }
+            const t = Number(parts[2]);
+            if (!isFinite(t)) {
+                return;
+            }
+            counts.set(t, (counts.get(t) || 0) + 1);
+        });
+        return Array.from(counts.entries())
+            .filter(([, n]) => n >= names.length)
+            .map(([t]) => t)
+            .sort((a, b) => a - b);
+    }
+
+    /** Bytes the decoded-chunk cache currently holds (TASK-2744 AC20). */
+    residentBytes() {
+        return this.cache ? this.cache.totalBytes : 0;
+    }
+
     getPrefetchWindow(centerChunkIndex, totalChunks, windowRadius = 2, { ahead } = {}) {
         if (totalChunks <= 0) {
             return [];

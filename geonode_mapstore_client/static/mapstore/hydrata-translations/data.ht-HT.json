@@ -582,7 +582,8 @@
           "buffering": "K ap tanpon…",
           "seeking": "K ap tanpon sib defile a…",
           "stalled": "K ap tanpon — ap tann done…",
-          "error": "Depo jwe a echwe pou chaje"
+          "error": "Depo jwe a echwe pou chaje",
+          "loadingMesh": "Telechaje may la"
         },
         "legendTitleDepth": "Pwofondè (m)",
         "legendTitleSpeed": "Vitès (m/s)",

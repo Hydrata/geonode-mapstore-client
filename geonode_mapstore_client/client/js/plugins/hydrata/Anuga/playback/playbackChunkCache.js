@@ -76,6 +76,17 @@ export class PlaybackChunkCache {
         return this._totalBytes;
     }
 
+    /**
+     * A snapshot of the resident keys, oldest-first (TASK-2744 AC20).
+     *
+     * Deliberately NOT `get(key)` in a loop: `get` promotes to MRU
+     * (delete + re-set), so probing residency through it would reorder the
+     * eviction queue just by observing it.
+     */
+    keys() {
+        return Array.from(this._map.keys());
+    }
+
     has(key) {
         return this._map.has(key);
     }

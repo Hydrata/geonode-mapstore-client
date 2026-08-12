@@ -117,6 +117,21 @@ export function formatMultiplier(speed) {
     return `${n >= 10 ? Math.round(n) : Number(n.toFixed(2))}x`;
 }
 
+/**
+ * Byte counter for the load-progress readout (TASK-2744 AC18). MiB once past
+ * a megabyte — the prod-scale mesh is ~84 MiB, so "88129024 B" helps nobody.
+ */
+export function formatBytes(bytes) {
+    const n = Number(bytes) || 0;
+    if (n >= 1048576) {
+        return `${(n / 1048576).toFixed(1)} MiB`;
+    }
+    if (n >= 1024) {
+        return `${Math.round(n / 1024)} KiB`;
+    }
+    return `${n} B`;
+}
+
 function makeId(prefix) {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -193,6 +208,9 @@ export function bufferedTrackSegments(bufferedChunks, chunkLengthT, nTime) {
 // AC (video-style explicit buffering states, incl. a DISTINCT scrub label).
 const STATUS_MESSAGE_ID = {
     [PLAYBACK_STATUS.LOADING_MANIFEST]: 'hydrata.playback.status.loadingManifest',
+    // TASK-2744 AC18 — a DISTINCT label: this phase is the mesh download, and
+    // calling it "loading manifest" for 100 s actively misdirected debugging.
+    [PLAYBACK_STATUS.LOADING_MESH]: 'hydrata.playback.status.loadingMesh',
     [PLAYBACK_STATUS.BUFFERING]: 'hydrata.playback.status.buffering',
     [PLAYBACK_STATUS.SEEKING]: 'hydrata.playback.status.seeking',
     [PLAYBACK_STATUS.STALLED]: 'hydrata.playback.status.stalled',
@@ -443,7 +461,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
             return this.renderLoader();
         }
         const isPlaying = playback.status === PLAYBACK_STATUS.PLAYING;
-        const isBuffering = [PLAYBACK_STATUS.LOADING_MANIFEST, PLAYBACK_STATUS.BUFFERING, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED].includes(playback.status);
+        const isBuffering = [PLAYBACK_STATUS.LOADING_MANIFEST, PLAYBACK_STATUS.LOADING_MESH, PLAYBACK_STATUS.BUFFERING, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED].includes(playback.status);
         const canScrub = playback.nTime > 0;
         const statusMsgId = STATUS_MESSAGE_ID[playback.status];
         return (
@@ -657,6 +675,15 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     {isBuffering ? (
                         <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
                             {statusMsgId ? <Message msgId={statusMsgId} /> : null}
+                        </span>
+                    ) : null}
+                    {/* TASK-2744 AC18 — determinate mesh-phase progress. The
+                        ~100 s after the manifest resolves is a multi-hundred-
+                        megabyte download; it had no progress bar, byte counter
+                        or ETA, only a static label naming the wrong thing. */}
+                    {playback.loadProgress ? (
+                        <span className="sv-playback-load-progress" data-testid="anuga-playback-load-progress">
+                            {`${playback.loadProgress.objectsLoaded}/${playback.loadProgress.objectCount} · ${formatBytes(playback.loadProgress.bytesLoaded)}`}
                         </span>
                     ) : null}
                 </span>

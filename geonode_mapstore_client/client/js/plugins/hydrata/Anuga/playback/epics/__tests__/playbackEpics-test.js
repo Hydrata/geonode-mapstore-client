@@ -25,6 +25,7 @@ import {
     playbackSuppressIdentifyEpic,
     playbackDisposeEpic,
     disposeRun,
+    countMeshObjects,
     fetcherRegistry,
     PLAYBACK_LAYER_OWNER,
     TICK_INTERVAL_MS
@@ -50,6 +51,8 @@ import {
     playbackPause,
     playbackTick,
     PLAYBACK_MANIFEST_LOADED,
+    PLAYBACK_MANIFEST_FETCHED,
+    PLAYBACK_LOAD_PROGRESS,
     PLAYBACK_MANIFEST_FAILED,
     PLAYBACK_CHUNKS_BUFFERED,
     PLAYBACK_CHUNK_BUFFER_ERROR
@@ -748,6 +751,134 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next(playbackInit(43, 'layer-2', MANIFEST_URL));
+        });
+    });
+
+    // TASK-2744 (AC18, epic 2706) — THE STATUS LABEL LIED FOR THE WHOLE LOAD.
+    //
+    // RED, measured on map 1461: status was sampled every 500 ms from the
+    // click and produced exactly TWO transitions — 'loading-manifest' at
+    // 247 ms and 'buffering' at 46,693 ms. One opaque 46.4-second block, zero
+    // intermediate states, no progress element, while the manifest endpoint
+    // hand-fetched during that stall answered in milliseconds.
+    describe('load phases are observable — TASK-2744 AC18', () => {
+        it('dispatches MANIFEST_FETCHED as soon as the manifest RESPONSE lands, before the mesh', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackInitEpic(action$, store).subscribe((a) => {
+                seen.push(a);
+                if (a.type === PLAYBACK_MANIFEST_LOADED) {
+                    restore();
+                    try {
+                        const fetchedAt = seen.findIndex((x) => x.type === PLAYBACK_MANIFEST_FETCHED);
+                        const loadedAt = seen.findIndex((x) => x.type === PLAYBACK_MANIFEST_LOADED);
+                        // it exists, and it STRICTLY PRECEDES the mesh landing
+                        expect(fetchedAt).toNotBe(-1);
+                        expect(fetchedAt < loadedAt).toBe(true);
+                        expect(seen[fetchedAt].objectCount > 0).toBe(true);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }
+            }, done);
+            subject.next(playbackInit(51, 'layer-51', MANIFEST_URL));
+        });
+
+        it('emits determinate per-object progress during the mesh phase', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackInitEpic(action$, store).subscribe((a) => {
+                seen.push(a);
+                if (a.type === PLAYBACK_MANIFEST_LOADED) {
+                    restore();
+                    try {
+                        const progress = seen.filter((x) => x.type === PLAYBACK_LOAD_PROGRESS);
+                        // RED on HEAD: the whole load was ONE promise, so this
+                        // list was empty and nothing moved for the duration.
+                        expect(progress.length > 0).toBe(true);
+                        // monotonic, and it reports real bytes
+                        progress.forEach((pgr, i) => {
+                            expect(pgr.objectsLoaded).toBe(i + 1);
+                            expect(pgr.objectCount > 0).toBe(true);
+                        });
+                        expect(progress[progress.length - 1].bytesLoaded > 0).toBe(true);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }
+            }, done);
+            subject.next(playbackInit(52, 'layer-52', MANIFEST_URL));
+        });
+
+        it('countMeshObjects only counts dt_ms when the manifest actually offers it', () => {
+            const withDt = { chunk_urls: {
+                'node_x/c/0': 'u', 'node_y/c/0': 'u', 'elevation/c/0': 'u', 'friction/c/0': 'u',
+                'inradius/c/0': 'u', 'face_node_connectivity/c/0': 'u', 'time/c/0': 'u', 'dt_ms/c/0': 'u'
+            } };
+            expect(countMeshObjects(withDt)).toBe(8);
+            // a has_dt=false store has NO dt_ms chunk (the exporter skips an
+            // all-fill chunk), so counting it would stall progress one short
+            // of its own total forever
+            const noDt = { chunk_urls: { ...withDt.chunk_urls } };
+            delete noDt.chunk_urls['dt_ms/c/0'];
+            expect(countMeshObjects(noDt)).toBe(7);
+            // an unrecognised manifest still gets an honest count, not 0
+            expect(countMeshObjects({ chunk_urls: {} })).toBe(7);
+        });
+    });
+
+    // TASK-2744 (AC20, epic 2706) — bufferedChunks must stop OVERSTATING
+    // residency. RED on map 1461: state claimed [0,1,3] buffered while the
+    // plan's affordableChunksPerQuantity was 2, because mergeBufferedChunks
+    // only ever unioned and nothing removed an index on LRU eviction.
+    describe('bufferedChunks reports real residency — TASK-2744 AC20', () => {
+        it('the fetcher reports a chunk resident only when EVERY quantity array is cached', () => {
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST });
+            fetcher.cache.set('depth/c/0/0', new Uint16Array(4));
+            fetcher.cache.set('x_velocity/c/0/0', new Uint16Array(4));
+            // chunk 0 is INCOMPLETE — two of three arrays
+            expect(fetcher.residentChunkIndices(['depth', 'x_velocity', 'y_velocity'])).toEqual([]);
+            fetcher.cache.set('y_velocity/c/0/0', new Uint16Array(4));
+            expect(fetcher.residentChunkIndices(['depth', 'x_velocity', 'y_velocity'])).toEqual([0]);
+        });
+
+        it('an evicted chunk DROPS out of the resident set', () => {
+            // a ceiling that fits one chunk-triple, so writing a second evicts
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST });
+            ['depth', 'x_velocity', 'y_velocity'].forEach((q) => fetcher.cache.set(`${q}/c/0/0`, new Uint16Array(4)));
+            expect(fetcher.residentChunkIndices(['depth', 'x_velocity', 'y_velocity'])).toEqual([0]);
+            fetcher.cache.clear();
+            // RED behaviour was that state kept claiming chunk 0 forever
+            expect(fetcher.residentChunkIndices(['depth', 'x_velocity', 'y_velocity'])).toEqual([]);
+        });
+
+        it('cache.keys() does NOT promote to MRU (probing must not reorder eviction)', () => {
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST });
+            fetcher.cache.set('depth/c/0/0', new Uint16Array(4));
+            fetcher.cache.set('depth/c/1/0', new Uint16Array(4));
+            const before = fetcher.cache.keys();
+            fetcher.cache.keys();
+            expect(fetcher.cache.keys()).toEqual(before);
+        });
+
+        it('an authoritative CHUNKS_BUFFERED REPLACES the set instead of unioning', () => {
+            const withThree = playbackControllerReducer(
+                { ...createInitialPlaybackState(), bufferedChunks: [0, 1, 3] },
+                { type: PLAYBACK_CHUNKS_BUFFERED, chunkIndices: [1, 2], authoritative: true }
+            );
+            expect(withThree.bufferedChunks).toEqual([1, 2]);
+            // a non-authoritative report still unions (hand-built test actions)
+            const unioned = playbackControllerReducer(
+                { ...createInitialPlaybackState(), bufferedChunks: [0] },
+                { type: PLAYBACK_CHUNKS_BUFFERED, chunkIndices: [2] }
+            );
+            expect(unioned.bufferedChunks).toEqual([0, 2]);
         });
     });
 });

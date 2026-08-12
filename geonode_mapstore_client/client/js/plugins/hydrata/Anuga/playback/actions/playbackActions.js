@@ -38,6 +38,20 @@ export const PLAYBACK_SET_LEGEND_OPEN = 'PLAYBACK:SET_LEGEND_OPEN';
 // used it since W6.1) — this only adds the missing "let the operator turn
 // it on for a live run" path, reusing the same option end to end.
 export const PLAYBACK_SET_WIREFRAME = 'PLAYBACK:SET_WIREFRAME';
+/**
+ * TASK-2744 (AC18, epic 2706) — THE STATUS LABEL LIED FOR THE WHOLE LOAD.
+ *
+ * `playbackInitEpic` did the manifest fetch AND the mesh/time/dt download
+ * inside ONE promise before dispatching anything, so between PLAYBACK_INIT
+ * (status 'loading-manifest') and MANIFEST_LOADED there was no observable
+ * state change at all. Measured on map 1461: a single opaque 46.4-second block
+ * (247 ms -> 46,693 ms) labelled `loading-manifest`, with zero intermediate
+ * states, while the manifest endpoint hand-fetched during that stall answered
+ * in milliseconds. The label pointed the reader at the one component that was
+ * fine.
+ */
+export const PLAYBACK_MANIFEST_FETCHED = 'PLAYBACK:MANIFEST_FETCHED';
+export const PLAYBACK_LOAD_PROGRESS = 'PLAYBACK:LOAD_PROGRESS';
 // TASK-2744 (AC3/AC11/AC4, epic 2706) — three more render controls promoted
 // to controller state for the SAME reason wireframe was (see the note above):
 // they must survive this bar's own mount/unmount. The bar is unmounted every
@@ -69,12 +83,36 @@ export function playbackManifestLoaded({ runId, manifest, mesh, time, dtMs, quan
     return { type: PLAYBACK_MANIFEST_LOADED, runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks, memoryPlan };
 }
 
+/**
+ * TASK-2744 AC18 — the manifest RESPONSE has landed; everything after this is
+ * the mesh download and unpack. `objectCount` is how many store objects the
+ * mesh phase will fetch, so the UI can render determinate progress instead of
+ * an unbounded spinner.
+ */
+export function playbackManifestFetched(runId, objectCount) {
+    return { type: PLAYBACK_MANIFEST_FETCHED, runId, objectCount };
+}
+
+/** TASK-2744 AC18 — one completed store object during the mesh phase. */
+export function playbackLoadProgress(runId, { objectsLoaded, objectCount, bytesLoaded }) {
+    return { type: PLAYBACK_LOAD_PROGRESS, runId, objectsLoaded, objectCount, bytesLoaded };
+}
+
 export function playbackManifestFailed(runId, error) {
     return { type: PLAYBACK_MANIFEST_FAILED, runId, error };
 }
 
-export function playbackChunksBuffered(chunkIndices) {
-    return { type: PLAYBACK_CHUNKS_BUFFERED, chunkIndices };
+/**
+ * @param {number[]} chunkIndices time-chunk indices
+ * @param {boolean} [authoritative] TASK-2744 AC20 — when true this is the
+ *   fetcher's ACTUAL resident set, so the reducer REPLACES bufferedChunks
+ *   with it instead of unioning. Union-only is why the state claimed three
+ *   chunks resident while the memory plan afforded two: nothing ever removed
+ *   an index when the LRU evicted it. Left false for hand-built test actions
+ *   and any caller that only knows about an addition.
+ */
+export function playbackChunksBuffered(chunkIndices, authoritative = false) {
+    return { type: PLAYBACK_CHUNKS_BUFFERED, chunkIndices, authoritative };
 }
 
 export function playbackChunkBufferError(chunkIndex, error) {
