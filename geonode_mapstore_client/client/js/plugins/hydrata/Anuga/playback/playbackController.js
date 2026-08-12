@@ -71,7 +71,25 @@ export const PLAYBACK_STATUS = Object.freeze({
 
 export const DEFAULT_SPEED = 1;
 export const MIN_SPEED = 0.25;
-export const MAX_SPEED = 8;
+/**
+ * TASK-2744 (AC17, epic 2706) — raised from 8.
+ *
+ * `speed` is a SIM-seconds-per-WALL-second multiplier: the TICK case advances
+ * playheadSeconds by `(nowMs - lastTickMs)/1000 * speed` against the store's
+ * own `time` array in seconds. The Msimbazi store is 0..1800 s in 60 s steps,
+ * so at the old default of 1 a single timestep took SIXTY SECONDS of wall
+ * clock (measured live: currentTimestep 0 -> 1 after 64.6 s; 3000 ms of wall
+ * clock advanced the playhead exactly 3.00 sim-seconds and zero timesteps).
+ * End-to-end was 30 minutes, and the old ceiling of 8 still meant 3.75 —
+ * for a tool whose job is reviewing a finished result.
+ *
+ * A 24 h design storm at "whole run in 5 s" needs 86400/5 = 17,280x, so the
+ * ceiling is set above that. Blast radius is provably tiny: MAX_SPEED is read
+ * only by clampSpeed and by the control bar's option builder.
+ */
+export const MAX_SPEED = 20000;
+/** The wall-clock duration a freshly loaded run defaults to playing in. */
+export const DEFAULT_PLAYBACK_WALL_SECONDS = 15;
 // TASK-2744 AC3 — the starting alpha. Kept at the historical 0.85 so the
 // default look is unchanged; what changes is that it is now movable.
 export const DEFAULT_PLAYBACK_OPACITY = 0.85;
@@ -170,6 +188,45 @@ const OVERLAY_KEYS = Object.freeze([
     'particlesEnabled', 'particleDensity', 'particleSpeedExaggeration'
 ]);
 
+export function clampSpeed(speed) {
+    const n = Number(speed);
+    if (!isFinite(n)) {
+        return DEFAULT_SPEED;
+    }
+    return Math.min(MAX_SPEED, Math.max(MIN_SPEED, n));
+}
+
+/**
+ * The simulated span of a store's own `time` array, in seconds.
+ * @returns {number} 0 when the array is absent or degenerate.
+ */
+export function simulatedSpanSeconds(time) {
+    if (!time || time.length < 2) {
+        return 0;
+    }
+    const span = time[time.length - 1] - time[0];
+    return span > 0 ? span : 0;
+}
+
+/**
+ * TASK-2744 AC17 — the speed that plays a whole run in `targetWallSeconds`.
+ *
+ * Derived PER RUN rather than fixed, because "1x" means something completely
+ * different for a 30-minute flash-flood store and a 7-day riverine one, and
+ * neither is what someone reviewing a finished result wants by default. On the
+ * Msimbazi store (1800 s) this yields 120, i.e. the whole event in 15 s.
+ *
+ * Falls back to DEFAULT_SPEED when the store declares no usable time array —
+ * never guesses a multiplier for a run whose duration is unknown.
+ */
+export function defaultSpeedForTime(time, targetWallSeconds = DEFAULT_PLAYBACK_WALL_SECONDS) {
+    const span = simulatedSpanSeconds(time);
+    if (!span || !(targetWallSeconds > 0)) {
+        return DEFAULT_SPEED;
+    }
+    return clampSpeed(span / targetWallSeconds);
+}
+
 /** TASK-2744 AC3 — clamp to a real 0..1 alpha; ignore garbage. */
 export function clampOpacity(opacity, fallback = DEFAULT_PLAYBACK_OPACITY) {
     const n = Number(opacity);
@@ -177,14 +234,6 @@ export function clampOpacity(opacity, fallback = DEFAULT_PLAYBACK_OPACITY) {
         return fallback;
     }
     return Math.min(1, Math.max(0, n));
-}
-
-export function clampSpeed(speed) {
-    const n = Number(speed);
-    if (!isFinite(n)) {
-        return DEFAULT_SPEED;
-    }
-    return Math.min(MAX_SPEED, Math.max(MIN_SPEED, n));
 }
 
 /**
@@ -420,6 +469,11 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
                 ? action.memoryPlan.bufferWindowAhead
                 : state.bufferWindowAhead,
             time: action.time || null,
+            // TASK-2744 AC17 — a results-review tool defaults to "watch the
+            // whole event in about fifteen seconds", not to real time. Seeded
+            // per run from the store's own duration; the picker still offers
+            // an explicit, labelled real-time option.
+            speed: defaultSpeedForTime(action.time),
             dtMs: action.dtMs || null,
             hasDt,
             wetThreshold: meta.minimum_storable_height > 0 ? meta.minimum_storable_height : state.wetThreshold,

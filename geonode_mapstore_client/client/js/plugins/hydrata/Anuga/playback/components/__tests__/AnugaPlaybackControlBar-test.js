@@ -256,6 +256,86 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         });
     });
 
+    // TASK-2744 (AC1, epic 2706) — UNMOUNT MUST NOT LEAVE PLAYBACK RUNNING.
+    //
+    // RED, measured on map 1461: press Play, switch the SimpleView menu away
+    // from 'Results' (which unmounts this bar, anugaContainer.js:431) and the
+    // controller stayed 'playing' — the playhead advanced 3.00 s over 3 s of
+    // wall clock with the bar gone and no control left to stop it. There was
+    // no componentWillUnmount in the file at all, and playbackTickEpic only
+    // stops on PLAYBACK_PAUSE/PLAYBACK_RESET.
+    describe('unmount stops playback — TASK-2744 AC1', () => {
+        function playing(extra = {}) {
+            return { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.PLAYING, nTime: 31, runId: 'r', layerId: 'l', ...extra };
+        }
+
+        it('dispatches pause on unmount while PLAYING', () => {
+            const onPause = expect.createSpy();
+            render({ playback: playing(), onPause });
+            expect(onPause.calls.length).toBe(0);
+            ReactDOM.unmountComponentAtNode(container);
+            expect(onPause.calls.length).toBe(1);
+        });
+
+        it('does NOT dispatch pause on unmount when it was not playing', () => {
+            const onPause = expect.createSpy();
+            render({ playback: playing({ status: PLAYBACK_STATUS.READY }), onPause });
+            ReactDOM.unmountComponentAtNode(container);
+            expect(onPause.calls.length).toBe(0);
+        });
+
+        it('does not throw when unmounted with no run at all', () => {
+            render({ playback: createInitialPlaybackState() });
+            expect(() => ReactDOM.unmountComponentAtNode(container)).toNotThrow();
+        });
+    });
+
+    // TASK-2744 (AC17, epic 2706) — the speed picker must state what it means.
+    // RED on map 1461: options were bare multipliers 0.25x..8x, the default was
+    // 1x, and at 1x a Msimbazi timestep took 60 SECONDS of wall clock.
+    describe('speed picker states wall-clock meaning — TASK-2744 AC17', () => {
+        const MSIMBAZI_TIME = Array.from({ length: 31 }, (_, i) => i * 60); // 0..1800 s
+
+        function loadedRun(extra = {}) {
+            return {
+                ...createInitialPlaybackState(),
+                status: PLAYBACK_STATUS.READY, nTime: 31, runId: 'r', layerId: 'l',
+                time: MSIMBAZI_TIME, speed: 120,
+                ...extra
+            };
+        }
+
+        it('every option label states a duration or an explicit multiplier — never a bare "8x"', () => {
+            render({ playback: loadedRun() });
+            const labels = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => o.textContent);
+            expect(labels.length > 0).toBe(true);
+            // the default option says the whole run takes 15 s, and that it is 120x
+            expect(labels.some((l) => l.indexOf('15 s') !== -1 && l.indexOf('120x') !== -1)).toBe(true);
+            // real time is offered AND labelled, with the run's true length
+            expect(labels.some((l) => l.indexOf('Real time') !== -1 && l.indexOf('1x') !== -1)).toBe(true);
+            expect(labels.some((l) => l.indexOf('30 min') !== -1)).toBe(true);
+        });
+
+        it('offers an option whose value is exactly 1 (real time stays reachable)', () => {
+            render({ playback: loadedRun() });
+            const values = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => Number(o.value));
+            expect(values.indexOf(1) !== -1).toBe(true);
+        });
+
+        it('the controlled value always has a matching option, even for an odd seeded speed', () => {
+            render({ playback: loadedRun({ speed: 37.5 }) });
+            const values = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => Number(o.value));
+            expect(values.indexOf(37.5) !== -1).toBe(true);
+        });
+
+        it('degrades to real time + slow motion when the store declares no duration', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, time: null, speed: 1 } });
+            const values = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => Number(o.value));
+            expect(values.indexOf(1) !== -1).toBe(true);
+            expect(values.every((v) => v <= 1)).toBe(true);
+        });
+    });
+
     // TASK-2744 (AC11, epic 2706) — OVERLAY TOGGLES MUST NOT DESYNC ACROSS A
     // REMOUNT. RED, measured on map 1461: enable Flow viz, switch the
     // SimpleView menu away from 'Results' (which UNMOUNTS this bar per

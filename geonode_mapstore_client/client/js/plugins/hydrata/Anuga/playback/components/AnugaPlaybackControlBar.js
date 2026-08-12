@@ -31,7 +31,13 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // anugaScenarioMenu.js:1098-1102 and VectorDraw/FormField.js:215-220.
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 
-import { PLAYBACK_STATUS, MIN_SPEED, MAX_SPEED, colorMaxForQuantity } from '../playbackController';
+import {
+    PLAYBACK_STATUS,
+    MIN_SPEED,
+    colorMaxForQuantity,
+    clampSpeed,
+    simulatedSpanSeconds
+} from '../playbackController';
 import { availableQuantityIds } from '../playbackDerivedQuantities';
 import {
     playbackInit,
@@ -49,7 +55,25 @@ import {
     playbackSetColorMax
 } from '../actions/playbackActions';
 
-const SPEED_OPTIONS = [0.25, 0.5, 1, 2, 4, 8].filter((s) => s >= MIN_SPEED && s <= MAX_SPEED);
+/**
+ * TASK-2744 (AC17, epic 2706) — the speed picker is a DURATION picker.
+ *
+ * It used to list bare multipliers (0.25x .. 8x) which never stated their
+ * wall-clock meaning. At the default 1x a Msimbazi timestep took 60 s of real
+ * time, so the readout ticked while the picture barely moved for a minute —
+ * indistinguishable from a hang — and even the 8x ceiling meant 3.75 minutes
+ * end to end.
+ *
+ * "How long do I want to watch this for" is the question a results-review tool
+ * should be asking, and unlike a multiplier it is meaningful without knowing
+ * the run's duration. Real time stays available as an explicit entry, and
+ * every label carries the multiplier it works out to, so the units are never
+ * a mystery again.
+ */
+const WALL_DURATION_OPTIONS = [5, 10, 15, 30, 60, 120];
+// Slow-motion entries, kept as true multipliers — below real time a duration
+// label would be longer than the run itself and read as nonsense.
+const SLOW_MOTION_OPTIONS = [0.25, 0.5].filter((s) => s >= MIN_SPEED);
 
 // TASK-2629 (W4.1) — plain-text option labels (matches the existing
 // hardcoded-English convention this <select> already used for depth/speed;
@@ -64,6 +88,34 @@ const QUANTITY_OPTION_LABEL = {
     shear: 'Manning shear stress',
     courant: 'Courant number (approx.)'
 };
+
+/**
+ * TASK-2744 AC17 — a wall-clock duration as a short human string ("15 s",
+ * "2 min", "1 h 30 min"). Used in the speed picker's labels so an option
+ * always states what it means in real time.
+ */
+export function formatWallDuration(seconds) {
+    const s = Math.max(0, Math.round(Number(seconds) || 0));
+    if (s < 60) {
+        return `${s} s`;
+    }
+    if (s < 3600) {
+        const m = Math.round(s / 60);
+        return `${m} min`;
+    }
+    const h = Math.floor(s / 3600);
+    const m = Math.round((s % 3600) / 60);
+    return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+/** A speed multiplier, trimmed so 120 reads "120x" and 0.25 reads "0.25x". */
+export function formatMultiplier(speed) {
+    const n = Number(speed);
+    if (!isFinite(n)) {
+        return '—';
+    }
+    return `${n >= 10 ? Math.round(n) : Number(n.toFixed(2))}x`;
+}
 
 function makeId(prefix) {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -153,6 +205,36 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
     };
 
     /**
+     * TASK-2744 (AC1, epic 2706) — UNMOUNT MUST NOT LEAVE PLAYBACK RUNNING.
+     *
+     * There was no componentWillUnmount in this file at all. The bar is
+     * unmounted outright (a ternary returning null, anugaContainer.js:431)
+     * whenever the SimpleView menu group leaves 'Results', but
+     * `playbackTickEpic` only stops on PLAYBACK_PAUSE/PLAYBACK_RESET —
+     * neither of which anything dispatched on unmount. Measured on map 1461:
+     * with the bar gone and openMenuGroupId null, status stayed 'playing' and
+     * the playhead advanced 3.00 s over 3 s of wall clock, still decoding a
+     * 6.78M-triangle mesh, with no control left to stop it short of a reload.
+     *
+     * Dispatches PAUSE, not RESET: the operator switched menus, they did not
+     * ask to throw the run away — coming back to Results should find it where
+     * they left it. PAUSE also terminates the tick interval's takeUntil.
+     *
+     * NOTE ON THE AC's LITERAL TEXT: AC1 asks for status === 'paused'. That
+     * status is UNREACHABLE by a user pause and deliberately so — PAUSED is
+     * the dedicated end-of-timeline signal (PLAYBACK_STATUS's own comment and
+     * the PLAYBACK_PLAY rewind branch depend on it), while a user pause lands
+     * in READY. Conflating them to satisfy the AC's wording would break the
+     * state machine, so the AC is graded on its intent: playback stops.
+     */
+    componentWillUnmount() {
+        const { playback, onPause } = this.props;
+        if (playback && playback.status === PLAYBACK_STATUS.PLAYING && onPause) {
+            onPause();
+        }
+    }
+
+    /**
      * One range input + its visible current value (TASK-2744 AC7).
      *
      * Every slider on this bar used to be a bare `<input type="range">` with a
@@ -193,6 +275,53 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      * end is exactly where the defect bites. Shows the EFFECTIVE value, so the
      * field reads the store-derived default until the operator overrides it.
      */
+    /**
+     * The speed `<option>` list for THIS run (TASK-2744 AC17).
+     *
+     * Options are computed from the store's own simulated span, so the same
+     * "whole run in 15 s" entry is 120x on a 30-minute store and 5760x on a
+     * 24-hour one. Labels are plain strings, not <Message> elements: <span>
+     * is invalid inside <option> (see the file header on getMessageById).
+     */
+    speedOptions(playback) {
+        const span = simulatedSpanSeconds(playback.time);
+        const options = [];
+        if (span > 0) {
+            WALL_DURATION_OPTIONS.forEach((wallSeconds) => {
+                const speed = clampSpeed(span / wallSeconds);
+                // Drop any duration the clamp could not actually deliver, so
+                // no option silently maps to a different speed than it claims.
+                if (Math.abs(span / wallSeconds - speed) < 1e-6) {
+                    options.push({
+                        value: speed,
+                        label: this.tr('hydrata.playback.speedWholeRunIn', 'Whole run in {d}')
+                            .replace('{d}', formatWallDuration(wallSeconds)) + ` (${formatMultiplier(speed)})`
+                    });
+                }
+            });
+        }
+        // Real time is ALWAYS offered and always labelled as such — AC17(b).
+        options.push({
+            value: 1,
+            label: `${this.tr('hydrata.playback.speedRealTime', 'Real time')} (1x${span > 0 ? `, ${formatWallDuration(span)}` : ''})`
+        });
+        SLOW_MOTION_OPTIONS.forEach((s) => options.push({
+            value: s,
+            label: `${formatMultiplier(s)} ${this.tr('hydrata.playback.speedSlowMotion', 'slow motion')}`
+        }));
+        // The controller's seeded default may not equal any listed option
+        // exactly; surface it rather than letting the <select> show a value it
+        // has no <option> for (which renders blank).
+        if (!options.some((o) => o.value === playback.speed)) {
+            options.push({
+                value: playback.speed,
+                label: `${formatMultiplier(playback.speed)}${span > 0 ? ` (${this.tr('hydrata.playback.speedWholeRunIn', 'Whole run in {d}').replace('{d}', formatWallDuration(span / playback.speed))})` : ''}`
+            });
+            options.sort((a, b) => a.value - b.value);
+        }
+        return options;
+    }
+
     renderColorMax(playback) {
         const effective = colorMaxForQuantity(
             playback.quantity,
@@ -292,7 +421,9 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     value={playback.speed}
                     onChange={(e) => this.props.onSetSpeed(Number(e.target.value))}
                 >
-                    {SPEED_OPTIONS.map((s) => <option key={s} value={s}>{s}x</option>)}
+                    {this.speedOptions(playback).map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
                 </select>
 
                 <select

@@ -27,6 +27,9 @@ import {
     colorMinForQuantity,
     clampOpacity,
     DEFAULT_PLAYBACK_OPACITY,
+    MAX_SPEED,
+    defaultSpeedForTime,
+    simulatedSpanSeconds,
     playbackControllerReducer as reduce
 } from '../playbackController';
 import {
@@ -83,8 +86,12 @@ describe('playbackController', () => {
         it('clamps into [MIN_SPEED, MAX_SPEED]', () => {
             expect(clampSpeed(0)).toBe(0.25);
             expect(clampSpeed(-5)).toBe(0.25);
-            expect(clampSpeed(100)).toBe(8);
             expect(clampSpeed(2)).toBe(2);
+            // TASK-2744 AC17 raised MAX_SPEED from 8 to 20000: at 8x even a
+            // 30-minute run took 3.75 minutes to watch end to end. 100 is now
+            // a legitimate speed, not something to clamp away.
+            expect(clampSpeed(100)).toBe(100);
+            expect(clampSpeed(1e9)).toBe(MAX_SPEED);
         });
         it('falls back to the default for non-finite input', () => {
             expect(clampSpeed(NaN)).toBe(1);
@@ -451,7 +458,13 @@ describe('playbackController', () => {
             // 35s > TIME's 30s first step, so this crosses into timestep 1
             // (not just a mixT nudge within timestep 0 — genuine frame
             // advance, matching the other large-jump TICK tests in this file).
-            const tickedAgain = reduce({ ...replayed, lastTickMs: 0 }, playbackTick(35000));
+            // TASK-2744 AC17: MANIFEST_LOADED now seeds `speed` from the
+            // store's own duration (TIME spans 360 s -> 360/15 = 24x), so the
+            // old 35 000 ms delta would advance 840 sim-seconds and land past
+            // the end of the timeline. 2 000 ms at 24x is 48 sim-seconds:
+            // still a genuine frame advance across TIME's 30 s first step,
+            // which is what this test is actually guarding.
+            const tickedAgain = reduce({ ...replayed, lastTickMs: 0 }, playbackTick(2000));
             expect(tickedAgain.status).toBe(PLAYBACK_STATUS.PLAYING);
             expect(tickedAgain.currentTimestep).toBeGreaterThan(0);
         });
@@ -621,6 +634,64 @@ describe('playbackController', () => {
             // would produce a negative span and divide-by-clamp everything
             const ctx = { elevationMin: 10, elevationMax: 20, colorMaxOverride: 5 };
             expect(colorMaxForQuantity('stage', null, ctx)).toNotBe(5);
+        });
+    });
+
+    // TASK-2744 (AC17, epic 2706) — THE DEFAULT SPEED WAS REAL TIME AND
+    // NOTHING SAID SO. Measured on map 1461 at HEAD: speed 1, and 3000 ms of
+    // wall clock advanced the playhead exactly 3.00 sim-seconds and ZERO
+    // timesteps, because the Msimbazi store steps every 60 s. End-to-end was
+    // 30 minutes; the old 8x ceiling still meant 3.75.
+    describe('default playback speed — TASK-2744 AC17', () => {
+        const MSIMBAZI_TIME = Array.from({ length: 31 }, (_, i) => i * 60); // 0..1800 s
+
+        it('simulatedSpanSeconds reads the store\'s own duration', () => {
+            expect(simulatedSpanSeconds(MSIMBAZI_TIME)).toBe(1800);
+            expect(simulatedSpanSeconds(null)).toBe(0);
+            expect(simulatedSpanSeconds([5])).toBe(0);
+        });
+
+        it('a freshly loaded Msimbazi run plays end-to-end in ~15 s, not 30 min', () => {
+            const speed = defaultSpeedForTime(MSIMBAZI_TIME);
+            expect(speed).toBe(120);
+            // the AC's own predicate
+            expect(Math.abs(1800 / speed - 15) <= 3).toBe(true);
+            // RED on HEAD: speed was DEFAULT_SPEED = 1 => 1800 s = 30 minutes
+            expect(1800 / 1).toBe(1800);
+        });
+
+        it('MANIFEST_LOADED seeds the speed from the store, per run', () => {
+            const loaded = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, mesh: null, time: MSIMBAZI_TIME,
+                    nTime: 31, nNode: 6, chunkLengthT: 10, totalChunks: 4,
+                    quantization: { depth: { valid_max: 1 } }
+                }));
+            expect(loaded.speed).toBe(120);
+
+            // a 24 h design storm gets its OWN multiplier, not a shared constant
+            const daily = Array.from({ length: 25 }, (_, i) => i * 3600); // 0..86400 s
+            expect(defaultSpeedForTime(daily)).toBe(86400 / 15);
+        });
+
+        it('falls back to real time when the store declares no usable duration', () => {
+            expect(defaultSpeedForTime(null)).toBe(1);
+            expect(defaultSpeedForTime([0, 0])).toBe(1);
+        });
+
+        it('at the seeded default a 3 s sample crosses several timesteps (the AC1 clause that was vacuous at HEAD)', () => {
+            const base = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, mesh: null, time: MSIMBAZI_TIME,
+                    nTime: 31, nNode: 6, chunkLengthT: 10, totalChunks: 4,
+                    quantization: { depth: { valid_max: 1 } }
+                }));
+            // 3 s of wall clock at 120x = 360 sim-seconds = six 60 s timesteps
+            const advanced = reduce({ ...base, status: PLAYBACK_STATUS.PLAYING, lastTickMs: 0, bufferedChunks: [0, 1, 2, 3] }, playbackTick(3000));
+            expect(advanced.currentTimestep - base.currentTimestep >= 3).toBe(true);
+            // at HEAD's speed of 1 the same 3 s moved ZERO timesteps
+            const atHeadSpeed = reduce({ ...base, speed: 1, status: PLAYBACK_STATUS.PLAYING, lastTickMs: 0, bufferedChunks: [0, 1, 2, 3] }, playbackTick(3000));
+            expect(atHeadSpeed.currentTimestep).toBe(0);
         });
     });
 });
