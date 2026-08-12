@@ -20,7 +20,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import TestUtils from 'react-dom/test-utils';
 
-import { AnugaPlaybackControlBarComponent } from '../AnugaPlaybackControlBar';
+import { AnugaPlaybackControlBarComponent, formatClock, bufferedTrackSegments } from '../AnugaPlaybackControlBar';
 import { PLAYBACK_STATUS, createInitialPlaybackState } from '../../playbackController';
 
 describe('AnugaPlaybackControlBar — TASK-2627', () => {
@@ -394,6 +394,108 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
                 const valueEl = container.querySelector(`[data-testid="${testid}-value"]`);
                 expect(valueEl).toBeTruthy();
                 expect(valueEl.textContent.length > 0).toBe(true);
+            });
+        });
+    });
+
+    // TASK-2744 (AC8, epic 2706) — THE CLOCK MUST HANDLE LONG RUNS.
+    // formatClock was module-private (the file exported only the component and
+    // the connected default), so no spec could reach the arithmetic. Adding
+    // `export` is sanctioned explicitly by the card. It emitted
+    // `${minutes}:${ss}` with no hour carry, so a 25 h design storm read
+    // '1500:00'. Run 1328 is 30 minutes, which is exactly why it survived.
+    describe('formatClock — TASK-2744 AC8', () => {
+        it('carries hours: 90000 s is 25:00:00, not 1500:00', () => {
+            expect(formatClock(90000)).toBe('25:00:00');
+        });
+
+        it('leaves sub-hour output UNCHANGED (the rig still reads 28:00)', () => {
+            expect(formatClock(1680)).toBe('28:00');
+            expect(formatClock(0)).toBe('0:00');
+            expect(formatClock(59)).toBe('0:59');
+            expect(formatClock(3599)).toBe('59:59');
+        });
+
+        it('pads minutes and seconds once hours appear', () => {
+            expect(formatClock(3600)).toBe('1:00:00');
+            expect(formatClock(3661)).toBe('1:01:01');
+            expect(formatClock(86400)).toBe('24:00:00');
+        });
+
+        it('still refuses to invent a value for a non-finite playhead', () => {
+            expect(formatClock(NaN)).toBe('—:—');
+            expect(formatClock(Infinity)).toBe('—:—');
+        });
+
+        // AC8 requires BOTH halves: the unit test above AND a render
+        // cross-check, which is what proves the RENDER PATH uses the fixed
+        // function rather than a second copy of the arithmetic.
+        it('the rendered readout uses the fixed function (render cross-check)', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, playheadSeconds: 90000 } });
+            expect(container.querySelector('[data-testid="anuga-playback-readout"]').textContent).toContain('25:00:00');
+        });
+    });
+
+    // TASK-2744 (AC9, epic 2706) — THE SCRUBBER MUST SHOW WHAT IS BUFFERED.
+    // `bufferedChunks` has been controller state since epic 2618 and no
+    // component ever read it; on HEAD
+    // document.querySelector('[data-testid="anuga-playback-scrubber-buffered"]')
+    // returned null (measured on map 1461).
+    describe('buffered range on the scrubber — TASK-2744 AC9', () => {
+        it('bufferedTrackSegments maps chunk indices onto track fractions', () => {
+            // 2 of 4 chunks, chunkLengthT 10, nTime 40 -> the first half
+            expect(bufferedTrackSegments([0, 1], 10, 40)).toEqual([{ start: 0, width: 0.5 }]);
+            // non-contiguous stays non-contiguous: two separate spans
+            expect(bufferedTrackSegments([0, 3], 10, 40)).toEqual([
+                { start: 0, width: 0.25 },
+                { start: 0.75, width: 0.25 }
+            ]);
+            // the final chunk is clipped to nTime, not run past it
+            expect(bufferedTrackSegments([3], 10, 31)).toEqual([{ start: 30 / 31, width: 1 / 31 }]);
+            expect(bufferedTrackSegments([], 10, 40)).toEqual([]);
+            expect(bufferedTrackSegments([0], null, 40)).toEqual([]);
+        });
+
+        it('renders the buffered bar at the right width for a known 2-of-4-chunks state', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY,
+                nTime: 40, chunkLengthT: 10, totalChunks: 4, bufferedChunks: [0, 1] } });
+            const el = container.querySelector('[data-testid="anuga-playback-scrubber-buffered"]');
+            expect(el).toBeTruthy();
+            // 2 of 4 chunks buffered == half the track, to within 1 CSS px on
+            // any track width (asserted as the exact percentage the style sets)
+            expect(el.style.width).toBe('50%');
+            expect(el.style.left).toBe('0%');
+        });
+
+        it('renders one bar per contiguous run, not one per chunk', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY,
+                nTime: 40, chunkLengthT: 10, totalChunks: 4, bufferedChunks: [0, 1, 3] } });
+            expect(container.querySelectorAll('.sv-playback-scrubber-buffered').length).toBe(2);
+        });
+
+        it('renders nothing when nothing is buffered', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY,
+                nTime: 40, chunkLengthT: 10, totalChunks: 4, bufferedChunks: [] } });
+            expect(container.querySelector('[data-testid="anuga-playback-scrubber-buffered"]')).toBe(null);
+        });
+    });
+
+    // TASK-2744 (AC7, epic 2706) — EVERY CONTROL MUST HAVE AN ACCESSIBLE NAME.
+    // RED on map 1461: the scrubber and BOTH <select>s had labels 0,
+    // aria-label null, title null.
+    describe('accessible names — TASK-2744 AC7', () => {
+        it('every range input and select on the bar has a non-empty accessible name', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY,
+                nTime: 31, time: [0, 60, 120], flowVizEnabled: true, particlesEnabled: true } });
+            const rows = [...container.querySelectorAll('.sv-playback-bar input[type=range], .sv-playback-bar select')];
+            expect(rows.length > 0).toBe(true);
+            rows.forEach((el) => {
+                const name = (el.labels && el.labels.length)
+                    || el.getAttribute('aria-label')
+                    || el.getAttribute('title');
+                expect(!!name).toBe(true);
+                // and never a raw dotted msgId
+                expect(String(el.getAttribute('aria-label') || '').indexOf('hydrata.')).toBe(-1);
             });
         });
     });

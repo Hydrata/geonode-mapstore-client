@@ -121,14 +121,72 @@ function makeId(prefix) {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function formatClock(seconds) {
+/**
+ * The sim-time readout, as M:SS or H:MM:SS (TASK-2744 AC8).
+ *
+ * EXPORTED deliberately, and sanctioned explicitly by the card: it was
+ * module-private, so a spec could not reach the arithmetic at all and the
+ * clock's only coverage was through a full component render.
+ *
+ * It used to emit `${minutes}:${ss}` unconditionally, so an hour was never
+ * carried: a 25-hour design storm read `1500:00` rather than `25:00:00`
+ * (arithmetic verified — floor(90000/60) = 1500, 90000 % 60 = 0). Run 1328 is
+ * 30 minutes so it reads correctly there, which is exactly why this survived:
+ * the only store anyone tested against could not expose it.
+ *
+ * Sub-hour output is UNCHANGED — formatClock(1680) is still '28:00', so the
+ * rig's `29/31 · 28:00` reading does not move.
+ */
+export function formatClock(seconds) {
     if (!isFinite(seconds)) {
         return '—:—';
     }
     const s = Math.max(0, Math.floor(seconds));
-    const m = Math.floor(s / 60);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
     const rem = s % 60;
+    if (h > 0) {
+        return `${h}:${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+    }
     return `${m}:${String(rem).padStart(2, '0')}`;
+}
+
+/**
+ * Contiguous buffered spans of the timeline, as {start, width} fractions of
+ * the scrubber track (TASK-2744 AC9).
+ *
+ * `bufferedChunks` are TIME-CHUNK indices, each covering `chunkLengthT`
+ * timesteps, so chunk c spans timesteps [c*L, (c+1)*L). Adjacent chunks are
+ * merged into one span rather than rendered as separate slivers with hairline
+ * gaps at every boundary.
+ */
+export function bufferedTrackSegments(bufferedChunks, chunkLengthT, nTime) {
+    if (!bufferedChunks || !bufferedChunks.length || !(chunkLengthT > 0) || !(nTime > 0)) {
+        return [];
+    }
+    const sorted = [...new Set(bufferedChunks)].sort((a, b) => a - b);
+    const segments = [];
+    let runStart = sorted[0];
+    let runEnd = sorted[0];
+    const push = () => {
+        const firstStep = runStart * chunkLengthT;
+        const lastStep = Math.min((runEnd + 1) * chunkLengthT, nTime);
+        segments.push({
+            start: firstStep / nTime,
+            width: Math.max(0, (lastStep - firstStep) / nTime)
+        });
+    };
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] === runEnd + 1) {
+            runEnd = sorted[i];
+        } else {
+            push();
+            runStart = sorted[i];
+            runEnd = sorted[i];
+        }
+    }
+    push();
+    return segments;
 }
 
 // Human-facing label per controller status — used for the buffering-feedback
@@ -360,7 +418,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     type="text"
                     className="sv-playback-manifest-input"
                     data-testid="anuga-playback-manifest-input"
-                    placeholder="Playback store manifest URL"
+                    placeholder={this.tr('hydrata.playback.manifestUrlPlaceholder', 'Playback store manifest URL')}
                     value={this.state.manifestUrlDraft}
                     onChange={(e) => this.setState({ manifestUrlDraft: e.target.value })}
                 />
@@ -394,22 +452,46 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     className="btn sv-glass-button sv-playback-playpause"
                     data-testid="anuga-playback-playpause"
                     onClick={() => (isPlaying ? this.props.onPause() : this.props.onPlay())}
-                    title={isPlaying ? 'Pause' : 'Play'}
+                    title={isPlaying
+                        ? this.tr('hydrata.playback.pause', 'Pause')
+                        : this.tr('hydrata.playback.play', 'Play')}
+                    aria-label={isPlaying
+                        ? this.tr('hydrata.playback.pause', 'Pause')
+                        : this.tr('hydrata.playback.play', 'Play')}
                 >
                     {isPlaying ? '❙❙' : '▶'}
                 </button>
 
-                <input
-                    type="range"
-                    className="sv-playback-scrubber"
-                    data-testid="anuga-playback-scrubber"
-                    min={0}
-                    max={Math.max(0, playback.nTime - 1)}
-                    step={1}
-                    disabled={!canScrub}
-                    value={playback.currentTimestep}
-                    onChange={(e) => this.props.onSeek(Number(e.target.value))}
-                />
+                {/* TASK-2744 AC9 — the scrubber must show what is BUFFERED.
+                    `bufferedChunks` has lived in controller state since epic
+                    2618 and no component ever read it (grep of components/
+                    returned nothing), so video-style buffer feedback existed
+                    only as a text label. The track wrapper is also what gives
+                    the buffered bar a positioned ancestor to sit in. */}
+                <span className="sv-playback-scrubber-track" data-testid="anuga-playback-scrubber-track">
+                    {bufferedTrackSegments(playback.bufferedChunks, playback.chunkLengthT, playback.nTime)
+                        .map((seg, i) => (
+                            <span
+                                key={`${seg.start}-${seg.width}`}
+                                className="sv-playback-scrubber-buffered"
+                                data-testid={i === 0 ? 'anuga-playback-scrubber-buffered' : `anuga-playback-scrubber-buffered-${i}`}
+                                style={{ left: `${seg.start * 100}%`, width: `${seg.width * 100}%` }}
+                            />
+                        ))}
+                    <input
+                        type="range"
+                        className="sv-playback-scrubber"
+                        data-testid="anuga-playback-scrubber"
+                        min={0}
+                        max={Math.max(0, playback.nTime - 1)}
+                        step={1}
+                        disabled={!canScrub}
+                        value={playback.currentTimestep}
+                        title={this.tr('hydrata.playback.scrubber', 'Timeline position')}
+                        aria-label={this.tr('hydrata.playback.scrubber', 'Timeline position')}
+                        onChange={(e) => this.props.onSeek(Number(e.target.value))}
+                    />
+                </span>
 
                 <span className="sv-playback-readout" data-testid="anuga-playback-readout">
                     {playback.currentTimestep + 1}/{playback.nTime || '—'} · {formatClock(playback.playheadSeconds)}
@@ -419,6 +501,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     className="sv-playback-speed"
                     data-testid="anuga-playback-speed"
                     value={playback.speed}
+                    title={this.tr('hydrata.playback.speed', 'Playback speed')}
+                    aria-label={this.tr('hydrata.playback.speed', 'Playback speed')}
                     onChange={(e) => this.props.onSetSpeed(Number(e.target.value))}
                 >
                     {this.speedOptions(playback).map((o) => (
@@ -430,10 +514,12 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     className="sv-playback-quantity"
                     data-testid="anuga-playback-quantity"
                     value={playback.quantity}
+                    title={this.tr('hydrata.playback.quantity', 'Displayed quantity')}
+                    aria-label={this.tr('hydrata.playback.quantity', 'Displayed quantity')}
                     onChange={(e) => this.props.onSetQuantity(e.target.value)}
                 >
                     {availableQuantityIds(playback.hasDt).map((id) => (
-                        <option key={id} value={id}>{QUANTITY_OPTION_LABEL[id]}</option>
+                        <option key={id} value={id}>{this.tr(`hydrata.playback.quantity.${id}`, QUANTITY_OPTION_LABEL[id])}</option>
                     ))}
                 </select>
 
@@ -463,7 +549,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     className={`btn sv-glass-button sv-playback-identify-toggle ${playback.identifyArmed ? 'active' : ''}`}
                     data-testid="anuga-playback-identify-toggle"
                     onClick={() => this.props.onSetIdentifyArmed(!playback.identifyArmed)}
-                    title="Click the mesh to inspect values at the current timestep"
+                    title={this.tr('hydrata.playback.inspectTooltip', 'Click the mesh to inspect values at the current timestep')}
                 >
                     <Message msgId="hydrata.playback.inspect" />
                 </button>
@@ -472,6 +558,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     className={`btn sv-glass-button sv-playback-legend-toggle ${playback.legendOpen ? 'active' : ''}`}
                     data-testid="anuga-playback-legend-toggle"
                     onClick={() => this.props.onSetLegendOpen(!playback.legendOpen)}
+                    title={this.tr('hydrata.playback.legendTooltip', 'Show the colour legend')}
                 >
                     <Message msgId="hydrata.playback.legend" />
                 </button>
@@ -479,20 +566,17 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 {/* TASK-2656d (W6.5) — real wireframe toggle over the render
                     threshold's fill (default OFF); the renderer's own
                     wireProgram already existed, unused, on a live run.
-                    Plain-text label (matching the play/pause glyph button
-                    above, NOT the <Message> siblings either side of it) —
-                    this wave's declared gmc scope is
-                    js/plugins/hydrata/Anuga/** only; the translations JSON
-                    lives outside it (static/mapstore/hydrata-translations),
-                    so a new msgId here would render its own raw key text
-                    with a missing-message console warning on every frame. */}
+                    TASK-2744 AC10: the plain-text label is gone. Its
+                    justification was a wave scope fence that excluded the
+                    translations JSON from that wave's gmc scope — epic 2706
+                    does not have that fence, so the key is a real one now. */}
                 <button
                     className={`btn sv-glass-button sv-playback-wireframe-toggle ${playback.wireframe ? 'active' : ''}`}
                     data-testid="anuga-playback-wireframe-toggle"
                     onClick={() => this.props.onSetWireframe(!playback.wireframe)}
-                    title="Overlay mesh triangle edges"
+                    title={this.tr('hydrata.playback.wireframeTooltip', 'Overlay mesh triangle edges')}
                 >
-                    {'Wireframe'}
+                    <Message msgId="hydrata.playback.wireframe" />
                 </button>
 
                 <button
@@ -557,11 +641,25 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     </span>
                 ) : null}
 
-                {isBuffering ? (
-                    <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
-                        {statusMsgId ? <Message msgId={statusMsgId} /> : null}
-                    </span>
-                ) : null}
+                {/* TASK-2744 (AC6, epic 2706) — STATUS MUST NOT MOVE THE
+                    CONTROLS. The bar is centred by `left:50%` +
+                    `translateX(-50%)`, so ANY width change re-centres it and
+                    shifts every control; mounting a buffering label therefore
+                    moved the play/pause button. This slot is ALWAYS rendered
+                    at a fixed width and the labels mount inside it, so the
+                    bar's width is invariant to status.
+
+                    The inner testids stay conditional on purpose — existing
+                    specs assert `anuga-playback-buffering` is null when not
+                    buffering, and that contract is still true and still
+                    worth keeping. */}
+                <span className="sv-playback-status" data-testid="anuga-playback-status">
+                    {isBuffering ? (
+                        <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
+                            {statusMsgId ? <Message msgId={statusMsgId} /> : null}
+                        </span>
+                    ) : null}
+                </span>
                 {/* TASK-2744 (AC2, epic 2706) — Unload. Until this existed
                     PLAYBACK_RESET had no dispatcher outside tests, so a run
                     could never be released: the fetcher, its decoded-chunk
@@ -582,7 +680,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     <span
                         className="sv-playback-degraded"
                         data-testid="anuga-playback-degraded"
-                        title="Repeated buffering stalls — playback is degraded on this connection"
+                        title={this.tr('hydrata.playback.degradedTooltip', 'Repeated buffering stalls — playback is degraded on this connection')}
                     >
                         <Message msgId="hydrata.playback.degraded" />
                     </span>

@@ -2978,15 +2978,44 @@ span.sv-scenario-run-price--short {
    z-index band so both can never overlap on the same map (Timeline is not
    mounted on Anuga result maps today, but this keeps the stacking order
    correct if that ever changes). */
+/* TASK-2744 (AC5, epic 2706) — THE BAR MUST FIT, AND ITS CONTROLS MUST STAY
+   USABLE.
+
+   Measured on map 1461: the bar never overflowed the viewport, so AC5's
+   stated predicate (left >= 0 && right <= innerWidth) already passed at HEAD
+   and could not be shown RED. The real defect was the opposite failure mode —
+   the bar CRUSHED its children instead. At a 1248 px viewport the scrubber,
+   the primary control, rendered THREE CSS PIXELS wide and the overlay slider
+   groups rendered at one.
+
+   Root cause: an absolutely-positioned shrink-to-fit box laid out from
+   `left: 50%` has only the containing block's RIGHT HALF available, so the
+   bar's max width is 50% of its container — measured at a hard 959.15 px for
+   BOTH a 2368 px and a 3769 px viewport. Natural content exceeds that, and the
+   default `flex-shrink: 1` then squeezed whatever had no min-width, which was
+   everything.
+
+   The fix is `left: 0; right: 0; margin: auto` + `width: fit-content` — a
+   box anchored to BOTH edges gets the full container width to size against
+   while still centring — plus `flex-wrap` and explicit widths below so a
+   narrow viewport wraps to a second row rather than shaving the scrubber. */
 .sv-playback-bar {
     position: absolute;
-    left: 50%;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    width: -moz-fit-content;
+    width: fit-content;
+    max-width: calc(100vw - 32px);
     bottom: 16px;
-    transform: translateX(-50%);
     z-index: 1000;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
     gap: 8px;
+    row-gap: 6px;
     padding: 8px 14px;
     border-radius: 6px;
     background: var(--sv-panel-bg, rgba(20, 24, 28, 0.88));
@@ -3033,8 +3062,90 @@ span.sv-scenario-run-price--short {
     min-width: 32px;
     text-align: center;
 }
+/* TASK-2744 AC5 — the scrubber may shrink, but never below usable. It was
+   measured at 3px on a 1248px viewport. */
+.sv-playback-scrubber-track {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 1 1 220px;
+    min-width: 140px;
+}
 .sv-playback-scrubber {
-    width: 220px;
+    width: 100%;
+    min-width: 140px;
+    position: relative;
+    z-index: 1;
+    background: transparent;
+}
+/* TASK-2744 AC9 — buffered coverage, drawn UNDER the range input's thumb.
+   One element per contiguous run of buffered time-chunks, positioned as a
+   fraction of the track (see bufferedTrackSegments). */
+.sv-playback-scrubber-buffered {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 4px;
+    border-radius: 2px;
+    background: var(--sv-accent-blue, #5bc0ff);
+    opacity: 0.45;
+    pointer-events: none;
+    z-index: 0;
+}
+/* TASK-2744 AC6 — a fixed slot for status text, ALWAYS present. The bar is
+   centred, so a conditionally-mounted label changed its width and shifted
+   every control; reserving the space makes the play/pause button's `left`
+   invariant to buffering state. */
+.sv-playback-status {
+    flex: 0 0 auto;
+    width: 92px;
+    min-width: 92px;
+    max-width: 92px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+/* TASK-2744 AC7 — every slider now renders its current value beside it. */
+.sv-playback-slider {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+.sv-playback-slider input[type="range"] {
+    width: 72px;
+    flex: 0 0 auto;
+}
+.sv-playback-slider-value {
+    min-width: 34px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+    text-align: right;
+}
+.sv-playback-flowviz-controls,
+.sv-playback-particles-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+/* TASK-2744 AC4 — the colour-ramp maximum. */
+.sv-playback-colormax-input {
+    width: 68px;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: inherit;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+/* TASK-2744 AC7 — the bar had no :focus styling at all, so a keyboard user
+   could not see where they were. */
+.sv-playback-bar .sv-glass-button:focus-visible,
+.sv-playback-bar input:focus-visible,
+.sv-playback-bar select:focus-visible {
+    outline: 2px solid var(--sv-accent-blue, #5bc0ff);
+    outline-offset: 1px;
 }
 .sv-playback-readout {
     min-width: 90px;
