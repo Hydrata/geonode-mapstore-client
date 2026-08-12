@@ -25,6 +25,8 @@ import {
     findTimestepBracket,
     colorMaxForQuantity,
     colorMinForQuantity,
+    clampOpacity,
+    DEFAULT_PLAYBACK_OPACITY,
     playbackControllerReducer as reduce
 } from '../playbackController';
 import {
@@ -564,6 +566,61 @@ describe('playbackController', () => {
             const busy = reduce(bufferedState(), playbackPlay());
             const reset = reduce(busy, playbackReset());
             expect(reset).toEqual(createInitialPlaybackState());
+        });
+    });
+
+    // TASK-2744 (AC3/AC4/AC11, epic 2706) — three render controls promoted to
+    // controller state so they survive the bar's own unmount (the bar is
+    // destroyed whenever the SimpleView menu group leaves 'Results').
+    describe('opacity, overlay knobs and colour-ramp override — TASK-2744', () => {
+        it('AC3 — SET_OPACITY clamps to 0..1 and ignores garbage', () => {
+            expect(createInitialPlaybackState().opacity).toBe(DEFAULT_PLAYBACK_OPACITY);
+            expect(reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OPACITY', opacity: 0.25 }).opacity).toBe(0.25);
+            expect(reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OPACITY', opacity: 5 }).opacity).toBe(1);
+            expect(reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OPACITY', opacity: -3 }).opacity).toBe(0);
+            // garbage keeps the PREVIOUS value rather than snapping to a default
+            const at3 = reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OPACITY', opacity: 0.3 });
+            expect(reduce(at3, { type: 'PLAYBACK:SET_OPACITY', opacity: 'nonsense' }).opacity).toBe(0.3);
+            expect(clampOpacity(0.5)).toBe(0.5);
+        });
+
+        it('AC11 — SET_OVERLAY writes whitelisted keys and DROPS unknown ones', () => {
+            const on = reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OVERLAY', key: 'flowVizEnabled', value: true });
+            expect(on.flowVizEnabled).toBe(true);
+            expect(reduce(on, { type: 'PLAYBACK:SET_OVERLAY', key: 'arrowDensity', value: 96 }).arrowDensity).toBe(96);
+            // a typo must not invent a controller-state field
+            const bogus = reduce(on, { type: 'PLAYBACK:SET_OVERLAY', key: 'flowVisEnabled', value: false });
+            expect(bogus).toBe(on);
+            expect(bogus.flowVisEnabled).toBe(undefined);
+        });
+
+        it('AC11 — the knobs survive PLAYBACK_PAUSE/PLAY (they are transport-independent)', () => {
+            const on = reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OVERLAY', key: 'particlesEnabled', value: true });
+            expect(reduce(on, playbackPause()).particlesEnabled).toBe(true);
+        });
+
+        it('AC4 — SET_COLOR_MAX is per-quantity, and a null value CLEARS the override', () => {
+            const quantization = { depth: { valid_max: 16.862720489501953 } };
+            const base = createInitialPlaybackState();
+            // RED: the derived maximum is the store's valid_max
+            expect(colorMaxForQuantity('depth', quantization)).toBe(16.862720489501953);
+
+            const set = reduce(base, { type: 'PLAYBACK:SET_COLOR_MAX', quantity: 'depth', value: 1.5 });
+            expect(set.colorMaxOverride).toEqual({ depth: 1.5 });
+            expect(colorMaxForQuantity('depth', quantization, { colorMaxOverride: 1.5 })).toBe(1.5);
+            // a depth override in metres must not leak onto speed in m/s
+            expect(colorMaxForQuantity('speed', { x_velocity: { valid_max: 3 } }, { colorMaxOverride: set.colorMaxOverride.speed })).toBe(3);
+
+            const cleared = reduce(set, { type: 'PLAYBACK:SET_COLOR_MAX', quantity: 'depth', value: null });
+            expect(cleared.colorMaxOverride.depth).toBe(undefined);
+            expect(colorMaxForQuantity('depth', quantization, { colorMaxOverride: cleared.colorMaxOverride.depth })).toBe(16.862720489501953);
+        });
+
+        it('AC4 — an override at or below colorMin is ignored (never inverts the ramp)', () => {
+            // stage's colorMin is its elevationMin, so an override below that
+            // would produce a negative span and divide-by-clamp everything
+            const ctx = { elevationMin: 10, elevationMax: 20, colorMaxOverride: 5 };
+            expect(colorMaxForQuantity('stage', null, ctx)).toNotBe(5);
         });
     });
 });

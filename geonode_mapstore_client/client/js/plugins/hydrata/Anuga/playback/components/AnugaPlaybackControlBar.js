@@ -30,14 +30,9 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // getMessageById + legacy context.messages instead. Same idiom as
 // anugaScenarioMenu.js:1098-1102 and VectorDraw/FormField.js:215-220.
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
-// TASK-2744 (AC19) — the playback layer is an `additionallayers` overlay, not
-// a layers.flat entry, so overlay knobs merge onto it by id here.
-import { mergeOptionsById } from '@mapstore/framework/actions/additionallayers';
 
-import { PLAYBACK_STATUS, MIN_SPEED, MAX_SPEED } from '../playbackController';
+import { PLAYBACK_STATUS, MIN_SPEED, MAX_SPEED, colorMaxForQuantity } from '../playbackController';
 import { availableQuantityIds } from '../playbackDerivedQuantities';
-import { DEFAULT_ARROW_DENSITY_PX, DEFAULT_ARROW_SCALE } from '../playbackFlowViz';
-import { DEFAULT_PARTICLE_GRID, DEFAULT_SPEED_EXAGGERATION } from '../playbackParticles';
 import {
     playbackInit,
     playbackPlay,
@@ -48,7 +43,10 @@ import {
     playbackSetIdentifyArmed,
     playbackSetLegendOpen,
     playbackSetWireframe,
-    playbackReset
+    playbackReset,
+    playbackSetOpacity,
+    playbackSetOverlay,
+    playbackSetColorMax
 } from '../actions/playbackActions';
 
 const SPEED_OPTIONS = [0.25, 0.5, 1, 2, 4, 8].filter((s) => s >= MIN_SPEED && s <= MAX_SPEED);
@@ -103,8 +101,10 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         onSetIdentifyArmed: PropTypes.func,
         onSetLegendOpen: PropTypes.func,
         onSetWireframe: PropTypes.func,
-        onChangeLayerProperties: PropTypes.func,
-        onReset: PropTypes.func
+        onReset: PropTypes.func,
+        onSetOpacity: PropTypes.func,
+        onSetOverlay: PropTypes.func,
+        onSetColorMax: PropTypes.func
     };
 
     // TASK-2744 AC10 — legacy context, NOT a `state.locale` selector: the
@@ -129,57 +129,99 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         return (!resolved || resolved === msgId) ? fallback : resolved;
     }
 
-    // TASK-2632 (W5.1) — flow-viz overlay knobs are LOCAL component state,
-    // not `anugaPlayback` reducer state — pure visual rendering toggles,
-    // orthogonal to the buffer-then-play/timeline state machine
-    // `playbackController.js` owns. Applied to the layer directly via
-    // `changeLayerProperties` on every change.
+    // TASK-2744 (AC11, epic 2706) — the flow-viz/particle knobs are NO LONGER
+    // component-local state. They were, on the reasoning that they are pure
+    // visual toggles orthogonal to the buffer-then-play state machine — but
+    // this bar is UNMOUNTED every time the SimpleView menu group leaves
+    // 'Results' (anugaContainer.js:431), and local state dies with it while
+    // the LAYER keeps the property. Measured on map 1461: enable Flow viz,
+    // switch menu away and back, and the layer still had flowVizEnabled true
+    // while the button had lost its `active` class — the overlay was drawing
+    // and the control said it was off.
     //
-    // `wireframe` (TASK-2656d, W6.5) is the ONE exception to that pattern:
-    // it now IS reducer state (playbackController's own `wireframe` field,
-    // dispatched via playbackSetWireframe/PLAYBACK_SET_WIREFRAME and synced
-    // to the layer by playbackSyncLayerEpic's baseProps, NOT
-    // changeLayerProperties from here) — a real transport-level rendering
-    // mode the operator expects to persist across this bar's own
-    // mount/unmount, unlike the flow-viz/particle knobs below.
+    // The file's own header already anticipated this: wireframe (TASK-2656d)
+    // was promoted to reducer state precisely so it would "persist across this
+    // bar's own mount/unmount, unlike the flow-viz/particle knobs below". This
+    // closes that loop for all six knobs plus opacity (AC3) and the colour-ramp
+    // override (AC4); playbackSyncLayerEpic's baseProps now owns pushing every
+    // one of them to the layer.
+    //
+    // `manifestUrlDraft` stays local: it is a text field's in-progress value,
+    // meaningless once the run it produced is loaded.
     state = {
-        manifestUrlDraft: '',
-        flowVizEnabled: false,
-        arrowDensity: DEFAULT_ARROW_DENSITY_PX,
-        arrowScale: DEFAULT_ARROW_SCALE,
-        // TASK-2633 (W5.2) — same reasoning as the flow-viz state above:
-        // local component state, applied via changeLayerProperties.
-        particlesEnabled: false,
-        particleDensity: DEFAULT_PARTICLE_GRID,
-        particleSpeedExaggeration: DEFAULT_SPEED_EXAGGERATION
+        manifestUrlDraft: ''
     };
 
-    // Shared by setFlowVizProps/setParticleProps below — both are "update
-    // local state, then push a field subset of it to the layer via
-    // changeLayerProperties"; only WHICH fields differs.
-    applyLayerProps(patch, pickFields) {
-        this.setState(patch, () => {
-            const { playback, onChangeLayerProperties } = this.props;
-            if (playback && playback.layerId && onChangeLayerProperties) {
-                onChangeLayerProperties(playback.layerId, pickFields(this.state));
+    /**
+     * One range input + its visible current value (TASK-2744 AC7).
+     *
+     * Every slider on this bar used to be a bare `<input type="range">` with a
+     * `title` and nothing else: no visible label, and no rendered value at
+     * all, so "arrow density" was a naked handle whose number you could only
+     * discover by dragging it and watching the map. The `aria-label` is what
+     * gives it an accessible name in the a11y tree; the adjacent
+     * `.sv-playback-slider-value` span is what makes the number readable.
+     */
+    renderSlider({ testid, className, min, max, step, value, label, format, onChange }) {
+        return (
+            <span className="sv-playback-slider" data-testid={`${testid}-group`}>
+                <input
+                    type="range"
+                    className={className}
+                    data-testid={testid}
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={value}
+                    title={label}
+                    aria-label={label}
+                    onChange={(e) => onChange(Number(e.target.value))}
+                />
+                <span className="sv-playback-slider-value" data-testid={`${testid}-value`}>
+                    {format ? format(value) : String(value)}
+                </span>
+            </span>
+        );
+    }
+
+    /**
+     * The colour-ramp maximum (TASK-2744 AC4).
+     *
+     * A number input rather than a slider: the useful range spans three orders
+     * of magnitude across quantities (0.5 m of street flooding to 500 Pa of
+     * shear), so a linear handle would be useless at the low end — and the low
+     * end is exactly where the defect bites. Shows the EFFECTIVE value, so the
+     * field reads the store-derived default until the operator overrides it.
+     */
+    renderColorMax(playback) {
+        const effective = colorMaxForQuantity(
+            playback.quantity,
+            playback.quantization,
+            {
+                elevationMin: playback.elevationMin,
+                elevationMax: playback.elevationMax,
+                colorMaxOverride: (playback.colorMaxOverride || {})[playback.quantity]
             }
-        });
-    }
-
-    setFlowVizProps(patch) {
-        this.applyLayerProps(patch, (s) => ({
-            flowVizEnabled: s.flowVizEnabled,
-            arrowDensity: s.arrowDensity,
-            arrowScale: s.arrowScale
-        }));
-    }
-
-    setParticleProps(patch) {
-        this.applyLayerProps(patch, (s) => ({
-            particlesEnabled: s.particlesEnabled,
-            particleDensity: s.particleDensity,
-            particleSpeedExaggeration: s.particleSpeedExaggeration
-        }));
+        );
+        const label = this.tr('hydrata.playback.colorMax', 'Colour scale maximum');
+        return (
+            <span className="sv-playback-colormax" data-testid="anuga-playback-colormax-group">
+                <input
+                    type="number"
+                    className="sv-playback-colormax-input"
+                    data-testid="anuga-playback-colormax"
+                    min={0}
+                    step="any"
+                    value={Number(effective.toFixed(3))}
+                    title={label}
+                    aria-label={label}
+                    onChange={(e) => this.props.onSetColorMax(
+                        playback.quantity,
+                        e.target.value === '' ? null : Number(e.target.value)
+                    )}
+                />
+            </span>
+        );
     }
 
     renderLoader() {
@@ -264,6 +306,28 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     ))}
                 </select>
 
+                {/* TASK-2744 AC3 — layer opacity. RED on map 1461: the layer
+                    was pinned at 0.85 by playbackInitEpic with no control
+                    anywhere, so the mesh sat as an opaque sheet over the whole
+                    catchment (dry cells included) and you could not read the
+                    water against the terrain it is flooding. */}
+                {this.renderSlider({
+                    testid: 'anuga-playback-opacity',
+                    className: 'sv-playback-opacity',
+                    min: 0.1, max: 1, step: 0.05,
+                    value: playback.opacity,
+                    label: this.tr('hydrata.playback.opacity', 'Layer opacity'),
+                    format: (v) => `${Math.round(v * 100)}%`,
+                    onChange: (v) => this.props.onSetOpacity(v)
+                })}
+
+                {/* TASK-2744 AC4 — the colour ramp's upper bound. RED: for
+                    `depth` this defaulted to the store's valid_max, 16.86 m on
+                    run 1328, which puts every urban street depth (0.1-1.0 m)
+                    in the bottom 6% of the ramp — one indistinguishable band.
+                    Clearing the field restores the store-derived maximum. */}
+                {this.renderColorMax(playback)}
+
                 <button
                     className={`btn sv-glass-button sv-playback-identify-toggle ${playback.identifyArmed ? 'active' : ''}`}
                     data-testid="anuga-playback-identify-toggle"
@@ -301,72 +365,64 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 </button>
 
                 <button
-                    className={`btn sv-glass-button sv-playback-flowviz-toggle ${this.state.flowVizEnabled ? 'active' : ''}`}
+                    className={`btn sv-glass-button sv-playback-flowviz-toggle ${playback.flowVizEnabled ? 'active' : ''}`}
                     data-testid="anuga-playback-flowviz-toggle"
-                    onClick={() => this.setFlowVizProps({ flowVizEnabled: !this.state.flowVizEnabled })}
-                    title="Velocity arrow overlay"
+                    onClick={() => this.props.onSetOverlay('flowVizEnabled', !playback.flowVizEnabled)}
+                    title={this.tr('hydrata.playback.flowVizTooltip', 'Velocity arrow overlay')}
                 >
                     <Message msgId="hydrata.playback.flowViz" />
                 </button>
-                {this.state.flowVizEnabled ? (
+                {playback.flowVizEnabled ? (
                     <span className="sv-playback-flowviz-controls" data-testid="anuga-playback-flowviz-controls">
-                        <input
-                            type="range"
-                            className="sv-playback-flowviz-density"
-                            data-testid="anuga-playback-flowviz-density"
-                            min={16}
-                            max={160}
-                            step={4}
-                            value={this.state.arrowDensity}
-                            title="Arrow density (px spacing)"
-                            onChange={(e) => this.setFlowVizProps({ arrowDensity: Number(e.target.value) })}
-                        />
-                        <input
-                            type="range"
-                            className="sv-playback-flowviz-scale"
-                            data-testid="anuga-playback-flowviz-scale"
-                            min={0.25}
-                            max={3}
-                            step={0.25}
-                            value={this.state.arrowScale}
-                            title="Arrow scale"
-                            onChange={(e) => this.setFlowVizProps({ arrowScale: Number(e.target.value) })}
-                        />
+                        {this.renderSlider({
+                            testid: 'anuga-playback-flowviz-density',
+                            className: 'sv-playback-flowviz-density',
+                            min: 16, max: 160, step: 4,
+                            value: playback.arrowDensity,
+                            label: this.tr('hydrata.playback.arrowDensity', 'Arrow density (px spacing)'),
+                            format: (v) => `${v} px`,
+                            onChange: (v) => this.props.onSetOverlay('arrowDensity', v)
+                        })}
+                        {this.renderSlider({
+                            testid: 'anuga-playback-flowviz-scale',
+                            className: 'sv-playback-flowviz-scale',
+                            min: 0.25, max: 3, step: 0.25,
+                            value: playback.arrowScale,
+                            label: this.tr('hydrata.playback.arrowScale', 'Arrow scale'),
+                            format: (v) => `${v}x`,
+                            onChange: (v) => this.props.onSetOverlay('arrowScale', v)
+                        })}
                     </span>
                 ) : null}
 
                 <button
-                    className={`btn sv-glass-button sv-playback-particles-toggle ${this.state.particlesEnabled ? 'active' : ''}`}
+                    className={`btn sv-glass-button sv-playback-particles-toggle ${playback.particlesEnabled ? 'active' : ''}`}
                     data-testid="anuga-playback-particles-toggle"
-                    onClick={() => this.setParticleProps({ particlesEnabled: !this.state.particlesEnabled })}
-                    title="Particle trails"
+                    onClick={() => this.props.onSetOverlay('particlesEnabled', !playback.particlesEnabled)}
+                    title={this.tr('hydrata.playback.particlesTooltip', 'Particle trails')}
                 >
                     <Message msgId="hydrata.playback.particles" />
                 </button>
-                {this.state.particlesEnabled ? (
+                {playback.particlesEnabled ? (
                     <span className="sv-playback-particles-controls" data-testid="anuga-playback-particles-controls">
-                        <input
-                            type="range"
-                            className="sv-playback-particles-density"
-                            data-testid="anuga-playback-particles-density"
-                            min={32}
-                            max={256}
-                            step={16}
-                            value={this.state.particleDensity}
-                            title="Particle density (grid side length)"
-                            onChange={(e) => this.setParticleProps({ particleDensity: Number(e.target.value) })}
-                        />
-                        <input
-                            type="range"
-                            className="sv-playback-particles-exaggeration"
-                            data-testid="anuga-playback-particles-exaggeration"
-                            min={0.25}
-                            max={5}
-                            step={0.25}
-                            value={this.state.particleSpeedExaggeration}
-                            title="Speed exaggeration"
-                            onChange={(e) => this.setParticleProps({ particleSpeedExaggeration: Number(e.target.value) })}
-                        />
+                        {this.renderSlider({
+                            testid: 'anuga-playback-particles-density',
+                            className: 'sv-playback-particles-density',
+                            min: 32, max: 256, step: 16,
+                            value: playback.particleDensity,
+                            label: this.tr('hydrata.playback.particleDensity', 'Particle density (grid side length)'),
+                            format: (v) => `${v}`,
+                            onChange: (v) => this.props.onSetOverlay('particleDensity', v)
+                        })}
+                        {this.renderSlider({
+                            testid: 'anuga-playback-particles-exaggeration',
+                            className: 'sv-playback-particles-exaggeration',
+                            min: 0.25, max: 5, step: 0.25,
+                            value: playback.particleSpeedExaggeration,
+                            label: this.tr('hydrata.playback.speedExaggeration', 'Speed exaggeration'),
+                            format: (v) => `${v}x`,
+                            onChange: (v) => this.props.onSetOverlay('particleSpeedExaggeration', v)
+                        })}
                     </span>
                 ) : null}
 
@@ -421,9 +477,14 @@ const mapDispatchToProps = {
     onSetIdentifyArmed: playbackSetIdentifyArmed,
     onSetLegendOpen: playbackSetLegendOpen,
     onSetWireframe: playbackSetWireframe,
-    onChangeLayerProperties: mergeOptionsById,
     // TASK-2744 AC2 — the run must be unloadable.
-    onReset: playbackReset
+    onReset: playbackReset,
+    // TASK-2744 AC3/AC11/AC4 — opacity, the overlay knobs and the colour-ramp
+    // maximum are controller state now, pushed to the layer by
+    // playbackSyncLayerEpic's baseProps rather than by this component.
+    onSetOpacity: playbackSetOpacity,
+    onSetOverlay: playbackSetOverlay,
+    onSetColorMax: playbackSetColorMax
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(AnugaPlaybackControlBarComponent);

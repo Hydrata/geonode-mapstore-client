@@ -208,6 +208,44 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(onReset.calls[0].arguments[1]).toBe('layer-77');
         });
 
+        it('AC3 — a labelled opacity control exists and moves the value across 0.2..1.0', () => {
+            const onSetOpacity = expect.createSpy();
+            render({ playback: loadedState(), onSetOpacity });
+            const slider = container.querySelector('[data-testid="anuga-playback-opacity"]');
+            expect(slider).toBeTruthy();
+            // RED on HEAD: no such control existed at all and the layer was
+            // pinned at 0.85 by playbackInitEpic (measured on map 1461).
+            expect(slider.getAttribute('aria-label')).toBeTruthy();
+            expect(Number(slider.min)).toBeLessThanOrEqualTo(0.2);
+            expect(Number(slider.max)).toBe(1);
+            [0.2, 0.5, 1].forEach((v) => TestUtils.Simulate.change(slider, { target: { value: String(v) } }));
+            expect(onSetOpacity.calls.length).toBe(3);
+            expect(onSetOpacity.calls[0].arguments[0]).toBe(0.2);
+            expect(onSetOpacity.calls[2].arguments[0]).toBe(1);
+            // AC7 — the current value is rendered, not just held in the handle
+            expect(container.querySelector('[data-testid="anuga-playback-opacity-value"]').textContent).toBe('85%');
+        });
+
+        it('AC4 — the colour-ramp maximum is user-settable and shows the effective value', () => {
+            const onSetColorMax = expect.createSpy();
+            const quantization = { depth: { valid_max: 16.862720489501953 } };
+            render({ playback: loadedState({ quantity: 'depth', quantization }), onSetColorMax });
+            const input = container.querySelector('[data-testid="anuga-playback-colormax"]');
+            expect(input).toBeTruthy();
+            // RED: this is the store's valid_max — every urban depth lands in
+            // the bottom 6% of the ramp.
+            expect(Number(input.value)).toBe(16.863);
+            TestUtils.Simulate.change(input, { target: { value: '1.5' } });
+            expect(onSetColorMax.calls[0].arguments[0]).toBe('depth');
+            expect(onSetColorMax.calls[0].arguments[1]).toBe(1.5);
+        });
+
+        it('AC4 — once overridden, the field shows the OVERRIDE rather than the store maximum', () => {
+            const quantization = { depth: { valid_max: 16.862720489501953 } };
+            render({ playback: loadedState({ quantity: 'depth', quantization, colorMaxOverride: { depth: 1.5 } }) });
+            expect(Number(container.querySelector('[data-testid="anuga-playback-colormax"]').value)).toBe(1.5);
+        });
+
         it('after a reset the component returns to IDLE and shows the manifest loader again', () => {
             render({ playback: loadedState() });
             expect(container.querySelector('[data-testid="anuga-playback-manifest-input"]')).toBe(null);
@@ -215,6 +253,68 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             render({ playback: createInitialPlaybackState() });
             expect(container.querySelector('[data-testid="anuga-playback-manifest-input"]')).toBeTruthy();
             expect(container.querySelector('[data-testid="anuga-playback-unload"]')).toBe(null);
+        });
+    });
+
+    // TASK-2744 (AC11, epic 2706) — OVERLAY TOGGLES MUST NOT DESYNC ACROSS A
+    // REMOUNT. RED, measured on map 1461: enable Flow viz, switch the
+    // SimpleView menu away from 'Results' (which UNMOUNTS this bar per
+    // anugaContainer.js:431) and back — the layer still had flowVizEnabled
+    // true while the button had lost its `active` class.
+    //
+    // The fix is structural: the knobs are controller state now, so an
+    // unmount cannot lose them. The spec below reproduces the remount by
+    // literally unmounting and re-rendering the component, which is what the
+    // menu switch does.
+    describe('overlay knobs survive a remount — TASK-2744 AC11', () => {
+        function loaded(extra = {}) {
+            return { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, runId: 'r', layerId: 'l', ...extra };
+        }
+
+        it('reads the toggle state from the controller, not component-local state', () => {
+            render({ playback: loaded({ flowVizEnabled: true }) });
+            expect(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]').className).toContain('active');
+            render({ playback: loaded({ flowVizEnabled: false }) });
+            expect(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]').className).toNotContain('active');
+        });
+
+        it('button and layer AGREE after a real unmount/remount, for flow viz AND particles', () => {
+            const state = loaded({ flowVizEnabled: true, particlesEnabled: true });
+            render({ playback: state });
+            expect(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]').className).toContain('active');
+            expect(container.querySelector('[data-testid="anuga-playback-particles-toggle"]').className).toContain('active');
+
+            // the menu switch: unmount, then mount again against the SAME
+            // controller state (which the reducer, not the bar, owns)
+            ReactDOM.unmountComponentAtNode(container);
+            render({ playback: state });
+
+            expect(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]').className).toContain('active');
+            expect(container.querySelector('[data-testid="anuga-playback-particles-toggle"]').className).toContain('active');
+            // and the knobs kept their values too
+            expect(Number(container.querySelector('[data-testid="anuga-playback-flowviz-density"]').value)).toBe(state.arrowDensity);
+            expect(Number(container.querySelector('[data-testid="anuga-playback-particles-density"]').value)).toBe(state.particleDensity);
+        });
+
+        it('dispatches onSetOverlay(key, value) for every knob', () => {
+            const onSetOverlay = expect.createSpy();
+            render({ playback: loaded({ flowVizEnabled: true, particlesEnabled: true }), onSetOverlay });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]'));
+            expect(onSetOverlay.calls[0].arguments).toEqual(['flowVizEnabled', false]);
+            TestUtils.Simulate.change(container.querySelector('[data-testid="anuga-playback-flowviz-density"]'), { target: { value: '80' } });
+            expect(onSetOverlay.calls[1].arguments).toEqual(['arrowDensity', 80]);
+            TestUtils.Simulate.change(container.querySelector('[data-testid="anuga-playback-particles-exaggeration"]'), { target: { value: '2.5' } });
+            expect(onSetOverlay.calls[2].arguments).toEqual(['particleSpeedExaggeration', 2.5]);
+        });
+
+        it('AC7 — every slider renders its current numeric value adjacent to it', () => {
+            render({ playback: loaded({ flowVizEnabled: true, particlesEnabled: true }) });
+            ['anuga-playback-opacity', 'anuga-playback-flowviz-density', 'anuga-playback-flowviz-scale',
+                'anuga-playback-particles-density', 'anuga-playback-particles-exaggeration'].forEach((testid) => {
+                const valueEl = container.querySelector(`[data-testid="${testid}-value"]`);
+                expect(valueEl).toBeTruthy();
+                expect(valueEl.textContent.length > 0).toBe(true);
+            });
         });
     });
 });

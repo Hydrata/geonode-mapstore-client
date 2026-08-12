@@ -38,6 +38,17 @@ export const PLAYBACK_SET_LEGEND_OPEN = 'PLAYBACK:SET_LEGEND_OPEN';
 // used it since W6.1) — this only adds the missing "let the operator turn
 // it on for a live run" path, reusing the same option end to end.
 export const PLAYBACK_SET_WIREFRAME = 'PLAYBACK:SET_WIREFRAME';
+// TASK-2744 (AC3/AC11/AC4, epic 2706) — three more render controls promoted
+// to controller state for the SAME reason wireframe was (see the note above):
+// they must survive this bar's own mount/unmount. The bar is unmounted every
+// time the SimpleView menu group leaves 'Results' (anugaContainer.js:431), and
+// while flow-viz/particles lived in component-local state that unmount silently
+// desynced the button from the layer — measured on map 1461: after a remount
+// the layer still had flowVizEnabled true while the button had lost its
+// `active` class.
+export const PLAYBACK_SET_OPACITY = 'PLAYBACK:SET_OPACITY';
+export const PLAYBACK_SET_OVERLAY = 'PLAYBACK:SET_OVERLAY';
+export const PLAYBACK_SET_COLOR_MAX = 'PLAYBACK:SET_COLOR_MAX';
 
 /**
  * Start (or restart) a playback controller for one run. `layerId` is the
@@ -124,4 +135,39 @@ export function playbackSetLegendOpen(open) {
 
 export function playbackSetWireframe(enabled) {
     return { type: PLAYBACK_SET_WIREFRAME, enabled: !!enabled };
+}
+
+/**
+ * TASK-2744 AC3 — layer opacity, 0..1.
+ *
+ * Was a hardcoded `opacity: 0.85` in playbackInitEpic's addLayer block with no
+ * control anywhere, so the mesh sat as an 85%-opaque sheet over the ENTIRE
+ * domain (dry cells included) and you could not check the water against the
+ * terrain being flooded.
+ */
+export function playbackSetOpacity(opacity) {
+    return { type: PLAYBACK_SET_OPACITY, opacity };
+}
+
+/**
+ * TASK-2744 AC11 — a flow-viz / particle overlay knob, by name.
+ *
+ * One action for all six knobs (flowVizEnabled, arrowDensity, arrowScale,
+ * particlesEnabled, particleDensity, particleSpeedExaggeration) because they
+ * share one reducer rule: clamp nothing, just record. The reducer whitelists
+ * the key so a typo cannot inject arbitrary fields into controller state.
+ */
+export function playbackSetOverlay(key, value) {
+    return { type: PLAYBACK_SET_OVERLAY, key, value };
+}
+
+/**
+ * TASK-2744 AC4 — operator override for the colour ramp's upper bound, per
+ * quantity. `value = null` restores the automatic (store-derived) maximum.
+ *
+ * Keyed by quantity so a depth override in metres is never reused as a speed
+ * override in m/s when the picker changes.
+ */
+export function playbackSetColorMax(quantity, value) {
+    return { type: PLAYBACK_SET_COLOR_MAX, quantity, value };
 }

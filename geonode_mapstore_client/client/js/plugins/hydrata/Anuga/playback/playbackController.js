@@ -31,6 +31,10 @@
 import { computeMixFactor } from './playbackMeshGeometry';
 import { availableQuantityIds } from './playbackDerivedQuantities';
 import { isUsableChunkLength } from './playbackChunkShape';
+// TASK-2744 AC11 — the overlay knobs' defaults, now that they are controller
+// state rather than the control bar's component-local state.
+import { DEFAULT_ARROW_DENSITY_PX, DEFAULT_ARROW_SCALE } from './playbackFlowViz';
+import { DEFAULT_PARTICLE_GRID, DEFAULT_SPEED_EXAGGERATION } from './playbackParticles';
 import {
     PLAYBACK_INIT,
     PLAYBACK_MANIFEST_LOADED,
@@ -47,7 +51,10 @@ import {
     PLAYBACK_SET_IDENTIFY_ARMED,
     PLAYBACK_SET_IDENTIFY_RESULT,
     PLAYBACK_SET_LEGEND_OPEN,
-    PLAYBACK_SET_WIREFRAME
+    PLAYBACK_SET_WIREFRAME,
+    PLAYBACK_SET_OPACITY,
+    PLAYBACK_SET_OVERLAY,
+    PLAYBACK_SET_COLOR_MAX
 } from './actions/playbackActions';
 
 export const PLAYBACK_STATUS = Object.freeze({
@@ -65,6 +72,9 @@ export const PLAYBACK_STATUS = Object.freeze({
 export const DEFAULT_SPEED = 1;
 export const MIN_SPEED = 0.25;
 export const MAX_SPEED = 8;
+// TASK-2744 AC3 — the starting alpha. Kept at the historical 0.85 so the
+// default look is unchanged; what changes is that it is now movable.
+export const DEFAULT_PLAYBACK_OPACITY = 0.85;
 /**
  * The window BEFORE any store is known. TASK-2708 (W1.2, epic 2706): this is
  * no longer the playback window — once a manifest lands, both the radius and
@@ -128,8 +138,45 @@ export function createInitialPlaybackState() {
         identifyResult: null,
         legendOpen: false,
         // TASK-2656d (W6.5) — real wireframe toggle, default OFF (AC).
-        wireframe: false
+        wireframe: false,
+        // TASK-2744 AC3 — layer opacity. Controller state, not a hardcoded
+        // epic literal, so a control can move it AND it survives the bar's
+        // own unmount/remount.
+        opacity: DEFAULT_PLAYBACK_OPACITY,
+        // TASK-2744 AC4 — per-quantity operator override of the colour ramp's
+        // upper bound; {} means "use the store-derived maximum for every
+        // quantity". Keyed by quantity so metres never leak onto m/s.
+        colorMaxOverride: {},
+        // TASK-2744 AC11 — the flow-viz / particle overlay knobs, promoted out
+        // of the bar's component-local state for the same reason wireframe was
+        // (TASK-2656d): the bar is UNMOUNTED whenever the SimpleView menu
+        // group leaves 'Results', and local state died with it while the
+        // layer kept the property — the button read OFF over a layer that was
+        // still ON. Measured on map 1461.
+        flowVizEnabled: false,
+        arrowDensity: DEFAULT_ARROW_DENSITY_PX,
+        arrowScale: DEFAULT_ARROW_SCALE,
+        particlesEnabled: false,
+        particleDensity: DEFAULT_PARTICLE_GRID,
+        particleSpeedExaggeration: DEFAULT_SPEED_EXAGGERATION
     };
+}
+
+// TASK-2744 AC11 — the only keys PLAYBACK_SET_OVERLAY may write. A whitelist
+// rather than a blind spread, so a mistyped key is dropped instead of
+// inventing a controller-state field nothing reads.
+const OVERLAY_KEYS = Object.freeze([
+    'flowVizEnabled', 'arrowDensity', 'arrowScale',
+    'particlesEnabled', 'particleDensity', 'particleSpeedExaggeration'
+]);
+
+/** TASK-2744 AC3 — clamp to a real 0..1 alpha; ignore garbage. */
+export function clampOpacity(opacity, fallback = DEFAULT_PLAYBACK_OPACITY) {
+    const n = Number(opacity);
+    if (!isFinite(n)) {
+        return fallback;
+    }
+    return Math.min(1, Math.max(0, n));
 }
 
 export function clampSpeed(speed) {
@@ -242,6 +289,21 @@ function depthValidMax(quantization) {
 const HAZARD_COLOR_MAX = 5;
 
 /**
+ * The renderer's `colorMin` uniform — non-zero ONLY for `stage` (a datum-
+ * absolute elevation field, so its per-run visible range does not start at
+ * zero the way every other quantity's does). Every other quantity is 0.
+ * @param {string} quantity
+ * @param {{elevationMin?: number}} [context]
+ * @returns {number}
+ */
+export function colorMinForQuantity(quantity, context = {}) {
+    if (quantity === 'stage') {
+        return (context && context.elevationMin) || 0;
+    }
+    return 0;
+}
+
+/**
  * The renderer's `colorMax` uniform for the active quantity (TASK-2629,
  * W4.1 extends this from {depth,speed} to all eight), derived from the
  * manifest's own quantization ranges / store attrs — never a hardcoded
@@ -257,6 +319,18 @@ const HAZARD_COLOR_MAX = 5;
  * @returns {number}
  */
 export function colorMaxForQuantity(quantity, quantization, context = {}) {
+    // TASK-2744 AC4 — an operator override wins over every store-derived
+    // branch below. Honoured HERE, at the single shared derivation point, so
+    // the renderer uniform (playbackEpics' baseProps) and the legend
+    // (PlaybackLegend's own call) can never disagree about the active range.
+    //
+    // The default for `depth` is the store's `valid_max` — 16.86 m on run
+    // 1328 — which squeezes every urban street depth (0.1-1.0 m) into the
+    // bottom 6% of the ramp, i.e. into one indistinguishable colour band.
+    const override = context && context.colorMaxOverride;
+    if (isFinite(override) && override > colorMinForQuantity(quantity, context)) {
+        return Number(override);
+    }
     if (quantity === 'hazard') {
         return HAZARD_COLOR_MAX;
     }
@@ -284,21 +358,6 @@ export function colorMaxForQuantity(quantity, quantization, context = {}) {
         return velocityAbsMax(quantization);
     }
     return depthValidMax(quantization);
-}
-
-/**
- * The renderer's `colorMin` uniform — non-zero ONLY for `stage` (a datum-
- * absolute elevation field, so its per-run visible range does not start at
- * zero the way every other quantity's does). Every other quantity is 0.
- * @param {string} quantity
- * @param {{elevationMin?: number}} [context]
- * @returns {number}
- */
-export function colorMinForQuantity(quantity, context = {}) {
-    if (quantity === 'stage') {
-        return (context && context.elevationMin) || 0;
-    }
-    return 0;
 }
 
 function requiredWindowFor(state, currentTimestep) {
@@ -525,6 +584,30 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
     }
     case PLAYBACK_SET_WIREFRAME: {
         return { ...state, wireframe: !!action.enabled };
+    }
+    // TASK-2744 AC3 — operator-controlled layer opacity.
+    case PLAYBACK_SET_OPACITY: {
+        return { ...state, opacity: clampOpacity(action.opacity, state.opacity) };
+    }
+    // TASK-2744 AC11 — a flow-viz/particle knob. Whitelisted key, so an
+    // unknown one is a no-op rather than a new controller-state field.
+    case PLAYBACK_SET_OVERLAY: {
+        if (!OVERLAY_KEYS.includes(action.key)) {
+            return state;
+        }
+        return { ...state, [action.key]: action.value };
+    }
+    // TASK-2744 AC4 — per-quantity colour-ramp override; null/undefined or a
+    // non-finite value CLEARS the override and restores the store-derived max.
+    case PLAYBACK_SET_COLOR_MAX: {
+        const quantity = action.quantity || state.quantity;
+        const next = { ...(state.colorMaxOverride || {}) };
+        if (action.value === null || action.value === undefined || !isFinite(action.value)) {
+            delete next[quantity];
+        } else {
+            next[quantity] = Number(action.value);
+        }
+        return { ...state, colorMaxOverride: next };
     }
     case PLAYBACK_RESET: {
         return createInitialPlaybackState();

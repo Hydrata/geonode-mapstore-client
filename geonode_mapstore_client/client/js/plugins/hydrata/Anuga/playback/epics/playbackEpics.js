@@ -71,7 +71,12 @@ import { QUANTITY_ARRAYS, resolveChunkLengthT } from '../playbackChunkShape';
 import { computePlaybackMemoryPlan, readNodeCount } from '../playbackMemoryPolicy';
 import { reprojectMeshVertices } from '../playbackReproject';
 import { sampleFieldAtPoint } from '../playbackIdentify';
-import { timestepToChunkIndex, colorMaxForQuantity, colorMinForQuantity } from '../playbackController';
+import {
+    timestepToChunkIndex,
+    colorMaxForQuantity,
+    colorMinForQuantity,
+    DEFAULT_PLAYBACK_OPACITY
+} from '../playbackController';
 import { mixDtSeconds } from '../playbackDerivedQuantities';
 import {
     PLAYBACK_INIT,
@@ -85,6 +90,9 @@ import {
     PLAYBACK_RESET,
     PLAYBACK_SET_IDENTIFY_ARMED,
     PLAYBACK_SET_WIREFRAME,
+    PLAYBACK_SET_OPACITY,
+    PLAYBACK_SET_OVERLAY,
+    PLAYBACK_SET_COLOR_MAX,
     playbackManifestLoaded,
     playbackManifestFailed,
     playbackChunksBuffered,
@@ -110,11 +118,6 @@ export const TICK_INTERVAL_MS = 50;
 // The `owner` every playback overlay is registered under, so a teardown can
 // remove the whole group without knowing individual layer ids.
 export const PLAYBACK_LAYER_OWNER = 'anuga-playback';
-
-// TASK-2744 AC3 — the starting opacity. Was an inline `0.85` that no control
-// could move, which buried the terrain the run is flooding. Still the
-// default; the difference is that the bar can now change it.
-export const DEFAULT_PLAYBACK_OPACITY = 0.85;
 
 // runId -> PlaybackChunkFetcher. Exported so a test (or a future "switch
 // run" cleanup path) can inspect/clear it without reaching into closures.
@@ -421,7 +424,14 @@ export function playbackSyncLayerEpic(action$, store) {
         // trigger to ride (TICK only fires while playing) — without this,
         // the toggle would silently wait for the next play/seek/quantity
         // change to actually reach the layer.
-        PLAYBACK_SET_WIREFRAME
+        PLAYBACK_SET_WIREFRAME,
+        // TASK-2744 (AC3/AC4/AC11) — same reasoning as SET_WIREFRAME above:
+        // dragging opacity, moving the colour-ramp max or toggling an overlay
+        // while PAUSED has no other trigger to ride, so without these the
+        // change would silently wait for the next play/seek/quantity switch.
+        PLAYBACK_SET_OPACITY,
+        PLAYBACK_SET_OVERLAY,
+        PLAYBACK_SET_COLOR_MAX
     );
     return trigger$.switchMap(() => {
         const pb = store.getState().anugaPlayback;
@@ -433,13 +443,31 @@ export function playbackSyncLayerEpic(action$, store) {
             return Rx.Observable.empty();
         }
         const nextTimestepForDt = pb.nTime ? Math.min(pb.currentTimestep + 1, pb.nTime - 1) : pb.currentTimestep + 1;
-        const context = { elevationMin: pb.elevationMin, elevationMax: pb.elevationMax };
+        const context = {
+            elevationMin: pb.elevationMin,
+            elevationMax: pb.elevationMax,
+            // TASK-2744 AC4 — the operator's ramp override for the ACTIVE
+            // quantity, fed into the same shared derivation the legend uses.
+            colorMaxOverride: (pb.colorMaxOverride || {})[pb.quantity]
+        };
         const baseProps = {
             mesh: getLayerMesh(pb),
             mixT: pb.mixT,
             colorMode: pb.quantity,
             colorMax: colorMaxForQuantity(pb.quantity, pb.quantization, context),
             colorMin: colorMinForQuantity(pb.quantity, context),
+            // TASK-2744 AC3 — opacity is controller state now, so it is
+            // re-asserted on every sync and survives a bar remount.
+            opacity: pb.opacity,
+            // TASK-2744 AC11 — the overlay knobs likewise. They used to reach
+            // the layer only via the bar's own changeLayerProperties call,
+            // which is exactly why an unmount desynced them.
+            flowVizEnabled: !!pb.flowVizEnabled,
+            arrowDensity: pb.arrowDensity,
+            arrowScale: pb.arrowScale,
+            particlesEnabled: !!pb.particlesEnabled,
+            particleDensity: pb.particleDensity,
+            particleSpeedExaggeration: pb.particleSpeedExaggeration,
             // TASK-2629 (W4.1) — the store's OWN wet floor/g/rho_w (never
             // hardcoded — read from schema_metadata at manifest-load) plus
             // the frame-mixed dt(t) in SECONDS for the Courant formula.

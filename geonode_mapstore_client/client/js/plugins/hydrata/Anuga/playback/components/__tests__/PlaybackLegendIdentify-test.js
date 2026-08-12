@@ -44,6 +44,38 @@ describe('PlaybackLegend — TASK-2628', () => {
         expect(rows.length).toBe(VELOCITY_SLD_STOPS.length);
     });
 
+    // TASK-2744 (AC4, epic 2706) — "PlaybackLegend's rendered stops track the
+    // new value". RED on HEAD: the legend recomputed colorMax from the store's
+    // quantization ONLY (there was no override to read), so its last label was
+    // frozen at the SLD table's top stop no matter what the shader was
+    // actually saturating at.
+    describe('colour-ramp override — TASK-2744 AC4', () => {
+        const DEPTH_QUANTIZATION = { depth: { valid_max: 16.862720489501953 } };
+
+        it('clips the stop list to an operator override, and the top label carries the "+"', () => {
+            ReactDOM.render(<PlaybackLegendComponent quantity="depth" quantization={DEPTH_QUANTIZATION} />, container);
+            const before = container.querySelectorAll('[data-testid^="playback-legend-row-"]').length;
+
+            ReactDOM.render(<PlaybackLegendComponent quantity="depth" quantization={DEPTH_QUANTIZATION} colorMaxOverride={1.5} />, container);
+            const rows = [...container.querySelectorAll('[data-testid^="playback-legend-row-"]')];
+            expect(rows.length).toBeLessThan(before);
+
+            // rows render high -> low, so the FIRST rendered row is the top stop
+            const topLabel = rows[0].querySelector('.sv-playback-legend-label').textContent;
+            expect(topLabel).toContain('+');
+            // ...and no rendered stop exceeds the override the shader saturates at
+            rows.forEach((row) => {
+                const q = Number(row.getAttribute('data-testid').replace('playback-legend-row-', ''));
+                expect(q <= 1.5 || q === 0).toBe(true);
+            });
+        });
+
+        it('does NOT clip when there is no override (a fallback colorMax is not a ceiling)', () => {
+            ReactDOM.render(<PlaybackLegendComponent quantity="depth" quantization={null} />, container);
+            expect(container.querySelectorAll('[data-testid^="playback-legend-row-"]').length).toBe(DEPTH_SLD_STOPS.length);
+        });
+    });
+
     it('AC: the tolerance-vs-max-raster note is always visible', () => {
         ReactDOM.render(<PlaybackLegendComponent quantity="depth" quantization={null} />, container);
         expect(container.querySelector('[data-testid="playback-legend-tolerance-note"]')).toBeTruthy();
