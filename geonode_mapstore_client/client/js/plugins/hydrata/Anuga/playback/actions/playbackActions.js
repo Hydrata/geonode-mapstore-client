@@ -94,8 +94,20 @@ export function playbackSetQuantity(quantity) {
     return { type: PLAYBACK_SET_QUANTITY, quantity };
 }
 
-export function playbackReset() {
-    return { type: PLAYBACK_RESET };
+/**
+ * Unload the current run entirely (TASK-2744 AC2, epic 2706).
+ *
+ * The reducer ignores `runId`/`layerId` — it returns
+ * createInitialPlaybackState() unconditionally — but the DISPOSE epic needs
+ * both, and by the time an epic sees PLAYBACK_RESET the reducer has already
+ * run, so `state.anugaPlayback.layerId` is null and the map overlay could
+ * never be found again. Carrying them on the action is what keeps the
+ * reducer pure AND the teardown complete; without it the fetcher, its decoded
+ * chunk cache, the cloned layer mesh and the reprojected-vertex cache all
+ * stay reachable forever (~578 MiB per stale run at prod scale).
+ */
+export function playbackReset(runId = null, layerId = null) {
+    return { type: PLAYBACK_RESET, runId, layerId };
 }
 
 export function playbackSetIdentifyArmed(armed) {

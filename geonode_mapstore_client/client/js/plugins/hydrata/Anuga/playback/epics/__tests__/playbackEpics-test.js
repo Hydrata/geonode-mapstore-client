@@ -23,11 +23,21 @@ import {
     playbackSyncLayerEpic,
     playbackIdentifyEpic,
     playbackSuppressIdentifyEpic,
+    playbackDisposeEpic,
+    disposeRun,
     fetcherRegistry,
+    PLAYBACK_LAYER_OWNER,
     TICK_INTERVAL_MS
 } from '../playbackEpics';
 import { reprojectMeshVertices } from '../../playbackReproject';
-import { ADD_LAYER, CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
+// TASK-2744 AC19 — the playback layer moved off layers.flat onto
+// `additionallayers` as an `overlay`, so ADD_LAYER/CHANGE_LAYER_PROPERTIES are
+// no longer the actions under test.
+import {
+    UPDATE_ADDITIONAL_LAYER,
+    MERGE_OPTIONS_BY_ID,
+    REMOVE_ADDITIONAL_LAYER
+} from '@mapstore/framework/actions/additionallayers';
 import { CHANGE_MAPINFO_STATE } from '@mapstore/framework/actions/mapInfo';
 import { PlaybackChunkFetcher } from '../../playbackChunkFetcher';
 import {
@@ -91,13 +101,17 @@ function makeStore(initialPlaybackState, extra = {}) {
     // NOT `state.playback` — MapStore2 core owns that key for its own
     // Timeline plugin; the real app registers this slice as `anugaPlayback`
     // (see playbackEpics.js's header note for how the collision was found).
-    let state = { anugaPlayback: initialPlaybackState, layers: { flat: [] }, ...extra };
+    let state = { anugaPlayback: initialPlaybackState, layers: { flat: [] }, additionallayers: [], ...extra };
     return {
         getState: () => state,
         // test-only setter so a test can advance playback state between
         // dispatches without re-implementing the reducer.
         __setPlayback: (pb) => { state = { ...state, anugaPlayback: pb }; },
-        __setLayers: (flat) => { state = { ...state, layers: { flat } }; }
+        __setLayers: (flat) => { state = { ...state, layers: { flat } }; },
+        // TASK-2744 AC19 — the playback layer is an `additionallayers`
+        // overlay now, so the epics probe/read HERE, not in layers.flat.
+        // `options` is the layer object the overlay selector passes through.
+        __setAdditionalLayers: (additionallayers) => { state = { ...state, additionallayers }; }
     };
 }
 
@@ -117,7 +131,9 @@ describe('playbackEpics', () => {
                 if (seen.some((x) => x.type === PLAYBACK_MANIFEST_LOADED || x.type === PLAYBACK_MANIFEST_FAILED)) {
                     restore();
                     try {
-                        expect(seen.some((a2) => a2.type === ADD_LAYER && a2.layer.id === 'layer-1')).toBe(true);
+                        expect(seen.some((a2) => a2.type === UPDATE_ADDITIONAL_LAYER && a2.id === 'layer-1'
+                            && a2.actionType === 'overlay' && a2.owner === PLAYBACK_LAYER_OWNER
+                            && a2.options.id === 'layer-1' && a2.options.type === 'anuga-playback')).toBe(true);
                         const loaded = seen.find((a2) => a2.type === PLAYBACK_MANIFEST_LOADED);
                         expect(loaded).toBeTruthy();
                         expect(loaded.nTime).toBe(FIXTURE_MESH.nTime);
@@ -148,17 +164,17 @@ describe('playbackEpics', () => {
             subject.next(playbackInit(9, 'layer-9', MANIFEST_URL));
         });
 
-        it('skips ADD_LAYER when the target layer already exists on the map', (done) => {
+        it('skips UPDATE_ADDITIONAL_LAYER when the target overlay already exists on the map', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const store = makeStore(createInitialPlaybackState());
-            store.__setLayers([{ id: 'layer-1', type: 'anuga-playback' }]);
+            store.__setAdditionalLayers([{ id: 'layer-1', owner: PLAYBACK_LAYER_OWNER, actionType: 'overlay', options: { id: 'layer-1', type: 'anuga-playback' } }]);
             const { subject, action$ } = makeActionsSubject();
             const seen = [];
             playbackInitEpic(action$, store).subscribe((a) => {
                 seen.push(a);
                 if (a.type === PLAYBACK_MANIFEST_LOADED) {
                     restore();
-                    expect(seen.some((a2) => a2.type === ADD_LAYER)).toBe(false);
+                    expect(seen.some((a2) => a2.type === UPDATE_ADDITIONAL_LAYER)).toBe(false);
                     done();
                 }
             }, done);
@@ -237,7 +253,7 @@ describe('playbackEpics', () => {
     });
 
     describe('playbackSyncLayerEpic', () => {
-        it('dispatches changeLayerProperties (CHANGE_LAYER_PROPERTIES) with frame0/frame1/mixT/colorMode/colorMax on a new timestep', (done) => {
+        it('dispatches mergeOptionsById (MERGE_OPTIONS_BY_ID) with frame0/frame1/mixT/colorMode/colorMax on a new timestep', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
             fetcherRegistry.set(1, fetcher);
@@ -253,20 +269,20 @@ describe('playbackEpics', () => {
             playbackSyncLayerEpic(action$, store).subscribe((a) => {
                 restore();
                 try {
-                    expect(a.type).toBe(CHANGE_LAYER_PROPERTIES);
-                    expect(a.layer).toBe('layer-1');
+                    expect(a.type).toBe(MERGE_OPTIONS_BY_ID);
+                    expect(a.id).toBe('layer-1');
                     // NOT the same reference (TASK-2628 live-verify fix): the
                     // layer's worker reprojection transfers/detaches
                     // nodeX/nodeY's buffers, so the epic hands it a CLONE and
                     // keeps `mesh` (== pb.mesh, Redux's own copy) intact for
                     // any other reader (e.g. playbackIdentifyEpic).
-                    expect(a.newProperties.mesh).toNotBe(mesh);
-                    expect(a.newProperties.mesh.nodeX.length).toBe(mesh.nodeX.length);
+                    expect(a.options.mesh).toNotBe(mesh);
+                    expect(a.options.mesh.nodeX.length).toBe(mesh.nodeX.length);
                     expect(mesh.nodeX.length).toBe(FIXTURE_MESH.nNode); // pb.mesh itself untouched
-                    expect(a.newProperties.mixT).toBe(0.25);
-                    expect(a.newProperties.colorMode).toBe('depth');
-                    expect(a.newProperties.frame0.depth.length).toBe(FIXTURE_MESH.nNode);
-                    expect(a.newProperties.frame1.depth.length).toBe(FIXTURE_MESH.nNode);
+                    expect(a.options.mixT).toBe(0.25);
+                    expect(a.options.colorMode).toBe('depth');
+                    expect(a.options.frame0.depth.length).toBe(FIXTURE_MESH.nNode);
+                    expect(a.options.frame1.depth.length).toBe(FIXTURE_MESH.nNode);
                     done();
                 } catch (e) {
                     done(e);
@@ -294,9 +310,9 @@ describe('playbackEpics', () => {
                 if (seen.length === 2) {
                     restore();
                     try {
-                        expect(seen[1].newProperties.frame0).toBe(undefined);
-                        expect(seen[1].newProperties.frame1).toBe(undefined);
-                        expect(seen[1].newProperties.mixT).toBe(0.6);
+                        expect(seen[1].options.frame0).toBe(undefined);
+                        expect(seen[1].options.frame1).toBe(undefined);
+                        expect(seen[1].options.mixT).toBe(0.6);
                         done();
                     } catch (e) {
                         done(e);
@@ -332,11 +348,11 @@ describe('playbackEpics', () => {
             playbackSyncLayerEpic(action$, store).subscribe((a) => {
                 restore();
                 try {
-                    expect(a.newProperties.wetThreshold).toBe(0.005);
-                    expect(a.newProperties.g).toBe(9.8);
-                    expect(a.newProperties.rhoW).toBe(1023);
-                    expect(a.newProperties.colorMin).toBe(1); // stage's own elevationMin rescale
-                    expect(typeof a.newProperties.dt).toBe('number');
+                    expect(a.options.wetThreshold).toBe(0.005);
+                    expect(a.options.g).toBe(9.8);
+                    expect(a.options.rhoW).toBe(1023);
+                    expect(a.options.colorMin).toBe(1); // stage's own elevationMin rescale
+                    expect(typeof a.options.dt).toBe('number');
                     done();
                 } catch (e) {
                     done(e);
@@ -362,7 +378,7 @@ describe('playbackEpics', () => {
                 if (seen.length === 2) {
                     restore();
                     try {
-                        expect(seen[1].newProperties.mesh).toBe(seen[0].newProperties.mesh);
+                        expect(seen[1].options.mesh).toBe(seen[0].options.mesh);
                         done();
                     } catch (e) {
                         done(e);
@@ -380,7 +396,7 @@ describe('playbackEpics', () => {
         // reads the controller's own `wireframe` field, and a bare toggle
         // (no tick/seek/quantity change) must still reach the layer since
         // it's the only trigger available while PAUSED.
-        it('passes pb.wireframe through to changeLayerProperties, and SET_WIREFRAME alone (no tick) triggers a dispatch', (done) => {
+        it('passes pb.wireframe through to mergeOptionsById, and SET_WIREFRAME alone (no tick) triggers a dispatch', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
             fetcherRegistry.set(5, fetcher);
@@ -397,8 +413,8 @@ describe('playbackEpics', () => {
             playbackSyncLayerEpic(action$, store).subscribe((a) => {
                 restore();
                 try {
-                    expect(a.type).toBe(CHANGE_LAYER_PROPERTIES);
-                    expect(a.newProperties.wireframe).toBe(true);
+                    expect(a.type).toBe(MERGE_OPTIONS_BY_ID);
+                    expect(a.options.wireframe).toBe(true);
                     done();
                 } catch (e) {
                     done(e);
@@ -467,7 +483,7 @@ describe('playbackEpics', () => {
         function makeIdentifyState({ armed = true } = {}) {
             return {
                 anugaPlayback: { ...createInitialPlaybackState(), identifyArmed: armed, mesh, layerId: 'layer-id', currentTimestep: 0, quantity: 'depth' },
-                layers: { flat: [{ id: 'layer-id', frame0, frame1, mixT: 0 }] }
+                additionallayers: [{ id: 'layer-id', owner: PLAYBACK_LAYER_OWNER, actionType: 'overlay', options: { id: 'layer-id', frame0, frame1, mixT: 0 } }]
             };
         }
 
@@ -535,7 +551,7 @@ describe('playbackEpics', () => {
                     layerId: 'layer-id', currentTimestep: 0, quantity: 'depth',
                     g: 9.8, rhoW: 1023, dtMs: Float32Array.from([NaN, 1000]), hasDt: true
                 },
-                layers: { flat: [{ id: 'layer-id', frame0, frame1, mixT: 0 }] }
+                additionallayers: [{ id: 'layer-id', owner: PLAYBACK_LAYER_OWNER, actionType: 'overlay', options: { id: 'layer-id', frame0, frame1, mixT: 0 } }]
             };
             const store = { getState: () => state };
             const { subject, action$ } = makeActionsSubject();
@@ -579,7 +595,7 @@ describe('playbackEpics', () => {
                 // Now the state a refused frame load leaves behind: playhead at
                 // 7, layer still holding the timestep-2 frames.
                 store.__setPlayback({ ...syncPb, mesh, identifyArmed: true, currentTimestep: 7 });
-                store.__setLayers([{ id: 'layer-77', frame0, frame1, mixT: 0 }]);
+                store.__setAdditionalLayers([{ id: 'layer-77', owner: PLAYBACK_LAYER_OWNER, actionType: 'overlay', options: { id: 'layer-77', frame0, frame1, mixT: 0 } }]);
                 const { x, y } = reprojectMeshVertices(mesh.nodeX, mesh.nodeY, mesh);
                 playbackIdentifyEpic(action$, store).subscribe((a) => {
                     try {
@@ -651,6 +667,87 @@ describe('playbackEpics', () => {
                     done(e);
                 }
             }, 20);
+        });
+    });
+
+    // TASK-2744 (AC2, epic 2706) — THE RUN MUST BE UNLOADABLE.
+    //
+    // RED on HEAD: `playbackReset()` had zero dispatchers in client/js outside
+    // playbackController-test.js, and `fetcherRegistry` was `.set` at INIT,
+    // read at the buffer/sync epics, and NEVER `.delete`d — so every stale run
+    // stayed fully resident (~578 MiB at prod scale) and IDLE, the only status
+    // that re-renders the manifest loader, was unreachable.
+    describe('playbackDisposeEpic + disposeRun — TASK-2744 AC2', () => {
+        function fakeFetcher() {
+            let cleared = 0;
+            return { cache: { clear: () => { cleared++; }, get clearedCount() { return cleared; } } };
+        }
+
+        it('disposeRun evicts the run from fetcherRegistry and clears its chunk cache', () => {
+            const fetcher = fakeFetcher();
+            fetcherRegistry.set('run-a', fetcher);
+            expect(fetcherRegistry.size).toBe(1);
+
+            const disposed = disposeRun('run-a');
+
+            expect(disposed).toBe(true);
+            expect(fetcherRegistry.size).toBe(0);
+            expect(fetcherRegistry.has('run-a')).toBe(false);
+            expect(fetcher.cache.clearedCount).toBe(1);
+        });
+
+        it('disposeRun is a no-op for a falsy runId or the run being kept', () => {
+            fetcherRegistry.set('run-keep', fakeFetcher());
+            expect(disposeRun(null)).toBe(false);
+            expect(disposeRun('run-keep', 'run-keep')).toBe(false);
+            expect(fetcherRegistry.has('run-keep')).toBe(true);
+        });
+
+        it('PLAYBACK_RESET frees the fetcher and removes the map overlay', (done) => {
+            fetcherRegistry.set('run-b', fakeFetcher());
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackDisposeEpic(action$).subscribe((a) => seen.push(a));
+            // The reducer has already returned initial state by the time an
+            // epic sees PLAYBACK_RESET, so runId/layerId ride the ACTION.
+            subject.next({ type: 'PLAYBACK:RESET', runId: 'run-b', layerId: 'layer-b' });
+            setTimeout(() => {
+                try {
+                    expect(fetcherRegistry.has('run-b')).toBe(false);
+                    expect(fetcherRegistry.size).toBe(0);
+                    expect(seen.length).toBe(1);
+                    expect(seen[0].type).toBe(REMOVE_ADDITIONAL_LAYER);
+                    expect(seen[0].id).toBe('layer-b');
+                    expect(seen[0].owner).toBe(PLAYBACK_LAYER_OWNER);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 20);
+        });
+
+        it('loading a SECOND store does not leave the first fetcher alive', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const first = fakeFetcher();
+            fetcherRegistry.set(42, first);
+            const store = makeStore({ ...createInitialPlaybackState(), runId: 42 });
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type === PLAYBACK_MANIFEST_LOADED) {
+                    restore();
+                    try {
+                        // the FIRST run is gone, the second is the only entry
+                        expect(fetcherRegistry.has(42)).toBe(false);
+                        expect(first.cache.clearedCount).toBe(1);
+                        expect(fetcherRegistry.has(43)).toBe(true);
+                        expect(fetcherRegistry.size).toBe(1);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }
+            }, done);
+            subject.next(playbackInit(43, 'layer-2', MANIFEST_URL));
         });
     });
 });

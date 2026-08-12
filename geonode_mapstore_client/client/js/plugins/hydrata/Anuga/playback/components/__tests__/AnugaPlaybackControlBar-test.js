@@ -173,4 +173,48 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(btn.className).toNotContain('active');
         });
     });
+
+    // TASK-2744 (AC2, epic 2706) — THE RUN MUST BE UNLOADABLE.
+    // RED on HEAD: there was NO control anywhere on the bar that dispatched
+    // playbackReset(), so a loaded run could never be released — measured live
+    // on map 1461, `[data-testid="anuga-playback-unload"]` was null while
+    // status was 'ready'.
+    describe('Unload — TASK-2744 AC2', () => {
+        function loadedState(extra = {}) {
+            return {
+                ...createInitialPlaybackState(),
+                status: PLAYBACK_STATUS.READY,
+                nTime: 31,
+                runId: 'run-77',
+                layerId: 'layer-77',
+                ...extra
+            };
+        }
+
+        it('renders a visible Unload control whenever a run is active', () => {
+            render({ playback: loadedState() });
+            const btn = container.querySelector('[data-testid="anuga-playback-unload"]');
+            expect(btn).toBeTruthy();
+            // an accessible name, not a bare glyph (AC7 applies to it too)
+            expect(btn.getAttribute('title')).toBeTruthy();
+        });
+
+        it('dispatches onReset(runId, layerId) so the epic can free the fetcher AND remove the overlay', () => {
+            const onReset = expect.createSpy();
+            render({ playback: loadedState(), onReset });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-unload"]'));
+            expect(onReset.calls.length).toBe(1);
+            expect(onReset.calls[0].arguments[0]).toBe('run-77');
+            expect(onReset.calls[0].arguments[1]).toBe('layer-77');
+        });
+
+        it('after a reset the component returns to IDLE and shows the manifest loader again', () => {
+            render({ playback: loadedState() });
+            expect(container.querySelector('[data-testid="anuga-playback-manifest-input"]')).toBe(null);
+            // what the reducer's PLAYBACK_RESET case actually produces
+            render({ playback: createInitialPlaybackState() });
+            expect(container.querySelector('[data-testid="anuga-playback-manifest-input"]')).toBeTruthy();
+            expect(container.querySelector('[data-testid="anuga-playback-unload"]')).toBe(null);
+        });
+    });
 });

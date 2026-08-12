@@ -27,7 +27,32 @@
  * would have shipped invisibly. `anugaPlayback` avoids it entirely.
  */
 import Rx from 'rxjs';
-import { addLayer, changeLayerProperties } from '@mapstore/framework/actions/layers';
+// TASK-2744 (AC19, epic 2706) — the playback layer is EPHEMERAL VIEW STATE,
+// not map content, so it lives on `additionallayers` as an `overlay` rather
+// than in `layers.flat`. Three defects follow from the old addLayer():
+//   1. ADD_LAYER files a layer with no `group` under DEFAULT_GROUP_ID
+//      ('Default', LayersUtils.js:36) and materialises a real group node, so
+//      SimpleView's "one button per non-empty group"
+//      (simpleViewContainer.js:376-383) grew a FIFTH menu button titled
+//      "Default"; its pane is empty because simpleViewMenuRows.js filters on
+//      `layer.group`, which ADD_LAYER never stamps onto the layer object —
+//      measured live on map 1461: 4 buttons -> 5, pane reads "No datasets
+//      here yet...".
+//   2. MapUtils.saveMapConfiguration maps over `state.layers.flat` with NO
+//      filtering (MapUtils.js:574-590) and LayersUtils.saveLayer has no
+//      opt-out flag, so the layer was persisted into the saved map and
+//      survived a fresh load.
+//   3. Nothing ever removed it.
+// `layerSelectorWithMarkers` (selectors/layers.js:44-63) concats
+// actionType 'overlay' options onto the rendered layer array, and the Map
+// plugin renders from exactly that selector (plugins/map/selector.js), so the
+// layer still draws — it simply never enters layers.flat, the groups tree,
+// the TOC or the saved map. Same posture StreetView/Isochrone/Itinerary use.
+import {
+    updateAdditionalLayer,
+    mergeOptionsById,
+    removeAdditionalLayer
+} from '@mapstore/framework/actions/additionallayers';
 import { CLICK_ON_MAP } from '@mapstore/framework/actions/map';
 // TASK-2656c (W6.5, epic 2618) — suppressing the generic GetFeatureInfo
 // popup while playback Inspect is armed. `changeMapInfoState` is the SAME
@@ -82,13 +107,74 @@ export const TICK_INTERVAL_MS = 50;
 // fallback silently turned the plan's legitimate radius of ZERO back into 2,
 // which is the whole defect this task removes.
 
+// The `owner` every playback overlay is registered under, so a teardown can
+// remove the whole group without knowing individual layer ids.
+export const PLAYBACK_LAYER_OWNER = 'anuga-playback';
+
+// TASK-2744 AC3 — the starting opacity. Was an inline `0.85` that no control
+// could move, which buried the terrain the run is flooding. Still the
+// default; the difference is that the bar can now change it.
+export const DEFAULT_PLAYBACK_OPACITY = 0.85;
+
 // runId -> PlaybackChunkFetcher. Exported so a test (or a future "switch
 // run" cleanup path) can inspect/clear it without reaching into closures.
 export const fetcherRegistry = new Map();
 // runId -> the currentTimestep last used to set frame0/frame1 on the layer,
 // so mixT-only ticks (the common case) dispatch a cheap
-// changeLayerProperties({mixT}) instead of re-fetching/re-uploading frames.
+// mergeOptionsById({mixT}) instead of re-fetching/re-uploading frames.
 const lastSyncedTimestep = new Map();
+
+// runId -> {sourceMesh, layerMesh}. TASK-2628 live-verify catch:
+// AnugaPlaybackLayer's worker reprojection TRANSFERS (detaches)
+// mesh.nodeX/nodeY's ArrayBuffers by design (W2 wave report — the transfer
+// IS the proof the worker ran). Handing `pb.mesh` straight to the layer
+// therefore detaches the SAME object still referenced by Redux state —
+// silently zeroing pb.mesh.nodeX/nodeY for every OTHER reader (e.g.
+// playbackIdentifyEpic's own reprojection). Cloning nodeX/nodeY into a
+// layer-only mesh object (cached by source-mesh reference, so it stays
+// STABLE across repeated dispatches and doesn't defeat the layer's own
+// `newOptions.mesh !== oldOptions.mesh` re-reproject check) lets the layer
+// safely transfer its private copy while `pb.mesh` stays intact forever.
+const layerMeshCache = new Map();
+
+// runId -> {mesh, x3857, y3857} — the reprojected mesh vertices identify
+// needs (the renderer's OWN EPSG:3857 coordinate space, NOT the raw local
+// mesh nodeX/nodeY the fetcher decodes). Reprojecting all ~50k+ vertices on
+// EVERY click would be wasteful; cached per runId, invalidated whenever
+// `pb.mesh` is a different reference (a new run/store loaded).
+const reprojectedMeshCache = new Map();
+
+/**
+ * Drop every off-Redux structure keyed by `runId` (TASK-2744 AC2, epic 2706).
+ *
+ * The four Maps above hold a run's heavyweight state and, before this task,
+ * NONE of them was ever deleted from: `fetcherRegistry` was `.set` at INIT and
+ * read by two epics but never `.delete`d, and the same was true of
+ * `lastSyncedTimestep`, `layerMeshCache` (a full Float32Array clone of
+ * nodeX/nodeY) and `reprojectedMeshCache` (two more Float32Arrays of 3.39M
+ * vertices each). On the prod-scale store that is ~578 MiB retained per stale
+ * run, and the trigger is the ordinary Results-menu scenario switch — so
+ * comparing three runs on an 8 GB laptop killed the tab.
+ *
+ * `keepRunId` lets INIT dispose the PREVIOUS run without touching the one it
+ * is about to create.
+ */
+export function disposeRun(runId, keepRunId = null) {
+    if (!runId || runId === keepRunId) {
+        return false;
+    }
+    const fetcher = fetcherRegistry.get(runId);
+    // Release the decoded-chunk LRU explicitly rather than waiting for the
+    // fetcher itself to become unreachable: the cache is the large half.
+    if (fetcher && fetcher.cache && typeof fetcher.cache.clear === 'function') {
+        fetcher.cache.clear();
+    }
+    fetcherRegistry.delete(runId);
+    lastSyncedTimestep.delete(runId);
+    layerMeshCache.delete(runId);
+    reprojectedMeshCache.delete(runId);
+    return true;
+}
 
 /**
  * The timestep the layer's CURRENT frame0/frame1 were actually loaded for.
@@ -132,18 +218,33 @@ export function playbackInitEpic(action$, store) {
     return action$.ofType(PLAYBACK_INIT).mergeMap((action) => {
         const { runId, layerId, manifestUrl } = action;
         const state = store.getState();
-        const layerExists = ((state.layers && state.layers.flat) || []).some((l) => l.id === layerId);
-        const ensureLayer$ = layerExists ? Rx.Observable.empty() : Rx.Observable.of(addLayer({
-            id: layerId,
-            type: 'anuga-playback',
-            title: `Playback run ${runId}`,
-            visibility: true,
-            opacity: 0.85,
-            wireframe: false,
-            colorMode: 'depth',
-            colorMax: 1,
-            mixT: 0
-        }));
+        // TASK-2744 AC2 — a second INIT must not strand the previous run's
+        // fetcher/caches. Loading a new store used to leave the old
+        // PlaybackChunkFetcher (and its decoded-chunk cache) alive in
+        // fetcherRegistry forever, because nothing ever deleted from it.
+        disposeRun(state.anugaPlayback && state.anugaPlayback.runId, runId);
+        const layerExists = (state.additionallayers || []).some((l) => l.id === layerId);
+        const ensureLayer$ = layerExists ? Rx.Observable.empty() : Rx.Observable.of(updateAdditionalLayer(
+            layerId,
+            PLAYBACK_LAYER_OWNER,
+            'overlay',
+            {
+                // `id` and `type` MUST live inside `options`: the registry's
+                // own `id` is only the lookup key, while the overlay selector
+                // passes `options` through verbatim as the layer object.
+                id: layerId,
+                type: 'anuga-playback',
+                title: `Playback run ${runId}`,
+                visibility: true,
+                // TASK-2744 AC3 — the operator-controllable default, no longer
+                // a hardcoded 0.85 veil over the terrain being flooded.
+                opacity: DEFAULT_PLAYBACK_OPACITY,
+                wireframe: false,
+                colorMode: 'depth',
+                colorMax: 1,
+                mixT: 0
+            }
+        ));
 
         const load$ = Rx.Observable.fromPromise((async() => {
             const manifest = await fetchPlaybackManifest(manifestUrl);
@@ -300,19 +401,6 @@ export function playbackTickEpic(action$) {
  * currentTimestep actually changed; a pure mixT/quantity change within the
  * same bracket dispatches a cheap property-only update every tick.
  */
-// runId -> {sourceMesh, layerMesh}. TASK-2628 live-verify catch:
-// AnugaPlaybackLayer's worker reprojection TRANSFERS (detaches)
-// mesh.nodeX/nodeY's ArrayBuffers by design (W2 wave report — the transfer
-// IS the proof the worker ran). Handing `pb.mesh` straight to the layer
-// therefore detaches the SAME object still referenced by Redux state —
-// silently zeroing pb.mesh.nodeX/nodeY for every OTHER reader (e.g.
-// playbackIdentifyEpic's own reprojection). Cloning nodeX/nodeY into a
-// layer-only mesh object (cached by source-mesh reference, so it stays
-// STABLE across repeated dispatches and doesn't defeat the layer's own
-// `newOptions.mesh !== oldOptions.mesh` re-reproject check) lets the layer
-// safely transfer its private copy while `pb.mesh` stays intact forever.
-const layerMeshCache = new Map();
-
 function getLayerMesh(pb) {
     if (!pb.mesh) {
         return null;
@@ -367,7 +455,7 @@ export function playbackSyncLayerEpic(action$, store) {
             wireframe: !!pb.wireframe
         };
         if (lastSyncedTimestep.get(pb.runId) === pb.currentTimestep) {
-            return Rx.Observable.of(changeLayerProperties(pb.layerId, baseProps));
+            return Rx.Observable.of(mergeOptionsById(pb.layerId, baseProps));
         }
         const nextTimestep = pb.nTime ? Math.min(pb.currentTimestep + 1, pb.nTime - 1) : pb.currentTimestep + 1;
         return Rx.Observable.fromPromise(
@@ -377,7 +465,7 @@ export function playbackSyncLayerEpic(action$, store) {
             ])
         ).map(([frame0, frame1]) => {
             lastSyncedTimestep.set(pb.runId, pb.currentTimestep);
-            return changeLayerProperties(pb.layerId, { ...baseProps, frame0, frame1 });
+            return mergeOptionsById(pb.layerId, { ...baseProps, frame0, frame1 });
         }).catch((error) => {
             // TASK-2706 (W1 review) — a REFUSED frame must never be swallowed.
             // Every fail-loud guard this wave added lands here
@@ -406,13 +494,6 @@ export function playbackSyncLayerEpic(action$, store) {
         });
     });
 }
-
-// runId -> {mesh, x3857, y3857} — the reprojected mesh vertices identify
-// needs (the renderer's OWN EPSG:3857 coordinate space, NOT the raw local
-// mesh nodeX/nodeY the fetcher decodes). Reprojecting all ~50k+ vertices on
-// EVERY click would be wasteful; cached per runId, invalidated whenever
-// `pb.mesh` is a different reference (a new run/store loaded).
-const reprojectedMeshCache = new Map();
 
 function getReprojectedMesh(pb) {
     if (!pb.mesh) {
@@ -448,7 +529,11 @@ export function playbackIdentifyEpic(action$, store) {
             if (!pb || !pb.identifyArmed || !pb.mesh) {
                 return null;
             }
-            const layer = ((state.layers && state.layers.flat) || []).find((l) => l.id === pb.layerId);
+            // TASK-2744 AC19 — the playback layer is an `additionallayers`
+            // overlay now, so its live frames hang off `.options`, not off a
+            // layers.flat entry. Same object the renderer is handed.
+            const entry = (state.additionallayers || []).find((l) => l.id === pb.layerId);
+            const layer = entry && entry.options;
             if (!layer || !layer.frame0 || !layer.frame1) {
                 return null;
             }
@@ -484,6 +569,31 @@ export function playbackIdentifyEpic(action$, store) {
             });
         })
         .filter((a) => !!a);
+}
+
+/**
+ * TASK-2744 (AC2 + AC19, epic 2706) — the teardown half of "the run must be
+ * unloadable".
+ *
+ * `playbackReset()` had ZERO dispatchers anywhere in client/js outside
+ * playbackController-test.js, so PLAYBACK_STATUS.IDLE — the only state that
+ * renders the loader — was unreachable once a run was loaded, and every
+ * off-Redux structure the run allocated stayed reachable for the life of the
+ * tab. The bar now has an Unload control, and this epic is what makes that
+ * control actually free the memory rather than merely blank the UI.
+ *
+ * Reads runId/layerId off the ACTION, not off state: epics run after the
+ * reducer, and PLAYBACK_RESET's reducer case returns
+ * createInitialPlaybackState(), so by now `state.anugaPlayback.layerId` is
+ * already null.
+ */
+export function playbackDisposeEpic(action$) {
+    return action$.ofType(PLAYBACK_RESET).mergeMap((action) => {
+        disposeRun(action.runId);
+        return action.layerId
+            ? Rx.Observable.of(removeAdditionalLayer({ id: action.layerId, owner: PLAYBACK_LAYER_OWNER }))
+            : Rx.Observable.empty();
+    });
 }
 
 // TASK-2656c (W6.5, epic 2618) — module-level, not redux state (a raw

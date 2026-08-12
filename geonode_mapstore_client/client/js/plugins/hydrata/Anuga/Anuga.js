@@ -17,7 +17,10 @@ import {
     playbackIdentifyEpic,
     // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
     // Inspect is armed.
-    playbackSuppressIdentifyEpic
+    playbackSuppressIdentifyEpic,
+    // TASK-2744 (AC2, epic 2706) — free the run's fetcher/caches and remove
+    // the map overlay on Unload.
+    playbackDisposeEpic
 } from './playback/epics/playbackEpics';
 import anugaContainer from "./components/anugaContainer";
 import {
@@ -368,6 +371,11 @@ export default createPlugin('Anuga', {
         playbackIdentifyEpic,
         // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
         // Inspect is armed; restores mapInfo.enabled verbatim on disarm.
-        playbackSuppressIdentifyEpic
+        playbackSuppressIdentifyEpic,
+        // TASK-2744 (AC2, epic 2706) — Unload: drop the fetcher + its decoded
+        // chunk cache + the cloned/reprojected mesh copies, and remove the
+        // map overlay. Without it a scenario switch retained ~578 MiB per
+        // stale run.
+        playbackDisposeEpic
     }
 });

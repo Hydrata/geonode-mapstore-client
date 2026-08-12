@@ -24,7 +24,15 @@ import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
-import { changeLayerProperties } from '@mapstore/framework/actions/layers';
+// TASK-2744 (AC10, epic 2706) — RAW translated strings. `<Message>` renders a
+// <span>, which is invalid inside <option> and impossible in a title=/
+// aria-label= attribute, so those positions resolve through
+// getMessageById + legacy context.messages instead. Same idiom as
+// anugaScenarioMenu.js:1098-1102 and VectorDraw/FormField.js:215-220.
+import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
+// TASK-2744 (AC19) — the playback layer is an `additionallayers` overlay, not
+// a layers.flat entry, so overlay knobs merge onto it by id here.
+import { mergeOptionsById } from '@mapstore/framework/actions/additionallayers';
 
 import { PLAYBACK_STATUS, MIN_SPEED, MAX_SPEED } from '../playbackController';
 import { availableQuantityIds } from '../playbackDerivedQuantities';
@@ -39,7 +47,8 @@ import {
     playbackSetQuantity,
     playbackSetIdentifyArmed,
     playbackSetLegendOpen,
-    playbackSetWireframe
+    playbackSetWireframe,
+    playbackReset
 } from '../actions/playbackActions';
 
 const SPEED_OPTIONS = [0.25, 0.5, 1, 2, 4, 8].filter((s) => s >= MIN_SPEED && s <= MAX_SPEED);
@@ -94,8 +103,31 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         onSetIdentifyArmed: PropTypes.func,
         onSetLegendOpen: PropTypes.func,
         onSetWireframe: PropTypes.func,
-        onChangeLayerProperties: PropTypes.func
+        onChangeLayerProperties: PropTypes.func,
+        onReset: PropTypes.func
     };
+
+    // TASK-2744 AC10 — legacy context, NOT a `state.locale` selector: the
+    // karma specs render this component bare (no <Provider>, no <Localized>),
+    // where `this.context` is simply {} and every label falls back to its
+    // English default. A selector would throw there instead.
+    static contextTypes = {
+        messages: PropTypes.object
+    };
+
+    /**
+     * Resolve a msgId to a raw string, falling back to English.
+     *
+     * getMessageById returns the msgId ITSELF on a lookup miss
+     * (LocaleUtils.js:158-168), so a bare call would render
+     * `hydrata.playback.speedRealTime` into a tooltip or an <option>. The
+     * fallback is what keeps an accessible name from ever speaking a dotted
+     * key — the same reasoning as terrainUploadCrsPanel.js:280-282.
+     */
+    tr(msgId, fallback) {
+        const resolved = getMessageById(this.context && this.context.messages || {}, msgId);
+        return (!resolved || resolved === msgId) ? fallback : resolved;
+    }
 
     // TASK-2632 (W5.1) — flow-viz overlay knobs are LOCAL component state,
     // not `anugaPlayback` reducer state — pure visual rendering toggles,
@@ -343,6 +375,22 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         {statusMsgId ? <Message msgId={statusMsgId} /> : null}
                     </span>
                 ) : null}
+                {/* TASK-2744 (AC2, epic 2706) — Unload. Until this existed
+                    PLAYBACK_RESET had no dispatcher outside tests, so a run
+                    could never be released: the fetcher, its decoded-chunk
+                    LRU and two full Float32Array copies of a 3.39M-vertex
+                    mesh stayed reachable for the life of the tab (~578 MiB
+                    per stale run at prod scale), and IDLE — the only status
+                    that renders the manifest loader — was unreachable. */}
+                <button
+                    className="btn sv-glass-button sv-playback-unload"
+                    data-testid="anuga-playback-unload"
+                    onClick={() => this.props.onReset(playback.runId, playback.layerId)}
+                    title={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
+                >
+                    <Message msgId="hydrata.playback.unload" />
+                </button>
+
                 {playback.degraded ? (
                     <span
                         className="sv-playback-degraded"
@@ -373,7 +421,9 @@ const mapDispatchToProps = {
     onSetIdentifyArmed: playbackSetIdentifyArmed,
     onSetLegendOpen: playbackSetLegendOpen,
     onSetWireframe: playbackSetWireframe,
-    onChangeLayerProperties: changeLayerProperties
+    onChangeLayerProperties: mergeOptionsById,
+    // TASK-2744 AC2 — the run must be unloadable.
+    onReset: playbackReset
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(AnugaPlaybackControlBarComponent);
