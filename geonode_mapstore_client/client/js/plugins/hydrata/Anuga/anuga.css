@@ -3023,7 +3023,12 @@ span.sv-scenario-run-price--short {
     font-family: Montserrat, sans-serif;
     font-size: 12px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-    overflow: hidden;
+    /* NOT `hidden`: the status toast is a child positioned at `bottom: 100%`,
+       i.e. deliberately outside the card's own box, and `hidden` clipped it to
+       nothing. The corners this used to round are now rounded by the drawer
+       itself (it is the top child whenever it is open, and the only child with
+       its own background). */
+    overflow: visible;
 }
 /* The transport row. `nowrap` is deliberate down to ~1100px: the whole point
    of moving eight controls into the drawer was to stop this row reflowing.
@@ -3070,6 +3075,9 @@ span.sv-scenario-run-price--short {
     padding: 12px 14px 14px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.22);
     background: rgba(0, 0, 0, 0.16);
+    /* Rounds the card's TOP corners now that the card no longer clips: the
+       drawer is the top child whenever it is open. */
+    border-radius: 6px 6px 0 0;
     max-height: 42vh;
     overflow-y: auto;
 }
@@ -3315,17 +3323,25 @@ span.sv-scenario-run-price--short {
 }
 /* TASK-2744 AC5 — the scrubber may shrink, but never below usable. It was
    measured at 3px on a 1248px viewport. */
+/* Two stacked bands: the slider (SLIDER_BAND) and the tick axis under it. The
+   tick band is reserved ALWAYS, ticks or no ticks — same discipline as the old
+   fixed status slot, for the same reason: a manifest resolving and populating
+   `time` must not change the row's height and shove the play button. */
 .sv-playback-scrubber-track {
     position: relative;
-    display: inline-flex;
-    align-items: center;
+    display: block;
     flex: 1 1 220px;
     min-width: 150px;
+    height: 30px;
 }
 .sv-playback-scrubber {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     min-width: 140px;
-    position: relative;
+    height: 18px;
+    margin: 0;
     z-index: 1;
     background: transparent;
 }
@@ -3334,7 +3350,10 @@ span.sv-scenario-run-price--short {
    fraction of the track (see bufferedTrackSegments). */
 .sv-playback-scrubber-buffered {
     position: absolute;
-    top: 50%;
+    /* 9px = the centre of the 18px SLIDER band, not of the track: the track is
+       now 30px tall because it also carries the tick axis, so the old `top:50%`
+       would float these 6px below the groove they are meant to fill. */
+    top: 9px;
     transform: translateY(-50%);
     height: 4px;
     border-radius: 2px;
@@ -3343,17 +3362,49 @@ span.sv-scenario-run-price--short {
     pointer-events: none;
     z-index: 0;
 }
-/* TASK-2744 AC6 — a fixed slot for status text, ALWAYS present. The bar is
-   centred, so a conditionally-mounted label changed its width and shifted
-   every control; reserving the space makes the play/pause button's `left`
-   invariant to buffering state. */
-.sv-playback-status {
-    flex: 0 0 auto;
-    width: 92px;
-    min-width: 92px;
-    max-width: 92px;
-    overflow: hidden;
+/* The tick axis, under the slider. Marks sit at the exact index fraction; the
+   labels centre on their mark except at the two ends, which align inward so
+   the axis cannot overhang the track. */
+.sv-playback-ticks {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    right: 0;
+    height: 12px;
+    pointer-events: none;
+}
+.sv-playback-tick {
+    position: absolute;
+    top: 0;
+}
+.sv-playback-tick-mark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.38);
+}
+.sv-playback-tick-label {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    transform: translateX(-50%);
+    font-size: 9px;
+    line-height: 1;
     white-space: nowrap;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.6));
+    font-variant-numeric: tabular-nums;
+}
+.sv-playback-tick-label--first {
+    transform: translateX(0);
+}
+.sv-playback-tick-label--last {
+    transform: translateX(-100%);
+}
+.sv-playback-tick-unit {
+    margin-left: 2px;
+    opacity: 0.75;
 }
 /* TASK-2744 AC7 — every slider now renders its current value beside it. */
 .sv-playback-slider {
@@ -3401,13 +3452,51 @@ span.sv-scenario-run-price--short {
     padding: 4px 6px;
     font-size: 12px;
 }
+/* The status toast: transient text, floated ABOVE the card and out of flow so
+   it cannot take width from the transport row (the slot it replaces reserved
+   92px permanently, and the degraded chip beside it measured 233.6px and
+   crushed the scrubber onto its min-width floor). Centred with the
+   `left:0; right:0; margin:auto` idiom, NOT `left:50%` — a shrink-to-fit
+   absolute box at 50% is capped at half its container and crushes its own
+   children. */
+.sv-playback-toast {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 6px auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 3px 10px;
+    padding: 5px 11px;
+    border-radius: 6px;
+    background: var(--sv-panel-bg, rgba(20, 24, 28, 0.92));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    font-size: 11px;
+    /* Never intercept a click meant for the map or the bar beneath it. */
+    pointer-events: none;
+}
 .sv-playback-buffering {
     color: var(--sv-accent-blue, #5bc0ff);
     white-space: nowrap;
 }
+.sv-playback-load-progress {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
 .sv-playback-degraded {
     color: #f0a830;
     white-space: nowrap;
+}
+/* The warning always gets its own line under the buffering state. */
+.sv-playback-toast .sv-playback-degraded {
+    flex-basis: 100%;
+    text-align: center;
 }
 
 /* TASK-2628 (W3.2, epic 2618) — playback legend, mirrors .sv-dem-legend-*. */

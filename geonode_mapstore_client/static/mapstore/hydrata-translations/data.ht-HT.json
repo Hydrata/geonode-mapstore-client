@@ -645,7 +645,14 @@
         "drawerOverlays": "Kouch anlè",
         "drawerColourScale": "Echèl koulè",
         "maxEnvelope": "Maks",
-        "maxEnvelopeUnavailable": "Pi gwo valè pandan tout senilasyon an — l ap vini; magazen senilasyon sa a poko gen anvlòp maks"
+        "maxEnvelopeUnavailable": "Pi gwo valè pandan tout senilasyon an — l ap vini; magazen senilasyon sa a poko gen anvlòp maks",
+        "tickUnit": {
+          "s": "s",
+          "min": "min",
+          "h": "è",
+          "d": "j"
+        },
+        "statusToast": "Eta lekti a"
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",

@@ -645,7 +645,14 @@
         "drawerOverlays": "Superpositions",
         "drawerColourScale": "Échelle de couleurs",
         "maxEnvelope": "Max",
-        "maxEnvelopeUnavailable": "Valeur maximale sur toute la simulation — bientôt disponible ; le magasin de cette simulation n'a pas encore d'enveloppe max"
+        "maxEnvelopeUnavailable": "Valeur maximale sur toute la simulation — bientôt disponible ; le magasin de cette simulation n'a pas encore d'enveloppe max",
+        "tickUnit": {
+          "s": "s",
+          "min": "min",
+          "h": "h",
+          "d": "j"
+        },
+        "statusToast": "État de la lecture"
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

@@ -645,7 +645,14 @@
         "drawerOverlays": "Superposiciones",
         "drawerColourScale": "Escala de color",
         "maxEnvelope": "Máx",
-        "maxEnvelopeUnavailable": "Valor máximo de toda la simulación — próximamente; el almacén de esta simulación aún no tiene envolvente máxima"
+        "maxEnvelopeUnavailable": "Valor máximo de toda la simulación — próximamente; el almacén de esta simulación aún no tiene envolvente máxima",
+        "tickUnit": {
+          "s": "s",
+          "min": "min",
+          "h": "h",
+          "d": "d"
+        },
+        "statusToast": "Estado de la reproducción"
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

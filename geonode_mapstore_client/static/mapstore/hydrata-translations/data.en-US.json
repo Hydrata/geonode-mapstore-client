@@ -645,7 +645,14 @@
         "drawerOverlays": "Overlays",
         "drawerColourScale": "Colour scale",
         "maxEnvelope": "Max",
-        "maxEnvelopeUnavailable": "Peak value over the whole run — coming soon; this run’s store has no max envelope yet"
+        "maxEnvelopeUnavailable": "Peak value over the whole run — coming soon; this run’s store has no max envelope yet",
+        "tickUnit": {
+          "s": "s",
+          "min": "min",
+          "h": "h",
+          "d": "d"
+        },
+        "statusToast": "Playback status"
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",

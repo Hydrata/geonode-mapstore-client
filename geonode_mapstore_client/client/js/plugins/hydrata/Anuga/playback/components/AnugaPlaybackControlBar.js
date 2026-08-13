@@ -206,6 +206,89 @@ export function bufferedTrackSegments(bufferedChunks, chunkLengthT, nTime) {
     return segments;
 }
 
+/*
+ * TASK-2751 follow-up — THE SCRUBBER HAD NO AXIS. It was a bare range input
+ * whose only reference point was the `1/31 · 0:00` readout beside it, so
+ * "when does the peak arrive" could not be answered without dragging and
+ * watching the readout tick over.
+ *
+ * Two things are deliberate here:
+ *
+ * 1. Ticks are placed by INDEX FRACTION, not by time fraction. The thumb
+ *    moves linearly in TIMESTEP INDEX (the input is min=0 max=nTime-1
+ *    step=1), and index-fraction and time-fraction coincide only when the
+ *    output cadence is uniform. ANUGA's yieldstep regimes do not guarantee
+ *    that, and on a non-uniform `time` array a time-fraction tick would sit
+ *    visibly away from the frame it claims to label — an axis that lies is
+ *    worse than no axis. Interpolating into `time` is honest for both.
+ *
+ * 2. A UNIT is chosen for the whole axis and the labels are plain numbers in
+ *    it, rather than seven `m:ss` clock strings. `0 5 10 15 20 25 30 min`
+ *    reads as an axis; `0:00 5:00 10:00 …` reads as a list of timestamps.
+ */
+const TICK_UNITS = [
+    { unit: 'd', seconds: 86400, minSpan: 172800, steps: [1, 2, 5, 10, 30] },
+    { unit: 'h', seconds: 3600, minSpan: 7200, steps: [1, 2, 3, 6, 12, 24] },
+    { unit: 'min', seconds: 60, minSpan: 120, steps: [1, 2, 5, 10, 15, 30, 60] },
+    { unit: 's', seconds: 1, minSpan: 0, steps: [1, 2, 5, 10, 15, 30, 60] }
+];
+
+export function tickUnitFor(spanSeconds) {
+    return TICK_UNITS.find((u) => spanSeconds >= u.minSpan) || TICK_UNITS[TICK_UNITS.length - 1];
+}
+
+/* Where does time T sit as a fraction of the INDEX axis? Binary search for
+   the bracketing pair, then interpolate within it. */
+function indexFractionAt(time, last, seconds) {
+    if (seconds <= time[0]) {
+        return 0;
+    }
+    if (seconds >= time[last]) {
+        return 1;
+    }
+    let lo = 0;
+    let hi = last;
+    while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (time[mid] <= seconds) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    const dt = time[lo + 1] - time[lo];
+    return (lo + (dt > 0 ? (seconds - time[lo]) / dt : 0)) / last;
+}
+
+export function scrubberTicks(time, nTime, maxTicks = 8) {
+    const last = (nTime || 0) - 1;
+    if (!time || last < 1 || time.length <= last) {
+        return { unit: null, step: null, ticks: [] };
+    }
+    const span = time[last] - time[0];
+    if (!(span > 0)) {
+        return { unit: null, step: null, ticks: [] };
+    }
+    const u = tickUnitFor(span);
+    const spanInUnit = span / u.seconds;
+    const step = u.steps.find((s) => spanInUnit / s <= maxTicks) || u.steps[u.steps.length - 1];
+    const stepSeconds = step * u.seconds;
+    // Align to whole multiples of the step so labels are round numbers even
+    // when the run does not start at t=0 (a restarted or clipped store).
+    const first = Math.ceil(time[0] / stepSeconds - 1e-9) * stepSeconds;
+    const count = Math.floor((time[last] - first) / stepSeconds + 1e-9);
+    const ticks = [];
+    for (let i = 0; i <= count; i++) {
+        const seconds = first + i * stepSeconds;
+        ticks.push({
+            seconds,
+            value: Math.round((seconds / u.seconds) * 100) / 100,
+            frac: indexFractionAt(time, last, seconds)
+        });
+    }
+    return { unit: u.unit, step, ticks };
+}
+
 // Human-facing label per controller status — used for the buffering-feedback
 // AC (video-style explicit buffering states, incl. a DISTINCT scrub label).
 const STATUS_MESSAGE_ID = {
@@ -520,6 +603,65 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
     };
 
     /**
+     * TASK-2751 follow-up — TRANSIENT STATUS IS A TOAST, NOT A ROW SLOT.
+     *
+     * The buffering label and the degraded warning used to sit ON the
+     * transport row: a permanently-reserved 92px slot (TASK-2744 AC6, so a
+     * mounting label could not shove the controls) plus a degraded chip that
+     * was measured LIVE at 233.6px. Between them they held 325.6px hostage to
+     * text that is empty most of the time, and when the degraded chip did
+     * mount it crushed the scrubber onto its 150px `min-width` floor — the
+     * single widest control on the bar reduced to the narrowest thing that
+     * still counts as usable.
+     *
+     * Floating it above the card is strictly stronger than the fixed slot it
+     * replaces: absolutely positioned and out of flow, this cannot move a
+     * control at all, so AC6's "status must not move the play button" now
+     * holds by construction rather than by reserving space for the worst
+     * case. It returns null when there is nothing to say, so the toast is
+     * absent — not blank — in the common case.
+     */
+    renderToast(playback, isBuffering, statusMsgId) {
+        const progress = playback.loadProgress;
+        if (!isBuffering && !progress && !playback.degraded) {
+            return null;
+        }
+        return (
+            <div
+                className="sv-playback-toast"
+                data-testid="anuga-playback-toast"
+                role="status"
+                aria-live="polite"
+                aria-label={this.tr('hydrata.playback.statusToast', 'Playback status')}
+            >
+                {isBuffering ? (
+                    <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
+                        {statusMsgId ? <Message msgId={statusMsgId} /> : null}
+                    </span>
+                ) : null}
+                {/* TASK-2744 AC18 — determinate mesh-phase progress. The ~100 s
+                    after the manifest resolves is a multi-hundred-megabyte
+                    download; it had no progress bar, byte counter or ETA, only
+                    a static label naming the wrong thing. */}
+                {progress ? (
+                    <span className="sv-playback-load-progress" data-testid="anuga-playback-load-progress">
+                        {`${progress.objectsLoaded}/${progress.objectCount} · ${formatBytes(progress.bytesLoaded)}`}
+                    </span>
+                ) : null}
+                {playback.degraded ? (
+                    <span
+                        className="sv-playback-degraded"
+                        data-testid="anuga-playback-degraded"
+                        title={this.tr('hydrata.playback.degradedTooltip', 'Repeated buffering stalls — playback is degraded on this connection')}
+                    >
+                        <Message msgId="hydrata.playback.degraded" />
+                    </span>
+                ) : null}
+            </div>
+        );
+    }
+
+    /**
      * TASK-2751 — the Display drawer: everything that CONFIGURES THE RENDER.
      *
      * Always mounted, `hidden` when shut. Two reasons, both load-bearing:
@@ -678,12 +820,14 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         const canScrub = playback.nTime > 0;
         const statusMsgId = STATUS_MESSAGE_ID[playback.status];
         const quantityLabel = this.tr('hydrata.playback.resultQuantity', 'Result quantity');
+        const ticks = scrubberTicks(playback.time, playback.nTime);
         return (
             <div
                 className={`sv-playback-bar sv-playback-bar--${playback.status}${this.state.drawerOpen ? ' is-open' : ''}`}
                 data-testid="anuga-playback-bar"
                 onKeyDown={this.onCardKeyDown}
             >
+                {this.renderToast(playback, isBuffering, statusMsgId)}
                 {this.renderDrawer(playback)}
 
                 <div className="sv-playback-transport" data-testid="anuga-playback-transport">
@@ -729,6 +873,33 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             aria-label={this.tr('hydrata.playback.scrubber', 'Timeline position')}
                             onChange={(e) => this.props.onSeek(Number(e.target.value))}
                         />
+
+                        {/* The tick axis. `aria-hidden` deliberately: it is a
+                            visual reference for the slider, and the slider
+                            already announces its own value — a screen reader
+                            reading seven bare numbers after it would be noise.
+                            The band is reserved in CSS whether or not ticks
+                            render, so a run finishing its manifest cannot
+                            change the row's height. */}
+                        <span className="sv-playback-ticks" data-testid="anuga-playback-ticks" aria-hidden="true">
+                            {ticks.ticks.map((t, i) => (
+                                <span
+                                    key={t.seconds}
+                                    className="sv-playback-tick"
+                                    style={{ left: `${t.frac * 100}%` }}
+                                >
+                                    <span className="sv-playback-tick-mark" />
+                                    <span className={`sv-playback-tick-label${i === 0 ? ' sv-playback-tick-label--first' : ''}${i === ticks.ticks.length - 1 ? ' sv-playback-tick-label--last' : ''}`}>
+                                        {t.value}
+                                        {i === ticks.ticks.length - 1 && ticks.unit ? (
+                                            <span className="sv-playback-tick-unit" data-testid="anuga-playback-tick-unit">
+                                                <Message msgId={`hydrata.playback.tickUnit.${ticks.unit}`} />
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                </span>
+                            ))}
+                        </span>
                     </span>
 
                     <span className="sv-playback-readout" data-testid="anuga-playback-readout">
@@ -747,27 +918,6 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                     </select>
-
-                    {/* TASK-2744 (AC6) — STATUS MUST NOT MOVE THE CONTROLS. Kept
-                        as a fixed-width slot even though the card's own width is
-                        now pinned: it also stops the CONTROLS AFTER IT sliding
-                        left and right within the row as the label changes. */}
-                    <span className="sv-playback-status" data-testid="anuga-playback-status">
-                        {isBuffering ? (
-                            <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
-                                {statusMsgId ? <Message msgId={statusMsgId} /> : null}
-                            </span>
-                        ) : null}
-                        {/* TASK-2744 AC18 — determinate mesh-phase progress. The
-                            ~100 s after the manifest resolves is a multi-hundred-
-                            megabyte download; it had no progress bar, byte counter
-                            or ETA, only a static label naming the wrong thing. */}
-                        {playback.loadProgress ? (
-                            <span className="sv-playback-load-progress" data-testid="anuga-playback-load-progress">
-                                {`${playback.loadProgress.objectsLoaded}/${playback.loadProgress.objectCount} · ${formatBytes(playback.loadProgress.bytesLoaded)}`}
-                            </span>
-                        ) : null}
-                    </span>
 
                     {/* TASK-2751 — THE PRIMARY PATH. Which result quantity am I
                         looking at, and where does its colour ramp top out. Those
@@ -857,16 +1007,6 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     >
                         <Message msgId="hydrata.playback.unload" />
                     </button>
-
-                    {playback.degraded ? (
-                        <span
-                            className="sv-playback-degraded"
-                            data-testid="anuga-playback-degraded"
-                            title={this.tr('hydrata.playback.degradedTooltip', 'Repeated buffering stalls — playback is degraded on this connection')}
-                        >
-                            <Message msgId="hydrata.playback.degraded" />
-                        </span>
-                    ) : null}
                 </div>
             </div>
         );

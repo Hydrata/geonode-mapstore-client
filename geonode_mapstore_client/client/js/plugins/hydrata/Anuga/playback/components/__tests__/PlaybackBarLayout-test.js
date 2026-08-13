@@ -49,7 +49,6 @@ const TRANSPORT_CONTROLS = [
     'anuga-playback-scrubber',
     'anuga-playback-readout',
     'anuga-playback-speed',
-    'anuga-playback-status',
     'anuga-playback-quantity',
     'anuga-playback-max-envelope',
     'anuga-playback-display-toggle',
@@ -188,11 +187,11 @@ describe('Playback bar layout — TASK-2751', () => {
     });
 
     describe('AC3 — the result-quantity picker is on the primary path', () => {
-        it('sits inside the primary group, after the status slot and before the divider', () => {
+        it('sits inside the primary group, after the speed picker and before the divider', () => {
             render({ playback: readyState() });
             const kids = Array.from(q('anuga-playback-transport').children);
             const at = (testid) => kids.findIndex((el) => el.contains(q(testid)));
-            expect(at('anuga-playback-quantity')).toBeGreaterThan(at('anuga-playback-status'));
+            expect(at('anuga-playback-quantity')).toBeGreaterThan(at('anuga-playback-speed'));
             expect(at('anuga-playback-quantity')).toBeLessThan(at('anuga-playback-divider'));
             expect(q('anuga-playback-primary-group')).toBeTruthy();
         });
