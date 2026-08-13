@@ -653,7 +653,19 @@
           "d": "j"
         },
         "statusToast": "État de la lecture",
-        "dismiss": "Masquer"
+        "dismiss": "Masquer",
+        "quantityShort": {
+          "depth": "Hauteur",
+          "speed": "Vitesse",
+          "stage": "Cote",
+          "div": "dIV",
+          "hazard": "Aléa",
+          "froude": "Froude",
+          "shear": "Cisaillement",
+          "courant": "Courant"
+        },
+        "speedSlowShort": "ralenti",
+        "speedTooltipRun": "Vitesse de lecture — la simulation entière dure {d} de temps simulé"
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

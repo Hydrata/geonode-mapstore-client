@@ -653,7 +653,19 @@
           "d": "d"
         },
         "statusToast": "Playback status",
-        "dismiss": "Dismiss"
+        "dismiss": "Dismiss",
+        "quantityShort": {
+          "depth": "Depth",
+          "speed": "Velocity",
+          "stage": "Stage",
+          "div": "dIV",
+          "hazard": "Hazard",
+          "froude": "Froude",
+          "shear": "Shear",
+          "courant": "Courant"
+        },
+        "speedSlowShort": "slow",
+        "speedTooltipRun": "Playback speed — the whole run is {d} of simulated time"
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",

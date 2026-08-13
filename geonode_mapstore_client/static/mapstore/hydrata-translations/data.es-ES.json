@@ -653,7 +653,19 @@
           "d": "d"
         },
         "statusToast": "Estado de la reproducción",
-        "dismiss": "Descartar"
+        "dismiss": "Descartar",
+        "quantityShort": {
+          "depth": "Calado",
+          "speed": "Velocidad",
+          "stage": "Cota",
+          "div": "dIV",
+          "hazard": "Peligrosidad",
+          "froude": "Froude",
+          "shear": "Corte",
+          "courant": "Courant"
+        },
+        "speedSlowShort": "lenta",
+        "speedTooltipRun": "Velocidad de reproducción — la simulación completa dura {d} de tiempo simulado"
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

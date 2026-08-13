@@ -321,11 +321,42 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             render({ playback: loadedRun() });
             const labels = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => o.textContent);
             expect(labels.length > 0).toBe(true);
+            // the AC's actual words, checked against EVERY row rather than a
+            // sample: a duration, or a multiplier that is spelled out.
+            labels.forEach((l) => {
+                expect(/\d+(\.\d+)?\s*(s|min|h)\b/.test(l) || /\d+(\.\d+)?x/.test(l)).toBe(true, `bare label: ${l}`);
+            });
             // the default option says the whole run takes 15 s, and that it is 120x
             expect(labels.some((l) => l.indexOf('15 s') !== -1 && l.indexOf('120x') !== -1)).toBe(true);
-            // real time is offered AND labelled, with the run's true length
+            // real time is offered AND labelled
             expect(labels.some((l) => l.indexOf('Real time') !== -1 && l.indexOf('1x') !== -1)).toBe(true);
-            expect(labels.some((l) => l.indexOf('30 min') !== -1)).toBe(true);
+        });
+
+        /* The run's own length used to ride along inside the real-time
+           option's parenthetical, which made that ONE row the widest in the
+           list and so set the width of the whole control. It describes the
+           RUN, not the speed you are choosing, so it moved to the control's
+           accessible name — and it is no longer only there: the scrubber's
+           tick axis renders it permanently as the last tick. AC17's intent
+           ("the picker states its wall-clock meaning") is what is graded. */
+        it('still states how long the run is — now on the control, not buried in one row', () => {
+            render({ playback: loadedRun() });
+            const sel = container.querySelector('[data-testid="anuga-playback-speed"]');
+            expect(sel.getAttribute('aria-label')).toContain('30 min');
+            expect(sel.getAttribute('title')).toContain('30 min');
+        });
+
+        it('falls back to the plain control name when the store declares no duration', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, time: null, speed: 1 } });
+            const sel = container.querySelector('[data-testid="anuga-playback-speed"]');
+            expect(sel.getAttribute('aria-label')).toBe('Playback speed');
+        });
+
+        it('drops the prefix that repeated on every row, keeping the duration and the multiplier', () => {
+            render({ playback: loadedRun() });
+            const labels = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => o.textContent);
+            expect(labels.some((l) => l.indexOf('Whole run in') !== -1)).toBe(false);
+            expect(labels.indexOf('15 s · 120x')).toBeGreaterThan(-1);
         });
 
         it('offers an option whose value is exactly 1 (real time stays reachable)', () => {

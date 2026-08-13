@@ -196,6 +196,41 @@ describe('Playback bar layout — TASK-2751', () => {
             expect(q('anuga-playback-primary-group')).toBeTruthy();
         });
 
+        /* A <select> is always as wide as its WIDEST option, so one verbose
+           entry taxes the control permanently even while a short one is
+           selected. `Depth-integrated velocity (dIV)` alone held the picker at
+           190px. The short form is what the row shows; the full name is on the
+           option's tooltip, and unchanged in the drawer and the legend. */
+        it('shows short option text, with the full name on each option title', () => {
+            render({ playback: readyState({ hasDt: true }) });
+            const opts = [...q('anuga-playback-quantity').options];
+            const div = opts.find((o) => o.value === 'div');
+            expect(div.textContent).toBe('dIV');
+            expect(div.title).toBe('Depth-integrated velocity (dIV)');
+
+            const hazard = opts.find((o) => o.value === 'hazard');
+            expect(hazard.textContent).toBe('Hazard');
+            expect(hazard.title).toBe('Flood hazard (H1–H6)');
+        });
+
+        it('every option is short enough to stop setting the control width', () => {
+            render({ playback: readyState({ hasDt: true }) });
+            [...q('anuga-playback-quantity').options].forEach((o) => {
+                expect(o.textContent.length).toBeLessThan(13, `too long: ${o.textContent}`);
+                expect(o.title.length > 0).toBe(true);
+            });
+        });
+
+        /* The full names must remain reachable, or this is a deletion rather
+           than a relocation. */
+        it('the drawer still carries the FULL name for every quantity', () => {
+            render({ playback: readyState({ hasDt: true }) });
+            TestUtils.Simulate.click(q('anuga-playback-display-toggle'));
+            const table = q('anuga-playback-ceiling-table');
+            expect(table.textContent).toContain('Depth-integrated velocity (dIV)');
+            expect(table.textContent).toContain('Flood hazard (H1–H6)');
+        });
+
         it('is named "Result quantity", not "result set" and not the state key', () => {
             render({ playback: readyState() });
             const name = q('anuga-playback-quantity').getAttribute('aria-label');

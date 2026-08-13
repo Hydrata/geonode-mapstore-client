@@ -3137,8 +3137,13 @@ span.sv-scenario-run-price--short {
 }
 /* A <select> sizes to its WIDEST option, and "Depth-integrated velocity (dIV)"
    would take 220px of a row that has none to spare. */
+/* The cap is now a backstop for a long locale ("Cisaillement", "Peligrosidad"),
+   not the everyday width: the options carry short forms, so the control sizes
+   to ~72px in English instead of reserving room for a 31-character label it
+   never displays. Everything the cap would have clipped is on the option's
+   tooltip and in the Display drawer. */
 .sv-playback-quantity {
-    max-width: 190px;
+    max-width: 140px;
 }
 .sv-playback-bar .sv-playback-max-envelope {
     padding: 5px 8px;

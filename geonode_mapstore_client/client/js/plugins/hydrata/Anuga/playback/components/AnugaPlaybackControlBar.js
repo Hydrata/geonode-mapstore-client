@@ -92,6 +92,30 @@ const QUANTITY_OPTION_LABEL = {
     courant: 'Courant number (approx.)'
 };
 
+/*
+ * SHORT forms for the bar's picker only.
+ *
+ * The picker was 190px — capped by `Depth-integrated velocity (dIV)`, a label
+ * 31 characters long that the <select> has to reserve room for even while
+ * showing `Depth`. A <select> is always as wide as its WIDEST option, so one
+ * verbose entry taxes the control permanently.
+ *
+ * Nothing is lost, because the full name is still shown everywhere there is
+ * room for it: on each <option>'s own tooltip, on the Display drawer's
+ * colour-scale table (with the ramp swatch beside it), and in the legend
+ * title. The bar is the one surface where width is scarce.
+ */
+const QUANTITY_SHORT_LABEL = {
+    depth: 'Depth',
+    speed: 'Velocity',
+    stage: 'Stage',
+    div: 'dIV',
+    hazard: 'Hazard',
+    froude: 'Froude',
+    shear: 'Shear',
+    courant: 'Courant'
+};
+
 /**
  * TASK-2744 AC17 — a wall-clock duration as a short human string ("15 s",
  * "2 min", "1 h 30 min"). Used in the speed picker's labels so an option
@@ -517,6 +541,23 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      * 24-hour one. Labels are plain strings, not <Message> elements: <span>
      * is invalid inside <option> (see the file header on getMessageById).
      */
+    /*
+     * The control's own label carries what every row used to repeat: that
+     * these durations are for the WHOLE RUN, and how long that run is in
+     * simulated time. The run length left the real-time row for the same
+     * reason — it describes the run, not the speed you pick — and it is no
+     * longer only here: the scrubber's tick axis now renders it permanently
+     * as the last tick ("30 min").
+     */
+    speedTitle(playback) {
+        const span = simulatedSpanSeconds(playback.time);
+        if (!(span > 0)) {
+            return this.tr('hydrata.playback.speed', 'Playback speed');
+        }
+        return this.tr('hydrata.playback.speedTooltipRun', 'Playback speed — the whole run is {d} of simulated time')
+            .replace('{d}', formatWallDuration(span));
+    }
+
     speedOptions(playback) {
         const span = simulatedSpanSeconds(playback.time);
         const options = [];
@@ -526,10 +567,13 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 // Drop any duration the clamp could not actually deliver, so
                 // no option silently maps to a different speed than it claims.
                 if (Math.abs(span / wallSeconds - speed) < 1e-6) {
+                    // "Whole run in " prefixed SIX of the nine rows, so it
+                    // distinguished none of them while setting the control's
+                    // width for all of them. It now frames the whole control,
+                    // via the tooltip built in speedTitle().
                     options.push({
                         value: speed,
-                        label: this.tr('hydrata.playback.speedWholeRunIn', 'Whole run in {d}')
-                            .replace('{d}', formatWallDuration(wallSeconds)) + ` (${formatMultiplier(speed)})`
+                        label: `${formatWallDuration(wallSeconds)} · ${formatMultiplier(speed)}`
                     });
                 }
             });
@@ -537,11 +581,11 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         // Real time is ALWAYS offered and always labelled as such — AC17(b).
         options.push({
             value: 1,
-            label: `${this.tr('hydrata.playback.speedRealTime', 'Real time')} (1x${span > 0 ? `, ${formatWallDuration(span)}` : ''})`
+            label: `${this.tr('hydrata.playback.speedRealTime', 'Real time')} · ${formatMultiplier(1)}`
         });
         SLOW_MOTION_OPTIONS.forEach((s) => options.push({
             value: s,
-            label: `${formatMultiplier(s)} ${this.tr('hydrata.playback.speedSlowMotion', 'slow motion')}`
+            label: `${formatMultiplier(s)} ${this.tr('hydrata.playback.speedSlowShort', 'slow')}`
         }));
         // The controller's seeded default may not equal any listed option
         // exactly; surface it rather than letting the <select> show a value it
@@ -995,8 +1039,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         className="sv-playback-speed"
                         data-testid="anuga-playback-speed"
                         value={playback.speed}
-                        title={this.tr('hydrata.playback.speed', 'Playback speed')}
-                        aria-label={this.tr('hydrata.playback.speed', 'Playback speed')}
+                        title={this.speedTitle(playback)}
+                        aria-label={this.speedTitle(playback)}
                         onChange={(e) => this.props.onSetSpeed(Number(e.target.value))}
                     >
                         {this.speedOptions(playback).map((o) => (
@@ -1020,7 +1064,13 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             onChange={(e) => this.props.onSetQuantity(e.target.value)}
                         >
                             {availableQuantityIds(playback.hasDt).map((id) => (
-                                <option key={id} value={id}>{this.tr(`hydrata.playback.quantityOption.${id}`, QUANTITY_OPTION_LABEL[id])}</option>
+                                <option
+                                    key={id}
+                                    value={id}
+                                    title={this.tr(`hydrata.playback.quantityOption.${id}`, QUANTITY_OPTION_LABEL[id])}
+                                >
+                                    {this.tr(`hydrata.playback.quantityShort.${id}`, QUANTITY_SHORT_LABEL[id])}
+                                </option>
                             ))}
                         </select>
 

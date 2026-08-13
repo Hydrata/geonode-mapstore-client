@@ -653,7 +653,19 @@
           "d": "j"
         },
         "statusToast": "Eta lekti a",
-        "dismiss": "Kache"
+        "dismiss": "Kache",
+        "quantityShort": {
+          "depth": "Pwofondè",
+          "speed": "Vitès",
+          "stage": "Nivo",
+          "div": "dIV",
+          "hazard": "Danje",
+          "froude": "Froude",
+          "shear": "Sizayman",
+          "courant": "Courant"
+        },
+        "speedSlowShort": "ralanti",
+        "speedTooltipRun": "Vitès lekti — tout senaryo a se {d} nan tan simile"
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",
