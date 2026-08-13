@@ -315,4 +315,21 @@ export function describePlan(plan) {
     ].join(' | ');
 }
 
+/**
+ * The stable, greppable prefix every "this plan does not fit" breadcrumb
+ * carries (TASK-2732, W3, epic 2706).
+ *
+ * ONE definition, so the emitted line, the spec that asserts it and W4's
+ * telemetry work (TASK-2712..2714) all read the same string rather than each
+ * carrying its own regex over prose. It keeps the `[playback] ` convention the
+ * TASK-2744 AC20 score line already uses — so both console breadcrumbs grep
+ * together — while `memory plan OVER BUDGET` stays unique to this one, which
+ * is what makes a prefix-filtered warn count unambiguous.
+ *
+ * The POLICY stays pure: it defines the string, it never emits it. The warn
+ * lives at playbackEpics.js's manifest-time plan seam, the only production
+ * caller of computePlaybackMemoryPlan.
+ */
+export const PLAYBACK_BUDGET_WARN_PREFIX = '[playback] memory plan OVER BUDGET —';
+
 export default computePlaybackMemoryPlan;

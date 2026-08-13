@@ -68,7 +68,12 @@ import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
 import { QUANTITY_ARRAYS, resolveChunkLengthT } from '../playbackChunkShape';
-import { computePlaybackMemoryPlan, readNodeCount } from '../playbackMemoryPolicy';
+import {
+    computePlaybackMemoryPlan,
+    readNodeCount,
+    describePlan,
+    PLAYBACK_BUDGET_WARN_PREFIX
+} from '../playbackMemoryPolicy';
 // TASK-2744 (AC20, epic 2706) — score the plan against a measurement.
 import { scorePlan, isForecastContradicted, describeScore } from '../playbackMemoryAudit';
 import { reprojectMeshVertices } from '../playbackReproject';
@@ -151,6 +156,12 @@ const layerMeshCache = new Map();
 // `pb.mesh` is a different reference (a new run/store loaded).
 const reprojectedMeshCache = new Map();
 
+// runId -> the over-budget breadcrumb has already been emitted for this run
+// (TASK-2732). Module state rather than a closure so the guard survives the
+// two plan computations of a single load; cleared by disposeRun, so a run that
+// is torn down and re-opened announces itself again.
+const budgetWarnedRuns = new Set();
+
 /**
  * Drop every off-Redux structure keyed by `runId` (TASK-2744 AC2, epic 2706).
  *
@@ -180,6 +191,7 @@ export function disposeRun(runId, keepRunId = null) {
     lastSyncedTimestep.delete(runId);
     layerMeshCache.delete(runId);
     reprojectedMeshCache.delete(runId);
+    budgetWarnedRuns.delete(runId);
     return true;
 }
 
@@ -244,6 +256,58 @@ export function reportMemoryScore(memoryPlan, fetcher, baselineHeapBytes) {
         console.warn(`[playback] ${describeScore(score)}`);
     }
     return score;
+}
+
+/**
+ * Say out loud that this store does not fit — ONCE per run (TASK-2732, W3,
+ * epic 2706).
+ *
+ * `withinBudget` is computed by playbackMemoryPolicy and, before this, nothing
+ * ACTED on false. The clamp to MIN_CHUNKS_PER_QUANTITY ships the store anyway
+ * and that is the deliberate engineering call — one chunk plus its neighbour is
+ * the minimum that can play at all, and the alternative is a player that will
+ * not open — but it shipped in total silence, so a wedged tab looked exactly
+ * like the epic 2618 freeze even though the client had PREDICTED it before
+ * downloading a byte. This is that missing breadcrumb, and nothing more: it
+ * does not refuse the store, resize the cache or touch the policy arithmetic.
+ *
+ * NOT already covered by reportMemoryScore above. That warn is the exact
+ * COMPLEMENT of this one: isForecastContradicted short-circuits on
+ * `!!score.predictedWithinBudget`, so a plan whose withinBudget is FALSE emits
+ * nothing there. AC20 scores an optimistic forecast against measurement; this
+ * announces a pessimistic one, before any measurement exists.
+ *
+ * ONCE PER RUN, NOT ONCE PER PLAN. playbackInitEpic plans the same store twice
+ * — the manifest-time plan with an ESTIMATED nFace, then the exact-nFace
+ * re-plan once the mesh has landed — and the operator must see one line, not
+ * two. The seam is the manifest-time plan: it is the one that sizes the cache
+ * the fetcher is constructed with, and it fires before the mesh download
+ * starts, which is the moment a breadcrumb is worth having.
+ *
+ * `describePlan(plan)` verbatim as the body — it already renders every term
+ * needed to diagnose the store (nNode, nFace, chunkLengthT, chunk size, slots,
+ * cache, fixed, peak/budget), and re-wording it here would be a second copy to
+ * drift.
+ *
+ * No eslint-disable, deliberately: the effective config for this tree is
+ * `no-console: ["error", { allow: ["error", "warn"] }]` (verify with
+ * `npx eslint --print-config`), so console.warn lints clean and a disable
+ * directive here would be a needless one.
+ *
+ * @param {number|string} runId
+ * @param {object|null} plan a computePlaybackMemoryPlan result
+ * @returns {boolean} whether a line was emitted, so a caller/test can prove it
+ */
+export function warnIfOverBudget(runId, plan) {
+    // `!== false` and not `!plan.withinBudget`: an undefined verdict is a plan
+    // shape this function does not understand, and inventing a warning for it
+    // would make the signal untrustworthy exactly the way "always fires" does.
+    if (!plan || plan.withinBudget !== false || budgetWarnedRuns.has(runId)) {
+        return false;
+    }
+    budgetWarnedRuns.add(runId);
+    console.warn(`${PLAYBACK_BUDGET_WARN_PREFIX} ${describePlan(plan)}`);
+    return true;
 }
 
 /**
@@ -376,6 +440,11 @@ export function playbackInitEpic(action$, store) {
             const initialPlan = nNode0
                 ? computePlaybackMemoryPlan({ nNode: nNode0, chunkLengthT, totalChunks: totalChunks0 })
                 : null;
+            // TASK-2732 (W3, epic 2706) — THE seam. This plan already knows
+            // whether the store fits, and until now that verdict was dropped
+            // on the floor. Announced here, before the mesh download starts,
+            // and guarded so the exact-nFace re-plan below cannot repeat it.
+            warnIfOverBudget(runId, initialPlan);
             // TASK-2739 (W3, epic 2706) — the 403 recovery the fetcher has
             // documented since W2.1 and never had a caller for. Without
             // `refreshManifest` a chunk url whose credentials rotated dies at

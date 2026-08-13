@@ -27,10 +27,16 @@ import {
     playbackDisposeEpic,
     disposeRun,
     countMeshObjects,
+    warnIfOverBudget,
     fetcherRegistry,
     PLAYBACK_LAYER_OWNER,
     TICK_INTERVAL_MS
 } from '../playbackEpics';
+import {
+    computePlaybackMemoryPlan,
+    describePlan,
+    PLAYBACK_BUDGET_WARN_PREFIX
+} from '../../playbackMemoryPolicy';
 import { reprojectMeshVertices } from '../../playbackReproject';
 // TASK-2744 AC19 — the playback layer moved off layers.flat onto
 // `additionallayers` as an `overlay`, so ADD_LAYER/CHANGE_LAYER_PROPERTIES are
@@ -77,6 +83,34 @@ function stubGlobalFetch(handler) {
     window.fetch = handler;
     return () => {
         window.fetch = original;
+    };
+}
+
+/**
+ * TASK-2732 (W3, epic 2706) — capture console.warn for the duration of a case.
+ *
+ * `budgetLines()` FILTERS on PLAYBACK_BUDGET_WARN_PREFIX and never counts raw
+ * console.warn calls, because a shipped playback module already warns on this
+ * exact load path: playbackEpics.js's reportMemoryScore (TASK-2744 AC20) emits
+ * `[playback] <describeScore>` whenever a within-budget forecast is
+ * contradicted by measurement. Counting every warn would measure the wrong
+ * population in BOTH directions — an over-budget assertion could go green on
+ * the AC20 line, and a "stays silent" assertion could go red on it.
+ */
+function stubConsoleWarn() {
+    const original = console.warn;
+    const calls = [];
+    console.warn = (...args) => {
+        calls.push(args);
+    };
+    return {
+        calls,
+        restore: () => {
+            console.warn = original;
+        },
+        budgetLines: () => calls
+            .map((args) => String(args[0]))
+            .filter((line) => line.indexOf(PLAYBACK_BUDGET_WARN_PREFIX) === 0)
     };
 }
 
@@ -292,6 +326,167 @@ describe('playbackEpics', () => {
         it('appends &refresh=1 to a url that already carries a query, keeping the existing params', () => {
             expect(buildManifestRefreshUrl('/fixtures/playback-manifest/?token=abc&v=2'))
                 .toBe('/fixtures/playback-manifest/?token=abc&v=2&refresh=1');
+        });
+    });
+
+    // TASK-2732 (W3, epic 2706) — `withinBudget` was computed and then thrown
+    // away: the clamp to MIN_CHUNKS_PER_QUANTITY ships an over-budget store
+    // anyway (deliberately — one chunk plus its neighbour is the minimum that
+    // can play at all), but it did so in TOTAL SILENCE, so the 2618 freeze
+    // experience arrived with no breadcrumb even though the client had
+    // predicted it. Every count below filters on PLAYBACK_BUDGET_WARN_PREFIX.
+    //
+    // Every case uses its OWN runId: the once-per-run flag is module state that
+    // deliberately outlives a single load.
+    describe('warnIfOverBudget — TASK-2732', () => {
+        // The manifest-time seam's own inputs: nNode 6,000,000, chunkLengthT 10
+        // and NO totalChunks (the on-box fixture declares no
+        // schema_metadata.n_time, so playbackInitEpic computes
+        // totalChunks0 === undefined and hardMax falls to
+        // MAX_CHUNKS_PER_QUANTITY). fixed 600,000,000 B + cache 720,000,000 B
+        // = peak 1,320,000,000 B -> describePlan renders 'peak=1258.9 MiB'.
+        const overBudgetPlan = () => computePlaybackMemoryPlan({ nNode: 6000000, chunkLengthT: 10 });
+
+        it('warns once with describePlan when the structural floor blows the budget', () => {
+            const plan = overBudgetPlan();
+            expect(plan.withinBudget).toBe(false);
+            const warn = stubConsoleWarn();
+            let emitted;
+            try {
+                emitted = warnIfOverBudget(27321, plan);
+            } finally {
+                warn.restore();
+            }
+            expect(emitted).toBe(true);
+            const lines = warn.budgetLines();
+            expect(lines.length).toBe(1);
+            // describePlan verbatim — every term an operator needs, and the
+            // arithmetic the policy actually did, not a prose summary of it.
+            expect(lines[0]).toContain('peak=1258.9 MiB');
+            expect(lines[0]).toContain('budget 800.0 MiB');
+            expect(lines[0]).toContain('nNode=6000000');
+            expect(lines[0]).toBe(`${PLAYBACK_BUDGET_WARN_PREFIX} ${describePlan(plan)}`);
+        });
+
+        it('stays silent when the plan fits — run 1328s real shape', () => {
+            // The shape playbackMemoryPolicy-test.js already pins at 711.8 MiB.
+            const plan = computePlaybackMemoryPlan({
+                nNode: 3393075, nFace: 6779432, chunkLengthT: 10, totalChunks: 4
+            });
+            expect(plan.withinBudget).toBe(true);
+            expect(describePlan(plan)).toContain('peak=711.8 MiB');
+            const warn = stubConsoleWarn();
+            let emitted;
+            try {
+                emitted = warnIfOverBudget(27322, plan);
+            } finally {
+                warn.restore();
+            }
+            expect(emitted).toBe(false);
+            expect(warn.budgetLines().length).toBe(0);
+        });
+
+        it('warns ONCE per run even when the manifest-time plan and the exact-nFace re-plan are both over budget', () => {
+            // playbackInitEpic plans the same store twice — once from the
+            // manifest with an ESTIMATED nFace, once from the decoded mesh with
+            // the exact one. The operator must see one line, not two. Proven at
+            // the helper, because the exact-nFace re-plan can never be driven
+            // over budget on box: the only fixture mesh has six nodes.
+            const estimated = overBudgetPlan();
+            const exact = computePlaybackMemoryPlan({ nNode: 6000000, nFace: 11700000, chunkLengthT: 10 });
+            expect(estimated.withinBudget).toBe(false);
+            expect(exact.withinBudget).toBe(false);
+            // NON-VACUITY: two genuinely different plans, so a guard that
+            // silently ignored the second call for the wrong reason (an equal
+            // plan, a falsy plan) could not pass this.
+            expect(exact.nFace).toNotBe(estimated.nFace);
+            const warn = stubConsoleWarn();
+            let second;
+            try {
+                expect(warnIfOverBudget(27323, estimated)).toBe(true);
+                second = warnIfOverBudget(27323, exact);
+            } finally {
+                warn.restore();
+            }
+            expect(second).toBe(false);
+            const lines = warn.budgetLines();
+            expect(lines.length).toBe(1);
+            expect(lines[0]).toContain(`nFace=${estimated.nFace}`);
+            // ...and a DIFFERENT run still gets its own line.
+            const warn2 = stubConsoleWarn();
+            try {
+                expect(warnIfOverBudget(27324, exact)).toBe(true);
+            } finally {
+                warn2.restore();
+            }
+            expect(warn2.budgetLines().length).toBe(1);
+        });
+
+        // POSITIVE CONTROL for the three helper-level cases above: without
+        // this, all of them would stay green if the helper were never wired
+        // into the production seam at all.
+        it('is wired into playbackInitEpics manifest-time plan: an over-budget store announces itself once, and still loads', (done) => {
+            // Doctor ONLY chunk_shapes — readNodeCount reads
+            // chunk_shapes[<array>][1], so this is the manifest-time nNode the
+            // real seam sees. The mesh arrays are untouched, so the load itself
+            // still completes against the real fixture bytes.
+            const overBudgetManifest = {
+                ...FIXTURE_MANIFEST,
+                chunk_shapes: {
+                    depth: [10, 6000000],
+                    x_velocity: [10, 6000000],
+                    y_velocity: [10, 6000000]
+                }
+            };
+            const restore = stubGlobalFetch((url) => (url === MANIFEST_URL
+                ? Promise.resolve(new Response(JSON.stringify(overBudgetManifest), { status: 200 }))
+                : fixtureFetchHandler(url)));
+            const warn = stubConsoleWarn();
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                warn.restore();
+                try {
+                    const lines = warn.budgetLines();
+                    expect(lines.length).toBe(1);
+                    expect(lines[0]).toContain('peak=1258.9 MiB');
+                    // Shipping over budget is the deliberate choice; the defect
+                    // was that it was silent. The store must still LOAD.
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(27325, 'layer-27325', MANIFEST_URL));
+        });
+
+        // NEGATIVE CONTROL for the case above: proves the single line it saw
+        // came from the doctored nNode, not from merely loading a store.
+        it('leaves no budget line at all when the ordinary fixture store loads', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const warn = stubConsoleWarn();
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                warn.restore();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    expect(warn.budgetLines().length).toBe(0);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(27326, 'layer-27326', MANIFEST_URL));
         });
     });
 
