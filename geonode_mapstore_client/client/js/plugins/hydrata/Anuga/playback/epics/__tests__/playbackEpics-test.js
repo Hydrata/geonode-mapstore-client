@@ -17,6 +17,7 @@
 import expect from 'expect';
 import Rx from 'rxjs';
 import {
+    buildManifestRefreshUrl,
     playbackInitEpic,
     playbackBufferEpic,
     playbackTickEpic,
@@ -88,6 +89,58 @@ function fixtureFetchHandler(url) {
         return Promise.resolve(new Response(null, { status: 404 }));
     }
     return Promise.resolve(new Response(base64ToArrayBuffer(b64), { status: 200 }));
+}
+
+// TASK-2739 (W3, epic 2706) — the expired-presigned-URL harness. The
+// re-signed manifest hands back the SAME relative keys under DIFFERENT urls
+// (exactly what build_playback_manifest(force_refresh=True) does on prod,
+// where every chunk_urls value is a freshly presigned S3 URL), so a retry
+// that went to the stale url is distinguishable from one that went to the
+// refreshed url.
+const REFRESHED_CHUNK_PREFIX = 'refreshed/';
+const REFRESH_URL_RE = /playback-manifest\/\?refresh=1$/;
+
+function refreshedFixtureManifest() {
+    const chunkUrls = {};
+    Object.keys(FIXTURE_MANIFEST.chunk_urls).forEach((key) => {
+        chunkUrls[key] = REFRESHED_CHUNK_PREFIX + FIXTURE_MANIFEST.chunk_urls[key];
+    });
+    return { ...FIXTURE_MANIFEST, chunk_urls: chunkUrls };
+}
+
+/**
+ * Serves the fixture store, but answers the FIRST chunk GET with 403 —
+ * the prod failure mode of TASK-2064 (IMDS instance-role credentials
+ * rotating before the presigned urls' nominal ExpiresIn, killing every url
+ * in the cached manifest mid-bucket). `calls` is the non-vacuity ledger:
+ * a spec whose 403 branch never fires cannot pass on it.
+ */
+function makeExpiredUrlFetchHandler() {
+    const calls = { manifest: [], chunk: [], forbidden: [], refreshServed: 0 };
+    const handler = (url) => {
+        if (url.indexOf(MANIFEST_URL) === 0) {
+            calls.manifest.push(url);
+            if (REFRESH_URL_RE.test(url)) {
+                calls.refreshServed += 1;
+                return Promise.resolve(new Response(JSON.stringify(refreshedFixtureManifest()), { status: 200 }));
+            }
+            return Promise.resolve(new Response(JSON.stringify(FIXTURE_MANIFEST), { status: 200 }));
+        }
+        calls.chunk.push(url);
+        if (calls.forbidden.length === 0) {
+            calls.forbidden.push(url);
+            return Promise.resolve(new Response(null, { status: 403 }));
+        }
+        const key = url.indexOf(REFRESHED_CHUNK_PREFIX) === 0
+            ? url.slice(REFRESHED_CHUNK_PREFIX.length)
+            : url;
+        const b64 = FIXTURE_STORE_FILES[key];
+        if (!b64) {
+            return Promise.resolve(new Response(null, { status: 404 }));
+        }
+        return Promise.resolve(new Response(base64ToArrayBuffer(b64), { status: 200 }));
+    };
+    return { handler, calls };
 }
 
 // Mirrors the codebase's own epic-test harness (warmTilesEpic-test.js etc.):
@@ -182,6 +235,63 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next(playbackInit(43, 'layer-1', MANIFEST_URL));
+        });
+
+        // TASK-2739 (W3, epic 2706) — AC3. The fetcher has documented a
+        // `refreshManifest` option since W2.1 and the backend has answered
+        // `?refresh=1` since 099303d, but NO production caller ever passed
+        // one: a 403 from an expired presigned url died at
+        // playbackChunkFetcher.js's "no refreshManifest available to retry"
+        // throw, turning one credential rotation into a 30-minute outage for
+        // every viewer sharing that manifest's cache bucket.
+        it('refetches the manifest with ?refresh=1 and retries the chunk when a presigned url 403s', (done) => {
+            const { handler, calls } = makeExpiredUrlFetchHandler();
+            const restore = stubGlobalFetch(handler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackInitEpic(action$, store).subscribe((a) => {
+                seen.push(a);
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                try {
+                    // (a) a SECOND manifest request went out, carrying ?refresh=1.
+                    expect(calls.manifest.filter((u) => REFRESH_URL_RE.test(u)).length).toBe(1);
+                    // (b) the 403'd chunk was retried against the REFRESHED
+                    // manifest's url, not the stale one it just failed on.
+                    expect(calls.chunk.some((u) => u === REFRESHED_CHUNK_PREFIX + calls.forbidden[0])).toBe(true);
+                    // (c) the load completes, with NO failure action of either kind.
+                    expect(seen.some((x) => x.type === PLAYBACK_MANIFEST_LOADED)).toBe(true);
+                    expect(seen.some((x) => x.type === PLAYBACK_MANIFEST_FAILED)).toBe(false);
+                    expect(seen.some((x) => x.type === PLAYBACK_CHUNK_BUFFER_ERROR)).toBe(false);
+                    // (d) NON-VACUITY GUARD: the 403 really was served (exactly
+                    // once) and the refresh callback really ran, so a spec whose
+                    // 403 branch is never reached cannot pass green.
+                    expect(calls.forbidden.length).toBe(1);
+                    expect(calls.refreshServed).toBe(1);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(2739, 'layer-2739', MANIFEST_URL));
+        });
+    });
+
+    // TASK-2739 (W3, epic 2706) — AC2. buildPlaybackManifestUrl
+    // (anugaScenarioMenu.js) emits a bare path, but the playback control bar
+    // lets an operator paste ANY manifest url, including a W0 rig fixture url
+    // that already carries a query string.
+    describe('buildManifestRefreshUrl', () => {
+        it('appends ?refresh=1 to a bare manifest path', () => {
+            expect(buildManifestRefreshUrl(MANIFEST_URL)).toBe('/api/v2/anuga/runs/1/playback-manifest/?refresh=1');
+        });
+
+        it('appends &refresh=1 to a url that already carries a query, keeping the existing params', () => {
+            expect(buildManifestRefreshUrl('/fixtures/playback-manifest/?token=abc&v=2'))
+                .toBe('/fixtures/playback-manifest/?token=abc&v=2&refresh=1');
         });
     });
 

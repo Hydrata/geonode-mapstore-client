@@ -272,6 +272,37 @@ export function countMeshObjects(manifest) {
 }
 
 /**
+ * The url to re-fetch a manifest through when a presigned chunk url comes
+ * back 403 (TASK-2739, W3, epic 2706).
+ *
+ * `?refresh=1` is the backend's cache bypass — api_v2.py's playback-manifest
+ * action reads it into `build_playback_manifest(force_refresh=True)`, which
+ * skips the cache READ, RE-SIGNS every chunk url, and still writes the entry
+ * back, so one refreshing client repairs the manifest for every other viewer
+ * in the same bucket. It is load-bearing on prod because signing uses IMDS
+ * instance-role credentials that can die before the presigned urls' nominal
+ * ExpiresIn (TASK-2064): one rotation just after a manifest is cached leaves
+ * every viewer of that run holding dead urls, and a plain re-fetch is a no-op
+ * because it is answered from the same cache entry. Shortening the cache
+ * bucket is NOT the alternative — decision D10: bucket length IS the browser
+ * cache-hit window (run.py's bucket_index is part of the cache key), worth
+ * the 60.29 MiB of re-download W2 measured down to 0.00 MiB.
+ *
+ * Query handling is the whole reason this is a function rather than a
+ * concatenation: buildPlaybackManifestUrl (anugaScenarioMenu.js) emits a bare
+ * `/api/v2/anuga/runs/<id>/playback-manifest/`, but the playback control bar
+ * lets an operator paste ANY manifest url, including a W0 rig fixture url
+ * that already carries a query string.
+ *
+ * @param {string} manifestUrl
+ * @returns {string} the same url with refresh=1 added as a query param
+ */
+export function buildManifestRefreshUrl(manifestUrl) {
+    const separator = String(manifestUrl).indexOf('?') === -1 ? '?' : '&';
+    return `${manifestUrl}${separator}refresh=1`;
+}
+
+/**
  * PLAYBACK_INIT -> ensure the target layer exists (a bare 'anuga-playback'
  * placeholder — AnugaPlaybackLayer.create() tolerates no mesh/frames yet),
  * fetch the manifest, load the mesh + time array via the W2.1/W2.2 seam,
@@ -345,7 +376,19 @@ export function playbackInitEpic(action$, store) {
             const initialPlan = nNode0
                 ? computePlaybackMemoryPlan({ nNode: nNode0, chunkLengthT, totalChunks: totalChunks0 })
                 : null;
-            const fetcher = new PlaybackChunkFetcher({ manifest, memoryPlan: initialPlan, onProgress });
+            // TASK-2739 (W3, epic 2706) — the 403 recovery the fetcher has
+            // documented since W2.1 and never had a caller for. Without
+            // `refreshManifest` a chunk url whose credentials rotated dies at
+            // the fetcher's "no refreshManifest available to retry" throw, so
+            // W2's manifest cache would turn one rotation into a dead run for
+            // the rest of the bucket. Same run, same relative keys, freshly
+            // signed urls.
+            const fetcher = new PlaybackChunkFetcher({
+                manifest,
+                memoryPlan: initialPlan,
+                onProgress,
+                refreshManifest: () => fetchPlaybackManifest(buildManifestRefreshUrl(manifestUrl))
+            });
             fetcherRegistry.set(runId, fetcher);
             lastSyncedTimestep.delete(runId);
             // TASK-2629 (W4.1) — dt_ms loads alongside mesh/time (a small,
