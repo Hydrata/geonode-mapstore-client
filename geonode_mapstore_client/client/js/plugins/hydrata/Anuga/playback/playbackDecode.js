@@ -100,16 +100,47 @@ export function gunzip(compressedBuffer) {
 /**
  * Decode a raw (already gunzipped) ArrayBuffer into a typed array, honouring
  * an explicit byteorder ('little' | 'big', default 'little' — matches the
- * schema's group/array attrs). Always reads via DataView rather than handing
- * back a zero-copy view over the buffer, because a zero-copy Uint16Array/etc
- * view is only byte-order-correct on a little-endian host reading a
- * little-endian buffer — DataView.getX(offset, littleEndian) is the only
- * construct that is correct regardless of host/store endianness, which is
- * the "big-endian aware" requirement (TASK-2625 AC).
- * @param {ArrayBuffer} rawBuffer
+ * schema's group/array attrs).
+ *
+ * COPY-VS-ALIAS CONTRACT (TASK-2731) — the two paths differ in OWNERSHIP, not
+ * in the values they produce:
+ *   (a) when the store's byteorder MATCHES this host's (HOST_IS_LITTLE_ENDIAN,
+ *       measured above), the raw bytes are already in the layout the typed
+ *       array wants, so the return value is a ZERO-COPY VIEW that ALIASES
+ *       rawBuffer: `decodeTypedArray(raw, ...).buffer === raw`. This is the
+ *       branch taken on every production decode today (the schema writes
+ *       'little' and every browser we ship to is little-endian), added by
+ *       TASK-2708 (W1, epic 2706) to kill a multi-second main-thread stall.
+ *   (b) otherwise the return value is a FRESH COPY, read element-by-element
+ *       via DataView.getX(offset, littleEndian) — the only construct that is
+ *       correct regardless of host/store endianness, which is what keeps the
+ *       "big-endian aware" requirement (TASK-2625 AC) true. rawBuffer is left
+ *       untouched and the result does NOT alias it.
+ * Both paths are value-identical (pinned by playbackMemoryPolicy-test.js, 'the
+ * zero-copy fast path is bit-identical to the DataView loop, both byte
+ * orders'); the identity difference is pinned by playbackDecode-test.js,
+ * 'documents its copy-vs-alias contract: ...'.
+ *
+ * WHY THE ALIAS IS SAFE TODAY — an invariant of the CALLERS, not of this
+ * function. The only two in-tree callers are decodeCompressedChunk and
+ * decodeChunk, both defined later in this module: each hands over a buffer it
+ * created itself with `await gunzip(...)` in the same call and never reads it
+ * again. That still holds off-thread — playbackDecode.worker.js and
+ * playbackDecodeWorker.js reach this function only through
+ * decodeCompressedChunk, so the gunzip happens inside the worker too, and the
+ * aliased `result.buffer` is then TRANSFERRED back to the main thread, which
+ * detaches the worker's own reference. A NEW caller inherits that duty; this
+ * function does not enforce it.
+ *
+ * @param {ArrayBuffer} rawBuffer OWNERSHIP IS HANDED OVER TO THIS CALL. The
+ * caller must not retain, reuse or mutate rawBuffer afterwards: on path (a)
+ * the returned array aliases it, so a later write through either one silently
+ * mutates live decoded playback data seen by the other. If you need to keep
+ * the bytes, pass a copy (`raw.slice(0)`) and hand THAT over.
  * @param {string} dtype one of SUPPORTED_DTYPES
  * @param {string} [byteorder='little']
- * @returns {Uint16Array|Int32Array|Float32Array|Float64Array}
+ * @returns {Uint16Array|Int32Array|Float32Array|Float64Array} a zero-copy view
+ * aliasing rawBuffer when byteorder matches the host, else a fresh copy.
  */
 export function decodeTypedArray(rawBuffer, dtype, byteorder = 'little') {
     const info = DTYPE_READERS[dtype];
