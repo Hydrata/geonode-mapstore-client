@@ -607,7 +607,7 @@
         "scrubber": "Position sur la chronologie",
         "speed": "Vitesse de lecture",
         "opacity": "Opacité de la couche",
-        "speedWholeRunIn": "Simulation en {d}",
+        "speedWholeRunIn": "Simulation entière en {d}",
         "speedRealTime": "Temps réel",
         "speedSlowMotion": "ralenti",
         "wireframe": "Maillage",

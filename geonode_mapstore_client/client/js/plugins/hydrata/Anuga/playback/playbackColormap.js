@@ -177,6 +177,40 @@ export const QUANTITY_RAMPS = Object.freeze({
     }
 });
 
+/**
+ * A CSS `linear-gradient` of one result quantity's ramp (TASK-2751).
+ *
+ * Built from QUANTITY_RAMPS — the SAME stops the renderer's dual-LUT draws
+ * with — so a swatch beside a row in the colour-scale table shows the colours
+ * that quantity will actually be drawn in, not a decorative approximation.
+ *
+ * Continuous ramps place each stop at its own position in the ramp's value
+ * range, so an uneven SLD (depth's 0/0.05/0.1/0.2/0.5/1/2/3/4/5/6) reads with
+ * the same crowding at the low end that the map shows. Discrete ramps are
+ * banded with hard edges — H1..H6 are classes and must never look blended.
+ *
+ * @param {string} quantityId
+ * @returns {string} a `linear-gradient(...)` value
+ */
+export function rampGradientCss(quantityId) {
+    const ramp = QUANTITY_RAMPS[quantityId] || QUANTITY_RAMPS.depth;
+    const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+    if (ramp.discrete) {
+        const n = ramp.stops.length;
+        const bands = ramp.stops.map((s, i) => {
+            const from = (i / n * 100).toFixed(2);
+            const to = ((i + 1) / n * 100).toFixed(2);
+            return `${rgb(s.color)} ${from}%, ${rgb(s.color)} ${to}%`;
+        });
+        return `linear-gradient(to right, ${bands.join(', ')})`;
+    }
+    const lo = ramp.stops[0].quantity;
+    const hi = ramp.stops[ramp.stops.length - 1].quantity;
+    const span = (hi - lo) || 1;
+    const parts = ramp.stops.map((s) => `${rgb(s.color)} ${((s.quantity - lo) / span * 100).toFixed(2)}%`);
+    return `linear-gradient(to right, ${parts.join(', ')})`;
+}
+
 function lerp(a, b, t) {
     return a + (b - a) * t;
 }

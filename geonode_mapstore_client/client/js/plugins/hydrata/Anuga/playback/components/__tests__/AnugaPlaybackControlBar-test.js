@@ -226,20 +226,21 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(container.querySelector('[data-testid="anuga-playback-opacity-value"]').textContent).toBe('85%');
         });
 
-        /* TASK-2751 ported these two from the bare `anuga-playback-colormax`
-           number input to EditableCeiling. Same guarantee, new control: the
-           ceiling is settable from the bar and shows the EFFECTIVE value. */
-        it('AC4 — the colour-scale ceiling is user-settable and shows the effective value', () => {
+        /* TASK-2751 ported these from the bare `anuga-playback-colormax`
+           number input; the operator then moved the control off the primary row
+           entirely, so the ceiling now lives one row per quantity in the
+           Display drawer. Same guarantee, new home. */
+        it('AC4 — the colour-scale ceiling is settable and shows the effective value', () => {
             const onSetColorMax = expect.createSpy();
             const quantization = { depth: { valid_max: 16.862720489501953 } };
             render({ playback: loadedState({ quantity: 'depth', quantization }), onSetColorMax });
-            const chip = container.querySelector('[data-testid="anuga-playback-ceiling"]');
+            const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth"]');
             expect(chip).toBeTruthy();
             // This is the store's valid_max — every urban depth lands in the
             // bottom 6% of the ramp, which is what AC4 existed to fix.
             expect(chip.textContent).toInclude('16.863');
             TestUtils.Simulate.click(chip);
-            const input = container.querySelector('[data-testid="anuga-playback-ceiling-input"]');
+            const input = container.querySelector('[data-testid="anuga-playback-ceiling-depth-input"]');
             TestUtils.Simulate.change(input, { target: { value: '1.5' } });
             TestUtils.Simulate.keyDown(input, { key: 'Enter' });
             expect(onSetColorMax.calls[0].arguments[0]).toBe('depth');
@@ -249,7 +250,7 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         it('AC4 — once overridden, the chip shows the OVERRIDE rather than the store maximum', () => {
             const quantization = { depth: { valid_max: 16.862720489501953 } };
             render({ playback: loadedState({ quantity: 'depth', quantization, colorMaxOverride: { depth: 1.5 } }) });
-            const chip = container.querySelector('[data-testid="anuga-playback-ceiling"]');
+            const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth"]');
             expect(chip.textContent).toInclude('1.5');
             expect(chip.textContent).toNotInclude('16.863');
         });

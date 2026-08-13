@@ -38,6 +38,7 @@ const DRAWER_CONTROLS = [
     'anuga-playback-opacity',
     'anuga-playback-wireframe-toggle',
     'anuga-playback-ceiling-table',
+    'anuga-playback-ceiling-depth',
     'anuga-playback-flowviz-toggle',
     'anuga-playback-particles-toggle'
 ];
@@ -50,7 +51,6 @@ const TRANSPORT_CONTROLS = [
     'anuga-playback-speed',
     'anuga-playback-status',
     'anuga-playback-quantity',
-    'anuga-playback-ceiling',
     'anuga-playback-max-envelope',
     'anuga-playback-display-toggle',
     'anuga-playback-identify-toggle',
@@ -177,11 +177,12 @@ describe('Playback bar layout — TASK-2751', () => {
             expect(transportChildTestids()).toEqual(atRest);
         });
 
-        it('is identical while the ceiling is being edited', () => {
+        it('is identical while a ceiling is being edited in the drawer', () => {
             render({ playback: readyState() });
             const atRest = transportChildTestids();
-            TestUtils.Simulate.click(q('anuga-playback-ceiling'));
-            expect(q('anuga-playback-ceiling-input')).toBeTruthy();
+            TestUtils.Simulate.click(q('anuga-playback-display-toggle'));
+            TestUtils.Simulate.click(q('anuga-playback-ceiling-depth'));
+            expect(q('anuga-playback-ceiling-depth-input')).toBeTruthy();
             expect(transportChildTestids()).toEqual(atRest);
         });
     });
@@ -211,27 +212,74 @@ describe('Playback bar layout — TASK-2751', () => {
         });
     });
 
-    describe('AC4 — the colour-scale ceiling is on the primary path, per quantity', () => {
-        it('renders the EFFECTIVE ceiling for the displayed quantity', () => {
-            render({ playback: readyState({ quantity: 'depth', colorMaxOverride: { depth: 1.5 } }) });
-            expect(q('anuga-playback-ceiling').textContent).toInclude('1.5');
+    describe('AC4 — the colour scale lives in the drawer, one row per result quantity', () => {
+        it('is a single-column list of EVERY available quantity', () => {
+            render({ playback: readyState({ hasDt: true }) });
+            const table = q('anuga-playback-ceiling-table');
+            expect(table).toBeTruthy();
+            expect(table.children.length).toBe(8);
+            render({ playback: readyState({ hasDt: false }) });
+            expect(q('anuga-playback-ceiling-table').children.length).toBe(7);
         });
 
-        it('commits through onSetColorMax against the DISPLAYED quantity', () => {
+        it('every row carries the ramp swatch that quantity is actually drawn in', () => {
+            // hasDt, or Courant is correctly filtered out and has no row to check.
+            render({ playback: readyState({ hasDt: true }) });
+            ['depth', 'speed', 'stage', 'div', 'hazard', 'froude', 'shear', 'courant'].forEach((id) => {
+                const sw = q(`anuga-playback-ceiling-swatch-${id}`);
+                expect(sw).toExist(`${id} needs a swatch`);
+                expect(sw.style.background).toInclude('linear-gradient');
+            });
+            // ...and they are not all the same gradient.
+            const depth = q('anuga-playback-ceiling-swatch-depth').style.background;
+            const shear = q('anuga-playback-ceiling-swatch-shear').style.background;
+            expect(depth).toNotBe(shear);
+        });
+
+        it('renders the EFFECTIVE ceiling per quantity', () => {
+            render({ playback: readyState({ colorMaxOverride: { depth: 1.5 } }) });
+            expect(q('anuga-playback-ceiling-depth').textContent).toInclude('1.5');
+        });
+
+        it('commits against the row it was edited on, NOT the displayed quantity', () => {
             const onSetColorMax = expect.createSpy();
-            render({ playback: readyState({ quantity: 'speed' }), onSetColorMax });
-            TestUtils.Simulate.click(q('anuga-playback-ceiling'));
-            TestUtils.Simulate.change(q('anuga-playback-ceiling-input'), { target: { value: '2' } });
-            TestUtils.Simulate.keyDown(q('anuga-playback-ceiling-input'), { key: 'Enter' });
+            render({ playback: readyState({ quantity: 'depth' }), onSetColorMax });
+            TestUtils.Simulate.click(q('anuga-playback-ceiling-shear'));
+            TestUtils.Simulate.change(q('anuga-playback-ceiling-shear-input'), { target: { value: '50' } });
+            TestUtils.Simulate.keyDown(q('anuga-playback-ceiling-shear-input'), { key: 'Enter' });
             expect(onSetColorMax.calls.length).toBe(1);
-            expect(onSetColorMax.calls[0].arguments[0]).toBe('speed');
-            expect(onSetColorMax.calls[0].arguments[1]).toBe(2);
+            expect(onSetColorMax.calls[0].arguments[0]).toBe('shear');
+            expect(onSetColorMax.calls[0].arguments[1]).toBe(50);
+        });
+
+        it('hazard has no editable ceiling — H1..H6 IS the scale', () => {
+            render({ playback: readyState() });
+            expect(q('anuga-playback-ceiling-hazard')).toBe(null);
+            expect(q('anuga-playback-ceiling-row-hazard')).toExist();
+        });
+
+        it('a row switches the displayed quantity without touching any ceiling', () => {
+            const onSetQuantity = expect.createSpy();
+            const onSetColorMax = expect.createSpy();
+            render({ playback: readyState(), onSetQuantity, onSetColorMax });
+            TestUtils.Simulate.click(q('anuga-playback-ceiling-show-froude'));
+            expect(onSetQuantity.calls[0].arguments[0]).toBe('froude');
+            expect(onSetColorMax.calls.length).toBe(0);
         });
 
         it('never shows the word "max" — that word belongs to the envelope (TASK-2752)', () => {
             render({ playback: readyState({ colorMaxOverride: { depth: 1.5 } }) });
-            const group = q('anuga-playback-ceiling-group');
-            expect(group.textContent.toLowerCase()).toNotInclude('max');
+            expect(q('anuga-playback-ceiling-table').textContent.toLowerCase()).toNotInclude('max');
+        });
+    });
+
+    describe('AC3b — the primary group is JUST the picker and the reserved Max slot', () => {
+        it('carries no ceiling control and no text label of its own', () => {
+            render({ playback: readyState() });
+            const group = q('anuga-playback-primary-group');
+            expect(q('anuga-playback-ceiling', group)).toBe(null, 'the ceiling belongs in the drawer');
+            expect(group.querySelector('.sv-playback-primary-label')).toBe(null);
+            expect(group.querySelector('select')).toExist();
         });
     });
 

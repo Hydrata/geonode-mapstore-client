@@ -607,7 +607,7 @@
         "scrubber": "Timeline position",
         "speed": "Playback speed",
         "opacity": "Layer opacity",
-        "speedWholeRunIn": "Run in {d}",
+        "speedWholeRunIn": "Whole run in {d}",
         "speedRealTime": "Real time",
         "speedSlowMotion": "slow motion",
         "wireframe": "Wireframe",

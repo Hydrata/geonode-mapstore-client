@@ -40,6 +40,7 @@ import {
     simulatedSpanSeconds
 } from '../playbackController';
 import { availableQuantityIds, QUANTITY_META } from '../playbackDerivedQuantities';
+import { rampGradientCss } from '../playbackColormap';
 import {
     playbackInit,
     playbackPlay,
@@ -379,13 +380,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 if (Math.abs(span / wallSeconds - speed) < 1e-6) {
                     options.push({
                         value: speed,
-                        // TASK-2751 — " · 120x" rather than " (120x)", and a
-                        // shorter stem: this <select> sizes to its widest
-                        // option and was the fattest control on a row that now
-                        // carries twelve. Still states the duration AND the
-                        // multiplier, which is all AC17 ever asked for.
-                        label: this.tr('hydrata.playback.speedWholeRunIn', 'Run in {d}')
-                            .replace('{d}', formatWallDuration(wallSeconds)) + ` · ${formatMultiplier(speed)}`
+                        label: this.tr('hydrata.playback.speedWholeRunIn', 'Whole run in {d}')
+                            .replace('{d}', formatWallDuration(wallSeconds)) + ` (${formatMultiplier(speed)})`
                     });
                 }
             });
@@ -393,7 +389,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         // Real time is ALWAYS offered and always labelled as such — AC17(b).
         options.push({
             value: 1,
-            label: `${this.tr('hydrata.playback.speedRealTime', 'Real time')} · 1x${span > 0 ? `, ${formatWallDuration(span)}` : ''}`
+            label: `${this.tr('hydrata.playback.speedRealTime', 'Real time')} (1x${span > 0 ? `, ${formatWallDuration(span)}` : ''})`
         });
         SLOW_MOTION_OPTIONS.forEach((s) => options.push({
             value: s,
@@ -413,51 +409,21 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
     }
 
     /**
-     * TASK-2751 — the colour-scale ceiling, on the PRIMARY path.
+     * TASK-2751 — the colour-scale table: EVERY result quantity, one per row.
      *
-     * Was a bare, unlabelled number input (TASK-2744 AC4) sitting mid-row
-     * among nine other controls. It is now fused to the quantity picker,
-     * because that is how it behaves: the override map is keyed per quantity,
-     * so "which result quantity" and "what is the top of its ramp" are one
-     * decision and belong in one slot.
+     * This is the only place a ceiling is edited on the bar's own surface. It
+     * was briefly also a chip beside the quantity picker; the picker's job is
+     * "what am I looking at", and hanging a second number off it made the
+     * primary row carry a setting that is only adjusted occasionally.
      *
-     * Renders `≤ 1.5 m`. The word "max" is deliberately absent — see
-     * EditableCeiling's header.
-     */
-    renderCeiling(playback, testid) {
-        const override = (playback.colorMaxOverride || {})[playback.quantity];
-        const effective = colorMaxForQuantity(
-            playback.quantity,
-            playback.quantization,
-            {
-                elevationMin: playback.elevationMin,
-                elevationMax: playback.elevationMax,
-                colorMaxOverride: override
-            }
-        );
-        const meta = QUANTITY_META[playback.quantity] || QUANTITY_META.depth;
-        return (
-            <EditableCeiling
-                testid={testid}
-                quantity={playback.quantity}
-                value={effective}
-                unit={meta.unit}
-                overridden={isFinite(override)}
-                // A classification has no ceiling to raise — H1..H6 are the
-                // scale (QUANTITY_META.hazard.discrete).
-                disabled={!!meta.discrete}
-                onChange={this.props.onSetColorMax}
-            />
-        );
-    }
-
-    /**
-     * TASK-2751 — the eight-row ceiling table, in the drawer.
+     * ONE COLUMN, deliberately: eight rows of [swatch | name | ceiling] read
+     * as a list you can scan down and compare, which is the actual task
+     * ("is depth's ramp sensible next to velocity's?"). Two columns turn the
+     * same eight rows into a grid you have to hunt around.
      *
-     * The bar chip only reaches the ceiling of what is currently DISPLAYED.
-     * Reviewing a run means comparing quantities, and switching quantity just
-     * to retune its ramp is a detour; this table reaches all of them without
-     * changing what is drawn.
+     * The swatch is built from QUANTITY_RAMPS — the same stops the renderer
+     * draws with — so it shows the colours that quantity will really appear
+     * in, and the row is legible before you have selected it.
      */
     renderCeilingTable(playback) {
         const rows = availableQuantityIds(playback.hasDt).map((id) => {
@@ -474,6 +440,12 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     key={id}
                     data-testid={`anuga-playback-ceiling-row-${id}`}
                 >
+                    <span
+                        className="sv-playback-ceiling-swatch"
+                        data-testid={`anuga-playback-ceiling-swatch-${id}`}
+                        style={{ background: rampGradientCss(id) }}
+                        aria-hidden="true"
+                    />
                     <button
                         type="button"
                         className="sv-playback-ceiling-row-name"
@@ -804,7 +776,6 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         unlabelled number box. They travel together because the
                         ceiling is stored PER QUANTITY. */}
                     <span className="sv-playback-primary" data-testid="anuga-playback-primary-group">
-                        <span className="sv-playback-primary-label" aria-hidden="true">{quantityLabel}</span>
                         <select
                             className="sv-playback-quantity"
                             data-testid="anuga-playback-quantity"
@@ -817,8 +788,6 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                                 <option key={id} value={id}>{this.tr(`hydrata.playback.quantityOption.${id}`, QUANTITY_OPTION_LABEL[id])}</option>
                             ))}
                         </select>
-
-                        {this.renderCeiling(playback, 'anuga-playback-ceiling')}
 
                         {/* TASK-2752 — RESERVED, NOT IMPLEMENTED. The temporal-max
                             envelope (the in-browser `*_max.tif`) needs per-vertex

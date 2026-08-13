@@ -3118,17 +3118,10 @@ span.sv-scenario-run-price--short {
     align-items: center;
     gap: 6px;
 }
-.sv-playback-primary-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
-    white-space: nowrap;
-}
 /* A <select> sizes to its WIDEST option, and "Depth-integrated velocity (dIV)"
    would take 220px of a row that has none to spare. */
 .sv-playback-quantity {
-    max-width: 110px;
+    max-width: 190px;
 }
 .sv-playback-bar .sv-playback-max-envelope {
     padding: 5px 8px;
@@ -3214,20 +3207,28 @@ span.sv-scenario-run-price--short {
     margin: 0;
     padding: 0;
     width: 100%;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 2px 14px;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
 .sv-playback-ceiling-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
-    padding: 2px 4px;
+    padding: 3px 4px;
     border-radius: 3px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 .sv-playback-ceiling-row.is-active {
     background: rgba(202, 227, 59, 0.13);
+}
+.sv-playback-ceiling-swatch {
+    flex: 0 0 auto;
+    width: 46px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.30);
 }
 .sv-playback-ceiling-row-name {
     flex: 1 1 auto;
@@ -3247,7 +3248,14 @@ span.sv-scenario-run-price--short {
 .sv-playback-ceiling-row-name:hover {
     text-decoration: underline;
 }
-.sv-playback-ceiling-row.is-active .sv-playback-ceiling-row-name {
+.sv-playback-ceiling-row.is-active .sv-playback-ceiling-swatch {
+    flex: 0 0 auto;
+    width: 46px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.30);
+}
+.sv-playback-ceiling-row-name {
     color: var(--sv-accent-lime, #cae33b);
     font-weight: 600;
 }

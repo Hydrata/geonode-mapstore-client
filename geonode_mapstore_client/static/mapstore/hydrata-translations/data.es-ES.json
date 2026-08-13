@@ -607,7 +607,7 @@
         "scrubber": "Posición en la línea de tiempo",
         "speed": "Velocidad de reproducción",
         "opacity": "Opacidad de la capa",
-        "speedWholeRunIn": "Simulación en {d}",
+        "speedWholeRunIn": "Simulación completa en {d}",
         "speedRealTime": "Tiempo real",
         "speedSlowMotion": "cámara lenta",
         "wireframe": "Malla",
