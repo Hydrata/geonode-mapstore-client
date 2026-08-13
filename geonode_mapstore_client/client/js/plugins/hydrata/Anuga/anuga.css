@@ -3005,13 +3005,22 @@ span.sv-scenario-run-price--short {
    "a mounting label must not move the play button" true by construction:
    nothing that appears inside can change the box. It still varies with the
    viewport below 1352px, which is fine — that is not content. */
+/* The bar must not sit on top of the map's own bottom controls. Measured live
+   at 1300px: the left cluster (basemap switcher to x=46, the Ref tag to x=76.8)
+   and the right cluster (two square-buttons from x=1256.2, i.e. 43.8px in from
+   the right edge) both fell UNDER the old full-bleed `100vw - 32px`.
+   88px of clearance each side covers the wider of the two with room to spare,
+   and because those controls are viewport-anchored the inset is a constant,
+   not a breakpoint. On a wide viewport max-width wins and the margins centre
+   it, exactly as before. */
 .sv-playback-bar {
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 88px;
+    right: 88px;
+    width: auto;
+    max-width: 1320px;
     margin-left: auto;
     margin-right: auto;
-    width: min(1320px, calc(100vw - 32px));
     bottom: 16px;
     z-index: 1000;
     display: flex;
@@ -3317,9 +3326,18 @@ span.sv-scenario-run-price--short {
     opacity: 0.5;
     cursor: not-allowed;
 }
-.sv-playback-playpause {
+/* Scoped to the bar deliberately: `.sv-playback-bar .sv-glass-button` above
+   sets `color: inherit` at two classes, so a bare `.sv-playback-playpause`
+   loses on specificity and the glyph stays white. */
+.sv-playback-bar .sv-playback-playpause {
     min-width: 32px;
     text-align: center;
+    /* The transport's one coloured control, in the shared site green. Only
+       reachable because the glyphs are text-presentation codepoints — an
+       emoji-presentation ▶ paints its own orange and ignores `color`. */
+    color: var(--sv-accent-green, rgba(39, 202, 59, 1));
+    font-size: 13px;
+    line-height: 1;
 }
 /* TASK-2744 AC5 — the scrubber may shrink, but never below usable. It was
    measured at 3px on a 1248px viewport. */

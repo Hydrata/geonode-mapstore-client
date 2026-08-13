@@ -67,14 +67,17 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         const readyState = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 10, currentTimestep: 0 };
         render({ playback: readyState, onPlay, onPause });
         const btn = container.querySelector('[data-testid="anuga-playback-playpause"]');
-        expect(btn.textContent).toBe('▶');
+        // TEXT-presentation codepoints, not emoji: U+25B6 (▶) defaults to
+        // emoji presentation, so the browser painted its own orange square
+        // and the button's `color` did nothing.
+        expect(btn.textContent).toBe('►');
         TestUtils.Simulate.click(btn);
         expect(onPlay.calls.length).toBe(1);
         expect(onPause.calls.length).toBe(0);
 
         render({ playback: { ...readyState, status: PLAYBACK_STATUS.PLAYING }, onPlay, onPause });
         const btn2 = container.querySelector('[data-testid="anuga-playback-playpause"]');
-        expect(btn2.textContent).toBe('❙❙');
+        expect(btn2.textContent).toBe('❚❚');
         TestUtils.Simulate.click(btn2);
         expect(onPause.calls.length).toBe(1);
     });

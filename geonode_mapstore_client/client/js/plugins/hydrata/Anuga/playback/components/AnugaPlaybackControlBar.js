@@ -261,6 +261,22 @@ function indexFractionAt(time, last, seconds) {
     return (lo + (dt > 0 ? (seconds - time[lo]) / dt : 0)) / last;
 }
 
+/*
+ * How many ticks will FIT in `px` of track.
+ *
+ * 56px per tick: the widest label the axis produces is the last one, which
+ * carries the unit ("30 min" measured at 32.6px), and adjacent labels need
+ * visible air between them. Below two ticks an axis says nothing, so that is
+ * the floor; above eight it is denser than anyone reads, so that is the cap.
+ * Width 0 means "not measured yet" and keeps the default.
+ */
+export function tickBudgetForWidth(px, fallback = 8) {
+    if (!(px > 0)) {
+        return fallback;
+    }
+    return Math.max(2, Math.min(8, Math.floor(px / 56)));
+}
+
 export function scrubberTicks(time, nTime, maxTicks = 8) {
     const last = (nTime || 0) - 1;
     if (!time || last < 1 || time.length <= last) {
@@ -372,7 +388,50 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
     // drawer you happened to leave open twenty minutes ago.
     state = {
         manifestUrlDraft: '',
-        drawerOpen: false
+        drawerOpen: false,
+        // Rendered width of the scrubber track, so the tick axis can choose a
+        // density that FITS. 0 until measured; scrubberTicks falls back to its
+        // own default budget until then.
+        trackWidth: 0
+    };
+
+    /*
+     * The tick axis has to know how much room it has. Choosing the tick count
+     * from the time span alone put "25" and "30 min" 0.4px apart once the bar
+     * was narrowed to clear the map's corner controls (measured: 235.6px of
+     * track, 7 ticks), and at a narrower viewport they would overlap outright.
+     * An axis whose labels collide is worse than one with fewer ticks.
+     *
+     * ResizeObserver rather than a window resize listener: the track also
+     * changes width without the window doing anything — the speed picker's
+     * labels widen once the run's duration is known, which alone moved the
+     * track by ~37px.
+     */
+    onTrackResize = (entries) => {
+        const w = Math.round(entries[0].contentRect.width);
+        if (w && w !== this.state.trackWidth) {
+            this.setState({ trackWidth: w });
+        }
+    };
+
+    /*
+     * Observer setup lives in the REF, not in componentDidMount. Before a run
+     * is loaded this component renders renderLoader(), a different tree with
+     * no scrubber in it at all — so at mount there is nothing to observe, and
+     * a componentDidMount that gave up there would never be asked again when
+     * the transport row finally appeared. The ref fires exactly when the track
+     * arrives and again with null when it leaves.
+     */
+    setTrackEl = (el) => {
+        if (this.trackObserver) {
+            this.trackObserver.disconnect();
+            this.trackObserver = null;
+        }
+        this.trackEl = el;
+        if (el && typeof ResizeObserver !== 'undefined') {
+            this.trackObserver = new ResizeObserver(this.onTrackResize);
+            this.trackObserver.observe(el);
+        }
     };
 
     /**
@@ -399,6 +458,10 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      * state machine, so the AC is graded on its intent: playback stops.
      */
     componentWillUnmount() {
+        if (this.trackObserver) {
+            this.trackObserver.disconnect();
+            this.trackObserver = null;
+        }
         const { playback, onPause } = this.props;
         if (playback && playback.status === PLAYBACK_STATUS.PLAYING && onPause) {
             onPause();
@@ -836,7 +899,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         const canScrub = playback.nTime > 0;
         const statusMsgId = STATUS_MESSAGE_ID[playback.status];
         const quantityLabel = this.tr('hydrata.playback.resultQuantity', 'Result quantity');
-        const ticks = scrubberTicks(playback.time, playback.nTime);
+        const ticks = scrubberTicks(playback.time, playback.nTime, tickBudgetForWidth(this.state.trackWidth));
         return (
             <div
                 className={`sv-playback-bar sv-playback-bar--${playback.status}${this.state.drawerOpen ? ' is-open' : ''}`}
@@ -858,7 +921,13 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             ? this.tr('hydrata.playback.pause', 'Pause')
                             : this.tr('hydrata.playback.play', 'Play')}
                     >
-                        {isPlaying ? '❙❙' : '▶'}
+                        {/* TEXT-presentation codepoints. U+25B6 (▶) defaults to
+                            EMOJI presentation, so the browser painted the orange
+                            rounded-square emoji and ignored `color` entirely —
+                            the button was orange on a blue bar with nothing in
+                            the stylesheet saying so. U+25BA/U+275A are
+                            text-default and take the CSS colour. */}
+                        {isPlaying ? '❚❚' : '►'}
                     </button>
 
                     {/* TASK-2744 AC9 — the scrubber must show what is BUFFERED.
@@ -866,7 +935,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         2618 and no component ever read it, so video-style buffer
                         feedback existed only as a text label. The track wrapper is
                         also what gives the buffered bar a positioned ancestor. */}
-                    <span className="sv-playback-scrubber-track" data-testid="anuga-playback-scrubber-track">
+                    <span className="sv-playback-scrubber-track" data-testid="anuga-playback-scrubber-track" ref={this.setTrackEl}>
                         {bufferedTrackSegments(playback.bufferedChunks, playback.chunkLengthT, playback.nTime)
                             .map((seg, i) => (
                                 <span

@@ -14,7 +14,8 @@ import expect from 'expect';
 import {
     AnugaPlaybackControlBarComponent,
     scrubberTicks,
-    tickUnitFor
+    tickUnitFor,
+    tickBudgetForWidth
 } from '../AnugaPlaybackControlBar';
 import { createInitialPlaybackState, PLAYBACK_STATUS } from '../../playbackController';
 
@@ -210,6 +211,28 @@ describe('Playback status toast + scrubber tick axis', () => {
                 const time = Float64Array.from({ length: n }, (_, i) => i * 60);
                 expect(scrubberTicks(time, n).ticks.length).toBeLessThan(11);
             });
+        });
+
+        /* The axis has to fit the track it is drawn in. Choosing the count from
+           the time span alone put "25" and "30 min" 0.4px apart once the bar
+           narrowed to 235.6px of track to clear the map's corner controls. */
+        it('spends its tick budget on the width actually available', () => {
+            expect(tickBudgetForWidth(235.6)).toBe(4);
+            expect(tickBudgetForWidth(379.2)).toBe(6);
+            expect(tickBudgetForWidth(1000)).toBe(8);   // capped — denser reads as noise
+            expect(tickBudgetForWidth(60)).toBe(2);     // floored — one tick is not an axis
+            expect(tickBudgetForWidth(0)).toBe(8);      // unmeasured keeps the default
+        });
+
+        it('thins the axis rather than colliding labels on a narrow track', () => {
+            const time = Float64Array.from({ length: 31 }, (_, i) => i * 60);
+            const narrow = scrubberTicks(time, 31, tickBudgetForWidth(235.6));
+            expect(narrow.step).toBe(10);
+            expect(narrow.ticks.map((t) => t.value)).toEqual([0, 10, 20, 30]);
+            // The wide bar keeps the finer axis it had room for.
+            const wide = scrubberTicks(time, 31, tickBudgetForWidth(379.2));
+            expect(wide.step).toBe(5);
+            expect(wide.ticks.length).toBe(7);
         });
 
         it('escalates the unit as the run gets longer', () => {
