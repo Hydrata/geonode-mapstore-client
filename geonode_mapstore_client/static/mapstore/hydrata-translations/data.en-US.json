@@ -576,7 +576,7 @@
         "legend": "Legend",
         "flowViz": "Flow",
         "particles": "Trails",
-        "degraded": "Slow connection — playback degraded",
+        "degraded": "Playback is waiting for data — try a slower speed",
         "status": {
           "loadingManifest": "Loading…",
           "buffering": "Buffering…",
@@ -616,7 +616,7 @@
         "legendTooltip": "Show the colour legend",
         "flowVizTooltip": "Velocity arrow overlay",
         "particlesTooltip": "Particle trails",
-        "degradedTooltip": "Repeated buffering stalls — playback is degraded on this connection",
+        "degradedTooltip": "Playback has been waiting several seconds for the next frames. A slower speed gives the buffer time to keep up.",
         "arrowDensity": "Arrow density (px spacing)",
         "arrowScale": "Arrow scale",
         "particleDensity": "Particle density (grid side length)",
@@ -652,7 +652,8 @@
           "h": "h",
           "d": "d"
         },
-        "statusToast": "Playback status"
+        "statusToast": "Playback status",
+        "dismiss": "Dismiss"
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",

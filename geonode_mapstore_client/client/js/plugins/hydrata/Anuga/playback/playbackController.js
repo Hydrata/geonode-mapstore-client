@@ -51,6 +51,7 @@ import {
     PLAYBACK_SET_IDENTIFY_ARMED,
     PLAYBACK_SET_IDENTIFY_RESULT,
     PLAYBACK_SET_LEGEND_OPEN,
+    PLAYBACK_DISMISS_DEGRADED,
     PLAYBACK_SET_WIREFRAME,
     PLAYBACK_SET_OPACITY,
     PLAYBACK_SET_OVERLAY,
@@ -109,10 +110,28 @@ export const DEFAULT_PLAYBACK_OPACITY = 0.85;
  * 64.7 MiB per chunk). It survives only as the pre-manifest default.
  */
 const DEFAULT_WINDOW_RADIUS = 2;
-// Graceful degradation (AC): after this many consecutive stalls, `degraded`
-// flips true so the UI can show a "slow connection" note rather than just
-// silently re-buffering forever.
-const STALL_DEGRADED_THRESHOLD = 3;
+/*
+ * Graceful degradation: how long playback must sit waiting for frames before
+ * we say so.
+ *
+ * This was `stallCount >= 3` — a count of TICKS, and TICK_INTERVAL_MS is 50,
+ * so the real threshold was 150ms and the constant silently tracked the tick
+ * rate. Two things followed, both measured on the Msimbazi UAT store:
+ *
+ *   - 150ms is shorter than any chunk fetch that store can do. One ordinary
+ *     fetch was timed at 869ms, so a HEALTHY run tripped it ~6x over on the
+ *     very first chunk boundary. It never measured the connection; it
+ *     measured "is this file big", and answered yes.
+ *   - `stallCount` was incremented and never reset, so despite the comment
+ *     saying "consecutive" it accumulated for the life of the run. A live
+ *     reading found stallCount=144 with degraded=true on a run that had just
+ *     played end to end without a hitch.
+ *
+ * A DURATION is the honest measure: it says what a user would say ("playback
+ * has been stuck for a few seconds"), and it cannot drift if the tick rate
+ * changes.
+ */
+const STALL_DEGRADED_MS = 2500;
 
 export function createInitialPlaybackState() {
     return {
@@ -159,8 +178,15 @@ export function createInitialPlaybackState() {
         loadProgress: null,
         lastTickMs: null,
         stalledSinceMs: null,
+        // Consecutive stalled ticks WITHIN the current stall episode; reset the
+        // moment the window becomes playable again. Diagnostic only now that
+        // `degraded` is driven by elapsed stall time.
         stallCount: 0,
         degraded: false,
+        // Sticky for the life of the loaded run: "I know, stop telling me".
+        // Cleared only by RESET/loading another store, so dismissing does not
+        // have to be repeated every time a slow link stalls again.
+        degradedDismissed: false,
         pendingPlay: false,
         identifyArmed: false,
         identifyResult: null,
@@ -542,6 +568,15 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         let status = state.status;
         let pendingPlay = state.pendingPlay;
         let stalledSinceMs = state.stalledSinceMs;
+        // RECOVERY CLEARS THE STALL BOOKKEEPING. It used to clear only
+        // `stalledSinceMs` and carry `stallCount` and `degraded` through, which
+        // is what made "consecutive" false (isolated hiccups an hour apart
+        // still summed) and what made the warning unclearable: `degraded` was
+        // written as `state.degraded || …` and set false in exactly one place,
+        // the initial state, so nothing short of Unload could take it back down
+        // — not recovering, not pausing, not finishing the run cleanly.
+        let stallCount = state.stallCount;
+        let degraded = state.degraded;
         const windowReady = isWindowBuffered(bufferedChunks, requiredWindowFor(state, state.currentTimestep));
         if (windowReady && (
             status === PLAYBACK_STATUS.BUFFERING ||
@@ -551,8 +586,10 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             status = pendingPlay ? PLAYBACK_STATUS.PLAYING : PLAYBACK_STATUS.READY;
             pendingPlay = false;
             stalledSinceMs = null;
+            stallCount = 0;
+            degraded = false;
         }
-        return { ...state, bufferedChunks, status, pendingPlay, stalledSinceMs };
+        return { ...state, bufferedChunks, status, pendingPlay, stalledSinceMs, stallCount, degraded };
     }
     case PLAYBACK_CHUNK_BUFFER_ERROR: {
         // Recorded for visibility only — a single chunk error among a
@@ -637,14 +674,19 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             // resumes from the frozen point, so a stuck link keeps re-hitting
             // this branch) counts as one more consecutive stall.
             const stallCount = state.stallCount + 1;
+            const stalledSinceMs = state.stalledSinceMs || nowMs;
             return {
                 ...state,
                 lastTickMs: nowMs,
                 status: PLAYBACK_STATUS.STALLED,
                 pendingPlay: true,
-                stalledSinceMs: state.stalledSinceMs || nowMs,
+                stalledSinceMs,
                 stallCount,
-                degraded: state.degraded || stallCount >= STALL_DEGRADED_THRESHOLD
+                // Elapsed time in THIS stall episode, not a running tally of
+                // ticks across the whole run. `stalledSinceMs` resets on every
+                // recovery, so a run that stutters briefly and recovers never
+                // reaches the bar however many times it does it.
+                degraded: state.degraded || (nowMs - stalledSinceMs) >= STALL_DEGRADED_MS
             };
         }
         const atEnd = state.time && playheadSeconds >= state.time[state.time.length - 1];
@@ -678,6 +720,12 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
     }
     case PLAYBACK_SET_LEGEND_OPEN: {
         return { ...state, legendOpen: !!action.open };
+    }
+    case PLAYBACK_DISMISS_DEGRADED: {
+        // Only the dismissal is recorded — `degraded` itself stays honest so
+        // state remains a truthful record of what playback is doing; the flag
+        // below governs whether we SAY it.
+        return { ...state, degradedDismissed: true };
     }
     case PLAYBACK_SET_WIREFRAME: {
         return { ...state, wireframe: !!action.enabled };

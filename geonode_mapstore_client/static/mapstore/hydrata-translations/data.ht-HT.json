@@ -576,7 +576,7 @@
         "legend": "Legann",
         "flowViz": "Kouran",
         "particles": "Tras",
-        "degraded": "Koneksyon lan — jwe degrade",
+        "degraded": "Lekti a ap tann done — eseye yon vitès pi dousman",
         "status": {
           "loadingManifest": "K ap chaje…",
           "buffering": "K ap tanpon…",
@@ -616,7 +616,7 @@
         "legendTooltip": "Montre lejand koulè a",
         "flowVizTooltip": "Flèch vitès anwo kat la",
         "particlesTooltip": "Tras patikil",
-        "degradedTooltip": "Blokaj tanpon repete — lekti a degrade sou koneksyon sa a",
+        "degradedTooltip": "Lekti a gen plizyè segond ap tann pwochen imaj yo. Yon vitès pi dousman bay tanpon an tan pou l kenbe.",
         "arrowDensity": "Dansite flèch (espasman an px)",
         "arrowScale": "Echèl flèch",
         "particleDensity": "Dansite patikil (longè kote kadriyaj la)",
@@ -652,7 +652,8 @@
           "h": "è",
           "d": "j"
         },
-        "statusToast": "Eta lekti a"
+        "statusToast": "Eta lekti a",
+        "dismiss": "Kache"
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",

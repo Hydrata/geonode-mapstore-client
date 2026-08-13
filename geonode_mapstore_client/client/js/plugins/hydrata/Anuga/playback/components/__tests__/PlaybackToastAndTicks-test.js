@@ -8,6 +8,7 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom';
+import TestUtils from 'react-dom/test-utils';
 import expect from 'expect';
 
 import {
@@ -76,6 +77,42 @@ describe('Playback status toast + scrubber tick axis', () => {
             expect(q('anuga-playback-degraded', toast)).toBeTruthy();
             // Not buffering — the warning must not drag a stale status label in.
             expect(q('anuga-playback-buffering', toast)).toBe(null);
+        });
+
+        describe('dismissing the degraded warning', () => {
+            it('offers a dismiss control beside the warning', () => {
+                render({ playback: readyState({ degraded: true }) });
+                expect(q('anuga-playback-degraded-dismiss')).toBeTruthy();
+            });
+
+            it('the control calls onDismissDegraded', () => {
+                const onDismissDegraded = expect.createSpy();
+                render({ playback: readyState({ degraded: true }), onDismissDegraded });
+                TestUtils.Simulate.click(q('anuga-playback-degraded-dismiss'));
+                expect(onDismissDegraded.calls.length).toBe(1);
+            });
+
+            it('a dismissed warning does not render', () => {
+                render({ playback: readyState({ degraded: true, degradedDismissed: true }) });
+                expect(q('anuga-playback-degraded')).toBe(null);
+            });
+
+            /* Dismissing the warning must not suppress the buffering label —
+               they answer different questions ("is it working" vs "is it
+               struggling"). */
+            it('dismissing does not silence the buffering status', () => {
+                render({ playback: readyState({
+                    status: PLAYBACK_STATUS.BUFFERING, degraded: true, degradedDismissed: true
+                }) });
+                expect(q('anuga-playback-toast')).toBeTruthy();
+                expect(q('anuga-playback-buffering')).toBeTruthy();
+                expect(q('anuga-playback-degraded')).toBe(null);
+            });
+
+            it('with nothing else to say, a dismissed warning leaves no empty toast', () => {
+                render({ playback: readyState({ degraded: true, degradedDismissed: true }) });
+                expect(q('anuga-playback-toast')).toBe(null);
+            });
         });
 
         it('carries the mesh-phase progress readout', () => {

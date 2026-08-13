@@ -576,7 +576,7 @@
         "legend": "Légende",
         "flowViz": "Débit",
         "particles": "Traînées",
-        "degraded": "Connexion lente — lecture dégradée",
+        "degraded": "La lecture attend des données — essayez une vitesse plus lente",
         "status": {
           "loadingManifest": "Chargement…",
           "buffering": "Mise en mémoire tampon…",
@@ -616,7 +616,7 @@
         "legendTooltip": "Afficher la légende des couleurs",
         "flowVizTooltip": "Superposition de flèches de vitesse",
         "particlesTooltip": "Traînées de particules",
-        "degradedTooltip": "Interruptions de mise en mémoire tampon répétées — la lecture est dégradée sur cette connexion",
+        "degradedTooltip": "La lecture attend les images suivantes depuis plusieurs secondes. Une vitesse plus lente laisse au tampon le temps de suivre.",
         "arrowDensity": "Densité des flèches (espacement en px)",
         "arrowScale": "Échelle des flèches",
         "particleDensity": "Densité des particules (côté de la grille)",
@@ -652,7 +652,8 @@
           "h": "h",
           "d": "j"
         },
-        "statusToast": "État de la lecture"
+        "statusToast": "État de la lecture",
+        "dismiss": "Masquer"
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

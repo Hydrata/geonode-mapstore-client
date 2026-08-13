@@ -50,6 +50,7 @@ import {
     playbackSetQuantity,
     playbackSetIdentifyArmed,
     playbackSetLegendOpen,
+    playbackDismissDegraded,
     playbackSetWireframe,
     playbackReset,
     playbackSetOpacity,
@@ -313,6 +314,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         onSetQuantity: PropTypes.func,
         onSetIdentifyArmed: PropTypes.func,
         onSetLegendOpen: PropTypes.func,
+        onDismissDegraded: PropTypes.func,
         onSetWireframe: PropTypes.func,
         onReset: PropTypes.func,
         onSetOpacity: PropTypes.func,
@@ -623,7 +625,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      */
     renderToast(playback, isBuffering, statusMsgId) {
         const progress = playback.loadProgress;
-        if (!isBuffering && !progress && !playback.degraded) {
+        const showDegraded = !!playback.degraded && !playback.degradedDismissed;
+        if (!isBuffering && !progress && !showDegraded) {
             return null;
         }
         return (
@@ -648,13 +651,26 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         {`${progress.objectsLoaded}/${progress.objectCount} · ${formatBytes(progress.bytesLoaded)}`}
                     </span>
                 ) : null}
-                {playback.degraded ? (
+                {showDegraded ? (
                     <span
                         className="sv-playback-degraded"
                         data-testid="anuga-playback-degraded"
-                        title={this.tr('hydrata.playback.degradedTooltip', 'Repeated buffering stalls — playback is degraded on this connection')}
+                        title={this.tr('hydrata.playback.degradedTooltip', 'Playback has been waiting several seconds for the next frames. A slower speed gives the buffer time to keep up.')}
                     >
                         <Message msgId="hydrata.playback.degraded" />
+                        {/* The toast itself is pointer-events:none so it can
+                            never eat a map click; the one control inside it
+                            opts back in. */}
+                        <button
+                            type="button"
+                            className="sv-playback-toast-dismiss"
+                            data-testid="anuga-playback-degraded-dismiss"
+                            onClick={this.props.onDismissDegraded}
+                            title={this.tr('hydrata.playback.dismiss', 'Dismiss')}
+                            aria-label={this.tr('hydrata.playback.dismiss', 'Dismiss')}
+                        >
+                            ×
+                        </button>
                     </span>
                 ) : null}
             </div>
@@ -1028,6 +1044,7 @@ const mapDispatchToProps = {
     onSetQuantity: playbackSetQuantity,
     onSetIdentifyArmed: playbackSetIdentifyArmed,
     onSetLegendOpen: playbackSetLegendOpen,
+    onDismissDegraded: playbackDismissDegraded,
     onSetWireframe: playbackSetWireframe,
     // TASK-2744 AC2 — the run must be unloadable.
     onReset: playbackReset,

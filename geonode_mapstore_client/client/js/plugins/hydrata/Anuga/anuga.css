@@ -3498,6 +3498,26 @@ span.sv-scenario-run-price--short {
     flex-basis: 100%;
     text-align: center;
 }
+/* The toast is pointer-events:none so it can never swallow a map click; the
+   dismiss control is the one thing inside it that opts back in. */
+.sv-playback-toast-dismiss {
+    pointer-events: auto;
+    margin-left: 8px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.7;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+}
+.sv-playback-toast-dismiss:hover,
+.sv-playback-toast-dismiss:focus-visible {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.14);
+}
 
 /* TASK-2628 (W3.2, epic 2618) — playback legend, mirrors .sv-dem-legend-*. */
 .sv-playback-legend {

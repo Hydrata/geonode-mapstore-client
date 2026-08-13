@@ -404,22 +404,28 @@ describe('playbackController', () => {
             const resumed = reduce(stalled, playbackChunksBuffered([1]));
             expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
         });
-        it('sets degraded after repeated consecutive stalls (graceful degradation AC)', () => {
+        it('sets degraded once a stall has LASTED, not once it has been counted', () => {
             // On a stall, lastTickMs advances but playheadSeconds/currentTimestep
             // stay frozen (buffer-then-play: pause the sim clock, don't skip
             // ahead) — so each subsequent tick must independently re-attempt a
             // big enough jump to re-discover chunk 1 is still unbuffered.
+            //
+            // This used to assert `degraded` on the THIRD stalled tick whatever
+            // the clock said, which made the threshold 3 x TICK_INTERVAL_MS =
+            // 150ms in production — shorter than any chunk fetch the prod-scale
+            // store can do, so a healthy run raised it. The rule is now elapsed
+            // stall time, and these ticks are 350 SECONDS apart: one gap is
+            // already a hundred times over the bar.
             let s = { ...reduce(reduce(loadedState(), playbackChunksBuffered([0])), playbackPlay()), lastTickMs: 0 };
             s = reduce(s, playbackTick(350000));
             expect(s.status).toBe(PLAYBACK_STATUS.STALLED);
-            expect(s.degraded).toBe(false);
             expect(s.stallCount).toBe(1);
+            // Nothing has ELAPSED yet — this tick is when the stall began.
+            expect(s.degraded).toBe(false);
+            expect(s.stalledSinceMs).toBe(350000);
+
             s = reduce(s, playbackTick(700000));
             expect(s.stallCount).toBe(2);
-            expect(s.degraded).toBe(false);
-            s = reduce(s, playbackTick(1050000));
-            expect(s.status).toBe(PLAYBACK_STATUS.STALLED);
-            expect(s.stallCount).toBe(3);
             expect(s.degraded).toBe(true);
         });
         it('reaching the end of the timeline pauses (does not loop)', () => {

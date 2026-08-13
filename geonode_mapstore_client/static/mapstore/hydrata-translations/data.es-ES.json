@@ -576,7 +576,7 @@
         "legend": "Leyenda",
         "flowViz": "Flujo",
         "particles": "Estelas",
-        "degraded": "Conexión lenta — reproducción degradada",
+        "degraded": "La reproducción está esperando datos — pruebe una velocidad más lenta",
         "status": {
           "loadingManifest": "Cargando…",
           "buffering": "Almacenando en búfer…",
@@ -616,7 +616,7 @@
         "legendTooltip": "Mostrar la leyenda de colores",
         "flowVizTooltip": "Superposición de flechas de velocidad",
         "particlesTooltip": "Estelas de partículas",
-        "degradedTooltip": "Interrupciones repetidas del búfer: la reproducción está degradada en esta conexión",
+        "degradedTooltip": "La reproducción lleva varios segundos esperando los siguientes fotogramas. Una velocidad más lenta da tiempo al búfer para mantenerse al día.",
         "arrowDensity": "Densidad de flechas (espaciado en px)",
         "arrowScale": "Escala de flechas",
         "particleDensity": "Densidad de partículas (lado de la cuadrícula)",
@@ -652,7 +652,8 @@
           "h": "h",
           "d": "d"
         },
-        "statusToast": "Estado de la reproducción"
+        "statusToast": "Estado de la reproducción",
+        "dismiss": "Descartar"
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

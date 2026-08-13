@@ -29,6 +29,8 @@ export const PLAYBACK_RESET = 'PLAYBACK:RESET';
 export const PLAYBACK_SET_IDENTIFY_ARMED = 'PLAYBACK:SET_IDENTIFY_ARMED';
 export const PLAYBACK_SET_IDENTIFY_RESULT = 'PLAYBACK:SET_IDENTIFY_RESULT';
 export const PLAYBACK_SET_LEGEND_OPEN = 'PLAYBACK:SET_LEGEND_OPEN';
+// Dismiss the degraded-playback warning for the rest of this run.
+export const PLAYBACK_DISMISS_DEGRADED = 'PLAYBACK:DISMISS_DEGRADED';
 // TASK-2656d (W6.5, epic 2618) — real wireframe toggle (operator-requested
 // for manual UAT: "they want to see meshes"). Controller state, not
 // component-local like flowVizEnabled/particlesEnabled — those are pure
@@ -169,6 +171,10 @@ export function playbackSetIdentifyResult(result) {
 
 export function playbackSetLegendOpen(open) {
     return { type: PLAYBACK_SET_LEGEND_OPEN, open };
+}
+
+export function playbackDismissDegraded() {
+    return { type: PLAYBACK_DISMISS_DEGRADED };
 }
 
 export function playbackSetWireframe(enabled) {
