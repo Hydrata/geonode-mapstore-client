@@ -607,8 +607,7 @@
         "scrubber": "Posición en la línea de tiempo",
         "speed": "Velocidad de reproducción",
         "opacity": "Opacidad de la capa",
-        "colorMax": "Máximo de la escala de color",
-        "speedWholeRunIn": "Simulación completa en {d}",
+        "speedWholeRunIn": "Simulación en {d}",
         "speedRealTime": "Tiempo real",
         "speedSlowMotion": "cámara lenta",
         "wireframe": "Malla",
@@ -633,7 +632,20 @@
           "shear": "Tensión de corte de Manning",
           "courant": "Número de Courant (aprox.)"
         },
-        "quantity": "Magnitud mostrada"
+        "resultQuantity": "Magnitud de resultado",
+        "ceiling": "Límite de la escala de color",
+        "ceilingTooltip": "Extremo superior de la rampa de color para esta magnitud — haga clic para cambiarlo",
+        "ceilingReset": "Restaurar el valor que trae el almacén",
+        "ceilingResetShort": "↺",
+        "ceilingFixedClasses": "H1–H6 (fijo)",
+        "showThisQuantity": "Mostrar esta magnitud de resultado",
+        "display": "Visualización",
+        "displayTooltip": "Opacidad, superposiciones y escala de color para cada magnitud",
+        "drawerAppearance": "Apariencia",
+        "drawerOverlays": "Superposiciones",
+        "drawerColourScale": "Escala de color",
+        "maxEnvelope": "Máx",
+        "maxEnvelopeUnavailable": "Valor máximo de toda la simulación — próximamente; el almacén de esta simulación aún no tiene envolvente máxima"
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

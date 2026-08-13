@@ -607,8 +607,7 @@
         "scrubber": "Position sur la chronologie",
         "speed": "Vitesse de lecture",
         "opacity": "Opacité de la couche",
-        "colorMax": "Maximum de l'échelle de couleurs",
-        "speedWholeRunIn": "Simulation entière en {d}",
+        "speedWholeRunIn": "Simulation en {d}",
         "speedRealTime": "Temps réel",
         "speedSlowMotion": "ralenti",
         "wireframe": "Maillage",
@@ -633,7 +632,20 @@
           "shear": "Contrainte de cisaillement de Manning",
           "courant": "Nombre de Courant (approx.)"
         },
-        "quantity": "Grandeur affichée"
+        "resultQuantity": "Grandeur de résultat",
+        "ceiling": "Plafond de l'échelle de couleurs",
+        "ceilingTooltip": "Haut de la rampe de couleurs pour cette grandeur — cliquez pour le modifier",
+        "ceilingReset": "Rétablir la valeur fournie par le magasin",
+        "ceilingResetShort": "↺",
+        "ceilingFixedClasses": "H1–H6 (fixe)",
+        "showThisQuantity": "Afficher cette grandeur de résultat",
+        "display": "Affichage",
+        "displayTooltip": "Opacité, superpositions et échelle de couleurs pour chaque grandeur",
+        "drawerAppearance": "Apparence",
+        "drawerOverlays": "Superpositions",
+        "drawerColourScale": "Échelle de couleurs",
+        "maxEnvelope": "Max",
+        "maxEnvelopeUnavailable": "Valeur maximale sur toute la simulation — bientôt disponible ; le magasin de cette simulation n'a pas encore d'enveloppe max"
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

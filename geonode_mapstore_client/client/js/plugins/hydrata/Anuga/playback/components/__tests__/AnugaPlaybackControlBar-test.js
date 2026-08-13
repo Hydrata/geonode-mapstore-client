@@ -226,24 +226,32 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(container.querySelector('[data-testid="anuga-playback-opacity-value"]').textContent).toBe('85%');
         });
 
-        it('AC4 — the colour-ramp maximum is user-settable and shows the effective value', () => {
+        /* TASK-2751 ported these two from the bare `anuga-playback-colormax`
+           number input to EditableCeiling. Same guarantee, new control: the
+           ceiling is settable from the bar and shows the EFFECTIVE value. */
+        it('AC4 — the colour-scale ceiling is user-settable and shows the effective value', () => {
             const onSetColorMax = expect.createSpy();
             const quantization = { depth: { valid_max: 16.862720489501953 } };
             render({ playback: loadedState({ quantity: 'depth', quantization }), onSetColorMax });
-            const input = container.querySelector('[data-testid="anuga-playback-colormax"]');
-            expect(input).toBeTruthy();
-            // RED: this is the store's valid_max — every urban depth lands in
-            // the bottom 6% of the ramp.
-            expect(Number(input.value)).toBe(16.863);
+            const chip = container.querySelector('[data-testid="anuga-playback-ceiling"]');
+            expect(chip).toBeTruthy();
+            // This is the store's valid_max — every urban depth lands in the
+            // bottom 6% of the ramp, which is what AC4 existed to fix.
+            expect(chip.textContent).toInclude('16.863');
+            TestUtils.Simulate.click(chip);
+            const input = container.querySelector('[data-testid="anuga-playback-ceiling-input"]');
             TestUtils.Simulate.change(input, { target: { value: '1.5' } });
+            TestUtils.Simulate.keyDown(input, { key: 'Enter' });
             expect(onSetColorMax.calls[0].arguments[0]).toBe('depth');
             expect(onSetColorMax.calls[0].arguments[1]).toBe(1.5);
         });
 
-        it('AC4 — once overridden, the field shows the OVERRIDE rather than the store maximum', () => {
+        it('AC4 — once overridden, the chip shows the OVERRIDE rather than the store maximum', () => {
             const quantization = { depth: { valid_max: 16.862720489501953 } };
             render({ playback: loadedState({ quantity: 'depth', quantization, colorMaxOverride: { depth: 1.5 } }) });
-            expect(Number(container.querySelector('[data-testid="anuga-playback-colormax"]').value)).toBe(1.5);
+            const chip = container.querySelector('[data-testid="anuga-playback-ceiling"]');
+            expect(chip.textContent).toInclude('1.5');
+            expect(chip.textContent).toNotInclude('16.863');
         });
 
         it('after a reset the component returns to IDLE and shows the manifest loader again', () => {
@@ -543,8 +551,13 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             renderWithMessages({
                 hydrata: { playback: {
                     // the SHAPE that caused the live defect: a scalar label
-                    // beside a sub-tree of option labels
-                    quantity: 'Displayed quantity',
+                    // beside a sub-tree of option labels. TASK-2751 renamed the
+                    // scalar to `resultQuantity`, which is ALSO the arrangement
+                    // that makes the collision impossible — but the guard stays,
+                    // because the next person to nest a key under an existing
+                    // one will not remember why.
+                    resultQuantity: 'Result quantity',
+                    quantity: { depth: 'Profondeur' },
                     quantityOption: { depth: 'Depth', speed: 'Velocity' },
                     speed: 'Playback speed',
                     scrubber: 'Timeline position'
@@ -558,14 +571,14 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
                 expect(String(aria).indexOf('object Object')).toBe(-1);
             });
             expect(container.querySelector('[data-testid="anuga-playback-quantity"]').getAttribute('aria-label'))
-                .toBe('Displayed quantity');
+                .toBe('Result quantity');
         });
 
         it('falls back to English rather than announcing a sub-tree', () => {
-            // `quantity` is ONLY a sub-tree here — no scalar at all
-            renderWithMessages({ hydrata: { playback: { quantity: { depth: 'Profondeur' } } } }, loaded);
+            // `resultQuantity` is ONLY a sub-tree here — no scalar at all
+            renderWithMessages({ hydrata: { playback: { resultQuantity: { depth: 'Profondeur' } } } }, loaded);
             const aria = container.querySelector('[data-testid="anuga-playback-quantity"]').getAttribute('aria-label');
-            expect(aria).toBe('Displayed quantity');
+            expect(aria).toBe('Result quantity');
         });
 
         it('uses the catalogue when the id really does resolve to a string', () => {

@@ -2999,24 +2999,23 @@ span.sv-scenario-run-price--short {
    box anchored to BOTH edges gets the full container width to size against
    while still centring — plus `flex-wrap` and explicit widths below so a
    narrow viewport wraps to a second row rather than shaving the scrubber. */
+/* TASK-2751 — .sv-playback-bar is now the CARD: a bottom-anchored column
+   holding the Display drawer (order:-1, so it grows UPWARD) above the
+   transport row. Its width is CONTENT-INDEPENDENT, which is what makes
+   "a mounting label must not move the play button" true by construction:
+   nothing that appears inside can change the box. It still varies with the
+   viewport below 1352px, which is fine — that is not content. */
 .sv-playback-bar {
     position: absolute;
     left: 0;
     right: 0;
     margin-left: auto;
     margin-right: auto;
-    width: -moz-fit-content;
-    width: fit-content;
-    max-width: calc(100vw - 32px);
+    width: min(1320px, calc(100vw - 32px));
     bottom: 16px;
     z-index: 1000;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    row-gap: 6px;
-    padding: 8px 14px;
+    flex-direction: column;
     border-radius: 6px;
     background: var(--sv-panel-bg, rgba(20, 24, 28, 0.88));
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -3024,9 +3023,252 @@ span.sv-scenario-run-price--short {
     font-family: Montserrat, sans-serif;
     font-size: 12px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+/* The transport row. `nowrap` is deliberate down to ~1100px: the whole point
+   of moving eight controls into the drawer was to stop this row reflowing.
+   Below that it wraps rather than clipping — a deterministic, content-free
+   breakpoint, not the old "whatever happened to be widest" behaviour. */
+.sv-playback-transport {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    min-height: 40px;
+}
+@media (max-width: 1100px) {
+    .sv-playback-transport {
+        flex-wrap: wrap;
+        row-gap: 6px;
+        justify-content: center;
+    }
 }
 .sv-playback-bar--loader {
+    flex-direction: row;
+    align-items: center;
     gap: 6px;
+    padding: 8px 14px;
+}
+.sv-playback-divider {
+    flex: 0 0 auto;
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* ── The Display drawer (TASK-2751) ─────────────────────────────────────────
+   Always mounted, `hidden` when shut — `hidden` also takes its controls out of
+   the tab order and the a11y tree, which a display:none wrapper alone would
+   not. The `[hidden]` rule is required because `display:grid` on the class
+   beats the UA sheet's `[hidden] { display: none }`. */
+.sv-playback-drawer {
+    order: -1;
+    display: grid;
+    grid-template-columns: 230px 280px 1fr;
+    gap: 18px;
+    padding: 12px 14px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(0, 0, 0, 0.16);
+    max-height: 42vh;
+    overflow-y: auto;
+}
+.sv-playback-drawer[hidden] {
+    display: none;
+}
+@media (max-width: 900px) {
+    .sv-playback-drawer {
+        grid-template-columns: 1fr;
+    }
+}
+.sv-playback-drawer-col {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+.sv-playback-drawer-title {
+    margin: 0 0 2px 0;
+    padding-bottom: 5px;
+    width: 100%;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+}
+.sv-playback-drawer-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sv-playback-drawer-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* ── The primary-path group: result quantity + its ceiling + Max ──────────── */
+.sv-playback-primary {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.sv-playback-primary-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    white-space: nowrap;
+}
+/* A <select> sizes to its WIDEST option, and "Depth-integrated velocity (dIV)"
+   would take 220px of a row that has none to spare. */
+.sv-playback-quantity {
+    max-width: 110px;
+}
+.sv-playback-bar .sv-playback-max-envelope {
+    padding: 5px 8px;
+}
+
+/* ── EditableCeiling (TASK-2751) ───────────────────────────────────────────
+   The colour-scale ceiling. NOT called "max" anywhere visible — epic 2706
+   reserves that word for the temporal-max envelope (TASK-2752). */
+/* FIXED WIDTH, and this is the point of it: the value button and the number
+   input that replaces it are the same size, and the reset affordance's slot is
+   reserved whether or not it is occupied. Measured on map 1461 before the
+   width was pinned, clicking the ceiling to edit it moved the scrubber by
+   10px — small, but the exact class of involuntary reflow this card exists to
+   remove. A long value ("≤ 512.7 Pa") is the sizing case. */
+.sv-playback-ceiling {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    flex: 0 0 118px;
+    width: 118px;
+}
+.sv-playback-ceiling-value {
+    width: 92px;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: inherit;
+    border-radius: 4px;
+    padding: 4px 7px;
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.sv-playback-ceiling-value:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+.sv-playback-ceiling-value.is-override {
+    border-color: var(--sv-accent-lime, #cae33b);
+    color: var(--sv-accent-lime, #cae33b);
+}
+.sv-playback-ceiling-value:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.sv-playback-ceiling-input {
+    width: 92px;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--sv-accent-lime, #cae33b);
+    color: inherit;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.sv-playback-ceiling-reset {
+    flex: 0 0 auto;
+    width: 22px;
+    text-align: center;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    border-radius: 3px;
+    padding: 2px 0;
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.2;
+    cursor: pointer;
+}
+.sv-playback-ceiling-reset:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+/* ── The all-quantities ceiling table, in the drawer ─────────────────────── */
+.sv-playback-ceiling-table {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 2px 14px;
+}
+.sv-playback-ceiling-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+.sv-playback-ceiling-row.is-active {
+    background: rgba(202, 227, 59, 0.13);
+}
+.sv-playback-ceiling-row-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-size: 11px;
+    padding: 2px 0;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sv-playback-ceiling-row-name:hover {
+    text-decoration: underline;
+}
+.sv-playback-ceiling-row.is-active .sv-playback-ceiling-row-name {
+    color: var(--sv-accent-lime, #cae33b);
+    font-weight: 600;
+}
+.sv-playback-ceiling-row-fixed {
+    font-size: 10px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    white-space: nowrap;
+}
+
+/* The legend has room to breathe; only the bar is width-critical. */
+.sv-playback-legend-ceiling .sv-playback-ceiling,
+.sv-playback-ceiling-row .sv-playback-ceiling {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+/* The legend's own ceiling row — same component, above the swatch list. */
+.sv-playback-legend-ceiling {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 0 6px 0;
 }
 .sv-playback-manifest-input {
     min-width: 260px;
@@ -3042,7 +3284,8 @@ span.sv-scenario-run-price--short {
     border: 1px solid rgba(255, 255, 255, 0.18);
     color: inherit;
     border-radius: 4px;
-    padding: 5px 10px;
+    padding: 5px 8px;
+    white-space: nowrap;
     font-size: 12px;
     cursor: pointer;
 }
@@ -3069,7 +3312,7 @@ span.sv-scenario-run-price--short {
     display: inline-flex;
     align-items: center;
     flex: 1 1 220px;
-    min-width: 140px;
+    min-width: 150px;
 }
 .sv-playback-scrubber {
     width: 100%;
@@ -3127,17 +3370,6 @@ span.sv-scenario-run-price--short {
     align-items: center;
     gap: 6px;
     flex: 0 0 auto;
-}
-/* TASK-2744 AC4 — the colour-ramp maximum. */
-.sv-playback-colormax-input {
-    width: 68px;
-    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: inherit;
-    border-radius: 4px;
-    padding: 4px 6px;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
 }
 /* TASK-2744 AC7 — the bar had no :focus styling at all, so a keyboard user
    could not see where they were. */

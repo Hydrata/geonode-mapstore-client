@@ -30,7 +30,8 @@ import { QUANTITY_META } from '../playbackDerivedQuantities';
 import { colorMaxForQuantity, colorMinForQuantity } from '../playbackController';
 import MovablePanel from '../../../shared/components/MovablePanel';
 import { setMovablePanelState } from '../../actions/uiActions';
-import { playbackSetLegendOpen } from '../actions/playbackActions';
+import { playbackSetLegendOpen, playbackSetColorMax } from '../actions/playbackActions';
+import EditableCeiling from './EditableCeiling';
 
 export const PLAYBACK_LEGEND_PANEL_ID = 'playbackLegend';
 
@@ -62,11 +63,14 @@ export class PlaybackLegendComponent extends React.Component {
         elevationMax: PropTypes.number,
         // TASK-2744 AC4 — the operator's colour-ramp override for the ACTIVE
         // quantity, or undefined for "use the store-derived maximum".
-        colorMaxOverride: PropTypes.number
+        colorMaxOverride: PropTypes.number,
+        // TASK-2751 — the ceiling is editable HERE too, from the number the
+        // reader is already looking at.
+        onSetColorMax: PropTypes.func
     };
 
     render() {
-        const { quantity, quantization, elevationMin, elevationMax, colorMaxOverride } = this.props;
+        const { quantity, quantization, elevationMin, elevationMax, colorMaxOverride, onSetColorMax } = this.props;
         const ramp = QUANTITY_RAMPS[quantity] || QUANTITY_RAMPS.depth;
         const meta = QUANTITY_META[quantity] || QUANTITY_META.depth;
         const titleId = QUANTITY_TITLE_ID[quantity] || QUANTITY_TITLE_ID.depth;
@@ -100,6 +104,28 @@ export class PlaybackLegendComponent extends React.Component {
                 <div className="sv-playback-legend-header">
                     <span className="sv-playback-legend-title"><Message msgId={titleId} /></span>
                 </div>
+                {/* TASK-2751 — THE CEILING, as its own row.
+                    Not "make the top stop editable": the stops are SLD-derived
+                    and clipped to `<= colorMax`, so the top VISIBLE stop is the
+                    largest stop BELOW the ceiling, never the ceiling itself.
+                    Depth's stops are 0/0.05/0.1/0.2/0.5/1/2/3/4/5/6, so a
+                    ceiling of 1.5 shows a top row reading "1 m+" — clicking
+                    THAT to edit the ceiling would be editing a number the
+                    reader was never shown, beside a swatch that belongs to a
+                    different value. Hazard is excluded: H1–H6 IS the scale,
+                    there is no ceiling to raise. */}
+                {ramp.discrete ? null : (
+                    <div className="sv-playback-legend-ceiling">
+                        <EditableCeiling
+                            testid="playback-legend-ceiling"
+                            quantity={quantity}
+                            value={colorMax}
+                            unit={meta.unit}
+                            overridden={isFinite(colorMaxOverride)}
+                            onChange={onSetColorMax}
+                        />
+                    </div>
+                )}
                 <ul className="sv-playback-legend-stops">
                     {ramp.discrete ? (
                         ramp.stops.map((stop) => (
@@ -146,7 +172,11 @@ const mapStateToPropsLegend = (state) => ({
         && (state.anugaPlayback.colorMaxOverride || {})[(state.anugaPlayback.quantity) || 'depth']
 });
 
-export const PlaybackLegendConnected = connect(mapStateToPropsLegend)(PlaybackLegendComponent);
+export const PlaybackLegendConnected = connect(mapStateToPropsLegend, {
+    // TASK-2751 — the ceiling row commits through the same per-quantity action
+    // the control bar uses, so the bar chip and the legend row cannot disagree.
+    onSetColorMax: playbackSetColorMax
+})(PlaybackLegendComponent);
 
 function defaultLegendPosition() {
     if (typeof window === 'undefined') {

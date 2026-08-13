@@ -607,8 +607,7 @@
         "scrubber": "Pozisyon sou liy tan an",
         "speed": "Vitès lekti",
         "opacity": "Opasite kouch la",
-        "colorMax": "Maksimòm echèl koulè a",
-        "speedWholeRunIn": "Tout senaryo a nan {d}",
+        "speedWholeRunIn": "Senaryo a nan {d}",
         "speedRealTime": "Tan reyèl",
         "speedSlowMotion": "ralanti",
         "wireframe": "Kadriyaj",
@@ -633,7 +632,20 @@
           "shear": "Tansyon sizayman Manning",
           "courant": "Nimewo Courant (apeprè)"
         },
-        "quantity": "Kantite ki afiche"
+        "resultQuantity": "Kalite rezilta",
+        "ceiling": "Limit echèl koulè a",
+        "ceilingTooltip": "Pi wo pwen echèl koulè a pou kalite rezilta sa a — klike pou chanje l",
+        "ceilingReset": "Remete valè magazen an te bay la",
+        "ceilingResetShort": "↺",
+        "ceilingFixedClasses": "H1–H6 (fiks)",
+        "showThisQuantity": "Montre kalite rezilta sa a",
+        "display": "Afichaj",
+        "displayTooltip": "Opasite, kouch anlè ak echèl koulè pou chak kalite rezilta",
+        "drawerAppearance": "Aparans",
+        "drawerOverlays": "Kouch anlè",
+        "drawerColourScale": "Echèl koulè",
+        "maxEnvelope": "Maks",
+        "maxEnvelopeUnavailable": "Pi gwo valè pandan tout senilasyon an — l ap vini; magazen senilasyon sa a poko gen anvlòp maks"
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",

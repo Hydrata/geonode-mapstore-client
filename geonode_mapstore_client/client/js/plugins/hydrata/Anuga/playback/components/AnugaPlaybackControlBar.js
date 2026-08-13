@@ -29,7 +29,8 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // aria-label= attribute, so those positions resolve through
 // getMessageById + legacy context.messages instead. Same idiom as
 // anugaScenarioMenu.js:1098-1102 and VectorDraw/FormField.js:215-220.
-import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
+import { translateOr } from '../playbackI18n';
+import EditableCeiling from './EditableCeiling';
 
 import {
     PLAYBACK_STATUS,
@@ -38,7 +39,7 @@ import {
     clampSpeed,
     simulatedSpanSeconds
 } from '../playbackController';
-import { availableQuantityIds } from '../playbackDerivedQuantities';
+import { availableQuantityIds, QUANTITY_META } from '../playbackDerivedQuantities';
 import {
     playbackInit,
     playbackPlay,
@@ -252,19 +253,11 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      * fallback is what keeps an accessible name from ever speaking a dotted
      * key — the same reasoning as terrainUploadCrsPanel.js:280-282.
      */
+    // The sub-tree guard that used to be inlined here now lives in
+    // playbackI18n.js, so the legend and EditableCeiling share one copy of it
+    // rather than three that can drift.
     tr(msgId, fallback) {
-        const resolved = getMessageById(this.context && this.context.messages || {}, msgId);
-        // A non-STRING resolution means the id addresses a sub-tree, not a
-        // message — `hydrata.playback.quantity` when `quantity.depth` etc.
-        // also exist. getMessageById happily returns that object and it
-        // stringifies to "[object Object]", which is what a screen reader
-        // would then announce. Found live on map 1461; karma cannot catch it
-        // because the specs render with no message catalogue at all, so every
-        // lookup misses and falls back.
-        if (typeof resolved !== 'string' || !resolved || resolved === msgId) {
-            return fallback;
-        }
-        return resolved;
+        return translateOr(this.context && this.context.messages, msgId, fallback);
     }
 
     // TASK-2744 (AC11, epic 2706) — the flow-viz/particle knobs are NO LONGER
@@ -286,8 +279,14 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
     //
     // `manifestUrlDraft` stays local: it is a text field's in-progress value,
     // meaningless once the run it produced is loaded.
+    // TASK-2751 — `drawerOpen` stays local too, and for the same reason as
+    // manifestUrlDraft rather than in spite of AC11's lesson: a disclosure's
+    // open/shut is a property of THIS mounting of the bar, not of the run.
+    // Leaving Results and coming back should hand you a tidy bar, not the
+    // drawer you happened to leave open twenty minutes ago.
     state = {
-        manifestUrlDraft: ''
+        manifestUrlDraft: '',
+        drawerOpen: false
     };
 
     /**
@@ -380,8 +379,13 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 if (Math.abs(span / wallSeconds - speed) < 1e-6) {
                     options.push({
                         value: speed,
-                        label: this.tr('hydrata.playback.speedWholeRunIn', 'Whole run in {d}')
-                            .replace('{d}', formatWallDuration(wallSeconds)) + ` (${formatMultiplier(speed)})`
+                        // TASK-2751 — " · 120x" rather than " (120x)", and a
+                        // shorter stem: this <select> sizes to its widest
+                        // option and was the fattest control on a row that now
+                        // carries twelve. Still states the duration AND the
+                        // multiplier, which is all AC17 ever asked for.
+                        label: this.tr('hydrata.playback.speedWholeRunIn', 'Run in {d}')
+                            .replace('{d}', formatWallDuration(wallSeconds)) + ` · ${formatMultiplier(speed)}`
                     });
                 }
             });
@@ -389,7 +393,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         // Real time is ALWAYS offered and always labelled as such — AC17(b).
         options.push({
             value: 1,
-            label: `${this.tr('hydrata.playback.speedRealTime', 'Real time')} (1x${span > 0 ? `, ${formatWallDuration(span)}` : ''})`
+            label: `${this.tr('hydrata.playback.speedRealTime', 'Real time')} · 1x${span > 0 ? `, ${formatWallDuration(span)}` : ''}`
         });
         SLOW_MOTION_OPTIONS.forEach((s) => options.push({
             value: s,
@@ -408,34 +412,98 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         return options;
     }
 
-    renderColorMax(playback) {
+    /**
+     * TASK-2751 — the colour-scale ceiling, on the PRIMARY path.
+     *
+     * Was a bare, unlabelled number input (TASK-2744 AC4) sitting mid-row
+     * among nine other controls. It is now fused to the quantity picker,
+     * because that is how it behaves: the override map is keyed per quantity,
+     * so "which result quantity" and "what is the top of its ramp" are one
+     * decision and belong in one slot.
+     *
+     * Renders `≤ 1.5 m`. The word "max" is deliberately absent — see
+     * EditableCeiling's header.
+     */
+    renderCeiling(playback, testid) {
+        const override = (playback.colorMaxOverride || {})[playback.quantity];
         const effective = colorMaxForQuantity(
             playback.quantity,
             playback.quantization,
             {
                 elevationMin: playback.elevationMin,
                 elevationMax: playback.elevationMax,
-                colorMaxOverride: (playback.colorMaxOverride || {})[playback.quantity]
+                colorMaxOverride: override
             }
         );
-        const label = this.tr('hydrata.playback.colorMax', 'Colour scale maximum');
+        const meta = QUANTITY_META[playback.quantity] || QUANTITY_META.depth;
         return (
-            <span className="sv-playback-colormax" data-testid="anuga-playback-colormax-group">
-                <input
-                    type="number"
-                    className="sv-playback-colormax-input"
-                    data-testid="anuga-playback-colormax"
-                    min={0}
-                    step="any"
-                    value={Number(effective.toFixed(3))}
-                    title={label}
-                    aria-label={label}
-                    onChange={(e) => this.props.onSetColorMax(
-                        playback.quantity,
-                        e.target.value === '' ? null : Number(e.target.value)
+            <EditableCeiling
+                testid={testid}
+                quantity={playback.quantity}
+                value={effective}
+                unit={meta.unit}
+                overridden={isFinite(override)}
+                // A classification has no ceiling to raise — H1..H6 are the
+                // scale (QUANTITY_META.hazard.discrete).
+                disabled={!!meta.discrete}
+                onChange={this.props.onSetColorMax}
+            />
+        );
+    }
+
+    /**
+     * TASK-2751 — the eight-row ceiling table, in the drawer.
+     *
+     * The bar chip only reaches the ceiling of what is currently DISPLAYED.
+     * Reviewing a run means comparing quantities, and switching quantity just
+     * to retune its ramp is a detour; this table reaches all of them without
+     * changing what is drawn.
+     */
+    renderCeilingTable(playback) {
+        const rows = availableQuantityIds(playback.hasDt).map((id) => {
+            const meta = QUANTITY_META[id] || QUANTITY_META.depth;
+            const override = (playback.colorMaxOverride || {})[id];
+            const effective = colorMaxForQuantity(id, playback.quantization, {
+                elevationMin: playback.elevationMin,
+                elevationMax: playback.elevationMax,
+                colorMaxOverride: override
+            });
+            return (
+                <li
+                    className={`sv-playback-ceiling-row${id === playback.quantity ? ' is-active' : ''}`}
+                    key={id}
+                    data-testid={`anuga-playback-ceiling-row-${id}`}
+                >
+                    <button
+                        type="button"
+                        className="sv-playback-ceiling-row-name"
+                        data-testid={`anuga-playback-ceiling-show-${id}`}
+                        onClick={() => this.props.onSetQuantity(id)}
+                        title={this.tr('hydrata.playback.showThisQuantity', 'Display this result quantity')}
+                    >
+                        {this.tr(`hydrata.playback.quantityOption.${id}`, QUANTITY_OPTION_LABEL[id])}
+                    </button>
+                    {meta.discrete ? (
+                        <span className="sv-playback-ceiling-row-fixed">
+                            <Message msgId="hydrata.playback.ceilingFixedClasses" />
+                        </span>
+                    ) : (
+                        <EditableCeiling
+                            testid={`anuga-playback-ceiling-${id}`}
+                            quantity={id}
+                            value={effective}
+                            unit={meta.unit}
+                            overridden={isFinite(override)}
+                            onChange={this.props.onSetColorMax}
+                        />
                     )}
-                />
-            </span>
+                </li>
+            );
+        });
+        return (
+            <ul className="sv-playback-ceiling-table" data-testid="anuga-playback-ceiling-table">
+                {rows}
+            </ul>
         );
     }
 
@@ -465,6 +533,169 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         );
     }
 
+    /**
+     * TASK-2751 (W6.3, epic 2706) — CLOSE THE DRAWER ON ESCAPE.
+     *
+     * Deliberately NOT on outside-click. Tuning a ramp means clicking the map
+     * to see the effect, and a drawer that shuts every time you look at your
+     * own result would be actively hostile. Escape is the explicit way out.
+     */
+    onCardKeyDown = (e) => {
+        if (e.key === 'Escape' && this.state.drawerOpen) {
+            e.preventDefault();
+            this.setState({ drawerOpen: false });
+        }
+    };
+
+    /**
+     * TASK-2751 — the Display drawer: everything that CONFIGURES THE RENDER.
+     *
+     * Always mounted, `hidden` when shut. Two reasons, both load-bearing:
+     * the card is anchored by its BOTTOM edge, so a drawer that mounts and
+     * unmounts would still leave the transport row's y fixed but would churn
+     * the overlay sliders' component state on every toggle; and `hidden`
+     * takes these controls out of the tab order and the a11y tree, which a
+     * `display:none` wrapper alone would not do.
+     */
+    renderDrawer(playback) {
+        return (
+            <div
+                className="sv-playback-drawer"
+                data-testid="anuga-playback-drawer"
+                hidden={!this.state.drawerOpen}
+            >
+                <section className="sv-playback-drawer-col">
+                    <h4 className="sv-playback-drawer-title">
+                        <Message msgId="hydrata.playback.drawerAppearance" />
+                    </h4>
+                    <div className="sv-playback-drawer-field">
+                        <span className="sv-playback-drawer-label">
+                            <Message msgId="hydrata.playback.opacity" />
+                        </span>
+                        {/* TASK-2744 AC3 — layer opacity. RED on map 1461: the
+                            layer was pinned at 0.85 by playbackInitEpic with no
+                            control anywhere, so the mesh sat as an opaque sheet
+                            over the whole catchment (dry cells included) and you
+                            could not read the water against the terrain it is
+                            flooding. */}
+                        {this.renderSlider({
+                            testid: 'anuga-playback-opacity',
+                            className: 'sv-playback-opacity',
+                            min: 0.1, max: 1, step: 0.05,
+                            value: playback.opacity,
+                            label: this.tr('hydrata.playback.opacity', 'Layer opacity'),
+                            format: (v) => `${Math.round(v * 100)}%`,
+                            onChange: (v) => this.props.onSetOpacity(v)
+                        })}
+                    </div>
+                    {/* TASK-2656d (W6.5) — real wireframe toggle over the render
+                        threshold's fill (default OFF); the renderer's own
+                        wireProgram already existed, unused, on a live run. */}
+                    <button
+                        className={`btn sv-glass-button sv-playback-wireframe-toggle ${playback.wireframe ? 'active' : ''}`}
+                        data-testid="anuga-playback-wireframe-toggle"
+                        onClick={() => this.props.onSetWireframe(!playback.wireframe)}
+                        title={this.tr('hydrata.playback.wireframeTooltip', 'Overlay mesh triangle edges')}
+                    >
+                        <Message msgId="hydrata.playback.wireframe" />
+                    </button>
+                </section>
+
+                <section className="sv-playback-drawer-col">
+                    <h4 className="sv-playback-drawer-title">
+                        <Message msgId="hydrata.playback.drawerOverlays" />
+                    </h4>
+                    <button
+                        className={`btn sv-glass-button sv-playback-flowviz-toggle ${playback.flowVizEnabled ? 'active' : ''}`}
+                        data-testid="anuga-playback-flowviz-toggle"
+                        onClick={() => this.props.onSetOverlay('flowVizEnabled', !playback.flowVizEnabled)}
+                        title={this.tr('hydrata.playback.flowVizTooltip', 'Velocity arrow overlay')}
+                    >
+                        <Message msgId="hydrata.playback.flowViz" />
+                    </button>
+                    {playback.flowVizEnabled ? (
+                        <span className="sv-playback-flowviz-controls" data-testid="anuga-playback-flowviz-controls">
+                            {this.renderSlider({
+                                testid: 'anuga-playback-flowviz-density',
+                                className: 'sv-playback-flowviz-density',
+                                min: 16, max: 160, step: 4,
+                                value: playback.arrowDensity,
+                                label: this.tr('hydrata.playback.arrowDensity', 'Arrow density (px spacing)'),
+                                format: (v) => `${v} px`,
+                                onChange: (v) => this.props.onSetOverlay('arrowDensity', v)
+                            })}
+                            {this.renderSlider({
+                                testid: 'anuga-playback-flowviz-scale',
+                                className: 'sv-playback-flowviz-scale',
+                                min: 0.25, max: 3, step: 0.25,
+                                value: playback.arrowScale,
+                                label: this.tr('hydrata.playback.arrowScale', 'Arrow scale'),
+                                format: (v) => `${v}x`,
+                                onChange: (v) => this.props.onSetOverlay('arrowScale', v)
+                            })}
+                        </span>
+                    ) : null}
+                    <button
+                        className={`btn sv-glass-button sv-playback-particles-toggle ${playback.particlesEnabled ? 'active' : ''}`}
+                        data-testid="anuga-playback-particles-toggle"
+                        onClick={() => this.props.onSetOverlay('particlesEnabled', !playback.particlesEnabled)}
+                        title={this.tr('hydrata.playback.particlesTooltip', 'Particle trails')}
+                    >
+                        <Message msgId="hydrata.playback.particles" />
+                    </button>
+                    {playback.particlesEnabled ? (
+                        <span className="sv-playback-particles-controls" data-testid="anuga-playback-particles-controls">
+                            {this.renderSlider({
+                                testid: 'anuga-playback-particles-density',
+                                className: 'sv-playback-particles-density',
+                                min: 32, max: 256, step: 16,
+                                value: playback.particleDensity,
+                                label: this.tr('hydrata.playback.particleDensity', 'Particle density (grid side length)'),
+                                format: (v) => `${v}`,
+                                onChange: (v) => this.props.onSetOverlay('particleDensity', v)
+                            })}
+                            {this.renderSlider({
+                                testid: 'anuga-playback-particles-exaggeration',
+                                className: 'sv-playback-particles-exaggeration',
+                                min: 0.25, max: 5, step: 0.25,
+                                value: playback.particleSpeedExaggeration,
+                                label: this.tr('hydrata.playback.speedExaggeration', 'Speed exaggeration'),
+                                format: (v) => `${v}x`,
+                                onChange: (v) => this.props.onSetOverlay('particleSpeedExaggeration', v)
+                            })}
+                        </span>
+                    ) : null}
+                </section>
+
+                <section className="sv-playback-drawer-col sv-playback-drawer-col--wide">
+                    <h4 className="sv-playback-drawer-title">
+                        <Message msgId="hydrata.playback.drawerColourScale" />
+                    </h4>
+                    {this.renderCeilingTable(playback)}
+                </section>
+            </div>
+        );
+    }
+
+    /**
+     * TASK-2751 — the card.
+     *
+     *   card  .sv-playback-bar     FIXED width, anchored bottom
+     *     |- drawer                order:-1, so it grows UPWARD
+     *     `- transport             fixed-height row, never reflows
+     *
+     * TASK-2744 AC5 anchored the bar to both edges so it stopped being capped
+     * at half its container; this card goes one further and PINS the width, so
+     * no content that mounts — a buffering label, an overlay slider group, a
+     * ceiling editor — can change it. That is what makes AC6's "the status
+     * label must not move the play button" true by construction rather than by
+     * a fixed-width sticking plaster on one slot.
+     *
+     * The `anuga-playback-bar` testid and the `sv-playback-bar` class stay on
+     * the CARD deliberately: every `.sv-playback-bar .sv-glass-button`
+     * descendant rule and every existing spec keeps working, so this is a
+     * re-nesting rather than a rewrite.
+     */
     render() {
         const { playback } = this.props;
         if (!playback || playback.status === PLAYBACK_STATUS.IDLE) {
@@ -474,254 +705,200 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         const isBuffering = [PLAYBACK_STATUS.LOADING_MANIFEST, PLAYBACK_STATUS.LOADING_MESH, PLAYBACK_STATUS.BUFFERING, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED].includes(playback.status);
         const canScrub = playback.nTime > 0;
         const statusMsgId = STATUS_MESSAGE_ID[playback.status];
+        const quantityLabel = this.tr('hydrata.playback.resultQuantity', 'Result quantity');
         return (
-            <div className={`sv-playback-bar sv-playback-bar--${playback.status}`} data-testid="anuga-playback-bar">
-                <button
-                    className="btn sv-glass-button sv-playback-playpause"
-                    data-testid="anuga-playback-playpause"
-                    onClick={() => (isPlaying ? this.props.onPause() : this.props.onPlay())}
-                    title={isPlaying
-                        ? this.tr('hydrata.playback.pause', 'Pause')
-                        : this.tr('hydrata.playback.play', 'Play')}
-                    aria-label={isPlaying
-                        ? this.tr('hydrata.playback.pause', 'Pause')
-                        : this.tr('hydrata.playback.play', 'Play')}
-                >
-                    {isPlaying ? '❙❙' : '▶'}
-                </button>
+            <div
+                className={`sv-playback-bar sv-playback-bar--${playback.status}${this.state.drawerOpen ? ' is-open' : ''}`}
+                data-testid="anuga-playback-bar"
+                onKeyDown={this.onCardKeyDown}
+            >
+                {this.renderDrawer(playback)}
 
-                {/* TASK-2744 AC9 — the scrubber must show what is BUFFERED.
-                    `bufferedChunks` has lived in controller state since epic
-                    2618 and no component ever read it (grep of components/
-                    returned nothing), so video-style buffer feedback existed
-                    only as a text label. The track wrapper is also what gives
-                    the buffered bar a positioned ancestor to sit in. */}
-                <span className="sv-playback-scrubber-track" data-testid="anuga-playback-scrubber-track">
-                    {bufferedTrackSegments(playback.bufferedChunks, playback.chunkLengthT, playback.nTime)
-                        .map((seg, i) => (
-                            <span
-                                key={`${seg.start}-${seg.width}`}
-                                className="sv-playback-scrubber-buffered"
-                                data-testid={i === 0 ? 'anuga-playback-scrubber-buffered' : `anuga-playback-scrubber-buffered-${i}`}
-                                style={{ left: `${seg.start * 100}%`, width: `${seg.width * 100}%` }}
-                            />
-                        ))}
-                    <input
-                        type="range"
-                        className="sv-playback-scrubber"
-                        data-testid="anuga-playback-scrubber"
-                        min={0}
-                        max={Math.max(0, playback.nTime - 1)}
-                        step={1}
-                        disabled={!canScrub}
-                        value={playback.currentTimestep}
-                        title={this.tr('hydrata.playback.scrubber', 'Timeline position')}
-                        aria-label={this.tr('hydrata.playback.scrubber', 'Timeline position')}
-                        onChange={(e) => this.props.onSeek(Number(e.target.value))}
-                    />
-                </span>
-
-                <span className="sv-playback-readout" data-testid="anuga-playback-readout">
-                    {playback.currentTimestep + 1}/{playback.nTime || '—'} · {formatClock(playback.playheadSeconds)}
-                </span>
-
-                <select
-                    className="sv-playback-speed"
-                    data-testid="anuga-playback-speed"
-                    value={playback.speed}
-                    title={this.tr('hydrata.playback.speed', 'Playback speed')}
-                    aria-label={this.tr('hydrata.playback.speed', 'Playback speed')}
-                    onChange={(e) => this.props.onSetSpeed(Number(e.target.value))}
-                >
-                    {this.speedOptions(playback).map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                </select>
-
-                <select
-                    className="sv-playback-quantity"
-                    data-testid="anuga-playback-quantity"
-                    value={playback.quantity}
-                    title={this.tr('hydrata.playback.quantity', 'Displayed quantity')}
-                    aria-label={this.tr('hydrata.playback.quantity', 'Displayed quantity')}
-                    onChange={(e) => this.props.onSetQuantity(e.target.value)}
-                >
-                    {availableQuantityIds(playback.hasDt).map((id) => (
-                        <option key={id} value={id}>{this.tr(`hydrata.playback.quantityOption.${id}`, QUANTITY_OPTION_LABEL[id])}</option>
-                    ))}
-                </select>
-
-                {/* TASK-2744 AC3 — layer opacity. RED on map 1461: the layer
-                    was pinned at 0.85 by playbackInitEpic with no control
-                    anywhere, so the mesh sat as an opaque sheet over the whole
-                    catchment (dry cells included) and you could not read the
-                    water against the terrain it is flooding. */}
-                {this.renderSlider({
-                    testid: 'anuga-playback-opacity',
-                    className: 'sv-playback-opacity',
-                    min: 0.1, max: 1, step: 0.05,
-                    value: playback.opacity,
-                    label: this.tr('hydrata.playback.opacity', 'Layer opacity'),
-                    format: (v) => `${Math.round(v * 100)}%`,
-                    onChange: (v) => this.props.onSetOpacity(v)
-                })}
-
-                {/* TASK-2744 AC4 — the colour ramp's upper bound. RED: for
-                    `depth` this defaulted to the store's valid_max, 16.86 m on
-                    run 1328, which puts every urban street depth (0.1-1.0 m)
-                    in the bottom 6% of the ramp — one indistinguishable band.
-                    Clearing the field restores the store-derived maximum. */}
-                {this.renderColorMax(playback)}
-
-                <button
-                    className={`btn sv-glass-button sv-playback-identify-toggle ${playback.identifyArmed ? 'active' : ''}`}
-                    data-testid="anuga-playback-identify-toggle"
-                    onClick={() => this.props.onSetIdentifyArmed(!playback.identifyArmed)}
-                    title={this.tr('hydrata.playback.inspectTooltip', 'Click the mesh to inspect values at the current timestep')}
-                >
-                    <Message msgId="hydrata.playback.inspect" />
-                </button>
-
-                <button
-                    className={`btn sv-glass-button sv-playback-legend-toggle ${playback.legendOpen ? 'active' : ''}`}
-                    data-testid="anuga-playback-legend-toggle"
-                    onClick={() => this.props.onSetLegendOpen(!playback.legendOpen)}
-                    title={this.tr('hydrata.playback.legendTooltip', 'Show the colour legend')}
-                >
-                    <Message msgId="hydrata.playback.legend" />
-                </button>
-
-                {/* TASK-2656d (W6.5) — real wireframe toggle over the render
-                    threshold's fill (default OFF); the renderer's own
-                    wireProgram already existed, unused, on a live run.
-                    TASK-2744 AC10: the plain-text label is gone. Its
-                    justification was a wave scope fence that excluded the
-                    translations JSON from that wave's gmc scope — epic 2706
-                    does not have that fence, so the key is a real one now. */}
-                <button
-                    className={`btn sv-glass-button sv-playback-wireframe-toggle ${playback.wireframe ? 'active' : ''}`}
-                    data-testid="anuga-playback-wireframe-toggle"
-                    onClick={() => this.props.onSetWireframe(!playback.wireframe)}
-                    title={this.tr('hydrata.playback.wireframeTooltip', 'Overlay mesh triangle edges')}
-                >
-                    <Message msgId="hydrata.playback.wireframe" />
-                </button>
-
-                <button
-                    className={`btn sv-glass-button sv-playback-flowviz-toggle ${playback.flowVizEnabled ? 'active' : ''}`}
-                    data-testid="anuga-playback-flowviz-toggle"
-                    onClick={() => this.props.onSetOverlay('flowVizEnabled', !playback.flowVizEnabled)}
-                    title={this.tr('hydrata.playback.flowVizTooltip', 'Velocity arrow overlay')}
-                >
-                    <Message msgId="hydrata.playback.flowViz" />
-                </button>
-                {playback.flowVizEnabled ? (
-                    <span className="sv-playback-flowviz-controls" data-testid="anuga-playback-flowviz-controls">
-                        {this.renderSlider({
-                            testid: 'anuga-playback-flowviz-density',
-                            className: 'sv-playback-flowviz-density',
-                            min: 16, max: 160, step: 4,
-                            value: playback.arrowDensity,
-                            label: this.tr('hydrata.playback.arrowDensity', 'Arrow density (px spacing)'),
-                            format: (v) => `${v} px`,
-                            onChange: (v) => this.props.onSetOverlay('arrowDensity', v)
-                        })}
-                        {this.renderSlider({
-                            testid: 'anuga-playback-flowviz-scale',
-                            className: 'sv-playback-flowviz-scale',
-                            min: 0.25, max: 3, step: 0.25,
-                            value: playback.arrowScale,
-                            label: this.tr('hydrata.playback.arrowScale', 'Arrow scale'),
-                            format: (v) => `${v}x`,
-                            onChange: (v) => this.props.onSetOverlay('arrowScale', v)
-                        })}
-                    </span>
-                ) : null}
-
-                <button
-                    className={`btn sv-glass-button sv-playback-particles-toggle ${playback.particlesEnabled ? 'active' : ''}`}
-                    data-testid="anuga-playback-particles-toggle"
-                    onClick={() => this.props.onSetOverlay('particlesEnabled', !playback.particlesEnabled)}
-                    title={this.tr('hydrata.playback.particlesTooltip', 'Particle trails')}
-                >
-                    <Message msgId="hydrata.playback.particles" />
-                </button>
-                {playback.particlesEnabled ? (
-                    <span className="sv-playback-particles-controls" data-testid="anuga-playback-particles-controls">
-                        {this.renderSlider({
-                            testid: 'anuga-playback-particles-density',
-                            className: 'sv-playback-particles-density',
-                            min: 32, max: 256, step: 16,
-                            value: playback.particleDensity,
-                            label: this.tr('hydrata.playback.particleDensity', 'Particle density (grid side length)'),
-                            format: (v) => `${v}`,
-                            onChange: (v) => this.props.onSetOverlay('particleDensity', v)
-                        })}
-                        {this.renderSlider({
-                            testid: 'anuga-playback-particles-exaggeration',
-                            className: 'sv-playback-particles-exaggeration',
-                            min: 0.25, max: 5, step: 0.25,
-                            value: playback.particleSpeedExaggeration,
-                            label: this.tr('hydrata.playback.speedExaggeration', 'Speed exaggeration'),
-                            format: (v) => `${v}x`,
-                            onChange: (v) => this.props.onSetOverlay('particleSpeedExaggeration', v)
-                        })}
-                    </span>
-                ) : null}
-
-                {/* TASK-2744 (AC6, epic 2706) — STATUS MUST NOT MOVE THE
-                    CONTROLS. The bar is centred by `left:50%` +
-                    `translateX(-50%)`, so ANY width change re-centres it and
-                    shifts every control; mounting a buffering label therefore
-                    moved the play/pause button. This slot is ALWAYS rendered
-                    at a fixed width and the labels mount inside it, so the
-                    bar's width is invariant to status.
-
-                    The inner testids stay conditional on purpose — existing
-                    specs assert `anuga-playback-buffering` is null when not
-                    buffering, and that contract is still true and still
-                    worth keeping. */}
-                <span className="sv-playback-status" data-testid="anuga-playback-status">
-                    {isBuffering ? (
-                        <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
-                            {statusMsgId ? <Message msgId={statusMsgId} /> : null}
-                        </span>
-                    ) : null}
-                    {/* TASK-2744 AC18 — determinate mesh-phase progress. The
-                        ~100 s after the manifest resolves is a multi-hundred-
-                        megabyte download; it had no progress bar, byte counter
-                        or ETA, only a static label naming the wrong thing. */}
-                    {playback.loadProgress ? (
-                        <span className="sv-playback-load-progress" data-testid="anuga-playback-load-progress">
-                            {`${playback.loadProgress.objectsLoaded}/${playback.loadProgress.objectCount} · ${formatBytes(playback.loadProgress.bytesLoaded)}`}
-                        </span>
-                    ) : null}
-                </span>
-                {/* TASK-2744 (AC2, epic 2706) — Unload. Until this existed
-                    PLAYBACK_RESET had no dispatcher outside tests, so a run
-                    could never be released: the fetcher, its decoded-chunk
-                    LRU and two full Float32Array copies of a 3.39M-vertex
-                    mesh stayed reachable for the life of the tab (~578 MiB
-                    per stale run at prod scale), and IDLE — the only status
-                    that renders the manifest loader — was unreachable. */}
-                <button
-                    className="btn sv-glass-button sv-playback-unload"
-                    data-testid="anuga-playback-unload"
-                    onClick={() => this.props.onReset(playback.runId, playback.layerId)}
-                    title={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
-                >
-                    <Message msgId="hydrata.playback.unload" />
-                </button>
-
-                {playback.degraded ? (
-                    <span
-                        className="sv-playback-degraded"
-                        data-testid="anuga-playback-degraded"
-                        title={this.tr('hydrata.playback.degradedTooltip', 'Repeated buffering stalls — playback is degraded on this connection')}
+                <div className="sv-playback-transport" data-testid="anuga-playback-transport">
+                    <button
+                        className="btn sv-glass-button sv-playback-playpause"
+                        data-testid="anuga-playback-playpause"
+                        onClick={() => (isPlaying ? this.props.onPause() : this.props.onPlay())}
+                        title={isPlaying
+                            ? this.tr('hydrata.playback.pause', 'Pause')
+                            : this.tr('hydrata.playback.play', 'Play')}
+                        aria-label={isPlaying
+                            ? this.tr('hydrata.playback.pause', 'Pause')
+                            : this.tr('hydrata.playback.play', 'Play')}
                     >
-                        <Message msgId="hydrata.playback.degraded" />
+                        {isPlaying ? '❙❙' : '▶'}
+                    </button>
+
+                    {/* TASK-2744 AC9 — the scrubber must show what is BUFFERED.
+                        `bufferedChunks` has lived in controller state since epic
+                        2618 and no component ever read it, so video-style buffer
+                        feedback existed only as a text label. The track wrapper is
+                        also what gives the buffered bar a positioned ancestor. */}
+                    <span className="sv-playback-scrubber-track" data-testid="anuga-playback-scrubber-track">
+                        {bufferedTrackSegments(playback.bufferedChunks, playback.chunkLengthT, playback.nTime)
+                            .map((seg, i) => (
+                                <span
+                                    key={`${seg.start}-${seg.width}`}
+                                    className="sv-playback-scrubber-buffered"
+                                    data-testid={i === 0 ? 'anuga-playback-scrubber-buffered' : `anuga-playback-scrubber-buffered-${i}`}
+                                    style={{ left: `${seg.start * 100}%`, width: `${seg.width * 100}%` }}
+                                />
+                            ))}
+                        <input
+                            type="range"
+                            className="sv-playback-scrubber"
+                            data-testid="anuga-playback-scrubber"
+                            min={0}
+                            max={Math.max(0, playback.nTime - 1)}
+                            step={1}
+                            disabled={!canScrub}
+                            value={playback.currentTimestep}
+                            title={this.tr('hydrata.playback.scrubber', 'Timeline position')}
+                            aria-label={this.tr('hydrata.playback.scrubber', 'Timeline position')}
+                            onChange={(e) => this.props.onSeek(Number(e.target.value))}
+                        />
                     </span>
-                ) : null}
+
+                    <span className="sv-playback-readout" data-testid="anuga-playback-readout">
+                        {playback.currentTimestep + 1}/{playback.nTime || '—'} · {formatClock(playback.playheadSeconds)}
+                    </span>
+
+                    <select
+                        className="sv-playback-speed"
+                        data-testid="anuga-playback-speed"
+                        value={playback.speed}
+                        title={this.tr('hydrata.playback.speed', 'Playback speed')}
+                        aria-label={this.tr('hydrata.playback.speed', 'Playback speed')}
+                        onChange={(e) => this.props.onSetSpeed(Number(e.target.value))}
+                    >
+                        {this.speedOptions(playback).map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </select>
+
+                    {/* TASK-2744 (AC6) — STATUS MUST NOT MOVE THE CONTROLS. Kept
+                        as a fixed-width slot even though the card's own width is
+                        now pinned: it also stops the CONTROLS AFTER IT sliding
+                        left and right within the row as the label changes. */}
+                    <span className="sv-playback-status" data-testid="anuga-playback-status">
+                        {isBuffering ? (
+                            <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
+                                {statusMsgId ? <Message msgId={statusMsgId} /> : null}
+                            </span>
+                        ) : null}
+                        {/* TASK-2744 AC18 — determinate mesh-phase progress. The
+                            ~100 s after the manifest resolves is a multi-hundred-
+                            megabyte download; it had no progress bar, byte counter
+                            or ETA, only a static label naming the wrong thing. */}
+                        {playback.loadProgress ? (
+                            <span className="sv-playback-load-progress" data-testid="anuga-playback-load-progress">
+                                {`${playback.loadProgress.objectsLoaded}/${playback.loadProgress.objectCount} · ${formatBytes(playback.loadProgress.bytesLoaded)}`}
+                            </span>
+                        ) : null}
+                    </span>
+
+                    {/* TASK-2751 — THE PRIMARY PATH. Which result quantity am I
+                        looking at, and where does its colour ramp top out. Those
+                        are the two adjustments a reviewer makes constantly, and
+                        they were respectively buried mid-row and rendered as an
+                        unlabelled number box. They travel together because the
+                        ceiling is stored PER QUANTITY. */}
+                    <span className="sv-playback-primary" data-testid="anuga-playback-primary-group">
+                        <span className="sv-playback-primary-label" aria-hidden="true">{quantityLabel}</span>
+                        <select
+                            className="sv-playback-quantity"
+                            data-testid="anuga-playback-quantity"
+                            value={playback.quantity}
+                            title={quantityLabel}
+                            aria-label={quantityLabel}
+                            onChange={(e) => this.props.onSetQuantity(e.target.value)}
+                        >
+                            {availableQuantityIds(playback.hasDt).map((id) => (
+                                <option key={id} value={id}>{this.tr(`hydrata.playback.quantityOption.${id}`, QUANTITY_OPTION_LABEL[id])}</option>
+                            ))}
+                        </select>
+
+                        {this.renderCeiling(playback, 'anuga-playback-ceiling')}
+
+                        {/* TASK-2752 — RESERVED, NOT IMPLEMENTED. The temporal-max
+                            envelope (the in-browser `*_max.tif`) needs per-vertex
+                            max arrays that the playback store does not currently
+                            contain: playback_store.py writes per-timestep
+                            primitives and statics only, and max-of-derived is not
+                            derived-of-max, so it cannot be faked client-side from
+                            what is there. The slot is reserved so the layout is
+                            final; the control stays disabled until the store can
+                            answer it. */}
+                        <button
+                            className="btn sv-glass-button sv-playback-max-envelope"
+                            data-testid="anuga-playback-max-envelope"
+                            disabled
+                            aria-disabled="true"
+                            title={this.tr(
+                                'hydrata.playback.maxEnvelopeUnavailable',
+                                'Peak value over the whole run — coming soon; this run’s store has no max envelope yet'
+                            )}
+                        >
+                            <Message msgId="hydrata.playback.maxEnvelope" />
+                        </button>
+                    </span>
+
+                    <span className="sv-playback-divider" data-testid="anuga-playback-divider" aria-hidden="true" />
+
+                    <button
+                        className={`btn sv-glass-button sv-playback-display-toggle ${this.state.drawerOpen ? 'active' : ''}`}
+                        data-testid="anuga-playback-display-toggle"
+                        aria-expanded={this.state.drawerOpen ? 'true' : 'false'}
+                        onClick={() => this.setState({ drawerOpen: !this.state.drawerOpen })}
+                        title={this.tr('hydrata.playback.displayTooltip', 'Opacity, overlays and the colour scale for every result quantity')}
+                    >
+                        <Message msgId="hydrata.playback.display" />
+                    </button>
+
+                    <button
+                        className={`btn sv-glass-button sv-playback-identify-toggle ${playback.identifyArmed ? 'active' : ''}`}
+                        data-testid="anuga-playback-identify-toggle"
+                        onClick={() => this.props.onSetIdentifyArmed(!playback.identifyArmed)}
+                        title={this.tr('hydrata.playback.inspectTooltip', 'Click the mesh to inspect values at the current timestep')}
+                    >
+                        <Message msgId="hydrata.playback.inspect" />
+                    </button>
+
+                    <button
+                        className={`btn sv-glass-button sv-playback-legend-toggle ${playback.legendOpen ? 'active' : ''}`}
+                        data-testid="anuga-playback-legend-toggle"
+                        onClick={() => this.props.onSetLegendOpen(!playback.legendOpen)}
+                        title={this.tr('hydrata.playback.legendTooltip', 'Show the colour legend')}
+                    >
+                        <Message msgId="hydrata.playback.legend" />
+                    </button>
+
+                    {/* TASK-2744 (AC2) — Unload. Until this existed PLAYBACK_RESET
+                        had no dispatcher outside tests, so a run could never be
+                        released: the fetcher, its decoded-chunk LRU and two full
+                        Float32Array copies of a 3.39M-vertex mesh stayed reachable
+                        for the life of the tab (~578 MiB per stale run at prod
+                        scale), and IDLE — the only status that renders the manifest
+                        loader — was unreachable. */}
+                    <button
+                        className="btn sv-glass-button sv-playback-unload"
+                        data-testid="anuga-playback-unload"
+                        onClick={() => this.props.onReset(playback.runId, playback.layerId)}
+                        title={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
+                    >
+                        <Message msgId="hydrata.playback.unload" />
+                    </button>
+
+                    {playback.degraded ? (
+                        <span
+                            className="sv-playback-degraded"
+                            data-testid="anuga-playback-degraded"
+                            title={this.tr('hydrata.playback.degradedTooltip', 'Repeated buffering stalls — playback is degraded on this connection')}
+                        >
+                            <Message msgId="hydrata.playback.degraded" />
+                        </span>
+                    ) : null}
+                </div>
             </div>
         );
     }
