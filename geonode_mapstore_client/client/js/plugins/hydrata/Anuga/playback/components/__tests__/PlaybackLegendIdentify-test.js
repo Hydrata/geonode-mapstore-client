@@ -52,27 +52,40 @@ describe('PlaybackLegend — TASK-2628', () => {
     describe('colour-ramp override — TASK-2744 AC4', () => {
         const DEPTH_QUANTIZATION = { depth: { valid_max: 16.862720489501953 } };
 
-        it('clips the stop list to an operator override, and the top label carries the "+"', () => {
+        // TASK-2784 (W7) keeps this AC and changes its mechanism. 2744 held
+        // "no rendered stop exceeds the value the shader saturates at" by
+        // DROPPING the stops above the ceiling — the only option while the LUT
+        // was pinned to absolute SLD values. The ceiling now stretches the
+        // ramp, so every stop is reachable and the invariant holds on the
+        // LABELS instead. Asserted on the label text, not the testid: the
+        // testid is the stop's native identity, the label is its value here.
+        it('rescales the stop list onto an operator override, and the top label carries the "+"', () => {
             ReactDOM.render(<PlaybackLegendComponent quantity="depth" quantization={DEPTH_QUANTIZATION} />, container);
             const before = container.querySelectorAll('[data-testid^="playback-legend-row-"]').length;
 
             ReactDOM.render(<PlaybackLegendComponent quantity="depth" quantization={DEPTH_QUANTIZATION} colorMaxOverride={1.5} />, container);
             const rows = [...container.querySelectorAll('[data-testid^="playback-legend-row-"]')];
-            expect(rows.length).toBeLessThan(before);
+            expect(rows.length).toBe(before, 'no colour becomes unreachable, so no row is dropped');
 
+            const labels = rows.map((row) => row.querySelector('.sv-playback-legend-label').textContent);
             // rows render high -> low, so the FIRST rendered row is the top stop
-            const topLabel = rows[0].querySelector('.sv-playback-legend-label').textContent;
-            expect(topLabel).toContain('+');
-            // ...and no rendered stop exceeds the override the shader saturates at
-            rows.forEach((row) => {
-                const q = Number(row.getAttribute('data-testid').replace('playback-legend-row-', ''));
-                expect(q <= 1.5 || q === 0).toBe(true);
+            expect(labels[0]).toContain('+');
+            expect(labels[0]).toContain('1.50');
+            // ...and no rendered value exceeds the override the shader saturates at
+            labels.forEach((label) => {
+                expect(parseFloat(label)).toBeLessThanOrEqualTo(1.5);
             });
         });
 
-        it('does NOT clip when there is no override (a fallback colorMax is not a ceiling)', () => {
+        it('does NOT rescale when there is no override (a fallback colorMax is not a ceiling)', () => {
             ReactDOM.render(<PlaybackLegendComponent quantity="depth" quantization={null} />, container);
-            expect(container.querySelectorAll('[data-testid^="playback-legend-row-"]').length).toBe(DEPTH_SLD_STOPS.length);
+            const rows = [...container.querySelectorAll('[data-testid^="playback-legend-row-"]')];
+            expect(rows.length).toBe(DEPTH_SLD_STOPS.length);
+            // labels stay the SLD's own absolute metres — which is what the
+            // renderer is keyed to with no override, and what the *_max
+            // raster of the same run is rendered with
+            const topLabel = rows[0].querySelector('.sv-playback-legend-label').textContent;
+            expect(parseFloat(topLabel)).toBe(6);
         });
     });
 
@@ -89,6 +102,25 @@ describe('PlaybackLegend — TASK-2628', () => {
     it('hides the exceeds-SLD note when within the SLD cap', () => {
         ReactDOM.render(<PlaybackLegendComponent quantity="depth" quantization={{ depth: { valid_max: 2 } }} />, container);
         expect(container.querySelector('[data-testid="playback-legend-exceeds-sld"]')).toBe(null);
+    });
+
+    // TASK-2784 (W7, epic 2706) — RED on HEAD, and seen live on map 1461 /
+    // prod run 1328: "Ramp extended to 65.02 m — this run exceeds the standard
+    // scale" on a perfectly ordinary run. stage's ramp.max of 1 is a
+    // PLACEHOLDER (its stops are fractions of the run's own elevation span,
+    // playbackColormap.js's STAGE_RAMP_STOPS), so `span > ramp.max` is true of
+    // any run spanning more than a metre — the note could never NOT fire.
+    it('never shows the exceeds-SLD note for stage — its cap is a placeholder, not a standard scale', () => {
+        ReactDOM.render(
+            <PlaybackLegendComponent quantity="stage" quantization={{ depth: { valid_max: 16.86 } }} elevationMin={0.04} elevationMax={48.16} />,
+            container
+        );
+        expect(container.querySelector('[data-testid="playback-legend-exceeds-sld"]')).toBe(null);
+        // ...and the rows still carry real elevations, not the raw fractions
+        const labels = [...container.querySelectorAll('[data-testid^="playback-legend-row-"] .sv-playback-legend-label')]
+            .map((el) => parseFloat(el.textContent));
+        expect(labels[0]).toBeGreaterThan(60);
+        expect(labels[labels.length - 1]).toBe(0.04);
     });
 
     // TASK-2629 (W4.1) — AC: "the legend must render discrete classes" for

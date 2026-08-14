@@ -31,6 +31,7 @@ import {
     uploadLUTTexture,
     buildQuantityColormapLUT,
     buildDiscreteColormapLUT,
+    isRampNormalized,
     QUANTITY_RAMPS
 } from './playbackColormap';
 import { QUANTITY_MODE_INDEX } from './playbackDerivedQuantities';
@@ -465,20 +466,26 @@ export class AnugaPlaybackRenderer {
      * @param {string} id one of playbackColormap.QUANTITY_RAMPS' keys
      * @param {number} colorMin
      * @param {number} colorMax
+     * @param {boolean} [colorRescaled] TASK-2784 — the reader has set a ceiling
      */
-    _ensureLUT(gl, id, colorMin, colorMax) {
-        const key = `${colorMin}:${colorMax}`;
+    _ensureLUT(gl, id, colorMin, colorMax, colorRescaled) {
+        const ramp = QUANTITY_RAMPS[id];
+        const normalized = isRampNormalized(id, colorRescaled);
+        // TASK-2784 — a normalized LUT is the SAME 256 texels at every display
+        // range (the range lives in the shader's uColorMin/uColorMax), so it
+        // caches on the mode alone. Keying it on the range too would re-upload
+        // an identical texture on every keystroke of the ceiling editor.
+        const key = normalized ? 'normalized' : `${colorMin}:${colorMax}`;
         if (this.lutTextures[id] && this.lutRange[id] === key) {
             return;
         }
         if (this.lutTextures[id]) {
             gl.deleteTexture(this.lutTextures[id]);
         }
-        const ramp = QUANTITY_RAMPS[id];
         const span = Math.max(1e-9, colorMax - colorMin);
         const lutData = ramp.discrete
             ? buildDiscreteColormapLUT(ramp.stops, ramp.max, 256)
-            : buildQuantityColormapLUT(ramp.stops, span, 256);
+            : buildQuantityColormapLUT(ramp.stops, span, 256, { normalized });
         this.lutTextures[id] = uploadLUTTexture(gl, lutData, 256, ramp.discrete ? 'nearest' : 'linear');
         this.lutRange[id] = key;
     }
@@ -494,6 +501,9 @@ export class AnugaPlaybackRenderer {
      * @param {string} [params.colorMode] one of playbackDerivedQuantities.QUANTITY_IDS
      * @param {number} [params.colorMax]
      * @param {number} [params.colorMin] non-zero only for `stage`'s per-run rescale
+     * @param {boolean} [params.colorRescaled] TASK-2784 — the reader has set a
+     *   ceiling for this quantity, so the ramp stretches to fill it instead of
+     *   staying pinned to absolute SLD values (playbackColormap.isRampNormalized)
      * @param {number} [params.wetThreshold] store's minimum_storable_height
      * @param {number} [params.g] store attr `g`
      * @param {number} [params.rhoW] store attr `rho_w`
@@ -508,7 +518,7 @@ export class AnugaPlaybackRenderer {
      */
     render({
         viewState, size, pixelRatio, opacity, wireframe = false, mixT = 0,
-        colorMode = 'depth', colorMax = 1, colorMin = 0, wetThreshold = 1e-5,
+        colorMode = 'depth', colorMax = 1, colorMin = 0, colorRescaled = false, wetThreshold = 1e-5,
         g = 9.8, rhoW = 1000, dt = 0,
         flowVizEnabled = false, arrowDensity, arrowScale,
         particlesEnabled = false, particleDensity, particleSpeedExaggeration
@@ -544,7 +554,7 @@ export class AnugaPlaybackRenderer {
         const mode = QUANTITY_RAMPS[colorMode] ? colorMode : 'depth';
         const modeIndex = QUANTITY_MODE_INDEX[mode];
         const safeColorMax = colorMax > colorMin ? colorMax : colorMin + 1;
-        this._ensureLUT(gl, mode, colorMin, safeColorMax);
+        this._ensureLUT(gl, mode, colorMin, safeColorMax, colorRescaled);
 
         gl.useProgram(this.meshProgram);
         gl.bindVertexArray(this.meshVao);

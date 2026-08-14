@@ -250,6 +250,10 @@ function create(options = {}, map) {
                 colorMode: olLayer.get('colorMode') || 'depth',
                 colorMax: olLayer.get('colorMax') || 1,
                 colorMin: olLayer.get('colorMin') || 0,
+                // TASK-2784 (W7, epic 2706) — the reader has set this
+                // quantity's ceiling, so the ramp stretches to fill it rather
+                // than staying pinned to absolute SLD values.
+                colorRescaled: !!olLayer.get('colorRescaled'),
                 // TASK-2629 (W4.1) — the store's OWN minimum_storable_height/
                 // g/rho_w, never a hardcoded guess; the 1e-5/9.8/1000 fallbacks
                 // below only cover a caller that never set these (e.g. a karma
@@ -281,6 +285,7 @@ function create(options = {}, map) {
     olLayer.set('colorMode', options.colorMode || 'depth');
     olLayer.set('colorMax', options.colorMax || 1);
     olLayer.set('colorMin', options.colorMin || 0);
+    olLayer.set('colorRescaled', !!options.colorRescaled);
     olLayer.set('wetThreshold', options.wetThreshold || 1e-5);
     olLayer.set('g', options.g || 9.8);
     olLayer.set('rhoW', options.rhoW || 1000);
@@ -379,6 +384,9 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (newOptions.colorMin !== oldOptions.colorMin) {
         layer.set('colorMin', newOptions.colorMin || 0);
+    }
+    if (!newOptions.colorRescaled !== !oldOptions.colorRescaled) {
+        layer.set('colorRescaled', !!newOptions.colorRescaled);
     }
     if (newOptions.wetThreshold !== oldOptions.wetThreshold) {
         layer.set('wetThreshold', newOptions.wetThreshold || 1e-5);

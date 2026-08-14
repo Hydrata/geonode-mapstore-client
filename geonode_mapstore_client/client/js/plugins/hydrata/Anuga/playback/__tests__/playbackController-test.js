@@ -24,6 +24,7 @@ import {
     mergeBufferedChunks,
     findTimestepBracket,
     colorMaxForQuantity,
+    isColorMaxOverridden,
     colorMinForQuantity,
     clampOpacity,
     DEFAULT_PLAYBACK_OPACITY,
@@ -640,6 +641,30 @@ describe('playbackController', () => {
             // would produce a negative span and divide-by-clamp everything
             const ctx = { elevationMin: 10, elevationMax: 20, colorMaxOverride: 5 };
             expect(colorMaxForQuantity('stage', null, ctx)).toNotBe(5);
+        });
+
+        // TASK-2784 (W7, epic 2706) — the UI used to ask `isFinite(override)`
+        // while colorMaxForQuantity asked something stricter, so an override
+        // the renderer was DISCARDING still lit the is-override styling and
+        // the reset button. One predicate, so the ramp mode, the uniform, the
+        // legend labels and the reset affordance cannot disagree.
+        it('isColorMaxOverridden agrees with colorMaxForQuantity on every edge it used to differ on', () => {
+            const quantization = { depth: { valid_max: 16.862720489501953 } };
+            const cases = [
+                { quantity: 'depth', ctx: { colorMaxOverride: 1.5 }, expected: true },
+                { quantity: 'depth', ctx: { colorMaxOverride: 0 }, expected: false },
+                { quantity: 'depth', ctx: { colorMaxOverride: -2 }, expected: false },
+                { quantity: 'depth', ctx: {}, expected: false },
+                { quantity: 'depth', ctx: { colorMaxOverride: NaN }, expected: false },
+                { quantity: 'stage', ctx: { elevationMin: 10, elevationMax: 20, colorMaxOverride: 5 }, expected: false },
+                { quantity: 'stage', ctx: { elevationMin: 10, elevationMax: 20, colorMaxOverride: 15 }, expected: true }
+            ];
+            cases.forEach(({ quantity, ctx, expected }) => {
+                expect(isColorMaxOverridden(quantity, ctx)).toBe(expected, `${quantity} / ${JSON.stringify(ctx)}`);
+                // the predicate IS the branch colorMaxForQuantity takes
+                const took = colorMaxForQuantity(quantity, quantization, ctx) === Number(ctx.colorMaxOverride);
+                expect(took).toBe(expected, `colorMaxForQuantity disagreed for ${quantity}`);
+            });
         });
     });
 

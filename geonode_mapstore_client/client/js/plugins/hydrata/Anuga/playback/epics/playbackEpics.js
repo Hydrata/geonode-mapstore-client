@@ -92,6 +92,7 @@ import {
     timestepToChunkIndex,
     colorMaxForQuantity,
     colorMinForQuantity,
+    isColorMaxOverridden,
     DEFAULT_PLAYBACK_OPACITY
 } from '../playbackController';
 import { mixDtSeconds } from '../playbackDerivedQuantities';
@@ -761,6 +762,11 @@ export function playbackSyncLayerEpic(action$, store) {
             colorMode: pb.quantity,
             colorMax: colorMaxForQuantity(pb.quantity, pb.quantization, context),
             colorMin: colorMinForQuantity(pb.quantity, context),
+            // TASK-2784 (W7, epic 2706) — a ceiling the reader set STRETCHES
+            // the ramp to fill it; the store-derived default leaves it pinned
+            // to absolute SLD values. Derived from the same predicate
+            // colorMaxForQuantity uses, so the LUT and the uniform agree.
+            colorRescaled: isColorMaxOverridden(pb.quantity, context),
             // TASK-2744 AC3 — opacity is controller state now, so it is
             // re-asserted on every sync and survives a bar remount.
             opacity: pb.opacity,

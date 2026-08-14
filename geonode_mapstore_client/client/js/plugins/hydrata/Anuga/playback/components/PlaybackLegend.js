@@ -25,9 +25,9 @@ import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 
-import { QUANTITY_RAMPS } from '../playbackColormap';
+import { QUANTITY_RAMPS, isRampNormalized, rampStopValues } from '../playbackColormap';
 import { QUANTITY_META } from '../playbackDerivedQuantities';
-import { colorMaxForQuantity, colorMinForQuantity } from '../playbackController';
+import { colorMaxForQuantity, colorMinForQuantity, isColorMaxOverridden } from '../playbackController';
 import MovablePanel from '../../../shared/components/MovablePanel';
 import { setMovablePanelState } from '../../actions/uiActions';
 import { playbackSetLegendOpen, playbackSetColorMax } from '../actions/playbackActions';
@@ -81,39 +81,49 @@ export class PlaybackLegendComponent extends React.Component {
         // "the legend must render discrete classes" — every stop always
         // shows (no exceeds-cap note, no rescale note; the classification
         // is not a value that can "exceed" its own scale).
-        const exceedsSld = !ramp.discrete && !meta.requiresDt && (colorMax - colorMin) > ramp.max;
-        // TASK-2744 AC4 — the stop list must TRACK an operator override. The
-        // shader saturates at colorMax (playbackShaders.js:104), so once
-        // someone pulls the depth maximum down to 1.5 m, a legend still
-        // advertising 4/5/6 m swatches is advertising colours the renderer can
-        // no longer produce. Keep the first stop always, so a very low
-        // maximum still yields a legend rather than an empty list.
         //
-        // Clipped ONLY for an explicit override — never for the derived
-        // colorMax. Without a manifest, colorMaxForQuantity falls back to 1
-        // (playbackController.js's "never 0" guard), which is a placeholder
-        // meaning "no store metadata yet", NOT a real ceiling; clipping on it
-        // would silently hide most of the ramp on every pre-manifest render.
-        const clipStops = !ramp.discrete && isFinite(colorMaxOverride);
-        const visibleStops = clipStops
-            ? ramp.stops.filter((stop, i) => i === 0 || stop.quantity <= colorMax)
-            : ramp.stops;
-        const topStop = visibleStops[visibleStops.length - 1] || ramp.stops[ramp.stops.length - 1];
+        // TASK-2784 (W7) also excludes a ramp whose OWN stops are fractional.
+        // `stage`'s ramp.max of 1 is a documented placeholder, not a standard
+        // scale, so `span > 1` is true of every run that spans more than a
+        // metre of elevation and the note fired permanently. Seen live on map
+        // 1461 / prod run 1328: "Ramp extended to 65.02 m — this run exceeds
+        // the standard scale", on a run doing nothing unusual. An override
+        // above a REAL cap still warns, which is the case the note is for.
+        const exceedsSld = !ramp.discrete && !ramp.normalized && !meta.requiresDt
+            && (colorMax - colorMin) > ramp.max;
+        // TASK-2744 AC4 — the stop list must TRACK an operator override: a
+        // legend advertising a 6 m swatch while the renderer saturates at
+        // 1.5 m is advertising a colour the map cannot produce.
+        //
+        // TASK-2784 (W7) replaces HOW it tracks. 2744 clipped the list —
+        // dropped every stop above the ceiling — because the LUT was pinned to
+        // absolute SLD values, so those colours genuinely had nowhere to live.
+        // Now a reader-set ceiling STRETCHES the ramp instead
+        // (playbackColormap.isRampNormalized), so every stop is reachable
+        // again; what changes is the VALUE beside each swatch, not whether the
+        // swatch exists. Same invariant, more contrast: pulling velocity down
+        // to 4 m/s now spends the whole spectrum on 0-4 rather than the
+        // yellow-to-magenta two-thirds of it.
+        //
+        // Untouched by design: with NO override the labels stay the SLD's own
+        // absolute values, because that is exactly what the render is then
+        // keyed to. (colorMaxForQuantity falls back to 1 before a manifest
+        // loads, a placeholder rather than a ceiling — rescaling on it would
+        // relabel the whole ramp on every pre-manifest render.)
+        const normalized = isRampNormalized(quantity, isColorMaxOverridden(quantity, context));
+        const visibleStops = rampStopValues(quantity, { colorMin, colorMax, normalized });
+        const topStop = visibleStops[visibleStops.length - 1];
         return (
             <div className="sv-playback-legend" data-testid="playback-legend">
                 <div className="sv-playback-legend-header">
                     <span className="sv-playback-legend-title"><Message msgId={titleId} /></span>
                 </div>
-                {/* TASK-2751 — THE CEILING, as its own row.
-                    Not "make the top stop editable": the stops are SLD-derived
-                    and clipped to `<= colorMax`, so the top VISIBLE stop is the
-                    largest stop BELOW the ceiling, never the ceiling itself.
-                    Depth's stops are 0/0.05/0.1/0.2/0.5/1/2/3/4/5/6, so a
-                    ceiling of 1.5 shows a top row reading "1 m+" — clicking
-                    THAT to edit the ceiling would be editing a number the
-                    reader was never shown, beside a swatch that belongs to a
-                    different value. Hazard is excluded: H1–H6 IS the scale,
-                    there is no ceiling to raise. */}
+                {/* TASK-2751 — THE CEILING, as its own row: the one place the
+                    number can be TYPED. (Until TASK-2784 it was also the only
+                    place the ceiling appeared at all, since the stop list was
+                    clipped below it; now the top stop carries the same value.)
+                    Hazard is excluded: H1–H6 IS the scale, there is no ceiling
+                    to raise. */}
                 {ramp.discrete ? null : (
                     <div className="sv-playback-legend-ceiling">
                         <EditableCeiling
@@ -121,7 +131,7 @@ export class PlaybackLegendComponent extends React.Component {
                             quantity={quantity}
                             value={colorMax}
                             unit={meta.unit}
-                            overridden={isFinite(colorMaxOverride)}
+                            overridden={isColorMaxOverridden(quantity, context)}
                             onChange={onSetColorMax}
                         />
                     </div>
@@ -135,10 +145,15 @@ export class PlaybackLegendComponent extends React.Component {
                             </li>
                         ))
                     ) : (
+                        /* The testid stays keyed on the stop's NATIVE quantity —
+                           the stop's stable identity across every ceiling —
+                           while the label carries the value it stands for at
+                           the current range. They coincide unless the reader
+                           has set a ceiling. */
                         visibleStops.slice().reverse().map((stop) => (
                             <li className="sv-playback-legend-row" key={stop.quantity} data-testid={`playback-legend-row-${stop.quantity}`}>
                                 <span className="sv-playback-legend-swatch" style={{ backgroundColor: `rgb(${stop.color.join(',')})` }} aria-hidden="true" />
-                                <span className="sv-playback-legend-label">{formatValue(stop.quantity)} {meta.unit}{stop.quantity === topStop.quantity ? '+' : ''}</span>
+                                <span className="sv-playback-legend-label">{formatValue(stop.value)} {meta.unit}{stop.quantity === topStop.quantity ? '+' : ''}</span>
                             </li>
                         ))
                     )}

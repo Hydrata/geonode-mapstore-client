@@ -154,6 +154,28 @@ describe('AnugaPlaybackLayer', () => {
             expect(layer.get('colorMax')).toBe(3);
         });
 
+        // TASK-2784 (W7, epic 2706) — the ramp mode has to survive the trip
+        // through the layer, and has to be DIFFED, or toggling the ceiling off
+        // would leave a stretched LUT behind on a layer that no longer has one.
+        it('carries colorRescaled through create() and update()', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-rescale', colorMode: 'speed', colorMax: 4, colorRescaled: true });
+            expect(layer.get('colorRescaled')).toBe(true);
+
+            const stretched = { id: 'playback-rescale', colorMode: 'speed', colorMax: 4, colorRescaled: true };
+            const plain = { id: 'playback-rescale', colorMode: 'speed', colorMax: 4 };
+
+            Layers.updateLayer(LAYER_TYPE, layer, plain, stretched);
+            expect(layer.get('colorRescaled')).toBe(false, 'clearing the ceiling must clear the stretch');
+
+            Layers.updateLayer(LAYER_TYPE, layer, stretched, plain);
+            expect(layer.get('colorRescaled')).toBe(true);
+        });
+
+        it('defaults colorRescaled to false — no ceiling means SLD-absolute colours', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-rescale-default' });
+            expect(layer.get('colorRescaled')).toBe(false);
+        });
+
         it('create() defaults opacity to 1 and visibility to true when omitted', () => {
             const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-3' });
             expect(layer.getOpacity()).toBe(1);

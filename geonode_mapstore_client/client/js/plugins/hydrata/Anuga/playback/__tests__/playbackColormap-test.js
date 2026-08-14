@@ -25,7 +25,9 @@ import {
     HAZARD_CLASS_COLORS,
     QUANTITY_RAMPS,
     buildQuantityColormapLUT,
-    buildDiscreteColormapLUT
+    buildDiscreteColormapLUT,
+    isRampNormalized,
+    rampStopValues
 } from '../playbackColormap';
 import { QUANTITY_IDS, AIDR_HAZARD_CLASS_COUNT } from '../playbackDerivedQuantities';
 
@@ -169,6 +171,135 @@ describe('playbackColormap', () => {
         it('only `hazard` is marked discrete', () => {
             const discreteIds = QUANTITY_IDS.filter((id) => QUANTITY_RAMPS[id].discrete);
             expect(discreteIds).toEqual(['hazard']);
+        });
+
+        // TASK-2784 — `stage` is the one ramp whose stops were never physical
+        // values. Mismarking any other ramp normalized would silently divorce
+        // it from its SLD, so the set is pinned, not spot-checked.
+        it('only `stage` is marked normalized — its stops are fractions, not metres', () => {
+            const normalizedIds = QUANTITY_IDS.filter((id) => QUANTITY_RAMPS[id].normalized);
+            expect(normalizedIds).toEqual(['stage']);
+            expect(QUANTITY_RAMPS.stage.stops[QUANTITY_RAMPS.stage.stops.length - 1].quantity).toBe(1);
+        });
+    });
+
+    /*
+     * TASK-2784 (W7, epic 2706) — a ceiling the reader types must RESCALE the
+     * ramp, not truncate it.
+     *
+     * RED on HEAD (measured, not asserted from theory): with the velocity
+     * ceiling at 4 m/s the LUT's top texel was the SLD's 4 m/s magenta, so the
+     * purple and dark-blue thirds of the ramp were unreachable and the render
+     * carried a third less contrast than the reader had just asked for.
+     */
+    describe('normalized ramps — TASK-2784', () => {
+        const rgbAt = (lut, i) => [lut[i * 4], lut[i * 4 + 1], lut[i * 4 + 2]];
+        const firstStop = (stops) => stops[0].color;
+        const lastStop = (stops) => stops[stops.length - 1].color;
+
+        it('stretches the ramp so the LAST stop lands on colorMax, not on its own SLD value', () => {
+            const lut = buildQuantityColormapLUT(VELOCITY_SLD_STOPS, 4, 256, { normalized: true });
+            expect(rgbAt(lut, 0)).toEqual(firstStop(VELOCITY_SLD_STOPS));
+            expect(rgbAt(lut, 255)).toEqual(lastStop(VELOCITY_SLD_STOPS));
+        });
+
+        it('is what the DEFAULT mode does not do — a 4 m/s ceiling truncates at the 4 m/s colour', () => {
+            const truncated = buildQuantityColormapLUT(VELOCITY_SLD_STOPS, 4, 256);
+            // the SLD's own 4 m/s stop, two stops short of the ramp's end
+            expect(rgbAt(truncated, 255)).toEqual([176, 42, 143]);
+            expect(rgbAt(truncated, 255)).toNotEqual(lastStop(VELOCITY_SLD_STOPS));
+        });
+
+        it('is INDEPENDENT of colorMax — the display range lives in the shader uniforms, not the LUT', () => {
+            const a = buildQuantityColormapLUT(VELOCITY_SLD_STOPS, 4, 256, { normalized: true });
+            const b = buildQuantityColormapLUT(VELOCITY_SLD_STOPS, 97.3, 256, { normalized: true });
+            expect(Array.from(a)).toEqual(Array.from(b));
+        });
+
+        it('leaves the absolute mode byte-identical — SLD fidelity is the untouched default', () => {
+            const before = buildQuantityColormapLUT(DEPTH_SLD_STOPS, DEPTH_SLD_MAX, 256);
+            const explicit = buildQuantityColormapLUT(DEPTH_SLD_STOPS, DEPTH_SLD_MAX, 256, { normalized: false });
+            expect(Array.from(before)).toEqual(Array.from(explicit));
+            // ...and at the ramp's own span the two modes coincide, which is
+            // why froude/shear/courant (colorMax === ramp.max always) cannot
+            // change behaviour under this fix.
+            const normalized = buildQuantityColormapLUT(DEPTH_SLD_STOPS, DEPTH_SLD_MAX, 256, { normalized: true });
+            expect(Array.from(before)).toEqual(Array.from(normalized));
+        });
+
+        /*
+         * The second defect this fixes, and the reason the flag lives on the
+         * ramp rather than only on the override: STAGE_RAMP_STOPS are
+         * fractions of the run's own elevation span, but the LUT read them as
+         * absolute metres. On a 30 m span every texel past ~1 m clamped to the
+         * top colour — 96.5% of the rendered range collapsed to one flat pink.
+         */
+        it('rescues `stage`, whose fractional stops collapsed to a flat sheet on any real elevation span', () => {
+            const stage = QUANTITY_RAMPS.stage.stops;
+            const distinct = (lut) => new Set(
+                Array.from({ length: 256 }, (unused, i) => rgbAt(lut, i).join(','))
+            ).size;
+
+            const broken = buildQuantityColormapLUT(stage, 30, 256);
+            expect(distinct(broken)).toBeLessThan(16);
+            expect(rgbAt(broken, 128)).toEqual(lastStop(stage));
+
+            const fixed = buildQuantityColormapLUT(stage, 30, 256, { normalized: true });
+            expect(distinct(fixed)).toBeGreaterThan(200);
+            expect(rgbAt(fixed, 0)).toEqual(firstStop(stage));
+            expect(rgbAt(fixed, 255)).toEqual(lastStop(stage));
+        });
+    });
+
+    describe('isRampNormalized — one answer for the renderer and the legend (TASK-2784)', () => {
+        it('is true for `stage` whether or not a ceiling was set', () => {
+            expect(isRampNormalized('stage', false)).toBe(true);
+            expect(isRampNormalized('stage', true)).toBe(true);
+        });
+
+        it('is false for an SLD ramp until the reader sets a ceiling', () => {
+            expect(isRampNormalized('speed', false)).toBe(false);
+            expect(isRampNormalized('depth', undefined)).toBe(false);
+            expect(isRampNormalized('speed', true)).toBe(true);
+        });
+
+        it('is never true for hazard — H1-H6 are classes, with no range to stretch', () => {
+            expect(isRampNormalized('hazard', true)).toBe(false);
+        });
+    });
+
+    describe('rampStopValues — the number the legend prints beside each swatch (TASK-2784)', () => {
+        it('returns the stops\' own values when the ramp is not normalized', () => {
+            const rows = rampStopValues('speed', { colorMin: 0, colorMax: 4, normalized: false });
+            expect(rows.map((r) => r.value)).toEqual(VELOCITY_SLD_STOPS.map((s) => s.quantity));
+        });
+
+        it('rescales every stop onto [colorMin, colorMax] when it is', () => {
+            const rows = rampStopValues('speed', { colorMin: 0, colorMax: 4, normalized: true });
+            expect(rows.length).toBe(VELOCITY_SLD_STOPS.length);
+            expect(rows[0].value).toBe(0);
+            expect(rows[rows.length - 1].value).toBe(4);
+            // 3 m/s of 6 -> half of 4
+            expect(rows[4].value).toBe(2);
+            // monotonic, and never above the ceiling — the TASK-2744 AC4
+            // invariant, now held by relabelling rather than by clipping
+            rows.forEach((row, i) => {
+                expect(row.value).toBeLessThanOrEqualTo(4);
+                if (i > 0) {
+                    expect(row.value).toBeGreaterThan(rows[i - 1].value);
+                }
+            });
+        });
+
+        it('honours a non-zero colorMin, which is stage\'s whole shape', () => {
+            const rows = rampStopValues('stage', { colorMin: 10, colorMax: 40, normalized: true });
+            expect(rows[0].value).toBe(10);
+            expect(rows[rows.length - 1].value).toBe(40);
+        });
+
+        it('keeps each stop\'s colour untouched — only the value is rescaled', () => {
+            const rows = rampStopValues('speed', { colorMin: 0, colorMax: 4, normalized: true });
+            expect(rows.map((r) => r.color)).toEqual(VELOCITY_SLD_STOPS.map((s) => s.color));
         });
     });
 });

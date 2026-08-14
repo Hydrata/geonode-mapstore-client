@@ -340,12 +340,23 @@ export const HAZARD_CLASS_COLORS = [
  * is the LUT's colorMax for a FIXED-cap ramp; `stage`'s `max` of 1 is a
  * placeholder — stage rescales PER RUN (colorMinForStage/colorMaxForStage
  * in playbackController.js), unlike every other fixed SLD-style cap.
+ *
+ * TASK-2784 (W7, epic 2706) — `normalized` says what a stop's `quantity`
+ * MEANS. For every SLD-derived ramp it is an ABSOLUTE physical value (2
+ * really means 2 m/s), which is the whole point: the same value gets the
+ * same colour here as in the GeoServer-rendered `*_max` raster. For `stage`
+ * the stops were always FRACTIONS of the run's own [elevationMin,
+ * elevationMax + depthMax] span (see STAGE_RAMP_STOPS' trailing comment) —
+ * and buildQuantityColormapLUT was reading them as absolute metres anyway,
+ * so on a run with a 30 m elevation span every texel above 1 m clamped to
+ * the top colour: 96.5% of the rendered range collapsed to one flat pink.
+ * The flag is what tells the LUT builder which of the two it is holding.
  */
 export const QUANTITY_RAMPS = Object.freeze({
     depth: { stops: DEPTH_SLD_STOPS, max: DEPTH_SLD_MAX, discrete: false },
     speed: { stops: VELOCITY_SLD_STOPS, max: VELOCITY_SLD_MAX, discrete: false },
     div: { stops: DIV_SLD_STOPS, max: DIV_SLD_MAX, discrete: false },
-    stage: { stops: STAGE_RAMP_STOPS, max: 1, discrete: false },
+    stage: { stops: STAGE_RAMP_STOPS, max: 1, discrete: false, normalized: true },
     froude: { stops: FROUDE_RAMP_STOPS, max: FROUDE_RAMP_MAX, discrete: false },
     shear: { stops: SHEAR_RAMP_STOPS, max: SHEAR_RAMP_MAX, discrete: false },
     courant: { stops: COURANT_RAMP_STOPS, max: COURANT_RAMP_MAX, discrete: false },
@@ -355,6 +366,66 @@ export const QUANTITY_RAMPS = Object.freeze({
         discrete: true
     }
 });
+
+/**
+ * TASK-2784 (W7, epic 2706) — is this quantity's ramp STRETCHED across the
+ * display range, or pinned to absolute physical values?
+ *
+ * Two callers, one answer, because a disagreement between them is exactly the
+ * bug this fixes: AnugaPlaybackRenderer (which LUT to build) and
+ * PlaybackLegend (what value to write beside each swatch).
+ *
+ * Normalized when EITHER:
+ *  - the ramp's own stops are fractional (`stage`), or
+ *  - the reader has typed a ceiling. Setting the top of a colour scale to
+ *    4 m/s means "4 m/s is the last colour", not "cut the spectrum off at
+ *    the colour 4 m/s used to have" — the latter throws away most of the
+ *    contrast the reader asked for.
+ *
+ * Absolute otherwise, and that default is load-bearing: depth/speed/div
+ * mirror real SLDs, so with no override a given physical value keeps exactly
+ * the colour GeoServer gives it in the `*_max` raster of the same run.
+ * Normalizing unconditionally would silently break that agreement.
+ *
+ * @param {string} quantityId
+ * @param {boolean} [ceilingOverridden] the reader has set an EFFECTIVE ceiling
+ *   (playbackController.isColorMaxOverridden — not merely a finite number)
+ * @returns {boolean}
+ */
+export function isRampNormalized(quantityId, ceilingOverridden) {
+    const ramp = QUANTITY_RAMPS[quantityId] || QUANTITY_RAMPS.depth;
+    if (ramp.discrete) {
+        return false; // H1-H6 are classes; there is no range to stretch
+    }
+    return !!ramp.normalized || !!ceilingOverridden;
+}
+
+/**
+ * TASK-2784 — the value each ramp stop stands for AT THE CURRENT DISPLAY
+ * RANGE, i.e. the number the legend must print beside that swatch.
+ *
+ * Lives here, beside buildQuantityColormapLUT, on purpose: these two are the
+ * forward and inverse of the same mapping, and the entire point of
+ * QUANTITY_RAMPS is that the legend and the render cannot drift apart.
+ *
+ * @param {string} quantityId
+ * @param {{colorMin?: number, colorMax?: number, normalized?: boolean}} [range]
+ * @returns {Array<object>} the ramp's stops, each with a `value` field
+ */
+export function rampStopValues(quantityId, range = {}) {
+    const ramp = QUANTITY_RAMPS[quantityId] || QUANTITY_RAMPS.depth;
+    const { colorMin = 0, colorMax, normalized = false } = range;
+    if (!normalized || !isFinite(colorMax)) {
+        return ramp.stops.map((stop) => ({ ...stop, value: stop.quantity }));
+    }
+    const lo = ramp.stops[0].quantity;
+    const hi = ramp.stops[ramp.stops.length - 1].quantity;
+    const span = (hi - lo) || 1;
+    return ramp.stops.map((stop) => ({
+        ...stop,
+        value: colorMin + (stop.quantity - lo) / span * (colorMax - colorMin)
+    }));
+}
 
 /**
  * A CSS `linear-gradient` of one result quantity's ramp (TASK-2751).
@@ -404,12 +475,26 @@ function lerp(a, b, t) {
  * physical value `(i/(size-1)) * colorMax`; a value past the last stop's
  * quantity clamps to the last stop's colour (the SLD's own saturation
  * behaviour — see VELOCITY_SLD_STOPS' ">6.0 m/s" label).
+ * TASK-2784 (W7, epic 2706) — `normalized` switches that value axis. The
+ * texel axis is always the DISPLAY range [colorMin, colorMax] (the shader
+ * normalizes to 0..1 before sampling — playbackShaders.js's `vValue`), and
+ * matching stops against it by ABSOLUTE value is only right when the display
+ * range happens to equal the ramp's own span. When it does not, the default
+ * mode does exactly what an SLD does — and that is right for depth/speed/div,
+ * where matching GeoServer beats using the whole spectrum. Under `normalized`
+ * the ramp's own span is STRETCHED to fill the display range instead, so the
+ * last stop's colour lands on colorMax whatever colorMax is. See
+ * isRampNormalized for which mode a given render gets, and why.
+ *
  * @param {Array<{quantity: number, color: number[]}>} stops ascending by quantity, >= 2 entries
  * @param {number} colorMax the physical value texel size-1 represents (matches the renderer's uColorMax uniform)
  * @param {number} [size=256]
+ * @param {{normalized?: boolean}} [options] `normalized` stretches the ramp's
+ *   own [first, last] stop span across the LUT, ignoring `colorMax` for the
+ *   lookup (the caller still validates it as the range's physical top).
  * @returns {Uint8Array} length size*4, RGBA8 row-major
  */
-export function buildQuantityColormapLUT(stops, colorMax, size = 256) {
+export function buildQuantityColormapLUT(stops, colorMax, size = 256, options = {}) {
     if (!Array.isArray(stops) || stops.length < 2) {
         throw new Error('playbackColormap.buildQuantityColormapLUT: stops must have at least 2 entries');
     }
@@ -421,8 +506,12 @@ export function buildQuantityColormapLUT(stops, colorMax, size = 256) {
     }
     const data = new Uint8Array(size * 4);
     const last = stops.length - 1;
+    const normalized = !!options.normalized;
+    const rampLo = stops[0].quantity;
+    const rampSpan = (stops[last].quantity - rampLo) || 1;
     for (let i = 0; i < size; i++) {
-        const value = (i / (size - 1)) * colorMax;
+        const t = i / (size - 1);
+        const value = normalized ? rampLo + t * rampSpan : t * colorMax;
         let a = stops[0];
         let b = stops[last];
         let f = 0;

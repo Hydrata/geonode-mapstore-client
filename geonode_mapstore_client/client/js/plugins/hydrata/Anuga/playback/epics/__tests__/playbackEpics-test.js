@@ -798,6 +798,46 @@ describe('playbackEpics', () => {
             subject.next(playbackTick(1));
         });
 
+        // TASK-2784 (W7, epic 2706) — the ramp MODE has to reach the layer, or
+        // the LUT cannot know whether to stretch. RED on HEAD: baseProps
+        // carried colorMax but nothing said WHY it had that value, so a ceiling
+        // the reader typed was indistinguishable from a store-derived default
+        // and the renderer truncated the ramp in both cases.
+        it('dispatches colorRescaled — the flag that separates a typed ceiling from a store-derived one', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
+            fetcherRegistry.set(9, fetcher);
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
+            const basePb = {
+                ...createInitialPlaybackState(),
+                runId: 9, layerId: 'layer-9', manifest: FIXTURE_MANIFEST, mesh,
+                nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
+                currentTimestep: 2, quantity: 'speed', quantization: FIXTURE_MANIFEST.quantization
+            };
+            const seen = [];
+            const run = (pb, next) => {
+                const { subject, action$ } = makeActionsSubject();
+                playbackSyncLayerEpic(action$, makeStore(pb)).subscribe((a) => {
+                    seen.push(a.options);
+                    next();
+                }, done);
+                subject.next(playbackTick(1));
+            };
+            run(basePb, () => {
+                run({ ...basePb, colorMaxOverride: { speed: 4 } }, () => {
+                    restore();
+                    try {
+                        expect(seen[0].colorRescaled).toBe(false, 'a store-derived max is not a ceiling');
+                        expect(seen[1].colorRescaled).toBe(true);
+                        expect(seen[1].colorMax).toBe(4);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                });
+            });
+        });
+
         it('reuses the SAME cloned layer-mesh object across repeated dispatches (does not defeat AnugaPlaybackLayer\'s own re-reproject reference check)', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });

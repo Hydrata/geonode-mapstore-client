@@ -11,15 +11,15 @@
  *
  * WHY A ROW OF ITS OWN, and not "make the top stop editable":
  *
- * The legend draws SLD-derived stops and clips them to `<= ceiling`
- * (PlaybackLegend's clipStops/visibleStops/topStop). Depth's stops are
- * 0, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4, 5, 6 — so at a ceiling of 1.5 the top
- * VISIBLE stop is 1, rendered "1 m+". The ceiling is 1.5 and appears nowhere.
+ * It is the one place the ceiling can be TYPED. It also used to be the only
+ * place the ceiling appeared at all — the legend clipped its SLD stops to
+ * `<= ceiling`, so at a ceiling of 1.5 depth's top visible stop was 1,
+ * rendered "1 m+", and 1.5 showed nowhere. Clicking THAT row to edit the
+ * ceiling would have meant editing a number the user was never shown.
  *
- * Clicking that row to edit the ceiling would mean editing a number the user
- * was never shown, and the swatch beside it belongs to the 1 m stop, not to
- * the ceiling. So the ceiling gets its own row, above the swatch list, and
- * the swatch list is left exactly as it was.
+ * TASK-2784 (W7) removed the clipping — a reader-set ceiling now stretches
+ * the ramp, so the top stop stands for the ceiling and the two agree. The row
+ * survives on the first reason alone.
  */
 import expect from 'expect';
 import React from 'react';
@@ -27,6 +27,7 @@ import ReactDOM from 'react-dom';
 import TestUtils from 'react-dom/test-utils';
 
 import { PlaybackLegendComponent } from '../PlaybackLegend';
+import { DEPTH_SLD_STOPS } from '../../playbackColormap';
 
 describe('Playback legend ceiling row — TASK-2751', () => {
     let container;
@@ -44,24 +45,35 @@ describe('Playback legend ceiling row — TASK-2751', () => {
     }
     const q = (sel) => container.querySelector(`[data-testid="${sel}"]`);
 
-    it('shows the CEILING, which is not the top visible stop', () => {
-        // Ceiling 1.5 clips depth's stops at 1 — the two numbers differ, and
-        // that difference is the whole reason this row exists.
+    // TASK-2784 (W7) rewrote what this row sits beside. It used to assert the
+    // OPPOSITE — that the ceiling and the top stop necessarily disagree,
+    // because the stop list was clipped and its top row was the largest SLD
+    // stop below the ceiling. Now the ramp stretches, so they agree; the row
+    // remains as the place the number is typed.
+    it('shows the CEILING, and the top stop now carries the same value', () => {
         render({ colorMaxOverride: 1.5 });
-        const topSwatchRow = q('playback-legend-row-1');
-        expect(topSwatchRow).toExist('depth clipped at 1.5 should still show the 1 m stop');
-        expect(topSwatchRow.textContent).toInclude('1 m');
 
         const ceiling = q('playback-legend-ceiling');
         expect(ceiling).toExist('the legend needs a row that IS the ceiling');
         expect(ceiling.textContent).toInclude('1.5');
+
+        // depth's top SLD stop is 6 m; under a 1.5 m ceiling it stands for 1.5
+        const topSwatchRow = q('playback-legend-row-6');
+        expect(topSwatchRow).toExist('the ramp\'s last stop must still be reachable');
+        expect(topSwatchRow.textContent).toInclude('1.50 m+');
     });
 
-    it('leaves the SLD swatch rows untouched', () => {
+    it('keeps every SLD swatch row, rescaled onto the new ceiling', () => {
         render({ colorMaxOverride: 1.5 });
-        ['playback-legend-row-0', 'playback-legend-row-0.5', 'playback-legend-row-1']
-            .forEach((testid) => expect(q(testid)).toExist(`${testid} should survive`));
-        expect(q('playback-legend-row-2')).toBe(null, 'stops above the ceiling stay clipped');
+        // The stop the OLD clipping behaviour dropped. Nothing is unreachable
+        // any more, so nothing is hidden — 2 m of a 6 m ramp is a quarter of
+        // the way up, which under a 1.5 m ceiling is 0.50 m.
+        const rescaled = q('playback-legend-row-2');
+        expect(rescaled).toExist('stops above the ceiling are rescaled, not clipped');
+        expect(rescaled.textContent).toInclude('0.50 m');
+
+        const rows = container.querySelectorAll('[data-testid^="playback-legend-row-"]');
+        expect(rows.length).toBe(DEPTH_SLD_STOPS.length);
     });
 
     it('is editable, and commits against the displayed quantity', () => {

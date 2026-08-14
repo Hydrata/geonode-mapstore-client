@@ -397,6 +397,26 @@ export function colorMinForQuantity(quantity, context = {}) {
 }
 
 /**
+ * TASK-2784 (W7, epic 2706) — does the reader's ceiling override actually
+ * TAKE EFFECT for this quantity?
+ *
+ * Not the same question as `isFinite(colorMaxOverride)`, which is what the
+ * legend and the bar used to ask. colorMaxForQuantity ignores an override at
+ * or below colorMin (a ceiling of 0 is not a ceiling), so the looser test let
+ * the UI show the is-override styling and the reset affordance for a value
+ * the renderer was discarding. One predicate, so the ramp mode, the uniform,
+ * the legend labels and the reset button can never disagree.
+ *
+ * @param {string} quantity
+ * @param {{elevationMin?: number, colorMaxOverride?: number}} [context]
+ * @returns {boolean}
+ */
+export function isColorMaxOverridden(quantity, context = {}) {
+    const override = context && context.colorMaxOverride;
+    return isFinite(override) && Number(override) > colorMinForQuantity(quantity, context);
+}
+
+/**
  * The renderer's `colorMax` uniform for the active quantity (TASK-2629,
  * W4.1 extends this from {depth,speed} to all eight), derived from the
  * manifest's own quantization ranges / store attrs — never a hardcoded
@@ -420,9 +440,8 @@ export function colorMaxForQuantity(quantity, quantization, context = {}) {
     // The default for `depth` is the store's `valid_max` — 16.86 m on run
     // 1328 — which squeezes every urban street depth (0.1-1.0 m) into the
     // bottom 6% of the ramp, i.e. into one indistinguishable colour band.
-    const override = context && context.colorMaxOverride;
-    if (isFinite(override) && override > colorMinForQuantity(quantity, context)) {
-        return Number(override);
+    if (isColorMaxOverridden(quantity, context)) {
+        return Number(context.colorMaxOverride);
     }
     if (quantity === 'hazard') {
         return HAZARD_COLOR_MAX;

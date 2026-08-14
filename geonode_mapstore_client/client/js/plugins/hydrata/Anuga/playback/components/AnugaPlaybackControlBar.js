@@ -51,6 +51,7 @@ import {
     PLAYBACK_STATUS,
     MIN_SPEED,
     colorMaxForQuantity,
+    isColorMaxOverridden,
     clampSpeed,
     simulatedSpanSeconds
 } from '../playbackController';
@@ -636,11 +637,12 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         const rows = availableQuantityIds(playback.hasDt).map((id) => {
             const meta = QUANTITY_META[id] || QUANTITY_META.depth;
             const override = (playback.colorMaxOverride || {})[id];
-            const effective = colorMaxForQuantity(id, playback.quantization, {
+            const ceilingContext = {
                 elevationMin: playback.elevationMin,
                 elevationMax: playback.elevationMax,
                 colorMaxOverride: override
-            });
+            };
+            const effective = colorMaxForQuantity(id, playback.quantization, ceilingContext);
             return (
                 <li
                     className={`sv-playback-ceiling-row${id === playback.quantity ? ' is-active' : ''}`}
@@ -672,7 +674,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             quantity={id}
                             value={effective}
                             unit={meta.unit}
-                            overridden={isFinite(override)}
+                            overridden={isColorMaxOverridden(id, ceilingContext)}
                             onChange={this.props.onSetColorMax}
                         />
                     )}

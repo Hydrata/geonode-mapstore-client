@@ -21,8 +21,15 @@
  *
  * ONE component, mounted TWICE — on the control bar and as the legend's
  * ceiling row — because the previous arrangement (a bare number input on the
- * bar, a clipped stop list in the legend) let the two drift: the legend's top
- * visible stop is the largest SLD stop BELOW the ceiling, not the ceiling.
+ * bar, a stop list in the legend) let the two drift.
+ *
+ * TASK-2784 (W7) changed what the row sits next to. It used to be the odd one
+ * out: the stop list was CLIPPED at the ceiling, so its top row was the
+ * largest SLD stop below the ceiling and never the ceiling itself, and this
+ * row existed partly to show the number nothing else did. Now a reader-set
+ * ceiling stretches the ramp, so the top stop IS the ceiling and the two
+ * agree. The row stays because it is the place you TYPE — agreement is the
+ * point, not redundancy.
  *
  * Component-local edit state is deliberate. A ceiling being typed is not
  * application state — it has no meaning until it is committed, it must not
