@@ -201,16 +201,24 @@ function clamp(value, lo, hi) {
 //      byte-for-byte — including every existing test, and karma.
 //   2. The fractions are of headroom the browser has actually measured, not of
 //      physical RAM and not of a ceiling something else is already occupying.
-//   3. MAX_CHUNKS_PER_QUANTITY stops being a constant and becomes what it
-//      always meant: how deep a window this budget can pay for. Its old
-//      justification — "the point past which lookahead stops buying
-//      anything", argued from a 20 Hz clock — assumed the fetch keeps up.
-//      Measured on map 1461 it does not: chunk 2's body read took 1,087 ms
-//      against a 161 ms frame budget once the main thread was saturated.
-//      MAX_CHUNKS_PER_QUANTITY_CEILING is 4 rather than something larger
-//      because 4 is what froze the tab, and this store has only 4 chunks: a
-//      deeper window on a chunk-10 store is not a cache problem, it is the
-//      re-export PROOF 4 note 6 already argues for (TASK-2719).
+//   3. THE WINDOW CAP DOES NOT MOVE. MAX_CHUNKS_PER_QUANTITY stays at 3, where
+//      TASK-2708 put it. An earlier cut let the budget raise it to 4 — the
+//      whole store resident, 1 behind and 2 ahead — and that is the version
+//      that froze the tab. What the device-aware budget buys is that the
+//      AFFORDABLE count can now REACH the existing cap: on run 1328 at the
+//      flat 800 MiB it was 2 (0 behind, 1 ahead) and nothing could move it,
+//      because the ceiling being compared against was not the real one.
+//
+// AND THE PLAN STILL UNDERSTATES THE TAB. Measured on map 1461: a plan
+// reporting peakResidentBytes 1,100.1 MiB ran in a tab whose usedJSHeapSize
+// reached 2,731 MiB — a factor of 2.5. The plan is honest about what it
+// itself holds (that is all fixedResidencyBytes claims to price) but decode
+// transients, the reprojection worker's copies, GPU driver allocations and
+// MapStore's own retained state are not in it. That factor is the reason the
+// cap stays put rather than being tuned up to whatever the arithmetic says
+// fits: a deeper window on a chunk-10 store was never a cache problem, it is
+// the re-export PROOF 4 note 6 already argues for (TASK-2719), where the same
+// budget buys three times the lookahead for a sixth of the bytes.
 // ============================================================================
 
 /** The share of this tab's REMAINING heap playback may plan against. */
@@ -224,27 +232,18 @@ export const DEVICE_MEMORY_BUDGET_FRACTION = 0.20;
  */
 export const PLAYBACK_HEAP_BUDGET_MAX_BYTES = 2048 * 1024 * 1024;
 /**
- * The deepest window any budget may buy. Distinct from
- * MAX_CHUNKS_PER_QUANTITY (which stays the default for an unknown machine):
- * this is the hard stop, so a future browser reporting an enormous heap
- * cannot talk the policy into an unbounded window.
- */
-export const MAX_CHUNKS_PER_QUANTITY_CEILING = 4;
-
-/**
  * The heap budget and window depth THIS machine can pay for.
  *
  * Both inputs are optional and both are absent in karma and in every browser
  * that does not implement them; with neither, this returns exactly
- * `{budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES, maxChunksPerQuantity:
- * MAX_CHUNKS_PER_QUANTITY}` — the shipped values.
+ * `{budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES}` — the shipped value.
  *
  * @param {object} [signals]
  * @param {number} [signals.jsHeapSizeLimit] performance.memory.jsHeapSizeLimit, bytes
  * @param {number} [signals.usedJSHeapSize] performance.memory.usedJSHeapSize, bytes —
  *   what the tab is ALREADY holding; the budget is spent out of what is left
  * @param {number} [signals.deviceMemoryGiB] navigator.deviceMemory, GiB
- * @returns {{budgetBytes: number, maxChunksPerQuantity: number, source: string}}
+ * @returns {{budgetBytes: number, source: string}}
  */
 export function resolvePlaybackHeapBudget({ jsHeapSizeLimit, usedJSHeapSize, deviceMemoryGiB } = {}) {
     const offers = [];
@@ -256,32 +255,20 @@ export function resolvePlaybackHeapBudget({ jsHeapSizeLimit, usedJSHeapSize, dev
         offers.push(deviceMemoryGiB * 1024 * 1024 * 1024 * DEVICE_MEMORY_BUDGET_FRACTION);
     }
     if (!offers.length) {
-        return {
-            budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES,
-            maxChunksPerQuantity: MAX_CHUNKS_PER_QUANTITY,
-            source: 'default'
-        };
+        return { budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES, source: 'default' };
     }
     const budgetBytes = clamp(
         Math.floor(Math.min(...offers)),
         PLAYBACK_HEAP_BUDGET_BYTES,
         PLAYBACK_HEAP_BUDGET_MAX_BYTES
     );
-    // One extra slot per whole extra base-budget of headroom. Integer by
-    // construction, so the default budget yields exactly the default depth.
-    const extraSlots = Math.floor(budgetBytes / PLAYBACK_HEAP_BUDGET_BYTES) - 1;
-    const maxChunksPerQuantity = clamp(
-        MAX_CHUNKS_PER_QUANTITY + Math.max(0, extraSlots),
-        MAX_CHUNKS_PER_QUANTITY,
-        MAX_CHUNKS_PER_QUANTITY_CEILING
-    );
-    return { budgetBytes, maxChunksPerQuantity, source: offers.length === 2 ? 'heap+device' : 'partial' };
+    return { budgetBytes, source: offers.length === 2 ? 'heap+device' : 'partial' };
 }
 
 /**
  * The same, read off the live browser. Split from the pure function above so
  * every test drives the arithmetic directly and nothing has to stub a global.
- * @returns {{budgetBytes: number, maxChunksPerQuantity: number, source: string}}
+ * @returns {{budgetBytes: number, source: string}}
  */
 export function resolvePlaybackHeapBudgetFromEnvironment() {
     const perf = typeof performance !== 'undefined' ? performance : null;
@@ -398,9 +385,10 @@ export function computePlaybackMemoryPlan({
     budgetBytes = PLAYBACK_HEAP_BUDGET_BYTES,
     quantityCount = QUANTITY_ARRAYS.length,
     bytesPerResidentElement = STORED_BYTES_PER_ELEMENT,
-    // TASK-2743 UAT-08 — the window depth this budget may buy. Defaults to
-    // the old constant, so a caller that passes neither this nor budgetBytes
-    // gets the pre-TASK-2743 plan exactly.
+    // TASK-2743 UAT-08 — a caller may ask for a SHALLOWER window than the
+    // policy's own cap (a constrained embed, a test). It can never ask for a
+    // deeper one: the clamp's upper bound is MAX_CHUNKS_PER_QUANTITY, which
+    // this task deliberately did not move — see the block comment above.
     maxChunksPerQuantity = MAX_CHUNKS_PER_QUANTITY,
     forceChunksPerQuantity
 } = {}) {
@@ -421,7 +409,7 @@ export function computePlaybackMemoryPlan({
     const requestedMax = clamp(
         maxChunksPerQuantity > 0 ? Math.floor(maxChunksPerQuantity) : MAX_CHUNKS_PER_QUANTITY,
         MIN_CHUNKS_PER_QUANTITY,
-        MAX_CHUNKS_PER_QUANTITY_CEILING
+        MAX_CHUNKS_PER_QUANTITY
     );
     const hardMax = totalChunks > 0
         ? Math.min(requestedMax, totalChunks)

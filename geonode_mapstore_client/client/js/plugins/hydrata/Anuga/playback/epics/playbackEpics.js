@@ -465,8 +465,7 @@ export function playbackInitEpic(action$, store) {
             const initialPlan = nNode0
                 ? computePlaybackMemoryPlan({
                     nNode: nNode0, chunkLengthT, totalChunks: totalChunks0,
-                    budgetBytes: heapBudget.budgetBytes,
-                    maxChunksPerQuantity: heapBudget.maxChunksPerQuantity
+                    budgetBytes: heapBudget.budgetBytes
                 })
                 : null;
             // TASK-2732 (W3, epic 2706) — THE seam. This plan already knows
@@ -537,8 +536,7 @@ export function playbackInitEpic(action$, store) {
                 nFace: mesh.faceNodeConnectivity ? mesh.faceNodeConnectivity.length / 3 : undefined,
                 chunkLengthT,
                 totalChunks,
-                budgetBytes: heapBudget.budgetBytes,
-                maxChunksPerQuantity: heapBudget.maxChunksPerQuantity
+                budgetBytes: heapBudget.budgetBytes
             });
             fetcher.applyMemoryPlan(memoryPlan);
             // TASK-2744 AC20 — SCORE THE FORECAST. `withinBudget` had zero
