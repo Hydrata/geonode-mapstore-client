@@ -793,7 +793,7 @@ function computeTargetLabel(target, defaultComputeTarget) {
     return target === defaultComputeTarget ? `${base} (site default)` : base;
 }
 
-function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling) {
+function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling, isStaff) {
     const hasEstimate = (scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined)
         || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined);
     const comparison = getMeshComparison(scenario?.latest_run);
@@ -816,7 +816,23 @@ function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, 
         : null;
     // band === Infinity: estimate exceeds the finite dispatch ceiling — the
     // BE refuses these outright (review A14), so say that, never a band price.
-    const overCeiling = paywallEnabled && band === Infinity;
+    //
+    // ...unless the user holds the tester capability (TASK-2717). The bypass is
+    // DESIGNED: gn_anuga.capabilities.is_tester (deliberately not is_staff,
+    // decision 2635-D3) lets a tester's over-ceiling estimate dispatch and
+    // debits nothing, so telling them to "contact us for a quote" is a false
+    // refusal for something they can already do. `isStaff` is that capability —
+    // the prop name predates the source change, and it is fed by
+    // `!!state.anuga.ui.canSelectComputeTarget`, i.e. the config endpoint's
+    // `can_select_compute_target` = `is_tester`.
+    //
+    // `!== true`, not `!isStaff`: `canSelectComputeTarget` is false until GET
+    // /api/v2/anuga/config/ lands, so this gate has to stay shut for every
+    // value that is not an explicit true. A truthy-but-not-true value here — a
+    // dropped `!!` upstream, a raw config object threaded through — would open
+    // the gate for every user on the site, which is a worse bug than the one
+    // this fixes.
+    const overCeiling = paywallEnabled && band === Infinity && isStaff !== true;
     const overBalance = paywallEnabled && band !== null && Number.isFinite(band)
         && band > 0
         && accountBalance !== null && accountBalance !== undefined
@@ -1074,7 +1090,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                 only; a built, non-stale scenario shows Built only. Before
                 this fix both blocks rendered independently and could appear
                 stacked together post-build. */}
-            {renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling)}
+            {renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling, isStaff)}
             {renderMeshCostDriverHint(scenario)}
         </div>
     );
