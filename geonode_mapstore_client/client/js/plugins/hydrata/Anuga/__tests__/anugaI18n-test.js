@@ -145,6 +145,31 @@ describe('Anuga i18n', () => {
             });
     });
 
+    it('the retired culvert keys are gone from every locale', () => {
+        // TASK-2742 (W5, epic 2706) — the Culverts affordance was retired: no
+        // backend route, nothing dispatching its action, and an unregistered
+        // epic behind it. Its two strings promised "draw culverts on the map",
+        // which was never true. Same guard shape as the checkoutStalled
+        // toNotExist above: keep a retired string from drifting back in via a
+        // translation pass.
+        const {esMessages, htMessages} = require('../../../../__tests__/fixtures/translations');
+        const retired = ['hydrata.anuga.culverts', 'hydrata.anuga.culvertPlaceholder'];
+        [['en', enMessages], ['fr', frMessages], ['es', esMessages], ['ht', htMessages]]
+            .forEach(([locale, messages]) => {
+                // POSITIVE CONTROL — a fixture that failed to load would make
+                // every absence check below pass for the wrong reason.
+                expect(messages['hydrata.anuga.structures']).toExist(
+                    `${locale} fixture did not load — the absence checks below would be vacuous`
+                );
+                retired.forEach((key) => {
+                    expect(messages[key]).toNotExist(
+                        `${locale} still carries the retired culvert key ${key} — the affordance `
+                        + 'it labelled has no backend route and no create control (TASK-2742)'
+                    );
+                });
+            });
+    });
+
     it('core navigation keys exist', () => {
         const requiredKeys = [
             'hydrata.anuga.inputs',

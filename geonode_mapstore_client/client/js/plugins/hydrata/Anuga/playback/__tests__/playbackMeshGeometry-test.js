@@ -21,9 +21,24 @@ import {
     wireframeDecimationStride,
     wireframeOpacityForTriangleCount,
     decimateWireframeIndices,
+    // TASK-2734 (W3, epic 2706) — allocation-free decimated wireframe builder.
+    buildDecimatedWireframeIndices,
     WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES,
     WIREFRAME_MAX_DECIMATION_STRIDE,
-    WIREFRAME_MIN_OPACITY
+    WIREFRAME_MIN_OPACITY,
+    // TASK-2743 UAT-01 (W6, epic 2706) — closed-triangle (face) decimation.
+    WIREFRAME_FACE_STRIDE_FACTOR,
+    wireframeFaceStride,
+    buildFaceDecimatedWireframeIndices,
+    // TASK-2743 UAT-05/UAT-06 (W6, epic 2706) — the wireframe ink budget.
+    WIREFRAME_INK_BUDGET,
+    WIREFRAME_MAX_INDEX_BYTES,
+    WIREFRAME_FACE_STRIDE_LADDER,
+    wireframeInkCoverage,
+    wireframeOpacityForInkCoverage,
+    wireframeFaceStrideForView,
+    minFaceStrideForIndexBudget,
+    sampleMeshEdgeScale
 } from '../playbackMeshGeometry';
 import { FIXTURE_PHYSICAL, FIXTURE_MESH } from './fixtures/fixturePlaybackStore';
 
@@ -357,4 +372,397 @@ describe('playbackMeshGeometry', () => {
             expect(maxY).toBe(Math.max(...y));
         });
     });
+
+    // TASK-2734 (W3, epic 2706) — AC5 VISUAL EQUIVALENCE for the
+    // decimated-direct builder that replaces
+    // decimateWireframeIndices(buildWireframeIndices(fnc), stride) on a
+    // prod-scale mesh. The pair is only "equivalent" if it draws essentially
+    // the same picture, and edge COUNT is the measurable proxy for that: the
+    // direct builder dedups by canonical orientation instead of a Set, which
+    // drops roughly half the BOUNDARY edges and nothing else.
+    describe('buildDecimatedWireframeIndices (TASK-2734)', () => {
+        // buildSyntheticMesh is a PRIVATE helper of playbackPerfSmoke-test.js
+        // (not exported), so this file carries its own copy of the grid loop —
+        // same shape, same winding: triCount = 2*(n-1)^2.
+        function buildGridFaceNodeConnectivity(n) {
+            const triCount = 2 * (n - 1) * (n - 1);
+            const fnc = new Int32Array(triCount * 3);
+            let t = 0;
+            for (let j = 0; j < n - 1; j++) {
+                for (let i = 0; i < n - 1; i++) {
+                    const a = j * n + i;
+                    const b = a + 1;
+                    const c = a + n;
+                    const d = c + 1;
+                    fnc[t++] = a; fnc[t++] = b; fnc[t++] = c;
+                    fnc[t++] = b; fnc[t++] = d; fnc[t++] = c;
+                }
+            }
+            return fnc;
+        }
+
+        it('a >=200,000-triangle grid decimates to within 10% of decimateWireframeIndices(buildWireframeIndices(...))', () => {
+            const N = 320; // 2*(320-1)^2 = 203,522 triangles -> stride 4
+            const fnc = buildGridFaceNodeConnectivity(N);
+            const triangleCount = fnc.length / 3;
+            expect(triangleCount).toBe(203522);
+            const stride = wireframeDecimationStride(triangleCount);
+            expect(stride).toBe(4);
+
+            const reference = decimateWireframeIndices(buildWireframeIndices(fnc), stride);
+            const direct = buildDecimatedWireframeIndices(fnc, stride);
+
+            // Measured on this box 2026-08-11: reference 152,962 indices,
+            // direct 152,642 (-0.21%) — the 320 dropped boundary edges.
+            const deltaFraction = Math.abs(direct.length - reference.length) / reference.length;
+            expect(deltaFraction).toBeLessThan(0.1);
+            expect(direct.length % 2).toBe(0);
+            expect(direct.length).toBeGreaterThan(0);
+        });
+
+        it('emits only real edges of the source mesh, and never the same undirected edge twice', () => {
+            const fnc = buildGridFaceNodeConnectivity(40); // 3,042 triangles
+            const direct = buildDecimatedWireframeIndices(fnc, 1);
+            const realEdges = new Set();
+            for (let f = 0; f < fnc.length; f += 3) {
+                const v0 = fnc[f];
+                const v1 = fnc[f + 1];
+                const v2 = fnc[f + 2];
+                [[v0, v1], [v1, v2], [v2, v0]].forEach(([a, b]) => {
+                    realEdges.add(a < b ? `${a}-${b}` : `${b}-${a}`);
+                });
+            }
+            const emitted = new Set();
+            for (let i = 0; i < direct.length; i += 2) {
+                const a = direct[i];
+                const b = direct[i + 1];
+                const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+                expect(realEdges.has(key)).toBe(true);
+                expect(emitted.has(key)).toBe(false);
+                emitted.add(key);
+            }
+            expect(emitted.size).toBeGreaterThan(0);
+        });
+
+        it('returns an exactly-sized Uint32Array (no over-allocation, no trailing zero pairs)', () => {
+            const fnc = buildGridFaceNodeConnectivity(60);
+            const direct = buildDecimatedWireframeIndices(fnc, 3);
+            expect(direct instanceof Uint32Array).toBe(true);
+            expect(direct.length).toBe(direct.byteLength / 4);
+            // Every slot was written: the only way a pair can be (0,0) is if
+            // the builder over-allocated, since edge (0,0) is degenerate.
+            let degenerate = 0;
+            for (let i = 0; i < direct.length; i += 2) {
+                if (direct[i] === 0 && direct[i + 1] === 0) { degenerate++; }
+            }
+            expect(degenerate).toBe(0);
+        });
+
+        it('rejects a face array whose length is not a multiple of 3', () => {
+            expect(() => buildDecimatedWireframeIndices(Int32Array.from([0, 1, 2, 3]), 2)).toThrow(/multiple of 3/);
+        });
+
+        it('an empty mesh yields an empty buffer', () => {
+            expect(buildDecimatedWireframeIndices(new Int32Array([]), 4).length).toBe(0);
+        });
+    });
+
+    // ── TASK-2743 UAT-01 (W6, epic 2706) — closed-triangle wireframe ──────────
+    // The shipped edge decimator thins edges in triangle-emission order, so at
+    // stride 12 it closed EXACTLY ZERO triangles on the real 6,779,432-triangle
+    // store and read as disconnected speckle. These pin the replacement.
+    describe('buildFaceDecimatedWireframeIndices (UAT-01: a decimated wireframe must still read as a mesh)', () => {
+        // Walk 6 indices at a time: [v0,v1, v1,v2, v2,v0] is a closed triangle.
+        const closedTriangleFraction = (idx) => {
+            const tris = Math.floor(idx.length / 6);
+            if (tris === 0) { return 0; }
+            let closed = 0;
+            for (let i = 0; i + 5 < idx.length; i += 6) {
+                if (idx[i + 1] === idx[i + 2] && idx[i + 3] === idx[i + 4] && idx[i + 5] === idx[i]) { closed++; }
+            }
+            return closed / tris;
+        };
+        // A row-major grid mesh: `rows` x `cols` quads, each split into 2 faces.
+        const gridMesh = (rows, cols) => {
+            const out = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const a = r * (cols + 1) + c; const b = a + 1; const d = a + cols + 1; const e = d + 1;
+                    out.push(a, b, d, b, e, d);
+                }
+            }
+            return Int32Array.from(out);
+        };
+        const faces = gridMesh(199, 199); // 79,202 faces — the perf-smoke fixture size
+
+        it('derives the face stride from the edge stride, and leaves small meshes alone', () => {
+            expect(wireframeFaceStride(6779432)).toBe(24);
+            expect(wireframeFaceStride(6779432))
+                .toBe(WIREFRAME_FACE_STRIDE_FACTOR * wireframeDecimationStride(6779432));
+            // TASK-2686 forbids changing meshes that already work. Everything
+            // with edge-stride 1 keeps face-stride 1 and never enters this code.
+            expect(wireframeFaceStride(49999)).toBe(1);
+            expect(wireframeFaceStride(74999)).toBe(1);
+            expect(wireframeFaceStride(75000)).toBe(4);
+        });
+
+        it('THE DEFECT, stated positively: edge decimation closes nothing at any stride', () => {
+            // Green before AND after — this pins the DIAGNOSIS, not the fix.
+            [2, 4, 12].forEach((s) => {
+                expect(closedTriangleFraction(buildDecimatedWireframeIndices(faces, s))).toBe(0);
+            });
+        });
+
+        it('THE FIX: every drawn primitive is a closed triangle', () => {
+            const next = buildFaceDecimatedWireframeIndices(faces, 4);
+            expect(closedTriangleFraction(next)).toBe(1);
+            expect(next.length).toBe(Math.ceil(79202 / 4) * 6);
+            expect(next.constructor).toBe(Uint32Array);
+        });
+
+        it('costs the same ink and the same bytes as the edge builder it replaces', () => {
+            // The load-bearing memory assertion: face-stride 2s draws 3/(2s)
+            // edges per face, edge-stride s draws 1.5/s. Identical.
+            [2, 10, 12].forEach((s) => {
+                const a = buildDecimatedWireframeIndices(faces, s).length;
+                const b = buildFaceDecimatedWireframeIndices(faces, s * WIREFRAME_FACE_STRIDE_FACTOR).length;
+                expect(Math.abs(b - a) / a).toBeLessThan(0.005);
+            });
+        });
+
+        it('jitters within each block, so a row-major mesh does not stripe', () => {
+            // RED against the naive `f % stride` selector: with 398 faces per
+            // row and stride 24, `f % 24 === 0` keeps the same few columns in
+            // every row. Count distinct within-row positions actually kept.
+            const idx = buildFaceDecimatedWireframeIndices(faces, 24);
+            const firstVertexOfRow0 = new Set();
+            for (let i = 0; i + 5 < idx.length; i += 6) { firstVertexOfRow0.add(idx[i] % 200); }
+            expect(firstVertexOfRow0.size).toBeGreaterThan(8);
+        });
+
+        it('is deterministic — two builds of the same input are identical', () => {
+            expect(buildFaceDecimatedWireframeIndices(faces, 4))
+                .toEqual(buildFaceDecimatedWireframeIndices(faces, 4));
+        });
+
+        it('stays exact above 2^53/2654435761 — the Math.imul trap', () => {
+            // A plain `b * 2654435761` loses low bits to float64 rounding once
+            // b > ~3.39M, the MIDDLE of the real 6,779,432-face mesh. Verified
+            // divergent at b=6,779,431 (naive 16 vs exact 15). Assert the
+            // offsets high in the index range are not all collapsed to 0.
+            const nFace = 6779432;
+            const fnc = new Int32Array(nFace * 3); // contents irrelevant; we read offsets
+            for (let f = 0; f < nFace; f++) { fnc[f * 3] = f; }
+            const idx = buildFaceDecimatedWireframeIndices(fnc, 24);
+            expect(idx.length).toBe(Math.ceil(nFace / 24) * 6);
+            let nonZeroHigh = 0;
+            for (let i = 0; i + 5 < idx.length; i += 6) {
+                const f = idx[i];
+                if (f > 3392506 && (f % 24) !== 0) { nonZeroHigh++; }
+            }
+            expect(nonZeroHigh).toBeGreaterThan(0);
+        });
+
+        it('an empty mesh yields an empty buffer, and a bad length throws', () => {
+            expect(buildFaceDecimatedWireframeIndices(new Int32Array([]), 24).length).toBe(0);
+            expect(() => buildFaceDecimatedWireframeIndices(new Int32Array([1, 2]), 4))
+                .toThrow(/multiple of 3/);
+        });
+    });
+
+
+    // ========================================================================
+    // TASK-2743 UAT-05/UAT-06 (W6, epic 2706) — the wireframe ink budget.
+    //
+    // Every constant below was MEASURED in the live tab on map 1461 (prod run
+    // 1328, 6,779,432 triangles) and is reused across these cases so a change
+    // that silently rescales the model has to break an assertion here:
+    //   mean edge  1.8248 m in EPSG:3857 (1.812 m in the store's UTM x 1.00707)
+    //   mesh area  8,962,397 m^2 in EPSG:3857 (8.837 km^2 in UTM)
+    //   drawn edges at the shipped stride 24: 847,431
+    //   viewport   1100 x 900 CSS px
+    // ========================================================================
+    describe('wireframe ink budget (TASK-2743 UAT-05) — alpha follows the ZOOM, not the triangle count', () => {
+        const MAP_1461 = {
+            triangleCount: 6779432,
+            meanEdgeLength: 1.8248,
+            meshArea: 8962397
+        };
+        const FULL_EXTENT_RES = 4.15;      // 3733 m of mesh in 900 px
+        const OPERATOR_RES = 0.1493;       // the 1:564 view in the UAT screenshot
+        const coverAt = (resolution, drawnEdgeCount) => wireframeInkCoverage({
+            drawnEdgeCount,
+            meanEdgeLength: MAP_1461.meanEdgeLength,
+            meshArea: MAP_1461.meshArea,
+            resolution
+        });
+
+        it('at FULL EXTENT the shipped buffer lands on TASK-2686\'s own 0.08 floor — no regression on the case that AC fixed', () => {
+            const k = coverAt(FULL_EXTENT_RES, 847431);
+            expect(+k.toFixed(4)).toBe(1.6285);
+            // Not "close to" the shipped value — the SAME value. 847,431
+            // edges over 520k px of mesh footprint is a 16x overdraw against
+            // the budget, so the floor wins, exactly as it did before.
+            expect(wireframeOpacityForInkCoverage(k, 0.35)).toBe(WIREFRAME_MIN_OPACITY);
+        });
+
+        it('at the operator\'s own 1:564 view the SAME buffer goes fully opaque — this is the reported defect', () => {
+            const k = coverAt(OPERATOR_RES, 847431);
+            expect(+k.toFixed(4)).toBe(0.0258);
+            expect(wireframeOpacityForInkCoverage(k, 0.35)).toBe(1);
+        });
+
+        it('holds alpha * k at the budget across the whole overlapping range', () => {
+            [1, 2, 5, 10].forEach((k) => {
+                const a = wireframeOpacityForInkCoverage(k, 0.35);
+                if (a > WIREFRAME_MIN_OPACITY && a < 1) {
+                    expect(+(a * k).toFixed(6)).toBe(WIREFRAME_INK_BUDGET);
+                }
+            });
+        });
+
+        it('never vanishes: a pathologically dense view floors at WIREFRAME_MIN_OPACITY', () => {
+            expect(wireframeOpacityForInkCoverage(1000, 0.35)).toBe(WIREFRAME_MIN_OPACITY);
+        });
+
+        it('an uncomputable view (no resolution yet) returns coverage 0 and leaves the caller\'s alpha ALONE', () => {
+            expect(coverAt(0, 847431)).toBe(0);
+            expect(wireframeInkCoverage({ drawnEdgeCount: 1, meanEdgeLength: 1, meshArea: 0, resolution: 1 })).toBe(0);
+            expect(wireframeOpacityForInkCoverage(0, 0.42)).toBe(0.42);
+            expect(wireframeInkCoverage({})).toBe(0);
+        });
+
+        it('sub-pixel edges still cost a whole pixel — the max(1, ...) floor, worth 2.3x at full extent', () => {
+            // 1.8248 m at 4.15 m/px is 0.44 px long; without the floor the ink
+            // (and so k) would be understated by exactly that factor.
+            const withFloor = coverAt(FULL_EXTENT_RES, 847431);
+            const naive = withFloor * (MAP_1461.meanEdgeLength / FULL_EXTENT_RES);
+            expect(withFloor > naive).toBe(true);
+            expect(+(withFloor / naive).toFixed(2)).toBe(2.27);
+        });
+
+        it('zoomed OUT past the mesh, k keeps CLIMBING — k is local density, not a share of the window', () => {
+            // The bug this pins: a denominator of max(meshArea, viewArea)
+            // makes k constant past full extent, so a mesh crammed into a
+            // postage stamp scores the same 0.86 as a mesh filling the
+            // screen. It does not — it is 100x denser, and must dim.
+            const atFullExtent = coverAt(FULL_EXTENT_RES, 847431);
+            const tenTimesOut = coverAt(FULL_EXTENT_RES * 10, 847431);
+            expect(+tenTimesOut.toFixed(2)).toBe(162.85);
+            expect(+(tenTimesOut / atFullExtent).toFixed(0)).toBe(100);
+            expect(wireframeOpacityForInkCoverage(tenTimesOut, 0.35)).toBe(WIREFRAME_MIN_OPACITY);
+        });
+    });
+
+    describe('wireframeFaceStrideForView (TASK-2743 UAT-06) — as many triangles as the screen can carry', () => {
+        const MAP_1461 = {
+            baseStride: 24,
+            triangleCount: 6779432,
+            meanEdgeLength: 1.8248,
+            meshArea: 8962397
+        };
+
+        it('at full extent it does not densify — stride stays at the load-time value', () => {
+            expect(wireframeFaceStrideForView({ ...MAP_1461, resolution: 4.15 })).toBe(24);
+        });
+
+        it('at the operator\'s 1:564 view it drops to stride 8 — 3x more triangles, still fully opaque', () => {
+            const stride = wireframeFaceStrideForView({ ...MAP_1461, resolution: 0.1493 });
+            expect(stride).toBe(8);
+            const drawnEdgeCount = Math.ceil(MAP_1461.triangleCount / stride) * 3;
+            expect(drawnEdgeCount).toBe(2542287);
+            const k = wireframeInkCoverage({
+                drawnEdgeCount, meanEdgeLength: MAP_1461.meanEdgeLength,
+                meshArea: MAP_1461.meshArea, resolution: 0.1493
+            });
+            expect(k <= WIREFRAME_INK_BUDGET).toBe(true);
+            expect(wireframeOpacityForInkCoverage(k, 0.35)).toBe(1);
+        });
+
+        it('at 1:150 it reaches stride 3 — the index-budget floor, NOT the ink budget', () => {
+            expect(wireframeFaceStrideForView({ ...MAP_1461, resolution: 0.0397 })).toBe(3);
+            expect(minFaceStrideForIndexBudget(MAP_1461.triangleCount)).toBe(3);
+        });
+
+        it('the index budget is a hard floor: no zoom can talk it below what WIREFRAME_MAX_INDEX_BYTES allows', () => {
+            const stride = wireframeFaceStrideForView({ ...MAP_1461, resolution: 0.000001 });
+            expect(stride >= minFaceStrideForIndexBudget(MAP_1461.triangleCount)).toBe(true);
+            const bytes = Math.ceil(MAP_1461.triangleCount / stride) * 24;
+            expect(bytes <= WIREFRAME_MAX_INDEX_BYTES).toBe(true);
+        });
+
+        it('a small mesh (baseStride 1) is NEVER touched — TASK-2686\'s <50k AC survives intact', () => {
+            expect(wireframeFaceStrideForView({
+                baseStride: 1, triangleCount: 40000, meanEdgeLength: 2, meshArea: 1e5,
+                resolution: 0.01
+            })).toBe(1);
+        });
+
+        it('an uncomputable view returns baseStride unchanged', () => {
+            expect(wireframeFaceStrideForView({ ...MAP_1461, resolution: 0 })).toBe(24);
+            expect(wireframeFaceStrideForView({ ...MAP_1461, meanEdgeLength: 0, resolution: 1 })).toBe(24);
+            expect(wireframeFaceStrideForView({ ...MAP_1461, meshArea: 0, resolution: 1 })).toBe(24);
+        });
+
+        it('every stride it can return is a rung of the published ladder (so a zoom cannot thrash the buffer)', () => {
+            const seen = new Set();
+            for (let res = 0.02; res < 8; res *= 1.15) {
+                seen.add(wireframeFaceStrideForView({ ...MAP_1461, resolution: res }));
+            }
+            Array.from(seen).forEach((s) => {
+                expect(WIREFRAME_FACE_STRIDE_LADDER.indexOf(s) >= 0).toBe(true);
+            });
+            // and it is monotone: zooming IN never asks for a sparser mesh
+            let previous = Infinity;
+            for (let res = 0.02; res < 8; res *= 1.3) {
+                const s = wireframeFaceStrideForView({ ...MAP_1461, resolution: res });
+                expect(s >= previous || previous === Infinity).toBe(true);
+                previous = s;
+            }
+        });
+    });
+
+    describe('sampleMeshEdgeScale (TASK-2743 UAT-05) — the two per-mesh constants the ink model needs', () => {
+        // A 2x2 unit grid, split into 8 right triangles of leg 1: area 4,
+        // edges 1, 1 and sqrt(2) per face.
+        const gridMesh = () => {
+            const x = []; const y = []; const faces = [];
+            for (let j = 0; j <= 2; j++) {
+                for (let i = 0; i <= 2; i++) { x.push(i); y.push(j); }
+            }
+            const at = (i, j) => j * 3 + i;
+            for (let j = 0; j < 2; j++) {
+                for (let i = 0; i < 2; i++) {
+                    faces.push(at(i, j), at(i + 1, j), at(i, j + 1));
+                    faces.push(at(i + 1, j), at(i + 1, j + 1), at(i, j + 1));
+                }
+            }
+            return { x: Float64Array.from(x), y: Float64Array.from(y), faces: Int32Array.from(faces) };
+        };
+
+        it('recovers the exact area and mean edge of a known triangulation', () => {
+            const m = gridMesh();
+            const r = sampleMeshEdgeScale(m.x, m.y, m.faces, 1);
+            expect(r.sampledFaces).toBe(8);
+            expect(+r.area.toFixed(6)).toBe(4);
+            expect(+r.meanEdgeLength.toFixed(6)).toBe(+((2 + Math.sqrt(2)) / 3).toFixed(6));
+        });
+
+        it('a sampled pass scales the area back to the WHOLE mesh, not the sample', () => {
+            const m = gridMesh();
+            const full = sampleMeshEdgeScale(m.x, m.y, m.faces, 1);
+            const sampled = sampleMeshEdgeScale(m.x, m.y, m.faces, 2);
+            expect(sampled.sampledFaces).toBe(4);
+            // Same uniform mesh, so a half-sample must recover the same area.
+            expect(+sampled.area.toFixed(6)).toBe(+full.area.toFixed(6));
+        });
+
+        it('an empty mesh yields zeros rather than NaN (the ink model reads those as "no opinion")', () => {
+            const r = sampleMeshEdgeScale(new Float64Array([]), new Float64Array([]), new Int32Array([]), 64);
+            expect(r.meanEdgeLength).toBe(0);
+            expect(r.area).toBe(0);
+            expect(r.sampledFaces).toBe(0);
+        });
+    });
+
 });

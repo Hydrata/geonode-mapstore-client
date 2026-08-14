@@ -24,8 +24,10 @@
  * with 206 Partial Content and the whole object.
  */
 
-import { gunzip, decodeTypedArray, dequantize, chunkKey } from './playbackDecode';
+import { chunkKey } from './playbackDecode';
+import { decodeChunkOffThread } from './playbackDecodeWorker';
 import { PlaybackChunkCache } from './playbackChunkCache';
+import { QUANTITY_ARRAYS } from './playbackChunkShape';
 
 /**
  * TASK-2627 (W3.1) live-verify fix: a bare `fetchImpl = fetch` default
@@ -82,20 +84,96 @@ export class PlaybackChunkFetcher {
      *   same relative keys). Required unless the caller never expects 403s
      *   (e.g. same-origin dev fixtures with no expiry).
      * @param {PlaybackChunkCache} [options.cache]
+     * @param {object} [options.memoryPlan] a
+     *   playbackMemoryPolicy.computePlaybackMemoryPlan() result. TASK-2708
+     *   (W1.2, epic 2706): WITHOUT this every fetcher got a fresh cache at the
+     *   fixed 64 MiB DEFAULT_MAX_BYTES regardless of the run's size, so on a
+     *   prod-scale store a single chunk was twice the whole ceiling and the
+     *   LRU thrashed by construction. Optional only so a test/harness with no
+     *   store descriptor still works; every production call site passes it.
+     * @param {(compressed: ArrayBuffer, opts: object) => Promise<object>} [options.decodeImpl]
+     *   overridable seam for the off-main-thread decoder (tests inject a
+     *   same-thread one; production takes the worker).
      * @param {typeof fetch} [options.fetchImpl]
      */
-    constructor({ manifest, refreshManifest, cache, fetchImpl = defaultFetch } = {}) {
+    constructor({ manifest, refreshManifest, cache, memoryPlan, decodeImpl, fetchImpl = defaultFetch, onProgress } = {}) {
         if (!manifest) {
             throw new Error('PlaybackChunkFetcher: manifest is required');
         }
         this.manifest = manifest;
         this.refreshManifest = refreshManifest || null;
-        this.cache = cache || new PlaybackChunkCache();
+        this.memoryPlan = memoryPlan || null;
+        this.cache = cache || new PlaybackChunkCache(
+            memoryPlan && memoryPlan.cacheMaxBytes > 0 ? { maxBytes: memoryPlan.cacheMaxBytes } : {}
+        );
+        this.decodeImpl = decodeImpl || decodeChunkOffThread;
         this.fetchImpl = fetchImpl;
+        // TASK-2744 (AC18, epic 2706) — optional `({key, bytes}) => void`,
+        // invoked once per completed object at the single byte choke point
+        // below. The UI has no other way to know that the ~100 s after a
+        // manifest resolves is a mesh DOWNLOAD rather than a stuck request.
+        // Never throws into the fetch path: a reporting failure must not fail
+        // the load it is only describing.
+        this.onProgress = typeof onProgress === 'function' ? onProgress : null;
         // Per-relativeKey in-flight promises so a burst of prefetch requests
         // for the same chunk (e.g. two overlapping prefetch windows) collapse
         // into one network request instead of racing duplicate fetches.
         this._inflight = new Map();
+        // TASK-2728 (W5, epic 2706) — the static (non-time-chunked) mesh
+        // arrays live HERE, not in the LRU above. See _storeFor().
+        this._staticArrays = new Map();
+    }
+
+    /**
+     * Where a decoded array for `arrayName` belongs — TASK-2728 (W5, epic 2706).
+     *
+     * The time-series LRU's ceiling is sized from QUANTITY chunks only
+     * (playbackMemoryPolicy.js: `quantityCount * chunksPerQuantity *
+     * storedChunkBytes`); the static mesh arrays' bytes are accounted
+     * separately, under fixedBytes. Putting the statics in the same cache
+     * therefore made it govern a population it was never sized for, and the
+     * LRU spent its one lever — eviction — on the wrong entries: on a
+     * run-1328 chunk-10 store a full window IS the ceiling to the byte, so
+     * inserting face_node_connectivity (Int32Array(3 * nFace) = 81,353,184 B)
+     * evicted 2 of the 6 buffered chunks; at chunk length 2 it evicted 6 of 9.
+     * Those chunks were then re-downloaded while the playhead still needed
+     * them.
+     *
+     * Eviction could never pay here in the first place: loadPlaybackMesh's
+     * arrays are threaded into playbackManifestLoaded and held on `pb.mesh`
+     * for the life of the layer, so they are strong-referenced whether the
+     * cache holds them or not. Evicting one frees nothing and costs a refetch.
+     *
+     * So the statics get a plain unbounded Map — fetched once per layer, held
+     * for exactly as long as the fetcher itself, and released with it in
+     * disposeRun(). The alternative (adding the mesh bytes to cacheMaxBytes)
+     * was rejected deliberately: it inflates a heap ceiling this epic is
+     * trying to hold down, and leaves the cache still describing two
+     * populations at once. The ceiling should mean what it says — the window.
+     *
+     * `_inflight` is deliberately NOT split: concurrent-request collapsing is
+     * about the network, not about residency, and both paths need it.
+     */
+    _storeFor(arrayName) {
+        return QUANTITY_ARRAYS.indexOf(arrayName) === -1 ? this._staticArrays : this.cache;
+    }
+
+    /**
+     * Drop everything this fetcher is holding — TASK-2728.
+     *
+     * disposeRun() already released the LRU explicitly rather than waiting for
+     * the fetcher to become unreachable, on the stated grounds that "the cache
+     * is the large half". Since 2728 the statics are the OTHER large half
+     * (~100 MB on a prod-scale mesh) and they no longer live in that cache, so
+     * they need the same explicit release: any surviving reference to the
+     * fetcher — a pending decode closure, a layer that outlived its run —
+     * would otherwise pin the whole mesh after the run was disposed.
+     */
+    releaseCaches() {
+        if (this.cache && typeof this.cache.clear === 'function') {
+            this.cache.clear();
+        }
+        this._staticArrays.clear();
     }
 
     /**
@@ -104,6 +182,22 @@ export class PlaybackChunkFetcher {
      */
     setManifest(manifest) {
         this.manifest = manifest;
+    }
+
+    /**
+     * Adopt a (re)computed memory plan — TASK-2708. Called a second time once
+     * the mesh has landed and the EXACT triangle count is known, replacing
+     * the manifest-time plan that had to estimate it (see
+     * playbackMemoryPolicy.FACES_PER_NODE_ESTIMATE).
+     * @param {object} memoryPlan
+     */
+    applyMemoryPlan(memoryPlan) {
+        if (!memoryPlan || !(memoryPlan.cacheMaxBytes > 0)) {
+            return this.memoryPlan;
+        }
+        this.memoryPlan = memoryPlan;
+        this.cache.resize(memoryPlan.cacheMaxBytes);
+        return this.memoryPlan;
     }
 
     async _fetchRawBytes(relativeKey, { allowRefresh = true } = {}) {
@@ -119,34 +213,58 @@ export class PlaybackChunkFetcher {
         if (!response.ok && response.status !== 206) {
             throw new Error(`playbackChunkFetcher: fetch of '${relativeKey}' failed with status ${response.status}`);
         }
-        return response.arrayBuffer();
+        const buffer = await response.arrayBuffer();
+        if (this.onProgress) {
+            try {
+                this.onProgress({ key: relativeKey, bytes: buffer.byteLength });
+            } catch (e) {
+                // deliberately swallowed — see the constructor note
+            }
+        }
+        return buffer;
     }
 
     /**
-     * Fetch+decode+(optionally dequantize)+cache one chunk. Concurrent calls
-     * for the same key share one in-flight fetch.
+     * Fetch + decode + cache one chunk, in the store's OWN dtype. Concurrent
+     * calls for the same key share one in-flight fetch.
+     *
+     * TASK-2708 (W1.2, epic 2706) CONTRACT CHANGE: a quantized array comes
+     * back (and is cached) as the stored Uint16Array — this no longer
+     * dequantizes. `decodeOpts.quantization` is accepted and ignored so the
+     * existing call sites keep documenting which arrays are quantized, but
+     * physical units are now produced one frame-row at a time by
+     * playbackDecode.dequantizeRow (loadPlaybackFrame). Two reasons, both
+     * load-bearing: caching Float32 doubled time-series residency (4 B vs
+     * 2 B per element — 129.4 MiB vs 64.7 MiB for ONE run-1328 chunk), and a
+     * dequantize-on-decode step in a cached path is one refactor away from
+     * being applied twice to the same array, which renders a plausible flood
+     * surface at `scale x` the true depth.
+     *
+     * The gunzip + typed-array decode itself runs in playbackDecode.worker.js
+     * (with a same-thread fallback), so neither the decompression nor the
+     * chunk-sized intermediate buffer lands on the main thread.
+     *
      * @param {string} arrayName e.g. 'depth'
      * @param {number[]} chunkIndices e.g. [timeChunkIndex, 0]
      * @param {{dtype: string, byteorder?: string, quantization?: {scale:number, offset:number}}} decodeOpts
-     * @returns {Promise<Uint16Array|Int32Array|Float32Array|Float64Array>}
+     * @returns {Promise<Uint16Array|Int32Array|Float32Array|Float64Array>} STILL QUANTIZED for uint16 arrays
      */
     async fetchAndDecodeChunk(arrayName, chunkIndices, decodeOpts) {
         const key = chunkKey(arrayName, chunkIndices);
-        const cached = this.cache.get(key);
+        const store = this._storeFor(arrayName);
+        const cached = store.get(key);
         if (cached) {
             return cached;
         }
         if (this._inflight.has(key)) {
             return this._inflight.get(key);
         }
-        const { dtype, byteorder = 'little', quantization } = decodeOpts || {};
+        const { dtype, byteorder = 'little' } = decodeOpts || {};
         const task = (async() => {
             try {
                 const compressed = await this._fetchRawBytes(key);
-                const raw = await gunzip(compressed);
-                const typed = decodeTypedArray(raw, dtype, byteorder);
-                const decoded = quantization ? dequantize(typed, quantization) : typed;
-                this.cache.set(key, decoded);
+                const decoded = await this.decodeImpl(compressed, { dtype, byteorder });
+                store.set(key, decoded);
                 return decoded;
             } finally {
                 this._inflight.delete(key);
@@ -161,17 +279,74 @@ export class PlaybackChunkFetcher {
      * (the chunk the playhead is currently in), clamped to [0, totalChunks).
      * A pure function so the playback controller (W2.2/W3) can call it to
      * decide what to render without any fetch side effects.
+     * TASK-2708 (W1.2, epic 2706) made the window ASYMMETRIC via `ahead`,
+     * because playback runs forwards: on a prod-scale store the byte budget
+     * only affords two chunk slots per quantity, and spending one of them
+     * behind the playhead would leave no lookahead at all. `ahead` defaults to
+     * `windowRadius` so every existing symmetric caller is unchanged.
+     *
      * @param {number} centerChunkIndex
      * @param {number} totalChunks
-     * @param {number} [windowRadius=2]
+     * @param {number} [windowRadius=2] chunks BEHIND the playhead
+     * @param {{ahead?: number}} [options] chunks AHEAD (default: windowRadius)
      * @returns {number[]}
      */
-    getPrefetchWindow(centerChunkIndex, totalChunks, windowRadius = 2) {
+    /**
+     * Which time-chunk indices are ACTUALLY resident right now (TASK-2744
+     * AC20).
+     *
+     * A chunk counts only when EVERY required array is present for it —
+     * precisely the invariant playbackController's `bufferedChunks` comment
+     * always claimed ("all 3 quantity arrays") but which nothing enforced
+     * after eviction. Cache keys are `${arrayName}/c/${t}/${nodeChunk}`
+     * (playbackDecode.chunkKey).
+     *
+     * Before this existed, `bufferedChunks` grew monotonically via
+     * mergeBufferedChunks and NOTHING removed an index when the LRU evicted
+     * it. Measured on map 1461: state claimed chunks [0,1,3] resident while
+     * the plan afforded 2 — and worse, isWindowBuffered then trusted the
+     * stale index, so a scrub to an evicted chunk never re-entered SEEKING
+     * and never refetched.
+     */
+    residentChunkIndices(arrayNames, nodeChunkIndex = 0) {
+        const names = arrayNames && arrayNames.length ? arrayNames : [];
+        if (!names.length) {
+            return [];
+        }
+        const counts = new Map();
+        this.cache.keys().forEach((key) => {
+            const parts = String(key).split('/');
+            // arrayName / 'c' / t / nodeChunk
+            if (parts.length !== 4 || parts[1] !== 'c') {
+                return;
+            }
+            if (names.indexOf(parts[0]) === -1 || Number(parts[3]) !== nodeChunkIndex) {
+                return;
+            }
+            const t = Number(parts[2]);
+            if (!isFinite(t)) {
+                return;
+            }
+            counts.set(t, (counts.get(t) || 0) + 1);
+        });
+        return Array.from(counts.entries())
+            .filter(([, n]) => n >= names.length)
+            .map(([t]) => t)
+            .sort((a, b) => a - b);
+    }
+
+    /** Bytes the decoded-chunk cache currently holds (TASK-2744 AC20). */
+    residentBytes() {
+        return this.cache ? this.cache.totalBytes : 0;
+    }
+
+    getPrefetchWindow(centerChunkIndex, totalChunks, windowRadius = 2, { ahead } = {}) {
         if (totalChunks <= 0) {
             return [];
         }
+        const forward = ahead === undefined || ahead === null ? windowRadius : ahead;
         const lo = Math.max(0, centerChunkIndex - windowRadius);
-        const hi = Math.min(totalChunks - 1, centerChunkIndex + windowRadius);
+        const hi = Math.min(totalChunks - 1, centerChunkIndex + forward);
         const indices = [];
         for (let i = lo; i <= hi; i++) {
             indices.push(i);
@@ -189,23 +364,53 @@ export class PlaybackChunkFetcher {
      *   e.g. {depth: {dtype:'uint16', quantization:{...}}, node_x: {dtype:'float32'}}
      * @param {number} centerChunkIndex
      * @param {number} totalChunks
-     * @param {{windowRadius?: number, nodeChunkIndex?: number}} [options]
+     * @param {{windowRadius?: number, windowAhead?: number, nodeChunkIndex?: number}} [options]
      * @returns {Promise<Array<{arrayName: string, chunkIndex: number, value?: object, error?: Error}>>}
      */
-    async prefetchWindow(arrayConfigs, centerChunkIndex, totalChunks, { windowRadius = 2, nodeChunkIndex = 0 } = {}) {
-        const window = this.getPrefetchWindow(centerChunkIndex, totalChunks, windowRadius);
+    async prefetchWindow(arrayConfigs, centerChunkIndex, totalChunks, options = {}) {
+        const groups = this.prefetchWindowByChunk(arrayConfigs, centerChunkIndex, totalChunks, options);
+        const settled = await Promise.all(groups.map((g) => g.promise));
+        return settled.reduce((all, results) => all.concat(results), []);
+    }
+
+    /**
+     * The same fetches, reported PER CHUNK instead of as one all-or-nothing
+     * batch: `[{chunkIndex, promise}]`, ascending, each promise resolving when
+     * that ONE chunk's arrays have all settled.
+     *
+     * TASK-2743 UAT-09 (W6, epic 2706) — WHY THIS EXISTS. prefetchWindow's
+     * `Promise.all` meant the caller learned nothing until the whole window
+     * landed, so the chunk the playhead is actually sitting on was withheld
+     * behind its neighbours. The controller's own readiness gate
+     * (requiredWindowFor -> the chunks frame0/frame1 need, usually ONE) was
+     * therefore never the binding constraint: `ready` waited on the deepest
+     * prefetch instead.
+     *
+     * Latent since W1.2 and invisible while the window was 2 chunks deep;
+     * TASK-2743 UAT-08's device-sized budget made it 3 on a machine with
+     * headroom and the cost became a measured 7,954 ms cold load on map 1461,
+     * where chunk 0's own three arrays had landed seconds earlier.
+     *
+     * Ascending order matters: chunk `lo` is the one nearest (or at) the
+     * playhead, so a caller that acts on the first resolution acts on the most
+     * urgent chunk.
+     *
+     * @param {Record<string, {dtype: string, byteorder?: string, quantization?: object}>} arrayConfigs
+     * @param {number} centerChunkIndex
+     * @param {number} totalChunks
+     * @param {{windowRadius?: number, windowAhead?: number, nodeChunkIndex?: number}} [options]
+     * @returns {Array<{chunkIndex: number, promise: Promise<Array<{arrayName: string, chunkIndex: number, value?: object, error?: Error}>>}>}
+     */
+    prefetchWindowByChunk(arrayConfigs, centerChunkIndex, totalChunks, { windowRadius = 2, windowAhead, nodeChunkIndex = 0 } = {}) {
+        const window = this.getPrefetchWindow(centerChunkIndex, totalChunks, windowRadius, { ahead: windowAhead });
         const arrayNames = Object.keys(arrayConfigs || {});
-        const tasks = [];
-        arrayNames.forEach((arrayName) => {
-            window.forEach((chunkIndex) => {
-                tasks.push(
-                    this.fetchAndDecodeChunk(arrayName, [chunkIndex, nodeChunkIndex], arrayConfigs[arrayName])
-                        .then((value) => ({ arrayName, chunkIndex, value }))
-                        .catch((error) => ({ arrayName, chunkIndex, error }))
-                );
-            });
-        });
-        return Promise.all(tasks);
+        return window.map((chunkIndex) => ({
+            chunkIndex,
+            promise: Promise.all(arrayNames.map((arrayName) => this
+                .fetchAndDecodeChunk(arrayName, [chunkIndex, nodeChunkIndex], arrayConfigs[arrayName])
+                .then((value) => ({ arrayName, chunkIndex, value }))
+                .catch((error) => ({ arrayName, chunkIndex, error }))))
+        }));
     }
 }
 

@@ -91,15 +91,44 @@ export function buildPlaybackManifestUrl(runId) {
 
 /**
  * Whether a scenario's latest COMPLETE run actually has a playback store to
- * activate — the pre-authorized W6.75 tradeoff: a complete run with no
- * playback store (has_playback_store false, or absent — e.g. a pre-TASK-2623
- * run) is treated identically to "no complete run at all" (AC: "row absent
- * or clearly non-actionable"), not a new empty/error product surface.
+ * activate.
+ *
+ * TASK-2684's AC permitted either treatment for a complete run with no store —
+ * "row absent OR clearly non-actionable" — and it elected ROW ABSENT, treating
+ * such a run identically to "no complete run at all".
+ *
+ * TASK-2715 (W5, epic 2706) elects the OTHER branch of that same AC. Absence
+ * proved indistinguishable from "you have no completed runs", which for prod
+ * scenario #407 — a 6.8M-triangle run that burned 29.4 hours of compute and
+ * completed successfully — was a dead end that stated no reason. Worse, the
+ * empty state actively asserted something false. So the row is now rendered
+ * and unmistakably dead, which is the sanctioned alternative rather than a
+ * reversal.
+ *
+ * This predicate itself is UNCHANGED: it still answers exactly "can playback
+ * be activated", and it is still the dispatch guard. What changed is that the
+ * menu no longer treats false as "show nothing".
+ *
  * @param {object} scenario
  * @returns {boolean}
  */
 export function scenarioHasActivatablePlayback(scenario) {
     return !!(scenario && scenario.latest_complete_run && scenario.latest_complete_run.has_playback_store);
+}
+
+/**
+ * A scenario that HAS a completed run but no playback store for it — the
+ * state TASK-2715 makes legible.
+ *
+ * Deliberately narrower than "not activatable": a scenario with NO complete
+ * run at all is a different state with a different explanation, and it is NOT
+ * this function's business (see TASK-2750).
+ *
+ * @param {object} scenario
+ * @returns {boolean}
+ */
+export function scenarioHasCompleteRunWithoutPlayback(scenario) {
+    return !!(scenario && scenario.latest_complete_run) && !scenarioHasActivatablePlayback(scenario);
 }
 
 /**
@@ -116,8 +145,13 @@ export function scenarioHasActivatablePlayback(scenario) {
  * generic MenuRows component when openMenuGroupId === 'Results'.
  */
 export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}) => {
-    const actionable = (scenarios || []).filter(scenarioHasActivatablePlayback);
-    if (actionable.length === 0) {
+    const all = scenarios || [];
+    const actionable = all.filter(scenarioHasActivatablePlayback);
+    // TASK-2715 — filter becomes CLASSIFY. A completed run with no playback
+    // store used to be dropped here, which left the user of a 29-hour run
+    // looking at a menu that said they had nothing.
+    const unavailable = all.filter(scenarioHasCompleteRunWithoutPlayback);
+    if (actionable.length === 0 && unavailable.length === 0) {
         return (
             <div className="sv-menu-rows-container sv-anuga-results-menu">
                 <div className="sv-anuga-results-empty" data-testid="anuga-results-empty">
@@ -143,6 +177,32 @@ export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}
                     </button>
                 );
             })}
+            {/* TASK-2715 — the run finished; only its player is missing. A
+                <div>, never a <button>: the dispatch guard in
+                resultsMenuMapDispatchToProps already refuses these, so a
+                clickable row would be an affordance that silently does
+                nothing — the exact dead end this task exists to remove.
+
+                It carries NO `sv-anuga-results-row` class token on purpose.
+                Three shipped specs count actionable rows by that selector, and
+                borrowing it would make this row indistinguishable from a live
+                one to both the tests and the stylesheet.
+
+                The copy states what is knowable and no more: the backend
+                exposes only a boolean (has_playback_store), with no reason
+                code, so it must not claim a cause it cannot see. */}
+            {unavailable.map((scenario) => (
+                <div
+                    key={`unavailable-${scenario.id}`}
+                    className="sv-anuga-results-row-unavailable"
+                    data-testid={`anuga-results-row-unavailable-${scenario.id}`}
+                >
+                    <span className="sv-anuga-results-row-unavailable-name">{scenario.name}</span>
+                    <span className="sv-anuga-results-row-unavailable-reason">
+                        <Message msgId="hydrata.anuga.resultsNoPlayback" />
+                    </span>
+                </div>
+            ))}
         </div>
     );
 };

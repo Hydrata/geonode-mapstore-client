@@ -1403,4 +1403,120 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
     });
+    /*
+     * TASK-2716 (W5, epic 2706) — say which number leaves the account.
+     *
+     * Three dollar figures can be on screen for one scenario at once, and the
+     * dogfood produced a live misreading from them: the $5 charge was read as
+     * a band index rendered as money. This is a comprehension bug, not a
+     * calculation bug — the $5 is correct and deliberately supersedes the
+     * exact estimate (a scenario can estimate $10.48 and still be charged $5).
+     *
+     * The chip ALREADY had a correct tooltip saying exactly this. Nobody read
+     * it. So the fix is VISIBLE text, and the role word has to live in its own
+     * element OUTSIDE the chip: three shipped specs from TASK-2100/2438 assert
+     * the chip's textContent by EXACT equality ('$5', 'Free', '$2') and those
+     * are the contract that the amount is the amount. They stay unedited.
+     */
+    describe('TASK-2716 — the money figures name their role in visible text', () => {
+        const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50', table: [[2, '1'], [5, '2'], [20, '5']]};
+        const ROLE = '[data-testid="sv-scenario-run-price-role"]';
+
+        it('the run-price chip names its role in VISIBLE text, not only in title', (done) => {
+            const scenario = {...baseScenario, latest_run: {price_band: '5'}};
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={scenario} canEdit canRunScenario />,
+                container,
+                () => {
+                    const role = container.querySelector(ROLE);
+                    expect(role).toExist('no visible role word beside the price chip');
+                    expect(role.textContent).toBe('Charged');
+                    // It is a SIBLING, not a wrapper: the chip's own text is
+                    // still exactly the amount (the shipped contract).
+                    const chip = container.querySelector('[data-testid="sv-scenario-run-price"]');
+                    expect(chip.textContent).toBe('$5');
+                    expect(chip.contains(role)).toBe(false);
+                    // and the tooltip is not a substitute — it stays.
+                    expect(chip.getAttribute('title')).toBe('What this run will be charged (compute meter)');
+                    done();
+                }
+            );
+        });
+
+        it('a pre-build banded figure is visibly labelled as an estimate', (done) => {
+            const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
+                container,
+                () => {
+                    const role = container.querySelector(ROLE);
+                    expect(role).toExist('no visible role word beside the pre-build estimate');
+                    expect(role.textContent).toBe('Estimated');
+                    expect(container.querySelector('[data-testid="sv-scenario-run-price"]').textContent).toBe('$2');
+                    done();
+                }
+            );
+        });
+
+        it('the two role words actually differ — charged is not estimated', (done) => {
+            // NON-VACUITY: without this, a role word hardcoded to one string
+            // would satisfy both specs above and label nothing at all.
+            const built = {...baseScenario, latest_run: {price_band: '5'}};
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={built} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
+                container,
+                () => {
+                    const charged = container.querySelector(ROLE).textContent;
+                    const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
+                    ReactDOM.render(
+                        <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
+                        container,
+                        () => {
+                            expect(container.querySelector(ROLE).textContent).toNotBe(charged);
+                            done();
+                        }
+                    );
+                }
+            );
+        });
+
+        it('renders NO role word when there is no price to label (over the dispatch ceiling)', (done) => {
+            // THE FENCE. priceLabel is null whenever the price is not finite —
+            // and band === Infinity, the above-the-ceiling sentinel, is exactly
+            // that case — so the chip does not render at all. An ungated role
+            // word would leave a label standing on its own with no amount
+            // anywhere beside it. Worse in the same ship as TASK-2717, which
+            // removes the ceiling badge for testers: that reader would be left
+            // with the word and nothing else.
+            const overCeiling = {...baseScenario, compute_cost_estimate: 5000, mesh_triangle_count_estimate: 9000000, latest_run: null};
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={overCeiling} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
+                container,
+                () => {
+                    expect(container.querySelector('[data-testid="sv-scenario-run-price"]')).toNotExist();
+                    expect(container.querySelector(ROLE)).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('renders NO role word in the shortfall state, which already says "Costs"', (done) => {
+            // The shortfall branch replaces the bare amount with a whole
+            // sentence — "Costs $2 · balance $0.00 · add at least $2 to run" —
+            // which already names the role. A second role word beside it would
+            // read as "Estimated Costs $2 · ...".
+            const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled accountBalance="0.00" freeBand={FREE_BAND} />,
+                container,
+                () => {
+                    const chip = container.querySelector('[data-testid="sv-scenario-run-price"]');
+                    expect(chip).toExist();
+                    expect(chip.textContent).toInclude('Costs $2');
+                    expect(container.querySelector(ROLE)).toNotExist();
+                    done();
+                }
+            );
+        });
+    });
 });

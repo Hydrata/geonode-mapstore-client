@@ -56,10 +56,55 @@
  * shell that owns the actual FBO/program/VAO objects and calls these.
  */
 
-// Matches the W0 spike's own probed size (VEL_TEX_SIZE) — the velocity
-// field's own spatial resolution is independent of the interactive
-// viewport/mesh triangle count.
-export const VEL_TEX_SIZE = 512;
+// The velocity field's own spatial resolution, independent of the interactive
+// viewport/mesh triangle count. It covers the whole square-padded run bbox, so
+// this number IS the field's ground resolution.
+//
+// TASK-2743 UAT-03 (W6, epic 2706) — raised 512 -> 1024. At 512 over the
+// 6,779,432-triangle Msimbazi store the padded square is 3,808.68 m a side, so
+// one texel was 7.44 m of ground and 55.34 m2 — about 28.5 mesh triangles
+// collapsed into each one, and 24.9 CSS pixels on screen at a working zoom. The
+// measured in-channel width on that store is ~22 m median and 10 m at p25, i.e.
+// 1.3-3.0 texels: too narrow to survive bilinear sampling, so channel-edge
+// texels averaged toward dry and killed the particles that should have been
+// tracing the channel. At 1024 the same channel is 5.9 texels (2.7 at p25).
+//
+// It is 1024 and NOT 2048 because this texture is shared with the arrow
+// overlay, which is the one overlay that already works well at production
+// scale. The default 64-CSS-px arrow grid is 19.1 m at that zoom: at 512 that
+// is 2.6 texels between samples, at 1024 it is 5.1, and at 2048 it is 10.3 —
+// far enough apart that bilinear stops smoothing between samples and the arrows
+// degrade into a point-sampled scatter. So the size is bounded on BOTH sides,
+// and a karma test pins both bounds. Cost of the change: +12.0 MiB VRAM
+// (RGBA32F 1024^2 = 16.78 MB vs 4.19 MB), zero JS heap, and no extra vertex
+// work — the same mesh draw fills it.
+export const VEL_TEX_SIZE = 1024;
+// The smallest size worth falling back to before giving up entirely.
+export const VEL_TEX_MIN_SIZE = 256;
+
+/**
+ * Pick the largest velocity-texture size, halving down from `requestedSize`,
+ * for which the caller reports a COMPLETE framebuffer — or 0 if even
+ * VEL_TEX_MIN_SIZE fails, which the caller must treat as "unsupported".
+ *
+ * This exists because `velFboComplete` has been computed since TASK-2632 and
+ * read by nothing: an incomplete FBO silently renders garbage rather than
+ * disabling the overlay, and raising the requested size makes that latent path
+ * meaningfully more reachable on a constrained GPU. Pure, with `isComplete`
+ * injected, so the fallback ladder is testable without a GL context.
+ *
+ * @param {number} requestedSize
+ * @param {function(number): boolean} isComplete allocates at `size` and reports completeness
+ * @returns {number} the accepted size, or 0
+ */
+export function resolveVelocityTextureSize(requestedSize, isComplete) {
+    for (let size = requestedSize; size >= VEL_TEX_MIN_SIZE; size = Math.floor(size / 2)) {
+        if (isComplete(size)) {
+            return size;
+        }
+    }
+    return 0;
+}
 
 // AC: "Controls stay minimal (on/off, density, scale)" — density is the
 // screen-space arrow-grid spacing in px (smaller = denser); scale is a

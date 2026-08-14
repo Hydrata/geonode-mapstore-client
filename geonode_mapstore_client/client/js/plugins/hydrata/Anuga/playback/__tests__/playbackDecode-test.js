@@ -25,7 +25,8 @@ import {
     decodeTypedArray,
     dequantize,
     chunkKey,
-    decodeChunk
+    decodeChunk,
+    HOST_IS_LITTLE_ENDIAN
 } from '../playbackDecode';
 import {
     FIXTURE_STORE_FILES,
@@ -143,6 +144,35 @@ describe('playbackDecode', () => {
             // the byteorder flag is actually threaded through, not ignored).
             const decodedLittle = decodeTypedArray(buf, 'uint16', 'little');
             expect(decodedLittle[0]).toNotBe(0x0102);
+        });
+
+        it('documents its copy-vs-alias contract: host-endian input aliases rawBuffer, opposite-endian input copies', () => {
+            // TASK-2731 (W3, epic 2706). playbackMemoryPolicy-test.js already
+            // pins the VALUES of both paths ('the zero-copy fast path is
+            // bit-identical to the DataView loop, both byte orders'); nothing
+            // pinned the IDENTITY, which is the half the JSDoc used to get
+            // wrong. hostOrder/otherOrder are DERIVED from the module's own
+            // measured HOST_IS_LITTLE_ENDIAN — a hardcoded 'little' would make
+            // this pass for the wrong reason on a big-endian host.
+            const hostOrder = HOST_IS_LITTLE_ENDIAN ? 'little' : 'big';
+            const otherOrder = HOST_IS_LITTLE_ENDIAN ? 'big' : 'little';
+
+            const raw = new ArrayBuffer(4);
+            new DataView(raw).setUint16(0, 0x0102, HOST_IS_LITTLE_ENDIAN);
+            const aliased = decodeTypedArray(raw, 'uint16', hostOrder);
+            // Same-order: a zero-copy view over the SAME ArrayBuffer object.
+            expect(aliased.buffer).toBe(raw);
+
+            const raw2 = new ArrayBuffer(4);
+            new DataView(raw2).setUint16(0, 0x0102, !HOST_IS_LITTLE_ENDIAN);
+            const copied = decodeTypedArray(raw2, 'uint16', otherOrder);
+            // Opposite order: a fresh allocation, rawBuffer untouched.
+            expect(copied.buffer).toNotBe(raw2);
+
+            // Control: both paths decoded the SAME value, so the identity
+            // difference above is about ownership, not about a decode bug.
+            expect(aliased[0]).toBe(0x0102);
+            expect(copied[0]).toBe(0x0102);
         });
 
         it('rejects an unsupported dtype', () => {

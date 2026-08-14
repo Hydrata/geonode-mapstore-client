@@ -24,7 +24,13 @@ import {
     mergeBufferedChunks,
     findTimestepBracket,
     colorMaxForQuantity,
+    isColorMaxOverridden,
     colorMinForQuantity,
+    clampOpacity,
+    DEFAULT_PLAYBACK_OPACITY,
+    MAX_SPEED,
+    defaultSpeedForTime,
+    simulatedSpanSeconds,
     playbackControllerReducer as reduce
 } from '../playbackController';
 import {
@@ -81,8 +87,12 @@ describe('playbackController', () => {
         it('clamps into [MIN_SPEED, MAX_SPEED]', () => {
             expect(clampSpeed(0)).toBe(0.25);
             expect(clampSpeed(-5)).toBe(0.25);
-            expect(clampSpeed(100)).toBe(8);
             expect(clampSpeed(2)).toBe(2);
+            // TASK-2744 AC17 raised MAX_SPEED from 8 to 20000: at 8x even a
+            // 30-minute run took 3.75 minutes to watch end to end. 100 is now
+            // a legitimate speed, not something to clamp away.
+            expect(clampSpeed(100)).toBe(100);
+            expect(clampSpeed(1e9)).toBe(MAX_SPEED);
         });
         it('falls back to the default for non-finite input', () => {
             expect(clampSpeed(NaN)).toBe(1);
@@ -395,22 +405,28 @@ describe('playbackController', () => {
             const resumed = reduce(stalled, playbackChunksBuffered([1]));
             expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
         });
-        it('sets degraded after repeated consecutive stalls (graceful degradation AC)', () => {
+        it('sets degraded once a stall has LASTED, not once it has been counted', () => {
             // On a stall, lastTickMs advances but playheadSeconds/currentTimestep
             // stay frozen (buffer-then-play: pause the sim clock, don't skip
             // ahead) — so each subsequent tick must independently re-attempt a
             // big enough jump to re-discover chunk 1 is still unbuffered.
+            //
+            // This used to assert `degraded` on the THIRD stalled tick whatever
+            // the clock said, which made the threshold 3 x TICK_INTERVAL_MS =
+            // 150ms in production — shorter than any chunk fetch the prod-scale
+            // store can do, so a healthy run raised it. The rule is now elapsed
+            // stall time, and these ticks are 350 SECONDS apart: one gap is
+            // already a hundred times over the bar.
             let s = { ...reduce(reduce(loadedState(), playbackChunksBuffered([0])), playbackPlay()), lastTickMs: 0 };
             s = reduce(s, playbackTick(350000));
             expect(s.status).toBe(PLAYBACK_STATUS.STALLED);
-            expect(s.degraded).toBe(false);
             expect(s.stallCount).toBe(1);
+            // Nothing has ELAPSED yet — this tick is when the stall began.
+            expect(s.degraded).toBe(false);
+            expect(s.stalledSinceMs).toBe(350000);
+
             s = reduce(s, playbackTick(700000));
             expect(s.stallCount).toBe(2);
-            expect(s.degraded).toBe(false);
-            s = reduce(s, playbackTick(1050000));
-            expect(s.status).toBe(PLAYBACK_STATUS.STALLED);
-            expect(s.stallCount).toBe(3);
             expect(s.degraded).toBe(true);
         });
         it('reaching the end of the timeline pauses (does not loop)', () => {
@@ -449,7 +465,13 @@ describe('playbackController', () => {
             // 35s > TIME's 30s first step, so this crosses into timestep 1
             // (not just a mixT nudge within timestep 0 — genuine frame
             // advance, matching the other large-jump TICK tests in this file).
-            const tickedAgain = reduce({ ...replayed, lastTickMs: 0 }, playbackTick(35000));
+            // TASK-2744 AC17: MANIFEST_LOADED now seeds `speed` from the
+            // store's own duration (TIME spans 360 s -> 360/15 = 24x), so the
+            // old 35 000 ms delta would advance 840 sim-seconds and land past
+            // the end of the timeline. 2 000 ms at 24x is 48 sim-seconds:
+            // still a genuine frame advance across TIME's 30 s first step,
+            // which is what this test is actually guarding.
+            const tickedAgain = reduce({ ...replayed, lastTickMs: 0 }, playbackTick(2000));
             expect(tickedAgain.status).toBe(PLAYBACK_STATUS.PLAYING);
             expect(tickedAgain.currentTimestep).toBeGreaterThan(0);
         });
@@ -564,6 +586,226 @@ describe('playbackController', () => {
             const busy = reduce(bufferedState(), playbackPlay());
             const reset = reduce(busy, playbackReset());
             expect(reset).toEqual(createInitialPlaybackState());
+        });
+    });
+
+    // TASK-2744 (AC3/AC4/AC11, epic 2706) — three render controls promoted to
+    // controller state so they survive the bar's own unmount (the bar is
+    // destroyed whenever the SimpleView menu group leaves 'Results').
+    describe('opacity, overlay knobs and colour-ramp override — TASK-2744', () => {
+        it('AC3 — SET_OPACITY clamps to 0..1 and ignores garbage', () => {
+            expect(createInitialPlaybackState().opacity).toBe(DEFAULT_PLAYBACK_OPACITY);
+            expect(reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OPACITY', opacity: 0.25 }).opacity).toBe(0.25);
+            expect(reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OPACITY', opacity: 5 }).opacity).toBe(1);
+            expect(reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OPACITY', opacity: -3 }).opacity).toBe(0);
+            // garbage keeps the PREVIOUS value rather than snapping to a default
+            const at3 = reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OPACITY', opacity: 0.3 });
+            expect(reduce(at3, { type: 'PLAYBACK:SET_OPACITY', opacity: 'nonsense' }).opacity).toBe(0.3);
+            expect(clampOpacity(0.5)).toBe(0.5);
+        });
+
+        it('AC11 — SET_OVERLAY writes whitelisted keys and DROPS unknown ones', () => {
+            const on = reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OVERLAY', key: 'flowVizEnabled', value: true });
+            expect(on.flowVizEnabled).toBe(true);
+            expect(reduce(on, { type: 'PLAYBACK:SET_OVERLAY', key: 'arrowDensity', value: 96 }).arrowDensity).toBe(96);
+            // a typo must not invent a controller-state field
+            const bogus = reduce(on, { type: 'PLAYBACK:SET_OVERLAY', key: 'flowVisEnabled', value: false });
+            expect(bogus).toBe(on);
+            expect(bogus.flowVisEnabled).toBe(undefined);
+        });
+
+        it('AC11 — the knobs survive PLAYBACK_PAUSE/PLAY (they are transport-independent)', () => {
+            const on = reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_OVERLAY', key: 'particlesEnabled', value: true });
+            expect(reduce(on, playbackPause()).particlesEnabled).toBe(true);
+        });
+
+        it('AC4 — SET_COLOR_MAX is per-quantity, and a null value CLEARS the override', () => {
+            const quantization = { depth: { valid_max: 16.862720489501953 } };
+            const base = createInitialPlaybackState();
+            // RED: the derived maximum is the store's valid_max
+            expect(colorMaxForQuantity('depth', quantization)).toBe(16.862720489501953);
+
+            const set = reduce(base, { type: 'PLAYBACK:SET_COLOR_MAX', quantity: 'depth', value: 1.5 });
+            expect(set.colorMaxOverride).toEqual({ depth: 1.5 });
+            expect(colorMaxForQuantity('depth', quantization, { colorMaxOverride: 1.5 })).toBe(1.5);
+            // a depth override in metres must not leak onto speed in m/s
+            expect(colorMaxForQuantity('speed', { x_velocity: { valid_max: 3 } }, { colorMaxOverride: set.colorMaxOverride.speed })).toBe(3);
+
+            const cleared = reduce(set, { type: 'PLAYBACK:SET_COLOR_MAX', quantity: 'depth', value: null });
+            expect(cleared.colorMaxOverride.depth).toBe(undefined);
+            expect(colorMaxForQuantity('depth', quantization, { colorMaxOverride: cleared.colorMaxOverride.depth })).toBe(16.862720489501953);
+        });
+
+        /*
+         * TASK-2788 (W7, epic 2706) — the dry-ground sheet's own alpha.
+         *
+         * A SEPARATE field from `opacity` on purpose. `opacity` is a CSS
+         * opacity on the whole canvas, so using it to see the catchment under
+         * the results also washes out the water you came to read.
+         */
+        it('AC — backgroundOpacity defaults to 0, and is not the same field as opacity', () => {
+            const base = createInitialPlaybackState();
+            expect(base.backgroundOpacity).toBe(0);
+            expect(base.opacity).toBe(DEFAULT_PLAYBACK_OPACITY);
+            expect(base.opacity).toNotBe(base.backgroundOpacity);
+        });
+
+        it('AC — SET_BACKGROUND_OPACITY moves only the background, and clamps to 0..1', () => {
+            const base = createInitialPlaybackState();
+            const set = reduce(base, { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 0.4 });
+            expect(set.backgroundOpacity).toBe(0.4);
+            expect(set.opacity).toBe(base.opacity, 'the layer slider must not move with it');
+
+            expect(reduce(set, { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 3 }).backgroundOpacity).toBe(1);
+            expect(reduce(set, { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: -2 }).backgroundOpacity).toBe(0);
+            // garbage keeps the current value rather than snapping to a default
+            expect(reduce(set, { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 'x' }).backgroundOpacity).toBe(0.4);
+        });
+
+        it('AC — SET_OPACITY does not disturb the background, either', () => {
+            const withBg = reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 0.6 });
+            const after = reduce(withBg, { type: 'PLAYBACK:SET_OPACITY', opacity: 0.2 });
+            expect(after.opacity).toBe(0.2);
+            expect(after.backgroundOpacity).toBe(0.6);
+        });
+
+        it('AC4 — an override at or below colorMin is ignored (never inverts the ramp)', () => {
+            // stage's colorMin is its elevationMin, so an override below that
+            // would produce a negative span and divide-by-clamp everything
+            const ctx = { elevationMin: 10, elevationMax: 20, colorMaxOverride: 5 };
+            expect(colorMaxForQuantity('stage', null, ctx)).toNotBe(5);
+        });
+
+        // TASK-2784 (W7, epic 2706) — the UI used to ask `isFinite(override)`
+        // while colorMaxForQuantity asked something stricter, so an override
+        // the renderer was DISCARDING still lit the is-override styling and
+        // the reset button. One predicate, so the ramp mode, the uniform, the
+        // legend labels and the reset affordance cannot disagree.
+        it('isColorMaxOverridden agrees with colorMaxForQuantity on every edge it used to differ on', () => {
+            const quantization = { depth: { valid_max: 16.862720489501953 } };
+            const cases = [
+                { quantity: 'depth', ctx: { colorMaxOverride: 1.5 }, expected: true },
+                { quantity: 'depth', ctx: { colorMaxOverride: 0 }, expected: false },
+                { quantity: 'depth', ctx: { colorMaxOverride: -2 }, expected: false },
+                { quantity: 'depth', ctx: {}, expected: false },
+                { quantity: 'depth', ctx: { colorMaxOverride: NaN }, expected: false },
+                { quantity: 'stage', ctx: { elevationMin: 10, elevationMax: 20, colorMaxOverride: 5 }, expected: false },
+                { quantity: 'stage', ctx: { elevationMin: 10, elevationMax: 20, colorMaxOverride: 15 }, expected: true }
+            ];
+            cases.forEach(({ quantity, ctx, expected }) => {
+                expect(isColorMaxOverridden(quantity, ctx)).toBe(expected, `${quantity} / ${JSON.stringify(ctx)}`);
+                // the predicate IS the branch colorMaxForQuantity takes
+                const took = colorMaxForQuantity(quantity, quantization, ctx) === Number(ctx.colorMaxOverride);
+                expect(took).toBe(expected, `colorMaxForQuantity disagreed for ${quantity}`);
+            });
+        });
+    });
+
+    // TASK-2744 (AC17, epic 2706) — THE DEFAULT SPEED WAS REAL TIME AND
+    // NOTHING SAID SO. Measured on map 1461 at HEAD: speed 1, and 3000 ms of
+    // wall clock advanced the playhead exactly 3.00 sim-seconds and ZERO
+    // timesteps, because the Msimbazi store steps every 60 s. End-to-end was
+    // 30 minutes; the old 8x ceiling still meant 3.75.
+    describe('default playback speed — TASK-2744 AC17', () => {
+        const MSIMBAZI_TIME = Array.from({ length: 31 }, (_, i) => i * 60); // 0..1800 s
+
+        it('simulatedSpanSeconds reads the store\'s own duration', () => {
+            expect(simulatedSpanSeconds(MSIMBAZI_TIME)).toBe(1800);
+            expect(simulatedSpanSeconds(null)).toBe(0);
+            expect(simulatedSpanSeconds([5])).toBe(0);
+        });
+
+        it('a freshly loaded Msimbazi run plays end-to-end in ~15 s, not 30 min', () => {
+            const speed = defaultSpeedForTime(MSIMBAZI_TIME);
+            expect(speed).toBe(120);
+            // the AC's own predicate
+            expect(Math.abs(1800 / speed - 15) <= 3).toBe(true);
+            // RED on HEAD: speed was DEFAULT_SPEED = 1 => 1800 s = 30 minutes
+            expect(1800 / 1).toBe(1800);
+        });
+
+        it('MANIFEST_LOADED seeds the speed from the store, per run', () => {
+            const loaded = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, mesh: null, time: MSIMBAZI_TIME,
+                    nTime: 31, nNode: 6, chunkLengthT: 10, totalChunks: 4,
+                    quantization: { depth: { valid_max: 1 } }
+                }));
+            expect(loaded.speed).toBe(120);
+
+            // a 24 h design storm gets its OWN multiplier, not a shared constant
+            const daily = Array.from({ length: 25 }, (_, i) => i * 3600); // 0..86400 s
+            expect(defaultSpeedForTime(daily)).toBe(86400 / 15);
+        });
+
+        it('falls back to real time when the store declares no usable duration', () => {
+            expect(defaultSpeedForTime(null)).toBe(1);
+            expect(defaultSpeedForTime([0, 0])).toBe(1);
+        });
+
+        it('at the seeded default a 3 s sample crosses several timesteps (the AC1 clause that was vacuous at HEAD)', () => {
+            const base = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, mesh: null, time: MSIMBAZI_TIME,
+                    nTime: 31, nNode: 6, chunkLengthT: 10, totalChunks: 4,
+                    quantization: { depth: { valid_max: 1 } }
+                }));
+            // 3 s of wall clock at 120x = 360 sim-seconds = six 60 s timesteps
+            const advanced = reduce({ ...base, status: PLAYBACK_STATUS.PLAYING, lastTickMs: 0, bufferedChunks: [0, 1, 2, 3] }, playbackTick(3000));
+            expect(advanced.currentTimestep - base.currentTimestep >= 3).toBe(true);
+            // at HEAD's speed of 1 the same 3 s moved ZERO timesteps
+            const atHeadSpeed = reduce({ ...base, speed: 1, status: PLAYBACK_STATUS.PLAYING, lastTickMs: 0, bufferedChunks: [0, 1, 2, 3] }, playbackTick(3000));
+            expect(atHeadSpeed.currentTimestep).toBe(0);
+        });
+    });
+
+    // TASK-2726 (W5.5, epic 2706) — the results extent is its OWN state field,
+    // deliberately not derived from `mesh`. `mesh.nodeX/nodeY` are in the
+    // STORE'S NATIVE CRS; handing MapStore those numbers as an EPSG:3857
+    // extent is the exact mistake AC3 names, and a separate, already-projected
+    // field is what makes it unavailable to make.
+    describe('meshBounds3857 — TASK-2726', () => {
+        const BOUNDS = [4369623.8, -761565.1, 4373166.8, -757776.3];
+
+        it('is null before a store loads', () => {
+            expect(createInitialPlaybackState().meshBounds3857).toBe(null);
+        });
+
+        it('is published by MANIFEST_LOADED', () => {
+            expect(loadedState({}, null).meshBounds3857).toBe(null);
+            const withBounds = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2, meshBounds3857: BOUNDS
+                }));
+            expect(withBounds.meshBounds3857).toEqual(BOUNDS);
+        });
+
+        it('is NOT carried over when a second store loads without one', () => {
+            // A run switch must never leave the zoom control aimed at the
+            // previous run's extent — the failure would be silent and would
+            // look exactly like a working button.
+            const first = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2, meshBounds3857: BOUNDS
+                }));
+            expect(first.meshBounds3857).toEqual(BOUNDS);
+            const second = reduce(reduce(first, playbackInit(8, 'layer-2')),
+                playbackManifestLoaded({
+                    runId: 8, manifest: { id: 'm2' }, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2
+                }));
+            expect(second.meshBounds3857).toBe(null);
+        });
+
+        it('is cleared by PLAYBACK_RESET', () => {
+            const first = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2, meshBounds3857: BOUNDS
+                }));
+            expect(reduce(first, playbackReset(7, 'layer-1')).meshBounds3857).toBe(null);
         });
     });
 });

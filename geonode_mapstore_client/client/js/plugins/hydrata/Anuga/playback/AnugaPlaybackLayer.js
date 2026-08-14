@@ -52,11 +52,34 @@ import { packQuantityVec3 } from './playbackMeshGeometry';
 
 export const LAYER_TYPE = 'anuga-playback';
 
+/**
+ * TASK-2743 UAT-07 (W6, epic 2706) — packed-frame memo.
+ *
+ * packQuantityVec3 allocates and fills a Float32Array of 3 x nNode: 40.7 MB
+ * and 10.2M element writes on map 1461. Stepping the playhead one timestep
+ * used to run it TWICE, once for each of frame0/frame1 — but the new frame0
+ * IS the old frame1 (playbackEpics now hands back the same object rather than
+ * re-slicing it), so the second pack is pure waste.
+ *
+ * A WeakMap keyed on the frame object means the memo evaporates exactly when
+ * the epic drops the frame, with no eviction policy to get wrong and no way
+ * to pin a 40.7 MB buffer alive past its frame. Identity is also what tells
+ * the renderer it may recycle the GPU-side buffer, so the two optimisations
+ * share one source of truth.
+ */
+const packedFrames = new WeakMap();
+
 function packFrame(frame) {
     if (!frame) {
         return null;
     }
-    return packQuantityVec3(frame.depth, frame.xVelocity, frame.yVelocity);
+    const memo = packedFrames.get(frame);
+    if (memo) {
+        return memo;
+    }
+    const packed = packQuantityVec3(frame.depth, frame.xVelocity, frame.yVelocity);
+    packedFrames.set(frame, packed);
+    return packed;
 }
 
 /**
@@ -227,11 +250,21 @@ function create(options = {}, map) {
                 colorMode: olLayer.get('colorMode') || 'depth',
                 colorMax: olLayer.get('colorMax') || 1,
                 colorMin: olLayer.get('colorMin') || 0,
+                // TASK-2784 (W7, epic 2706) — the reader has set this
+                // quantity's ceiling, so the ramp stretches to fill it rather
+                // than staying pinned to absolute SLD values.
+                colorRescaled: !!olLayer.get('colorRescaled'),
                 // TASK-2629 (W4.1) — the store's OWN minimum_storable_height/
                 // g/rho_w, never a hardcoded guess; the 1e-5/9.8/1000 fallbacks
                 // below only cover a caller that never set these (e.g. a karma
                 // GL smoke test) — production always sets them from schema_metadata
                 // (playbackEpics.playbackSyncLayerEpic's baseProps).
+                // TASK-2788 — dry-ground alpha. `|| 0` would be right by
+                // accident here but wrong in principle: 0 is the DEFAULT and a
+                // legitimate value, so read it explicitly and only fall back
+                // when the property was never set.
+                backgroundOpacity: olLayer.get('backgroundOpacity') === undefined
+                    ? 0 : olLayer.get('backgroundOpacity'),
                 wetThreshold: olLayer.get('wetThreshold') || 1e-5,
                 g: olLayer.get('g') || 9.8,
                 rhoW: olLayer.get('rhoW') || 1000,
@@ -258,6 +291,8 @@ function create(options = {}, map) {
     olLayer.set('colorMode', options.colorMode || 'depth');
     olLayer.set('colorMax', options.colorMax || 1);
     olLayer.set('colorMin', options.colorMin || 0);
+    olLayer.set('colorRescaled', !!options.colorRescaled);
+    olLayer.set('backgroundOpacity', options.backgroundOpacity === undefined ? 0 : options.backgroundOpacity);
     olLayer.set('wetThreshold', options.wetThreshold || 1e-5);
     olLayer.set('g', options.g || 9.8);
     olLayer.set('rhoW', options.rhoW || 1000);
@@ -329,7 +364,17 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (newOptions.frame0 !== oldOptions.frame0 || newOptions.frame1 !== oldOptions.frame1) {
         if (newOptions.frame0 && newOptions.frame1) {
-            renderer.setFrames(packFrame(newOptions.frame0), packFrame(newOptions.frame1));
+            // TASK-2743 UAT-07 — object identity is the PROOF that the new
+            // frame0 is byte-for-byte the frame1 already sitting in VRAM: the
+            // frames are opaque {depth,xVelocity,yVelocity} objects minted by
+            // loadPlaybackFrame, and playbackEpics carries the previous one
+            // forward on a single forward step instead of re-slicing it.
+            // Anything else — a seek, a backward step, a re-slice after a
+            // refused frame — fails this test and takes the full upload.
+            renderer.setFrames(
+                packFrame(newOptions.frame0), packFrame(newOptions.frame1),
+                { frame0WasPreviousFrame1: newOptions.frame0 === oldOptions.frame1 }
+            );
         }
     }
     if (newOptions.mixT !== oldOptions.mixT) {
@@ -346,6 +391,12 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (newOptions.colorMin !== oldOptions.colorMin) {
         layer.set('colorMin', newOptions.colorMin || 0);
+    }
+    if (!newOptions.colorRescaled !== !oldOptions.colorRescaled) {
+        layer.set('colorRescaled', !!newOptions.colorRescaled);
+    }
+    if (newOptions.backgroundOpacity !== oldOptions.backgroundOpacity) {
+        layer.set('backgroundOpacity', newOptions.backgroundOpacity === undefined ? 0 : newOptions.backgroundOpacity);
     }
     if (newOptions.wetThreshold !== oldOptions.wetThreshold) {
         layer.set('wetThreshold', newOptions.wetThreshold || 1e-5);

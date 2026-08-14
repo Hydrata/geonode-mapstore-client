@@ -183,6 +183,30 @@ describe('builtMeshBinary', () => {
             expect(Array.from(options.frame0.depth)).toEqual([0, 0, 0, 0]);
         });
 
+        /*
+         * TASK-2788 (W7, epic 2706) — this preview asks for an OPAQUE dry-ground
+         * sheet explicitly, because it is 100% dry by construction (zero frames
+         * above) and that sheet is the entire picture.
+         *
+         * The playback layer's default became transparent in TASK-2788, which is
+         * right for a results run and exactly wrong here: at the default this
+         * preview renders nothing but its wireframe, and no control in the app
+         * can restore the fill — the Background opacity slider dispatches against
+         * the playback run's own layer id and this is a different layer with no
+         * control bar. Caught by an adversarial review, not by a test, which is
+         * why there is one now.
+         */
+        it('asks for an OPAQUE background — this preview IS the dry-ground sheet', () => {
+            const fixture = packFixtureBuffer();
+            const decoded = decodeBuiltMeshBinary(fixture.buffer);
+            const options = buildBuiltMeshLayerOptions(decoded);
+            expect(options.backgroundOpacity).toBe(1);
+            // the pairing that makes it load-bearing: every vertex is dry, so
+            // every pixel of this layer takes the shader's dry branch
+            expect(Array.from(options.frame0.depth).every((d) => d === 0)).toBe(true);
+            expect(Array.from(options.frame1.depth).every((d) => d === 0)).toBe(true);
+        });
+
         it('accepts a custom id/title', () => {
             const fixture = packFixtureBuffer();
             const decoded = decodeBuiltMeshBinary(fixture.buffer);

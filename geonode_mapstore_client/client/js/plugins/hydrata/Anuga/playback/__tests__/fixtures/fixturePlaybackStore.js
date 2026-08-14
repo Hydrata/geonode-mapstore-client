@@ -25,6 +25,15 @@
 // has_dt=false convention (every dt_ms sample NaN, see the W4 wave report's
 // Phase 0.5 store-attr check) — a faithful re-derivation via the SAME
 // bytes+gzip codec chain every other chunk here uses, not an arbitrary edit.
+//
+// TASK-2724 (W1.3, epic 2706) amendment: FIXTURE_MANIFEST gained a
+// `chunk_shapes` block, mirroring Run.build_playback_manifest()'s new
+// per-array chunk_grid pass-through. It is DERIVED in-file from
+// FIXTURE_ARRAY_META (not re-typed), so it cannot drift from the raw
+// zarr.json bytes in FIXTURE_STORE_FILES. The chunk-length-1 sibling store
+// used to prove the client no longer assumes 10 lives in
+// fixturePlaybackStoreChunk1.js, rechunked from THESE bytes by the same
+// deploy-repo tool that produced the W0 rig's chunk-1 store.
 
 export const FIXTURE_STORE_FILES = {
     "zarr.json": "ewogICJhdHRyaWJ1dGVzIjogewogICAgImZvcm1hdF92ZXJzaW9uIjogMSwKICAgICJ4bGxjb3JuZXIiOiA1MDAwMDAuMCwKICAgICJ5bGxjb3JuZXIiOiA2OTAwMDAwLjAsCiAgICAiZmFsc2VfZWFzdGluZyI6IDUwMDAwMC4wLAogICAgImZhbHNlX25vcnRoaW5nIjogMTAwMDAwMDAuMCwKICAgICJlcHNnIjogMzI3NTYsCiAgICAiem9uZSI6IDU2LAogICAgInZlbG9jaXR5X2NvbnZlbnRpb24iOiAic29sdmVyX2Vwc2lsb24iLAogICAgInZlbG9jaXR5X2Zvcm11bGEiOiAidSA9IHVoIC8gKGggKyBoMC9oKSIsCiAgICAidmVsb2NpdHlfcHJvdGVjdGlvbiI6IDFlLTA2LAogICAgIm1pbmltdW1fYWxsb3dlZF9oZWlnaHQiOiAxZS0wNSwKICAgICJkaXNwbGF5X21hc2tfaCI6IDFlLTA1LAogICAgIm1pbmltdW1fc3RvcmFibGVfaGVpZ2h0IjogMC4wMDUsCiAgICAiZyI6IDkuOCwKICAgICJyaG9fdyI6IDEwMjMuMCwKICAgICJidWlsZGluZ19tYW5uaW5nc19uIjogMTAuMCwKICAgICJmbG93X2FsZ29yaXRobSI6ICJERTAiLAogICAgIm1vZGVsX3N0YXJ0IjogIjE5NzAtMDEtMDFUMDA6MDA6MDArMDA6MDAiLAogICAgInRpbWVfdW5pdHMiOiAic2Vjb25kcyIsCiAgICAiaGFzX2R0IjogZmFsc2UsCiAgICAiZHRfc291cmNlIjogbnVsbCwKICAgICJzbW9vdGhpbmciOiAidmVydGV4LWF2ZXJhZ2VkIiwKICAgICJhbnVnYV92ZXJzaW9uIjogIjMuMy43LWZpeHR1cmUiLAogICAgInJldmlzaW9uX251bWJlciI6ICJmaXh0dXJlIiwKICAgICJyZXZpc2lvbl9kYXRlIjogImZpeHR1cmUiLAogICAgImNvZGVjIjogImd6aXAiLAogICAgImNvZGVjX2xldmVsIjogNgogIH0sCiAgInphcnJfZm9ybWF0IjogMywKICAibm9kZV90eXBlIjogImdyb3VwIgp9",
@@ -635,6 +644,17 @@ export const FIXTURE_MANIFEST = {
             "valid_min": -0.2999977171421051,
             "valid_max": 0.2999977171421051
         }
+    },
+    // TASK-2724 (W1.3, epic 2706) amendment: Run.build_playback_manifest now
+    // also folds each quantized array's chunk_grid.configuration.chunk_shape
+    // into the manifest (a SIBLING of `attributes`, so `quantization` above
+    // never carried it). DERIVED from this file's own FIXTURE_ARRAY_META
+    // rather than re-typed, so the manifest shape can never drift from the
+    // raw-store shape the mock fetch serves.
+    "chunk_shapes": {
+        "depth": FIXTURE_ARRAY_META.depth.chunk_grid.configuration.chunk_shape,
+        "x_velocity": FIXTURE_ARRAY_META.x_velocity.chunk_grid.configuration.chunk_shape,
+        "y_velocity": FIXTURE_ARRAY_META.y_velocity.chunk_grid.configuration.chunk_shape
     },
     "expires_at": "2026-08-06T23:59:59+00:00"
 };

@@ -1591,24 +1591,28 @@ describe('TASK-1752 anugaInputMenu terrain reorder lands on state.flat (regressi
 });
 
 // ---------------------------------------------------------------------------
-// TASK-1755 (W1.8): Culvert menu entry — blank placeholder pane + i18n keys.
+// TASK-2742 (W5, epic 2706): the Culverts affordance is RETIRED.
 //
-// Two bugs were fixed:
-//   (1) renderPane()'s switch had NO `case 'culverts':` arm, so selecting the
-//       Culvert rail fell through to `default:` and showed the TERRAIN pane.
-//       renderPane() must now route 'culverts' to renderCulvertPane() (a clean
-//       blank placeholder), NOT renderTerrainPane().
-//   (2) the i18n keys for the culvert heading (hydrata.anuga.culverts) and the
-//       empty-state body (hydrata.anuga.culvertPlaceholder) were MISSING, so the
-//       heading rendered a raw key. They must exist (and be non-empty) in en-US
-//       and at parity across the test-enforced locales.
+// This block replaces TASK-1755's, which pinned the placeholder pane that
+// stood behind a rail item nobody could use. The rail item rendered
+// unconditionally to every user with a projection set, and the pane behind it
+// promised "draw culverts on the map" — a sentence that was not true. Drawing
+// requires a cul_* layer, and no culvert layer can be created: there is no
+// backend route, nothing dispatches CREATE_ANUGA_CULVERT, and the epic that
+// would have handled it was never registered.
 //
-// These assertions inspect the React element tree returned by the render
-// methods (no connected mount / IntlProvider needed) and the shared en-US
-// translation fixture, mirroring the patterns already used in this file.
-// ---------------------------------------------------------------------------
-describe('TASK-1755 culvert menu entry — placeholder pane + i18n', () => {
-    const { AnugaInputMenuClass: AnugaInputMenuClassLocal } = require('../anugaInputMenu');
+// The guards below are the retirement's forcing function: they fail if any
+// part of the affordance comes back without its backend. Each carries a
+// POSITIVE CONTROL asserting a surviving sibling, because "culverts is absent
+// from renderRail()" is satisfied vacuously by a renderRail() that returns
+// nothing at all.
+//
+// What is NOT retired, and must never be swept up with this: the VectorDraw
+// cul_ draw/edit family (culvertTranslate.js, ANUGA_FEATURE_CONFIG['cul_'],
+// the click-target prefix list) and the whole backend — model, migrations,
+// reserved layer rank. Those are banked for a future culvert epic.
+describe('TASK-2742 culvert affordance retirement guard', () => {
+    const { AnugaInputMenuClass: AnugaInputMenuClassLocal, mapDispatchToProps } = require('../anugaInputMenu');
 
     // Walk a React element tree collecting every props.msgId (the <Message/> ids).
     function collectMsgIds(el, acc) {
@@ -1621,41 +1625,65 @@ describe('TASK-1755 culvert menu entry — placeholder pane + i18n', () => {
         return acc;
     }
 
-    it('#1: renderPane() routes selectedCategory="culverts" to renderCulvertPane (NOT the terrain pane)', () => {
+    // Same walker, for the data-anuga-category attribute renderRailItem emits.
+    function collectCategories(el, acc) {
+        if (!el || typeof el !== 'object') return acc;
+        if (Array.isArray(el)) { el.forEach(c => collectCategories(c, acc)); return acc; }
+        if (el.props) {
+            if (typeof el.props['data-anuga-category'] === 'string') acc.push(el.props['data-anuga-category']);
+            collectCategories(el.props.children, acc);
+        }
+        return acc;
+    }
+
+    function railInstance() {
+        // renderRailItem reads only this.state.selectedCategory and
+        // CATEGORY_ICONS, so no props and no mount are needed.
         const instance = Object.create(AnugaInputMenuClassLocal.prototype);
-        instance.state = { selectedCategory: 'culverts' };
-        let culvertCalls = 0;
-        let terrainCalls = 0;
-        instance.renderCulvertPane = () => { culvertCalls++; return 'CULVERT_PANE'; };
-        instance.renderTerrainPane = () => { terrainCalls++; return 'TERRAIN_PANE'; };
-        const out = instance.renderPane();
-        expect(culvertCalls).toBe(1, 'culvert category must dispatch to renderCulvertPane');
-        expect(terrainCalls).toBe(0, 'culvert category must NOT fall through to renderTerrainPane');
-        expect(out).toBe('CULVERT_PANE');
+        instance.state = { selectedCategory: 'terrain' };
+        return instance;
+    }
+
+    it('AC1: renderRail() offers no culverts category and no culverts heading', () => {
+        const rail = railInstance().renderRail();
+        const categories = collectCategories(rail, []);
+        const msgIds = collectMsgIds(rail, []);
+
+        // POSITIVE CONTROL FIRST — prove the detector sees a live category
+        // before trusting it to report a zero.
+        expect(categories.indexOf('terrain')).toBeGreaterThan(-1,
+            'detector is blind: renderRail() yielded no known-live category');
+        expect(msgIds.indexOf('hydrata.anuga.structures')).toBeGreaterThan(-1,
+            'detector is blind: renderRail() yielded no known-live heading msgId');
+
+        expect(categories.indexOf('culverts')).toBe(-1, 'the Culverts rail item is still offered');
+        expect(msgIds.indexOf('hydrata.anuga.culverts')).toBe(-1, 'the Culverts heading is still rendered');
     });
 
-    it('#2: renderCulvertPane() heads the pane with the culverts category and shows the placeholder Message (no raw key markup)', () => {
-        const instance = Object.create(AnugaInputMenuClassLocal.prototype);
-        let headCatId = null;
-        // Stub renderPaneHead so we can confirm the translated heading is driven by
-        // the 'culverts' category (whose titleMsgId is hydrata.anuga.culverts).
-        instance.renderPaneHead = (catId) => { headCatId = catId; return null; };
-        const tree = instance.renderCulvertPane();
-        expect(headCatId).toBe('culverts', 'pane head must render the culverts category heading');
-        const msgIds = collectMsgIds(tree, []);
-        expect(msgIds.indexOf('hydrata.anuga.culvertPlaceholder')).toBeGreaterThan(-1,
-            'placeholder pane must render the translated empty-state Message, not a raw key');
+    it('AC1: there is no culvert pane left to route to', () => {
+        expect(AnugaInputMenuClassLocal.prototype.renderCulvertPane).toBe(undefined);
+        // positive control: the sibling panes the retirement must not touch
+        expect(typeof AnugaInputMenuClassLocal.prototype.renderTerrainPane).toBe('function');
     });
 
-    it('#3: the culvert i18n keys exist and are non-empty in the en-US bundle', () => {
-        const { enMessages } = require('../../../../../__tests__/fixtures/translations');
-        ['hydrata.anuga.culverts', 'hydrata.anuga.culvertPlaceholder'].forEach(key => {
-            expect(enMessages[key]).toExist(`Missing i18n key: ${key}`);
-            expect(typeof enMessages[key]).toBe('string', `Key ${key} should be a string`);
-            expect(enMessages[key].trim().length).toBeGreaterThan(0, `Empty value for key: ${key}`);
-            // No raw-key leakage: the resolved value must not be the key itself.
-            expect(enMessages[key]).toNotBe(key.split('.').pop(), `Key ${key} resolves to a raw key`);
-        });
+    it('AC2: mapDispatchToProps no longer wires the culvert creators', () => {
+        const keys = Object.keys(mapDispatchToProps(() => {}));
+        // POSITIVE CONTROL — a mapDispatchToProps that threw or returned {}
+        // would satisfy the two absence checks below vacuously.
+        expect(keys.indexOf('createAnugaStructure')).toBeGreaterThan(-1,
+            'detector is blind: mapDispatchToProps yielded no known-live dispatcher');
+
+        expect(keys.indexOf('createAnugaCulvert')).toBe(-1);
+        expect(keys.indexOf('addAnugaCulvert')).toBe(-1);
+    });
+
+    it('AC2: the culvert action creators are gone from comparisonActions', () => {
+        const actions = require('../../actions/comparisonActions');
+        // positive control on the same module
+        expect(typeof actions.createAnugaStructure).toBe('function');
+
+        expect(actions.createAnugaCulvert).toBe(undefined);
+        expect(actions.addAnugaCulvert).toBe(undefined);
     });
 });
 

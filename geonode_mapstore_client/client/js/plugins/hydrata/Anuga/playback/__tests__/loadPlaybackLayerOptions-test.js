@@ -10,6 +10,10 @@
 import expect from 'expect';
 import { loadPlaybackMesh, loadPlaybackFrame, loadPlaybackLayerOptions, loadPlaybackTime } from '../loadPlaybackLayerOptions';
 import { PlaybackChunkFetcher } from '../playbackChunkFetcher';
+// TASK-2724 — loadPlaybackFrame no longer defaults its chunk length; every
+// caller resolves it from the store it is reading (see playbackChunkShape-test
+// for the both-chunk-lengths proof).
+import { resolveChunkLengthT } from '../playbackChunkShape';
 import { FIXTURE_STORE_FILES, FIXTURE_MANIFEST, FIXTURE_PHYSICAL, FIXTURE_MESH } from './fixtures/fixturePlaybackStore';
 
 function base64ToArrayBuffer(b64) {
@@ -49,7 +53,7 @@ describe('loadPlaybackLayerOptions', () => {
     describe('loadPlaybackFrame', () => {
         it('slices out exactly one timestep row per vertex, matching FIXTURE_PHYSICAL', (done) => {
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetch });
-            loadPlaybackFrame(fetcher, 5, FIXTURE_MESH.nNode).then((frame) => {
+            loadPlaybackFrame(fetcher, 5, FIXTURE_MESH.nNode, resolveChunkLengthT(FIXTURE_MANIFEST)).then((frame) => {
                 expect(frame.depth.length).toBe(FIXTURE_MESH.nNode);
                 const depthQ = FIXTURE_MANIFEST.quantization.depth;
                 for (let n = 0; n < FIXTURE_MESH.nNode; n++) {
@@ -61,7 +65,7 @@ describe('loadPlaybackLayerOptions', () => {
 
         it('reads the correct row for a timestep in the SECOND time-chunk', (done) => {
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetch });
-            loadPlaybackFrame(fetcher, 11, FIXTURE_MESH.nNode).then((frame) => {
+            loadPlaybackFrame(fetcher, 11, FIXTURE_MESH.nNode, resolveChunkLengthT(FIXTURE_MANIFEST)).then((frame) => {
                 const depthQ = FIXTURE_MANIFEST.quantization.depth;
                 for (let n = 0; n < FIXTURE_MESH.nNode; n++) {
                     expect(Math.abs(frame.depth[n] - FIXTURE_PHYSICAL.depth[11][n]) <= depthQ.scale + 1e-6).toBe(true);

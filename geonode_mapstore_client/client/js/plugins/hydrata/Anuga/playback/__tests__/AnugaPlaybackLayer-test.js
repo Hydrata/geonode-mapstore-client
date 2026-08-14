@@ -154,6 +154,52 @@ describe('AnugaPlaybackLayer', () => {
             expect(layer.get('colorMax')).toBe(3);
         });
 
+        // TASK-2784 (W7, epic 2706) — the ramp mode has to survive the trip
+        // through the layer, and has to be DIFFED, or toggling the ceiling off
+        // would leave a stretched LUT behind on a layer that no longer has one.
+        it('carries colorRescaled through create() and update()', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-rescale', colorMode: 'speed', colorMax: 4, colorRescaled: true });
+            expect(layer.get('colorRescaled')).toBe(true);
+
+            const stretched = { id: 'playback-rescale', colorMode: 'speed', colorMax: 4, colorRescaled: true };
+            const plain = { id: 'playback-rescale', colorMode: 'speed', colorMax: 4 };
+
+            Layers.updateLayer(LAYER_TYPE, layer, plain, stretched);
+            expect(layer.get('colorRescaled')).toBe(false, 'clearing the ceiling must clear the stretch');
+
+            Layers.updateLayer(LAYER_TYPE, layer, stretched, plain);
+            expect(layer.get('colorRescaled')).toBe(true);
+        });
+
+        it('defaults colorRescaled to false — no ceiling means SLD-absolute colours', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-rescale-default' });
+            expect(layer.get('colorRescaled')).toBe(false);
+        });
+
+        /*
+         * TASK-2788 (W7, epic 2706) — dry-ground alpha. The trap this guards is
+         * `||`: 0 is both the DEFAULT and the most-used real value here, so any
+         * `options.backgroundOpacity || <fallback>` on the way through would be
+         * indistinguishable from "unset" and a deliberate 0 could never round-trip.
+         */
+        it('carries backgroundOpacity through create() and update(), including a deliberate 0', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-bg', backgroundOpacity: 0.4 });
+            expect(layer.get('backgroundOpacity')).toBe(0.4);
+
+            const dim = { id: 'playback-bg', backgroundOpacity: 0.4 };
+            const clear = { id: 'playback-bg', backgroundOpacity: 0 };
+            Layers.updateLayer(LAYER_TYPE, layer, clear, dim);
+            expect(layer.get('backgroundOpacity')).toBe(0, 'a deliberate 0 must survive, not fall back');
+
+            Layers.updateLayer(LAYER_TYPE, layer, dim, clear);
+            expect(layer.get('backgroundOpacity')).toBe(0.4);
+        });
+
+        it('defaults backgroundOpacity to 0 — the dry ground starts transparent', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-bg-default' });
+            expect(layer.get('backgroundOpacity')).toBe(0);
+        });
+
         it('create() defaults opacity to 1 and visibility to true when omitted', () => {
             const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-3' });
             expect(layer.getOpacity()).toBe(1);
@@ -363,4 +409,88 @@ describe('AnugaPlaybackLayer', () => {
             waitForMesh();
         });
     });
+
+    // ========================================================================
+    // TASK-2743 UAT-07 (W6, epic 2706) — the playback stall.
+    //
+    // Measured in the live tab on map 1461: 36 gl.bufferData calls moving
+    // 1,397.9 MB cost 3,443 ms — 95.6 ms per 40.7 MB upload, TWO per timestep.
+    // Stepping the playhead one frame makes the old frame1 the new frame0, so
+    // one of those two uploads is re-sending bytes that are already in VRAM.
+    //
+    // The property under test is not "it is faster" (a timing assertion in
+    // karma is a flake generator) but the MECHANISM: on a forward step the
+    // renderer must do exactly one CPU->GPU upload and one GPU-side copy, and
+    // on anything else it must do two uploads. Counted off the live GL
+    // context, so a refactor that quietly drops the recycling fails here.
+    // ========================================================================
+    describe('frame recycling (TASK-2743 UAT-07, requires a real WebGL2 context)', function() {
+        before(function() {
+            if (!webgl2Available()) {
+                this.skip();
+            }
+        });
+
+        const countGlCalls = (renderer) => {
+            const gl = renderer.gl;
+            const counts = { bufferData: 0, copyBufferSubData: 0 };
+            const originals = {};
+            ['bufferData', 'copyBufferSubData'].forEach((name) => {
+                originals[name] = gl[name];
+                gl[name] = function(...args) {
+                    counts[name]++;
+                    return originals[name].apply(gl, args);
+                };
+            });
+            counts.restore = () => Object.keys(originals).forEach((n) => { gl[n] = originals[n]; });
+            return counts;
+        };
+        const frame = (n, seed) => Float32Array.from({ length: n * 3 }, (_, i) => (i + seed) % 7);
+
+        it('a FORWARD step uploads once and copies once — the redundant 40.7 MB re-upload is gone', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-recycle' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const a = frame(64, 0); const b = frame(64, 1); const c = frame(64, 2);
+            renderer.setFrames(a, b);                                      // first frames: full
+            const counts = countGlCalls(renderer);
+            renderer.setFrames(b, c, { frame0WasPreviousFrame1: true });   // forward step
+            counts.restore();
+            expect(counts.bufferData).toBe(1);
+            expect(counts.copyBufferSubData).toBe(1);
+        });
+
+        it('a SEEK (no identity match) still does both uploads and copies nothing', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-seek' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const a = frame(64, 0); const b = frame(64, 1);
+            renderer.setFrames(a, b);
+            const counts = countGlCalls(renderer);
+            renderer.setFrames(frame(64, 5), frame(64, 6));                // no flag at all
+            counts.restore();
+            expect(counts.bufferData).toBe(2);
+            expect(counts.copyBufferSubData).toBe(0);
+        });
+
+        it('the FIRST setFrames can never recycle, however it is flagged — there is nothing in VRAM to copy', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-first' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const counts = countGlCalls(renderer);
+            renderer.setFrames(frame(64, 0), frame(64, 1), { frame0WasPreviousFrame1: true });
+            counts.restore();
+            expect(counts.bufferData).toBe(2);
+            expect(counts.copyBufferSubData).toBe(0);
+        });
+
+        it('a frame of a DIFFERENT length forces the full path — a size-mismatched copy would be silent corruption', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-resize' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            renderer.setFrames(frame(64, 0), frame(64, 1));
+            const counts = countGlCalls(renderer);
+            renderer.setFrames(frame(128, 1), frame(128, 2), { frame0WasPreviousFrame1: true });
+            counts.restore();
+            expect(counts.bufferData).toBe(2);
+            expect(counts.copyBufferSubData).toBe(0);
+        });
+    });
+
 });
