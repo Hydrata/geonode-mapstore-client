@@ -259,8 +259,6 @@
         "noFrictionRastersAvailable": "Aucun raster de friction disponible",
         "nodes": "Nœuds",
         "none": "Aucun",
-        "culverts": "Ponceaux",
-        "culvertPlaceholder": "Outils de ponceaux — dessinez des ponceaux sur la carte.",
         "projectVisibility": "Visibilité",
         "publish": "Publier",
         "publishPrefix": "Publier :",

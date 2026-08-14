@@ -27,9 +27,6 @@ const CREATE_LUMPED_CATCHMENT = 'CREATE_LUMPED_CATCHMENT';
 const CREATE_NODES = 'CREATE_NODES';
 const CREATE_LINKS = 'CREATE_LINKS';
 const CREATE_FIGURE = 'CREATE_FIGURE';
-// TASK-1594 (W1) — Culvert: terrain-workbench drainage structure.
-const CREATE_ANUGA_CULVERT = 'CREATE_ANUGA_CULVERT';
-const ADD_ANUGA_CULVERT = 'ADD_ANUGA_CULVERT';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
 const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
@@ -175,15 +172,6 @@ function createAnugaStructure(structureTitle) {
     return { type: CREATE_ANUGA_STRUCTURE, structureTitle };
 }
 
-// TASK-1594 (W1) — Culvert create action creator.
-function createAnugaCulvert(culvertTitle) {
-    return { type: CREATE_ANUGA_CULVERT, culvertTitle };
-}
-
-function addAnugaCulvert() {
-    return { type: ADD_ANUGA_CULVERT };
-}
-
 function createAnugaMeshRegion(meshRegionTitle) {
     return { type: CREATE_ANUGA_MESH_REGION, meshRegionTitle };
 }
@@ -282,9 +270,6 @@ module.exports = {
     // TASK-955 — paired with CREATE_ANUGA_RAINFALL.
     ADD_ANUGA_RAINFALL, addAnugaRainfall,
     ADD_ANUGA_STRUCTURE, addAnugaStructure,
-    // TASK-1594 (W1) — Culvert actions.
-    CREATE_ANUGA_CULVERT, createAnugaCulvert,
-    ADD_ANUGA_CULVERT, addAnugaCulvert,
     ADD_ANUGA_FULL_MESH, addAnugaFullMesh,
     ADD_ANUGA_MESH_REGION, addAnugaMeshRegion,
     ADD_NETWORK, addNetwork,

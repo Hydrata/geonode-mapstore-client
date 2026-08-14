@@ -60,33 +60,44 @@ import * as epicsTerrainWorkbench from '../../TerrainWorkbench/epicsTerrainWorkb
  * An entry here is a DECISION ON RECORD, not an exemption to be handed out
  * casually — the whole point of the guard is that silence is not an option.
  *
- * createAnugaCulvertEpic (TASK-1594 W1 / diagnosed TASK-2707):
- *   Registering it would be actively WRONG, not merely unnecessary — it is not
- *   the buildScenarioEpic bug class, where a live control reached a real
- *   endpoint. Two independent reasons, both verified 2026-08-10:
- *     (a) NO BACKEND ROUTE. makeCreateEpic calls
- *         anugaApi.createResource(projectId, 'culvert', ...), and 'culvert' has
- *         no V2_PLURAL entry, so that resolves to
- *         POST /api/v2/anuga/projects/{p}/culvert/ — a route that does not
- *         exist. `grep -c culvert apps/gn_anuga/urls.py` -> 0; there is no
- *         CulvertViewSet and no culvert serializer anywhere in the monolith.
- *         makeCreateEpic swallows the failure (`.catch(() => Observable.of(null))`),
- *         so registering it buys a silent 404 per click instead of silence.
- *     (b) THE ACTION IS UNREACHABLE. INPUT_MENU_CONFIG.culverts.createProp
- *         ('createAnugaCulvert') is dead config: renderPane()'s `case 'culverts'`
- *         routes to renderCulvertPane(), the TASK-1755 (W1.8) BLANK PLACEHOLDER
- *         pane, NOT to renderCreatePane('culverts') — the only caller that
- *         consumes createProp. No live control dispatches CREATE_ANUGA_CULVERT.
- *   Culverts are drawn on the map via the independent VectorDraw WFST path
- *   (culvertTranslate.js), which this epic has nothing to do with. Delete this
- *   entry when the culvert BE endpoint + a real create control both land.
+ * IT IS EMPTY, AND KEEPING IT EMPTY IS THE POINT (TASK-2742, W5 epic 2706).
+ *
+ * This guard was born with exactly one entry, createAnugaCulvertEpic, and that
+ * was always uncomfortable: epic 2706's own root cause (TASK-2707) was
+ * buildScenarioEpic being barrel-exported but unregistered, which made the
+ * Build button a production no-op for the epic's entire life. A guard written
+ * in response to that, shipped with an exemption already in it, has conceded
+ * the first case before it starts.
+ *
+ * The culvert epic could not simply be registered, because registering it
+ * would have been actively wrong rather than merely unnecessary:
+ *   (a) THE ACTION WAS UNREACHABLE. renderPane()'s `case 'culverts'` routed to
+ *       renderCulvertPane(), the TASK-1755 blank placeholder, NOT to
+ *       renderCreatePane() — the only consumer of CREATE_PANE_CONFIG's
+ *       createProp. Nothing anywhere dispatched CREATE_ANUGA_CULVERT.
+ *   (b) THERE WAS NO BACKEND ROUTE EITHER. makeCreateEpic called
+ *       anugaApi.createResource(projectId, 'culvert', ...), and 'culvert' had
+ *       no V2_PLURAL entry, so it resolved to the singular
+ *       POST /api/v2/anuga/projects/{p}/culvert/ — a route that does not
+ *       exist, and whose failure makeCreateEpic swallows.
+ * So (a) makes the 404 in (b) HYPOTHETICAL rather than latent: no click could
+ * ever have reached it. Both had to be true for the quarantine to be the right
+ * call, and both are stated here because the earlier version of this block
+ * implied the epic was one registration away from firing 404s, which it was
+ * not. (That version also named `INPUT_MENU_CONFIG.culverts.createProp`, a
+ * const that has never existed; the real name is CREATE_PANE_CONFIG.)
+ *
+ * TASK-2742 resolved it the honest way: it retired the affordance instead of
+ * exempting the epic. The rail item, the placeholder pane, the action
+ * creators, the epic and the two i18n strings are all gone; the Culvert model,
+ * its migrations, the reserved layer rank and the whole VectorDraw cul_ draw
+ * path are deliberately untouched and ready for a future culvert epic.
+ *
+ * The result is a guard that protects every epic uniformly, with nothing
+ * excused. If you are about to add an entry here, that is the bar: a case that
+ * genuinely cannot be registered AND cannot be retired.
  */
-const QUARANTINED_EPICS = {
-    createAnugaCulvertEpic:
-        'TASK-2707: no BE route (/api/v2/anuga/projects/{p}/culvert/ does not exist) ' +
-        'and CREATE_ANUGA_CULVERT is dispatched by no live control (culverts pane is ' +
-        'the TASK-1755 blank placeholder). Registering it would fire a swallowed 404.'
-};
+const QUARANTINED_EPICS = {};
 
 /*
  * Sub-slices of state.anuga that are combined in reducersAnuga.js but whose
@@ -157,6 +168,18 @@ describe('TASK-2707 — Anuga plugin registration completeness', () => {
     });
 
     it('keeps the epic quarantine list honest in both directions', () => {
+        // TASK-2742 (epic AC17) — the list is EMPTY and must stay empty. This
+        // assertion is the forcing function: a future exemption cannot be
+        // slipped in quietly alongside the code it excuses, it has to come
+        // here and change this number, in a diff someone reviews.
+        expect(Object.keys(QUARANTINED_EPICS).length).toBe(0);
+        // ...and the epic that used to be the sole entry is genuinely retired,
+        // not merely un-listed.
+        expect(epicsAnuga.createAnugaCulvertEpic).toNotExist();
+        // POSITIVE CONTROL: the barrel really did load, so the assertion above
+        // is reporting an absence rather than an empty module.
+        expect(typeof epicsAnuga.createAnugaStructureEpic).toBe('function');
+
         Object.keys(QUARANTINED_EPICS).forEach((name) => {
             // Still a real export? If not, the entry is stale — delete it.
             expect(typeof epicsAnuga[name]).toBe('function');
