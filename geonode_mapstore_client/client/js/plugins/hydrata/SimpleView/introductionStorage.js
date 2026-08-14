@@ -19,7 +19,7 @@
  * surfacing a NATIVE BASIC-AUTH PASSWORD PROMPT, which would be a serious
  * failure on precisely the anonymous link-recipient path this epic exists to
  * serve. So the anonymous accept issues NO request at all — it writes here and
- * stops. `introductionEpics-test.js` pins that no `/accept/` request is made
+ * stops. `epicsIntroduction-test.js` pins that no `/accept/` request is made
  * when logged out; that assertion is the guard, not this comment.
  *
  * KEYED BY PROJECT, VALUED BY CONTENT VERSION. Any content edit changes

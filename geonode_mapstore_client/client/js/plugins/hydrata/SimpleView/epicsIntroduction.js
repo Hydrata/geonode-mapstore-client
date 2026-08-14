@@ -197,7 +197,7 @@ export const introductionAutoShowEpic = (action$, store) =>
  * IsAuthenticated and answers an anonymous POST 401 with a
  * `WWW-Authenticate: Basic` header, which a browser may surface as a native
  * password prompt — on the anonymous-link path this epic exists to serve. That
- * is the trap; `introductionEpics-test.js` pins that no request is issued.
+ * is the trap; `epicsIntroduction-test.js` pins that no request is issued.
  */
 export const introductionAcceptEpic = (action$, store) =>
     action$.ofType(ACCEPT_INTRODUCTION)
