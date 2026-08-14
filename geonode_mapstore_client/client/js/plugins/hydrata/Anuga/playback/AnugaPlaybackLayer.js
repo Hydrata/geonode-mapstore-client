@@ -52,11 +52,34 @@ import { packQuantityVec3 } from './playbackMeshGeometry';
 
 export const LAYER_TYPE = 'anuga-playback';
 
+/**
+ * TASK-2743 UAT-07 (W6, epic 2706) — packed-frame memo.
+ *
+ * packQuantityVec3 allocates and fills a Float32Array of 3 x nNode: 40.7 MB
+ * and 10.2M element writes on map 1461. Stepping the playhead one timestep
+ * used to run it TWICE, once for each of frame0/frame1 — but the new frame0
+ * IS the old frame1 (playbackEpics now hands back the same object rather than
+ * re-slicing it), so the second pack is pure waste.
+ *
+ * A WeakMap keyed on the frame object means the memo evaporates exactly when
+ * the epic drops the frame, with no eviction policy to get wrong and no way
+ * to pin a 40.7 MB buffer alive past its frame. Identity is also what tells
+ * the renderer it may recycle the GPU-side buffer, so the two optimisations
+ * share one source of truth.
+ */
+const packedFrames = new WeakMap();
+
 function packFrame(frame) {
     if (!frame) {
         return null;
     }
-    return packQuantityVec3(frame.depth, frame.xVelocity, frame.yVelocity);
+    const memo = packedFrames.get(frame);
+    if (memo) {
+        return memo;
+    }
+    const packed = packQuantityVec3(frame.depth, frame.xVelocity, frame.yVelocity);
+    packedFrames.set(frame, packed);
+    return packed;
 }
 
 /**
@@ -329,7 +352,17 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (newOptions.frame0 !== oldOptions.frame0 || newOptions.frame1 !== oldOptions.frame1) {
         if (newOptions.frame0 && newOptions.frame1) {
-            renderer.setFrames(packFrame(newOptions.frame0), packFrame(newOptions.frame1));
+            // TASK-2743 UAT-07 — object identity is the PROOF that the new
+            // frame0 is byte-for-byte the frame1 already sitting in VRAM: the
+            // frames are opaque {depth,xVelocity,yVelocity} objects minted by
+            // loadPlaybackFrame, and playbackEpics carries the previous one
+            // forward on a single forward step instead of re-slicing it.
+            // Anything else — a seek, a backward step, a re-slice after a
+            // refused frame — fails this test and takes the full upload.
+            renderer.setFrames(
+                packFrame(newOptions.frame0), packFrame(newOptions.frame1),
+                { frame0WasPreviousFrame1: newOptions.frame0 === oldOptions.frame1 }
+            );
         }
     }
     if (newOptions.mixT !== oldOptions.mixT) {

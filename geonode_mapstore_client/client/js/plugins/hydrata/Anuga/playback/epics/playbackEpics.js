@@ -77,6 +77,11 @@ import {
     computePlaybackMemoryPlan,
     readNodeCount,
     describePlan,
+    // TASK-2743 UAT-08 (W6, epic 2706) — the operator's "pre-load ... safely
+    // in response to available memory". Read ONCE per manifest load and
+    // threaded into both plans below, so the initial and the exact-nFace plan
+    // can never be costed against different budgets.
+    resolvePlaybackHeapBudgetFromEnvironment,
     PLAYBACK_BUDGET_WARN_PREFIX
 } from '../playbackMemoryPolicy';
 // TASK-2744 (AC20, epic 2706) — score the plan against a measurement.
@@ -140,6 +145,11 @@ export const fetcherRegistry = new Map();
 // so mixT-only ticks (the common case) dispatch a cheap
 // mergeOptionsById({mixT}) instead of re-fetching/re-uploading frames.
 const lastSyncedTimestep = new Map();
+// runId -> {timestep, frame}: the frame1 the last sync loaded, kept so the
+// NEXT step can adopt it as frame0 instead of dequantizing the same timestep
+// twice. See playbackSyncLayerEpic for why identity (not equality) is the
+// property that matters downstream. TASK-2743 UAT-07.
+const lastFrame1 = new Map();
 
 // runId -> {sourceMesh, layerMesh}. TASK-2628 live-verify catch:
 // AnugaPlaybackLayer's worker reprojection TRANSFERS (detaches)
@@ -451,8 +461,13 @@ export function playbackInitEpic(action$, store) {
             // once face_node_connectivity has landed.
             const nNode0 = readNodeCount(manifest);
             const totalChunks0 = nTime0 && chunkLengthT ? Math.ceil(nTime0 / chunkLengthT) : undefined;
+            const heapBudget = resolvePlaybackHeapBudgetFromEnvironment();
             const initialPlan = nNode0
-                ? computePlaybackMemoryPlan({ nNode: nNode0, chunkLengthT, totalChunks: totalChunks0 })
+                ? computePlaybackMemoryPlan({
+                    nNode: nNode0, chunkLengthT, totalChunks: totalChunks0,
+                    budgetBytes: heapBudget.budgetBytes,
+                    maxChunksPerQuantity: heapBudget.maxChunksPerQuantity
+                })
                 : null;
             // TASK-2732 (W3, epic 2706) — THE seam. This plan already knows
             // whether the store fits, and until now that verdict was dropped
@@ -521,7 +536,9 @@ export function playbackInitEpic(action$, store) {
                 nNode,
                 nFace: mesh.faceNodeConnectivity ? mesh.faceNodeConnectivity.length / 3 : undefined,
                 chunkLengthT,
-                totalChunks
+                totalChunks,
+                budgetBytes: heapBudget.budgetBytes,
+                maxChunksPerQuantity: heapBudget.maxChunksPerQuantity
             });
             fetcher.applyMemoryPlan(memoryPlan);
             // TASK-2744 AC20 — SCORE THE FORECAST. `withinBudget` had zero
@@ -744,13 +761,35 @@ export function playbackSyncLayerEpic(action$, store) {
             return Rx.Observable.of(mergeOptionsById(pb.layerId, baseProps));
         }
         const nextTimestep = pb.nTime ? Math.min(pb.currentTimestep + 1, pb.nTime - 1) : pb.currentTimestep + 1;
+        // TASK-2743 UAT-07 (W6, epic 2706) — carry the previous step's frame1
+        // forward as this step's frame0 instead of re-slicing it.
+        //
+        // On a forward step the two are the SAME timestep, so the old code
+        // dequantized 3 x nNode elements (10.2M on map 1461) a second time to
+        // rebuild a value it had just thrown away. Reusing the OBJECT saves
+        // that pass AND — because AnugaPlaybackLayer tests frame identity —
+        // lets the renderer recycle the 40.7 MB that timestep already has in
+        // VRAM rather than re-uploading it. Together those are the ~191 ms of
+        // per-frame main-thread work measured behind the operator's "pauses
+        // for a significant buffering around frame 16".
+        //
+        // The memo holds ONE step (`{timestep, frame}`) and is only ever read
+        // on an exact timestep match, so a seek, a backward step or a run
+        // switch simply misses and re-slices. It is dropped as soon as it is
+        // consumed, which bounds the retained bytes at one frame — the same
+        // frame the layer is holding anyway.
+        const carried = lastFrame1.get(pb.runId);
+        const reusedFrame0 = carried && carried.timestep === pb.currentTimestep ? carried.frame : null;
         return Rx.Observable.fromPromise(
             Promise.all([
-                loadPlaybackFrame(fetcher, pb.currentTimestep, pb.nNode, pb.chunkLengthT),
+                reusedFrame0
+                    ? Promise.resolve(reusedFrame0)
+                    : loadPlaybackFrame(fetcher, pb.currentTimestep, pb.nNode, pb.chunkLengthT),
                 loadPlaybackFrame(fetcher, nextTimestep, pb.nNode, pb.chunkLengthT)
             ])
         ).map(([frame0, frame1]) => {
             lastSyncedTimestep.set(pb.runId, pb.currentTimestep);
+            lastFrame1.set(pb.runId, { timestep: nextTimestep, frame: frame1 });
             return mergeOptionsById(pb.layerId, { ...baseProps, frame0, frame1 });
         }).catch((error) => {
             // TASK-2706 (W1 review) — a REFUSED frame must never be swallowed.
