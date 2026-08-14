@@ -3113,7 +3113,16 @@ span.sv-scenario-run-price--short {
     /* Rounds the card's TOP corners now that the card no longer clips: the
        drawer is the top child whenever it is open. */
     border-radius: 6px 6px 0 0;
-    max-height: 42vh;
+    /* TASK-2743 UAT-04 (W6, epic 2706). Was a flat 42vh, which sounds modest but
+       is measured against the VIEWPORT while the bar the user actually sees is
+       the drawer PLUS the fixed transport row. On a 1280x720 window the viewport
+       is 504 px, so 42vh (212 px) + the 47 px transport row put the whole bar at
+       259 px = 51.4% of the screen, leaving 245 px of map. Budgeting the bar as a
+       whole at ~33% and subtracting the transport row keeps the map dominant at
+       every window size (measured: 162 px / 32.1% at 1280x720, 281 px / 32.6% at
+       1920x1080). The drawer already scrolls, so capping it costs reach, not
+       content. */
+    max-height: calc(33vh - 3.2rem);
     overflow-y: auto;
 }
 .sv-playback-drawer[hidden] {
