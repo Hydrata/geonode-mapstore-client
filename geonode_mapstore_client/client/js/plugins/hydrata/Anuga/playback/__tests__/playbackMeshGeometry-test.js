@@ -25,7 +25,11 @@ import {
     buildDecimatedWireframeIndices,
     WIREFRAME_LEGIBILITY_REFERENCE_TRIANGLES,
     WIREFRAME_MAX_DECIMATION_STRIDE,
-    WIREFRAME_MIN_OPACITY
+    WIREFRAME_MIN_OPACITY,
+    // TASK-2743 UAT-01 (W6, epic 2706) — closed-triangle (face) decimation.
+    WIREFRAME_FACE_STRIDE_FACTOR,
+    wireframeFaceStride,
+    buildFaceDecimatedWireframeIndices
 } from '../playbackMeshGeometry';
 import { FIXTURE_PHYSICAL, FIXTURE_MESH } from './fixtures/fixturePlaybackStore';
 
@@ -453,4 +457,108 @@ describe('playbackMeshGeometry', () => {
             expect(buildDecimatedWireframeIndices(new Int32Array([]), 4).length).toBe(0);
         });
     });
+
+    // ── TASK-2743 UAT-01 (W6, epic 2706) — closed-triangle wireframe ──────────
+    // The shipped edge decimator thins edges in triangle-emission order, so at
+    // stride 12 it closed EXACTLY ZERO triangles on the real 6,779,432-triangle
+    // store and read as disconnected speckle. These pin the replacement.
+    describe('buildFaceDecimatedWireframeIndices (UAT-01: a decimated wireframe must still read as a mesh)', () => {
+        // Walk 6 indices at a time: [v0,v1, v1,v2, v2,v0] is a closed triangle.
+        const closedTriangleFraction = (idx) => {
+            const tris = Math.floor(idx.length / 6);
+            if (tris === 0) { return 0; }
+            let closed = 0;
+            for (let i = 0; i + 5 < idx.length; i += 6) {
+                if (idx[i + 1] === idx[i + 2] && idx[i + 3] === idx[i + 4] && idx[i + 5] === idx[i]) { closed++; }
+            }
+            return closed / tris;
+        };
+        // A row-major grid mesh: `rows` x `cols` quads, each split into 2 faces.
+        const gridMesh = (rows, cols) => {
+            const out = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const a = r * (cols + 1) + c, b = a + 1, d = a + cols + 1, e = d + 1;
+                    out.push(a, b, d, b, e, d);
+                }
+            }
+            return Int32Array.from(out);
+        };
+        const faces = gridMesh(199, 199); // 79,202 faces — the perf-smoke fixture size
+
+        it('derives the face stride from the edge stride, and leaves small meshes alone', () => {
+            expect(wireframeFaceStride(6779432)).toBe(24);
+            expect(wireframeFaceStride(6779432))
+                .toBe(WIREFRAME_FACE_STRIDE_FACTOR * wireframeDecimationStride(6779432));
+            // TASK-2686 forbids changing meshes that already work. Everything
+            // with edge-stride 1 keeps face-stride 1 and never enters this code.
+            expect(wireframeFaceStride(49999)).toBe(1);
+            expect(wireframeFaceStride(74999)).toBe(1);
+            expect(wireframeFaceStride(75000)).toBe(4);
+        });
+
+        it('THE DEFECT, stated positively: edge decimation closes nothing at any stride', () => {
+            // Green before AND after — this pins the DIAGNOSIS, not the fix.
+            [2, 4, 12].forEach((s) => {
+                expect(closedTriangleFraction(buildDecimatedWireframeIndices(faces, s))).toBe(0);
+            });
+        });
+
+        it('THE FIX: every drawn primitive is a closed triangle', () => {
+            const next = buildFaceDecimatedWireframeIndices(faces, 4);
+            expect(closedTriangleFraction(next)).toBe(1);
+            expect(next.length).toBe(Math.ceil(79202 / 4) * 6);
+            expect(next.constructor).toBe(Uint32Array);
+        });
+
+        it('costs the same ink and the same bytes as the edge builder it replaces', () => {
+            // The load-bearing memory assertion: face-stride 2s draws 3/(2s)
+            // edges per face, edge-stride s draws 1.5/s. Identical.
+            [2, 10, 12].forEach((s) => {
+                const a = buildDecimatedWireframeIndices(faces, s).length;
+                const b = buildFaceDecimatedWireframeIndices(faces, s * WIREFRAME_FACE_STRIDE_FACTOR).length;
+                expect(Math.abs(b - a) / a).toBeLessThan(0.005);
+            });
+        });
+
+        it('jitters within each block, so a row-major mesh does not stripe', () => {
+            // RED against the naive `f % stride` selector: with 398 faces per
+            // row and stride 24, `f % 24 === 0` keeps the same few columns in
+            // every row. Count distinct within-row positions actually kept.
+            const idx = buildFaceDecimatedWireframeIndices(faces, 24);
+            const firstVertexOfRow0 = new Set();
+            for (let i = 0; i + 5 < idx.length; i += 6) { firstVertexOfRow0.add(idx[i] % 200); }
+            expect(firstVertexOfRow0.size).toBeGreaterThan(8);
+        });
+
+        it('is deterministic — two builds of the same input are identical', () => {
+            expect(buildFaceDecimatedWireframeIndices(faces, 4))
+                .toEqual(buildFaceDecimatedWireframeIndices(faces, 4));
+        });
+
+        it('stays exact above 2^53/2654435761 — the Math.imul trap', () => {
+            // A plain `b * 2654435761` loses low bits to float64 rounding once
+            // b > ~3.39M, the MIDDLE of the real 6,779,432-face mesh. Verified
+            // divergent at b=6,779,431 (naive 16 vs exact 15). Assert the
+            // offsets high in the index range are not all collapsed to 0.
+            const nFace = 6779432;
+            const fnc = new Int32Array(nFace * 3); // contents irrelevant; we read offsets
+            for (let f = 0; f < nFace; f++) { fnc[f * 3] = f; }
+            const idx = buildFaceDecimatedWireframeIndices(fnc, 24);
+            expect(idx.length).toBe(Math.ceil(nFace / 24) * 6);
+            let nonZeroHigh = 0;
+            for (let i = 0; i + 5 < idx.length; i += 6) {
+                const f = idx[i];
+                if (f > 3392506 && (f % 24) !== 0) { nonZeroHigh++; }
+            }
+            expect(nonZeroHigh).toBeGreaterThan(0);
+        });
+
+        it('an empty mesh yields an empty buffer, and a bad length throws', () => {
+            expect(buildFaceDecimatedWireframeIndices(new Int32Array([]), 24).length).toBe(0);
+            expect(() => buildFaceDecimatedWireframeIndices(new Int32Array([1, 2]), 4))
+                .toThrow(/multiple of 3/);
+        });
+    });
+
 });

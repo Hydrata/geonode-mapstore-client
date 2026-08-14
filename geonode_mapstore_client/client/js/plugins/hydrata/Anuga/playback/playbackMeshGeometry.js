@@ -211,6 +211,98 @@ export function buildDecimatedWireframeIndices(faceNodeConnectivity, stride) {
     return out;
 }
 
+// TASK-2743 UAT-01 (W6, epic 2706) — the wireframe's decimation UNIT.
+//
+// wireframeDecimationStride above thins EDGES in triangle-emission order, so
+// whether a given triangle keeps 0, 1, 2 or 3 of its edges depends only on
+// where the global edge counter happens to land. At the shipped stride of 12
+// the chance that all three edges of any one triangle survive is ~1/1728:
+// measured live on map 1461 (6,779,432 triangles), the overlay drew 847,429
+// edges and closed EXACTLY ZERO triangles. That is why it reads as
+// disconnected speckle rather than a thinned mesh — the operator's words were
+// "makes the mesh look very incorrect".
+//
+// Selecting FACES and emitting all three of their edges makes every drawn
+// primitive a closed triangle, so a decimated wireframe still reads as a mesh.
+//
+// The factor of 2 is what makes this free. The deduped edge set is 1.5 edges
+// per face (3 edges each, each interior edge shared by 2 faces), so edge-stride
+// s draws 1.5/s edges per face while face-stride 2s draws 3/(2s) = 1.5/s.
+// Identical ink, identical buffer bytes, identical draw call — only the
+// STRUCTURE changes. On map 1461: 1,694,858 -> 1,694,862 line indices (+4),
+// 6,779,432 -> 6,779,448 bytes (+16), 0 -> 282,477 closed triangles.
+export const WIREFRAME_FACE_STRIDE_FACTOR = 2;
+
+/**
+ * The face-decimation stride for a mesh of `triangleCount` triangles.
+ *
+ * Deliberately DERIVED from wireframeDecimationStride rather than re-computed,
+ * so the two can never disagree about which side of the <50k "leave it alone"
+ * boundary a mesh falls on (TASK-2686's AC forbids changing rendering for
+ * meshes that already work). Returns 1 below the boundary, which routes
+ * _ensureWireframeIndices to the ORIGINAL buildWireframeIndices path — so a
+ * small mesh never enters this code at all.
+ * @param {number} triangleCount
+ * @returns {number}
+ */
+export function wireframeFaceStride(triangleCount) {
+    const edgeStride = wireframeDecimationStride(triangleCount);
+    return edgeStride > 1 ? edgeStride * WIREFRAME_FACE_STRIDE_FACTOR : 1;
+}
+
+/**
+ * Build a GL_LINES index buffer that keeps every `faceStride`-th FACE and
+ * emits all three of its edges — the closed-triangle counterpart to
+ * buildDecimatedWireframeIndices.
+ *
+ * Keeps TASK-2734's discipline: the output is exactly sized BEFORE it is
+ * filled (kept*6 is known in closed form, so unlike the edge builder this
+ * needs no counting pass at all) and nothing is ever accumulated in a boxed JS
+ * array. It is also ~48x less work than the edge builder at prod scale —
+ * 282,477 block iterations instead of two passes over 6,779,432 faces.
+ *
+ * Interior edges shared by two KEPT faces are drawn twice. At stride 24 that
+ * is ~3/24 = 4.2% of drawn edges, compositing to alpha 0.153 instead of 0.08 —
+ * invisible, and deduplicating would require exactly the Set that TASK-2734
+ * removed for costing 1,021 MiB.
+ *
+ * @param {Int32Array|Uint32Array|number[]} faceNodeConnectivity flat [v0,v1,v2, ...]
+ * @param {number} faceStride keep every `faceStride`-th face (<=1 keeps all)
+ * @returns {Uint32Array} flat pairs [a0,b0, a1,b1, ...] for gl.LINES
+ */
+export function buildFaceDecimatedWireframeIndices(faceNodeConnectivity, faceStride) {
+    const n = faceNodeConnectivity.length;
+    if (n % 3 !== 0) {
+        throw new Error('playbackMeshGeometry.buildFaceDecimatedWireframeIndices: length must be a multiple of 3');
+    }
+    const nFace = n / 3;
+    const step = faceStride > 1 ? Math.floor(faceStride) : 1;
+    const kept = Math.ceil(nFace / step);
+    const out = new Uint32Array(kept * 6);
+    let w = 0;
+    for (let b = 0; b < nFace; b += step) {
+        const span = Math.min(step, nFace - b);
+        // JITTERED BLOCK SAMPLE — one face per block of `step`, at a
+        // pseudo-random offset WITHIN the block. A plain `b` (or `f % step`)
+        // selector keeps the same column of a row-major mesh in every row and
+        // renders as stripes rather than an even sample.
+        //
+        // Math.imul is load-bearing, not a style choice: `b * 2654435761`
+        // exceeds 2^53 once b > ~3.39M, which is the MIDDLE of this mesh, and
+        // float64 then rounds the low bits away. Demonstrated at b=6,779,431,
+        // where the naive product yields 16 and the exact one yields 15.
+        const f = b + ((Math.imul(b, 2654435761) >>> 0) % span);
+        const i = f * 3;
+        const v0 = faceNodeConnectivity[i];
+        const v1 = faceNodeConnectivity[i + 1];
+        const v2 = faceNodeConnectivity[i + 2];
+        out[w++] = v0; out[w++] = v1;
+        out[w++] = v1; out[w++] = v2;
+        out[w++] = v2; out[w++] = v0;
+    }
+    return out;
+}
+
 /**
  * Interleave per-vertex depth/x_velocity/y_velocity (already-dequantized
  * physical Float32Arrays, same length) into one vec3-per-vertex buffer for

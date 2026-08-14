@@ -42,7 +42,7 @@ import {
     // prod-scale mesh. decimateWireframeIndices itself is deliberately NOT
     // imported here any more: nothing in this renderer builds a full edge set
     // to thin down.
-    buildDecimatedWireframeIndices
+    wireframeFaceStride, buildFaceDecimatedWireframeIndices
 } from './playbackMeshGeometry';
 import { AnugaPlaybackFlowVizRenderer } from './AnugaPlaybackFlowVizRenderer';
 import { AnugaPlaybackParticleRenderer } from './AnugaPlaybackParticleRenderer';
@@ -251,6 +251,12 @@ export class AnugaPlaybackRenderer {
         // _ensureWireframeIndices below.
         this._wireSourceFnc = faceNodeConnectivity;
         this._wireStride = stride;
+        // TASK-2743 UAT-01 — the FACE stride the builder actually uses above
+        // the <50k boundary. Derived from `stride` (never re-computed) so the
+        // two can never disagree about which side of that boundary this mesh
+        // is on; it is 1 exactly where `stride` is 1, which keeps small meshes
+        // on the original buildWireframeIndices path.
+        this._wireFaceStride = wireframeFaceStride(triangleCount);
         this._wireIndicesBuilt = false;
         this.nWireIndices = 0;
         this._wireOpacity = wireframeOpacityForTriangleCount(triangleCount, WIRE_COLOR[3]);
@@ -299,10 +305,13 @@ export class AnugaPlaybackRenderer {
      * would silently redirect the MESH draw's indices. So: save the current
      * VAO, unbind to the default VAO for the upload, and restore.
      *
-     * The stride>1 path uses buildDecimatedWireframeIndices (one exactly-sized
-     * allocation). The stride===1 (<50k triangle) path still goes through
-     * buildWireframeIndices UNCHANGED — TASK-2686's AC pins that output
-     * byte-identical, and at that size the Set/Array cost is trivial anyway.
+     * The stride>1 path uses buildFaceDecimatedWireframeIndices (one
+     * exactly-sized allocation, TASK-2743 UAT-01) — same index count and same
+     * bytes as the edge builder it replaced, but every drawn primitive is a
+     * CLOSED triangle instead of an unrelated fragment. The stride===1 (<50k
+     * triangle) path still goes through buildWireframeIndices UNCHANGED —
+     * TASK-2686's AC pins that output byte-identical, and at that size the
+     * Set/Array cost is trivial anyway.
      */
     _ensureWireframeIndices() {
         if (this._wireIndicesBuilt || !this._wireSourceFnc) {
@@ -311,7 +320,7 @@ export class AnugaPlaybackRenderer {
         const gl = this.gl;
         const stride = this._wireStride;
         const wireIndices = stride > 1
-            ? buildDecimatedWireframeIndices(this._wireSourceFnc, stride)
+            ? buildFaceDecimatedWireframeIndices(this._wireSourceFnc, this._wireFaceStride)
             : buildWireframeIndices(this._wireSourceFnc);
         const previousVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
         gl.bindVertexArray(null);
