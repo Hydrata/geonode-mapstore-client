@@ -3151,10 +3151,23 @@ span.sv-scenario-run-price--short {
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     border-bottom: 1px solid rgba(255, 255, 255, 0.22);
 }
+/* TASK-2788 — label ABOVE its slider, not beside it, so the two opacity
+   sliders start at the same x and read as a pair.
+
+   Side-by-side cannot align them here and never could: this column is a fixed
+   230px (.sv-playback-drawer's grid-template-columns), and the slider group
+   alone is 72px of track + 34px of value + 4px gap = 110px, leaving ~112px for
+   the label. "BACKGROUND OPACITY" at 10px uppercase with 0.06em tracking
+   already exceeds that, and the translations are longer still
+   ("OPACITÉ DE L'ARRIÈRE-PLAN"), so the label wrapped to two lines on one row
+   and one line on the other — which is exactly what knocked the sliders out of
+   line. Stacking makes the alignment a property of the layout rather than of
+   how long the words happen to be in the current locale. */
 .sv-playback-drawer-field {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
 }
 .sv-playback-drawer-label {
     font-size: 10px;

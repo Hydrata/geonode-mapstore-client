@@ -838,6 +838,60 @@ describe('playbackEpics', () => {
             });
         });
 
+        // TASK-2788 (W7, epic 2706) — the dry-ground alpha has to reach the
+        // layer, and SET_BACKGROUND_OPACITY has to be one of the epic's own
+        // triggers: the drawer is usually worked while PAUSED, so without the
+        // trigger the change would sit invisible until the next play/seek.
+        it('dispatches backgroundOpacity, and re-syncs on SET_BACKGROUND_OPACITY alone (no tick)', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
+            fetcherRegistry.set(11, fetcher);
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
+            const pb = {
+                ...createInitialPlaybackState(),
+                runId: 11, layerId: 'layer-11', manifest: FIXTURE_MANIFEST, mesh,
+                nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
+                currentTimestep: 2, quantization: FIXTURE_MANIFEST.quantization,
+                backgroundOpacity: 0.35
+            };
+            const { subject, action$ } = makeActionsSubject();
+            playbackSyncLayerEpic(action$, makeStore(pb)).subscribe((a) => {
+                restore();
+                try {
+                    expect(a.options.backgroundOpacity).toBe(0.35);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            // the ONLY action fired — no playbackTick
+            subject.next({ type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 0.35 });
+        });
+
+        it('defaults backgroundOpacity to 0 on the layer — dry ground starts transparent', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });
+            fetcherRegistry.set(12, fetcher);
+            const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
+            const pb = {
+                ...createInitialPlaybackState(),
+                runId: 12, layerId: 'layer-12', manifest: FIXTURE_MANIFEST, mesh,
+                nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
+                currentTimestep: 2, quantization: FIXTURE_MANIFEST.quantization
+            };
+            const { subject, action$ } = makeActionsSubject();
+            playbackSyncLayerEpic(action$, makeStore(pb)).subscribe((a) => {
+                restore();
+                try {
+                    expect(a.options.backgroundOpacity).toBe(0);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackTick(1));
+        });
+
         it('reuses the SAME cloned layer-mesh object across repeated dispatches (does not defeat AnugaPlaybackLayer\'s own re-reproject reference check)', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler });

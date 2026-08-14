@@ -636,6 +636,39 @@ describe('playbackController', () => {
             expect(colorMaxForQuantity('depth', quantization, { colorMaxOverride: cleared.colorMaxOverride.depth })).toBe(16.862720489501953);
         });
 
+        /*
+         * TASK-2788 (W7, epic 2706) — the dry-ground sheet's own alpha.
+         *
+         * A SEPARATE field from `opacity` on purpose. `opacity` is a CSS
+         * opacity on the whole canvas, so using it to see the catchment under
+         * the results also washes out the water you came to read.
+         */
+        it('AC — backgroundOpacity defaults to 0, and is not the same field as opacity', () => {
+            const base = createInitialPlaybackState();
+            expect(base.backgroundOpacity).toBe(0);
+            expect(base.opacity).toBe(DEFAULT_PLAYBACK_OPACITY);
+            expect(base.opacity).toNotBe(base.backgroundOpacity);
+        });
+
+        it('AC — SET_BACKGROUND_OPACITY moves only the background, and clamps to 0..1', () => {
+            const base = createInitialPlaybackState();
+            const set = reduce(base, { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 0.4 });
+            expect(set.backgroundOpacity).toBe(0.4);
+            expect(set.opacity).toBe(base.opacity, 'the layer slider must not move with it');
+
+            expect(reduce(set, { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 3 }).backgroundOpacity).toBe(1);
+            expect(reduce(set, { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: -2 }).backgroundOpacity).toBe(0);
+            // garbage keeps the current value rather than snapping to a default
+            expect(reduce(set, { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 'x' }).backgroundOpacity).toBe(0.4);
+        });
+
+        it('AC — SET_OPACITY does not disturb the background, either', () => {
+            const withBg = reduce(createInitialPlaybackState(), { type: 'PLAYBACK:SET_BACKGROUND_OPACITY', backgroundOpacity: 0.6 });
+            const after = reduce(withBg, { type: 'PLAYBACK:SET_OPACITY', opacity: 0.2 });
+            expect(after.opacity).toBe(0.2);
+            expect(after.backgroundOpacity).toBe(0.6);
+        });
+
         it('AC4 — an override at or below colorMin is ignored (never inverts the ramp)', () => {
             // stage's colorMin is its elevationMin, so an override below that
             // would produce a negative span and divide-by-clamp everything

@@ -70,6 +70,7 @@ import {
     playbackSetWireframe,
     playbackReset,
     playbackSetOpacity,
+    playbackSetBackgroundOpacity,
     playbackSetOverlay,
     playbackSetColorMax
 } from '../actions/playbackActions';
@@ -374,6 +375,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         onSetWireframe: PropTypes.func,
         onReset: PropTypes.func,
         onSetOpacity: PropTypes.func,
+        // TASK-2788 — dry-ground alpha only; onSetOpacity fades the whole canvas.
+        onSetBackgroundOpacity: PropTypes.func,
         onSetOverlay: PropTypes.func,
         onSetColorMax: PropTypes.func
     };
@@ -822,6 +825,28 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     <h4 className="sv-playback-drawer-title">
                         <Message msgId="hydrata.playback.drawerAppearance" />
                     </h4>
+                    {/* TASK-2788 — background opacity, ABOVE layer opacity.
+                        Two different things that both read as "how solid is
+                        this layer": this one fades ONLY the dry-ground sheet,
+                        the one below fades the whole canvas, water included.
+                        It sits first because it is the one you reach for to
+                        see the catchment under the results, and because
+                        reaching for the other one to do that job is the
+                        mistake this pair exists to prevent. */}
+                    <div className="sv-playback-drawer-field">
+                        <span className="sv-playback-drawer-label">
+                            <Message msgId="hydrata.playback.backgroundOpacity" />
+                        </span>
+                        {this.renderSlider({
+                            testid: 'anuga-playback-background-opacity',
+                            className: 'sv-playback-background-opacity',
+                            min: 0, max: 1, step: 0.05,
+                            value: playback.backgroundOpacity,
+                            label: this.tr('hydrata.playback.backgroundOpacity', 'Background opacity'),
+                            format: (v) => `${Math.round(v * 100)}%`,
+                            onChange: (v) => this.props.onSetBackgroundOpacity(v)
+                        })}
+                    </div>
                     <div className="sv-playback-drawer-field">
                         <span className="sv-playback-drawer-label">
                             <Message msgId="hydrata.playback.opacity" />
@@ -831,13 +856,18 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             control anywhere, so the mesh sat as an opaque sheet
                             over the whole catchment (dry cells included) and you
                             could not read the water against the terrain it is
-                            flooding. */}
+                            flooding.
+                            TASK-2788 — floor lowered 0.1 -> 0. The 0.1 floor was
+                            there to stop someone hiding the layer and reporting
+                            it broken, but the Results menu already has Unload
+                            for that, and a slider whose left end is not its
+                            label's 0% is lying about its own scale. */}
                         {this.renderSlider({
                             testid: 'anuga-playback-opacity',
                             className: 'sv-playback-opacity',
-                            min: 0.1, max: 1, step: 0.05,
+                            min: 0, max: 1, step: 0.05,
                             value: playback.opacity,
-                            label: this.tr('hydrata.playback.opacity', 'Layer opacity'),
+                            label: this.tr('hydrata.playback.opacity', 'Result opacity'),
                             format: (v) => `${Math.round(v * 100)}%`,
                             onChange: (v) => this.props.onSetOpacity(v)
                         })}
@@ -1234,6 +1264,7 @@ const mapDispatchToProps = {
     // maximum are controller state now, pushed to the layer by
     // playbackSyncLayerEpic's baseProps rather than by this component.
     onSetOpacity: playbackSetOpacity,
+    onSetBackgroundOpacity: playbackSetBackgroundOpacity,
     onSetOverlay: playbackSetOverlay,
     onSetColorMax: playbackSetColorMax
 };

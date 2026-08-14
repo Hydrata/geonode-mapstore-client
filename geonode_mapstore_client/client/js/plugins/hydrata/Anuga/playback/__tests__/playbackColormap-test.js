@@ -30,6 +30,39 @@ import {
     rampStopValues
 } from '../playbackColormap';
 import { QUANTITY_IDS, AIDR_HAZARD_CLASS_COUNT } from '../playbackDerivedQuantities';
+import { MESH_FRAGMENT_SHADER } from '../playbackShaders';
+
+/*
+ * TASK-2788 (W7, epic 2706) — the dry-ground sheet's alpha must be PREMULTIPLIED
+ * into its RGB.
+ *
+ * This is a SOURCE-level contract, deliberately. The invariant only shows up in
+ * the compositor: the context takes the WebGL defaults `alpha: true` +
+ * `premultipliedAlpha: true`, and the mesh pass draws with BLEND DISABLED
+ * (blending is enabled only for the wireframe pass), so whatever the fragment
+ * shader writes lands in the drawing buffer verbatim and the browser reads it
+ * as premultiplied. Rendering that difference in karma would need a full
+ * offscreen GL harness; the failure mode it guards is a one-line
+ * "simplification" back to vec4(rgb, alpha), which a source assertion catches
+ * exactly and cheaply.
+ */
+describe('MESH_FRAGMENT_SHADER dry-ground alpha — TASK-2788', () => {
+    const body = MESH_FRAGMENT_SHADER.replace(/\/\/[^\n]*/g, '');
+
+    it('declares the alpha as a uniform, not a literal', () => {
+        expect(body).toContain('uniform float uBackgroundAlpha;');
+    });
+
+    it('multiplies the tint RGB by that alpha (premultiplied), never vec4(rgb, alpha)', () => {
+        expect(body).toContain('vec3(0.16, 0.15, 0.13) * uBackgroundAlpha');
+        expect(body).toNotContain('vec4(0.16, 0.15, 0.13, uBackgroundAlpha)');
+        expect(body).toNotContain('vec4(0.16, 0.15, 0.13, 1.0)');
+    });
+
+    it('leaves the WET fragment fully opaque — only the dry ground fades', () => {
+        expect(body).toContain('vec4(texture(uLUT, vec2(vValue, 0.5)).rgb, 1.0)');
+    });
+});
 
 describe('playbackColormap', () => {
     describe('buildQuantityColormapLUT (TASK-2628 — real SLD stops, non-uniform spacing)', () => {

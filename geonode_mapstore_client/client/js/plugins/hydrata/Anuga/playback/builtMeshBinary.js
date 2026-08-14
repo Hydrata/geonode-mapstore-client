@@ -43,6 +43,10 @@
  * wireframe edges on top: a plain geometry-only view, no renderer changes
  * needed (AnugaPlaybackRenderer.setMesh already treats `elevation` as the
  * only non-optional per-vertex array; zero-filled is a well-formed value).
+ *
+ * TASK-2788 — that tint is no longer opaque by default, so this module now
+ * asks for it explicitly (`backgroundOpacity: 1` below). This preview is the
+ * one caller for which "dry" is the subject rather than the background.
  */
 
 const HEADER_BYTES = 8; // uint32 node_count + uint32 face_count
@@ -151,7 +155,16 @@ export function buildBuiltMeshLayerOptions(decoded, opts = {}) {
         // are sized to nodeCount (see this module's header) — every value
         // is 0, which the mesh-fill shader treats as "dry" everywhere.
         frame0: zeroFrame,
-        frame1: zeroFrame
+        frame1: zeroFrame,
+        // TASK-2788 — OPAQUE, explicitly. The playback layer's dry-ground sheet
+        // is transparent by default now, which is right for a results run where
+        // the dry part of the domain is just context. It is exactly wrong here:
+        // this preview is 100% dry by construction (see the zero frames above),
+        // so that sheet IS the whole picture. At the default this layer would
+        // render nothing but its wireframe, and nothing could put the fill back
+        // — the Background opacity slider dispatches against the playback run's
+        // own layer id, and this preview is a different layer with no bar.
+        backgroundOpacity: 1
     };
 }
 

@@ -93,7 +93,8 @@ import {
     colorMaxForQuantity,
     colorMinForQuantity,
     isColorMaxOverridden,
-    DEFAULT_PLAYBACK_OPACITY
+    DEFAULT_PLAYBACK_OPACITY,
+    DEFAULT_PLAYBACK_BACKGROUND_OPACITY
 } from '../playbackController';
 import { mixDtSeconds } from '../playbackDerivedQuantities';
 import {
@@ -109,6 +110,7 @@ import {
     PLAYBACK_SET_IDENTIFY_ARMED,
     PLAYBACK_SET_WIREFRAME,
     PLAYBACK_SET_OPACITY,
+    PLAYBACK_SET_BACKGROUND_OPACITY,
     PLAYBACK_SET_OVERLAY,
     PLAYBACK_SET_COLOR_MAX,
     playbackManifestLoaded,
@@ -418,6 +420,12 @@ export function playbackInitEpic(action$, store) {
                 // TASK-2744 AC3 — the operator-controllable default, no longer
                 // a hardcoded 0.85 veil over the terrain being flooded.
                 opacity: DEFAULT_PLAYBACK_OPACITY,
+                // TASK-2788 — stated, not left to the layer's own fallback.
+                // AnugaPlaybackLayer.create() would default this to 0 anyway,
+                // but then the default would live in two places and a later
+                // change to one of them would silently disagree with the
+                // controller's initial state.
+                backgroundOpacity: DEFAULT_PLAYBACK_BACKGROUND_OPACITY,
                 wireframe: false,
                 colorMode: 'depth',
                 colorMax: 1,
@@ -736,6 +744,7 @@ export function playbackSyncLayerEpic(action$, store) {
         // while PAUSED has no other trigger to ride, so without these the
         // change would silently wait for the next play/seek/quantity switch.
         PLAYBACK_SET_OPACITY,
+        PLAYBACK_SET_BACKGROUND_OPACITY,
         PLAYBACK_SET_OVERLAY,
         PLAYBACK_SET_COLOR_MAX
     );
@@ -770,6 +779,10 @@ export function playbackSyncLayerEpic(action$, store) {
             // TASK-2744 AC3 — opacity is controller state now, so it is
             // re-asserted on every sync and survives a bar remount.
             opacity: pb.opacity,
+            // TASK-2788 — the dry-ground sheet's own alpha, re-asserted on
+            // every sync for the same reason opacity is: the bar unmounts
+            // whenever the SimpleView menu group leaves 'Results'.
+            backgroundOpacity: pb.backgroundOpacity,
             // TASK-2744 AC11 — the overlay knobs likewise. They used to reach
             // the layer only via the bar's own changeLayerProperties call,
             // which is exactly why an unmount desynced them.

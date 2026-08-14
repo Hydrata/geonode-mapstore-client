@@ -176,6 +176,30 @@ describe('AnugaPlaybackLayer', () => {
             expect(layer.get('colorRescaled')).toBe(false);
         });
 
+        /*
+         * TASK-2788 (W7, epic 2706) — dry-ground alpha. The trap this guards is
+         * `||`: 0 is both the DEFAULT and the most-used real value here, so any
+         * `options.backgroundOpacity || <fallback>` on the way through would be
+         * indistinguishable from "unset" and a deliberate 0 could never round-trip.
+         */
+        it('carries backgroundOpacity through create() and update(), including a deliberate 0', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-bg', backgroundOpacity: 0.4 });
+            expect(layer.get('backgroundOpacity')).toBe(0.4);
+
+            const dim = { id: 'playback-bg', backgroundOpacity: 0.4 };
+            const clear = { id: 'playback-bg', backgroundOpacity: 0 };
+            Layers.updateLayer(LAYER_TYPE, layer, clear, dim);
+            expect(layer.get('backgroundOpacity')).toBe(0, 'a deliberate 0 must survive, not fall back');
+
+            Layers.updateLayer(LAYER_TYPE, layer, dim, clear);
+            expect(layer.get('backgroundOpacity')).toBe(0.4);
+        });
+
+        it('defaults backgroundOpacity to 0 — the dry ground starts transparent', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-bg-default' });
+            expect(layer.get('backgroundOpacity')).toBe(0);
+        });
+
         it('create() defaults opacity to 1 and visibility to true when omitted', () => {
             const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-3' });
             expect(layer.getOpacity()).toBe(1);

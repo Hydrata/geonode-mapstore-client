@@ -112,10 +112,23 @@ precision highp float;
 in float vValue;
 in float vWet;
 uniform sampler2D uLUT;
+// TASK-2788 — alpha of the DRY-GROUND sheet, 0 by default. The results layer
+// covers the whole model domain, most of which is dry for most of a run, so an
+// opaque sheet hides the catchment the water is moving over. This is a separate
+// knob from the layer's own opacity (a CSS opacity on the whole canvas): this
+// one fades ONLY the dry ground, leaving the water at full strength.
+uniform float uBackgroundAlpha;
 out vec4 fragColor;
 void main() {
   if (vWet < 0.5) {
-    fragColor = vec4(0.16, 0.15, 0.13, 1.0); // dry ground, flat tint (matches W0.3 spike)
+    // PREMULTIPLIED. The context is created with the WebGL defaults
+    // alpha:true + premultipliedAlpha:true, and the mesh pass draws with
+    // BLEND DISABLED (blending is enabled only for the wireframe pass), so
+    // this value lands in the drawing buffer verbatim and the compositor
+    // reads it as premultiplied. Writing vec4(0.16, 0.15, 0.13, a) would be
+    // an invalid premultiplied colour for every a < 1 — at a = 0 it is the
+    // classic "transparent black that still tints" bug, because RGB > A.
+    fragColor = vec4(vec3(0.16, 0.15, 0.13) * uBackgroundAlpha, uBackgroundAlpha);
     return;
   }
   fragColor = vec4(texture(uLUT, vec2(vValue, 0.5)).rgb, 1.0);

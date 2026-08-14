@@ -63,6 +63,11 @@ export const PLAYBACK_LOAD_PROGRESS = 'PLAYBACK:LOAD_PROGRESS';
 // the layer still had flowVizEnabled true while the button had lost its
 // `active` class.
 export const PLAYBACK_SET_OPACITY = 'PLAYBACK:SET_OPACITY';
+// TASK-2788 — the DRY-GROUND sheet's own alpha, distinct from the layer
+// opacity above. Its own action rather than a PLAYBACK_SET_OVERLAY key: the
+// overlay knobs are flow-viz/particle settings the renderer reads as a group,
+// while this one is a shader uniform on the base mesh pass.
+export const PLAYBACK_SET_BACKGROUND_OPACITY = 'PLAYBACK:SET_BACKGROUND_OPACITY';
 export const PLAYBACK_SET_OVERLAY = 'PLAYBACK:SET_OVERLAY';
 export const PLAYBACK_SET_COLOR_MAX = 'PLAYBACK:SET_COLOR_MAX';
 
@@ -197,6 +202,18 @@ export function playbackSetWireframe(enabled) {
  */
 export function playbackSetOpacity(opacity) {
     return { type: PLAYBACK_SET_OPACITY, opacity };
+}
+
+/**
+ * TASK-2788 — alpha of the dry-ground sheet only, 0..1.
+ *
+ * `opacity` above fades the WHOLE canvas, water included, so using it to see
+ * the terrain also washes out the result you came to read. This fades just the
+ * dry part of the domain, and defaults to 0: a results layer should show its
+ * results, not a grey sheet over the catchment.
+ */
+export function playbackSetBackgroundOpacity(backgroundOpacity) {
+    return { type: PLAYBACK_SET_BACKGROUND_OPACITY, backgroundOpacity };
 }
 
 /**

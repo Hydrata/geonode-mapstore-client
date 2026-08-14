@@ -114,6 +114,7 @@ export class AnugaPlaybackRenderer {
             uG: gl.getUniformLocation(this.meshProgram, 'uG'),
             uRhoW: gl.getUniformLocation(this.meshProgram, 'uRhoW'),
             uDt: gl.getUniformLocation(this.meshProgram, 'uDt'),
+            uBackgroundAlpha: gl.getUniformLocation(this.meshProgram, 'uBackgroundAlpha'),
             uLUT: gl.getUniformLocation(this.meshProgram, 'uLUT')
         };
         this.wireUniforms = {
@@ -495,7 +496,10 @@ export class AnugaPlaybackRenderer {
      * @param {{center:[number,number], resolution:number, rotation?:number}} params.viewState
      * @param {[number,number]} params.size CSS pixels
      * @param {number} params.pixelRatio
-     * @param {number} params.opacity 0-1
+     * @param {number} params.opacity 0-1, the WHOLE layer (CSS opacity on the canvas)
+     * @param {number} [params.backgroundOpacity] 0-1, the DRY-GROUND sheet only
+     *   (TASK-2788). Default 0 — transparent, so the basemap reads through the
+     *   dry part of the domain. Independent of `opacity`: the two multiply.
      * @param {boolean} [params.wireframe]
      * @param {number} [params.mixT] 0-1
      * @param {string} [params.colorMode] one of playbackDerivedQuantities.QUANTITY_IDS
@@ -519,6 +523,7 @@ export class AnugaPlaybackRenderer {
     render({
         viewState, size, pixelRatio, opacity, wireframe = false, mixT = 0,
         colorMode = 'depth', colorMax = 1, colorMin = 0, colorRescaled = false, wetThreshold = 1e-5,
+        backgroundOpacity = 0,
         g = 9.8, rhoW = 1000, dt = 0,
         flowVizEnabled = false, arrowDensity, arrowScale,
         particlesEnabled = false, particleDensity, particleSpeedExaggeration
@@ -564,6 +569,9 @@ export class AnugaPlaybackRenderer {
         gl.uniform1f(this.meshUniforms.uColorMax, safeColorMax);
         gl.uniform1f(this.meshUniforms.uColorMin, colorMin);
         gl.uniform1f(this.meshUniforms.uWetThreshold, wetThreshold);
+        // TASK-2788 — dry-ground alpha, 0 (fully transparent) by default. The
+        // shader premultiplies it; see MESH_FRAGMENT_SHADER on why.
+        gl.uniform1f(this.meshUniforms.uBackgroundAlpha, Math.min(1, Math.max(0, backgroundOpacity)));
         gl.uniform1f(this.meshUniforms.uG, g);
         gl.uniform1f(this.meshUniforms.uRhoW, rhoW);
         gl.uniform1f(this.meshUniforms.uDt, dt);
@@ -678,7 +686,21 @@ export class AnugaPlaybackRenderer {
             if (this._wireBlendEnabled && wireInkAlpha < 1) {
                 gl.uniform4f(this.wireUniforms.uColor, WIRE_COLOR[0], WIRE_COLOR[1], WIRE_COLOR[2], wireInkAlpha);
                 gl.enable(gl.BLEND);
-                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+                // TASK-2788 — blendFuncSeparate, NOT blendFunc. A single
+                // blendFunc applies SRC_ALPHA to the ALPHA channel too, which
+                // is the straight-alpha operator: over a destination alpha of
+                // 0 it leaves RGB = a and A = a*a, i.e. RGB > A, which is not
+                // a valid colour for a premultipliedAlpha drawing buffer and
+                // composites additively (the ink dims toward white instead of
+                // covering the basemap).
+                //
+                // That was harmless until this task, because the mesh pass
+                // always filled the buffer with alpha 1 first, so the
+                // destination was opaque everywhere the wireframe could land.
+                // The dry ground is transparent BY DEFAULT now, so every wire
+                // fragment over dry ground hits exactly that case. ONE for the
+                // source alpha factor restores A = a + dstA*(1-a), and RGB <= A.
+                gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
                 gl.drawElements(gl.LINES, this.nWireIndices, gl.UNSIGNED_INT, 0);
                 gl.disable(gl.BLEND);
             } else if (this._wireBlendEnabled) {

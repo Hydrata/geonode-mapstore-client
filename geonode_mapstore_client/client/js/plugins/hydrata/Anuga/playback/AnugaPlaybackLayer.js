@@ -259,6 +259,12 @@ function create(options = {}, map) {
                 // below only cover a caller that never set these (e.g. a karma
                 // GL smoke test) — production always sets them from schema_metadata
                 // (playbackEpics.playbackSyncLayerEpic's baseProps).
+                // TASK-2788 — dry-ground alpha. `|| 0` would be right by
+                // accident here but wrong in principle: 0 is the DEFAULT and a
+                // legitimate value, so read it explicitly and only fall back
+                // when the property was never set.
+                backgroundOpacity: olLayer.get('backgroundOpacity') === undefined
+                    ? 0 : olLayer.get('backgroundOpacity'),
                 wetThreshold: olLayer.get('wetThreshold') || 1e-5,
                 g: olLayer.get('g') || 9.8,
                 rhoW: olLayer.get('rhoW') || 1000,
@@ -286,6 +292,7 @@ function create(options = {}, map) {
     olLayer.set('colorMax', options.colorMax || 1);
     olLayer.set('colorMin', options.colorMin || 0);
     olLayer.set('colorRescaled', !!options.colorRescaled);
+    olLayer.set('backgroundOpacity', options.backgroundOpacity === undefined ? 0 : options.backgroundOpacity);
     olLayer.set('wetThreshold', options.wetThreshold || 1e-5);
     olLayer.set('g', options.g || 9.8);
     olLayer.set('rhoW', options.rhoW || 1000);
@@ -387,6 +394,9 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (!newOptions.colorRescaled !== !oldOptions.colorRescaled) {
         layer.set('colorRescaled', !!newOptions.colorRescaled);
+    }
+    if (newOptions.backgroundOpacity !== oldOptions.backgroundOpacity) {
+        layer.set('backgroundOpacity', newOptions.backgroundOpacity === undefined ? 0 : newOptions.backgroundOpacity);
     }
     if (newOptions.wetThreshold !== oldOptions.wetThreshold) {
         layer.set('wetThreshold', newOptions.wetThreshold || 1e-5);

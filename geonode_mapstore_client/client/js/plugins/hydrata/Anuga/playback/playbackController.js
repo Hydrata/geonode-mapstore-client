@@ -54,6 +54,7 @@ import {
     PLAYBACK_DISMISS_DEGRADED,
     PLAYBACK_SET_WIREFRAME,
     PLAYBACK_SET_OPACITY,
+    PLAYBACK_SET_BACKGROUND_OPACITY,
     PLAYBACK_SET_OVERLAY,
     PLAYBACK_SET_COLOR_MAX,
     PLAYBACK_MANIFEST_FETCHED,
@@ -101,6 +102,16 @@ export const DEFAULT_PLAYBACK_WALL_SECONDS = 15;
 // TASK-2744 AC3 — the starting alpha. Kept at the historical 0.85 so the
 // default look is unchanged; what changes is that it is now movable.
 export const DEFAULT_PLAYBACK_OPACITY = 0.85;
+/**
+ * TASK-2788 — the dry-ground sheet is TRANSPARENT by default.
+ *
+ * The results layer covers the entire model domain, and for most of a run most
+ * of that domain is dry, so an opaque background is a grey sheet over the
+ * catchment the water is moving through. Everything a reader wants to check the
+ * flood against — the river, the roads, the buildings it is reaching — lives on
+ * the basemap underneath it.
+ */
+export const DEFAULT_PLAYBACK_BACKGROUND_OPACITY = 0;
 /**
  * The window BEFORE any store is known. TASK-2708 (W1.2, epic 2706): this is
  * no longer the playback window — once a manifest lands, both the radius and
@@ -205,6 +216,8 @@ export function createInitialPlaybackState() {
         // epic literal, so a control can move it AND it survives the bar's
         // own unmount/remount.
         opacity: DEFAULT_PLAYBACK_OPACITY,
+        // TASK-2788 — alpha of the dry-ground sheet ONLY; see the constant.
+        backgroundOpacity: DEFAULT_PLAYBACK_BACKGROUND_OPACITY,
         // TASK-2744 AC4 — per-quantity operator override of the colour ramp's
         // upper bound; {} means "use the store-derived maximum for every
         // quantity". Keyed by quantity so metres never leak onto m/s.
@@ -763,6 +776,14 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
     // TASK-2744 AC3 — operator-controlled layer opacity.
     case PLAYBACK_SET_OPACITY: {
         return { ...state, opacity: clampOpacity(action.opacity, state.opacity) };
+    }
+    // TASK-2788 — dry-ground alpha. Same clamp, its own field: a reader who
+    // pulls the background to 0 must not lose the water with it.
+    case PLAYBACK_SET_BACKGROUND_OPACITY: {
+        return {
+            ...state,
+            backgroundOpacity: clampOpacity(action.backgroundOpacity, state.backgroundOpacity)
+        };
     }
     // TASK-2744 AC11 — a flow-viz/particle knob. Whitelisted key, so an
     // unknown one is a no-op rather than a new controller-state field.

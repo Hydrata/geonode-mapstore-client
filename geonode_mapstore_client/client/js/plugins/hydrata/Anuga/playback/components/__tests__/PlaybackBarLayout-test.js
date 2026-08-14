@@ -35,6 +35,7 @@ import { PLAYBACK_STATUS, createInitialPlaybackState } from '../../playbackContr
 /* Controls that BELONG IN THE DRAWER after this card — every conditional
    slider group is in here, because those are what made the bar reflow. */
 const DRAWER_CONTROLS = [
+    'anuga-playback-background-opacity',
     'anuga-playback-opacity',
     'anuga-playback-wireframe-toggle',
     'anuga-playback-ceiling-table',
@@ -342,6 +343,51 @@ describe('Playback bar layout — TASK-2751', () => {
             render({ playback: readyState(), ...spies });
             TestUtils.Simulate.click(q('anuga-playback-max-envelope'));
             Object.keys(spies).forEach((k) => expect(spies[k].calls.length).toBe(0));
+        });
+    });
+
+    /*
+     * TASK-2788 (W7, epic 2706) — the two opacity sliders.
+     *
+     * They are easy to confuse and do different things: "Background opacity"
+     * fades ONLY the dry-ground sheet (a shader uniform), "Layer opacity"
+     * fades the whole canvas including the water (CSS opacity). Order and
+     * range are the affordances that keep them apart, so both are pinned.
+     */
+    describe('background vs layer opacity — TASK-2788', () => {
+        it('puts the background slider ABOVE the layer slider', () => {
+            render({ playback: readyState() });
+            const bg = q('anuga-playback-background-opacity');
+            const layer = q('anuga-playback-opacity');
+            expect(bg).toBeTruthy();
+            expect(layer).toBeTruthy();
+            // DOCUMENT_POSITION_FOLLOWING === 4: layer comes after bg
+            expect(bg.compareDocumentPosition(layer) & 4).toBe(4);
+        });
+
+        it('runs BOTH sliders 0..100%, so neither lies about its own scale', () => {
+            render({ playback: readyState() });
+            ['anuga-playback-background-opacity', 'anuga-playback-opacity'].forEach((testid) => {
+                const el = q(testid);
+                expect(el.getAttribute('min')).toBe('0', `${testid} must start at 0%`);
+                expect(el.getAttribute('max')).toBe('1', `${testid} must end at 100%`);
+            });
+        });
+
+        it('starts transparent — a results layer shows results, not a grey sheet', () => {
+            render({ playback: readyState() });
+            expect(q('anuga-playback-background-opacity').value).toBe('0');
+            expect(q('anuga-playback-background-opacity-value').textContent).toBe('0%');
+        });
+
+        it('commits to its OWN handler, never the layer-opacity one', () => {
+            const onSetBackgroundOpacity = expect.createSpy();
+            const onSetOpacity = expect.createSpy();
+            render({ playback: readyState(), onSetBackgroundOpacity, onSetOpacity });
+            TestUtils.Simulate.change(q('anuga-playback-background-opacity'), { target: { value: '0.4' } });
+            expect(onSetBackgroundOpacity.calls.length).toBe(1);
+            expect(onSetBackgroundOpacity.calls[0].arguments[0]).toBe(0.4);
+            expect(onSetOpacity.calls.length).toBe(0, 'the two sliders must not be crosswired');
         });
     });
 });
