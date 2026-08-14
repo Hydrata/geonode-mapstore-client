@@ -26,7 +26,7 @@
  */
 import expect from 'expect';
 import Rx from 'rxjs';
-import { resolveChunkLengthT, readChunkLengthsByArray, QUANTITY_ARRAYS } from '../playbackChunkShape';
+import { resolveChunkLengthT, readChunkLengthsByArray, QUANTITY_ARRAYS, assertNodeExtentMatchesMesh, assertDeclaredNodeCountAgrees } from '../playbackChunkShape';
 import { loadPlaybackFrame } from '../loadPlaybackLayerOptions';
 import { PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { playbackInitEpic, fetcherRegistry } from '../epics/playbackEpics';
@@ -329,5 +329,187 @@ describe('playbackChunkShape (TASK-2724 — chunk length comes from the store)',
     // ------------------------------------------------------------- initial state
     it('initial playback state carries NO chunk length until a store says so', () => {
         expect(createInitialPlaybackState().chunkLengthT).toBe(null);
+    });
+});
+
+/*
+ * TASK-2729 (W5, epic 2706) — the dim-1 twin of TASK-2724.
+ *
+ * 2724 stopped the client assuming dim 0 of the chunk grid. Dim 1 was left
+ * assumed: readNodeCount calls `chunk_shapes[q][1]` "n_node", but that value
+ * is the chunk's node EXTENT. It equals the node count today only because the
+ * exporter writes a SINGLE node chunk (run_anuga/playback_store.py:538,
+ * `t_chunks = (CHUNK_LENGTH_T, n_node)`) — the exact "every store we have ever
+ * written does X" invariant 2724 exists to stop trusting.
+ *
+ * The dim-1 failure is strictly worse than the dim-0 one. A wrong chunk length
+ * at least sometimes throws out of bounds; a wrong node extent returns a
+ * full-length, finite, plausible flood surface stitched from two different
+ * timesteps, and an engineer will read it and believe it. PROOF 3 below runs
+ * that known-positive through the real production code path.
+ */
+describe('TASK-2729 — the store\'s declared node extent is cross-checked, not trusted', () => {
+    // PROOF 1 is PARAMETERISED over all three quantity arrays on purpose.
+    // readNodeCount returns the FIRST usable dim-1 over QUANTITY_ARRAYS
+    // (playbackMemoryPolicy.js), so a guard built on it would pass a proof that
+    // only ever mutates `depth` — the first array — while missing a store where
+    // only x_velocity or y_velocity is node-chunked. The guard has to compare
+    // EVERY array, so the proof has to drive every array.
+    QUANTITY_ARRAYS.forEach((arrayName) => {
+        it(`refuses a store whose declared chunk node extent disagrees with the mesh it actually has (${arrayName})`, () => {
+            const manifest = {
+                ...FIXTURE_MANIFEST,
+                chunk_shapes: { ...FIXTURE_MANIFEST.chunk_shapes, [arrayName]: [10, 3] }
+            };
+            let thrown = null;
+            try {
+                assertNodeExtentMatchesMesh(manifest, FIXTURE_MESH.nNode);
+            } catch (e) {
+                thrown = e;
+            }
+            expect(thrown).toExist();
+            expect(String(thrown.message)).toContain('3');
+            expect(String(thrown.message)).toContain(String(FIXTURE_MESH.nNode));
+            expect(String(thrown.message)).toContain(arrayName);
+        });
+    });
+
+    it('a normal single-node-chunk store still resolves unchanged (both shipped fixtures)', () => {
+        // guard-the-guard: the new refusal must not brick the stores we serve.
+        STORES.forEach(({ manifest }) => {
+            expect(assertNodeExtentMatchesMesh(manifest, FIXTURE_MESH.nNode)).toBe(FIXTURE_MESH.nNode);
+        });
+    });
+
+    it('a store that declares no chunk node extent at all is played, not refused', () => {
+        // Same shape as the manifest-time absence arm: an UNDECLARED extent is
+        // the state of stores we already serve, so it must never be a refusal.
+        // Only a DISAGREEMENT is.
+        const manifest = { ...FIXTURE_MANIFEST, chunk_shapes: { depth: [10], x_velocity: [10], y_velocity: [10] } };
+        expect(assertNodeExtentMatchesMesh(manifest, FIXTURE_MESH.nNode)).toBe(FIXTURE_MESH.nNode);
+    });
+
+    describe('the manifest-time arm is PRESENCE-GATED on schema_metadata.n_node', () => {
+        it('a store that declares no n_node is played, not refused', () => {
+            // Every store in existence, run 1328's included: group_attrs
+            // (run_anuga/playback_store.py:508-536) has never written n_node, so
+            // a fail-loud-on-absence check would refuse the entire product.
+            expect(FIXTURE_MANIFEST.schema_metadata.n_node).toBe(undefined);
+            expect(assertDeclaredNodeCountAgrees(FIXTURE_MANIFEST)).toBe(undefined);
+        });
+
+        it('n_node present and EQUAL to the declared chunk extent passes', () => {
+            const manifest = {
+                ...FIXTURE_MANIFEST,
+                schema_metadata: { ...FIXTURE_MANIFEST.schema_metadata, n_node: FIXTURE_MESH.nNode }
+            };
+            expect(assertDeclaredNodeCountAgrees(manifest)).toBe(FIXTURE_MESH.nNode);
+        });
+
+        QUANTITY_ARRAYS.forEach((arrayName) => {
+            it(`n_node present and DISAGREEING throws naming both numbers (${arrayName})`, () => {
+                const manifest = {
+                    ...FIXTURE_MANIFEST,
+                    schema_metadata: { ...FIXTURE_MANIFEST.schema_metadata, n_node: 6 },
+                    chunk_shapes: { ...FIXTURE_MANIFEST.chunk_shapes, [arrayName]: [10, 3] }
+                };
+                let thrown = null;
+                try {
+                    assertDeclaredNodeCountAgrees(manifest);
+                } catch (e) {
+                    thrown = e;
+                }
+                expect(thrown).toExist();
+                expect(String(thrown.message)).toContain('3');
+                expect(String(thrown.message)).toContain('6');
+                expect(String(thrown.message)).toContain(arrayName);
+            });
+        });
+    });
+});
+
+/*
+ * TASK-2729 NAMED PROOF 3 — prove the detector on a KNOWN-POSITIVE.
+ *
+ * This spec is GREEN at HEAD and stays green: it is not a defect proof, it is
+ * the evidence the guard above is worth having. It runs a node-chunked store
+ * through the real production slicing path with the guard bypassed, and shows
+ * that the client does not crash, does not warn, and does not return an empty
+ * frame — it returns six finite depths that are half of one timestep welded to
+ * half of the next.
+ */
+describe('TASK-2729 PROOF 3 — an unguarded node-chunked store silently interleaves two timesteps', () => {
+    const N_NODE = 6;   // what the mesh actually has, and what the client slices with
+    const N_CHUNK = 3;  // what the store actually laid the chunk out in
+    const CHUNK_LENGTH_T = 10;
+    const QUANT = { scale: 1, offset: 0, byteorder: 'little' };
+
+    it('resolves, returns 6 finite values, and they are timestep 2 followed by timestep 3', (done) => {
+        // A 10 x 3 chunk, row-major: element (t, n) = t * 10 + n, so a value
+        // identifies the timestep it came from at a glance.
+        const stored = new Uint16Array(CHUNK_LENGTH_T * N_CHUNK);
+        for (let t = 0; t < CHUNK_LENGTH_T; t++) {
+            for (let n = 0; n < N_CHUNK; n++) {
+                stored[t * N_CHUNK + n] = t * 10 + n;
+            }
+        }
+        const manifest = {
+            chunk_urls: {
+                'depth/c/0/0': 'd', 'x_velocity/c/0/0': 'x', 'y_velocity/c/0/0': 'y'
+            },
+            chunk_shapes: {
+                depth: [CHUNK_LENGTH_T, N_CHUNK],
+                x_velocity: [CHUNK_LENGTH_T, N_CHUNK],
+                y_velocity: [CHUNK_LENGTH_T, N_CHUNK]
+            },
+            quantization: { depth: QUANT, x_velocity: QUANT, y_velocity: QUANT }
+        };
+        const fetcher = new PlaybackChunkFetcher({
+            manifest,
+            fetchImpl: () => Promise.resolve(new Response(new ArrayBuffer(8), { status: 200 })),
+            decodeImpl: () => Promise.resolve(stored)
+        });
+
+        // The guard is deliberately NOT called here — this is the pre-2729
+        // behaviour, reproduced exactly.
+        loadPlaybackFrame(fetcher, 1, N_NODE, CHUNK_LENGTH_T).then((frame) => {
+            // It does not throw: dequantizeRow's bounds check is
+            // `start + length > storedArray.length`, i.e. 6 + 6 = 12 > 30 is
+            // FALSE, so the one guard that exists never fires.
+            expect(frame.depth.length).toBe(N_NODE);
+            Array.prototype.forEach.call(frame.depth, (v) => {
+                expect(isFinite(v)).toBe(true);
+            });
+            // And the water is wrong in the worst possible way — plausible.
+            // Elements [6, 12) of a 3-wide row-major grid are rows 2 and 3.
+            expect(Array.prototype.slice.call(frame.depth)).toEqual([20, 21, 22, 30, 31, 32]);
+            // For contrast, the CORRECT frame for timestep 1 would have been
+            // row 1 alone: [10, 11, 12]. Nothing in the pipeline noticed.
+            done();
+        }).catch(done);
+    });
+
+    it('and the TASK-2729 guard refuses that same store before a frame is ever sliced', () => {
+        const manifest = {
+            chunk_shapes: {
+                depth: [CHUNK_LENGTH_T, N_CHUNK],
+                x_velocity: [CHUNK_LENGTH_T, N_CHUNK],
+                y_velocity: [CHUNK_LENGTH_T, N_CHUNK]
+            }
+        };
+        // NOT `toThrow()` alone: a bare toThrow() passes on ANY throw,
+        // including the TypeError you get from calling a function that does not
+        // exist yet — which would make this spec green against a tree with no
+        // guard in it at all. The message has to name both numbers.
+        let thrown = null;
+        try {
+            assertNodeExtentMatchesMesh(manifest, N_NODE);
+        } catch (e) {
+            thrown = e;
+        }
+        expect(thrown).toExist();
+        expect(thrown instanceof TypeError).toBe(false);
+        expect(String(thrown.message)).toContain(String(N_CHUNK));
+        expect(String(thrown.message)).toContain(String(N_NODE));
     });
 });

@@ -67,7 +67,12 @@ import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
-import { QUANTITY_ARRAYS, resolveChunkLengthT } from '../playbackChunkShape';
+import {
+    QUANTITY_ARRAYS,
+    resolveChunkLengthT,
+    assertNodeExtentMatchesMesh,
+    assertDeclaredNodeCountAgrees
+} from '../playbackChunkShape';
 import {
     computePlaybackMemoryPlan,
     readNodeCount,
@@ -431,6 +436,12 @@ export function playbackInitEpic(action$, store) {
             // or whose quantity arrays disagree; there is deliberately no
             // fallback, because guessing renders the wrong timestep silently.
             const chunkLengthT = resolveChunkLengthT(manifest);
+            // TASK-2729 arm 2 — the dim-1 twin, at manifest time. Presence-
+            // gated: schema_metadata.n_node is absent on every store written
+            // so far, and refusing on absence would refuse the whole product.
+            // Once TASK-2719 declares it, this catches a self-contradicting
+            // store BEFORE the ~100 s mesh download rather than after it.
+            assertDeclaredNodeCountAgrees(manifest);
             const meta0 = manifest.schema_metadata || {};
             const nTime0 = meta0.n_time || 0;
             // TASK-2708 (W1.2, epic 2706) — size the cache from THIS store
@@ -489,6 +500,20 @@ export function playbackInitEpic(action$, store) {
             const nTime = meta.n_time || time.length;
             const totalChunks = Math.ceil(nTime / chunkLengthT);
             const nNode = meta.n_node || mesh.nodeX.length;
+            // TASK-2729 arm 1 — the arm that can actually fire on the stores
+            // we have. This is the first and only moment BOTH numbers are in
+            // hand (the store's declared chunk node extent, and the node count
+            // the mesh really shipped), and it is before any frame is sliced.
+            // A disagreement here does not crash downstream: it returns a
+            // finite, plausible surface welded from two timesteps. Refuse it.
+            //
+            // Anchored on mesh.nodeX.length, NOT on `nNode` above: nNode
+            // prefers `meta.n_node`, which comes from the same manifest the
+            // guard is checking, so using it would let a manifest that lies
+            // about itself agree with itself and walk straight through. node_x
+            // is written single-chunk (`chunks=(n_node,)`), so its decoded
+            // length is the store's real node count on every store.
+            assertNodeExtentMatchesMesh(manifest, mesh.nodeX.length);
             // TASK-2708 — re-plan with the EXACT triangle count now that the
             // mesh is here (the manifest-time plan had to estimate it), and
             // push the corrected ceiling into the cache that is already live.

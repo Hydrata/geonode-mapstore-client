@@ -425,7 +425,31 @@ describe('playbackEpics', () => {
         // POSITIVE CONTROL for the three helper-level cases above: without
         // this, all of them would stay green if the helper were never wired
         // into the production seam at all.
-        it('is wired into playbackInitEpics manifest-time plan: an over-budget store announces itself once, and still loads', (done) => {
+        // TASK-2729 NOTE — why this spec's terminal action changed.
+        //
+        // The doctored manifest below declares a chunk node extent of 6,000,000
+        // while the fixture mesh it is served with has 6 nodes. That is not a
+        // store that could exist: it is a manifest lying about the bytes behind
+        // it, and since TASK-2729 the client refuses exactly that rather than
+        // slicing frames with one number against a chunk laid out in the other.
+        // So this store now terminates in MANIFEST_FAILED.
+        //
+        // Both contracts this spec was written to hold are PRESERVED, and both
+        // are still asserted below:
+        //   1. the wiring contract (its stated purpose) — the over-budget
+        //      warning is emitted from the real production seam, exactly once,
+        //      with the exact peak. Unchanged, and it still fires: the budget
+        //      warning happens at manifest time, before the mesh lands and
+        //      therefore before the refusal.
+        //   2. "shipping over budget is a deliberate choice, not a blocker" —
+        //      still true, and now proved more sharply: the refusal that DOES
+        //      happen is the node-extent one, by name. Being over budget did
+        //      not stop this load; being an unreadable store did.
+        // An over-budget store that is ALSO self-consistent cannot be built at
+        // fixture scale — over budget requires a node count in the millions,
+        // and a consistent store must ship a mesh that large — which is why
+        // this fixture is doctored in the first place.
+        it('is wired into playbackInitEpics manifest-time plan: an over-budget store announces itself once, before any refusal', (done) => {
             // Doctor ONLY chunk_shapes — readNodeCount reads
             // chunk_shapes[<array>][1], so this is the manifest-time nNode the
             // real seam sees. The mesh arrays are untouched, so the load itself
@@ -455,8 +479,15 @@ describe('playbackEpics', () => {
                     expect(lines.length).toBe(1);
                     expect(lines[0]).toContain('peak=1258.9 MiB');
                     // Shipping over budget is the deliberate choice; the defect
-                    // was that it was silent. The store must still LOAD.
-                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    // was that it was silent. Budget did NOT stop this load —
+                    // TASK-2729 did, because this doctored manifest declares
+                    // 6,000,000 nodes over a 6-node mesh. Assert the reason by
+                    // name, so a future change that starts refusing on BUDGET
+                    // cannot hide behind this expectation.
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_FAILED);
+                    expect(String(a.error)).toContain('chunk node extent');
+                    expect(String(a.error)).toContain('TASK-2729');
+                    expect(String(a.error)).toNotContain('budget');
                     done();
                 } catch (e) {
                     done(e);

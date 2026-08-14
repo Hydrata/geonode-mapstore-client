@@ -76,6 +76,117 @@ export function readChunkLengthsByArray(manifest) {
 }
 
 /**
+ * Per-array NODE EXTENT as the store declares it — dim 1 of the chunk grid.
+ *
+ * TASK-2729. Deliberately the dim-1 mirror of readChunkLengthsByArray above,
+ * and deliberately PER ARRAY rather than a single number: depth, x_velocity
+ * and y_velocity are separate zarr arrays with independent chunk grids, so
+ * "the store's node extent" is only meaningful once they are shown to agree.
+ * playbackMemoryPolicy.readNodeCount takes the FIRST usable one, which is fine
+ * for sizing a cache and is NOT fine for a guard — a store where only
+ * y_velocity is node-chunked would sail straight past it.
+ *
+ * @param {object} manifest as returned by fetchPlaybackManifest
+ * @returns {object} {arrayName: number|undefined} — undefined where the store
+ *          declared no usable extent (a 1-D chunk_shape, or a junk value)
+ */
+export function readNodeExtentsByArray(manifest) {
+    const shapes = (manifest && manifest.chunk_shapes) || {};
+    const extents = {};
+    QUANTITY_ARRAYS.forEach((name) => {
+        const shape = shapes[name];
+        const n = Array.isArray(shape) ? shape[1] : undefined;
+        extents[name] = isUsableChunkLength(n) ? n : undefined;
+    });
+    return extents;
+}
+
+/**
+ * Refuse a store whose declared chunk node extent disagrees with the node
+ * count the mesh actually has — TASK-2729, the dim-1 twin of TASK-2724.
+ *
+ * `chunk_shapes[q][1]` is the chunk's node EXTENT, not the array's node count.
+ * It equals the node count on every store written so far only because the
+ * exporter writes a SINGLE node chunk (run_anuga/playback_store.py,
+ * `t_chunks = (CHUNK_LENGTH_T, n_node)`). That is precisely the "every store
+ * we have ever written does X" invariant TASK-2724 exists to stop trusting,
+ * one dimension over.
+ *
+ * WHY THIS IS WORSE THAN THE DIM-0 CASE, and therefore worth a hard refusal:
+ * loadPlaybackFrame slices with `start = rowInChunk * nNode` where nNode is
+ * the MESH's count. Against a chunk laid out in Nc-wide rows with Nc < nNode,
+ * dequantizeRow's `start + length > storedArray.length` bounds check does not
+ * fire for the low rows, so the call RESOLVES and returns a full-length,
+ * finite, entirely plausible flood surface welded together from two different
+ * timesteps. A wrong chunk length at least sometimes throws. This never does.
+ *
+ * ABSENCE IS NOT DISAGREEMENT. A store that declares no usable extent is
+ * passed, not refused: 1-D chunk_shapes are legal and refusing them would
+ * refuse stores we already serve. Only a declared-and-different extent stops
+ * playback.
+ *
+ * @param {object} manifest
+ * @param {number} meshNodeCount mesh.nodeX.length — the store's REAL node
+ *        count (node_x is written single-chunk, `chunks=(n_node,)`)
+ * @returns {number} meshNodeCount, so a caller can use this inline
+ * @throws {Error} naming both numbers and every array that disagrees
+ */
+export function assertNodeExtentMatchesMesh(manifest, meshNodeCount) {
+    const extents = readNodeExtentsByArray(manifest);
+    const disagreeing = QUANTITY_ARRAYS.filter(
+        (name) => extents[name] !== undefined && extents[name] !== meshNodeCount
+    );
+    if (disagreeing.length) {
+        const detail = disagreeing.map((name) => `${name}=${extents[name]}`).join(', ');
+        throw new Error(
+            `Playback store declares a chunk node extent of ${detail}, but the mesh it ` +
+            `shipped has ${meshNodeCount} nodes. Refusing to play it: a frame is sliced at ` +
+            `rowInChunk * ${meshNodeCount} against a chunk laid out in narrower rows, which ` +
+            'does not fail — it returns a plausible surface stitched from two timesteps ' +
+            '(TASK-2729).'
+        );
+    }
+    return meshNodeCount;
+}
+
+/**
+ * The manifest-time half of the same guard — TASK-2729 arm 2.
+ *
+ * PRESENCE-GATED, and that gate is the whole point. `schema_metadata.n_node`
+ * has NEVER been written by the exporter (its group_attrs carry no such key),
+ * so it is absent on every store in existence including run 1328's. A
+ * fail-loud-on-absence check here would refuse the entire product. Once
+ * TASK-2719 starts declaring it, this arm catches the disagreement at manifest
+ * time — before the ~100 s mesh download — instead of after it.
+ *
+ * @param {object} manifest
+ * @returns {number|undefined} the declared n_node, or undefined when the store
+ *          declares none (the normal case today)
+ * @throws {Error} only when n_node is declared AND an array's chunk node
+ *         extent contradicts it
+ */
+export function assertDeclaredNodeCountAgrees(manifest) {
+    const declared = ((manifest && manifest.schema_metadata) || {}).n_node;
+    if (isUsableChunkLength(declared)) {
+        const extents = readNodeExtentsByArray(manifest);
+        const disagreeing = QUANTITY_ARRAYS.filter(
+            (name) => extents[name] !== undefined && extents[name] !== declared
+        );
+        if (disagreeing.length) {
+            const detail = disagreeing.map((name) => `${name}=${extents[name]}`).join(', ');
+            throw new Error(
+                `Playback store's own metadata contradicts its chunk grid: schema_metadata.n_node ` +
+                `is ${declared} but the chunk node extent is ${detail}. Refusing to play it — the ` +
+                'store cannot be read consistently, and guessing which number is right renders a ' +
+                'plausible surface stitched from two timesteps (TASK-2729).'
+            );
+        }
+    }
+    // undefined = "this store declares no n_node", the normal case today.
+    return isUsableChunkLength(declared) ? declared : undefined;
+}
+
+/**
  * The one time-chunk length this store plays at.
  *
  * AC5 (cross-quantity safety) — depth / x_velocity / y_velocity are separate

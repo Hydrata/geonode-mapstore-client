@@ -192,10 +192,20 @@ function clamp(value, lo, hi) {
 }
 
 /**
- * The node count the store itself declares, from the quantized arrays'
- * chunk_shapes ([chunk_length_t, n_node], TASK-2724's manifest block). Returns
+ * The node EXTENT of one chunk, from the quantized arrays' chunk_shapes
+ * ([chunk_length_t, node_extent], TASK-2724's manifest block). Returns
  * undefined rather than guessing when the store declared nothing usable — the
  * caller falls back to the mesh's own length, which is only known later.
+ *
+ * NOT the array's node count, despite the name — TASK-2729. The two are equal
+ * only because the exporter writes a SINGLE node chunk; on a node-chunked
+ * store this is Nc, not N. That is fine HERE, because the only consumer sizes
+ * a cache and a too-small chunk estimate is a conservative one. It is NOT fine
+ * as a guard: this takes the FIRST usable value across QUANTITY_ARRAYS, so a
+ * store where only y_velocity is node-chunked returns depth's value and looks
+ * healthy. The guard lives in playbackChunkShape.assertNodeExtentMatchesMesh
+ * and compares EVERY array; do not build one on this function.
+ *
  * @param {object} manifest
  * @returns {number|undefined}
  */
