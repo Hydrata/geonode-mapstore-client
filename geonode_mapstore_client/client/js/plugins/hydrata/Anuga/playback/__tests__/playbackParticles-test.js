@@ -29,9 +29,16 @@ import {
     initialParticlePositions,
     composePosToClipMatrix,
     PARTICLE_ADVECT_FRAGMENT_SHADER,
-    PARTICLE_RENDER_VERTEX_SHADER
+    PARTICLE_RENDER_VERTEX_SHADER,
+    // TASK-2743 UAT-02 (W6, epic 2706) — seed and cull against the view.
+    PARTICLE_RESPAWN_VIEW_MARGIN,
+    PARTICLE_CULL_VIEW_MARGIN,
+    FULL_UV_RECT,
+    computeParticleViewRects,
+    isParticleInView
 } from '../playbackParticles';
 import { buildProjectionMatrix, applyProjectionMatrix } from '../playbackMeshGeometry';
+import { computeBboxOrtho, worldToVelocityUv } from '../playbackFlowViz';
 
 describe('playbackParticles', () => {
     describe('computeAdvectionSpeedScale (the "speed exaggeration" control)', () => {
@@ -310,4 +317,130 @@ describe('playbackParticles', () => {
             expect(PARTICLE_MIN_SPEED).toBeLessThan(0.01);
         });
     });
+
+    // ── TASK-2743 UAT-02 (W6, epic 2706) ────────────────────────────────────
+    // Particles were seeded uniform over the WHOLE square-padded run bbox while
+    // a working view covers ~1% of it, so almost none were ever on screen, and
+    // the stall-recycle asymmetry then piled the survivors into the wet 4%.
+    describe('computeParticleViewRects (UAT-02: seed and cull against the view)', () => {
+        // 4000 x 4000 m window -> computeBboxOrtho half 2000 (padFactor 1.0).
+        const ortho = computeBboxOrtho([0, 0, 4000, 4000], 1.0);
+        const centred = { center: [2000, 2000], resolution: 0.5, rotation: 0 };
+        const size = [1000, 1000]; // -> a 500 x 500 m viewport
+
+        it('sizes both rects from the view half-extent, margin as a DIRECT multiplier', () => {
+            const { respawn, cull } = computeParticleViewRects(centred, size, ortho);
+            expect(+respawn.du.toFixed(6)).toBe(0.1625); // 250 * 1.3 / 2000
+            expect(+respawn.dv.toFixed(6)).toBe(0.1625);
+            expect(+cull.du.toFixed(6)).toBe(0.25); // 250 * 2.0 / 2000
+            expect(+respawn.u.toFixed(6)).toBe(0.41875);
+            expect(+respawn.v.toFixed(6)).toBe(0.41875);
+        });
+
+        it('agrees with worldToVelocityUv about where the view centre is', () => {
+            // Pins the mapping against the shipped one rather than trusting the
+            // two to stay in step by inspection.
+            const off = { center: [2500, 1500], resolution: 0.5, rotation: 0 };
+            const { respawn } = computeParticleViewRects(off, size, ortho);
+            const [cu, cv] = worldToVelocityUv(2500, 1500, ortho);
+            expect(+(respawn.u + respawn.du / 2).toFixed(6)).toBe(+cu.toFixed(6));
+            expect(+(respawn.v + respawn.dv / 2).toFixed(6)).toBe(+cv.toFixed(6));
+        });
+
+        it('the cull rect always CONTAINS the respawn rect, at every camera in a table', () => {
+            // Respawning outside the cull rect would recycle at 0.30/frame
+            // forever — the two rects must never invert.
+            [0, Math.PI / 4, Math.PI / 3].forEach((rotation) => {
+                [[2000, 2000], [800, 3200], [3900, 100], [2000, 3950]].forEach((center) => {
+                    const { respawn, cull } = computeParticleViewRects({ center, resolution: 0.5, rotation }, size, ortho);
+                    expect(cull.u <= respawn.u + 1e-9).toBe(true);
+                    expect(cull.v <= respawn.v + 1e-9).toBe(true);
+                    expect(cull.u + cull.du >= respawn.u + respawn.du - 1e-9).toBe(true);
+                    expect(cull.v + cull.dv >= respawn.v + respawn.dv - 1e-9).toBe(true);
+                });
+            });
+        });
+
+        it('widens the rect under rotation — the view AABB, not the view rect', () => {
+            const straight = computeParticleViewRects(centred, size, ortho).respawn;
+            const turned = computeParticleViewRects({ ...centred, rotation: Math.PI / 4 }, size, ortho).respawn;
+            expect(+(turned.du / straight.du).toFixed(5)).toBe(+Math.SQRT2.toFixed(5));
+        });
+
+        it('falls back to the FULL domain when the view is off the mesh entirely', () => {
+            // The degeneracy that would otherwise stack all 43,264 particles on
+            // one texel.
+            const off = computeParticleViewRects({ center: [1e6, 1e6], resolution: 0.5, rotation: 0 }, size, ortho);
+            expect({ ...off.respawn }).toEqual({ u: 0, v: 0, du: 1, dv: 1 });
+            expect({ ...off.cull }).toEqual({ u: 0, v: 0, du: 1, dv: 1 });
+            expect(FULL_UV_RECT.du).toBe(1);
+        });
+
+        it('is the full domain when zoomed out past the window — i.e. exactly today', () => {
+            const wide = computeParticleViewRects({ center: [2000, 2000], resolution: 20, rotation: 0 }, size, ortho);
+            expect({ ...wide.respawn }).toEqual({ u: 0, v: 0, du: 1, dv: 1 });
+            expect({ ...wide.cull }).toEqual({ u: 0, v: 0, du: 1, dv: 1 });
+        });
+
+        it('returns the full domain for missing/degenerate inputs rather than throwing', () => {
+            expect({ ...computeParticleViewRects(null, size, ortho).respawn }).toEqual({ u: 0, v: 0, du: 1, dv: 1 });
+            expect({ ...computeParticleViewRects(centred, null, ortho).respawn }).toEqual({ u: 0, v: 0, du: 1, dv: 1 });
+            expect({ ...computeParticleViewRects(centred, size, null).respawn }).toEqual({ u: 0, v: 0, du: 1, dv: 1 });
+            expect({ ...computeParticleViewRects({ ...centred, resolution: 0 }, size, ortho).respawn }).toEqual({ u: 0, v: 0, du: 1, dv: 1 });
+        });
+
+        it('isParticleInView agrees with the shader\'s four step() tests on a 16x16 grid', () => {
+            const { cull } = computeParticleViewRects(centred, size, ortho);
+            const glsl = (u, v) => {
+                const offLo = [u <= cull.u ? 1 : 0, v <= cull.v ? 1 : 0];
+                const offHi = [cull.u + cull.du <= u ? 1 : 0, cull.v + cull.dv <= v ? 1 : 0];
+                return Math.max(Math.max(offLo[0], offLo[1]), Math.max(offHi[0], offHi[1])) < 1;
+            };
+            let checked = 0;
+            for (let i = 0; i < 16; i++) {
+                for (let j = 0; j < 16; j++) {
+                    const u = i / 15, v = j / 15;
+                    expect(isParticleInView(u, v, cull)).toBe(glsl(u, v));
+                    checked++;
+                }
+            }
+            expect(checked).toBe(256);
+        });
+    });
+
+    describe('pickRespawnRate inView arm + the advect shader wiring (UAT-02)', () => {
+        it('an off-view particle recycles at the STALL rate even when it is flowing', () => {
+            expect(pickRespawnRate(1.0, 0.005, 0.5, PARTICLE_MIN_SPEED, PARTICLE_DROP_RATE, PARTICLE_STALL_DROP_RATE, false))
+                .toBe(PARTICLE_STALL_DROP_RATE);
+        });
+
+        it('every pre-existing caller is unaffected — inView defaults true', () => {
+            expect(pickRespawnRate(1.0, 0.005, 0.5)).toBe(PARTICLE_DROP_RATE);
+            expect(pickRespawnRate(0.0, 0.005, 0.5)).toBe(PARTICLE_STALL_DROP_RATE);
+        });
+
+        it('the advect shader takes both rects and respawns inside the respawn rect', () => {
+            const S = PARTICLE_ADVECT_FRAGMENT_SHADER;
+            expect(S).toMatch(/uniform vec4 uRespawnRect;/);
+            expect(S).toMatch(/uniform vec4 uCullRect;/);
+            expect(S).toMatch(/vec2 respawn = uRespawnRect\.xy \+ vec2\(hash\(seed \+ 1\.3\), hash\(seed \+ 7\.7\)\) \* uRespawnRect\.zw;/);
+            expect(S).toMatch(/notFlowing = max\(notFlowing, offView\);/);
+        });
+
+        it('the three pinned advect lines are still byte-identical', () => {
+            const S = PARTICLE_ADVECT_FRAGMENT_SHADER;
+            expect(S).toMatch(/pos = fract\(pos \+ vel \* uDt \* uSpeedScale\);/);
+            expect(S).toMatch(/float notFlowing = max\(dry, still\);/);
+            expect(S).toMatch(/float rate = mix\(uDropRate, uStallDropRate, notFlowing\);/);
+        });
+
+        it('LOCK: the advection frame did not move — no window argument was smuggled in', () => {
+            // The tripwire against re-attempting the view-following velocity
+            // window without its ~8.5x speed compensation.
+            expect(computeAdvectionSpeedScale.length).toBe(1);
+            expect(computeAdvectionSpeedScale(1)).toBe(PARTICLE_BASE_SPEED_SCALE);
+            expect(PARTICLE_RESPAWN_VIEW_MARGIN < PARTICLE_CULL_VIEW_MARGIN).toBe(true);
+        });
+    });
+
 });

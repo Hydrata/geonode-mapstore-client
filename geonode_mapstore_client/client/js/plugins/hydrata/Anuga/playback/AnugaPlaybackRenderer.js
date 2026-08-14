@@ -481,7 +481,14 @@ export class AnugaPlaybackRenderer {
                     : (1 / 60);
                 this._lastParticleFrameTimeMs = nowMs;
                 const velocityTexture = this.flowViz.getVelocityTexture();
-                this.particles.step({ velocityTexture, dtSec, speedExaggeration: particleSpeedExaggeration });
+                // TASK-2743 UAT-02 — viewState/size/bboxOrtho drive the
+                // respawn+cull rects. All three are already in scope and are
+                // the SAME values renderTrails below receives, so the advect
+                // pass and the draw pass can never disagree about the view.
+                this.particles.step({
+                    velocityTexture, dtSec, speedExaggeration: particleSpeedExaggeration,
+                    viewState, sizeCssPx: size, bboxOrtho
+                });
                 this.particles.renderTrails({
                     velocityTexture, bboxOrtho, projMatrix, viewState, sizeCssPx: size,
                     canvasWidth: width, canvasHeight: height, wetThreshold, trailsEnabled: true
