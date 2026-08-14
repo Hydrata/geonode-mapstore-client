@@ -31,6 +31,10 @@ import {
     isArrowVisible,
     composeNdcToVelocityUvMatrix,
     FLOWVIZ_ARROW_VERTEX_SHADER
+,
+    // TASK-2743 UAT-03 (W6, epic 2706) — velocity-field ground resolution.
+    VEL_TEX_MIN_SIZE,
+    resolveVelocityTextureSize
 } from '../playbackFlowViz';
 import { buildInverseProjectionMatrix, applyProjectionMatrix } from '../playbackMeshGeometry';
 import { DERIVED_QUANTITY_FIXTURE } from './fixtures/fixtureDerivedQuantities';
@@ -306,4 +310,67 @@ describe('playbackFlowViz', () => {
             expect(DEFAULT_ARROW_SCALE).toBeGreaterThan(0);
         });
     });
+
+    // ── TASK-2743 UAT-03 (W6, epic 2706) ────────────────────────────────────
+    // The velocity texture covers the whole square-padded run bbox, so its size
+    // IS the field's ground resolution. At 512 the ~22 m Msimbazi channel was
+    // under 3 texels wide and could not survive bilinear sampling.
+    describe('VEL_TEX_SIZE (UAT-03: the field must resolve the channel, without aliasing the arrows)', () => {
+        // The real map-1461 mesh bbox, in metres.
+        const ortho = computeBboxOrtho([0, 0, 3518.875, 3734.000]);
+        const mPerTexel = (2 * ortho.halfW) / VEL_TEX_SIZE;
+        // Measured on this store: median in-channel width 22 m, p25 10 m.
+        const MEDIAN_CHANNEL_M = 22;
+        const P25_CHANNEL_M = 10;
+        // Measured working zoom on map 1461.
+        const RESOLUTION_M_PER_CSS_PX = 0.29858214173896974;
+
+        it('resolves the channel: metres per texel is under 4, and p25 clears 2 texels', () => {
+            // RED at 512: mPerTexel was 7.4388, median 2.96 texels, p25 1.34.
+            expect(mPerTexel < 4).toBe(true);
+            expect(MEDIAN_CHANNEL_M / mPerTexel > 4).toBe(true);
+            expect(P25_CHANNEL_M / mPerTexel > 2).toBe(true);
+        });
+
+        it('LOCK: does NOT alias the arrow grid — the reason it is 1024 and not 2048', () => {
+            // The arrows are the one overlay that already works at production
+            // scale. Bilinear only smooths BETWEEN arrow samples while the grid
+            // spans more than ~2 texels; past ~8 they become point samples.
+            // 512 -> 2.57, 1024 -> 5.14, 2048 -> 10.28 (RED).
+            const arrowSpacingM = DEFAULT_ARROW_DENSITY_PX * RESOLUTION_M_PER_CSS_PX;
+            const texelsPerArrow = arrowSpacingM / mPerTexel;
+            expect(texelsPerArrow > 2).toBe(true);
+            expect(texelsPerArrow < 8).toBe(true);
+        });
+
+        it('is a power of two at least VEL_TEX_MIN_SIZE', () => {
+            expect(VEL_TEX_SIZE >= VEL_TEX_MIN_SIZE).toBe(true);
+            expect(Math.log2(VEL_TEX_SIZE) % 1).toBe(0);
+        });
+    });
+
+    describe('resolveVelocityTextureSize (UAT-03: velFboComplete finally does something)', () => {
+        it('takes the requested size when the FBO is complete', () => {
+            expect(resolveVelocityTextureSize(1024, () => true)).toBe(1024);
+        });
+
+        it('halves down to the first size the GPU actually accepts', () => {
+            expect(resolveVelocityTextureSize(1024, (s) => s <= 512)).toBe(512);
+            expect(resolveVelocityTextureSize(1024, (s) => s <= 256)).toBe(256);
+        });
+
+        it('returns 0 rather than silently rendering garbage when nothing works', () => {
+            // Before this, velFboComplete was computed and read by NOTHING, so
+            // an incomplete FBO rendered garbage. 0 means "unsupported".
+            expect(resolveVelocityTextureSize(1024, () => false)).toBe(0);
+        });
+
+        it('never probes below VEL_TEX_MIN_SIZE', () => {
+            const tried = [];
+            resolveVelocityTextureSize(1024, (s) => { tried.push(s); return false; });
+            expect(tried).toEqual([1024, 512, 256]);
+            expect(Math.min.apply(null, tried) >= VEL_TEX_MIN_SIZE).toBe(true);
+        });
+    });
+
 });
