@@ -3357,6 +3357,38 @@ span.sv-scenario-run-price--short {
 .sv-playback-bar .sv-glass-button:hover {
     background: rgba(255, 255, 255, 0.12);
 }
+/* TASK-2726 follow-up — the Display button's disclosure chevron. Two borders
+   on a rotated empty box, so it inherits `currentColor` and therefore flips to
+   the dark ink automatically when .active paints the button accent-blue. An
+   arrow CHARACTER would not: at emoji presentation it ignores `color` outright
+   (memory reference-emoji-presentation-glyph-ignores-css-color), and its metrics
+   vary by platform font. Points UP when shut, because the drawer grows upward. */
+.sv-playback-display-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.sv-playback-chevron {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-left: 1.5px solid currentColor;
+    border-top: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    /* the box is rotated about its centre, so the visible wedge sits low;
+       nudge it back onto the text baseline rather than fighting it with margin */
+    transform-origin: center;
+    position: relative;
+    top: 1px;
+    transition: transform 140ms ease;
+}
+.sv-playback-display-toggle[aria-expanded="true"] .sv-playback-chevron {
+    transform: rotate(-135deg);
+    top: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sv-playback-chevron { transition: none; }
+}
 .sv-playback-bar .sv-glass-button.active {
     background: var(--sv-accent-blue, #5bc0ff);
     border-color: var(--sv-accent-blue, #5bc0ff);

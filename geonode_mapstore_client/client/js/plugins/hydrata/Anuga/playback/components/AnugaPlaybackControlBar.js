@@ -851,6 +851,26 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     >
                         <Message msgId="hydrata.playback.wireframe" />
                     </button>
+                    {/* TASK-2726 (W5.5) — Zoom to results. It lives in the drawer,
+                        not the transport row: the transport row is the things you
+                        touch WHILE watching (play, scrub, speed, quantity), and a
+                        one-shot navigation action pushed those apart for a button
+                        most sessions press once. DISABLED, not hidden and not
+                        silently inert, until the extent is known —
+                        `meshBounds3857` is null before MANIFEST_LOADED and stays
+                        null for a store whose epsg is unusable. The extent is
+                        EPSG:3857 (published by playbackInitEpic), NEVER the
+                        store's native UTM. Call shape copied from
+                        pollingEpics.js:954, the plugin's existing zoom. */}
+                    <button
+                        className="btn sv-glass-button sv-playback-zoom-to-results"
+                        data-testid="anuga-playback-zoom-to-results"
+                        disabled={!playback.meshBounds3857}
+                        onClick={() => this.props.onZoomToExtent(playback.meshBounds3857, 'EPSG:3857', PLAYBACK_ZOOM_MAX)}
+                        title={this.tr('hydrata.playback.zoomToResultsTooltip', 'Zoom the map to this run’s results')}
+                    >
+                        <Message msgId="hydrata.playback.zoomToResults" />
+                    </button>
                 </section>
 
                 <section className="sv-playback-drawer-col">
@@ -1122,6 +1142,28 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         title={this.tr('hydrata.playback.displayTooltip', 'Opacity, overlays and the colour scale for every result quantity')}
                     >
                         <Message msgId="hydrata.playback.display" />
+                        {/* TASK-2726 follow-up — a disclosure chevron, so the
+                            button reads as "there is a panel behind this" rather
+                            than as another toggle in a row of toggles. Now that
+                            Zoom to results lives inside the drawer, a control the
+                            user is looking for can be hidden in there, and an
+                            unmarked button is a poor place to hide one.
+
+                            Drawn in CSS from borders, NOT an arrow glyph: a
+                            character like U+25B4 renders at the font's mercy
+                            across platforms and, if it ever picks up emoji
+                            presentation, ignores `color` entirely (memory:
+                            reference-emoji-presentation-glyph-ignores-css-color).
+                            Borders inherit currentColor by construction.
+
+                            It points UP when shut because the drawer GROWS
+                            UPWARD (the bar is anchored by its bottom edge — see
+                            renderDrawer), so the chevron indicates where the
+                            panel will appear, not merely that one exists.
+                            aria-hidden: `aria-expanded` on the button already
+                            carries this to assistive tech, so announcing it
+                            twice would be noise. */}
+                        <span className="sv-playback-chevron" aria-hidden="true" />
                     </button>
 
                     <button
@@ -1140,27 +1182,6 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         title={this.tr('hydrata.playback.legendTooltip', 'Show the colour legend')}
                     >
                         <Message msgId="hydrata.playback.legend" />
-                    </button>
-
-                    {/* TASK-2726 (W5.5) — Zoom to results. The gap this closes:
-                        a user who loads a store has no affordance to get to it,
-                        which is how the W0 rig session ended up staring at an
-                        empty ocean while a perfectly good flood sat off-screen.
-                        DISABLED, not hidden and not silently inert, until the
-                        extent is known — `meshBounds3857` is null before
-                        MANIFEST_LOADED and stays null for a store whose epsg is
-                        unusable. The extent is EPSG:3857 (published by
-                        playbackInitEpic), NEVER the store's native UTM. Call
-                        shape copied from pollingEpics.js:954, the plugin's
-                        existing zoom. */}
-                    <button
-                        className="btn sv-glass-button sv-playback-zoom-to-results"
-                        data-testid="anuga-playback-zoom-to-results"
-                        disabled={!playback.meshBounds3857}
-                        onClick={() => this.props.onZoomToExtent(playback.meshBounds3857, 'EPSG:3857', PLAYBACK_ZOOM_MAX)}
-                        title={this.tr('hydrata.playback.zoomToResultsTooltip', 'Zoom the map to this run’s results')}
-                    >
-                        <Message msgId="hydrata.playback.zoomToResults" />
                     </button>
 
                     {/* TASK-2744 (AC2) — Unload. Until this existed PLAYBACK_RESET

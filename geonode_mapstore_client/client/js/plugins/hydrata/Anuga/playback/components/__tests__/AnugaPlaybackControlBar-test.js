@@ -654,6 +654,20 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(container.querySelector('[data-testid="anuga-playback-zoom-to-results"]').disabled).toBe(false);
         });
 
+        // Operator moved this out of the transport row on 2026-08-14: the
+        // transport row is what you touch WHILE watching, and a one-shot
+        // navigation action was pushing those controls apart. Pinned as a test
+        // because "which container is it in" is exactly the kind of thing a
+        // later refactor undoes without noticing.
+        it('lives INSIDE the Display drawer, not in the transport row', () => {
+            render({ playback: { ...READY, meshBounds3857: MSIMBAZI_3857 } });
+            const drawer = container.querySelector('[data-testid="anuga-playback-drawer"]');
+            const button = container.querySelector('[data-testid="anuga-playback-zoom-to-results"]');
+            expect(drawer).toBeTruthy();
+            expect(button).toBeTruthy();
+            expect(drawer.contains(button)).toBe(true);
+        });
+
         it('dispatches zoomToExtent(bounds, EPSG:3857, maxZoom) — the pollingEpics.js:954 call shape', () => {
             const onZoomToExtent = expect.createSpy();
             render({ playback: { ...READY, meshBounds3857: MSIMBAZI_3857 }, onZoomToExtent });
@@ -665,6 +679,37 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             // store's native UTM epsg here is the specific defect AC3 names.
             expect(args[1]).toBe('EPSG:3857');
             expect(args[2]).toBe(PLAYBACK_ZOOM_MAX);
+        });
+    });
+
+    // Operator request, 2026-08-14. The Display button now hides a control the
+    // user may be hunting for (Zoom to results), so it has to READ as a panel
+    // rather than as one more toggle in a row of toggles.
+    describe('Display disclosure chevron', () => {
+        const READY_BAR = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31 };
+
+        it('renders a chevron inside the Display button, hidden from assistive tech', () => {
+            render({ playback: READY_BAR });
+            const toggle = container.querySelector('[data-testid="anuga-playback-display-toggle"]');
+            const chevron = toggle.querySelector('.sv-playback-chevron');
+            expect(chevron).toBeTruthy();
+            // aria-expanded on the button already carries the state; announcing
+            // it a second time would be noise.
+            expect(chevron.getAttribute('aria-hidden')).toBe('true');
+        });
+
+        it('drives the chevron off aria-expanded, which the CSS rotates on', () => {
+            // The rotation is a CSS rule keyed on
+            // [aria-expanded="true"], so the assertion that matters in a unit
+            // test is that the ATTRIBUTE tracks the drawer — a transform read
+            // back from jsdom would prove nothing about the real stylesheet.
+            render({ playback: READY_BAR });
+            const toggle = container.querySelector('[data-testid="anuga-playback-display-toggle"]');
+            expect(toggle.getAttribute('aria-expanded')).toBe('false');
+            TestUtils.Simulate.click(toggle);
+            const after = container.querySelector('[data-testid="anuga-playback-display-toggle"]');
+            expect(after.getAttribute('aria-expanded')).toBe('true');
+            expect(after.querySelector('.sv-playback-chevron')).toBeTruthy();
         });
     });
 });
