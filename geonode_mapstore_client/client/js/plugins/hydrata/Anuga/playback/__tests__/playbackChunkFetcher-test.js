@@ -329,6 +329,91 @@ describe('PlaybackChunkFetcher', () => {
                 done();
             }).catch(done);
         });
+
+        // TASK-2743 UAT-09 (W6, epic 2706) — per-chunk reporting.
+        //
+        // The batched prefetchWindow held EVERY chunk behind the window's
+        // slowest member, so the controller's readiness gate (the one or two
+        // chunks frame0/frame1 actually sit in) was never what it waited on.
+        // Invisible at a 2-chunk window; a measured 7,954 ms cold load on map
+        // 1461 once UAT-08's device-sized budget made the window 3 deep.
+        describe('prefetchWindowByChunk (TASK-2743 UAT-09)', () => {
+            const depthConfig = () => ({
+                depth: {
+                    dtype: 'uint16',
+                    byteorder: FIXTURE_ARRAY_META.depth.attributes.byteorder,
+                    quantization: FIXTURE_ARRAY_META.depth.attributes
+                }
+            });
+
+            it('returns one group per window chunk, ascending — nearest the playhead first', () => {
+                const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch() });
+                const groups = fetcher.prefetchWindowByChunk(depthConfig(), 0, 2, { windowRadius: 0, windowAhead: 1 });
+                expect(groups.map((g) => g.chunkIndex)).toEqual([0, 1]);
+                expect(typeof groups[0].promise.then).toBe('function');
+            });
+
+            it('a chunk resolves WITHOUT waiting for the rest of the window — the defect this fixes', (done) => {
+                // chunk 1 is held open; chunk 0 must still settle. Under the
+                // old Promise.all this could not resolve at all.
+                let releaseChunk1 = null;
+                const held = new Promise((resolve) => { releaseChunk1 = resolve; });
+                const inner = makeFixtureFetch();
+                const fetcher = new PlaybackChunkFetcher({
+                    manifest: FIXTURE_MANIFEST,
+                    fetchImpl: (url, opts) => (/\/c\/1\//.test(String(url))
+                        ? held.then(() => inner(url, opts))
+                        : inner(url, opts))
+                });
+                const groups = fetcher.prefetchWindowByChunk(depthConfig(), 0, 2, { windowRadius: 0, windowAhead: 1 });
+                let chunk1Settled = false;
+                groups[1].promise.then(() => { chunk1Settled = true; });
+                groups[0].promise.then((results) => {
+                    try {
+                        expect(chunk1Settled).toBe(false);
+                        expect(results.length).toBe(1);
+                        expect(results[0].chunkIndex).toBe(0);
+                        expect(results[0].value).toBeTruthy();
+                        releaseChunk1();
+                        done();
+                    } catch (e) {
+                        releaseChunk1();
+                        done(e);
+                    }
+                }).catch((e) => { releaseChunk1(); done(e); });
+            });
+
+            it('prefetchWindow still returns the SAME flat, all-settled array it always did', (done) => {
+                const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch() });
+                fetcher.prefetchWindow(depthConfig(), 0, 2, { windowRadius: 0, windowAhead: 1 }).then((results) => {
+                    try {
+                        expect(results.length).toBe(2);
+                        expect(results.map((r) => r.chunkIndex)).toEqual([0, 1]);
+                        expect(results.every((r) => r.arrayName === 'depth' && r.value)).toBe(true);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }).catch(done);
+            });
+
+            it('a failing array degrades ONLY its own chunk group', (done) => {
+                const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch() });
+                const groups = fetcher.prefetchWindowByChunk(
+                    { ...depthConfig(), does_not_exist: { dtype: 'uint16', byteorder: 'little' } },
+                    0, 1, { windowRadius: 0 }
+                );
+                groups[0].promise.then((results) => {
+                    try {
+                        expect(results.find((r) => r.arrayName === 'depth').value).toBeTruthy();
+                        expect(results.find((r) => r.arrayName === 'does_not_exist').error).toBeTruthy();
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }).catch(done);
+            });
+        });
     });
 });
 

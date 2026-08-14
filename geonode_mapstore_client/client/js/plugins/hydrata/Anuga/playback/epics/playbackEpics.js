@@ -622,8 +622,21 @@ export function playbackBufferEpic(action$, store) {
             return Rx.Observable.empty();
         }
         const arrayConfigs = arrayConfigsFor(pb.quantization);
-        return Rx.Observable.fromPromise(
-            fetcher.prefetchWindow(arrayConfigs, centerChunk, pb.totalChunks, { windowRadius, windowAhead })
+        // TASK-2743 UAT-09 (W6, epic 2706) — report EACH chunk the moment its
+        // own arrays land, rather than holding the whole window behind its
+        // slowest member. The controller only needs the chunk(s) frame0/frame1
+        // sit in (requiredWindowFor — usually one) to leave `buffering`, so
+        // batching the report made the deepest prefetch the readiness gate.
+        // Measured on map 1461 with a 3-chunk window: 7,954 ms from `buffering`
+        // to `ready`, with chunk 0's three arrays already decoded.
+        //
+        // `merge` (not `forkJoin`) is the whole point — one emission per chunk,
+        // in arrival order.
+        const chunkGroups = fetcher.prefetchWindowByChunk(
+            arrayConfigs, centerChunk, pb.totalChunks, { windowRadius, windowAhead }
+        );
+        return Rx.Observable.merge(
+            ...chunkGroups.map((group) => Rx.Observable.fromPromise(group.promise))
         ).mergeMap((results) => {
             // A chunk only counts as buffered once EVERY configured array
             // resolved ok for it — a partial-array chunk can't render a frame.

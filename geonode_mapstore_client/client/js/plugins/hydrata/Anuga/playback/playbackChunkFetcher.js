@@ -367,20 +367,50 @@ export class PlaybackChunkFetcher {
      * @param {{windowRadius?: number, windowAhead?: number, nodeChunkIndex?: number}} [options]
      * @returns {Promise<Array<{arrayName: string, chunkIndex: number, value?: object, error?: Error}>>}
      */
-    async prefetchWindow(arrayConfigs, centerChunkIndex, totalChunks, { windowRadius = 2, windowAhead, nodeChunkIndex = 0 } = {}) {
+    async prefetchWindow(arrayConfigs, centerChunkIndex, totalChunks, options = {}) {
+        const groups = this.prefetchWindowByChunk(arrayConfigs, centerChunkIndex, totalChunks, options);
+        const settled = await Promise.all(groups.map((g) => g.promise));
+        return settled.reduce((all, results) => all.concat(results), []);
+    }
+
+    /**
+     * The same fetches, reported PER CHUNK instead of as one all-or-nothing
+     * batch: `[{chunkIndex, promise}]`, ascending, each promise resolving when
+     * that ONE chunk's arrays have all settled.
+     *
+     * TASK-2743 UAT-09 (W6, epic 2706) — WHY THIS EXISTS. prefetchWindow's
+     * `Promise.all` meant the caller learned nothing until the whole window
+     * landed, so the chunk the playhead is actually sitting on was withheld
+     * behind its neighbours. The controller's own readiness gate
+     * (requiredWindowFor -> the chunks frame0/frame1 need, usually ONE) was
+     * therefore never the binding constraint: `ready` waited on the deepest
+     * prefetch instead.
+     *
+     * Latent since W1.2 and invisible while the window was 2 chunks deep;
+     * TASK-2743 UAT-08's device-sized budget made it 3 on a machine with
+     * headroom and the cost became a measured 7,954 ms cold load on map 1461,
+     * where chunk 0's own three arrays had landed seconds earlier.
+     *
+     * Ascending order matters: chunk `lo` is the one nearest (or at) the
+     * playhead, so a caller that acts on the first resolution acts on the most
+     * urgent chunk.
+     *
+     * @param {Record<string, {dtype: string, byteorder?: string, quantization?: object}>} arrayConfigs
+     * @param {number} centerChunkIndex
+     * @param {number} totalChunks
+     * @param {{windowRadius?: number, windowAhead?: number, nodeChunkIndex?: number}} [options]
+     * @returns {Array<{chunkIndex: number, promise: Promise<Array<{arrayName: string, chunkIndex: number, value?: object, error?: Error}>>}>}
+     */
+    prefetchWindowByChunk(arrayConfigs, centerChunkIndex, totalChunks, { windowRadius = 2, windowAhead, nodeChunkIndex = 0 } = {}) {
         const window = this.getPrefetchWindow(centerChunkIndex, totalChunks, windowRadius, { ahead: windowAhead });
         const arrayNames = Object.keys(arrayConfigs || {});
-        const tasks = [];
-        arrayNames.forEach((arrayName) => {
-            window.forEach((chunkIndex) => {
-                tasks.push(
-                    this.fetchAndDecodeChunk(arrayName, [chunkIndex, nodeChunkIndex], arrayConfigs[arrayName])
-                        .then((value) => ({ arrayName, chunkIndex, value }))
-                        .catch((error) => ({ arrayName, chunkIndex, error }))
-                );
-            });
-        });
-        return Promise.all(tasks);
+        return window.map((chunkIndex) => ({
+            chunkIndex,
+            promise: Promise.all(arrayNames.map((arrayName) => this
+                .fetchAndDecodeChunk(arrayName, [chunkIndex, nodeChunkIndex], arrayConfigs[arrayName])
+                .then((value) => ({ arrayName, chunkIndex, value }))
+                .catch((error) => ({ arrayName, chunkIndex, error }))))
+        }));
     }
 }
 

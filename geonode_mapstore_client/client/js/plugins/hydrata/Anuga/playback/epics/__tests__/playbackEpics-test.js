@@ -543,7 +543,15 @@ describe('playbackEpics', () => {
             );
         }
 
-        it('prefetches the required window and dispatches CHUNKS_BUFFERED once every array resolves', (done) => {
+        // TASK-2743 UAT-09 (W6, epic 2706) — this used to assert ONE
+        // CHUNKS_BUFFERED carrying [0, 1], which was the batched contract:
+        // prefetchWindow's Promise.all withheld every chunk until the window's
+        // slowest member landed. The controller's readiness gate only ever
+        // needs the chunk frame0/frame1 sit in, so batching made the deepest
+        // prefetch the thing `buffering` waited on — a measured 7,954 ms cold
+        // load on map 1461 with chunk 0 already decoded. The epic now reports
+        // per chunk, so the resident set is announced as it GROWS.
+        it('prefetches the required window and announces each chunk as it lands, converging on the full window', (done) => {
             // currentTimestep=0, chunkLengthT=10, default bufferWindowRadius=2,
             // totalChunks=2 -> getPrefetchWindow(0, 2, 2) covers BOTH chunks.
             const restore = stubGlobalFetch(fixtureFetchHandler);
@@ -551,16 +559,29 @@ describe('playbackEpics', () => {
             fetcherRegistry.set(1, fetcher);
             const store = makeStore(loadedPlaybackState());
             const { subject, action$ } = makeActionsSubject();
+            const announced = [];
             playbackBufferEpic(action$, store).subscribe((a) => {
                 try {
-                    if (a.type === PLAYBACK_CHUNKS_BUFFERED) {
-                        restore();
-                        expect(a.chunkIndices).toEqual([0, 1]);
-                        done();
-                    } else if (a.type === PLAYBACK_CHUNK_BUFFER_ERROR) {
+                    if (a.type === PLAYBACK_CHUNK_BUFFER_ERROR) {
                         restore();
                         done(new Error('unexpected buffer error: ' + a.error));
+                        return;
                     }
+                    if (a.type !== PLAYBACK_CHUNKS_BUFFERED) {
+                        return;
+                    }
+                    announced.push(a.chunkIndices);
+                    if (a.chunkIndices.length < 2) {
+                        // The first announcement must NOT already be the whole
+                        // window — that is the batching this replaced.
+                        expect(a.chunkIndices).toEqual([0]);
+                        return;
+                    }
+                    restore();
+                    expect(a.chunkIndices).toEqual([0, 1]);
+                    // and it got there incrementally, not in one shot
+                    expect(announced.length).toBe(2);
+                    done();
                 } catch (e) {
                     restore();
                     done(e);
