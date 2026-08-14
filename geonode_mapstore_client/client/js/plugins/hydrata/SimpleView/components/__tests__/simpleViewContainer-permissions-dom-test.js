@@ -149,7 +149,7 @@ describe('SimpleView RHS toolbar order (TASK-2465)', () => {
         const { store } = makeStore(fullToolbarState());
         const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
         expect(titlesOf(container)).toEqual(
-            ['Account', 'Search', 'Measure', 'Legend', 'Layer Menu', 'Save']
+            ['Account', 'Search', 'Measure', 'Legend', 'Layer Menu', 'Save', 'About this project']
         );
     });
 
@@ -157,8 +157,20 @@ describe('SimpleView RHS toolbar order (TASK-2465)', () => {
         const { store } = makeStore(fullToolbarState());
         const { container } = mountWithProviders(<ConnectedSimpleView />, { store });
         expect(titlesOf(container)).toEqual(
-            ['Permissions', 'Search', 'Measure', 'Legend', 'Layer Menu', 'Save']
+            ['Permissions', 'Search', 'Measure', 'Legend', 'Layer Menu', 'Save', 'About this project']
         );
+    });
+
+    it('keeps About this project LAST, whichever buttons are showing', () => {
+        // TASK-2775 (epic 2765 W3) — the About button is appended, so the
+        // relative order of all six pre-existing buttons is byte-identical and
+        // TASK-2465's Account-first decision is untouched. The two assertions
+        // above already pin the full six-button column; this one states the new
+        // rule on its own so a reorder fails with the reason visible.
+        const { store } = makeStore(fullToolbarState());
+        const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
+        const titles = titlesOf(container);
+        expect(titles[titles.length - 1]).toBe('About this project');
     });
 
     it('stays first when the buttons below it are conditionally hidden', () => {
@@ -170,6 +182,75 @@ describe('SimpleView RHS toolbar order (TASK-2465)', () => {
         state.localConfig = { plugins: { map_viewer: [] } };
         const { store } = makeStore(state);
         const { container } = mountWithProviders(<ConnectedSimpleView paywallEnabled />, { store });
-        expect(titlesOf(container)).toEqual(['Account', 'Legend']);
+        expect(titlesOf(container)).toEqual(['Account', 'Legend', 'About this project']);
+    });
+});
+
+// TASK-2775 (epic 2765 W3) — the "About this project" button. Settled decision
+// 10: reopen-any-time is what makes the one-click accept acceptable, so it is
+// visible to EVERY role, anonymous included.
+describe('SimpleView RHS "About this project" button (TASK-2775)', () => {
+    const anonState = () => ({
+        anuga: { projects: {}, ui: {} },
+        security: {},
+        simpleView: {},
+        layers: { groups: [] },
+        localConfig: { plugins: { map_viewer: [] } }
+    });
+
+    const aboutButton = (container) =>
+        container.querySelector('.simple-view-right-toolbar button[title="About this project"]');
+
+    it('renders for an ANONYMOUS viewer — the audience this epic serves (AC11)', () => {
+        const { store } = makeStore(anonState());
+        const { container } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container)).toBeTruthy();
+    });
+
+    it('renders for a project VIEWER', () => {
+        const state = anonState();
+        state.security = { user: { pk: 2 } };
+        state.anuga.projects = { data: { my_role: 'viewer' } };
+        const { store } = makeStore(state);
+        const { container } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container)).toBeTruthy();
+    });
+
+    it('renders for the OWNER — members never auto-see it, but must still reach it', () => {
+        const state = anonState();
+        state.security = { user: { pk: 1 } };
+        state.anuga.projects = { data: { my_role: 'owner' } };
+        const { store } = makeStore(state);
+        const { container } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container)).toBeTruthy();
+    });
+
+    it('reopens the introduction on click', () => {
+        const { store, dispatched } = makeStore(anonState());
+        const { container } = mountWithProviders(<ConnectedSimpleView />, { store });
+
+        fireEvent.click(aboutButton(container));
+
+        const shown = dispatched.filter(a => a && a.type === 'SET_VISIBLE_INTRODUCTION');
+        expect(shown.length).toBe(1);
+        expect(shown[0].visible).toBe(true);
+    });
+
+    it('carries the info glyph', () => {
+        const { store } = makeStore(anonState());
+        const { container } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container).querySelector('.glyphicon-info-sign')).toBeTruthy();
+    });
+
+    it('is the LAST child of the toolbar column (AC3)', () => {
+        // Source order IS the ordering mechanism: `.simple-view-right-toolbar`
+        // is a flex column with no `order` on any child, so DOM order is visual
+        // order. Pinned here so an accidental reorder fails loudly.
+        const { store } = makeStore(anonState());
+        const { container } = mountWithProviders(<ConnectedSimpleView />, { store });
+        const buttons = Array.from(
+            container.querySelectorAll('.simple-view-right-toolbar > button')
+        );
+        expect(buttons[buttons.length - 1].getAttribute('title')).toBe('About this project');
     });
 });

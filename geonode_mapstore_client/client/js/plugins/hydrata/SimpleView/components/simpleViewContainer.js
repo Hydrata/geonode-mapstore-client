@@ -307,6 +307,35 @@ export class SimpleViewContainer extends React.Component {
                             </button>
                         </>
                     ) : null}
+                    {/* TASK-2775 (epic 2765 W3) — "About this project": reopens
+                        the introduction on demand, for EVERY role including
+                        anonymous. Reopen-any-time is what makes the one-click
+                        accept acceptable: the viewer never loses access to the
+                        framing they just dismissed. (It is also how an owner
+                        will reach edit mode in W4.)
+
+                        WHY LAST IN THE COLUMN, deliberately. Every other button
+                        here is conditional, so "unconditional" does not by
+                        itself imply a slot. Appending leaves the relative order
+                        of all six existing buttons byte-identical — in
+                        particular TASK-2465's recorded decision that the
+                        Account/Permissions button is FIRST, which this task has
+                        no mandate to overturn — and it puts About directly
+                        above the Tasks icon, so the two read as the tail of the
+                        one column. Source order IS the ordering mechanism here
+                        (see the TASK-2465 block above): no CSS `order` was
+                        added, and none may be.
+
+                        The plain English `title` matches its six neighbours;
+                        this column carries no i18n today, and translating one
+                        control of seven would be inconsistency rather than
+                        improvement. */}
+                    <button
+                        className="simple-view-right-button"
+                        onClick={() => this.props.setVisibleIntroduction(true)}
+                        title="About this project">
+                        <Glyphicon glyph="info-sign" />
+                    </button>
                 </div>
                 {this.state.saveConfirmVisible ?
                     <div className="sv-save-confirm-overlay">
