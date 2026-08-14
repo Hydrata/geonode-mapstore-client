@@ -1674,3 +1674,53 @@ span.sv-menu-row-glyph {
 #gn-brand-navbar .open > .dropdown-toggle.btn-default .gn-user-menu-username {
     color: var(--ms-button-color);
 }
+
+/* TASK-2774 (epic 2765 W3) — making the project-introduction modal actually
+   reachable. Two independent defects, both MEASURED live on
+   /catalogue/#/map/118 the first time this modal was ever shown to anyone.
+
+   (1) THE HEADER PAINTED OVER IT. `.gn-main-header` is
+   `position: fixed; z-index: 100000`; the react-bootstrap modal lands at
+   z-index 9999 INSIDE the same `.gn-page-wrapper` (99999) stacking context.
+   `document.elementFromPoint` at the centre of the dialog's close cross
+   returned `.gn-menu-content-right`. With `backdrop="static"` and
+   `keyboard={false}` that cross is one of only two ways out, so the modal was
+   a TRAP for a viewer who did not want to accept.
+
+   Raising the layer rather than dodging the header follows the precedent
+   already in this codebase: `Paywall/components/ModalHost.js` puts the
+   compute-meter and upgrade refusals at z-index 100000 portaled to <body>, so
+   blocking dialogs here already cover this header. +1 reaches the same place
+   from inside `.gn-page-wrapper`.
+
+   THE BACKDROP IS DELIBERATELY LEFT BEHIND at Bootstrap's 1040. It cannot be
+   classed — react-bootstrap COMPUTES `backdropClassName` itself
+   (node_modules/react-bootstrap/lib/Modal.js:317) and discards anything passed
+   in. The consequence is that the header stays lit and clickable beside the
+   dialog, which is the harmless direction: nothing up there dismisses the
+   modal, and an anonymous viewer being asked to accept a disclaimer has a
+   legitimate reason to reach Sign in.
+
+   (2) IT SAT ABOVE THE TOP OF THE VIEWPORT. The theme's
+   `.msgapi .modal.fade .modal-dialog { transform: translate(0, -25%) }` beats
+   `.msgapi .modal.in .modal-dialog`'s reset (equal specificity, later in the
+   bundle), so EVERY modal in this app rides 25% of its own height upward.
+   With `.msgapi .modal-dialog { margin: 10px }` that put a 282px introduction
+   at top -60px: the whole header row, cross included, off-screen.
+
+   `transform: none` rather than a compensating margin, because the offset is a
+   PERCENTAGE of the dialog's own height — a taller introduction (W4 adds owner
+   text) would slide back off the top. Three classes deep so it outranks the
+   theme's own three-class rule after the build's `.msgapi` prefixing. */
+/* `.fade.in` and the host class together: the theme's own
+   `.msgapi .fade.in.modal { z-index: 9999 }` is FOUR classes, so a
+   three-class rule loses to it silently — measured (the layer stayed at 9999
+   and the cross still hit-tested to `.gn-menu-content`). */
+.modal.fade.in.sv-introduction-modal-host {
+    z-index: 100001;
+}
+
+.modal.sv-introduction-modal-host .modal-dialog {
+    margin-top: 30px;
+    transform: none;
+}

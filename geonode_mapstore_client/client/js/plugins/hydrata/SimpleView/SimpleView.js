@@ -9,6 +9,15 @@ import {
     submitSimpleViewAttributeFormSuccessEpic,
     trackVirtualPageviewEpic
 } from "./epicsSimpleView";
+// Epic 2765 W3 — the project introduction. It lives on the SimpleView plugin
+// because simpleViewContainer is what RENDERS the modal (line ~350) and
+// SimpleView is the one Hydrata plugin every site's map_viewer carries; the
+// ANUGA-only gate is inside introductionGate.js, not in this registration.
+import {
+    introductionFetchEpic,
+    introductionAutoShowEpic,
+    introductionAcceptEpic
+} from "./epicsIntroduction";
 
 export default createPlugin('SimpleView', {
     component: simpleViewContainer,
@@ -21,6 +30,9 @@ export default createPlugin('SimpleView', {
         svDownloadLayerEpic,
         submitAttributeFormEpic,
         submitSimpleViewAttributeFormSuccessEpic,
-        trackVirtualPageviewEpic
+        trackVirtualPageviewEpic,
+        introductionFetchEpic,
+        introductionAutoShowEpic,
+        introductionAcceptEpic
     }
 });

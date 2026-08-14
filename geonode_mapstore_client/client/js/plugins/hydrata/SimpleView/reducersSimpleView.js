@@ -1,6 +1,8 @@
 import {
     SET_VISIBLE_LEGEND_PANEL,
     SET_VISIBLE_INTRODUCTION,
+    INTRODUCTION_LOADED,
+    INTRODUCTION_ACCEPTED,
     SET_OPEN_MENU_GROUP_ID,
     SV_SELECT_LAYER,
     SET_VISIBLE_UPLOADER_PANEL,
@@ -58,6 +60,34 @@ export default ( state = {selectedCategory: null}, action) => {
         return {
             ...state,
             visibleIntroduction: action.visible
+        };
+    // Epic 2765 W3 — the introduction CONTENT slice, deliberately separate from
+    // the `visibleIntroduction` render flag above: the toolbar's "About this
+    // project" button reopens the modal without re-fetching or re-deciding
+    // anything, and an accept must not have to unmount the payload to be
+    // recorded.
+    case INTRODUCTION_LOADED:
+        return {
+            ...state,
+            introduction: {
+                projectId: action.projectId,
+                data: action.data,
+                acceptedVersion: action.acceptedVersion || null
+            }
+        };
+    case INTRODUCTION_ACCEPTED:
+        // Stamped with the project, and refused when it does not describe the
+        // payload on screen: an accept that lands after an SPA hop to another
+        // map must not mark the NEW project's introduction as accepted.
+        if (String(state.introduction?.projectId) !== String(action.projectId)) {
+            return state;
+        }
+        return {
+            ...state,
+            introduction: {
+                ...state.introduction,
+                acceptedVersion: action.contentVersion
+            }
         };
     case SET_VISIBLE_SV_ATTRIBUTE_FORM:
         return {

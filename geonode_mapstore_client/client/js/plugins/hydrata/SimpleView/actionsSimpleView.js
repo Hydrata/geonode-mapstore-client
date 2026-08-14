@@ -1,6 +1,13 @@
 const SET_OPEN_MENU_GROUP_ID = 'SET_OPEN_MENU_GROUP_ID';
 const SET_VISIBLE_LEGEND_PANEL = 'SET_VISIBLE_LEGEND_PANEL';
 const SET_VISIBLE_INTRODUCTION = 'SET_VISIBLE_INTRODUCTION';
+// Epic 2765 W3 — the project-introduction payload and its acceptance.
+// SET_VISIBLE_INTRODUCTION above stays the pure RENDER flag (the toolbar's
+// "About this project" button reopens the modal through it); these three carry
+// the content and the accept state, which are a different concern.
+const INTRODUCTION_LOADED = 'INTRODUCTION_LOADED';
+const ACCEPT_INTRODUCTION = 'ACCEPT_INTRODUCTION';
+const INTRODUCTION_ACCEPTED = 'INTRODUCTION_ACCEPTED';
 const SET_VISIBLE_UPLOADER_PANEL = 'SET_VISIBLE_UPLOADER_PANEL';
 const SET_VISIBLE_SV_ATTRIBUTE_FORM = 'SET_VISIBLE_SV_ATTRIBUTE_FORM';
 const UPDATE_UPLOAD_STATUS = 'UPDATE_UPLOAD_STATUS';
@@ -73,6 +80,48 @@ function setVisibleIntroduction(visible) {
     return {
         type: SET_VISIBLE_INTRODUCTION,
         visible
+    };
+}
+
+/**
+ * The introduction payload for `projectId` has arrived.
+ *
+ * @param {number} projectId       the ANUGA project the payload describes. Kept
+ *   beside the data so a role/paywall reading can be checked against THIS
+ *   project rather than against whatever the ANUGA panel loaded last — the
+ *   TASK-2427 staleness trap; see introductionGate.js.
+ * @param {object} data            the GET body.
+ * @param {string|null} acceptedVersion  the content_version this browser has
+ *   already accepted ANONYMOUSLY (localStorage), or null. Read in the epic so
+ *   the reducer stays pure; irrelevant when authenticated, where the server's
+ *   `accepted_current_version` is the answer.
+ */
+function introductionLoaded(projectId, data, acceptedVersion = null) {
+    return {
+        type: INTRODUCTION_LOADED,
+        projectId,
+        data,
+        acceptedVersion
+    };
+}
+
+/** The viewer pressed Accept. Intent only — the epic decides how it persists. */
+function acceptIntroduction() {
+    return {
+        type: ACCEPT_INTRODUCTION
+    };
+}
+
+/**
+ * The acceptance is recorded (server row when authenticated, localStorage when
+ * anonymous). Carries the VERSION rather than a boolean so a later content edit
+ * re-prompts: the gate compares versions, it never asks "ever accepted".
+ */
+function introductionAccepted(projectId, contentVersion) {
+    return {
+        type: INTRODUCTION_ACCEPTED,
+        projectId,
+        contentVersion
     };
 }
 
@@ -154,6 +203,9 @@ module.exports = {
     SET_OPEN_MENU_GROUP_ID, setOpenMenuGroupId,
     SET_VISIBLE_LEGEND_PANEL, setVisibleLegendPanel,
     SET_VISIBLE_INTRODUCTION, setVisibleIntroduction,
+    INTRODUCTION_LOADED, introductionLoaded,
+    ACCEPT_INTRODUCTION, acceptIntroduction,
+    INTRODUCTION_ACCEPTED, introductionAccepted,
     SET_VISIBLE_UPLOADER_PANEL, setVisibleUploaderPanel,
     SET_VISIBLE_SV_ATTRIBUTE_FORM, setVisibleSimpleViewAttributeForm,
     UPDATE_UPLOAD_STATUS, updateUploadStatus,
