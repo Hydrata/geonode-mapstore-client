@@ -125,6 +125,21 @@ function fixtureFetchHandler(url) {
     return Promise.resolve(new Response(base64ToArrayBuffer(b64), { status: 200 }));
 }
 
+/**
+ * TASK-2743 UAT-10 (W6, epic 2706) — holds chunk 1 open for 120 ms so chunk 0
+ * is GUARANTEED to announce on its own first. Without the delay both chunks
+ * can land in the same microtask drain, the epic announces once, and the
+ * feedback loop under test never gets a second lap to run.
+ */
+function chunk1DelayedFetchHandler(url) {
+    if (/\/c\/1\/0$/.test(String(url))) {
+        return new Promise((resolve) => {
+            setTimeout(() => resolve(fixtureFetchHandler(url)), 120);
+        });
+    }
+    return fixtureFetchHandler(url);
+}
+
 // TASK-2739 (W3, epic 2706) — the expired-presigned-URL harness. The
 // re-signed manifest hands back the SAME relative keys under DIFFERENT urls
 // (exactly what build_playback_manifest(force_refresh=True) does on prod,
@@ -600,6 +615,58 @@ describe('playbackEpics', () => {
                 expect(fired).toBe(false);
                 done();
             }, 100);
+        });
+
+        // TASK-2743 UAT-10 (W6, epic 2706) — found LIVE on map 1461, NOT by
+        // this suite, and caused by UAT-09's own per-chunk announcement.
+        // PLAYBACK_CHUNKS_BUFFERED is in this epic's ofType list, so every
+        // announcement re-enters the switchMap, kills the still-open merge and
+        // re-issues the window; a cache-resident chunk 0 then re-resolves in a
+        // microtask and announces again, forever. Six minutes at 100-310% CPU,
+        // never leaving `buffering`.
+        //
+        // Every OTHER case in this describe drives the epic with a bare
+        // Subject and DISCARDS its output, so none of them can ever see a
+        // self-trigger — that harness gap is exactly why karma was green while
+        // the browser was locked solid. This case restores the missing half of
+        // real redux-observable: reduce the emitted action into the store, then
+        // feed it back into action$.
+        it('does not re-announce an unchanged resident set when its own CHUNKS_BUFFERED feeds back', (done) => {
+            const restore = stubGlobalFetch(chunk1DelayedFetchHandler);
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: chunk1DelayedFetchHandler });
+            fetcherRegistry.set(1, fetcher);
+            const store = makeStore(loadedPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            const announced = [];
+            const sub = playbackBufferEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_CHUNKS_BUFFERED) {
+                    return;
+                }
+                announced.push(a.chunkIndices);
+                // Circuit-breaker: stop feeding a LOOPING epic so the case can
+                // still finish and report, instead of hanging the runner.
+                if (announced.length > 6) {
+                    return;
+                }
+                store.__setPlayback({ ...store.getState().anugaPlayback, bufferedChunks: a.chunkIndices });
+                subject.next(a);
+            });
+            subject.next(playbackManifestLoaded({ runId: 1 }));
+            setTimeout(() => {
+                sub.unsubscribe();
+                restore();
+                try {
+                    // Two chunks in the window, announced as the set GROWS:
+                    // exactly two announcements, never a third for a set that
+                    // did not change.
+                    expect(announced.length).toBe(2);
+                    expect(announced[0]).toEqual([0]);
+                    expect(announced[1]).toEqual([0, 1]);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 700);
         });
     });
 

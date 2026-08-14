@@ -636,28 +636,36 @@ export function playbackBufferEpic(action$, store) {
         return Rx.Observable.merge(
             ...chunkGroups.map((group) => Rx.Observable.fromPromise(group.promise))
         ).mergeMap((results) => {
-            // A chunk only counts as buffered once EVERY configured array
-            // resolved ok for it — a partial-array chunk can't render a frame.
-            const okCountByChunk = {};
-            const errors = [];
-            results.forEach((r) => {
-                if (r.error) {
-                    errors.push(r);
-                } else {
-                    okCountByChunk[r.chunkIndex] = (okCountByChunk[r.chunkIndex] || 0) + 1;
-                }
-            });
-            const requiredOk = QUANTITY_ARRAYS.length;
-            const fullyBuffered = Object.keys(okCountByChunk)
-                .filter((c) => okCountByChunk[c] === requiredOk)
-                .map(Number);
+            const errors = results.filter((r) => r.error);
             const actions = [];
             // TASK-2744 AC20 — report what the fetcher ACTUALLY holds, not the
-            // window we just asked for. `fullyBuffered` is "these arrived";
-            // the resident set is "these are still here", and after an LRU
-            // eviction those differ.
+            // window we just asked for. "these arrived" and "these are still
+            // here" differ after an LRU eviction, and residentChunkIndices
+            // already applies the same all-arrays-present predicate a frame
+            // needs, so it is the only thing worth announcing.
             const resident = fetcher.residentChunkIndices(QUANTITY_ARRAYS);
-            if (fullyBuffered.length || resident.length !== (pb.bufferedChunks || []).length) {
+            // TASK-2743 UAT-10 (W6, epic 2706) — announce ONLY on an actual
+            // change. PLAYBACK_CHUNKS_BUFFERED is one of THIS epic's own
+            // triggers, so an announcement that carries nothing new still
+            // re-enters the switchMap above, which tears down the still-open
+            // `merge` and re-issues the window; chunk 0 then resolves straight
+            // out of the cache in a microtask and announces again — an
+            // unbounded dispatch loop. It is invisible to a test that never
+            // feeds the epic's output back into action$, and it froze the tab
+            // for six minutes at 100-310% CPU on map 1461, never leaving
+            // `buffering`. UAT-09's per-chunk announcement is what exposed it:
+            // the batched version emitted once, so the loop had no second lap.
+            //
+            // Compare against the LIVE state, never the `pb` captured at epic
+            // entry — across emissions within one subscription `pb` is a stale
+            // snapshot, and a stale comparand re-opens the same loop.
+            const previous = (store.getState().anugaPlayback || {}).bufferedChunks || [];
+            // Both sides are sorted ascending (residentChunkIndices sorts;
+            // mergeBufferedChunks keeps the reducer's copy sorted), so an
+            // element-wise compare IS set equality here.
+            const changed = resident.length !== previous.length
+                || resident.some((c, i) => c !== previous[i]);
+            if (changed) {
                 actions.push(playbackChunksBuffered(resident, true));
             }
             errors.forEach((r) => actions.push(playbackChunkBufferError(r.chunkIndex, String((r.error && r.error.message) || r.error))));
