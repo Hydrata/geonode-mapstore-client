@@ -665,7 +665,9 @@
           "courant": "Courant"
         },
         "speedSlowShort": "ralanti",
-        "speedTooltipRun": "Vitès lekti — tout senaryo a se {d} nan tan simile"
+        "speedTooltipRun": "Vitès lekti — tout senaryo a se {d} nan tan simile",
+        "zoomToResults": "Zoum sou rezilta yo",
+        "zoomToResultsTooltip": "Santre kat la sou rezilta similasyon sa a"
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",

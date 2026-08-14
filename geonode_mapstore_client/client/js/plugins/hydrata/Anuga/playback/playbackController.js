@@ -139,6 +139,14 @@ export function createInitialPlaybackState() {
         runId: null,
         manifest: null,
         mesh: null,
+        // TASK-2726 (W5.5, epic 2706) — [minX, minY, maxX, maxY] in EPSG:3857,
+        // published by playbackInitEpic at MANIFEST_LOADED. NOT derived from
+        // `mesh` above, which is in the STORE'S NATIVE CRS; handing MapStore
+        // native UTM numbers as a 3857 extent is the specific mistake this
+        // separate field exists to make impossible. Null until a store loads,
+        // and null for a store whose epsg is unusable — the "zoom to results"
+        // control renders disabled on null rather than inert.
+        meshBounds3857: null,
         quantization: null,
         status: PLAYBACK_STATUS.IDLE,
         error: null,
@@ -510,6 +518,9 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             ...state,
             manifest: action.manifest,
             mesh: action.mesh || null,
+            // TASK-2726 — never carried over from a previous store; a run
+            // switch must not leave the zoom control aimed at the old extent.
+            meshBounds3857: action.meshBounds3857 || null,
             quantization: action.quantization || null,
             nTime: action.nTime,
             nNode: action.nNode,

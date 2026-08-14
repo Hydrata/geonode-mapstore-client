@@ -700,4 +700,54 @@ describe('playbackController', () => {
             expect(atHeadSpeed.currentTimestep).toBe(0);
         });
     });
+
+    // TASK-2726 (W5.5, epic 2706) — the results extent is its OWN state field,
+    // deliberately not derived from `mesh`. `mesh.nodeX/nodeY` are in the
+    // STORE'S NATIVE CRS; handing MapStore those numbers as an EPSG:3857
+    // extent is the exact mistake AC3 names, and a separate, already-projected
+    // field is what makes it unavailable to make.
+    describe('meshBounds3857 — TASK-2726', () => {
+        const BOUNDS = [4369623.8, -761565.1, 4373166.8, -757776.3];
+
+        it('is null before a store loads', () => {
+            expect(createInitialPlaybackState().meshBounds3857).toBe(null);
+        });
+
+        it('is published by MANIFEST_LOADED', () => {
+            expect(loadedState({}, null).meshBounds3857).toBe(null);
+            const withBounds = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2, meshBounds3857: BOUNDS
+                }));
+            expect(withBounds.meshBounds3857).toEqual(BOUNDS);
+        });
+
+        it('is NOT carried over when a second store loads without one', () => {
+            // A run switch must never leave the zoom control aimed at the
+            // previous run's extent — the failure would be silent and would
+            // look exactly like a working button.
+            const first = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2, meshBounds3857: BOUNDS
+                }));
+            expect(first.meshBounds3857).toEqual(BOUNDS);
+            const second = reduce(reduce(first, playbackInit(8, 'layer-2')),
+                playbackManifestLoaded({
+                    runId: 8, manifest: { id: 'm2' }, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2
+                }));
+            expect(second.meshBounds3857).toBe(null);
+        });
+
+        it('is cleared by PLAYBACK_RESET', () => {
+            const first = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2, meshBounds3857: BOUNDS
+                }));
+            expect(reduce(first, playbackReset(7, 'layer-1')).meshBounds3857).toBe(null);
+        });
+    });
 });

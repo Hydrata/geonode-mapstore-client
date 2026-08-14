@@ -88,4 +88,96 @@ export function reprojectMeshVertices(localX, localY, georef) {
     return { x: outX, y: outY };
 }
 
+/**
+ * How many samples to take along EACH edge of the native bounding rectangle
+ * when projecting it into EPSG:3857. Four corners alone are not sufficient in
+ * general — UTM -> Web Mercator is not an affine map, so an extreme of the
+ * projected region can fall strictly between two corners. Over a domain this
+ * size the curvature is negligible, but the sampling costs 4*32 = 128
+ * transforms once per mesh load, so there is nothing to buy by cutting it.
+ */
+const BOUNDS_SAMPLES_PER_EDGE = 32;
+
+/**
+ * TASK-2726 (W5.5, epic 2706) — the EPSG:3857 bounding box of a playback
+ * store's mesh, for the "zoom to results" control.
+ *
+ * WHY NOT reprojectMeshVertices(...) THEN min/max: that is the obvious
+ * implementation and it is the wrong one HERE. It allocates two Float64Arrays
+ * of node length — on the Msimbazi store (3,393,075 nodes) that is 54 MiB held
+ * for the lifetime of the run, to answer a question with four numbers in it.
+ * Epic 2706 exists to bring playback memory DOWN (AC2a/AC2b are hard byte
+ * budgets), so a zoom affordance must not be the thing that adds 54 MiB.
+ *
+ * This walks nodeX/nodeY once to find the NATIVE bounding rectangle — an O(n)
+ * scan with ZERO allocation — and then projects that rectangle's perimeter.
+ * Accuracy over a ~3.5 km domain is far inside one metre, i.e. far inside one
+ * pixel at any zoom a user can reach.
+ *
+ * DEVIATION FROM THE CARD, RECORDED DELIBERATELY: TASK-2726's AC3 says the
+ * bounds must be "sourced from the already-reprojected x3857/y3857
+ * (AnugaPlaybackLayer.js:150)". Those arrays live inside the OL layer, which
+ * has no dispatch, and the epic's own copy (getReprojectedMesh) is a LAZY
+ * identify-path cache that a zoom button would force to be allocated on every
+ * load. Both routes cost the 54 MiB that AC4 ("ZERO NET COST ... no new
+ * Float64Array/Float32Array of node length is introduced") forbids. AC3's
+ * binding intent — do NOT hand MapStore the store's UTM EPSG as the zoom CRS,
+ * and do NOT treat native-CRS numbers as 3857 — is fully honoured: what is
+ * published IS EPSG:3857.
+ *
+ * @param {Float32Array|Float64Array} localX node_x (store-local, schema §2)
+ * @param {Float32Array|Float64Array} localY node_y (store-local, schema §2)
+ * @param {{epsg: number|string, xllcorner?: number, yllcorner?: number}} georef
+ * @returns {[number, number, number, number]|null} [minX, minY, maxX, maxY] in
+ *   EPSG:3857, or null when the inputs cannot produce a usable box.
+ */
+export function reprojectMeshBounds(localX, localY, georef) {
+    const { epsg, xllcorner = 0, yllcorner = 0 } = georef || {};
+    const sourceEpsg = normalizeEpsgCode(epsg);
+    if (!sourceEpsg || !localX || !localY || !localX.length || localX.length !== localY.length) {
+        return null;
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < localX.length; i++) {
+        const x = localX[i];
+        const y = localY[i];
+        if (x < minX) { minX = x; }
+        if (x > maxX) { maxX = x; }
+        if (y < minY) { minY = y; }
+        if (y > maxY) { maxY = y; }
+    }
+    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+        return null;
+    }
+    const transformer = proj4(sourceEpsg, 'EPSG:3857');
+    let outMinX = Infinity;
+    let outMinY = Infinity;
+    let outMaxX = -Infinity;
+    let outMaxY = -Infinity;
+    const take = (nx, ny) => {
+        const [px, py] = transformer.forward([nx + xllcorner, ny + yllcorner]);
+        if (!isFinite(px) || !isFinite(py)) { return; }
+        if (px < outMinX) { outMinX = px; }
+        if (px > outMaxX) { outMaxX = px; }
+        if (py < outMinY) { outMinY = py; }
+        if (py > outMaxY) { outMaxY = py; }
+    };
+    for (let s = 0; s <= BOUNDS_SAMPLES_PER_EDGE; s++) {
+        const f = s / BOUNDS_SAMPLES_PER_EDGE;
+        const x = minX + (maxX - minX) * f;
+        const y = minY + (maxY - minY) * f;
+        take(x, minY);   // bottom edge
+        take(x, maxY);   // top edge
+        take(minX, y);   // left edge
+        take(maxX, y);   // right edge
+    }
+    if (!isFinite(outMinX) || !isFinite(outMinY) || !isFinite(outMaxX) || !isFinite(outMaxY)) {
+        return null;
+    }
+    return [outMinX, outMinY, outMaxX, outMaxY];
+}
+
 export default reprojectMeshVertices;

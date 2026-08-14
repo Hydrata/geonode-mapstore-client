@@ -20,7 +20,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import TestUtils from 'react-dom/test-utils';
 
-import { AnugaPlaybackControlBarComponent, formatClock, bufferedTrackSegments } from '../AnugaPlaybackControlBar';
+import { AnugaPlaybackControlBarComponent, formatClock, bufferedTrackSegments, PLAYBACK_ZOOM_MAX } from '../AnugaPlaybackControlBar';
 import { PLAYBACK_STATUS, createInitialPlaybackState } from '../../playbackController';
 
 describe('AnugaPlaybackControlBar — TASK-2627', () => {
@@ -620,6 +620,51 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             renderWithMessages({ hydrata: { playback: { scrubber: 'Position sur la chronologie' } } }, loaded);
             expect(container.querySelector('[data-testid="anuga-playback-scrubber"]').getAttribute('aria-label'))
                 .toBe('Position sur la chronologie');
+        });
+    });
+
+    // TASK-2726 (W5.5, epic 2706) — "zoom to results".
+    //
+    // AC2 IS SATISFIED BY CONSTRUCTION, not by a spec that mocks it away: the
+    // bounds arrive as `playback.meshBounds3857` out of Redux (published by
+    // playbackInitEpic at MANIFEST_LOADED), so this control never touches
+    // AnugaPlaybackFlowVizRenderer.getMeshBbox() and cannot care whether
+    // flow-viz reports supported=false. There is no renderer in this file's
+    // render path at all — which is the point.
+    describe('zoom to results — TASK-2726', () => {
+        const READY = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31 };
+        // Msimbazi (map 1461 / prod run 1328), EPSG:32737 -> EPSG:3857.
+        const MSIMBAZI_3857 = [4369623.8, -761565.1, 4373166.8, -757776.3];
+
+        it('is DISABLED, not hidden, while the extent is unknown', () => {
+            render({ playback: { ...READY, meshBounds3857: null } });
+            const button = container.querySelector('[data-testid="anuga-playback-zoom-to-results"]');
+            // "disabled (not hidden, not silently inert)" — AC1, verbatim.
+            expect(button).toBeTruthy();
+            expect(button.disabled).toBe(true);
+        });
+
+        it('enables once the extent is published, and does not fire while disabled', () => {
+            const onZoomToExtent = expect.createSpy();
+            render({ playback: { ...READY, meshBounds3857: null }, onZoomToExtent });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-zoom-to-results"]'));
+            expect(onZoomToExtent.calls.length).toBe(0);
+
+            render({ playback: { ...READY, meshBounds3857: MSIMBAZI_3857 }, onZoomToExtent });
+            expect(container.querySelector('[data-testid="anuga-playback-zoom-to-results"]').disabled).toBe(false);
+        });
+
+        it('dispatches zoomToExtent(bounds, EPSG:3857, maxZoom) — the pollingEpics.js:954 call shape', () => {
+            const onZoomToExtent = expect.createSpy();
+            render({ playback: { ...READY, meshBounds3857: MSIMBAZI_3857 }, onZoomToExtent });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-zoom-to-results"]'));
+            expect(onZoomToExtent.calls.length).toBe(1);
+            const args = onZoomToExtent.calls[0].arguments;
+            expect(args[0]).toEqual(MSIMBAZI_3857);
+            // The CRS is the load-bearing assertion: handing MapStore the
+            // store's native UTM epsg here is the specific defect AC3 names.
+            expect(args[1]).toBe('EPSG:3857');
+            expect(args[2]).toBe(PLAYBACK_ZOOM_MAX);
         });
     });
 });

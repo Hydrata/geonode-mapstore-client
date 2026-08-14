@@ -86,7 +86,7 @@ import {
 } from '../playbackMemoryPolicy';
 // TASK-2744 (AC20, epic 2706) — score the plan against a measurement.
 import { scorePlan, isForecastContradicted, describeScore } from '../playbackMemoryAudit';
-import { reprojectMeshVertices } from '../playbackReproject';
+import { reprojectMeshVertices, reprojectMeshBounds } from '../playbackReproject';
 import { sampleFieldAtPoint } from '../playbackIdentify';
 import {
     timestepToChunkIndex,
@@ -546,9 +546,20 @@ export function playbackInitEpic(action$, store) {
             // the first chunks are cached, so it is the moment the prediction
             // is about.
             reportMemoryScore(memoryPlan, fetcher, baselineHeapBytes);
+            // TASK-2726 (W5.5, epic 2706) — publish the store's EPSG:3857
+            // extent so the bar's "zoom to results" control has something to
+            // aim at. It is computed HERE, in the epic, because the control
+            // bar is connect()ed to state.anugaPlayback only and the OL layer
+            // that owns the reprojected vertices has no dispatch — so the
+            // bounds have to reach Redux, not be reached for. Allocation-free
+            // (see reprojectMeshBounds' header for why that matters in an
+            // epic with hard byte budgets); null on a store whose epsg is
+            // unusable, which the control renders as DISABLED, never as a
+            // button that silently does nothing.
+            const meshBounds3857 = reprojectMeshBounds(mesh.nodeX, mesh.nodeY, mesh);
             emit(playbackManifestLoaded({
                 runId, manifest, mesh, time, dtMs, quantization: manifest.quantization,
-                nTime, nNode, chunkLengthT, totalChunks, memoryPlan
+                nTime, nNode, chunkLengthT, totalChunks, memoryPlan, meshBounds3857
             }));
         }
 

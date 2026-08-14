@@ -665,7 +665,9 @@
           "courant": "Courant"
         },
         "speedSlowShort": "ralenti",
-        "speedTooltipRun": "Vitesse de lecture — la simulation entière dure {d} de temps simulé"
+        "speedTooltipRun": "Vitesse de lecture — la simulation entière dure {d} de temps simulé",
+        "zoomToResults": "Zoom sur les résultats",
+        "zoomToResultsTooltip": "Centrer la carte sur les résultats de cette simulation"
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

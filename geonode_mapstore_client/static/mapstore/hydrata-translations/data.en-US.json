@@ -665,7 +665,9 @@
           "courant": "Courant"
         },
         "speedSlowShort": "slow",
-        "speedTooltipRun": "Playback speed — the whole run is {d} of simulated time"
+        "speedTooltipRun": "Playback speed — the whole run is {d} of simulated time",
+        "zoomToResults": "Zoom to results",
+        "zoomToResultsTooltip": "Zoom the map to this run’s results"
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",

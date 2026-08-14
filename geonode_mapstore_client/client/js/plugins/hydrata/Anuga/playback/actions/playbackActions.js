@@ -77,12 +77,18 @@ export function playbackInit(runId, layerId, manifestUrl) {
     return { type: PLAYBACK_INIT, runId, layerId, manifestUrl };
 }
 
-export function playbackManifestLoaded({ runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks, memoryPlan }) {
+export function playbackManifestLoaded({ runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks, memoryPlan, meshBounds3857 }) {
     // `memoryPlan` (TASK-2708, W1.2, epic 2706) is the store's own residency
     // plan — cache ceiling and prefetch window in BYTES, derived from its
     // chunk footprint. It rides this action because the reducer owns
     // bufferWindowRadius/bufferWindowAhead and the epic owns the fetcher.
-    return { type: PLAYBACK_MANIFEST_LOADED, runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks, memoryPlan };
+    //
+    // `meshBounds3857` (TASK-2726, W5.5) is the run's extent in EPSG:3857 —
+    // ALREADY PROJECTED, deliberately not `mesh`'s native-CRS numbers. This
+    // signature is a whitelist, so a field that is not named here is dropped
+    // silently; that is what makes adding one a two-line change in two files
+    // rather than a one-line change that appears to work and does not.
+    return { type: PLAYBACK_MANIFEST_LOADED, runId, manifest, mesh, time, dtMs, quantization, nTime, nNode, chunkLengthT, totalChunks, memoryPlan, meshBounds3857 };
 }
 
 /**

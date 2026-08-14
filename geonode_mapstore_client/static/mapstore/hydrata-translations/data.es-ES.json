@@ -665,7 +665,9 @@
           "courant": "Courant"
         },
         "speedSlowShort": "lenta",
-        "speedTooltipRun": "Velocidad de reproducción — la simulación completa dura {d} de tiempo simulado"
+        "speedTooltipRun": "Velocidad de reproducción — la simulación completa dura {d} de tiempo simulado",
+        "zoomToResults": "Zoom a los resultados",
+        "zoomToResultsTooltip": "Centrar el mapa en los resultados de esta simulación"
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

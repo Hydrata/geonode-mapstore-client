@@ -30,7 +30,22 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // getMessageById + legacy context.messages instead. Same idiom as
 // anugaScenarioMenu.js:1098-1102 and VectorDraw/FormField.js:215-220.
 import { translateOr } from '../playbackI18n';
+// TASK-2726 (W5.5, epic 2706) — MapStore core's map action, already imported
+// and dispatched by two siblings in this plugin (anugaInputMenu.js:106 /
+// pollingEpics.js:9). Reusing it keeps this zoom behaving like every other
+// zoom in the plugin instead of inventing a second one.
+import { zoomToExtent } from '@mapstore/framework/actions/map';
 import EditableCeiling from './EditableCeiling';
+
+/**
+ * TASK-2726 — maxZoom hint for "zoom to results". A results extent is a whole
+ * model domain (3.5 km on the Msimbazi store), so unlike anugaInputMenu's
+ * single-feature zoom (18) there is no danger of over-zooming a point; 20
+ * matches pollingEpics.js:954, which zooms to a freshly-uploaded dataset's
+ * bbox — the closest analogue. MapStore's ZOOM_TO_EXTENT epic treats this as a
+ * CEILING, not a target (see anugaInputMenu.js:1092).
+ */
+export const PLAYBACK_ZOOM_MAX = 20;
 
 import {
     PLAYBACK_STATUS,
@@ -1127,6 +1142,27 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         <Message msgId="hydrata.playback.legend" />
                     </button>
 
+                    {/* TASK-2726 (W5.5) — Zoom to results. The gap this closes:
+                        a user who loads a store has no affordance to get to it,
+                        which is how the W0 rig session ended up staring at an
+                        empty ocean while a perfectly good flood sat off-screen.
+                        DISABLED, not hidden and not silently inert, until the
+                        extent is known — `meshBounds3857` is null before
+                        MANIFEST_LOADED and stays null for a store whose epsg is
+                        unusable. The extent is EPSG:3857 (published by
+                        playbackInitEpic), NEVER the store's native UTM. Call
+                        shape copied from pollingEpics.js:954, the plugin's
+                        existing zoom. */}
+                    <button
+                        className="btn sv-glass-button sv-playback-zoom-to-results"
+                        data-testid="anuga-playback-zoom-to-results"
+                        disabled={!playback.meshBounds3857}
+                        onClick={() => this.props.onZoomToExtent(playback.meshBounds3857, 'EPSG:3857', PLAYBACK_ZOOM_MAX)}
+                        title={this.tr('hydrata.playback.zoomToResultsTooltip', 'Zoom the map to this run’s results')}
+                    >
+                        <Message msgId="hydrata.playback.zoomToResults" />
+                    </button>
+
                     {/* TASK-2744 (AC2) — Unload. Until this existed PLAYBACK_RESET
                         had no dispatcher outside tests, so a run could never be
                         released: the fetcher, its decoded-chunk LRU and two full
@@ -1167,6 +1203,10 @@ const mapDispatchToProps = {
     onSetWireframe: playbackSetWireframe,
     // TASK-2744 AC2 — the run must be unloadable.
     onReset: playbackReset,
+    // TASK-2726 — MapStore core's own zoom action, the same one
+    // pollingEpics.js:954 and anugaInputMenu.js:2090 already dispatch. Not a
+    // new zoom mechanism; importing/dispatching a core action is not a fork edit.
+    onZoomToExtent: zoomToExtent,
     // TASK-2744 AC3/AC11/AC4 — opacity, the overlay knobs and the colour-ramp
     // maximum are controller state now, pushed to the layer by
     // playbackSyncLayerEpic's baseProps rather than by this component.
