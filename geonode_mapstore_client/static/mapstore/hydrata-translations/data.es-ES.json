@@ -272,6 +272,7 @@
         "meshCostDriverHintBreaklines": "Tus líneas de ruptura generan ~{share}% del costo de tu malla — el tamaño de malla base por sí solo no cambiará esto mucho.",
         "meshCostDriverHintHolePerimeter": "Los límites de los huecos de estructura generan ~{share}% del costo de tu malla — el tamaño de malla base por sí solo no cambiará esto mucho.",
         "meshComparisonLabel": "Construido: {actual} triángulos (estimado {estimate})",
+        "meshComparisonCost": "coste de cálculo estimado {cost}",
         "results": "Resultados",
         "viewResults": "Ver Resultados",
         "resultsNoRuns": "Ningún escenario tiene ejecuciones completadas con resultados todavía.",

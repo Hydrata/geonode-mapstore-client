@@ -691,8 +691,26 @@ function renderMeshBuildComparison(scenario) {
                         estimate: Number(comparison.estimate).toLocaleString()
                     }}
                 />
+                {/* TASK-2716 — this figure used to be a bare ` — ~$45.20`
+                    welded onto the end of the sentence with no word on it at
+                    all, and it is the one a reader is most likely to mistake
+                    for the bill. It is a POST-BUILD compute-cost estimate; the
+                    charge is the price band on the toolbar chip, and the two
+                    legitimately differ.
+
+                    Translated, unlike the toolbar chip's role word: this sits
+                    INSIDE a sentence that is already a <Message>, so hardcoded
+                    English here would produce a mixed-language line in
+                    fr-FR/es-ES/ht-HT. The amount itself is untouched. */}
                 {comparison.actualCost !== null
-                    ? ` — ~$${Number(comparison.actualCost).toFixed(2)}`
+                    ? [
+                        ' — ',
+                        <Message
+                            key="cost"
+                            msgId="hydrata.anuga.meshComparisonCost"
+                            msgParams={{cost: `~$${Number(comparison.actualCost).toFixed(2)}`}}
+                        />
+                    ]
                     : ''}
             </span>
         </div>

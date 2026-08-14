@@ -272,6 +272,7 @@
         "meshCostDriverHintBreaklines": "Liy kase ou yo reprezante ~{share}% nan pri rezo ou a — gwosè rezo debaz poukont li p ap chanje sa anpil.",
         "meshCostDriverHintHolePerimeter": "Fwontyè twou estrikti yo reprezante ~{share}% nan pri rezo ou a — gwosè rezo debaz poukont li p ap chanje sa anpil.",
         "meshComparisonLabel": "Bati: {actual} triyang (estime {estimate})",
+        "meshComparisonCost": "estimasyon pri kalkil {cost}",
         "results": "Rezilta",
         "viewResults": "Wè Rezilta",
         "resultsNoRuns": "Poko gen senaryo ki gen egzekisyon konplè ak rezilta.",

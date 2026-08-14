@@ -2075,6 +2075,32 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.85);
 }
 
+/* Role word beside the price (TASK-2716, epic 2706 W5).
+   The chip's tooltip already said whether the figure is the charge or an
+   estimate, and the dogfood's reader still misread it — so the word is now
+   on screen. It is deliberately QUIETER than the amount: the number is what
+   the eye should land on, the word is what disambiguates it once it has.
+   Landing it with its own rule rather than as bare inherited text, because
+   that is the defect this very block was written to fix. */
+.sv-scenario-run-price-role {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: baseline;
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+/* The amount follows the word immediately — collapse the chip's own leading
+   margin so the pair reads as one phrase rather than two chips. */
+.sv-scenario-run-price-role + .sv-scenario-run-price {
+    margin-left: 3px;
+}
+
 /* Over balance: the SAME amber token pair as the estimate section's
    actionable badge (.sv-anuga-scenario-estimate-badge--action) — identical
    colours, therefore identical MEASURED contrast: #2b1d00 on #ffc107 ->

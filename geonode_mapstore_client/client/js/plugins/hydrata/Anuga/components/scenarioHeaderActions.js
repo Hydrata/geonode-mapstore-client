@@ -357,6 +357,24 @@ const ScenarioHeaderActions = (props, context) => {
     // does not. The over-balance state is a BUTTON into the Billing tab,
     // because at that moment the price is not information, it is a task.
     // Deliberately NOT paired with a disabled Run (decision 4).
+    // TASK-2716 — the chip's role, in VISIBLE text.
+    //
+    // The correct tooltip below (priceTitle) has said exactly this all along
+    // and the dogfood's reader still misread the $5 as a band index rendered
+    // as money. Three dollar figures can be on screen for one scenario at
+    // once; a tooltip nobody hovers cannot separate them.
+    //
+    // It renders as a SIBLING of the chip, never inside it. Three shipped
+    // specs (TASK-2100/2438) assert the chip's textContent by exact equality
+    // — '$5', 'Free', '$2' — and that contract is what guarantees the amount
+    // shown is the amount. Wrapping the word into the chip would break all
+    // three and quietly turn the chip into prose.
+    //
+    // COPY RULE (decision 5, glossary.md:609): never say "band" to a customer
+    // — it collides with Analysis band, a raster concept. So the glossary's
+    // "Price band" becomes "Charged" and "Compute cost estimate" becomes
+    // "Estimated".
+    const priceRoleWord = hasRunPrice ? 'Charged' : 'Estimated';
     const renderPrice = () => {
         const shared = {
             'data-testid': 'sv-scenario-run-price',
@@ -364,8 +382,19 @@ const ScenarioHeaderActions = (props, context) => {
             title: shortfall !== null ? shortfallTitle : priceTitle
         };
         if (shortfall === null) {
-            return <span {...shared}>{priceLabel}</span>;
+            return (
+                <React.Fragment>
+                    <span className="sv-scenario-run-price-role" data-testid="sv-scenario-run-price-role">
+                        {priceRoleWord}
+                    </span>
+                    <span {...shared}>{priceLabel}</span>
+                </React.Fragment>
+            );
         }
+        // NO role word on this branch: the shortfall state replaces the bare
+        // amount with a whole sentence that already names the role — "Costs $5
+        // · balance $0.00 · add $5 to run". A second word beside it would read
+        // as "Estimated Costs $5 · ...".
         // "at least" on the estimate branch, for the same reason as the title:
         // a pre-build figure is a floor, not the bill.
         const add = hasRunPrice ? `add ${usd(shortfall)} to run` : `add at least ${usd(shortfall)} to run`;

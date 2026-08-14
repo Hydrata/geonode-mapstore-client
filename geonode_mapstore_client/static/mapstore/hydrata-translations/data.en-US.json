@@ -272,6 +272,7 @@
         "meshCostDriverHintBreaklines": "Your breaklines drive ~{share}% of your mesh cost — Base mesh size alone won't move this much.",
         "meshCostDriverHintHolePerimeter": "Structure hole boundaries drive ~{share}% of your mesh cost — Base mesh size alone won't move this much.",
         "meshComparisonLabel": "Built: {actual} triangles (estimated {estimate})",
+        "meshComparisonCost": "estimated compute cost {cost}",
         "results": "Results",
         "viewResults": "View Results",
         "resultsNoRuns": "No scenarios have completed runs with results yet.",

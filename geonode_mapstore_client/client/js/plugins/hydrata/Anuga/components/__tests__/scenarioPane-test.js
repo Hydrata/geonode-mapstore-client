@@ -2012,6 +2012,53 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 );
             });
 
+            /*
+             * TASK-2716 (W5, epic 2706). This is the one figure with no word
+             * on it at all: a bare ` — ~$45.20` welded onto the end of the
+             * built-mesh line. It is a POST-BUILD compute-cost estimate, not
+             * the charge — the charge is the price band on the toolbar chip,
+             * and the two legitimately differ.
+             *
+             * It is TRANSLATED, unlike the toolbar chip. The figure sits inside
+             * a <span> whose preceding sibling is <Message
+             * msgId="hydrata.anuga.meshComparisonLabel"> — a translated
+             * sentence — so an English role word appended here would produce a
+             * mixed-language line in fr-FR/es-ES/ht-HT. Hence a real msgId
+             * across all four locale files that carry hydrata copy, rather than
+             * the hardcoded-English convention the toolbar follows.
+             */
+            it('the post-build mesh-comparison cost is visibly labelled as an estimate, not a charge', (done) => {
+                ReactDOM.render(
+                    <Localized locale="en-US" messages={enData.messages}>
+                        <ScenarioPane
+                            scenario={{
+                                ...baseScenario,
+                                latest_run: {
+                                    mesh_triangle_count: 250000,
+                                    mesh_provenance: {pre_build_triangle_estimate: 100000},
+                                    mesh_actual_cost_estimate: 45.2
+                                }
+                            }}
+                            selectedCategoryId={'runConfig'}
+                            canEdit
+                        />
+                    </Localized>,
+                    container,
+                    () => {
+                        const comparison = container.querySelector('.anuga-scenario-mesh-comparison-section');
+                        expect(comparison).toExist();
+                        // the role word, resolved through the message catalogue
+                        expect(comparison.textContent).toInclude('estimated compute cost');
+                        // and the figure itself is untouched (AC5: no arithmetic change)
+                        expect(comparison.textContent).toInclude('~$45.20');
+                        // NON-VACUITY: an unresolved msgId renders as the id
+                        // itself, which would satisfy a naive toInclude.
+                        expect(comparison.textContent).toNotInclude('hydrata.anuga');
+                        done();
+                    }
+                );
+            });
+
             it('degrades gracefully (renders nothing) when mesh_provenance is an empty object (failed build)', (done) => {
                 ReactDOM.render(
                     <ScenarioPane
