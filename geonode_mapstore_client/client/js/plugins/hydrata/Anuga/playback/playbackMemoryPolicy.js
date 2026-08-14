@@ -173,32 +173,48 @@ function clamp(value, lo, hi) {
 // crosses into the previous one. That is the shallowest window the policy can
 // express, and it is handed to a 32 GiB workstation and a 4 GiB laptop alike.
 //
-// The browser will tell us, if asked. `performance.memory.jsHeapSizeLimit` is
-// the V8 heap ceiling for THIS tab (4,192 MiB on the workstation, measured);
-// `navigator.deviceMemory` is a coarse, deliberately-quantised GiB figure with
-// a spec-mandated cap of 8 that every modern browser reports. Take the more
-// pessimistic of the two, spend a fixed fraction, and clamp.
+// The browser will tell us, if asked — but it has to be asked the RIGHT
+// question. `performance.memory.jsHeapSizeLimit` is this tab's V8 ceiling
+// (4,192 MiB on the workstation, measured), and a first cut spent a fraction
+// of it directly. That is wrong, and UAT caught it wrong: this plan is a
+// MARGINAL budget (fixedResidencyBytes + cacheMaxBytes are what playback ADDS)
+// while the limit is a TOTAL. MapStore, the basemap and the map itself are
+// already sitting in that heap before playback allocates a byte.
 //
-// Three properties make this safe to ship into a policy that was tuned by
-// measuring a tab freeze:
+// Measured consequence on map 1461, with the limit-based budget: 1,886.4 MiB,
+// 4 chunk slots, a plan reporting peak 1,100.1 MiB and withinBudget true — and
+// a renderer process that reached 3.4 GB RSS and stopped responding to CDP
+// entirely during a cold load. That is the same tab freeze TASK-2708 exists to
+// have fixed, re-introduced by a budget that double-counted the baseline.
+//
+// So the signal is HEADROOM, not the ceiling: jsHeapSizeLimit minus what the
+// tab is already using at planning time, which is exactly the quantity a
+// marginal plan should be compared against. Cross-checked against
+// navigator.deviceMemory (a coarse, spec-capped-at-8 GiB figure every modern
+// browser reports), take the more pessimistic, clamp.
+//
+// Three properties make this safe to put into a policy that was itself tuned
+// by measuring a tab freeze:
 //   1. It can only ever RAISE the budget. The clamp's lower bound IS the
 //      existing 800 MiB constant, so no machine gets a smaller window than it
 //      has today, and a browser that reports NOTHING gets today's numbers
-//      byte-for-byte — including every existing test, and karma, where
-//      neither signal exists.
-//   2. The fractions are of what the browser says it can give this tab, not
-//      of physical RAM. jsHeapSizeLimit is the number an allocation actually
-//      dies against.
+//      byte-for-byte — including every existing test, and karma.
+//   2. The fractions are of headroom the browser has actually measured, not of
+//      physical RAM and not of a ceiling something else is already occupying.
 //   3. MAX_CHUNKS_PER_QUANTITY stops being a constant and becomes what it
 //      always meant: how deep a window this budget can pay for. Its old
 //      justification — "the point past which lookahead stops buying
 //      anything", argued from a 20 Hz clock — assumed the fetch keeps up.
 //      Measured on map 1461 it does not: chunk 2's body read took 1,087 ms
 //      against a 161 ms frame budget once the main thread was saturated.
+//      MAX_CHUNKS_PER_QUANTITY_CEILING is 4 rather than something larger
+//      because 4 is what froze the tab, and this store has only 4 chunks: a
+//      deeper window on a chunk-10 store is not a cache problem, it is the
+//      re-export PROOF 4 note 6 already argues for (TASK-2719).
 // ============================================================================
 
-/** The share of this tab's OWN heap ceiling playback may plan against. */
-export const HEAP_LIMIT_BUDGET_FRACTION = 0.45;
+/** The share of this tab's REMAINING heap playback may plan against. */
+export const HEAP_HEADROOM_BUDGET_FRACTION = 0.45;
 /** The share of the device's reported RAM playback may plan against. */
 export const DEVICE_MEMORY_BUDGET_FRACTION = 0.20;
 /**
@@ -213,7 +229,7 @@ export const PLAYBACK_HEAP_BUDGET_MAX_BYTES = 2048 * 1024 * 1024;
  * this is the hard stop, so a future browser reporting an enormous heap
  * cannot talk the policy into an unbounded window.
  */
-export const MAX_CHUNKS_PER_QUANTITY_CEILING = 6;
+export const MAX_CHUNKS_PER_QUANTITY_CEILING = 4;
 
 /**
  * The heap budget and window depth THIS machine can pay for.
@@ -225,13 +241,16 @@ export const MAX_CHUNKS_PER_QUANTITY_CEILING = 6;
  *
  * @param {object} [signals]
  * @param {number} [signals.jsHeapSizeLimit] performance.memory.jsHeapSizeLimit, bytes
+ * @param {number} [signals.usedJSHeapSize] performance.memory.usedJSHeapSize, bytes —
+ *   what the tab is ALREADY holding; the budget is spent out of what is left
  * @param {number} [signals.deviceMemoryGiB] navigator.deviceMemory, GiB
  * @returns {{budgetBytes: number, maxChunksPerQuantity: number, source: string}}
  */
-export function resolvePlaybackHeapBudget({ jsHeapSizeLimit, deviceMemoryGiB } = {}) {
+export function resolvePlaybackHeapBudget({ jsHeapSizeLimit, usedJSHeapSize, deviceMemoryGiB } = {}) {
     const offers = [];
     if (jsHeapSizeLimit > 0) {
-        offers.push(jsHeapSizeLimit * HEAP_LIMIT_BUDGET_FRACTION);
+        const headroom = jsHeapSizeLimit - (usedJSHeapSize > 0 ? usedJSHeapSize : 0);
+        offers.push(Math.max(0, headroom) * HEAP_HEADROOM_BUDGET_FRACTION);
     }
     if (deviceMemoryGiB > 0) {
         offers.push(deviceMemoryGiB * 1024 * 1024 * 1024 * DEVICE_MEMORY_BUDGET_FRACTION);
@@ -269,6 +288,7 @@ export function resolvePlaybackHeapBudgetFromEnvironment() {
     const nav = typeof navigator !== 'undefined' ? navigator : null;
     return resolvePlaybackHeapBudget({
         jsHeapSizeLimit: perf && perf.memory ? perf.memory.jsHeapSizeLimit : undefined,
+        usedJSHeapSize: perf && perf.memory ? perf.memory.usedJSHeapSize : undefined,
         deviceMemoryGiB: nav ? nav.deviceMemory : undefined
     });
 }

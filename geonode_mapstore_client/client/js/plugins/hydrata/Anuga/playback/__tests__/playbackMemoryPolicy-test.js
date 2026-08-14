@@ -45,7 +45,7 @@ import {
     resolvePlaybackHeapBudgetFromEnvironment,
     PLAYBACK_HEAP_BUDGET_MAX_BYTES,
     MAX_CHUNKS_PER_QUANTITY_CEILING,
-    HEAP_LIMIT_BUDGET_FRACTION,
+    HEAP_HEADROOM_BUDGET_FRACTION,
     DEVICE_MEMORY_BUDGET_FRACTION
 } from '../playbackMemoryPolicy';
 import { PlaybackChunkFetcher } from '../playbackChunkFetcher';
@@ -526,38 +526,58 @@ describe('TASK-2743 UAT-08 — the heap budget is sized to the MACHINE, and can 
         expect(r.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
     });
 
-    it('THIS workstation (measured live: jsHeapSizeLimit 4192 MiB, deviceMemory 32) buys the whole store', () => {
+    it('a tab that is ALREADY full gets the floor, not a share of a ceiling someone else occupies', () => {
+        // The bug UAT caught: spending 45% of a 4,192 MiB LIMIT while the tab
+        // already held ~1.1 GiB produced a 1,886.4 MiB budget, a 4-slot window,
+        // a plan claiming withinBudget, and a renderer at 3.4 GB RSS that
+        // stopped answering CDP. Headroom is the quantity a MARGINAL plan is
+        // spent out of.
         const r = resolvePlaybackHeapBudget({
-            jsHeapSizeLimit: 4192 * 1024 * 1024, deviceMemoryGiB: 32
+            jsHeapSizeLimit: 4192 * 1024 * 1024,
+            usedJSHeapSize: 4000 * 1024 * 1024,
+            deviceMemoryGiB: 32
         });
-        // min(4192 x 0.45, 32768 x 0.20) = min(1886.4, 6553.6) MiB
-        expect(Math.round(r.budgetBytes / 1048576)).toBe(1886);
+        expect(r.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(r.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
+    });
+
+    it('THIS workstation at playback-load time (measured live: limit 4192 MiB, used 1146 MiB, deviceMemory 32) buys one more slot', () => {
+        const r = resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 4192 * 1024 * 1024,
+            usedJSHeapSize: 1146 * 1024 * 1024,
+            deviceMemoryGiB: 32
+        });
+        // min((4192 - 1146) x 0.45, 32768 x 0.20) = min(1370.7, 6553.6) MiB, rounded 1371
+        expect(Math.round(r.budgetBytes / 1048576)).toBe(1371);
         expect(r.source).toBe('heap+device');
-        expect(r.maxChunksPerQuantity).toBe(4);
+        // One extra base-budget of headroom is not yet TWO, so the window cap
+        // stays where TASK-2708 put it.
+        expect(r.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
         const plan = computePlaybackMemoryPlan({
             ...STORE_1328, budgetBytes: r.budgetBytes, maxChunksPerQuantity: r.maxChunksPerQuantity
         });
-        // run 1328 IS 4 chunks, so the whole store goes resident: 1 behind,
-        // current, 2 ahead. That is the operator's "pre-load more
-        // aggressively" — and it stays inside the budget it was derived from.
-        expect(plan.chunksPerQuantity).toBe(4);
+        // 2 slots -> 3: one behind, current, one ahead. The scrub-back slot
+        // this store never had, and the lookahead it already had.
+        expect(plan.chunksPerQuantity).toBe(3);
         expect(plan.bufferWindowRadius).toBe(1);
-        expect(plan.bufferWindowAhead).toBe(2);
+        expect(plan.bufferWindowAhead).toBe(1);
         expect(plan.withinBudget).toBe(true);
         expect(plan.peakResidentBytes <= r.budgetBytes).toBe(true);
+        // and the marginal spend is what the budget is actually about
+        expect(Math.round(plan.peakResidentBytes / 1048576)).toBe(906);
     });
 
-    it('takes the PESSIMISTIC signal — a big heap ceiling on a small device does not win', () => {
+    it('takes the PESSIMISTIC signal — a big heap headroom on a small device does not win', () => {
         const r = resolvePlaybackHeapBudget({
-            jsHeapSizeLimit: 8192 * 1024 * 1024, deviceMemoryGiB: 6
+            jsHeapSizeLimit: 8192 * 1024 * 1024, usedJSHeapSize: 0, deviceMemoryGiB: 6
         });
         expect(r.budgetBytes).toBe(Math.floor(6 * 1024 * 1024 * 1024 * DEVICE_MEMORY_BUDGET_FRACTION));
-        expect(r.budgetBytes < Math.floor(8192 * 1024 * 1024 * HEAP_LIMIT_BUDGET_FRACTION)).toBe(true);
+        expect(r.budgetBytes < Math.floor(8192 * 1024 * 1024 * HEAP_HEADROOM_BUDGET_FRACTION)).toBe(true);
     });
 
     it('is bounded at both ends — no machine talks it past the ceiling or the window cap', () => {
         const r = resolvePlaybackHeapBudget({
-            jsHeapSizeLimit: 64 * 1024 * 1024 * 1024, deviceMemoryGiB: 512
+            jsHeapSizeLimit: 64 * 1024 * 1024 * 1024, usedJSHeapSize: 0, deviceMemoryGiB: 512
         });
         expect(r.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_MAX_BYTES);
         expect(r.maxChunksPerQuantity <= MAX_CHUNKS_PER_QUANTITY_CEILING).toBe(true);
