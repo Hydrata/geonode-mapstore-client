@@ -113,6 +113,15 @@ const introductionSlice = (state) => state?.simpleView?.introduction || {};
  * Does `state.anuga.projects.data` describe the project the introduction
  * payload is for? See the TASK-2427 warning in the header — an unstamped or
  * mismatched slice is treated as "we do not know", never as "not a member".
+ *
+ * ⚠ DELIBERATELY NOT `selectorsAnuga.describesLoadedProject`, which looks like
+ * the same question and answers the opposite way. That helper's rule is
+ * "refuse only a stamp that POSITIVELY disagrees", so an unknown reads THROUGH
+ * — correct for its callers, where refusing an unstamped paywall payload would
+ * discard it outright. Here an unknown must NOT read through: reading through
+ * would let a viewer whose role has not arrived be treated as having one, and
+ * the modal would be suppressed for someone who has never seen it. So this
+ * requires a POSITIVE match. Same shape, inverted default, on purpose.
  */
 export const roleDescribesIntroductionProject = (state) => {
     const introProjectId = introductionSlice(state).projectId;
