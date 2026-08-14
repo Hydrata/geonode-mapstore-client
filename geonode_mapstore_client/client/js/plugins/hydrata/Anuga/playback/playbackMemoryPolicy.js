@@ -156,6 +156,123 @@ export const MIN_CHUNKS_PER_QUANTITY = 2;
 /** See PROOF 4 note 4 — one behind, current, one ahead. */
 export const MAX_CHUNKS_PER_QUANTITY = 3;
 
+function clamp(value, lo, hi) {
+    return Math.min(hi, Math.max(lo, value));
+}
+
+// ============================================================================
+// TASK-2743 UAT-08 (W6, epic 2706) — SIZE THE BUDGET TO THE MACHINE.
+//
+// The operator, on the playback stall: "Is there a way to pre-load this a bit
+// more aggressively, or safely in response to available memory somehow?"
+//
+// PLAYBACK_HEAP_BUDGET_BYTES above is a single 800 MiB constant, chosen for
+// the worst machine we are willing to support. On run 1328 it buys exactly 2
+// chunk slots per quantity, which the asymmetric split turns into 0 behind
+// and 1 ahead — a lookahead of ONE chunk, started only as the playhead
+// crosses into the previous one. That is the shallowest window the policy can
+// express, and it is handed to a 32 GiB workstation and a 4 GiB laptop alike.
+//
+// The browser will tell us, if asked. `performance.memory.jsHeapSizeLimit` is
+// the V8 heap ceiling for THIS tab (4,192 MiB on the workstation, measured);
+// `navigator.deviceMemory` is a coarse, deliberately-quantised GiB figure with
+// a spec-mandated cap of 8 that every modern browser reports. Take the more
+// pessimistic of the two, spend a fixed fraction, and clamp.
+//
+// Three properties make this safe to ship into a policy that was tuned by
+// measuring a tab freeze:
+//   1. It can only ever RAISE the budget. The clamp's lower bound IS the
+//      existing 800 MiB constant, so no machine gets a smaller window than it
+//      has today, and a browser that reports NOTHING gets today's numbers
+//      byte-for-byte — including every existing test, and karma, where
+//      neither signal exists.
+//   2. The fractions are of what the browser says it can give this tab, not
+//      of physical RAM. jsHeapSizeLimit is the number an allocation actually
+//      dies against.
+//   3. MAX_CHUNKS_PER_QUANTITY stops being a constant and becomes what it
+//      always meant: how deep a window this budget can pay for. Its old
+//      justification — "the point past which lookahead stops buying
+//      anything", argued from a 20 Hz clock — assumed the fetch keeps up.
+//      Measured on map 1461 it does not: chunk 2's body read took 1,087 ms
+//      against a 161 ms frame budget once the main thread was saturated.
+// ============================================================================
+
+/** The share of this tab's OWN heap ceiling playback may plan against. */
+export const HEAP_LIMIT_BUDGET_FRACTION = 0.45;
+/** The share of the device's reported RAM playback may plan against. */
+export const DEVICE_MEMORY_BUDGET_FRACTION = 0.20;
+/**
+ * The ceiling on the derived budget. 2 GiB is not a memory limit so much as a
+ * statement about diminishing returns: past it the plan is already holding
+ * every chunk of every store we produce, and the extra slots buy nothing.
+ */
+export const PLAYBACK_HEAP_BUDGET_MAX_BYTES = 2048 * 1024 * 1024;
+/**
+ * The deepest window any budget may buy. Distinct from
+ * MAX_CHUNKS_PER_QUANTITY (which stays the default for an unknown machine):
+ * this is the hard stop, so a future browser reporting an enormous heap
+ * cannot talk the policy into an unbounded window.
+ */
+export const MAX_CHUNKS_PER_QUANTITY_CEILING = 6;
+
+/**
+ * The heap budget and window depth THIS machine can pay for.
+ *
+ * Both inputs are optional and both are absent in karma and in every browser
+ * that does not implement them; with neither, this returns exactly
+ * `{budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES, maxChunksPerQuantity:
+ * MAX_CHUNKS_PER_QUANTITY}` — the shipped values.
+ *
+ * @param {object} [signals]
+ * @param {number} [signals.jsHeapSizeLimit] performance.memory.jsHeapSizeLimit, bytes
+ * @param {number} [signals.deviceMemoryGiB] navigator.deviceMemory, GiB
+ * @returns {{budgetBytes: number, maxChunksPerQuantity: number, source: string}}
+ */
+export function resolvePlaybackHeapBudget({ jsHeapSizeLimit, deviceMemoryGiB } = {}) {
+    const offers = [];
+    if (jsHeapSizeLimit > 0) {
+        offers.push(jsHeapSizeLimit * HEAP_LIMIT_BUDGET_FRACTION);
+    }
+    if (deviceMemoryGiB > 0) {
+        offers.push(deviceMemoryGiB * 1024 * 1024 * 1024 * DEVICE_MEMORY_BUDGET_FRACTION);
+    }
+    if (!offers.length) {
+        return {
+            budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES,
+            maxChunksPerQuantity: MAX_CHUNKS_PER_QUANTITY,
+            source: 'default'
+        };
+    }
+    const budgetBytes = clamp(
+        Math.floor(Math.min(...offers)),
+        PLAYBACK_HEAP_BUDGET_BYTES,
+        PLAYBACK_HEAP_BUDGET_MAX_BYTES
+    );
+    // One extra slot per whole extra base-budget of headroom. Integer by
+    // construction, so the default budget yields exactly the default depth.
+    const extraSlots = Math.floor(budgetBytes / PLAYBACK_HEAP_BUDGET_BYTES) - 1;
+    const maxChunksPerQuantity = clamp(
+        MAX_CHUNKS_PER_QUANTITY + Math.max(0, extraSlots),
+        MAX_CHUNKS_PER_QUANTITY,
+        MAX_CHUNKS_PER_QUANTITY_CEILING
+    );
+    return { budgetBytes, maxChunksPerQuantity, source: offers.length === 2 ? 'heap+device' : 'partial' };
+}
+
+/**
+ * The same, read off the live browser. Split from the pure function above so
+ * every test drives the arithmetic directly and nothing has to stub a global.
+ * @returns {{budgetBytes: number, maxChunksPerQuantity: number, source: string}}
+ */
+export function resolvePlaybackHeapBudgetFromEnvironment() {
+    const perf = typeof performance !== 'undefined' ? performance : null;
+    const nav = typeof navigator !== 'undefined' ? navigator : null;
+    return resolvePlaybackHeapBudget({
+        jsHeapSizeLimit: perf && perf.memory ? perf.memory.jsHeapSizeLimit : undefined,
+        deviceMemoryGiB: nav ? nav.deviceMemory : undefined
+    });
+}
+
 /**
  * Per-node bytes the shipped mesh path holds for the store's static arrays:
  * node_x, node_y, elevation, friction, vertexInradius — five Float32.
@@ -187,9 +304,6 @@ const IDENTIFY_BYTES_PER_NODE = 2 * 8;
  */
 export const FACES_PER_NODE_ESTIMATE = 2;
 
-function clamp(value, lo, hi) {
-    return Math.min(hi, Math.max(lo, value));
-}
 
 /**
  * The node EXTENT of one chunk, from the quantized arrays' chunk_shapes
@@ -264,6 +378,10 @@ export function computePlaybackMemoryPlan({
     budgetBytes = PLAYBACK_HEAP_BUDGET_BYTES,
     quantityCount = QUANTITY_ARRAYS.length,
     bytesPerResidentElement = STORED_BYTES_PER_ELEMENT,
+    // TASK-2743 UAT-08 — the window depth this budget may buy. Defaults to
+    // the old constant, so a caller that passes neither this nor budgetBytes
+    // gets the pre-TASK-2743 plan exactly.
+    maxChunksPerQuantity = MAX_CHUNKS_PER_QUANTITY,
     forceChunksPerQuantity
 } = {}) {
     if (!(nNode > 0) || !(chunkLengthT > 0)) {
@@ -280,9 +398,14 @@ export function computePlaybackMemoryPlan({
     const affordable = Math.floor(timeSeriesBudget / perChunkAcrossQuantities);
     // A store with only one chunk cannot be given two, and asking for more
     // chunks than exist just wastes ceiling.
+    const requestedMax = clamp(
+        maxChunksPerQuantity > 0 ? Math.floor(maxChunksPerQuantity) : MAX_CHUNKS_PER_QUANTITY,
+        MIN_CHUNKS_PER_QUANTITY,
+        MAX_CHUNKS_PER_QUANTITY_CEILING
+    );
     const hardMax = totalChunks > 0
-        ? Math.min(MAX_CHUNKS_PER_QUANTITY, totalChunks)
-        : MAX_CHUNKS_PER_QUANTITY;
+        ? Math.min(requestedMax, totalChunks)
+        : requestedMax;
     const chunksPerQuantity = forceChunksPerQuantity > 0
         ? forceChunksPerQuantity
         : clamp(affordable, Math.min(MIN_CHUNKS_PER_QUANTITY, hardMax), hardMax);
@@ -303,6 +426,7 @@ export function computePlaybackMemoryPlan({
         fixedBytes: fixed.total,
         timeSeriesBudget,
         affordableChunksPerQuantity: affordable,
+        maxChunksPerQuantity: requestedMax,
         chunksPerQuantity,
         bufferWindowRadius,
         bufferWindowAhead,

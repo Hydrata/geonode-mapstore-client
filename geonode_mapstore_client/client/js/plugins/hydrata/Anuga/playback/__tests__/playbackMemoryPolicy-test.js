@@ -39,7 +39,14 @@ import {
     STORED_BYTES_PER_ELEMENT,
     PHYSICAL_BYTES_PER_ELEMENT,
     MIN_CHUNKS_PER_QUANTITY,
-    MAX_CHUNKS_PER_QUANTITY
+    MAX_CHUNKS_PER_QUANTITY,
+    // TASK-2743 UAT-08 (W6, epic 2706) — size the budget to the machine.
+    resolvePlaybackHeapBudget,
+    resolvePlaybackHeapBudgetFromEnvironment,
+    PLAYBACK_HEAP_BUDGET_MAX_BYTES,
+    MAX_CHUNKS_PER_QUANTITY_CEILING,
+    HEAP_LIMIT_BUDGET_FRACTION,
+    DEVICE_MEMORY_BUDGET_FRACTION
 } from '../playbackMemoryPolicy';
 import { PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { PlaybackChunkCache, DEFAULT_MAX_BYTES } from '../playbackChunkCache';
@@ -486,5 +493,99 @@ describe('playbackMemoryPolicy — TASK-2728 the floor-2 ceiling is the one that
         // and the floor is what produced it — not affordability.
         expect(chunk2.affordableChunksPerQuantity < chunk2.chunksPerQuantity).toBe(true);
         expect(chunk2.chunksPerQuantity).toBe(2);
+    });
+});
+
+describe('TASK-2743 UAT-08 — the heap budget is sized to the MACHINE, and can only ever go up', () => {
+    // Run 1328's real shape (the same descriptor PROOF 1 uses, above) plus
+    // the store's own time chunking: 31 timesteps at chunk_length_t 10 = 4
+    // chunks, read from the manifest on 2026-08-14.
+    const STORE_1328 = { ...RUN_1328, chunkLengthT: 10, totalChunks: 4 };
+
+    it('a browser that reports NOTHING gets the shipped constants, byte for byte', () => {
+        const r = resolvePlaybackHeapBudget();
+        expect(r.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(r.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
+        expect(r.source).toBe('default');
+        // and the plan it produces is the one PROOF 1 pinned: 2 slots,
+        // 0 behind / 1 ahead.
+        const plan = computePlaybackMemoryPlan({
+            ...STORE_1328, budgetBytes: r.budgetBytes, maxChunksPerQuantity: r.maxChunksPerQuantity
+        });
+        expect(plan.chunksPerQuantity).toBe(2);
+        expect(plan.bufferWindowRadius).toBe(0);
+        expect(plan.bufferWindowAhead).toBe(1);
+    });
+
+    it('a SMALL machine cannot shrink the budget below the shipped floor', () => {
+        // 512 MiB heap ceiling, 2 GiB device: both offers are under 800 MiB.
+        const r = resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 512 * 1024 * 1024, deviceMemoryGiB: 2
+        });
+        expect(r.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(r.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
+    });
+
+    it('THIS workstation (measured live: jsHeapSizeLimit 4192 MiB, deviceMemory 32) buys the whole store', () => {
+        const r = resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 4192 * 1024 * 1024, deviceMemoryGiB: 32
+        });
+        // min(4192 x 0.45, 32768 x 0.20) = min(1886.4, 6553.6) MiB
+        expect(Math.round(r.budgetBytes / 1048576)).toBe(1886);
+        expect(r.source).toBe('heap+device');
+        expect(r.maxChunksPerQuantity).toBe(4);
+        const plan = computePlaybackMemoryPlan({
+            ...STORE_1328, budgetBytes: r.budgetBytes, maxChunksPerQuantity: r.maxChunksPerQuantity
+        });
+        // run 1328 IS 4 chunks, so the whole store goes resident: 1 behind,
+        // current, 2 ahead. That is the operator's "pre-load more
+        // aggressively" — and it stays inside the budget it was derived from.
+        expect(plan.chunksPerQuantity).toBe(4);
+        expect(plan.bufferWindowRadius).toBe(1);
+        expect(plan.bufferWindowAhead).toBe(2);
+        expect(plan.withinBudget).toBe(true);
+        expect(plan.peakResidentBytes <= r.budgetBytes).toBe(true);
+    });
+
+    it('takes the PESSIMISTIC signal — a big heap ceiling on a small device does not win', () => {
+        const r = resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 8192 * 1024 * 1024, deviceMemoryGiB: 6
+        });
+        expect(r.budgetBytes).toBe(Math.floor(6 * 1024 * 1024 * 1024 * DEVICE_MEMORY_BUDGET_FRACTION));
+        expect(r.budgetBytes < Math.floor(8192 * 1024 * 1024 * HEAP_LIMIT_BUDGET_FRACTION)).toBe(true);
+    });
+
+    it('is bounded at both ends — no machine talks it past the ceiling or the window cap', () => {
+        const r = resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 64 * 1024 * 1024 * 1024, deviceMemoryGiB: 512
+        });
+        expect(r.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_MAX_BYTES);
+        expect(r.maxChunksPerQuantity <= MAX_CHUNKS_PER_QUANTITY_CEILING).toBe(true);
+    });
+
+    it('computePlaybackMemoryPlan clamps a caller-supplied maxChunksPerQuantity into the legal band', () => {
+        const huge = computePlaybackMemoryPlan({
+            ...STORE_1328, budgetBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES, maxChunksPerQuantity: 99
+        });
+        expect(huge.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY_CEILING);
+        const tiny = computePlaybackMemoryPlan({ ...STORE_1328, maxChunksPerQuantity: 0 });
+        // 0 is not a request for zero slots; it falls back to the default.
+        expect(tiny.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
+    });
+
+    it('a store with FEWER chunks than the window still never over-buys', () => {
+        const plan = computePlaybackMemoryPlan({
+            ...STORE_1328, totalChunks: 2,
+            budgetBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES, maxChunksPerQuantity: 6
+        });
+        expect(plan.chunksPerQuantity).toBe(2);
+    });
+
+    it('the environment reader returns a well-formed plan input whatever this browser reports', () => {
+        const r = resolvePlaybackHeapBudgetFromEnvironment();
+        expect(r.budgetBytes >= PLAYBACK_HEAP_BUDGET_BYTES).toBe(true);
+        expect(r.budgetBytes <= PLAYBACK_HEAP_BUDGET_MAX_BYTES).toBe(true);
+        expect(r.maxChunksPerQuantity >= MAX_CHUNKS_PER_QUANTITY).toBe(true);
+        expect(r.maxChunksPerQuantity <= MAX_CHUNKS_PER_QUANTITY_CEILING).toBe(true);
     });
 });

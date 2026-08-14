@@ -454,12 +454,22 @@ describe('playbackEpics', () => {
             // chunk_shapes[<array>][1], so this is the manifest-time nNode the
             // real seam sees. The mesh arrays are untouched, so the load itself
             // still completes against the real fixture bytes.
+            //
+            // TASK-2743 UAT-08 raised the node count from 6,000,000 to
+            // 12,000,000. The budget is no longer a fixed 800 MiB — it is
+            // sized to the machine, up to PLAYBACK_HEAP_BUDGET_MAX_BYTES
+            // (2 GiB) — so a fixture that was over budget only at 800 MiB
+            // stopped warning on a big host (caught by this very test: it
+            // saw 0 lines on a workstation reporting a 4 GiB heap ceiling).
+            // At 12M nodes the plan peaks at 2517.7 MiB, which is over budget
+            // at EVERY budget the resolver can produce, so this case is now
+            // independent of the machine it runs on.
             const overBudgetManifest = {
                 ...FIXTURE_MANIFEST,
                 chunk_shapes: {
-                    depth: [10, 6000000],
-                    x_velocity: [10, 6000000],
-                    y_velocity: [10, 6000000]
+                    depth: [10, 12000000],
+                    x_velocity: [10, 12000000],
+                    y_velocity: [10, 12000000]
                 }
             };
             const restore = stubGlobalFetch((url) => (url === MANIFEST_URL
@@ -477,7 +487,7 @@ describe('playbackEpics', () => {
                 try {
                     const lines = warn.budgetLines();
                     expect(lines.length).toBe(1);
-                    expect(lines[0]).toContain('peak=1258.9 MiB');
+                    expect(lines[0]).toContain('peak=2517.7 MiB');
                     // Shipping over budget is the deliberate choice; the defect
                     // was that it was silent. Budget did NOT stop this load —
                     // TASK-2729 did, because this doctored manifest declares
