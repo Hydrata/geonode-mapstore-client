@@ -58,6 +58,48 @@ export function isUsableChunkLength(value) {
 }
 
 /**
+ * One dimension of each quantity array's declared chunk shape.
+ *
+ * The chunk grid is [chunk_length_t, node_extent], and the client has to stop
+ * trusting BOTH: TASK-2724 did dim 0, TASK-2729 did dim 1. They are the same
+ * read with a different index, so they are the same function — keeping them
+ * as one is what stops the two guards drifting into disagreeing about what a
+ * declared value even is.
+ *
+ * @param {object} manifest as returned by fetchPlaybackManifest
+ * @param {number} dim 0 = timesteps per chunk, 1 = nodes per chunk
+ * @returns {object} {arrayName: number|undefined} — undefined where the store
+ *          declared nothing usable
+ */
+function readChunkDimByArray(manifest, dim) {
+    const shapes = (manifest && manifest.chunk_shapes) || {};
+    const values = {};
+    QUANTITY_ARRAYS.forEach((name) => {
+        const shape = shapes[name];
+        const value = Array.isArray(shape) ? shape[dim] : undefined;
+        values[name] = isUsableChunkLength(value) ? value : undefined;
+    });
+    return values;
+}
+
+/**
+ * The quantity arrays whose declared value contradicts `reference`, and a
+ * ready-to-print rendering of them. An UNDECLARED value is never a
+ * disagreement — every guard here has to pass stores that declare nothing,
+ * because that is what the stores we already serve look like.
+ *
+ * @param {object} declared {arrayName: number|undefined}
+ * @param {number} reference the number they must all match
+ * @returns {{names: string[], detail: string}}
+ */
+function disagreementWith(declared, reference) {
+    const names = QUANTITY_ARRAYS.filter(
+        (name) => declared[name] !== undefined && declared[name] !== reference
+    );
+    return {names, detail: names.map((name) => `${name}=${declared[name]}`).join(', ')};
+}
+
+/**
  * Per-array time-chunk length as the STORE declares it, for diagnostics and
  * for the cross-quantity agreement check.
  * @param {object} manifest as returned by fetchPlaybackManifest
@@ -65,14 +107,7 @@ export function isUsableChunkLength(value) {
  *          declared nothing usable
  */
 export function readChunkLengthsByArray(manifest) {
-    const shapes = (manifest && manifest.chunk_shapes) || {};
-    const lengths = {};
-    QUANTITY_ARRAYS.forEach((name) => {
-        const shape = shapes[name];
-        const t = Array.isArray(shape) ? shape[0] : undefined;
-        lengths[name] = isUsableChunkLength(t) ? t : undefined;
-    });
-    return lengths;
+    return readChunkDimByArray(manifest, 0);
 }
 
 /**
@@ -91,14 +126,7 @@ export function readChunkLengthsByArray(manifest) {
  *          declared no usable extent (a 1-D chunk_shape, or a junk value)
  */
 export function readNodeExtentsByArray(manifest) {
-    const shapes = (manifest && manifest.chunk_shapes) || {};
-    const extents = {};
-    QUANTITY_ARRAYS.forEach((name) => {
-        const shape = shapes[name];
-        const n = Array.isArray(shape) ? shape[1] : undefined;
-        extents[name] = isUsableChunkLength(n) ? n : undefined;
-    });
-    return extents;
+    return readChunkDimByArray(manifest, 1);
 }
 
 /**
@@ -132,12 +160,8 @@ export function readNodeExtentsByArray(manifest) {
  * @throws {Error} naming both numbers and every array that disagrees
  */
 export function assertNodeExtentMatchesMesh(manifest, meshNodeCount) {
-    const extents = readNodeExtentsByArray(manifest);
-    const disagreeing = QUANTITY_ARRAYS.filter(
-        (name) => extents[name] !== undefined && extents[name] !== meshNodeCount
-    );
-    if (disagreeing.length) {
-        const detail = disagreeing.map((name) => `${name}=${extents[name]}`).join(', ');
+    const {names, detail} = disagreementWith(readNodeExtentsByArray(manifest), meshNodeCount);
+    if (names.length) {
         throw new Error(
             `Playback store declares a chunk node extent of ${detail}, but the mesh it ` +
             `shipped has ${meshNodeCount} nodes. Refusing to play it: a frame is sliced at ` +
@@ -168,12 +192,8 @@ export function assertNodeExtentMatchesMesh(manifest, meshNodeCount) {
 export function assertDeclaredNodeCountAgrees(manifest) {
     const declared = ((manifest && manifest.schema_metadata) || {}).n_node;
     if (isUsableChunkLength(declared)) {
-        const extents = readNodeExtentsByArray(manifest);
-        const disagreeing = QUANTITY_ARRAYS.filter(
-            (name) => extents[name] !== undefined && extents[name] !== declared
-        );
-        if (disagreeing.length) {
-            const detail = disagreeing.map((name) => `${name}=${extents[name]}`).join(', ');
+        const {names, detail} = disagreementWith(readNodeExtentsByArray(manifest), declared);
+        if (names.length) {
             throw new Error(
                 `Playback store's own metadata contradicts its chunk grid: schema_metadata.n_node ` +
                 `is ${declared} but the chunk node extent is ${detail}. Refusing to play it — the ` +
