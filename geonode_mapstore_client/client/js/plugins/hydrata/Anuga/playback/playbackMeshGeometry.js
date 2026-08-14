@@ -303,6 +303,264 @@ export function buildFaceDecimatedWireframeIndices(faceNodeConnectivity, faceStr
     return out;
 }
 
+// ============================================================================
+// TASK-2743 UAT-05 (W6, epic 2706) — THE WIREFRAME'S INK BUDGET.
+//
+// The operator, looking at a 6.78M-triangle mesh at 1:564: "Can we make the
+// triangles pure white and bring them to the front? They look like they are
+// somehow transparent or covered here."
+//
+// They were not covered. The wireframe already draws LAST, after the scalar
+// fill, the flow-viz arrows and the particle trails. It was drawn at
+// rgba(0.9, 0.95, 1.0, 0.08) — READ OFF THE LIVE GL CONTEXT on map 1461 — 8%
+// opacity, which is TASK-2686's WIREFRAME_MIN_OPACITY floor. At 8% over a
+// saturated depth ramp the fill wins and the lines read as ghosts.
+//
+// The 8% is not arbitrary and cannot simply be raised: it is what stops a
+// >=500k-triangle mesh whiting out its own viewport at full extent. But that
+// number is a function of the MESH ALONE (wireframeOpacityForTriangleCount
+// takes a triangle count and nothing else), and whiteout is not a property of
+// the mesh — it is a property of the mesh AS SEEN AT A GIVEN ZOOM. The same
+// buffer that saturates the screen at 4 m/px is a handful of crisp lines at
+// 0.15 m/px. A constant cannot express that; it can only pick the worst case
+// and live there, which is exactly what shipped.
+//
+// So state the real invariant instead: KEEP THE TOTAL INK THE WIREFRAME ADDS
+// TO THE SCREEN CONSTANT. Let
+//     k = (edge pixels the wireframe paints) / (viewport pixels)
+// and hold `alpha * k` at a fixed budget. k > 1 means edges overlap and alpha
+// must fall; k << 1 means the edges are isolated and alpha can go to a fully
+// opaque 1.0 — which is precisely the operator's "pure white, at the front".
+//
+// k has a closed form that needs no per-frame geometry pass, and — this is the
+// part that is easy to get wrong — it does NOT depend on the window size. With
+// `res` the map resolution (projection metres per CSS pixel):
+//     edges on screen  = drawnEdges * min(1, viewArea / meshArea)
+//     ink pixels       = edges on screen * max(1, meanEdgeMetres / res)
+//     pixels they land on = min(viewportPixels, meshArea / res^2)
+// Zoomed IN, the view is inside the mesh, so the first min takes the view and
+// the second takes the viewport; zoomed OUT, the mesh is inside the view, so
+// the first takes 1 and the second takes the mesh's screen footprint. Both
+// branches reduce to the SAME expression:
+//     k = drawnEdges * max(1, meanEdge / res) * res^2 / meshArea
+// which is exactly right: k is a LOCAL density — ink per pixel of mesh — and a
+// bigger window shows more mesh at the same density, not denser mesh.
+//
+// Getting that wrong is not academic. A first cut used
+// max(meshArea, viewArea) as the denominator, which made k CONSTANT as the map
+// zoomed out past full extent: the whole mesh crammed into a postage stamp
+// scored the same 0.86 as the mesh filling the screen, and the overlay would
+// have stayed at that alpha while its real local density climbed past 160.
+// The "zoomed out past the mesh" case below is the test that caught it.
+//
+// The max(1, ...) floor is load-bearing at full extent: at 4.15 m/px a 1.81 m
+// edge is 0.44 CSS px long, but GL_LINES still rasterises at least one pixel,
+// so a naive length term would UNDERSTATE the ink by 2.3x exactly where
+// overstating the alpha does the most damage.
+// ============================================================================
+
+/**
+ * The share of the mesh's own screen area the wireframe may paint, counted as
+ * alpha-weighted ink (`alpha * k`). 0.10 is chosen to REPRODUCE the shipped
+ * full-extent behaviour rather than to invent a new look: on map 1461 at full
+ * extent k = 1.63, which puts alpha on TASK-2686's WIREFRAME_MIN_OPACITY floor
+ * of 0.08 exactly — the same faint overlay that AC asked for, now arrived at
+ * from the screen instead of from a triangle count.
+ */
+export const WIREFRAME_INK_BUDGET = 0.10;
+
+/**
+ * `k` — edge pixels the wireframe paints, per pixel of the mesh's own screen
+ * footprint. See the block comment above for the derivation, including why the
+ * window size does not appear. Returns 0 when it cannot be computed (no
+ * resolution yet, empty mesh), which callers must read as "no opinion", NOT
+ * as "no ink".
+ *
+ * @param {object} p
+ * @param {number} p.drawnEdgeCount edges actually in the index buffer (nWireIndices / 2)
+ * @param {number} p.meanEdgeLength mean edge length, PROJECTION metres (EPSG:3857 here)
+ * @param {number} p.meshArea the mesh's own area, projection metres squared
+ * @param {number} p.resolution map resolution, projection metres per CSS pixel
+ * @returns {number} k >= 0
+ */
+export function wireframeInkCoverage({ drawnEdgeCount, meanEdgeLength, meshArea, resolution }) {
+    if (!(drawnEdgeCount > 0) || !(meanEdgeLength > 0) || !(resolution > 0) || !(meshArea > 0)) {
+        return 0;
+    }
+    const edgePixels = Math.max(1, meanEdgeLength / resolution);
+    return drawnEdgeCount * edgePixels * resolution * resolution / meshArea;
+}
+
+/**
+ * Edge alpha for an ink coverage `k`, holding `alpha * k` at
+ * WIREFRAME_INK_BUDGET. Saturates to a fully opaque 1.0 once the edges stop
+ * overlapping (k <= budget) and is floored at WIREFRAME_MIN_OPACITY so a
+ * pathologically dense view still shows SOMETHING — the same never-vanish
+ * promise TASK-2686 made, kept.
+ *
+ * k === 0 means "not computable" (see wireframeInkCoverage) and returns the
+ * caller's `fallbackAlpha` unchanged, so a renderer that has no viewState yet
+ * behaves exactly as it did before this function existed.
+ *
+ * @param {number} coverage k from wireframeInkCoverage
+ * @param {number} fallbackAlpha used when coverage is not computable
+ * @returns {number} in [WIREFRAME_MIN_OPACITY, 1]
+ */
+export function wireframeOpacityForInkCoverage(coverage, fallbackAlpha) {
+    if (!(coverage > 0)) {
+        return fallbackAlpha;
+    }
+    const alpha = WIREFRAME_INK_BUDGET / coverage;
+    return Math.min(1, Math.max(WIREFRAME_MIN_OPACITY, alpha));
+}
+
+// ----------------------------------------------------------------------------
+// TASK-2743 UAT-06 — "what would it take to make the triangles all show,
+// instead of just some? Is this possible?"
+//
+// Measured on map 1461 (6,779,432 triangles), in the live tab: building the
+// COMPLETE non-deduped edge set (3 edges per face, every face) takes 53 ms and
+// 40,676,592 indices = 155.2 MiB, and uploading that buffer to the GPU takes
+// 407 ms. So "every triangle, always" is affordable to BUILD — the 1,021 MiB
+// figure TASK-2734 measured belonged to the Set-based DEDUPLICATION, not to
+// the edge set itself, and dropping the dedup costs only a 2x index count on
+// interior edges.
+//
+// It is not affordable to LOOK AT. At full extent those 20.3M edges score
+// k = 39.1 against a 0.10 budget — a 390x overdraw, and the whole mesh goes
+// solid white. Even at the operator's own 1:564 view k = 0.62, so the ink
+// model would immediately dim them back to alpha 0.16 and undo the very thing
+// the request was about. A complete wireframe only reads as a mesh from
+// roughly 1:150 in.
+//
+// The useful question is therefore not "all or some" but "as many as this
+// screen can actually show", and the ink budget already answers it: pick the
+// face stride that puts k AT the budget, so the wireframe is always as dense
+// as it can be while still being fully opaque white. On map 1461 at 1:564 that
+// is stride 8 rather than the shipped 24 — 3x more triangles (2,542,287 edges,
+// 19.4 MiB) at alpha 1.0, and at 1:150 it is stride 3 (6,779,433 edges,
+// 51.7 MiB), 8x more, still fully opaque.
+// ----------------------------------------------------------------------------
+
+/**
+ * A coarse ladder of face strides. Rebuilds are quantised onto it so that a
+ * continuous zoom (or a one-pixel window resize) cannot thrash the index
+ * buffer: only a real change of scale moves you a rung.
+ */
+export const WIREFRAME_FACE_STRIDE_LADDER = Object.freeze([1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128]);
+
+/**
+ * The most index bytes the wireframe may hold. 64 MiB is deliberately BELOW
+ * the 155.2 MiB a complete edge set costs on map 1461: the playback residency
+ * plan's whole fixed-bytes term is 323.5 MiB, and silently adding half of that
+ * again for an overlay would blow PLAYBACK_HEAP_BUDGET_BYTES on exactly the
+ * mesh this epic exists to make work. It bounds the stride from below — see
+ * minFaceStrideForIndexBudget — rather than truncating a buffer mid-flight.
+ */
+export const WIREFRAME_MAX_INDEX_BYTES = 64 * 1024 * 1024;
+
+/** Uint32 index pairs, 3 edges per kept face: 6 indices x 4 bytes. */
+const WIREFRAME_BYTES_PER_KEPT_FACE = 24;
+
+/**
+ * The smallest face stride whose index buffer fits WIREFRAME_MAX_INDEX_BYTES.
+ * @param {number} triangleCount
+ * @returns {number} >= 1
+ */
+export function minFaceStrideForIndexBudget(triangleCount) {
+    if (!(triangleCount > 0)) {
+        return 1;
+    }
+    return Math.max(1, Math.ceil(triangleCount * WIREFRAME_BYTES_PER_KEPT_FACE / WIREFRAME_MAX_INDEX_BYTES));
+}
+
+/**
+ * The face stride to draw at, for this mesh at this zoom: the densest rung of
+ * WIREFRAME_FACE_STRIDE_LADDER that keeps ink coverage at or under
+ * WIREFRAME_INK_BUDGET, never below what the index budget allows, and never
+ * denser than `baseStride` asked for at the widest view.
+ *
+ * Returns `baseStride` unchanged whenever the inputs are not computable, so
+ * every existing caller and every small mesh keeps today's behaviour exactly.
+ *
+ * @param {object} p
+ * @param {number} p.baseStride the load-time stride (wireframeFaceStride)
+ * @param {number} p.triangleCount
+ * @param {number} p.meanEdgeLength projection metres
+ * @param {number} p.meshArea projection metres squared
+ * @param {number} p.resolution projection metres per CSS pixel
+ * @returns {number}
+ */
+export function wireframeFaceStrideForView({
+    baseStride, triangleCount, meanEdgeLength, meshArea, resolution
+}) {
+    if (!(baseStride > 1) || !(meanEdgeLength > 0) || !(resolution > 0) || !(meshArea > 0)) {
+        return baseStride;
+    }
+    // Edges per face is 3 at ANY stride (each kept face contributes all three
+    // of its own edges — that is the UAT-01 closed-triangle property), so the
+    // drawn edge count for a candidate stride is exact, not estimated.
+    const floorStride = Math.max(minFaceStrideForIndexBudget(triangleCount), 1);
+    const candidates = WIREFRAME_FACE_STRIDE_LADDER
+        .filter((s) => s >= floorStride && s <= baseStride);
+    if (!candidates.length) {
+        return Math.max(baseStride, floorStride);
+    }
+    for (let i = 0; i < candidates.length; i++) {
+        const stride = candidates[i];
+        const drawnEdgeCount = Math.ceil(triangleCount / stride) * 3;
+        const k = wireframeInkCoverage({ drawnEdgeCount, meanEdgeLength, meshArea, resolution });
+        if (k <= WIREFRAME_INK_BUDGET) {
+            return stride;
+        }
+    }
+    return candidates[candidates.length - 1];
+}
+
+/**
+ * Mean edge length and total area of a triangulation, sampled every
+ * `faceStep`-th face. Both are needed by the ink model and neither is worth a
+ * full pass: on map 1461, stride 64 reads 105,929 of 6,779,432 faces and lands
+ * the mean edge within 0.1% of the full-mesh value (1.812 m, measured both
+ * ways in the live tab).
+ *
+ * Coordinates must be in the SAME frame the map's `resolution` is expressed in
+ * — EPSG:3857 here, not the store's UTM, which differs by the 1/cos(lat)
+ * Mercator scale factor (1.0071 at Dar es Salaam).
+ *
+ * @param {Float64Array|Float32Array|number[]} x
+ * @param {Float64Array|Float32Array|number[]} y
+ * @param {Int32Array|Uint32Array|number[]} faceNodeConnectivity
+ * @param {number} [faceStep=64]
+ * @returns {{meanEdgeLength: number, area: number, sampledFaces: number}}
+ */
+export function sampleMeshEdgeScale(x, y, faceNodeConnectivity, faceStep = 64) {
+    const nFace = Math.floor(faceNodeConnectivity.length / 3);
+    const step = faceStep > 1 ? Math.floor(faceStep) : 1;
+    if (!(nFace > 0)) {
+        return { meanEdgeLength: 0, area: 0, sampledFaces: 0 };
+    }
+    let edgeSum = 0;
+    let areaSum = 0;
+    let sampled = 0;
+    for (let f = 0; f < nFace; f += step) {
+        const i = f * 3;
+        const v0 = faceNodeConnectivity[i];
+        const v1 = faceNodeConnectivity[i + 1];
+        const v2 = faceNodeConnectivity[i + 2];
+        const x0 = x[v0]; const y0 = y[v0]; const x1 = x[v1]; const y1 = y[v1]; const x2 = x[v2]; const y2 = y[v2];
+        edgeSum += Math.hypot(x1 - x0, y1 - y0) + Math.hypot(x2 - x1, y2 - y1) + Math.hypot(x0 - x2, y0 - y2);
+        areaSum += Math.abs((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2;
+        sampled++;
+    }
+    return {
+        meanEdgeLength: edgeSum / (sampled * 3),
+        // Scale the sampled area back up to the whole mesh.
+        area: areaSum * (nFace / sampled),
+        sampledFaces: sampled
+    };
+}
+
 /**
  * Interleave per-vertex depth/x_velocity/y_velocity (already-dequantized
  * physical Float32Arrays, same length) into one vec3-per-vertex buffer for

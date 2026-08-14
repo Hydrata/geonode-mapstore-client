@@ -42,13 +42,34 @@ import {
     // prod-scale mesh. decimateWireframeIndices itself is deliberately NOT
     // imported here any more: nothing in this renderer builds a full edge set
     // to thin down.
-    wireframeFaceStride, buildFaceDecimatedWireframeIndices
+    wireframeFaceStride, buildFaceDecimatedWireframeIndices,
+    // TASK-2743 UAT-05/UAT-06 (W6, epic 2706) — the ink-budget model that
+    // replaces a load-time opacity CONSTANT with a per-frame function of the
+    // zoom, and lets the face stride follow it.
+    wireframeInkCoverage, wireframeOpacityForInkCoverage,
+    wireframeFaceStrideForView, sampleMeshEdgeScale
 } from './playbackMeshGeometry';
 import { AnugaPlaybackFlowVizRenderer } from './AnugaPlaybackFlowVizRenderer';
 import { AnugaPlaybackParticleRenderer } from './AnugaPlaybackParticleRenderer';
 import { clampParticleGrid } from './playbackParticles';
 
-const WIRE_COLOR = [0.9, 0.95, 1.0, 0.35];
+// TASK-2743 UAT-05 — PURE white, on the operator's direct request ("can we
+// make the triangles pure white"). Was [0.9, 0.95, 1.0]: a blue-tinted white
+// that, composited at the 0.08 alpha the shipped code actually used, read as
+// a grey haze over the depth ramp rather than as mesh lines. The alpha
+// channel is unchanged — it is still only the SMALL-mesh (<50k triangle)
+// value, and every larger mesh now gets its alpha from the ink budget.
+const WIRE_COLOR = [1.0, 1.0, 1.0, 0.35];
+
+/**
+ * TASK-2743 UAT-06 — the floor on how often the wireframe index buffer may be
+ * rebuilt as the operator zooms. A rebuild is cheap (53 ms + 407 ms upload for
+ * the WHOLE mesh; proportionally less at any real stride, measured on map
+ * 1461) but it is not free, and OL fires render() on every animation frame of
+ * a zoom. Combined with the coarse stride LADDER, this makes the rebuild fire
+ * on a settled view rather than on every frame of the way there.
+ */
+const WIREFRAME_REBUILD_MIN_INTERVAL_MS = 250;
 const QUANTITY_IDS = Object.keys(QUANTITY_RAMPS);
 
 export class AnugaPlaybackRenderer {
@@ -169,6 +190,20 @@ export class AnugaPlaybackRenderer {
         this._wireStride = 1;
         this._wireIndicesBuilt = false;
         this._wireBuildCount = 0;
+        // TASK-2743 UAT-05/UAT-06 — the ink model's per-mesh constants, and
+        // the stride the buffer was last BUILT at (distinct from the stride
+        // the current view WANTS: they differ between a zoom and the rebuild
+        // that follows it).
+        this._wireMeanEdge = 0;
+        this._wireMeshArea = 0;
+        this._wireBaseFaceStride = 1;
+        this._wireTriangleCount = 0;
+        this._wireBuiltFaceStride = 0;
+        this._wireLastBuildMs = -Infinity;
+        // TASK-2743 UAT-07 — the byte length currently live in qty0Buf/qty1Buf.
+        // 0 means "nothing uploaded yet", which forces the first setFrames
+        // down the full-upload path however the caller flags it.
+        this._qtyByteLength = 0;
         this.meshReady = false;
         // TASK-2686 — set for real in setMesh once triangleCount is known;
         // these defaults just match the small-mesh AC (byte-identical to
@@ -260,6 +295,24 @@ export class AnugaPlaybackRenderer {
         this._wireIndicesBuilt = false;
         this.nWireIndices = 0;
         this._wireOpacity = wireframeOpacityForTriangleCount(triangleCount, WIRE_COLOR[3]);
+        // TASK-2743 UAT-05/UAT-06 — the two per-mesh constants the ink model
+        // needs, sampled ONCE here (every 64th face, ~106k of 6.78M on map
+        // 1461) rather than per frame. Deliberately measured on x3857/y3857,
+        // not on the store's own UTM coordinates: `viewState.resolution` is
+        // EPSG:3857 metres per pixel, and the two frames differ by the
+        // Mercator scale factor (1.0071 at this latitude) — comparing them
+        // would put a silent 0.7% bias into every alpha.
+        const edgeScale = sampleMeshEdgeScale(x3857, y3857, faceNodeConnectivity, 64);
+        this._wireMeanEdge = edgeScale.meanEdgeLength;
+        this._wireMeshArea = edgeScale.area;
+        this._wireBaseFaceStride = this._wireFaceStride;
+        this._wireTriangleCount = triangleCount;
+        this._wireBuiltFaceStride = 0;
+        this._wireLastBuildMs = -Infinity;
+        // A new mesh means a new node count, so whatever is in qty0Buf/qty1Buf
+        // is the WRONG length — force the next setFrames down the full-upload
+        // path rather than letting it copy stale bytes of a matching size.
+        this._qtyByteLength = 0;
         // Adversarial-review fix (still TASK-2686): `stride > 1` is the SAME
         // gate wireframeDecimationStride/wireframeOpacityForTriangleCount
         // already use — reused here (not re-derived) so all three legibility
@@ -313,14 +366,30 @@ export class AnugaPlaybackRenderer {
      * TASK-2686's AC pins that output byte-identical, and at that size the
      * Set/Array cost is trivial anyway.
      */
-    _ensureWireframeIndices() {
-        if (this._wireIndicesBuilt || !this._wireSourceFnc) {
+    _ensureWireframeIndices(targetFaceStride, nowMs) {
+        if (!this._wireSourceFnc) {
+            return;
+        }
+        const stride = this._wireStride;
+        // TASK-2743 UAT-06 — a rebuild is warranted only above the <50k
+        // boundary (below it `stride` is 1 and there is exactly one possible
+        // buffer), only when the view actually wants a DIFFERENT rung of the
+        // ladder, and only after the rate limiter has expired. Everything
+        // else short-circuits to the memoised buffer, so the TASK-2734
+        // `_wireBuildCount === 1` witness still holds for a session that
+        // never changes zoom.
+        const wantStride = stride > 1 && targetFaceStride > 0 ? targetFaceStride : this._wireFaceStride;
+        const strideChanged = this._wireIndicesBuilt && wantStride !== this._wireBuiltFaceStride;
+        if (this._wireIndicesBuilt && !strideChanged) {
+            return;
+        }
+        if (strideChanged && !(nowMs - this._wireLastBuildMs >= WIREFRAME_REBUILD_MIN_INTERVAL_MS)) {
             return;
         }
         const gl = this.gl;
-        const stride = this._wireStride;
+        this._wireFaceStride = wantStride;
         const wireIndices = stride > 1
-            ? buildFaceDecimatedWireframeIndices(this._wireSourceFnc, this._wireFaceStride)
+            ? buildFaceDecimatedWireframeIndices(this._wireSourceFnc, wantStride)
             : buildWireframeIndices(this._wireSourceFnc);
         const previousVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
         gl.bindVertexArray(null);
@@ -330,6 +399,8 @@ export class AnugaPlaybackRenderer {
         gl.bindVertexArray(previousVao);
         this.nWireIndices = wireIndices.length;
         this._wireIndicesBuilt = true;
+        this._wireBuiltFaceStride = wantStride;
+        this._wireLastBuildMs = nowMs;
         this._wireBuildCount++;
     }
 
@@ -339,12 +410,49 @@ export class AnugaPlaybackRenderer {
      * @param {Float32Array} frame0Vec3
      * @param {Float32Array} frame1Vec3
      */
-    setFrames(frame0Vec3, frame1Vec3) {
+    setFrames(frame0Vec3, frame1Vec3, { frame0WasPreviousFrame1 = false } = {}) {
         const gl = this.gl;
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.qty0Buf);
-        gl.bufferData(gl.ARRAY_BUFFER, frame0Vec3, gl.DYNAMIC_DRAW);
+        // TASK-2743 UAT-07 (W6, epic 2706) — THE PLAYBACK STALL.
+        //
+        // Measured in the live tab on map 1461: 36 bufferData calls moving
+        // 1,397.9 MB cost 3,443 ms — two 40.7 MB uploads per timestep, 95.6 ms
+        // each. That is ~191 ms of main-thread time per frame BEFORE any
+        // decode, which is why the player delivered ~275 ms/frame when asked
+        // for 161, and why the chunk-2 fetch — issued into an already
+        // saturated main thread — took 1,087 ms instead of the 245 ms it
+        // takes when the thread is idle. The operator sees that as "a
+        // significant buffering around frame 16"; frame 17 is exactly where
+        // bufferedChunks flipped to [1,2] in the trace.
+        //
+        // Half of it is redundant by construction: stepping the playhead one
+        // timestep makes the OLD frame1 the NEW frame0. The bytes are already
+        // in VRAM. copyBufferSubData moves them GPU-side — no PCIe transfer,
+        // no main-thread copy, and (unlike swapping the two buffer handles)
+        // the buffer OBJECTS keep their identity, so flowViz's
+        // setMeshBuffers references and both VAOs' attribute bindings stay
+        // valid with no re-pointing.
+        //
+        // The caller must only pass frame0WasPreviousFrame1 when that is
+        // literally true (AnugaPlaybackLayer proves it by object identity
+        // against the previous options). A seek, a fresh mesh, or a first
+        // frame all take the full path.
+        const bytes = frame1Vec3.byteLength;
+        const canRecycle = frame0WasPreviousFrame1
+            && this._qtyByteLength === bytes
+            && typeof gl.copyBufferSubData === 'function';
+        if (canRecycle) {
+            gl.bindBuffer(gl.COPY_READ_BUFFER, this.qty1Buf);
+            gl.bindBuffer(gl.COPY_WRITE_BUFFER, this.qty0Buf);
+            gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, 0, 0, bytes);
+            gl.bindBuffer(gl.COPY_READ_BUFFER, null);
+            gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+        } else {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.qty0Buf);
+            gl.bufferData(gl.ARRAY_BUFFER, frame0Vec3, gl.DYNAMIC_DRAW);
+        }
         gl.bindBuffer(gl.ARRAY_BUFFER, this.qty1Buf);
         gl.bufferData(gl.ARRAY_BUFFER, frame1Vec3, gl.DYNAMIC_DRAW);
+        this._qtyByteLength = bytes;
     }
 
     /**
@@ -505,8 +613,31 @@ export class AnugaPlaybackRenderer {
         // that asks for it. This MUST sit before the gate below: inside it,
         // `this.nWireIndices > 0` would never be true on the first wireframe
         // frame and the buffer could never be built at all.
+        // TASK-2743 UAT-05/UAT-06 — the ink model, evaluated per frame from
+        // the CURRENT view. Two outputs: the stride the buffer should be
+        // built at (how many triangles the screen can carry) and the alpha
+        // the edges should be drawn at (how much ink each one may spend).
+        // Both are pure functions of numbers already in scope; neither
+        // touches geometry.
+        let wireInkAlpha = this._wireOpacity;
         if (wireframe) {
-            this._ensureWireframeIndices();
+            const resolution = viewState && viewState.resolution;
+            const targetStride = wireframeFaceStrideForView({
+                baseStride: this._wireBaseFaceStride,
+                triangleCount: this._wireTriangleCount,
+                meanEdgeLength: this._wireMeanEdge,
+                meshArea: this._wireMeshArea,
+                resolution
+            });
+            const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            this._ensureWireframeIndices(targetStride, nowMs);
+            const coverage = wireframeInkCoverage({
+                drawnEdgeCount: this.nWireIndices / 2,
+                meanEdgeLength: this._wireMeanEdge,
+                meshArea: this._wireMeshArea,
+                resolution
+            });
+            wireInkAlpha = wireframeOpacityForInkCoverage(coverage, this._wireOpacity);
         }
         if (wireframe && this.nWireIndices > 0) {
             gl.useProgram(this.wireProgram);
@@ -526,12 +657,23 @@ export class AnugaPlaybackRenderer {
             // decimation already applied in setMesh — together these are
             // the two legibility levers (AC: "zoom-gating, edge
             // opacity/width tuning, edge decimation, or a combination").
-            if (this._wireBlendEnabled) {
-                gl.uniform4f(this.wireUniforms.uColor, WIRE_COLOR[0], WIRE_COLOR[1], WIRE_COLOR[2], this._wireOpacity);
+            //
+            // TASK-2743 UAT-05 — `this._wireOpacity` (a constant of the
+            // triangle count) is replaced by `wireInkAlpha` (a function of
+            // the zoom). At alpha 1.0 blending is SKIPPED entirely rather
+            // than run with a no-op factor: SRC_ALPHA/ONE_MINUS_SRC_ALPHA at
+            // alpha exactly 1 is arithmetically identity, but leaving it on
+            // means the "pure white, at the front" case still depends on the
+            // blend equation being exact for every fragment. Off is off.
+            if (this._wireBlendEnabled && wireInkAlpha < 1) {
+                gl.uniform4f(this.wireUniforms.uColor, WIRE_COLOR[0], WIRE_COLOR[1], WIRE_COLOR[2], wireInkAlpha);
                 gl.enable(gl.BLEND);
                 gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
                 gl.drawElements(gl.LINES, this.nWireIndices, gl.UNSIGNED_INT, 0);
                 gl.disable(gl.BLEND);
+            } else if (this._wireBlendEnabled) {
+                gl.uniform4f(this.wireUniforms.uColor, WIRE_COLOR[0], WIRE_COLOR[1], WIRE_COLOR[2], 1);
+                gl.drawElements(gl.LINES, this.nWireIndices, gl.UNSIGNED_INT, 0);
             } else {
                 gl.uniform4fv(this.wireUniforms.uColor, WIRE_COLOR);
                 gl.drawElements(gl.LINES, this.nWireIndices, gl.UNSIGNED_INT, 0);
