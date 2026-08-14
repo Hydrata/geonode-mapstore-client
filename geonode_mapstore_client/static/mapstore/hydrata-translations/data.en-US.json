@@ -276,6 +276,7 @@
         "results": "Results",
         "viewResults": "View Results",
         "resultsNoRuns": "No scenarios have completed runs with results yet.",
+        "resultsNoPlayback": "Run completed, but no playback was saved for it — playback exists only for runs finished after it was introduced.",
         "retry": "Retry",
         "retryError": "Failed to retry run",
         "retrySuccess": "Run reset — ready to re-run",

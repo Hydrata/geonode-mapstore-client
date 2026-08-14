@@ -276,6 +276,7 @@
         "results": "Résultats",
         "viewResults": "Voir les Résultats",
         "resultsNoRuns": "Aucun scénario n'a encore d'exécution terminée avec des résultats.",
+        "resultsNoPlayback": "Exécution terminée, mais aucune relecture n'a été enregistrée — la relecture n'existe que pour les exécutions terminées après son introduction.",
         "retry": "Réessayer",
         "retryError": "Échec de la relance",
         "retrySuccess": "Exécution réinitialisée — prêt à relancer",

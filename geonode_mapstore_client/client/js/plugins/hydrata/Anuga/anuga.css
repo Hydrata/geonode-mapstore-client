@@ -3698,3 +3698,35 @@ span.sv-scenario-run-price--short {
     color: rgba(255, 255, 255, 0.6);
     line-height: 1.4;
 }
+
+/* A completed run whose playback was never recorded (TASK-2715, epic 2706 W5).
+   Same footprint as an actionable row so the list still reads as one column,
+   but everything that says "you can act on this" is deliberately absent: no
+   hover, no pointer, no raised background, no border highlight. The scenario
+   name stays at full strength — the user needs to recognise their run — while
+   the reason sits under it, quieter. Not a disabled <button>: there is no
+   action to disable. */
+.sv-anuga-results-row-unavailable {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    margin: 0;
+    background-color: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    font-family: Montserrat, sans-serif;
+    cursor: default;
+}
+.sv-anuga-results-row-unavailable-name {
+    display: block;
+    font-size: 12px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+.sv-anuga-results-row-unavailable-reason {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: rgba(255, 255, 255, 0.6);
+}
