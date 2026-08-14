@@ -182,10 +182,13 @@ export function disposeRun(runId, keepRunId = null) {
         return false;
     }
     const fetcher = fetcherRegistry.get(runId);
-    // Release the decoded-chunk LRU explicitly rather than waiting for the
-    // fetcher itself to become unreachable: the cache is the large half.
-    if (fetcher && fetcher.cache && typeof fetcher.cache.clear === 'function') {
-        fetcher.cache.clear();
+    // Release the decoded chunks explicitly rather than waiting for the
+    // fetcher itself to become unreachable: they are the large half.
+    // TASK-2728 moved the static mesh arrays OUT of the LRU into their own
+    // map, so releasing the LRU alone now leaves ~100 MB of mesh behind —
+    // releaseCaches() drops both.
+    if (fetcher && typeof fetcher.releaseCaches === 'function') {
+        fetcher.releaseCaches();
     }
     fetcherRegistry.delete(runId);
     lastSyncedTimestep.delete(runId);

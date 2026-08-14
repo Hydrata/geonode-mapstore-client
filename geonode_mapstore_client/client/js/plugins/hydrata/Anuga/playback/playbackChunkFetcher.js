@@ -27,6 +27,7 @@
 import { chunkKey } from './playbackDecode';
 import { decodeChunkOffThread } from './playbackDecodeWorker';
 import { PlaybackChunkCache } from './playbackChunkCache';
+import { QUANTITY_ARRAYS } from './playbackChunkShape';
 
 /**
  * TASK-2627 (W3.1) live-verify fix: a bare `fetchImpl = fetch` default
@@ -118,6 +119,61 @@ export class PlaybackChunkFetcher {
         // for the same chunk (e.g. two overlapping prefetch windows) collapse
         // into one network request instead of racing duplicate fetches.
         this._inflight = new Map();
+        // TASK-2728 (W5, epic 2706) — the static (non-time-chunked) mesh
+        // arrays live HERE, not in the LRU above. See _storeFor().
+        this._staticArrays = new Map();
+    }
+
+    /**
+     * Where a decoded array for `arrayName` belongs — TASK-2728 (W5, epic 2706).
+     *
+     * The time-series LRU's ceiling is sized from QUANTITY chunks only
+     * (playbackMemoryPolicy.js: `quantityCount * chunksPerQuantity *
+     * storedChunkBytes`); the static mesh arrays' bytes are accounted
+     * separately, under fixedBytes. Putting the statics in the same cache
+     * therefore made it govern a population it was never sized for, and the
+     * LRU spent its one lever — eviction — on the wrong entries: on a
+     * run-1328 chunk-10 store a full window IS the ceiling to the byte, so
+     * inserting face_node_connectivity (Int32Array(3 * nFace) = 81,353,184 B)
+     * evicted 2 of the 6 buffered chunks; at chunk length 2 it evicted 6 of 9.
+     * Those chunks were then re-downloaded while the playhead still needed
+     * them.
+     *
+     * Eviction could never pay here in the first place: loadPlaybackMesh's
+     * arrays are threaded into playbackManifestLoaded and held on `pb.mesh`
+     * for the life of the layer, so they are strong-referenced whether the
+     * cache holds them or not. Evicting one frees nothing and costs a refetch.
+     *
+     * So the statics get a plain unbounded Map — fetched once per layer, held
+     * for exactly as long as the fetcher itself, and released with it in
+     * disposeRun(). The alternative (adding the mesh bytes to cacheMaxBytes)
+     * was rejected deliberately: it inflates a heap ceiling this epic is
+     * trying to hold down, and leaves the cache still describing two
+     * populations at once. The ceiling should mean what it says — the window.
+     *
+     * `_inflight` is deliberately NOT split: concurrent-request collapsing is
+     * about the network, not about residency, and both paths need it.
+     */
+    _storeFor(arrayName) {
+        return QUANTITY_ARRAYS.indexOf(arrayName) === -1 ? this._staticArrays : this.cache;
+    }
+
+    /**
+     * Drop everything this fetcher is holding — TASK-2728.
+     *
+     * disposeRun() already released the LRU explicitly rather than waiting for
+     * the fetcher to become unreachable, on the stated grounds that "the cache
+     * is the large half". Since 2728 the statics are the OTHER large half
+     * (~100 MB on a prod-scale mesh) and they no longer live in that cache, so
+     * they need the same explicit release: any surviving reference to the
+     * fetcher — a pending decode closure, a layer that outlived its run —
+     * would otherwise pin the whole mesh after the run was disposed.
+     */
+    releaseCaches() {
+        if (this.cache && typeof this.cache.clear === 'function') {
+            this.cache.clear();
+        }
+        this._staticArrays.clear();
     }
 
     /**
@@ -195,7 +251,8 @@ export class PlaybackChunkFetcher {
      */
     async fetchAndDecodeChunk(arrayName, chunkIndices, decodeOpts) {
         const key = chunkKey(arrayName, chunkIndices);
-        const cached = this.cache.get(key);
+        const store = this._storeFor(arrayName);
+        const cached = store.get(key);
         if (cached) {
             return cached;
         }
@@ -207,7 +264,7 @@ export class PlaybackChunkFetcher {
             try {
                 const compressed = await this._fetchRawBytes(key);
                 const decoded = await this.decodeImpl(compressed, { dtype, byteorder });
-                this.cache.set(key, decoded);
+                store.set(key, decoded);
                 return decoded;
             } finally {
                 this._inflight.delete(key);

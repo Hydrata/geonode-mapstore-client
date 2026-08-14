@@ -19,6 +19,7 @@
 import expect from 'expect';
 import { PlaybackChunkFetcher, fetchPlaybackManifest } from '../playbackChunkFetcher';
 import { PlaybackChunkCache } from '../playbackChunkCache';
+import { computePlaybackMemoryPlan } from '../playbackMemoryPolicy';
 import { dequantizeRow } from '../playbackDecode';
 import {
     FIXTURE_STORE_FILES,
@@ -146,10 +147,18 @@ describe('PlaybackChunkFetcher', () => {
     });
 
     it('shares an externally-provided cache instance', (done) => {
+        // TASK-2728 re-pointed this from the STATIC 'node_x' to the quantity
+        // array 'depth'. The externally-provided cache is the time-series
+        // window cache, and statics no longer enter it by construction
+        // (playbackChunkFetcher._storeFor) — asserting node_x lands in it would
+        // now be asserting the very thing 2728 removed. The contract under
+        // proof here is unchanged: an injected cache is the one the fetcher
+        // writes decoded QUANTITY chunks into.
         const cache = new PlaybackChunkCache({ maxBytes: 1024 * 1024 });
         const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, cache, fetchImpl: makeFixtureFetch() });
-        fetcher.fetchAndDecodeChunk('node_x', [0], { dtype: 'float32', byteorder: 'little' }).then(() => {
-            expect(cache.has('node_x/c/0')).toBe(true);
+        const quantization = FIXTURE_ARRAY_META.depth.attributes;
+        fetcher.fetchAndDecodeChunk('depth', [0, 0], { dtype: 'uint16', byteorder: quantization.byteorder, quantization }).then(() => {
+            expect(cache.has('depth/c/0/0')).toBe(true);
             done();
         }).catch(done);
     });
@@ -320,5 +329,166 @@ describe('PlaybackChunkFetcher', () => {
                 done();
             }).catch(done);
         });
+    });
+});
+
+/*
+ * TASK-2728 (W5, epic 2706) — the static mesh arrays must not share the
+ * time-series LRU.
+ *
+ * loadPlaybackLayerOptions.fetchStaticArray routes node_x / node_y /
+ * elevation / friction / inradius / face_node_connectivity through
+ * fetchAndDecodeChunk, which caches every decoded array in the SAME
+ * PlaybackChunkCache the playback window uses — but computePlaybackMemoryPlan
+ * sizes that cache from QUANTITY chunks only (playbackMemoryPolicy.js:281),
+ * counting the mesh bytes under fixedBytes instead. So inserting the mesh
+ * evicts window chunks the playhead still needs, which are then re-downloaded.
+ * The statics are strong-referenced by pb.mesh for the life of the layer
+ * (playbackEpics.js threads loadPlaybackMesh's arrays into
+ * playbackManifestLoaded), so an LRU over them can only ever lose.
+ *
+ * BYTE-ACCOUNTED STAND-INS: the window fill and the decoded static below are
+ * `{byteLength}` objects rather than real typed arrays. PlaybackChunkCache
+ * sizes every entry through byteLengthOf() (playbackChunkCache.js:33-38),
+ * which reads ONLY `.byteLength`, and what is under proof here is WHERE a
+ * decoded array is put, not what is in it. Allocating the real 407 MiB window
+ * plus the real 81 MB connectivity array inside a karma browser buys no extra
+ * proof and risks an OOM that takes the whole run with it. Each stand-in
+ * names the real shape it stands for.
+ */
+describe('TASK-2728 — static mesh arrays stay out of the time-series window cache', () => {
+    // run 1328's real store descriptor.
+    const N_NODE = 3393075;
+    const N_FACE = 6779432;
+    // Int32Array(3 * nFace) — face_node_connectivity, 4 B per element.
+    const FNC_BYTES = 12 * N_FACE; // 81,353,184
+
+    function sized(byteLength) {
+        return { byteLength };
+    }
+
+    // 3 quantities x `chunksPerQuantity` slots, inserted oldest-first so the
+    // LRU's eviction order is the documented one.
+    function fillWindow(cache, chunksPerQuantity, storedChunkBytes) {
+        const keys = [];
+        ['depth', 'x_velocity', 'y_velocity'].forEach((quantity) => {
+            for (let t = 0; t < chunksPerQuantity; t++) {
+                const key = `${quantity}/c/${t}/0`;
+                cache.set(key, sized(storedChunkBytes));
+                keys.push(key);
+            }
+        });
+        return keys;
+    }
+
+    function meshFetcher(cache) {
+        return new PlaybackChunkFetcher({
+            manifest: { chunk_urls: { 'face_node_connectivity/c/0/0': 'fnc-url' } },
+            cache,
+            fetchImpl: () => Promise.resolve(new Response(new ArrayBuffer(8), { status: 200 })),
+            decodeImpl: () => Promise.resolve(sized(FNC_BYTES))
+        });
+    }
+
+    function loadTheMesh(fetcher) {
+        return fetcher.fetchAndDecodeChunk('face_node_connectivity', [0, 0], { dtype: 'int32', byteorder: 'little' });
+    }
+
+    it('loading the mesh evicts nothing from the buffered window', (done) => {
+        const plan = computePlaybackMemoryPlan({ nNode: N_NODE, nFace: N_FACE, chunkLengthT: 10, totalChunks: 4 });
+        expect(plan.cacheMaxBytes).toBe(407169000);
+        expect(plan.chunksPerQuantity).toBe(2);
+        expect(plan.storedChunkBytes).toBe(67861500); // Uint16Array(10 * 3393075)
+
+        const cache = new PlaybackChunkCache({ maxBytes: plan.cacheMaxBytes });
+        const windowKeys = fillWindow(cache, plan.chunksPerQuantity, plan.storedChunkBytes);
+        // A full window IS the ceiling, to the byte — there is no slack for a
+        // mesh array to borrow.
+        expect(cache.totalBytes).toBe(plan.cacheMaxBytes);
+        expect(cache.lastEvictedKeys()).toEqual([]);
+
+        loadTheMesh(meshFetcher(cache)).then((decoded) => {
+            // positive control: the static really was fetched and decoded.
+            expect(decoded.byteLength).toBe(FNC_BYTES);
+            expect(cache.lastEvictedKeys()).toEqual([]);
+            windowKeys.forEach((key) => {
+                expect(cache.has(key)).toBe(true);
+            });
+            // and it did not merely fit — it is not in the window cache at all.
+            expect(cache.has('face_node_connectivity/c/0/0')).toBe(false);
+            expect(cache.totalBytes).toBe(plan.cacheMaxBytes);
+            done();
+        }).catch(done);
+    });
+
+    it('loading the mesh evicts nothing from the buffered window at chunk length 2 (the SHIP 2 regime)', (done) => {
+        const plan = computePlaybackMemoryPlan({ nNode: N_NODE, nFace: N_FACE, chunkLengthT: 2, totalChunks: 16 });
+        expect(plan.cacheMaxBytes).toBe(122150700);
+        expect(plan.chunksPerQuantity).toBe(3);
+        expect(plan.storedChunkBytes).toBe(13572300); // Uint16Array(2 * 3393075)
+
+        const cache = new PlaybackChunkCache({ maxBytes: plan.cacheMaxBytes });
+        const windowKeys = fillWindow(cache, plan.chunksPerQuantity, plan.storedChunkBytes);
+        expect(cache.totalBytes).toBe(plan.cacheMaxBytes);
+
+        loadTheMesh(meshFetcher(cache)).then((decoded) => {
+            expect(decoded.byteLength).toBe(FNC_BYTES);
+            expect(cache.lastEvictedKeys()).toEqual([]);
+            windowKeys.forEach((key) => {
+                expect(cache.has(key)).toBe(true);
+            });
+            expect(cache.has('face_node_connectivity/c/0/0')).toBe(false);
+            expect(cache.totalBytes).toBe(plan.cacheMaxBytes);
+            done();
+        }).catch(done);
+    });
+
+    it('still serves a repeated static from memory and still collapses concurrent static fetches', (done) => {
+        // The non-caching path must not become a re-download path: the statics
+        // are fetched once per layer and the LRU was the only thing stopping a
+        // second fetch. Both halves are pinned here because the shipped specs
+        // above ('serves a repeated request...', 'collapses concurrent
+        // requests...') drive node_x/node_y — real statics — and must stay green.
+        let fetches = 0;
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: { chunk_urls: { 'face_node_connectivity/c/0/0': 'fnc-url' } },
+            fetchImpl: () => {
+                fetches++;
+                return Promise.resolve(new Response(new ArrayBuffer(8), { status: 200 }));
+            },
+            decodeImpl: () => Promise.resolve(sized(FNC_BYTES))
+        });
+        Promise.all([loadTheMesh(fetcher), loadTheMesh(fetcher)])
+            .then(([a, b]) => {
+                expect(fetches).toBe(1);
+                expect(a).toBe(b);
+                return loadTheMesh(fetcher);
+            })
+            .then((again) => {
+                expect(fetches).toBe(1);
+                expect(again.byteLength).toBe(FNC_BYTES);
+                done();
+            })
+            .catch(done);
+    });
+
+    it('releaseCaches() drops BOTH the window cache and the retained statics', (done) => {
+        // disposeRun() releases the fetcher's chunks explicitly rather than
+        // waiting for it to become unreachable, because they are the large
+        // half. Now that the statics are outside the LRU they are a second
+        // large half, and a fetcher that outlives its run (a pending decode
+        // closure, a layer that outlived the run) would pin the whole mesh.
+        const cache = new PlaybackChunkCache({ maxBytes: 1024 * 1024 * 1024 });
+        const fetcher = meshFetcher(cache);
+        cache.set('depth/c/0/0', sized(1024));
+        loadTheMesh(fetcher).then(() => {
+            expect(cache.has('depth/c/0/0')).toBe(true);
+            expect(fetcher._staticArrays.size).toBe(1);
+            fetcher.releaseCaches();
+            expect(cache.has('depth/c/0/0')).toBe(false);
+            expect(cache.totalBytes).toBe(0);
+            expect(fetcher._staticArrays.size).toBe(0);
+            done();
+        }).catch(done);
     });
 });

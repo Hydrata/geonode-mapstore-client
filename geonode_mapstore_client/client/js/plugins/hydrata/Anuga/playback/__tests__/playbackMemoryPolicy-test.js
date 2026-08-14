@@ -446,3 +446,45 @@ describe('playbackMemoryPolicy — TASK-2708 PROOF 3 (correctness of the moved d
         expect(() => dequantizeRow(stored, 0, 3, {})).toThrow();
     });
 });
+
+/*
+ * TASK-2728 (W5, epic 2706) NAMED PROOF 3 — guard the guard.
+ *
+ * This is a PIN, not a defect proof: it is green at HEAD and stays green.
+ * It exists because TASK-2728's whole argument rests on one piece of D5
+ * arithmetic — that the floor of 2 chunks per quantity is what makes the
+ * cache ceiling large enough to hold face_node_connectivity at all — and
+ * nothing else in the suite would notice if a future edit to
+ * MIN_CHUNKS_PER_QUANTITY / MAX_CHUNKS_PER_QUANTITY silently took that away.
+ *
+ * budgetBytes is spelled out in BOTH calls on purpose. At the 800 MiB default
+ * the chunk-2 ceiling is 122,150,700, not 81,433,800 — the numbers below are
+ * the 400 MiB ones and only reproduce when the budget is passed.
+ */
+describe('playbackMemoryPolicy — TASK-2728 the floor-2 ceiling is the one that can hold face_node_connectivity', () => {
+    const N_NODE = 3393075;
+    const N_FACE = 6779432;
+    const FNC_BYTES = 12 * N_FACE; // Int32Array(3 * nFace) = 81,353,184
+
+    it('at chunk length 1 the ceiling is BELOW face_node_connectivity, at chunk length 2 it is above', () => {
+        const chunk1 = computePlaybackMemoryPlan({
+            nNode: N_NODE, nFace: N_FACE, chunkLengthT: 1, budgetBytes: 400 * 1024 * 1024
+        });
+        expect(chunk1.cacheMaxBytes).toBe(61075350);
+        expect(chunk1.cacheMaxBytes < FNC_BYTES).toBe(true);
+
+        const chunk2 = computePlaybackMemoryPlan({
+            nNode: N_NODE, nFace: N_FACE, chunkLengthT: 2, budgetBytes: 400 * 1024 * 1024
+        });
+        expect(chunk2.cacheMaxBytes).toBe(81433800);
+        expect(chunk2.cacheMaxBytes > FNC_BYTES).toBe(true);
+        // The margin is 80,616 B (0.099%) and it is NOT a coincidence: the only
+        // invariant is nFace <= 2 * nNode (Euler, F = 2V - 2 - B), so the
+        // margin is exactly 12 * (B + 2) bytes of boundary. It is thin enough
+        // that it must be pinned rather than relied on.
+        expect(chunk2.cacheMaxBytes - FNC_BYTES).toBe(80616);
+        // and the floor is what produced it — not affordability.
+        expect(chunk2.affordableChunksPerQuantity < chunk2.chunksPerQuantity).toBe(true);
+        expect(chunk2.chunksPerQuantity).toBe(2);
+    });
+});

@@ -986,9 +986,17 @@ describe('playbackEpics', () => {
     // stayed fully resident (~578 MiB at prod scale) and IDLE, the only status
     // that re-renders the manifest loader, was unreachable.
     describe('playbackDisposeEpic + disposeRun — TASK-2744 AC2', () => {
+        // TASK-2728 taught PlaybackChunkFetcher a `releaseCaches()` that drops
+        // BOTH the time-series LRU and the statics it moved out of that LRU,
+        // and disposeRun now calls it instead of reaching into `.cache`
+        // directly. The fake models that seam so the assertions below —
+        // `fetcher.cache.clearedCount` — are unchanged: what is under proof
+        // here is still "disposeRun releases the run's chunks", not which
+        // method name it goes through.
         function fakeFetcher() {
             let cleared = 0;
-            return { cache: { clear: () => { cleared++; }, get clearedCount() { return cleared; } } };
+            const cache = { clear: () => { cleared++; }, get clearedCount() { return cleared; } };
+            return { cache, releaseCaches: () => cache.clear() };
         }
 
         it('disposeRun evicts the run from fetcherRegistry and clears its chunk cache', () => {
