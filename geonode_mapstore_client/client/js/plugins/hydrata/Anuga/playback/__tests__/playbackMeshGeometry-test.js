@@ -478,7 +478,7 @@ describe('playbackMeshGeometry', () => {
             const out = [];
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
-                    const a = r * (cols + 1) + c, b = a + 1, d = a + cols + 1, e = d + 1;
+                    const a = r * (cols + 1) + c; const b = a + 1; const d = a + cols + 1; const e = d + 1;
                     out.push(a, b, d, b, e, d);
                 }
             }

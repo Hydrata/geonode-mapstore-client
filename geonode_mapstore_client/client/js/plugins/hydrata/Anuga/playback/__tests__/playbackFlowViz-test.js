@@ -31,7 +31,7 @@ import {
     isArrowVisible,
     composeNdcToVelocityUvMatrix,
     FLOWVIZ_ARROW_VERTEX_SHADER
-,
+    ,
     // TASK-2743 UAT-03 (W6, epic 2706) — velocity-field ground resolution.
     VEL_TEX_MIN_SIZE,
     resolveVelocityTextureSize

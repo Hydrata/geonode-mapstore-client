@@ -399,7 +399,7 @@ describe('playbackParticles', () => {
             let checked = 0;
             for (let i = 0; i < 16; i++) {
                 for (let j = 0; j < 16; j++) {
-                    const u = i / 15, v = j / 15;
+                    const u = i / 15; const v = j / 15;
                     expect(isParticleInView(u, v, cull)).toBe(glsl(u, v));
                     checked++;
                 }
