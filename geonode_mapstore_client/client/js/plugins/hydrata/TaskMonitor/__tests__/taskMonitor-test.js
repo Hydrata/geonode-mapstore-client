@@ -50,6 +50,7 @@ import {
 import processReducer from '../reducers/processReducer';
 import uiReducer from '../reducers/uiReducer';
 import { LOGIN_SUCCESS } from '@mapstore/framework/actions/security';
+import { SHOW_NOTIFICATION } from '../../../../../MapStore2/web/client/actions/notifications';
 
 /**
  * Helper: create a mock action$ observable from an array of actions.
@@ -1065,6 +1066,82 @@ describe('TaskMonitor', () => {
 
             it('should be a function', () => {
                 expect(typeof cancelProcessEpic).toBe('function');
+            });
+
+            // TASK-2761 (epic 2706 W8): a rejected cancelProcess() must not
+            // vanish silently — the user pressed Cancel and got nothing: no
+            // toast, no log, no state write, indistinguishable from a slow
+            // response. KNOWN-POSITIVE, per the audit: on the UNPATCHED epic
+            // (bare `.catch(() => Rx.Observable.empty())`) each of the four
+            // tests below RED-failed with `emitted.length === 0` (captured
+            // verbatim in the TASK-2761 worklog) instead of the notification
+            // asserted here — that 0-vs-1 failure IS the "current 409/500
+            // verbatim" capture, inverted in place rather than kept as a
+            // separate always-green fossil test.
+            it('a 409 rejection emits a user-visible error notification', (done) => {
+                const mock = mockAxios();
+                mock.onPost('/api/v2/tasks/processes/proc-409/cancel/').reply(409, {
+                    detail: 'Process is already in a terminal state.'
+                });
+                const action$ = mockActions([{ type: TM_CANCEL_PROCESS, processId: 'proc-409' }]);
+                const emitted = [];
+                cancelProcessEpic(action$)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SHOW_NOTIFICATION);
+                        expect(emitted[0].level).toBe('error');
+                        expect(emitted[0].message).toBeTruthy();
+                        done();
+                    });
+            });
+
+            it('a 500 rejection also emits a user-visible error notification', (done) => {
+                const mock = mockAxios();
+                mock.onPost('/api/v2/tasks/processes/proc-500/cancel/').reply(500, { detail: 'boom' });
+                const action$ = mockActions([{ type: TM_CANCEL_PROCESS, processId: 'proc-500' }]);
+                const emitted = [];
+                cancelProcessEpic(action$)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SHOW_NOTIFICATION);
+                        expect(emitted[0].level).toBe('error');
+                        done();
+                    });
+            });
+
+            it('a network error also emits a user-visible error notification (not the silent drop)', (done) => {
+                const mock = mockAxios();
+                mock.onPost('/api/v2/tasks/processes/proc-net/cancel/').networkError();
+                const action$ = mockActions([{ type: TM_CANCEL_PROCESS, processId: 'proc-net' }]);
+                const emitted = [];
+                cancelProcessEpic(action$)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SHOW_NOTIFICATION);
+                        expect(emitted[0].level).toBe('error');
+                        done();
+                    });
+            });
+
+            it('exhaustMap semantics preserved: a second TM_CANCEL_PROCESS in flight is ignored', (done) => {
+                const mock = mockAxios();
+                mock.onPost('/api/v2/tasks/processes/proc-1/cancel/').reply(() =>
+                    new Promise(resolve => setTimeout(() => resolve([200, { id: 'proc-1', status: 'cancelled' }]), 50))
+                );
+                const action$ = mockActions([
+                    { type: TM_CANCEL_PROCESS, processId: 'proc-1' },
+                    { type: TM_CANCEL_PROCESS, processId: 'proc-1' }
+                ]);
+                const emitted = [];
+                cancelProcessEpic(action$)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        // exhaustMap: the second TM_CANCEL_PROCESS arrives while the
+                        // first request is still in flight and must be dropped, so
+                        // exactly ONE result reaches the stream.
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(TM_CANCEL_PROCESS_RESULT);
+                        done();
+                    });
             });
         });
     });

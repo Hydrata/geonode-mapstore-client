@@ -24,6 +24,7 @@ import {
     toggleTaskMonitorPanel
 } from './actionsTaskMonitor';
 import { LOGIN_SUCCESS, SESSION_VALID } from '@mapstore/framework/actions/security';
+import { show } from '../../../../MapStore2/web/client/actions/notifications';
 import { INIT_ANUGA } from '../Anuga/actions/uiActions';
 import { getProjectId } from '../Anuga/selectorsAnuga';
 import { getTerrainDownloadUrl } from '../Anuga/api/anugaApi';
@@ -197,6 +198,14 @@ export const loadProcessDetailEpic = (action$) =>
 
 /**
  * Cancel a process via API.
+ *
+ * TASK-2761 (epic 2706 W8): a rejected cancelProcess() (403/404/409/500, or a
+ * network drop) must not vanish silently — the bare `.catch(() =>
+ * Rx.Observable.empty())` this replaces dropped every failure with no toast,
+ * no log and no state write, indistinguishable from a slow response. There is
+ * no in-flight/"cancelling" panel state anywhere in this plugin today, so
+ * surfacing the notification is sufficient to leave the panel consistent —
+ * there is nothing else to unstick.
  */
 export const cancelProcessEpic = (action$) =>
     action$
@@ -204,7 +213,9 @@ export const cancelProcessEpic = (action$) =>
         .exhaustMap(action =>
             Rx.Observable.from(taskMonitorApi.cancelProcess(action.processId))
                 .map(response => cancelProcessResult(response.data))
-                .catch(() => Rx.Observable.empty())
+                .catch(() => Rx.Observable.of(show({
+                    message: 'hydrata.taskMonitor.cancelError'
+                }, 'error')))
         );
 
 /**
