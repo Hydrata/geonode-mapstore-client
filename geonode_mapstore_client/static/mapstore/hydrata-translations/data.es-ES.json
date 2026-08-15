@@ -763,6 +763,7 @@
         "title": "Tareas",
         "log": "Registro",
         "cancel": "Cancelar",
+        "cancelError": "No se pudo cancelar esta tarea",
         "noProcesses": "No hay tareas para mostrar",
         "filterActive": "Activas",
         "filterCompleted": "Completadas",

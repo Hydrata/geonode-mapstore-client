@@ -763,6 +763,7 @@
         "title": "Tâches",
         "log": "Journal",
         "cancel": "Annuler",
+        "cancelError": "Impossible d'annuler cette tâche",
         "noProcesses": "Aucune tâche à afficher",
         "filterActive": "Actives",
         "filterCompleted": "Terminées",
