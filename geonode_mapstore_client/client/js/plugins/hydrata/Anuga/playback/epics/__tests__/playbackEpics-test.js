@@ -479,8 +479,21 @@ describe('playbackEpics', () => {
             // At 12M nodes the plan peaks at 2517.7 MiB, which is over budget
             // at EVERY budget the resolver can produce, so this case is now
             // independent of the machine it runs on.
+            // TASK-2719: FIXTURE_MANIFEST.schema_metadata now declares its
+            // OWN real n_node (6) from birth (the fixture is representative
+            // of a v2 store). Left in place here it would trip
+            // assertDeclaredNodeCountAgrees (manifest-time: schema n_node=6
+            // vs the doctored chunk_shapes' 12,000,000) BEFORE the budget
+            // warning this test targets ever runs — a different, earlier
+            // refusal than the one this spec is written to prove. Strip it so
+            // the doctored manifest models exactly what it always modelled: a
+            // store whose schema_metadata says nothing about n_node and only
+            // lies via chunk_shapes, caught by assertNodeExtentMatchesMesh at
+            // MESH time instead.
+            const { n_node, ...schemaWithoutNNode } = FIXTURE_MANIFEST.schema_metadata;
             const overBudgetManifest = {
                 ...FIXTURE_MANIFEST,
+                schema_metadata: schemaWithoutNNode,
                 chunk_shapes: {
                     depth: [10, 12000000],
                     x_velocity: [10, 12000000],

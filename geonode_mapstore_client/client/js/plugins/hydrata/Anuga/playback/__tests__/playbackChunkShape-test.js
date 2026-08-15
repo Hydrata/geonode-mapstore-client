@@ -34,13 +34,15 @@ import { playbackInit, PLAYBACK_MANIFEST_LOADED, PLAYBACK_MANIFEST_FAILED } from
 import { createInitialPlaybackState } from '../playbackController';
 import { FIXTURE_STORE_FILES, FIXTURE_MANIFEST, FIXTURE_PHYSICAL, FIXTURE_MESH } from './fixtures/fixturePlaybackStore';
 import { FIXTURE_STORE_FILES_CHUNK1, FIXTURE_MANIFEST_CHUNK1 } from './fixtures/fixturePlaybackStoreChunk1';
+import { FIXTURE_STORE_FILES_CHUNK2, FIXTURE_MANIFEST_CHUNK2 } from './fixtures/fixturePlaybackStoreChunk2';
 
 const MANIFEST_URL = '/api/v2/anuga/runs/1/playback-manifest/';
 
-// The two stores under test: same data, different chunk grid.
+// The three stores under test: same data, different chunk grid.
 const STORES = [
     { label: 'chunk-10 (the shape prod writes today)', chunkLengthT: 10, manifest: FIXTURE_MANIFEST, files: FIXTURE_STORE_FILES },
-    { label: 'chunk-1 (what TASK-2719\'s exporter would write)', chunkLengthT: 1, manifest: FIXTURE_MANIFEST_CHUNK1, files: FIXTURE_STORE_FILES_CHUNK1 }
+    { label: 'chunk-1 (backward-compat test grid only — D5 forbids the exporter from writing this)', chunkLengthT: 1, manifest: FIXTURE_MANIFEST_CHUNK1, files: FIXTURE_STORE_FILES_CHUNK1 },
+    { label: 'chunk-2 (D5 floor — what TASK-2719\'s exporter actually writes at run-1328 scale)', chunkLengthT: 2, manifest: FIXTURE_MANIFEST_CHUNK2, files: FIXTURE_STORE_FILES_CHUNK2 }
 ];
 
 function base64ToArrayBuffer(b64) {
@@ -198,16 +200,19 @@ describe('playbackChunkShape (TASK-2724 — chunk length comes from the store)',
             });
         });
 
-        it('the two stores return the SAME frame for the same timestep (only the chunk grid differs)', (done) => {
+        it('all three stores return the SAME frame for the same timestep (only the chunk grid differs)', (done) => {
             const timestep = 11;
             Promise.all(STORES.map(({ manifest, files }) => {
                 const fetcher = new PlaybackChunkFetcher({ manifest, fetchImpl: fetchFrom(files) });
                 return loadPlaybackFrame(fetcher, timestep, FIXTURE_MESH.nNode, resolveChunkLengthT(manifest));
-            })).then(([chunk10Frame, chunk1Frame]) => {
+            })).then(([chunk10Frame, chunk1Frame, chunk2Frame]) => {
                 for (let n = 0; n < FIXTURE_MESH.nNode; n++) {
                     expect(chunk10Frame.depth[n]).toBe(chunk1Frame.depth[n]);
                     expect(chunk10Frame.xVelocity[n]).toBe(chunk1Frame.xVelocity[n]);
                     expect(chunk10Frame.yVelocity[n]).toBe(chunk1Frame.yVelocity[n]);
+                    expect(chunk10Frame.depth[n]).toBe(chunk2Frame.depth[n]);
+                    expect(chunk10Frame.xVelocity[n]).toBe(chunk2Frame.xVelocity[n]);
+                    expect(chunk10Frame.yVelocity[n]).toBe(chunk2Frame.yVelocity[n]);
                 }
                 done();
             }).catch(done);
@@ -263,6 +268,53 @@ describe('playbackChunkShape (TASK-2724 — chunk length comes from the store)',
             const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fetchFrom(FIXTURE_STORE_FILES) });
             loadPlaybackFrame(fetcher, TIMESTEP, FIXTURE_MESH.nNode, 10).then((frame) => {
                 expect(maxDepthError(frame, TIMESTEP) <= DEPTH_TOLERANCE).toBe(true);
+                done();
+            }).catch(done);
+        });
+    });
+
+    // ------------------------------------------------- AC4 (TASK-2719 chunk-2 arm)
+    describe('AC4 chunk-2 arm (TASK-2719) — the hardcoded-10 client renders the WRONG timestep off the chunk-2 store', () => {
+        // D5's floor is 2, not 1 — this is the length the exporter will
+        // actually write at run-1328 scale. Same shape as the chunk-1 block
+        // above: chunkIndex = floor(10/10) = 1, rowInChunk = 10 % 10 = 0.
+        // In a REAL chunk-2 store chunk index 1 holds timesteps [2, 3]
+        // (rows 0, 1), so row 0 is timestep 2's water — still IN BOUNDS, no
+        // error, just wrong.
+        const TIMESTEP = 10;
+        const IMPOSTOR_TIMESTEP = 2;
+
+        it('the fixture itself makes the two timesteps distinguishable (guards the guard)', () => {
+            const real = FIXTURE_PHYSICAL.depth[TIMESTEP];
+            const impostor = FIXTURE_PHYSICAL.depth[IMPOSTOR_TIMESTEP];
+            let differing = 0;
+            for (let n = 0; n < FIXTURE_MESH.nNode; n++) {
+                if (Math.abs(real[n] - impostor[n]) > DEPTH_TOLERANCE) {
+                    differing++;
+                }
+            }
+            expect(differing >= 5).toBe(true);
+        });
+
+        it('REVERTED (chunkLengthT hardcoded to 10) returns timestep 2\'s water for timestep 10 off the chunk-2 store', (done) => {
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST_CHUNK2, fetchImpl: fetchFrom(FIXTURE_STORE_FILES_CHUNK2) });
+            loadPlaybackFrame(fetcher, TIMESTEP, FIXTURE_MESH.nNode, 10).then((frame) => {
+                // It resolves (chunkIndex 1, row 0 is in bounds). It is
+                // full-length. It is simply the wrong water.
+                expect(frame.depth.length).toBe(FIXTURE_MESH.nNode);
+                expect(maxDepthError(frame, IMPOSTOR_TIMESTEP) <= DEPTH_TOLERANCE).toBe(true);
+                expect(maxDepthError(frame, TIMESTEP) > DEPTH_TOLERANCE).toBe(true);
+                done();
+            }).catch(done);
+        });
+
+        it('FIXED (chunkLengthT resolved from the store) returns timestep 10\'s water for timestep 10', (done) => {
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST_CHUNK2, fetchImpl: fetchFrom(FIXTURE_STORE_FILES_CHUNK2) });
+            const chunkLengthT = resolveChunkLengthT(FIXTURE_MANIFEST_CHUNK2);
+            expect(chunkLengthT).toBe(2);
+            loadPlaybackFrame(fetcher, TIMESTEP, FIXTURE_MESH.nNode, chunkLengthT).then((frame) => {
+                expect(maxDepthError(frame, TIMESTEP) <= DEPTH_TOLERANCE).toBe(true);
+                expect(maxDepthError(frame, IMPOSTOR_TIMESTEP) > DEPTH_TOLERANCE).toBe(true);
                 done();
             }).catch(done);
         });
@@ -391,11 +443,19 @@ describe('TASK-2729 — the store\'s declared node extent is cross-checked, not 
 
     describe('the manifest-time arm is PRESENCE-GATED on schema_metadata.n_node', () => {
         it('a store that declares no n_node is played, not refused', () => {
-            // Every store in existence, run 1328's included: group_attrs
-            // (run_anuga/playback_store.py:508-536) has never written n_node, so
-            // a fail-loud-on-absence check would refuse the entire product.
-            expect(FIXTURE_MANIFEST.schema_metadata.n_node).toBe(undefined);
-            expect(assertDeclaredNodeCountAgrees(FIXTURE_MANIFEST)).toBe(undefined);
+            // Every PRE-TASK-2719 store, run 1328's included, never wrote
+            // n_node at all — group_attrs (run_anuga/playback_store.py)
+            // omitted it entirely before the v2 bump, so a
+            // fail-loud-on-absence check would refuse the entire product.
+            // Built explicitly here (rather than relying on FIXTURE_MANIFEST
+            // itself lacking n_node) because TASK-2719 made the shared
+            // fixture declare n_node from birth (schema_metadata now
+            // representative of a v2 store) — it no longer MODELS a
+            // pre-2719 store on its own.
+            const { n_node, ...schemaWithoutNNode } = FIXTURE_MANIFEST.schema_metadata;
+            const manifest = { ...FIXTURE_MANIFEST, schema_metadata: schemaWithoutNNode };
+            expect(manifest.schema_metadata.n_node).toBe(undefined);
+            expect(assertDeclaredNodeCountAgrees(manifest)).toBe(undefined);
         });
 
         it('n_node present and EQUAL to the declared chunk extent passes', () => {
