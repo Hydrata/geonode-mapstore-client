@@ -13,6 +13,11 @@ import React from 'react';
 import { fireEvent } from '@testing-library/react';
 import mountWithProviders from '../../../../../__tests__/helpers/mountWithProviders';
 import ConnectedSimpleView from '../simpleViewContainer';
+// TASK-2790 — driven through the REAL reducer, so the map-switch assertions
+// cannot pass against a reducer that never clears.
+import svReducer from '../../reducersSimpleView';
+import { INTRODUCTION_LOADED } from '../../actionsSimpleView';
+import { SET_RESOURCE_ID } from '@js/actions/gnresource';
 
 // TASK-2796 — a MINIMAL arrived payload. Deliberately not a realistic one: the
 // gate is `!!introduction.data`, so the smallest object that satisfies it is
@@ -378,5 +383,88 @@ describe('SimpleView "About this project" with no introduction payload (TASK-279
         const second = mountWithProviders(<ConnectedSimpleView />, { store: loaded.store });
         expect(aboutButton(second.container)).toBeTruthy();
         second.unmount();
+    });
+});
+
+// TASK-2790 (epic 2765 W5) — AC2, at the DOM.
+//
+// The reducer proof lives in SimpleView/__tests__/simpleView-test.js. This is
+// the consequence the task is actually about: the "About this project" button
+// is a direct `setVisibleIntroduction(true)` with no guard, so if the slice
+// still held the previous project after an SPA hop, one click would show a
+// stranger project A's name and A's liability disclaimer while they are looking
+// at project B.
+//
+// Driven through the REAL reducer rather than a hand-written "after" state, so
+// this cannot pass against a reducer that never clears.
+describe('SimpleView "About this project" across a map switch (TASK-2790)', () => {
+    const stateAfter = (svSlice) => ({
+        anuga: { projects: {}, ui: {} },
+        security: {},
+        simpleView: { visibleIntroduction: true, ...svSlice },
+        layers: { groups: [] },
+        localConfig: { plugins: { map_viewer: [{ name: 'Anuga' }] } }
+    });
+
+    const onMapA = () => svReducer(
+        svReducer(undefined, { type: SET_RESOURCE_ID, id: '118' }),
+        {
+            type: INTRODUCTION_LOADED,
+            projectId: 13422,
+            data: {
+                project_name: 'Project A',
+                content_version: 'va',
+                baseline: { message_id: 'hydrata.introduction.baseline', version: '1' }
+            },
+            mapId: '118'
+        }
+    );
+
+    const aboutButton = (container) =>
+        container.querySelector('.simple-view-right-toolbar button[title="About this project"]');
+    const modalTitle = () =>
+        document.querySelector('.sv-introduction-modal-host .modal-title');
+
+    it('POSITIVE CONTROL — on map A the button is offered and the modal names Project A', () => {
+        const { store } = makeStore(stateAfter(onMapA()));
+        const { container, unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container)).toBeTruthy();
+        expect(modalTitle().textContent).toContain('Project A');
+        unmount();
+    });
+
+    it('AC2 — after the map changes, nothing can render the previous project', () => {
+        const afterHop = svReducer(onMapA(), { type: SET_RESOURCE_ID, id: '200' });
+        const { store } = makeStore(stateAfter(afterHop));
+        const { container, unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+
+        // No control to click...
+        expect(aboutButton(container)).toBe(null);
+        // ...and nothing on screen even with visibleIntroduction latched true
+        // from before the hop.
+        expect(document.querySelector('.sv-introduction-modal-host')).toBe(null);
+        expect(document.body.textContent).toNotContain('Project A');
+        unmount();
+    });
+
+    it('comes back naming the NEW project once B\'s payload lands', () => {
+        const afterHop = svReducer(onMapA(), { type: SET_RESOURCE_ID, id: '200' });
+        const loadedB = svReducer(afterHop, {
+            type: INTRODUCTION_LOADED,
+            projectId: 555,
+            data: {
+                project_name: 'Project B',
+                content_version: 'vb',
+                baseline: { message_id: 'hydrata.introduction.baseline', version: '1' }
+            },
+            mapId: '200'
+        });
+        const { store } = makeStore(stateAfter(loadedB));
+        const { container, unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+
+        expect(aboutButton(container)).toBeTruthy();
+        expect(modalTitle().textContent).toContain('Project B');
+        expect(modalTitle().textContent).toNotContain('Project A');
+        unmount();
     });
 });

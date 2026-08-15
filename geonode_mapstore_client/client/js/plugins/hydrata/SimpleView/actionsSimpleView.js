@@ -112,13 +112,21 @@ function setVisibleIntroduction(visible) {
  *   already accepted ANONYMOUSLY (localStorage), or null. Read in the epic so
  *   the reducer stays pure; irrelevant when authenticated, where the server's
  *   `accepted_current_version` is the answer.
+ * @param {number|string|null} mapId  WHICH MAP this fetch was started for
+ *   (TASK-2790). The fetch epic is a `mergeMap`, so nothing cancels an
+ *   in-flight request when the viewer hops to another map, and a slow reply
+ *   would otherwise re-poison the slice with the PREVIOUS project's disclaimer
+ *   moments after the map change cleared it. The reducer refuses a stamp that
+ *   POSITIVELY disagrees; an unstamped dispatch still reads through, the same
+ *   fail-safe rule `SET_ANUGA_PROJECT_DATA` applies (projectsReducer).
  */
-function introductionLoaded(projectId, data, acceptedVersion = null) {
+function introductionLoaded(projectId, data, acceptedVersion = null, mapId = null) {
     return {
         type: INTRODUCTION_LOADED,
         projectId,
         data,
-        acceptedVersion
+        acceptedVersion,
+        mapId
     };
 }
 

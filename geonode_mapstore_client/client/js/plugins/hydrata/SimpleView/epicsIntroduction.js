@@ -145,7 +145,15 @@ export const introductionFetchEpic = (action$, store) =>
                             // an authenticated one.
                             state?.security?.user
                                 ? null
-                                : anonymousAcceptedVersion(projectId)
+                                : anonymousAcceptedVersion(projectId),
+                            // TASK-2790 — WHICH MAP this fetch was for. The
+                            // outer `mergeMap` deliberately does not cancel on
+                            // a new INIT_ANUGA, so this request can still be in
+                            // flight when the viewer hops to another map; the
+                            // reducer refuses a reply stamped for a map it has
+                            // since left rather than painting the previous
+                            // project's disclaimer over the new one.
+                            mapId
                         ));
                 })
                 // Silent on failure, deliberately. A 404 is the ordinary

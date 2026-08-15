@@ -34,6 +34,8 @@ import {
     createSimpleViewAttributeForm,
     setProcessingSimpleViewAttributeForm
 } from '../actionsSimpleView';
+// TASK-2790 — the "the map changed" signal the introduction reset hangs off.
+import { SET_RESOURCE_ID } from '@js/actions/gnresource';
 
 describe('SimpleView Plugin', () => {
     describe('Action Creators', () => {
@@ -274,6 +276,149 @@ describe('SimpleView Plugin', () => {
                 expect(state.introduction.savingIntroduction).toBe(false);
                 expect(state.introduction.introductionSaveFailed).toBe(true);
                 expect(state.introduction.data.content_version).toBe('old');
+            });
+        });
+
+        // ── TASK-2790 (epic 2765 W5) — THE INTRODUCTION FOLLOWS THE MAP ──
+        //
+        // The slice is a liability disclaimer carrying a PROJECT NAME. Nothing
+        // cleared it, so on a same-document hop from map A to map B it held A's
+        // payload for the whole of B's from-map + introduction round-trip, and
+        // TASK-2775's toolbar button opens the modal with no guard at all.
+        //
+        // Fixed in the REDUCER, following projectsReducer's SET_RESOURCE_ID
+        // pattern, rather than with a freshness check on the button: a guard on
+        // the consumer is the thing the NEXT consumer forgets, and this slice
+        // already has three readers.
+        describe('introduction map-switch reset (TASK-2790)', () => {
+            // Built from `undefined`, so the reducer's own initial state
+            // applies and the "everything else is untouched" assertion below
+            // has real neighbouring keys to be about.
+            const ON_MAP_118 = reducer(
+                reducer(undefined, { type: SET_RESOURCE_ID, id: '118' }),
+                {
+                    type: INTRODUCTION_LOADED,
+                    projectId: 13422,
+                    data: { project_name: 'Project A', content_version: 'va' },
+                    acceptedVersion: 'va',
+                    mapId: '118'
+                }
+            );
+
+            it('POSITIVE CONTROL — the sequence really does populate the slice', () => {
+                // Every assertion below is an ABSENCE, and an absence is only
+                // evidence once the same sequence has been shown to produce a
+                // present, correct payload. Deliberately says nothing about the
+                // map stamp: this must hold with or without the reset, or it
+                // is not a control.
+                expect(ON_MAP_118.introduction.data.project_name).toBe('Project A');
+                expect(ON_MAP_118.introduction.projectId).toBe(13422);
+                expect(ON_MAP_118.introduction.acceptedVersion).toBe('va');
+            });
+
+            it('stamps which map the slice is about', () => {
+                expect(ON_MAP_118.introductionMapId).toBe('118');
+            });
+
+            it('AC1 — a map change leaves nothing describing the previous project', () => {
+                const onMapB = reducer(ON_MAP_118, { type: SET_RESOURCE_ID, id: '200' });
+                expect(onMapB.introduction).toBe(undefined);
+                expect(onMapB.introductionMapId).toBe('200');
+                // The WHOLE key goes, not just `data`: a surviving projectId
+                // would let a late INTRODUCTION_ACCEPTED / INTRODUCTION_SAVED
+                // for A write into the slice while B is on screen, which is
+                // exactly what those guards exist to refuse.
+                expect(JSON.stringify(onMapB)).toNotContain('Project A');
+                expect(JSON.stringify(onMapB)).toNotContain('13422');
+            });
+
+            it('does NOT clear the render flag — only the content', () => {
+                const visible = reducer(ON_MAP_118, {
+                    type: SET_VISIBLE_INTRODUCTION, visible: true
+                });
+                const onMapB = reducer(visible, { type: SET_RESOURCE_ID, id: '200' });
+                // The flag is not content. The modal is payload-gated
+                // (TASK-2796), so a latched flag over a cleared slice renders
+                // nothing and then opens correctly once B's payload lands.
+                expect(onMapB.visibleIntroduction).toBe(true);
+                expect(onMapB.introduction).toBe(undefined);
+            });
+
+            it('a REPEAT SET_RESOURCE_ID for the same map is a no-op', () => {
+                // MAP_CONFIG_LOADED re-fires on reconfig. Returning a fresh
+                // object here would clear a payload under the map it belongs to
+                // and re-render every consumer for nothing.
+                const again = reducer(ON_MAP_118, { type: SET_RESOURCE_ID, id: '118' });
+                expect(again).toBe(ON_MAP_118);
+            });
+
+            it('treats a numeric pk and its string form as the SAME map', () => {
+                // `gnresource.id` is a STRING on the SPA route path (measured
+                // live: "1418"); other setResourceId callers pass a numeric pk.
+                // A type-only difference must never read as "different map".
+                const again = reducer(ON_MAP_118, { type: SET_RESOURCE_ID, id: 118 });
+                expect(again).toBe(ON_MAP_118);
+            });
+
+            it('fails CLOSED on an unknown map id', () => {
+                const cleared = reducer(ON_MAP_118, { type: SET_RESOURCE_ID, id: null });
+                expect(cleared.introduction).toBe(undefined);
+                expect(cleared.introductionMapId).toBe(null);
+            });
+
+            it('refuses a payload that lands AFTER the hop, stamped for the old map', () => {
+                // The other half of the same bug. introductionFetchEpic is a
+                // mergeMap by design, so an in-flight request for A is not
+                // cancelled by the hop to B; a slow reply would otherwise write
+                // A's disclaimer straight back in under B.
+                const onMapB = reducer(ON_MAP_118, { type: SET_RESOURCE_ID, id: '200' });
+                const late = reducer(onMapB, {
+                    type: INTRODUCTION_LOADED,
+                    projectId: 13422,
+                    data: { project_name: 'Project A', content_version: 'va' },
+                    mapId: '118'
+                });
+                expect(late.introduction).toBe(undefined);
+            });
+
+            it('accepts the payload for the map actually on screen', () => {
+                const onMapB = reducer(ON_MAP_118, { type: SET_RESOURCE_ID, id: '200' });
+                const loadedB = reducer(onMapB, {
+                    type: INTRODUCTION_LOADED,
+                    projectId: 555,
+                    data: { project_name: 'Project B', content_version: 'vb' },
+                    mapId: '200'
+                });
+                expect(loadedB.introduction.data.project_name).toBe('Project B');
+                expect(loadedB.introduction.projectId).toBe(555);
+            });
+
+            it('lets an UNSTAMPED payload read through — fail-safe, not fail-closed', () => {
+                // Same rule, and the same words, as SET_ANUGA_PROJECT_DATA in
+                // Anuga/reducers/projectsReducer.js: only a stamp that
+                // POSITIVELY disagrees is refused, so a caller (or a unit test)
+                // that has not been taught to stamp still works.
+                const onMapB = reducer(ON_MAP_118, { type: SET_RESOURCE_ID, id: '200' });
+                const unstamped = reducer(onMapB, {
+                    type: INTRODUCTION_LOADED,
+                    projectId: 555,
+                    data: { project_name: 'Project B' }
+                });
+                expect(unstamped.introduction.data.project_name).toBe('Project B');
+            });
+
+            it('leaves every other SimpleView key alone', () => {
+                // The reset is scoped to the introduction. Clearing the open
+                // menu or the legend on a map switch would be a different,
+                // unasked-for behaviour change.
+                const busy = reducer(
+                    reducer(ON_MAP_118, { type: SET_VISIBLE_LEGEND_PANEL, visible: true }),
+                    { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'Results' }
+                );
+                const onMapB = reducer(busy, { type: SET_RESOURCE_ID, id: '200' });
+                expect(onMapB.visibleLegendPanel).toBe(true);
+                expect(onMapB.openMenuGroupId).toBe('Results');
+                expect(onMapB.selectedCategory).toBe(null);
             });
         });
 
