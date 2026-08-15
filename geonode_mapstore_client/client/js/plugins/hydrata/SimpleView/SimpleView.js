@@ -16,7 +16,8 @@ import {
 import {
     introductionFetchEpic,
     introductionAutoShowEpic,
-    introductionAcceptEpic
+    introductionAcceptEpic,
+    introductionSaveEpic
 } from "./epicsIntroduction";
 
 export default createPlugin('SimpleView', {
@@ -33,6 +34,10 @@ export default createPlugin('SimpleView', {
         trackVirtualPageviewEpic,
         introductionFetchEpic,
         introductionAutoShowEpic,
-        introductionAcceptEpic
+        introductionAcceptEpic,
+        // ⚠ REGISTRATION IS THE FEATURE. An exported-but-unregistered epic is
+        // green in karma and dead in the browser (the recurring trap this epic
+        // has already been bitten by once); Save would simply do nothing live.
+        introductionSaveEpic
     }
 });

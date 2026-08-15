@@ -18,12 +18,16 @@ import {
     introductionFetchEpic,
     introductionAutoShowEpic,
     introductionAcceptEpic,
+    introductionSaveEpic,
     __resetIntroductionFetchDedupe
 } from '../epicsIntroduction';
 import {
     ACCEPT_INTRODUCTION,
     INTRODUCTION_LOADED,
     INTRODUCTION_ACCEPTED,
+    SAVE_INTRODUCTION,
+    INTRODUCTION_SAVED,
+    INTRODUCTION_SAVE_FAILED,
     SET_VISIBLE_INTRODUCTION
 } from '../actionsSimpleView';
 import { MAP_CONFIG_LOADED } from '../../../../../MapStore2/web/client/actions/config';
@@ -465,6 +469,92 @@ describe('introductionAcceptEpic — settled decision 3', () => {
             mockActions([{ type: ACCEPT_INTRODUCTION }]),
             storeOf({ security: {}, simpleView: {} })
         ).subscribe(a => emitted.push(a), done, () => {
+            expect(emitted.length).toBe(0);
+            done();
+        });
+    });
+});
+
+describe('introductionSaveEpic (epic 2765 W4, TASK-2778)', () => {
+    let mockAxios;
+    beforeEach(() => { mockAxios = new MockAdapter(axios); });
+    afterEach(() => mockAxios.restore());
+
+    const source = {
+        description: 'A rain-on-grid model of the lower Msimbazi.',
+        body: 'Built from 2 m LiDAR.',
+        owner_limitations: 'Culverts are not represented.'
+    };
+    const save = () => ({ type: SAVE_INTRODUCTION, projectId: PROJECT_ID, source });
+
+    it('PATCHes the owner-authored fields and emits INTRODUCTION_SAVED', (done) => {
+        mockAxios
+            .onPatch(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`)
+            .reply(200, payload({ content_version: VERSION_B, can_edit: true, source }));
+        const emitted = [];
+
+        introductionSaveEpic(mockActions([save()]), storeOf({}))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(mockAxios.history.patch.length).toBe(1);
+                expect(JSON.parse(mockAxios.history.patch[0].data)).toEqual(source);
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].type).toBe(INTRODUCTION_SAVED);
+                expect(emitted[0].projectId).toBe(PROJECT_ID);
+                // The PATCH response IS the full read payload, with a
+                // recomputed version — so a save needs no follow-up GET.
+                expect(emitted[0].data.content_version).toBe(VERSION_B);
+                done();
+            });
+    });
+
+    it('NEVER emits INTRODUCTION_LOADED — the two live wires that would break', (done) => {
+        // ⚠ THE ONE THAT MATTERS HERE. The PATCH response is byte-for-byte the
+        // GET payload, so `introductionLoaded(...)` is the obvious one-liner.
+        // It would (1) re-run introductionAutoShowEpic, which is
+        // ofType(INTRODUCTION_LOADED), underneath the modal the owner is
+        // editing in, and (2) hit the INTRODUCTION_LOADED reducer case, which
+        // rewrites `acceptedVersion` from the action — erasing this browser's
+        // anonymous acceptance stamp every time an owner fixes a typo.
+        mockAxios
+            .onPatch(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`)
+            .reply(200, payload({ content_version: VERSION_B }));
+        const emitted = [];
+
+        introductionSaveEpic(mockActions([save()]), storeOf({}))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.filter(a => a.type === INTRODUCTION_LOADED).length).toBe(0);
+                done();
+            });
+    });
+
+    it('emits a FAILURE rather than going silent when the PATCH is refused', (done) => {
+        // Unlike the accept path, silence is not affordable here: the owner has
+        // just typed several paragraphs, and a Save that quietly does nothing
+        // is how that text gets lost. 403 is the shape a demoted manager sees.
+        mockAxios
+            .onPatch(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`)
+            .reply(403);
+        const emitted = [];
+
+        introductionSaveEpic(mockActions([save()]), storeOf({}))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].type).toBe(INTRODUCTION_SAVE_FAILED);
+                expect(emitted[0].projectId).toBe(PROJECT_ID);
+                done();
+            });
+    });
+
+    it('issues no request without a project or a payload', (done) => {
+        const emitted = [];
+        introductionSaveEpic(
+            mockActions([
+                { type: SAVE_INTRODUCTION, projectId: null, source },
+                { type: SAVE_INTRODUCTION, projectId: PROJECT_ID, source: null }
+            ]),
+            storeOf({})
+        ).subscribe(a => emitted.push(a), done, () => {
+            expect(mockAxios.history.patch.length).toBe(0);
             expect(emitted.length).toBe(0);
             done();
         });

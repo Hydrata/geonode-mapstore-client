@@ -1,7 +1,7 @@
 /**
- * Project-introduction epics (epic 2765 W3).
+ * Project-introduction epics (epic 2765 W3, extended in W4).
  *
- * Three of them, one per job:
+ * Four of them, one per job:
  *
  *   introductionFetchEpic     resolve the project for the map that just opened
  *                             and pull its introduction payload.
@@ -9,6 +9,7 @@
  *                             — or whether — to open the modal.
  *   introductionAcceptEpic    persist an acceptance the way settled decision 3
  *                             says it must be persisted for this viewer.
+ *   introductionSaveEpic      (W4) PATCH an owner/manager edit-in-place.
  *
  * ── WHY TWO TRIGGERS, AND WHY INIT_ANUGA IS THE LOAD-BEARING ONE ─────────────
  *
@@ -70,8 +71,11 @@ import {
 import {
     ACCEPT_INTRODUCTION,
     INTRODUCTION_LOADED,
+    SAVE_INTRODUCTION,
     introductionAccepted,
     introductionLoaded,
+    introductionSaved,
+    introductionSaveFailed,
     setVisibleIntroduction
 } from './actionsSimpleView';
 import {
@@ -225,4 +229,42 @@ export const introductionAcceptEpic = (action$, store) =>
                 // acknowledgement was stored when it was not is the one outcome
                 // that matters here.
                 .catch(() => Rx.Observable.empty());
+        });
+
+/**
+ * Save an owner/manager edit-in-place (epic 2765 W4, TASK-2778).
+ *
+ * ⚠ EMITS INTRODUCTION_SAVED, NEVER INTRODUCTION_LOADED — and that is the whole
+ * reason a fourth action type exists. The PATCH response IS the read payload,
+ * so `introductionLoaded(projectId, response.data)` would have been the obvious
+ * one-liner, and it would have been wrong twice over:
+ *
+ *   - `introductionAutoShowEpic` above is `ofType(INTRODUCTION_LOADED)`, so
+ *     every Save would restart the show-verdict pipeline underneath the modal
+ *     the owner is currently editing in;
+ *   - the INTRODUCTION_LOADED reducer case rewrites `acceptedVersion` from the
+ *     action, which carries none here — erasing this browser's anonymous
+ *     acceptance stamp as a side effect of an owner fixing a typo.
+ *
+ * (This is NOT the redux-observable self-trigger livelock — this epic does not
+ * listen for INTRODUCTION_LOADED. It is the quieter version: emitting an action
+ * a DIFFERENT epic owns.)
+ *
+ * A FAILED SAVE EMITS A FAILURE, it does not go silent like the accept path.
+ * Accept can afford silence because re-asking next session is cheap; here the
+ * owner has just typed several paragraphs, and a Save button that quietly does
+ * nothing is how that text gets lost.
+ */
+export const introductionSaveEpic = (action$) =>
+    action$.ofType(SAVE_INTRODUCTION)
+        // switchMap: a double-clicked Save should end on the LAST payload, and
+        // the BE absorbs the concurrent-first-write case with get_or_create.
+        .switchMap((action) => {
+            const { projectId, source } = action;
+            if (!projectId || !source) {
+                return Rx.Observable.empty();
+            }
+            return Rx.Observable.from(anugaApi.updateProjectIntroduction(projectId, source))
+                .map(response => introductionSaved(projectId, response?.data))
+                .catch(() => Rx.Observable.of(introductionSaveFailed(projectId)));
         });

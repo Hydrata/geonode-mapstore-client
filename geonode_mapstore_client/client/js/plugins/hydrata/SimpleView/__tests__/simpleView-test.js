@@ -17,6 +17,10 @@ import {
     CREATE_SV_ATTRIBUTE_FORM,
     SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS,
     SET_PROCESSING_SV_ATTRIBUTE_FORM,
+    SAVE_INTRODUCTION,
+    INTRODUCTION_SAVED,
+    INTRODUCTION_SAVE_FAILED,
+    INTRODUCTION_LOADED,
     setOpenMenuGroupId,
     setVisibleLegendPanel,
     setVisibleIntroduction,
@@ -213,6 +217,64 @@ describe('SimpleView Plugin', () => {
                 visible: true
             });
             expect(state.visibleIntroduction).toBe(true);
+        });
+
+        // ── Epic 2765 W4 (TASK-2778) — the owner/manager save path ──
+        //
+        // The whole reason SAVE/SAVED/SAVE_FAILED exist instead of reusing
+        // INTRODUCTION_LOADED is what these three assertions pin.
+        describe('introduction save (TASK-2778)', () => {
+            const loaded = reducer({}, {
+                type: INTRODUCTION_LOADED,
+                projectId: 13422,
+                data: { content_version: 'old', description_html: '<p>Old.</p>' },
+                acceptedVersion: 'old'
+            });
+
+            it('SAVE_INTRODUCTION marks the slice saving without touching data', () => {
+                const state = reducer(loaded, { type: SAVE_INTRODUCTION, projectId: 13422 });
+                expect(state.introduction.savingIntroduction).toBe(true);
+                expect(state.introduction.introductionSaveFailed).toBe(false);
+                expect(state.introduction.data.content_version).toBe('old');
+            });
+
+            it('INTRODUCTION_SAVED swaps the content and KEEPS acceptedVersion', () => {
+                // ⚠ The INTRODUCTION_LOADED case rewrites `acceptedVersion`
+                // from the action. Reusing it here would erase this browser's
+                // anonymous acceptance stamp every time an owner fixed a typo.
+                // The stamp is kept and simply stops matching once the content
+                // really changed — and an unchanged save hashes the same, so it
+                // re-prompts nobody.
+                const state = reducer(loaded, {
+                    type: INTRODUCTION_SAVED,
+                    projectId: 13422,
+                    data: { content_version: 'new', description_html: '<p>New.</p>' }
+                });
+                expect(state.introduction.data.content_version).toBe('new');
+                expect(state.introduction.acceptedVersion).toBe('old');
+                expect(state.introduction.savingIntroduction).toBe(false);
+            });
+
+            it('refuses a save that resolves for a DIFFERENT project', () => {
+                // An SPA hop between maps must not paint one project's
+                // introduction over another's.
+                const state = reducer(loaded, {
+                    type: INTRODUCTION_SAVED,
+                    projectId: 99999,
+                    data: { content_version: 'new' }
+                });
+                expect(state.introduction.data.content_version).toBe('old');
+            });
+
+            it('INTRODUCTION_SAVE_FAILED clears saving and leaves data alone', () => {
+                const saving = reducer(loaded, { type: SAVE_INTRODUCTION, projectId: 13422 });
+                const state = reducer(saving, {
+                    type: INTRODUCTION_SAVE_FAILED, projectId: 13422
+                });
+                expect(state.introduction.savingIntroduction).toBe(false);
+                expect(state.introduction.introductionSaveFailed).toBe(true);
+                expect(state.introduction.data.content_version).toBe('old');
+            });
         });
 
         it('should handle SET_VISIBLE_SV_ATTRIBUTE_FORM', () => {

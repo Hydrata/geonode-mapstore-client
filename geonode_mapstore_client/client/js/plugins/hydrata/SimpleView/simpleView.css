@@ -1724,3 +1724,187 @@ span.sv-menu-row-glyph {
     margin-top: 30px;
     transform: none;
 }
+
+/* ── Introduction: the read surface and the edit-in-place surface (epic 2765
+   W4, TASK-2778) ─────────────────────────────────────────────────────────────
+
+   ⚠ EVERYTHING BELOW HANGS OFF `.sv-introduction-modal-host`, NOT off
+   `.introduction-container`. react-bootstrap PORTALS the dialog to
+   <body>, so the `.introduction-container` div the component renders is left
+   EMPTY in the DOM and any descendant selector rooted there matches nothing.
+   (`simpleViewIntroduction-test.js` says the same thing from the other side:
+   "the modal portals to document.body, so query the document rather than the
+   render container".) The host class travels WITH the portaled dialog, so it
+   is the only usable root. Note also `sv-` rather than `introduction-`: the
+   namespace guard retired the `introduction` prefix, and it scans this file.
+
+   ⚠ HEIGHT IS THE LOAD-BEARING VARIABLE HERE, NOT COLOUR.
+
+   W3 found this modal was a TRAP: `backdrop="static"` + `keyboard={false}`
+   leave exactly two ways out (Accept in the footer, the cross in the header),
+   and BOTH were off-screen — the fixed GeoNode header painted over the cross,
+   and the theme's `.msgapi .modal.fade .modal-dialog { transform:
+   translate(0, -25%) }` rode the dialog 25% of its OWN HEIGHT upward. The two
+   rules above fixed that at W3's size (an empty 282px dialog).
+
+   W4 makes the dialog far taller — three owner-authored HTML blocks, a
+   five-row statistics table, and in edit mode three textareas. A dialog that
+   grows with its content eventually pushes the footer (and therefore Accept)
+   below the fold, and with the transform cancelled it can only grow downward.
+   So the BODY scrolls internally and the dialog itself stays bounded:
+
+     100vh - 30px (the margin-top above) - ~72px header - ~70px footer - 40px
+     breathing room ≈ 100vh - 212px, rounded to 220px.
+
+   Specificity: `.modal.sv-introduction-modal-host .modal-body` is three
+   classes, four after the build's `.msgapi` prefixing — the same rank as the
+   theme's own `.msgapi .fade.in.modal`, which silently beat two earlier
+   three-class attempts at the z-index. Bootstrap's `.modal-body` is a single
+   class, and the MapStore theme's flex override is scoped to a resizable-modal
+   ancestor, so nothing outranks this. Re-measure after any change with a LONG
+   body, not an empty one. */
+.modal.sv-introduction-modal-host .modal-body {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+}
+
+/* Owner-authored prose. Rendered from the *_html fields (the W1 sanitiser's
+   output) — never from `source`, which is raw Markdown for the editor. */
+.sv-introduction-modal-host .sv-introduction-owner-content {
+    margin-bottom: 16px;
+}
+
+.sv-introduction-modal-host .sv-introduction-description {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.sv-introduction-modal-host .sv-introduction-description p:last-child,
+.sv-introduction-modal-host .sv-introduction-prose p:last-child,
+.sv-introduction-modal-host .sv-introduction-limitations-content p:last-child {
+    margin-bottom: 0;
+}
+
+.sv-introduction-modal-host .sv-introduction-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin: 0 0 6px 0;
+}
+
+.sv-introduction-modal-host .sv-introduction-limitations {
+    margin-top: 14px;
+}
+
+/* ── Derived project figures ── */
+.sv-introduction-modal-host .sv-introduction-stats {
+    margin: 16px 0;
+}
+
+.sv-introduction-modal-host .sv-introduction-stat-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px 16px;
+    margin: 0;
+}
+
+.sv-introduction-modal-host .sv-introduction-stat dt {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.65;
+}
+
+.sv-introduction-modal-host .sv-introduction-stat dd {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* An absent figure is STATED, not blanked. `aoi_extent_km2` is null for a
+   project with no terrain footprint, and "0 km²" there would assert a
+   measurement nobody made. */
+.sv-introduction-modal-host .sv-introduction-stat-absent {
+    opacity: 0.5;
+    font-style: italic;
+}
+
+/* ── The platform baseline ──
+   AC D: a reader must be able to tell platform text from owner text at a
+   glance. Settled decision 6 makes the owner an APPENDER of limitations and
+   never an editor of this block, and the UI is not allowed to blur that. The
+   rule left border + label + muted panel is the visual half of the same
+   statement the backend makes structurally (no baseline column ⇒ no PATCH can
+   reach it). */
+.sv-introduction-modal-host .sv-introduction-baseline-block {
+    border-left: 3px solid var(--sv-chrome-deep, #335781);
+    background: rgba(51, 87, 129, 0.06);
+    padding: 8px 12px;
+    margin-top: 16px;
+}
+
+.sv-introduction-modal-host .sv-introduction-baseline-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+    margin-bottom: 4px;
+}
+
+.sv-introduction-modal-host .sv-introduction-baseline-text {
+    margin-bottom: 0;
+}
+
+.sv-introduction-modal-host .sv-introduction-baseline-note {
+    margin: 6px 0 0 0;
+    font-style: italic;
+    opacity: 0.75;
+}
+
+/* ── Edit-in-place ── */
+.sv-introduction-modal-host .sv-introduction-edit-field {
+    margin-bottom: 12px;
+}
+
+.sv-introduction-modal-host .sv-introduction-edit-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+    margin-bottom: 4px;
+}
+
+.sv-introduction-modal-host .sv-introduction-edit-field textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 6px 8px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    resize: vertical;
+}
+
+/* The re-prompt warning sits ABOVE the fields, so the consequence is known
+   before the typing rather than at the last click. */
+.sv-introduction-modal-host .sv-introduction-reprompt-warning {
+    border-left: 3px solid #d9822b;
+    background: rgba(217, 130, 43, 0.1);
+    padding: 8px 12px;
+    margin-bottom: 14px;
+    font-size: 13px;
+}
+
+.sv-introduction-modal-host .sv-introduction-save-error {
+    border-left: 3px solid #c23934;
+    background: rgba(194, 57, 52, 0.1);
+    padding: 8px 12px;
+    margin-bottom: 14px;
+    font-size: 13px;
+}

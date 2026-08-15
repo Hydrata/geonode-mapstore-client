@@ -74,7 +74,9 @@ describe('anugaApi', () => {
             // TASK-2165 — post-WFS-T-save dataset bbox recalc
             'recalcDatasetBbox',
             // TASK-2774 (epic 2765 W3) — project-introduction read + accept
-            'getProjectIntroduction', 'acceptProjectIntroduction'
+            'getProjectIntroduction', 'acceptProjectIntroduction',
+            // TASK-2778 (epic 2765 W4) — owner/manager edit-in-place PATCH
+            'updateProjectIntroduction'
         ];
 
         expectedFunctions.forEach(name => {
@@ -83,7 +85,7 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 74 API functions', () => {
+        it('should export exactly 75 API functions', () => {
             // Branch baseline (epic/1587) ships 55 exported functions (the
             // historical "53→54" comment chain undercounted by one; the live
             // module is 55). TASK-1729 adds 4: presignTerrainUpload +
@@ -102,10 +104,11 @@ describe('anugaApi', () => {
             // createBillingPortalSession = 72.
             // TASK-2774 (epic 2765 W3) adds 2: getProjectIntroduction +
             // acceptProjectIntroduction = 74.
+            // TASK-2778 (epic 2765 W4) adds 1: updateProjectIntroduction = 75.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(74);
+            expect(exportedFunctions.length).toBe(75);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {

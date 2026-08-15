@@ -8,6 +8,23 @@ const SET_VISIBLE_INTRODUCTION = 'SET_VISIBLE_INTRODUCTION';
 const INTRODUCTION_LOADED = 'INTRODUCTION_LOADED';
 const ACCEPT_INTRODUCTION = 'ACCEPT_INTRODUCTION';
 const INTRODUCTION_ACCEPTED = 'INTRODUCTION_ACCEPTED';
+// Epic 2765 W4 (TASK-2778) — owner/manager edit-in-place.
+//
+// ⚠ THESE ARE DELIBERATELY NOT `INTRODUCTION_LOADED`, even though the PATCH
+// response is byte-for-byte the same read payload the GET returns and reusing
+// it would have been one line. Two live wires make that shortcut wrong:
+//
+//   1. `introductionAutoShowEpic` is `ofType(INTRODUCTION_LOADED)` — so an
+//      owner's Save would re-run the whole show-verdict pipeline underneath the
+//      modal they are already looking at.
+//   2. the INTRODUCTION_LOADED reducer case writes
+//      `acceptedVersion: action.acceptedVersion || null`, which would ERASE
+//      this browser's anonymous acceptance stamp on every save.
+//
+// INTRODUCTION_SAVED swaps the content and leaves both alone.
+const SAVE_INTRODUCTION = 'SAVE_INTRODUCTION';
+const INTRODUCTION_SAVED = 'INTRODUCTION_SAVED';
+const INTRODUCTION_SAVE_FAILED = 'INTRODUCTION_SAVE_FAILED';
 const SET_VISIBLE_UPLOADER_PANEL = 'SET_VISIBLE_UPLOADER_PANEL';
 const SET_VISIBLE_SV_ATTRIBUTE_FORM = 'SET_VISIBLE_SV_ATTRIBUTE_FORM';
 const UPDATE_UPLOAD_STATUS = 'UPDATE_UPLOAD_STATUS';
@@ -125,6 +142,47 @@ function introductionAccepted(projectId, contentVersion) {
     };
 }
 
+/**
+ * An owner or manager pressed Save on the edit-in-place surface.
+ *
+ * @param {number} projectId  the project whose introduction is being edited.
+ *   Carried on the action rather than read from the store in the epic, so a
+ *   save can never be applied to whatever project an SPA hop loaded since.
+ * @param {object} source     `{description, body, owner_limitations}` — the raw
+ *   Markdown. The BASELINE is not in this shape and cannot be: it is not a
+ *   column on ProjectIntroduction, so the write serializer has no field for it
+ *   (settled decision 6 — the owner appends, never edits, the platform text).
+ */
+function saveIntroduction(projectId, source) {
+    return {
+        type: SAVE_INTRODUCTION,
+        projectId,
+        source
+    };
+}
+
+/**
+ * The PATCH landed. `data` is the server's FULL read payload for the saved
+ * content — the same shape the GET returns, including a freshly-computed
+ * `content_version` — so the modal re-renders from the server's own answer and
+ * never from an optimistic local guess.
+ */
+function introductionSaved(projectId, data) {
+    return {
+        type: INTRODUCTION_SAVED,
+        projectId,
+        data
+    };
+}
+
+/** The PATCH failed. The editor stays open with the owner's text intact. */
+function introductionSaveFailed(projectId) {
+    return {
+        type: INTRODUCTION_SAVE_FAILED,
+        projectId
+    };
+}
+
 function setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId) {
     return {
         type: SET_VISIBLE_UPLOADER_PANEL,
@@ -206,6 +264,9 @@ module.exports = {
     INTRODUCTION_LOADED, introductionLoaded,
     ACCEPT_INTRODUCTION, acceptIntroduction,
     INTRODUCTION_ACCEPTED, introductionAccepted,
+    SAVE_INTRODUCTION, saveIntroduction,
+    INTRODUCTION_SAVED, introductionSaved,
+    INTRODUCTION_SAVE_FAILED, introductionSaveFailed,
     SET_VISIBLE_UPLOADER_PANEL, setVisibleUploaderPanel,
     SET_VISIBLE_SV_ATTRIBUTE_FORM, setVisibleSimpleViewAttributeForm,
     UPDATE_UPLOAD_STATUS, updateUploadStatus,

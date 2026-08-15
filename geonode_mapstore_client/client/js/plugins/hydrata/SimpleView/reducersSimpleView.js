@@ -3,6 +3,9 @@ import {
     SET_VISIBLE_INTRODUCTION,
     INTRODUCTION_LOADED,
     INTRODUCTION_ACCEPTED,
+    SAVE_INTRODUCTION,
+    INTRODUCTION_SAVED,
+    INTRODUCTION_SAVE_FAILED,
     SET_OPEN_MENU_GROUP_ID,
     SV_SELECT_LAYER,
     SET_VISIBLE_UPLOADER_PANEL,
@@ -87,6 +90,58 @@ export default ( state = {selectedCategory: null}, action) => {
             introduction: {
                 ...state.introduction,
                 acceptedVersion: action.contentVersion
+            }
+        };
+    // Epic 2765 W4 (TASK-2778) — owner/manager edit-in-place.
+    //
+    // All three carry the same project guard as INTRODUCTION_ACCEPTED above,
+    // and for the same reason: a save that resolves after an SPA hop must not
+    // paint one project's introduction over another's.
+    case SAVE_INTRODUCTION:
+        if (String(state.introduction?.projectId) !== String(action.projectId)) {
+            return state;
+        }
+        return {
+            ...state,
+            introduction: {
+                ...state.introduction,
+                savingIntroduction: true,
+                introductionSaveFailed: false
+            }
+        };
+    case INTRODUCTION_SAVED:
+        if (String(state.introduction?.projectId) !== String(action.projectId)) {
+            return state;
+        }
+        // ⚠ SPREAD, not a fresh object like INTRODUCTION_LOADED builds. The
+        // PATCH response is the same payload shape, so replacing the whole
+        // slice would have looked equivalent — but it would drop
+        // `acceptedVersion`, i.e. an owner's typo fix would silently forget
+        // that THIS browser had anonymously accepted anything. The gate
+        // compares versions, so the stamp is kept and simply stops matching
+        // once the content really changed (an unchanged save hashes the same
+        // and re-prompts nobody).
+        return {
+            ...state,
+            introduction: {
+                ...state.introduction,
+                data: action.data,
+                savingIntroduction: false,
+                introductionSaveFailed: false
+            }
+        };
+    case INTRODUCTION_SAVE_FAILED:
+        if (String(state.introduction?.projectId) !== String(action.projectId)) {
+            return state;
+        }
+        // `data` untouched: the editor stays open over the CURRENT server
+        // content with the owner's unsaved text still in the textareas.
+        return {
+            ...state,
+            introduction: {
+                ...state.introduction,
+                savingIntroduction: false,
+                introductionSaveFailed: true
             }
         };
     case SET_VISIBLE_SV_ATTRIBUTE_FORM:

@@ -70,6 +70,23 @@ export const getProjectFromMapId = (mapId) =>
 export const getProjectIntroduction = (projectId) =>
     axios.get(`/api/v2/anuga/projects/${projectId}/introduction/`);
 
+// Epic 2765 W4 — owner/manager edit-in-place (TASK-2778).
+//
+// SAME URL as the GET above; the METHOD is the whole authorization difference.
+// The view resolves visibility first (404) and only then the role (403), so a
+// caller who can read but not edit gets 403 rather than an existence oracle.
+//
+// `source` is `{description, body, owner_limitations}` — raw Markdown, and the
+// ONLY three fields the write serializer accepts. Sending `baseline` (or any
+// other key) is not a client-side mistake to guard against here: DRF drops
+// unknown keys and the baseline is not a column, so the platform disclaimer is
+// unreachable from this call by SHAPE.
+//
+// The response is the FULL read payload with a recomputed `content_version`,
+// so a save needs no follow-up GET.
+export const updateProjectIntroduction = (projectId, source) =>
+    axios.patch(`/api/v2/anuga/projects/${projectId}/introduction/`, source);
+
 // ⚠ AUTHENTICATED CALLERS ONLY. This endpoint is IsAuthenticated and answers an
 // anonymous POST 401 WITH a `WWW-Authenticate: Basic` header, which a browser
 // may render as a native password prompt. Settled decision 3 makes anonymous
