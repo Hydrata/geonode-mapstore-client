@@ -847,7 +847,17 @@ export function playbackSyncLayerEpic(action$, store) {
             // and unused). Controller state (pb.wireframe), NOT the local
             // component state the flow-viz/particle overlay knobs use — see
             // playbackActions.js's PLAYBACK_SET_WIREFRAME header.
-            wireframe: !!pb.wireframe
+            wireframe: !!pb.wireframe,
+            // TASK-2752 (AC5/AC6, W8.2, epic 2706) — the Max toggle reaching
+            // the actual renderer. Without this the controller/epic state
+            // machine above is a closed loop that never paints anything:
+            // envelopeMode flips uEnvelopeMode, envelopeData is the
+            // Float32Array setEnvelope() uploads — both are plain re-
+            // asserted-every-sync layer properties, same class as
+            // wireframe/opacity above (so a bar remount/unmount can never
+            // desync them from controller state).
+            envelopeMode: !!pb.envelopeMode,
+            envelopeData: pb.envelopeData || null
         };
         if (lastSyncedTimestep.get(pb.runId) === pb.currentTimestep) {
             return Rx.Observable.of(mergeOptionsById(pb.layerId, baseProps));
