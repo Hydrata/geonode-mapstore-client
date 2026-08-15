@@ -48,8 +48,15 @@ import { SET_RESOURCE_ID } from "@js/actions/gnresource";
 //
 // Deliberately a local copy of projectsReducer's `_isSameMap` rather than an
 // import: exporting it from that module would make one plugin's reducer depend
-// on another's internals for a four-line comparison, and the two slices'
-// reset rules are allowed to diverge. If a third copy ever appears, promote it.
+// on another's internals for a four-line comparison, and the two slices' reset
+// rules are allowed to diverge.
+//
+// ⚠ THIS IS THE SECOND EXACT COPY, and a third near-copy already exists
+// (`epicsTerrainWorkbench.js` has the same comparison inline, with a slightly
+// different null rule). That is over the line where a shared helper is worth
+// having — but promoting it means editing TerrainWorkbench, which is outside
+// this epic's declared scope. Left as a copy ON PURPOSE, with the extraction
+// filed as its own task rather than smuggled in here.
 const _isSameMapId = (a, b) => {
     // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
     if (a == null || b == null) return false;
@@ -88,10 +95,21 @@ export default ( state = {selectedCategory: null}, action) => {
      * write into the slice while B is on screen, which is precisely what those
      * guards exist to refuse.
      *
-     * `visibleIntroduction` is deliberately NOT touched. It is the render flag,
-     * not content, and the modal is now gated on the payload as well
-     * (TASK-2796), so a latched-true flag over a cleared slice renders nothing
-     * and then opens correctly the moment B's payload lands.
+     * `visibleIntroduction` GOES TOO — and the first draft of this fix got that
+     * wrong, so the reasoning is worth keeping. The flag is latched: only
+     * Accept and the header cross ever set it false. Clearing only the CONTENT
+     * would mean that a viewer who had the modal open on map A and then
+     * navigated got it unmounted (TASK-2796's payload gate) and then RE-OPENED
+     * the instant B's payload arrived — with no click, and without
+     * `introductionVerdictFor` ever being consulted, because the auto-show epic
+     * is not the thing rendering it. That bypasses settled decision 2: a MEMBER
+     * of project B, or anyone who has already accepted B's current content, is
+     * shown a modal they are specifically supposed to never auto-see.
+     *
+     * A modal's open-state describes the map it was opened on. Dropping it is
+     * also strictly recoverable: `introductionAutoShowEpic` re-opens it on
+     * INTRODUCTION_LOADED if — and only if — the guard says SHOW, and the About
+     * button is there for everyone else.
      *
      * SAME MAP -> SAME OBJECT. A repeat SET_RESOURCE_ID carrying the id we are
      * already on must be a no-op: MAP_CONFIG_LOADED re-fires on reconfig, and
@@ -105,6 +123,7 @@ export default ( state = {selectedCategory: null}, action) => {
         return {
             ...state,
             introduction: undefined,
+            visibleIntroduction: false,
             // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
             introductionMapId: action.id == null ? null : action.id
         };

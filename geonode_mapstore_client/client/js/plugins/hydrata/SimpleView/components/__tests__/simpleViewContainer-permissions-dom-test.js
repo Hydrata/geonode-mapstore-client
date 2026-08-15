@@ -398,10 +398,16 @@ describe('SimpleView "About this project" with no introduction payload (TASK-279
 // Driven through the REAL reducer rather than a hand-written "after" state, so
 // this cannot pass against a reducer that never clears.
 describe('SimpleView "About this project" across a map switch (TASK-2790)', () => {
+    // ⚠ `visibleIntroduction: true` is forced AFTER the reducer's own output,
+    // deliberately. The map-switch case now clears the render flag as well as
+    // the content, so spreading the slice last would leave the flag false and
+    // these assertions would pass for the WRONG reason — proving only that a
+    // closed modal is closed, instead of that a payload-less modal cannot
+    // render even when something has latched it open.
     const stateAfter = (svSlice) => ({
         anuga: { projects: {}, ui: {} },
         security: {},
-        simpleView: { visibleIntroduction: true, ...svSlice },
+        simpleView: { ...svSlice, visibleIntroduction: true },
         layers: { groups: [] },
         localConfig: { plugins: { map_viewer: [{ name: 'Anuga' }] } }
     });

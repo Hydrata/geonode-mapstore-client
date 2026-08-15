@@ -332,16 +332,31 @@ describe('SimpleView Plugin', () => {
                 expect(JSON.stringify(onMapB)).toNotContain('13422');
             });
 
-            it('does NOT clear the render flag — only the content', () => {
+            it('clears the render flag too, so the modal cannot RE-OPEN unasked on the new map', () => {
+                // Phase 1.7 finding on this wave's own diff. `visibleIntroduction`
+                // is latched — only Accept and the header cross set it false —
+                // so clearing just the content would unmount the modal on the
+                // hop (TASK-2796's payload gate) and then re-open it the instant
+                // B's payload arrived, with no click and without
+                // `introductionVerdictFor` ever being consulted. That shows the
+                // modal to a MEMBER of B, and to anyone who has already accepted
+                // B, in direct breach of settled decision 2.
                 const visible = reducer(ON_MAP_118, {
                     type: SET_VISIBLE_INTRODUCTION, visible: true
                 });
+                expect(visible.visibleIntroduction).toBe(true);
+
                 const onMapB = reducer(visible, { type: SET_RESOURCE_ID, id: '200' });
-                // The flag is not content. The modal is payload-gated
-                // (TASK-2796), so a latched flag over a cleared slice renders
-                // nothing and then opens correctly once B's payload lands.
-                expect(onMapB.visibleIntroduction).toBe(true);
+                expect(onMapB.visibleIntroduction).toBe(false);
                 expect(onMapB.introduction).toBe(undefined);
+
+                // Recoverable, not suppressed: the auto-show epic re-opens it on
+                // INTRODUCTION_LOADED when the guard says SHOW, and the About
+                // button is there for everyone else.
+                const reopened = reducer(onMapB, {
+                    type: SET_VISIBLE_INTRODUCTION, visible: true
+                });
+                expect(reopened.visibleIntroduction).toBe(true);
             });
 
             it('a REPEAT SET_RESOURCE_ID for the same map is a no-op', () => {
