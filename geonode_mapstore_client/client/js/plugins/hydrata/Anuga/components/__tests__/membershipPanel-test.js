@@ -997,12 +997,34 @@ describe('TASK-2780 MembershipPanel — copy project link', () => {
     const copyBtn = () => container.querySelector('[data-testid="sv-membership-project-link-copy"]');
     const feedback = () => container.querySelector('[data-testid="sv-membership-project-link-feedback"]');
 
+    // The expected link, ABSOLUTE. Derived from window.location.origin rather
+    // than hard-coded, because that is exactly the property under test: the
+    // value has to be right under whatever origin the app is served from
+    // (localhost, a tunnel, any of the four prod hosts). Hard-coding a host
+    // here would pin the bug this helper exists to catch.
+    const expectedLink = (id) => `${window.location.origin}/catalogue/#/map/${id}`;
+
     it('AC1 — the Sharing tab carries a copy-project-link control showing /catalogue/#/map/<base_map_id>', () => {
         return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: true}).then(() => {
             expect(container.querySelector('[data-testid="sv-account-tab-sharing"]')).toExist();
             expect(copyBtn()).toExist('no copy-project-link control on the Sharing tab');
             expect(linkInput()).toExist();
-            expect(linkInput().value).toBe('/catalogue/#/map/118');
+            expect(linkInput().value).toBe(expectedLink(118));
+        });
+    });
+
+    it('AC1 — the project link is ABSOLUTE, so a recipient can actually open what was pasted', () => {
+        // Phase 1.7 regression pin (epic 2765 W4). The control first shipped
+        // copying the bare path `/catalogue/#/map/118`, which is a search query
+        // when pasted into an address bar — i.e. the one thing this control
+        // exists to make possible did not work. Assert the scheme+host are
+        // present rather than just comparing to expectedLink(), so this test states the
+        // property in its own right and fails loudly if the origin is dropped.
+        return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: true}).then(() => {
+            const value = linkInput().value;
+            expect(value.startsWith('http')).toBe(true, `project link is not absolute: ${value}`);
+            expect(value).toInclude(window.location.host);
+            expect(value.endsWith('/catalogue/#/map/118')).toBe(true, `project link lost its path: ${value}`);
         });
     });
 
@@ -1014,7 +1036,7 @@ describe('TASK-2780 MembershipPanel — copy project link', () => {
         return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: false}).then(() => {
             expect(container.querySelector('[data-testid="sv-account-tab-bar"]')).toBe(null);
             expect(copyBtn()).toExist('the copy-project-link control is missing when the paywall flag is off');
-            expect(linkInput().value).toBe('/catalogue/#/map/118');
+            expect(linkInput().value).toBe(expectedLink(118));
         });
     });
 
@@ -1023,7 +1045,7 @@ describe('TASK-2780 MembershipPanel — copy project link', () => {
         // data.base_map_id ships "/catalogue/#/map/undefined" live while a
         // fixture that sets that field stays green.
         return mountPanel({role: 'owner', layerCount: 0, mapId: 4242}, {paywallEnabled: true}).then(() => {
-            expect(linkInput().value).toBe('/catalogue/#/map/4242');
+            expect(linkInput().value).toBe(expectedLink(4242));
             expect(linkInput().value).toNotInclude('undefined');
         });
     });
@@ -1033,7 +1055,7 @@ describe('TASK-2780 MembershipPanel — copy project link', () => {
         // a documented fail-safe. Same order here, same expectation that it
         // normally misses.
         return mountPanel({role: 'owner', layerCount: 0, mapId: null, baseMapOnData: 77}, {paywallEnabled: true}).then(() => {
-            expect(linkInput().value).toBe('/catalogue/#/map/77');
+            expect(linkInput().value).toBe(expectedLink(77));
         });
     });
 
@@ -1045,7 +1067,7 @@ describe('TASK-2780 MembershipPanel — copy project link', () => {
             copyBtn().click();
             return flush();
         }).then(() => {
-            expect(written).toEqual(['/catalogue/#/map/118']);
+            expect(written).toEqual([expectedLink(118)]);
             expect(feedback()).toExist('the copy succeeded silently — the user got no confirmation');
             expect(feedback().textContent).toInclude('hydrata.anuga.projectLinkCopied');
         });
@@ -1060,11 +1082,11 @@ describe('TASK-2780 MembershipPanel — copy project link', () => {
             expect(feedback()).toExist('clipboard unavailable and the control said nothing at all');
             expect(feedback().textContent).toInclude('hydrata.anuga.projectLinkCopyFailed');
             // The fallback is a real one: the link is still there to copy by hand.
-            expect(linkInput().value).toBe('/catalogue/#/map/118');
+            expect(linkInput().value).toBe(expectedLink(118));
             expect(linkInput().readOnly).toBe(true);
             expect(document.activeElement).toBe(linkInput(), 'the fallback did not select the link for a manual copy');
             expect(linkInput().selectionStart).toBe(0);
-            expect(linkInput().selectionEnd).toBe('/catalogue/#/map/118'.length);
+            expect(linkInput().selectionEnd).toBe(expectedLink(118).length);
         });
     });
 

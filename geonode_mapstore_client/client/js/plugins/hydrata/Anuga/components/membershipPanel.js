@@ -74,13 +74,30 @@ const ROLES = [
  * falls back to '/' when it is absent, so a project genuinely can have no
  * link. A template literal over an absent id yields ".../map/undefined",
  * which is a link that silently goes nowhere.
+ *
+ * ABSOLUTE, not the bare path (epic 2765 W4 Phase 1.7). The whole point of the
+ * control is that an owner PASTES this somewhere else — an email, a ticket, a
+ * chat message — and `/catalogue/#/map/118` pasted into an address bar is a
+ * search query, not a navigation. The path-only form was what shipped first
+ * because the subtask's acceptance criterion quoted the server-side path
+ * literally; that is the shape of the ROUTE, not of the thing a recipient can
+ * open. The shipped copy beside the control ("Anyone who opens this link...")
+ * only makes sense for an absolute URL.
+ *
+ * `window.location.origin` is the house pattern for exactly this, not a local
+ * invention: ResourceUtils' `formatResourceLinkUrl` opens with
+ * `let href = window.location.origin` for the catalogue's own copy-link button,
+ * and simpleViewUploader.js:301 does the same (TASK-1287) specifically so the
+ * value stays right under a tunnelled/proxied origin, where a hard-coded host
+ * would be wrong for every developer but the one who wrote it.
  */
 export const PROJECT_LINK_PREFIX = '/catalogue/#/map/';
 
 export const buildProjectLink = (baseMapId) => {
     // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
     if (baseMapId == null || baseMapId === '') return null;
-    return `${PROJECT_LINK_PREFIX}${baseMapId}`;
+    const origin = typeof window !== 'undefined' ? window?.location?.origin || '' : '';
+    return `${origin}${PROJECT_LINK_PREFIX}${baseMapId}`;
 };
 
 // Copy outcome -> the message the user reads. 'failed' deliberately covers
