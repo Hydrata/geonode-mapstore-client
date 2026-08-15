@@ -21,9 +21,10 @@
  * playback UX on top of both). This is the one seam both already need.
  */
 import { PlaybackChunkFetcher } from './playbackChunkFetcher';
-import { chunkKey, decodeTypedArray, gunzip, dequantizeRow } from './playbackDecode';
+import { chunkKey, decodeTypedArray, gunzip, dequantize, dequantizeRow } from './playbackDecode';
 import { computeVertexInradius } from './playbackMeshGeometry';
 import { resolveChunkLengthT, isUsableChunkLength } from './playbackChunkShape';
+import { envelopeArrayName } from './playbackDerivedQuantities';
 
 async function fetchStaticArray(fetcher, arrayName, dtype) {
     return fetcher.fetchAndDecodeChunk(arrayName, arrayName === 'face_node_connectivity' ? [0, 0] : [0], { dtype, byteorder: 'little' });
@@ -190,6 +191,38 @@ export async function loadPlaybackTime(fetcher) {
  */
 export async function loadPlaybackDt(fetcher) {
     return fetcher.fetchAndDecodeChunk('dt_ms', [0], { dtype: 'float32', byteorder: 'little' });
+}
+
+/**
+ * TASK-2752 (AC5) — fetch + dequantize one quantity's temporal-max envelope:
+ * a single-chunk (nNode,) uint16 array (same quantization CONTRACT as depth/
+ * x_velocity/y_velocity, but with no time dimension to slice a row out of —
+ * the whole decoded chunk IS the answer, so `dequantize` — not
+ * `dequantizeRow` — is the right primitive here).
+ *
+ * First-class absence, never a throw: a quantity outside
+ * playbackDerivedQuantities.ENVELOPE_QUANTITY_IDS, or a manifest that
+ * declares no quantization block for this envelope's array name (an older
+ * store, or a store that simply has none), both resolve to `null` — no
+ * fetch is attempted. AC4's "no 404, no throw, no console error" applies
+ * here exactly as it does to loadPlaybackDt's has_dt gate.
+ * @param {PlaybackChunkFetcher} fetcher
+ * @param {string} quantityId one of playbackDerivedQuantities.ENVELOPE_QUANTITY_IDS
+ * @returns {Promise<Float32Array|null>}
+ */
+export async function loadPlaybackEnvelope(fetcher, quantityId) {
+    const arrayName = envelopeArrayName(quantityId);
+    if (!arrayName) {
+        return null;
+    }
+    const quantization = (fetcher.manifest.quantization || {})[arrayName];
+    if (!quantization) {
+        return null;
+    }
+    const stored = await fetcher.fetchAndDecodeChunk(arrayName, [0], {
+        dtype: 'uint16', byteorder: quantization.byteorder || 'little'
+    });
+    return dequantize(stored, quantization);
 }
 
 // Re-exported so a caller can pre-compute a chunk's cache key without

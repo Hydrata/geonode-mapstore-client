@@ -8,7 +8,7 @@
 
 /* TASK-2626 (W2.2, epic 2618) — loadPlaybackLayerOptions tests. */
 import expect from 'expect';
-import { loadPlaybackMesh, loadPlaybackFrame, loadPlaybackLayerOptions, loadPlaybackTime } from '../loadPlaybackLayerOptions';
+import { loadPlaybackMesh, loadPlaybackFrame, loadPlaybackLayerOptions, loadPlaybackTime, loadPlaybackEnvelope } from '../loadPlaybackLayerOptions';
 import { PlaybackChunkFetcher } from '../playbackChunkFetcher';
 // TASK-2724 — loadPlaybackFrame no longer defaults its chunk length; every
 // caller resolves it from the store it is reading (see playbackChunkShape-test
@@ -100,6 +100,57 @@ describe('loadPlaybackLayerOptions', () => {
                 expect(options.frame0.depth.length).toBe(FIXTURE_MESH.nNode);
                 expect(options.frame1.depth.length).toBe(FIXTURE_MESH.nNode);
                 expect(options.mixT).toBe(0);
+                done();
+            }).catch(done);
+        });
+    });
+
+    // TASK-2752 (W8.2, epic 2706) AC5 — the temporal-max envelope fetch.
+    describe('loadPlaybackEnvelope', () => {
+        it('returns null, with NO fetch attempted, for a quantity outside the envelope-capable set', (done) => {
+            const fetcher = {
+                manifest: FIXTURE_MANIFEST,
+                fetchAndDecodeChunk: () => Promise.reject(new Error('must not be called'))
+            };
+            loadPlaybackEnvelope(fetcher, 'hazard').then((result) => {
+                expect(result).toBe(null);
+                done();
+            }).catch(done);
+        });
+
+        it('returns null (never throws) when the manifest declares no quantization for this envelope — the real fixture store predates TASK-2752', (done) => {
+            const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetch });
+            loadPlaybackEnvelope(fetcher, 'depth').then((result) => {
+                expect(result).toBe(null);
+                done();
+            }).catch(done);
+        });
+
+        it('fetches the {quantity}_max array (translating speed -> velocity_max) and dequantizes the WHOLE array, not a row', (done) => {
+            const nNode = 4;
+            // scale=0.001, offset=0 -> stored code 5000 dequantizes to 5.0.
+            const stored = new Uint16Array([0, 5000, 10000, 65535]);
+            const calls = [];
+            const fetcher = {
+                manifest: {
+                    quantization: { velocity_max: { scale: 0.001, offset: 0.0, byteorder: 'little' } }
+                },
+                fetchAndDecodeChunk: (arrayName, chunkIndices, opts) => {
+                    calls.push({ arrayName, chunkIndices, opts });
+                    return Promise.resolve(stored);
+                }
+            };
+            loadPlaybackEnvelope(fetcher, 'speed').then((result) => {
+                expect(calls.length).toBe(1);
+                expect(calls[0].arrayName).toBe('velocity_max');
+                expect(calls[0].chunkIndices).toEqual([0]);
+                expect(result.length).toBe(nNode);
+                // Float32Array output (playbackDecode.dequantize) — a 1e-3
+                // tolerance (matching the array's own 0.001 scale) rather
+                // than double precision, same convention as loadPlaybackFrame's
+                // own depthQ.scale-relative checks above.
+                expect(Math.abs(result[1] - 5.0) < 1e-3).toBe(true);
+                expect(Math.abs(result[3] - 65.535) < 1e-3).toBe(true);
                 done();
             }).catch(done);
         });

@@ -66,7 +66,7 @@ import { changeMapInfoState } from '@mapstore/framework/actions/mapInfo';
 import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
-import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
+import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame, loadPlaybackEnvelope } from '../loadPlaybackLayerOptions';
 import {
     QUANTITY_ARRAYS,
     resolveChunkLengthT,
@@ -113,6 +113,8 @@ import {
     PLAYBACK_SET_BACKGROUND_OPACITY,
     PLAYBACK_SET_OVERLAY,
     PLAYBACK_SET_COLOR_MAX,
+    PLAYBACK_SET_ENVELOPE_MODE,
+    PLAYBACK_ENVELOPE_LOADED,
     playbackManifestLoaded,
     playbackManifestFetched,
     playbackLoadProgress,
@@ -120,7 +122,8 @@ import {
     playbackChunksBuffered,
     playbackChunkBufferError,
     playbackTick,
-    playbackSetIdentifyResult
+    playbackSetIdentifyResult,
+    playbackEnvelopeLoaded
 } from '../actions/playbackActions';
 
 // ~20Hz controller clock. NOT a render-fps claim (memory:
@@ -695,6 +698,41 @@ export function playbackBufferEpic(action$, store) {
 }
 
 /**
+ * TASK-2752 (AC5/AC6, W8.2, epic 2706) — fetches (and dequantizes) the
+ * ACTIVE quantity's temporal-max envelope whenever the Max toggle turns on,
+ * or the operator switches to a DIFFERENT envelope-having quantity while it
+ * is already on (the reducer nulls `envelopeData` on both PLAYBACK_
+ * SET_ENVELOPE_MODE(true) and a quantity switch that stays in envelope mode
+ * — see playbackController.js — so "envelopeMode true AND envelopeData
+ * null" is exactly the "needs a fetch" state this epic watches for).
+ *
+ * A single chunk (the whole (nNode,) array, one fetch, cached by the
+ * fetcher's own `_staticArrays` map thereafter — see playbackChunkFetcher.
+ * _storeFor) — nothing like the per-tick frame traffic playbackBufferEpic
+ * manages. Never throws into the stream: a failed/unavailable fetch
+ * dispatches `data: null` exactly like loadPlaybackDt's `.catch(() => null)`
+ * pattern in playbackInitEpic, so a transient failure degrades to "no
+ * envelope drawn" rather than an unhandled rejection.
+ */
+export function playbackEnvelopeFetchEpic(action$, store) {
+    return action$.ofType(PLAYBACK_SET_ENVELOPE_MODE, PLAYBACK_SET_QUANTITY).mergeMap(() => {
+        const pb = store.getState().anugaPlayback;
+        if (!pb || !pb.runId || !pb.envelopeMode || pb.envelopeData) {
+            return Rx.Observable.empty();
+        }
+        const fetcher = fetcherRegistry.get(pb.runId);
+        if (!fetcher) {
+            return Rx.Observable.empty();
+        }
+        const runId = pb.runId;
+        const quantity = pb.quantity;
+        return Rx.Observable.fromPromise(
+            loadPlaybackEnvelope(fetcher, quantity).catch(() => null)
+        ).map((data) => playbackEnvelopeLoaded(runId, quantity, data));
+    });
+}
+
+/**
  * The controller's clock: while playing (or stalled — see
  * playbackController's TICK guard, which keeps re-attempting a stalled
  * crossing so `degraded` can accumulate), dispatch PLAYBACK_TICK at
@@ -746,7 +784,12 @@ export function playbackSyncLayerEpic(action$, store) {
         PLAYBACK_SET_OPACITY,
         PLAYBACK_SET_BACKGROUND_OPACITY,
         PLAYBACK_SET_OVERLAY,
-        PLAYBACK_SET_COLOR_MAX
+        PLAYBACK_SET_COLOR_MAX,
+        // TASK-2752 — the Max toggle and its fetch landing are each their
+        // own trigger for the SAME reason SET_WIREFRAME is: flipping either
+        // while PAUSED has no other action to ride to the layer.
+        PLAYBACK_SET_ENVELOPE_MODE,
+        PLAYBACK_ENVELOPE_LOADED
     );
     return trigger$.switchMap(() => {
         const pb = store.getState().anugaPlayback;

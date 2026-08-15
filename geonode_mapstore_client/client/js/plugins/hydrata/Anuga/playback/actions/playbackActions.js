@@ -70,6 +70,9 @@ export const PLAYBACK_SET_OPACITY = 'PLAYBACK:SET_OPACITY';
 export const PLAYBACK_SET_BACKGROUND_OPACITY = 'PLAYBACK:SET_BACKGROUND_OPACITY';
 export const PLAYBACK_SET_OVERLAY = 'PLAYBACK:SET_OVERLAY';
 export const PLAYBACK_SET_COLOR_MAX = 'PLAYBACK:SET_COLOR_MAX';
+// TASK-2752 (W8.2, epic 2706) — the temporal-max envelope (Max toggle).
+export const PLAYBACK_SET_ENVELOPE_MODE = 'PLAYBACK:SET_ENVELOPE_MODE';
+export const PLAYBACK_ENVELOPE_LOADED = 'PLAYBACK:ENVELOPE_LOADED';
 
 /**
  * Start (or restart) a playback controller for one run. `layerId` is the
@@ -237,4 +240,25 @@ export function playbackSetOverlay(key, value) {
  */
 export function playbackSetColorMax(quantity, value) {
     return { type: PLAYBACK_SET_COLOR_MAX, quantity, value };
+}
+
+/**
+ * TASK-2752 AC6 — toggle the temporal-max envelope ("Max") on/off for the
+ * ACTIVE quantity. The reducer refuses `enabled: true` when the current
+ * quantity has no envelope in this store (playbackController.
+ * hasEnvelopeForQuantity) — the control bar is expected to render the
+ * button disabled in that case rather than relying on this refusal.
+ */
+export function playbackSetEnvelopeMode(enabled) {
+    return { type: PLAYBACK_SET_ENVELOPE_MODE, enabled: !!enabled };
+}
+
+/**
+ * TASK-2752 — the epic's fetch+dequantize of one quantity's envelope array
+ * landed. `quantity` and `runId` are the STALE-RESPONSE guard (the reducer
+ * drops this if either has moved on since the fetch started); `data` is a
+ * Float32Array(nNode) in physical units, or null (fetch failed/unavailable).
+ */
+export function playbackEnvelopeLoaded(runId, quantity, data) {
+    return { type: PLAYBACK_ENVELOPE_LOADED, runId, quantity, data };
 }

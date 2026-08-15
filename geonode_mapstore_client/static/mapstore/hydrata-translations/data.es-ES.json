@@ -596,6 +596,7 @@
         "legendExceedsSld": "Escala extendida a {colorMax} {unit} — esta simulación supera la escala estándar",
         "legendCourantApprox": "Aproximado — calculado a partir del paso de tiempo global único del solucionador, no un número CFL por celda.",
         "legendToleranceNote": "Los valores provienen del campo de vértices suavizado, no de las capas ráster *_max — una lectura en el fotograma de pico puede diferir visiblemente del COG *_max en el mismo punto.",
+        "legendMaxEnvelopeNote": "Mostrando el máximo de la simulación — el valor de pico alcanzado en cualquier punto durante toda la simulación, no un único paso de tiempo.",
         "identifyReadoutTitle": "Inspeccionar",
         "identifyReadoutNoData": "Sin datos de malla en este punto",
         "identifyReadoutSurface": "Campo de vértices suavizado (no el ráster *_max)",
@@ -646,7 +647,8 @@
         "drawerOverlays": "Superposiciones",
         "drawerColourScale": "Escala de color",
         "maxEnvelope": "Máx",
-        "maxEnvelopeUnavailable": "Valor máximo de toda la simulación — próximamente; el almacén de esta simulación aún no tiene envolvente máxima",
+        "maxEnvelopeTooltip": "Mostrar el valor máximo alcanzado en cualquier punto de la simulación, en lugar del paso de tiempo actual",
+        "maxEnvelopeUnavailable": "Valor máximo de toda la simulación — el almacén de esta simulación no tiene envolvente máxima para la magnitud seleccionada",
         "tickUnit": {
           "s": "s",
           "min": "min",

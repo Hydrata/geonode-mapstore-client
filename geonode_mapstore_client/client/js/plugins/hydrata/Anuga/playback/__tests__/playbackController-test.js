@@ -31,6 +31,7 @@ import {
     MAX_SPEED,
     defaultSpeedForTime,
     simulatedSpanSeconds,
+    hasEnvelopeForQuantity,
     playbackControllerReducer as reduce
 } from '../playbackController';
 import {
@@ -48,6 +49,8 @@ import {
     playbackSetIdentifyResult,
     playbackSetLegendOpen,
     playbackSetWireframe,
+    playbackSetEnvelopeMode,
+    playbackEnvelopeLoaded,
     playbackReset
 } from '../actions/playbackActions';
 
@@ -539,6 +542,128 @@ describe('playbackController', () => {
             ['depth', 'speed', 'stage', 'div', 'hazard', 'froude', 'shear'].forEach((q) => {
                 const s = reduce(bufferedState({ hasDt: false }), playbackSetQuantity(q));
                 expect(s.quantity).toBe(q);
+            });
+        });
+    });
+
+    // TASK-2752 (W8.2, epic 2706) — the temporal-max envelope (Max toggle).
+    describe('envelope (Max) — TASK-2752', () => {
+        describe('hasEnvelopeForQuantity', () => {
+            it('true only when the quantity is in the list', () => {
+                expect(hasEnvelopeForQuantity(['depth', 'speed'], 'depth')).toBe(true);
+                expect(hasEnvelopeForQuantity(['depth', 'speed'], 'div')).toBe(false);
+            });
+            it('false (never throws) for a missing/malformed list', () => {
+                expect(hasEnvelopeForQuantity(undefined, 'depth')).toBe(false);
+                expect(hasEnvelopeForQuantity(null, 'depth')).toBe(false);
+            });
+        });
+
+        it('MANIFEST_LOADED populates envelopeQuantities from schema_metadata, translating the backend name (velocity -> speed)', () => {
+            const s = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { schema_metadata: { envelope_quantities: ['depth', 'velocity'] } },
+                    mesh: null, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2, quantization: {}
+                }));
+            expect(s.envelopeQuantities).toEqual(['depth', 'speed']);
+        });
+
+        it('MANIFEST_LOADED defaults to [] for a store that declares none (has_dt shape)', () => {
+            const s = loadedState();
+            expect(s.envelopeQuantities).toEqual([]);
+        });
+
+        it('MANIFEST_LOADED always resets envelopeMode/envelopeData — a run switch never carries Max over', () => {
+            const s = loadedState({ envelopeMode: true, envelopeData: new Float32Array([1, 2]) });
+            const reloaded = reduce(s, playbackManifestLoaded({
+                runId: 7, manifest: { schema_metadata: { envelope_quantities: ['depth'] } },
+                mesh: null, time: TIME, nTime: TIME.length, nNode: 6,
+                chunkLengthT: 10, totalChunks: 2, quantization: {}
+            }));
+            expect(reloaded.envelopeMode).toBe(false);
+            expect(reloaded.envelopeData).toBe(null);
+        });
+
+        describe('SET_ENVELOPE_MODE', () => {
+            it('turns on when the active quantity has an envelope', () => {
+                const s = reduce(
+                    bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth' }),
+                    playbackSetEnvelopeMode(true)
+                );
+                expect(s.envelopeMode).toBe(true);
+            });
+            it('REFUSES to turn on when the active quantity has none — the reducer is the last line of defence, not just the disabled button', () => {
+                const s = reduce(
+                    bufferedState({ envelopeQuantities: ['depth'], quantity: 'speed' }),
+                    playbackSetEnvelopeMode(true)
+                );
+                expect(s.envelopeMode).toBe(false);
+            });
+            it('turning off clears envelopeData too — re-enabling always re-fetches', () => {
+                const on = reduce(
+                    bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth' }),
+                    playbackSetEnvelopeMode(true)
+                );
+                const loaded = reduce(on, playbackEnvelopeLoaded(on.runId, 'depth', new Float32Array([9])));
+                expect(loaded.envelopeData).toEqual(new Float32Array([9]));
+                const off = reduce(loaded, playbackSetEnvelopeMode(false));
+                expect(off.envelopeMode).toBe(false);
+                expect(off.envelopeData).toBe(null);
+            });
+        });
+
+        describe('ENVELOPE_LOADED', () => {
+            it('sets envelopeData when runId and quantity both match', () => {
+                const s = reduce(
+                    bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth', envelopeMode: true }),
+                    playbackEnvelopeLoaded(7, 'depth', new Float32Array([1, 2, 3]))
+                );
+                expect(s.envelopeData).toEqual(new Float32Array([1, 2, 3]));
+            });
+            it('ignores a stale response for a different runId (a run was switched mid-fetch)', () => {
+                const base = bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth', envelopeMode: true });
+                const s = reduce(base, playbackEnvelopeLoaded(999, 'depth', new Float32Array([1])));
+                expect(s.envelopeData).toBe(null);
+            });
+            it('ignores a stale response for a different quantity (the operator switched away mid-fetch)', () => {
+                const base = bufferedState({ envelopeQuantities: ['depth', 'speed'], quantity: 'speed', envelopeMode: true });
+                const s = reduce(base, playbackEnvelopeLoaded(base.runId, 'depth', new Float32Array([1])));
+                expect(s.envelopeData).toBe(null);
+            });
+        });
+
+        describe('SET_QUANTITY interaction (AC6: enabled exactly when the CURRENT quantity has one)', () => {
+            it('switching to a quantity with no envelope drops Max, the same way courant falls back without hasDt', () => {
+                const on = bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth', envelopeMode: true });
+                const s = reduce(on, playbackSetQuantity('speed'));
+                expect(s.quantity).toBe('speed');
+                expect(s.envelopeMode).toBe(false);
+            });
+            it('switching between two envelope-having quantities STAYS in Max mode, but clears the stale array', () => {
+                const on = reduce(
+                    bufferedState({ envelopeQuantities: ['depth', 'speed'], quantity: 'depth', envelopeMode: true }),
+                    playbackEnvelopeLoaded(7, 'depth', new Float32Array([5]))
+                );
+                const s = reduce(on, playbackSetQuantity('speed'));
+                expect(s.quantity).toBe('speed');
+                expect(s.envelopeMode).toBe(true);
+                expect(s.envelopeData).toBe(null); // belonged to 'depth' — must not leak onto 'speed'
+            });
+        });
+
+        describe('the scrubber/PLAY/TICK are inert while Max is on (AC6)', () => {
+            it('PLAY is a true no-op (same state reference)', () => {
+                const s = bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth', envelopeMode: true });
+                expect(reduce(s, playbackPlay())).toBe(s);
+            });
+            it('SEEK is a true no-op (same state reference)', () => {
+                const s = bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth', envelopeMode: true, currentTimestep: 2 });
+                expect(reduce(s, playbackSeek(9))).toBe(s);
+            });
+            it('TICK does not advance the playhead (same state reference)', () => {
+                const withMaxOn = { ...bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth' }), status: PLAYBACK_STATUS.PLAYING, envelopeMode: true };
+                expect(reduce(withMaxOn, playbackTick(Date.now() + 1000))).toBe(withMaxOn);
             });
         });
     });

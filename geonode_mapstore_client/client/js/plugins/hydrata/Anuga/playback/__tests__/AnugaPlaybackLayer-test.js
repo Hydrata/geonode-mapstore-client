@@ -217,6 +217,45 @@ describe('AnugaPlaybackLayer', () => {
             expect(layer.get('wireframe')).toBe(true);
         });
 
+        // TASK-2752 (W8.2, epic 2706) AC5/AC6 — the Max envelope toggle,
+        // same plain layer-property class as wireframe above.
+        it('carries envelopeMode through create() and update(), defaulting to false', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-envelope-mode' });
+            expect(layer.get('envelopeMode')).toBe(false);
+
+            const off = { id: 'playback-envelope-mode' };
+            const on = { id: 'playback-envelope-mode', envelopeMode: true };
+            Layers.updateLayer(LAYER_TYPE, layer, on, off);
+            expect(layer.get('envelopeMode')).toBe(true);
+
+            Layers.updateLayer(LAYER_TYPE, layer, off, on);
+            expect(layer.get('envelopeMode')).toBe(false);
+        });
+
+        it('setEnvelope() runs without a GL error at create() time and on update(), and resets on null', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, {
+                id: 'playback-envelope-data',
+                mesh: {
+                    nodeX: Float32Array.from([0, 10, 0, 10]),
+                    nodeY: Float32Array.from([0, 0, 10, 10]),
+                    elevation: Float32Array.from([1, 2, 3, 4]),
+                    faceNodeConnectivity: Int32Array.from([0, 1, 2, 1, 3, 2]),
+                    epsg: 32756, xllcorner: 500000, yllcorner: 6900000
+                },
+                envelopeData: Float32Array.from([1, 2, 3, 4])
+            });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const gl = renderer.gl;
+            expect(gl.getError()).toBe(gl.NO_ERROR);
+
+            const withEnvelope = { id: 'playback-envelope-data', envelopeData: Float32Array.from([9, 9, 9, 9]) };
+            const cleared = { id: 'playback-envelope-data', envelopeData: null };
+            Layers.updateLayer(LAYER_TYPE, layer, cleared, withEnvelope);
+            expect(gl.getError()).toBe(gl.NO_ERROR);
+            Layers.updateLayer(LAYER_TYPE, layer, withEnvelope, cleared);
+            expect(gl.getError()).toBe(gl.NO_ERROR);
+        });
+
         it('render(frameState) returns the same canvas element on repeated calls (no per-frame element churn)', () => {
             const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-5' });
             const frameState = { viewState: { center: [0, 0], resolution: 100, rotation: 0 }, size: [200, 150], pixelRatio: 1 };

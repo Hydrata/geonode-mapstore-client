@@ -282,7 +282,13 @@ function create(options = {}, map) {
                 // above.
                 particlesEnabled: !!olLayer.get('particlesEnabled'),
                 particleDensity: olLayer.get('particleDensity'),
-                particleSpeedExaggeration: olLayer.get('particleSpeedExaggeration')
+                particleSpeedExaggeration: olLayer.get('particleSpeedExaggeration'),
+                // TASK-2752 (AC6) — the Max toggle. A plain layer-level
+                // rendering setting, same class as `wireframe` above — NOT
+                // itself controller buffer-then-play state (envelopeData,
+                // the actual array, arrives via setEnvelope() below, not
+                // through this per-frame render() call).
+                envelopeMode: !!olLayer.get('envelopeMode')
             });
         }
     });
@@ -303,6 +309,7 @@ function create(options = {}, map) {
     olLayer.set('particlesEnabled', !!options.particlesEnabled);
     olLayer.set('particleDensity', options.particleDensity);
     olLayer.set('particleSpeedExaggeration', options.particleSpeedExaggeration);
+    olLayer.set('envelopeMode', !!options.envelopeMode);
     // Internal handle update() needs — not an OL/observable property.
     olLayer.__anugaPlaybackRenderer = renderer;
 
@@ -349,6 +356,14 @@ function create(options = {}, map) {
     }
     if (options.mesh) {
         loadMesh(renderer, olLayer, options.mesh);
+    }
+    if (options.envelopeData) {
+        // TASK-2752 (AC5) — mirrors the frame0/frame1 branch above: only
+        // uploads when actually provided (a fresh create() before any
+        // envelope has loaded leaves the renderer's own zero-filled default
+        // from setMesh in place, which is correct — AC4's "no throw, no
+        // console error" for a store/quantity with no envelope).
+        renderer.setEnvelope(options.envelopeData);
     }
 
     return olLayer;
@@ -434,6 +449,17 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (newOptions.particleSpeedExaggeration !== oldOptions.particleSpeedExaggeration) {
         layer.set('particleSpeedExaggeration', newOptions.particleSpeedExaggeration);
+    }
+    if (newOptions.envelopeMode !== oldOptions.envelopeMode) {
+        layer.set('envelopeMode', !!newOptions.envelopeMode);
+    }
+    if (newOptions.envelopeData !== oldOptions.envelopeData) {
+        // TASK-2752 (AC5/AC6) — a quantity switch while Max is on, or the
+        // toggle itself, hands a NEW (or null — quantity has none/still
+        // loading) array here. `undefined` and `null` both fall through
+        // setEnvelope's own length-mismatch guard to a zero-filled reset,
+        // so a stale previous quantity's numbers can never linger on screen.
+        renderer.setEnvelope(newOptions.envelopeData || null);
     }
     if (newOptions.opacity !== oldOptions.opacity) {
         layer.setOpacity(newOptions.opacity !== undefined ? newOptions.opacity : 1);

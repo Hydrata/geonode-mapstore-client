@@ -29,7 +29,7 @@
  * ahead of data that hasn't arrived ("no stream and hope").
  */
 import { computeMixFactor } from './playbackMeshGeometry';
-import { availableQuantityIds } from './playbackDerivedQuantities';
+import { availableQuantityIds, availableEnvelopeQuantityIds } from './playbackDerivedQuantities';
 import { isUsableChunkLength } from './playbackChunkShape';
 // TASK-2744 AC11 — the overlay knobs' defaults, now that they are controller
 // state rather than the control bar's component-local state.
@@ -58,7 +58,9 @@ import {
     PLAYBACK_SET_OVERLAY,
     PLAYBACK_SET_COLOR_MAX,
     PLAYBACK_MANIFEST_FETCHED,
-    PLAYBACK_LOAD_PROGRESS
+    PLAYBACK_LOAD_PROGRESS,
+    PLAYBACK_SET_ENVELOPE_MODE,
+    PLAYBACK_ENVELOPE_LOADED
 } from './actions/playbackActions';
 
 export const PLAYBACK_STATUS = Object.freeze({
@@ -233,8 +235,34 @@ export function createInitialPlaybackState() {
         arrowScale: DEFAULT_ARROW_SCALE,
         particlesEnabled: false,
         particleDensity: DEFAULT_PARTICLE_GRID,
-        particleSpeedExaggeration: DEFAULT_SPEED_EXAGGERATION
+        particleSpeedExaggeration: DEFAULT_SPEED_EXAGGERATION,
+        // TASK-2752 (W8.2, epic 2706) — the temporal-max envelope (the Max
+        // toggle). `envelopeQuantities` is which FE quantity ids THIS store
+        // declares one for (set at MANIFEST_LOADED from the manifest's
+        // schema_metadata.envelope_quantities via
+        // playbackDerivedQuantities.availableEnvelopeQuantityIds — []
+        // for a store exported before this task, the has_dt first-class-
+        // absence shape). `envelopeMode` is the toggle itself; `envelopeData`
+        // is the currently-loaded Float32Array(nNode) for the ACTIVE
+        // quantity, fetched by the epic and null while none is loaded/
+        // applicable.
+        envelopeQuantities: [],
+        envelopeMode: false,
+        envelopeData: null
     };
+}
+
+/**
+ * Does the store's declared envelope set cover THIS quantity? The single
+ * predicate the reducer, the epic and the control bar all share (AC6:
+ * "enabled exactly when the CURRENT result quantity has an envelope in this
+ * store") so they can never disagree about it.
+ * @param {string[]} envelopeQuantities state.envelopeQuantities
+ * @param {string} quantity
+ * @returns {boolean}
+ */
+export function hasEnvelopeForQuantity(envelopeQuantities, quantity) {
+    return Array.isArray(envelopeQuantities) && envelopeQuantities.indexOf(quantity) !== -1;
 }
 
 // TASK-2744 AC11 — the only keys PLAYBACK_SET_OVERLAY may write. A whitelist
@@ -579,6 +607,14 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             speed: defaultSpeedForTime(action.time),
             dtMs: action.dtMs || null,
             hasDt,
+            // TASK-2752 — first-class-absence, mirroring hasDt immediately
+            // above: a store exported before this task simply has none.
+            envelopeQuantities: availableEnvelopeQuantityIds(meta.envelope_quantities),
+            // A run switch always lands with Max off — carrying it over
+            // would draw the OLD run's envelope (or none) under the NEW
+            // run's label for one frame, and RESET below already agrees.
+            envelopeMode: false,
+            envelopeData: null,
             wetThreshold: meta.minimum_storable_height > 0 ? meta.minimum_storable_height : state.wetThreshold,
             g: meta.g || state.g,
             rhoW: meta.rho_w || state.rhoW,
@@ -642,6 +678,12 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         return { ...state, error: action.error || state.error };
     }
     case PLAYBACK_PLAY: {
+        // TASK-2752 AC6 — "the scrubber is disabled" while Max is on; PLAY
+        // is the other half of "the timeline does not move" (a static
+        // envelope has no timestep to play towards).
+        if (state.envelopeMode) {
+            return state;
+        }
         if (state.status === PLAYBACK_STATUS.PLAYING) {
             return state;
         }
@@ -679,6 +721,10 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         return { ...state, pendingPlay: false };
     }
     case PLAYBACK_SEEK: {
+        // TASK-2752 AC6 — "the scrubber is disabled" while Max is on.
+        if (state.envelopeMode) {
+            return state;
+        }
         const nTime = state.nTime || 1;
         const currentTimestep = Math.min(Math.max(0, action.timestepIndex | 0), Math.max(0, nTime - 1));
         const playheadSeconds = state.time ? state.time[currentTimestep] : currentTimestep;
@@ -700,6 +746,13 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // below). Any other status (paused/ready/seeking/idle/error) ignores
         // ticks entirely.
         if (state.status !== PLAYBACK_STATUS.PLAYING && state.status !== PLAYBACK_STATUS.STALLED) {
+            return state;
+        }
+        // TASK-2752 AC6 — a static envelope has no timestep to advance
+        // towards; PLAYBACK_PLAY already refuses to enter PLAYING while
+        // envelopeMode is on, so this is belt-and-braces for a TICK that
+        // arrives from an interval started just before the toggle flipped.
+        if (state.envelopeMode) {
             return state;
         }
         const nowMs = action.nowMs;
@@ -753,7 +806,20 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // offered.
         const requested = action.quantity;
         const available = availableQuantityIds(state.hasDt);
-        return { ...state, quantity: available.includes(requested) ? requested : state.quantity };
+        const quantity = available.includes(requested) ? requested : state.quantity;
+        if (quantity === state.quantity) {
+            return state;
+        }
+        // TASK-2752 AC6 — "enabled exactly when the CURRENT result quantity
+        // has an envelope in this store": a switch INTO a quantity this
+        // store has no envelope for must drop Max, the same way a switch
+        // into Courant without has_dt already falls back above. A switch
+        // between two quantities that BOTH have one stays in Max mode —
+        // envelopeData is cleared either way (it belongs to the OLD
+        // quantity) so the sync epic re-fetches the new one rather than
+        // drawing stale numbers under the new label for one frame.
+        const envelopeMode = state.envelopeMode && hasEnvelopeForQuantity(state.envelopeQuantities, quantity);
+        return { ...state, quantity, envelopeMode, envelopeData: null };
     }
     case PLAYBACK_SET_IDENTIFY_ARMED: {
         return { ...state, identifyArmed: !!action.armed, identifyResult: action.armed ? state.identifyResult : null };
@@ -804,6 +870,36 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             next[quantity] = Number(action.value);
         }
         return { ...state, colorMaxOverride: next };
+    }
+    // TASK-2752 AC6 — the Max toggle itself. A no-op when the requested
+    // state has no envelope to show (hasEnvelopeForQuantity false): the
+    // control bar is expected to render the button disabled in that case
+    // (AC: "disabled with an explanatory tooltip"), so reaching this action
+    // at all with enabled=true and no envelope means the UI let a disabled
+    // control fire — refuse rather than pretend to turn on.
+    case PLAYBACK_SET_ENVELOPE_MODE: {
+        const enabled = !!action.enabled;
+        if (enabled && !hasEnvelopeForQuantity(state.envelopeQuantities, state.quantity)) {
+            return state;
+        }
+        return {
+            ...state,
+            envelopeMode: enabled,
+            // Turning OFF drops whatever was loaded too — re-enabling later
+            // (same or different quantity) always re-fetches rather than
+            // risking a stale array from a run/quantity that has since moved on.
+            envelopeData: enabled ? state.envelopeData : null
+        };
+    }
+    // TASK-2752 — the epic's fetch landed. Stale-response guarded on BOTH
+    // runId and quantity: a slow fetch for a quantity the operator has
+    // since switched away from (or a run since unloaded) must not overwrite
+    // whatever is current.
+    case PLAYBACK_ENVELOPE_LOADED: {
+        if (action.runId !== state.runId || action.quantity !== state.quantity) {
+            return state;
+        }
+        return { ...state, envelopeData: action.data || null };
     }
     case PLAYBACK_RESET: {
         return createInitialPlaybackState();

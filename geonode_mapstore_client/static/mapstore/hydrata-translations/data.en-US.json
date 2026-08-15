@@ -596,6 +596,7 @@
         "legendExceedsSld": "Ramp extended to {colorMax} {unit} — this run exceeds the standard scale",
         "legendCourantApprox": "Approximate — computed from the solver's single global timestep, not a per-cell CFL number.",
         "legendToleranceNote": "Values read the smoothed vertex field, not the *_max raster layers — a peak-frame reading here can differ visibly from the *_max COG at the same point.",
+        "legendMaxEnvelopeNote": "Showing the run maximum — the peak value reached anywhere during the whole run, not a single timestep.",
         "identifyReadoutTitle": "Inspect",
         "identifyReadoutNoData": "No mesh data at this point",
         "identifyReadoutSurface": "Smoothed vertex field (not *_max raster)",
@@ -646,7 +647,8 @@
         "drawerOverlays": "Overlays",
         "drawerColourScale": "Colour scale",
         "maxEnvelope": "Max",
-        "maxEnvelopeUnavailable": "Peak value over the whole run — coming soon; this run’s store has no max envelope yet",
+        "maxEnvelopeTooltip": "Show the peak value reached anywhere in the run, instead of the current timestep",
+        "maxEnvelopeUnavailable": "Peak value over the whole run — this run’s store has no max envelope for the selected quantity",
         "tickUnit": {
           "s": "s",
           "min": "min",

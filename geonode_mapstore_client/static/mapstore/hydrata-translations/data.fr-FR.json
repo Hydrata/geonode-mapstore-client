@@ -596,6 +596,7 @@
         "legendExceedsSld": "Échelle étendue à {colorMax} {unit} — cette simulation dépasse l'échelle standard",
         "legendCourantApprox": "Approximatif — calculé à partir du pas de temps global unique du solveur, pas un nombre CFL par cellule.",
         "legendToleranceNote": "Les valeurs proviennent du champ de sommets lissé, pas des couches raster *_max — une lecture à l'image de pointe peut différer visiblement du COG *_max au même point.",
+        "legendMaxEnvelopeNote": "Affichage du maximum de la simulation — la valeur de pointe atteinte n'importe où pendant toute la simulation, pas un seul pas de temps.",
         "identifyReadoutTitle": "Inspecter",
         "identifyReadoutNoData": "Aucune donnée de maillage à ce point",
         "identifyReadoutSurface": "Champ de sommets lissé (pas le raster *_max)",
@@ -646,7 +647,8 @@
         "drawerOverlays": "Superpositions",
         "drawerColourScale": "Échelle de couleurs",
         "maxEnvelope": "Max",
-        "maxEnvelopeUnavailable": "Valeur maximale sur toute la simulation — bientôt disponible ; le magasin de cette simulation n'a pas encore d'enveloppe max",
+        "maxEnvelopeTooltip": "Afficher la valeur maximale atteinte pendant toute la simulation, au lieu du pas de temps actuel",
+        "maxEnvelopeUnavailable": "Valeur maximale sur toute la simulation — le magasin de cette simulation n'a pas d'enveloppe max pour la grandeur sélectionnée",
         "tickUnit": {
           "s": "s",
           "min": "min",
