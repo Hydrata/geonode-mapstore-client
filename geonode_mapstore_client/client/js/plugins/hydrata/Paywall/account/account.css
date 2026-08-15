@@ -580,6 +580,56 @@
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
+/* TASK-2780 (epic 2765 W4) — copy-project-link control.
+   Scoped under .sv-membership-movable like the rest of this file so it styles
+   the panel and nothing else. Colours come from the same --sv-* tokens the
+   visibility rows use, so it stays one surface rather than a bolted-on box. */
+.sv-membership-movable .sv-membership-project-link {
+    padding: 10px 0 2px;
+    border-top: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
+}
+
+.sv-membership-movable .sv-membership-project-link-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* The input takes the slack; the button keeps its label on one line so a long
+   translation ("Copier le lien du projet") does not wrap into two rows. */
+.sv-membership-movable .sv-membership-project-link-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.sv-membership-movable .sv-membership-project-link-copy {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.sv-membership-movable .sv-membership-project-link-note {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+.sv-membership-movable .sv-membership-project-link-feedback {
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+/* Success and failure must not read the same at a glance — the whole point of
+   the feedback is telling the two apart without re-checking the clipboard. */
+.sv-membership-movable .sv-membership-project-link-feedback--copied {
+    color: var(--sv-status-ok, #a8e6a8);
+}
+
+.sv-membership-movable .sv-membership-project-link-feedback--failed {
+    color: var(--sv-status-warn, #f0e08a);
+}
+
 /* Members list (replaces the User/Role table). */
 .sv-membership-members {
     padding: 8px 0 2px;

@@ -1,6 +1,30 @@
 const SET_OPEN_MENU_GROUP_ID = 'SET_OPEN_MENU_GROUP_ID';
 const SET_VISIBLE_LEGEND_PANEL = 'SET_VISIBLE_LEGEND_PANEL';
 const SET_VISIBLE_INTRODUCTION = 'SET_VISIBLE_INTRODUCTION';
+// Epic 2765 W3 — the project-introduction payload and its acceptance.
+// SET_VISIBLE_INTRODUCTION above stays the pure RENDER flag (the toolbar's
+// "About this project" button reopens the modal through it); these three carry
+// the content and the accept state, which are a different concern.
+const INTRODUCTION_LOADED = 'INTRODUCTION_LOADED';
+const ACCEPT_INTRODUCTION = 'ACCEPT_INTRODUCTION';
+const INTRODUCTION_ACCEPTED = 'INTRODUCTION_ACCEPTED';
+// Epic 2765 W4 (TASK-2778) — owner/manager edit-in-place.
+//
+// ⚠ THESE ARE DELIBERATELY NOT `INTRODUCTION_LOADED`, even though the PATCH
+// response is byte-for-byte the same read payload the GET returns and reusing
+// it would have been one line. Two live wires make that shortcut wrong:
+//
+//   1. `introductionAutoShowEpic` is `ofType(INTRODUCTION_LOADED)` — so an
+//      owner's Save would re-run the whole show-verdict pipeline underneath the
+//      modal they are already looking at.
+//   2. the INTRODUCTION_LOADED reducer case writes
+//      `acceptedVersion: action.acceptedVersion || null`, which would ERASE
+//      this browser's anonymous acceptance stamp on every save.
+//
+// INTRODUCTION_SAVED swaps the content and leaves both alone.
+const SAVE_INTRODUCTION = 'SAVE_INTRODUCTION';
+const INTRODUCTION_SAVED = 'INTRODUCTION_SAVED';
+const INTRODUCTION_SAVE_FAILED = 'INTRODUCTION_SAVE_FAILED';
 const SET_VISIBLE_UPLOADER_PANEL = 'SET_VISIBLE_UPLOADER_PANEL';
 const SET_VISIBLE_SV_ATTRIBUTE_FORM = 'SET_VISIBLE_SV_ATTRIBUTE_FORM';
 const UPDATE_UPLOAD_STATUS = 'UPDATE_UPLOAD_STATUS';
@@ -73,6 +97,97 @@ function setVisibleIntroduction(visible) {
     return {
         type: SET_VISIBLE_INTRODUCTION,
         visible
+    };
+}
+
+/**
+ * The introduction payload for `projectId` has arrived.
+ *
+ * @param {number} projectId       the ANUGA project the payload describes. Kept
+ *   beside the data so a role/paywall reading can be checked against THIS
+ *   project rather than against whatever the ANUGA panel loaded last — the
+ *   TASK-2427 staleness trap; see introductionGate.js.
+ * @param {object} data            the GET body.
+ * @param {string|null} acceptedVersion  the content_version this browser has
+ *   already accepted ANONYMOUSLY (localStorage), or null. Read in the epic so
+ *   the reducer stays pure; irrelevant when authenticated, where the server's
+ *   `accepted_current_version` is the answer.
+ * @param {number|string|null} mapId  WHICH MAP this fetch was started for
+ *   (TASK-2790). The fetch epic is a `mergeMap`, so nothing cancels an
+ *   in-flight request when the viewer hops to another map, and a slow reply
+ *   would otherwise re-poison the slice with the PREVIOUS project's disclaimer
+ *   moments after the map change cleared it. The reducer refuses a stamp that
+ *   POSITIVELY disagrees; an unstamped dispatch still reads through, the same
+ *   fail-safe rule `SET_ANUGA_PROJECT_DATA` applies (projectsReducer).
+ */
+function introductionLoaded(projectId, data, acceptedVersion = null, mapId = null) {
+    return {
+        type: INTRODUCTION_LOADED,
+        projectId,
+        data,
+        acceptedVersion,
+        mapId
+    };
+}
+
+/** The viewer pressed Accept. Intent only — the epic decides how it persists. */
+function acceptIntroduction() {
+    return {
+        type: ACCEPT_INTRODUCTION
+    };
+}
+
+/**
+ * The acceptance is recorded (server row when authenticated, localStorage when
+ * anonymous). Carries the VERSION rather than a boolean so a later content edit
+ * re-prompts: the gate compares versions, it never asks "ever accepted".
+ */
+function introductionAccepted(projectId, contentVersion) {
+    return {
+        type: INTRODUCTION_ACCEPTED,
+        projectId,
+        contentVersion
+    };
+}
+
+/**
+ * An owner or manager pressed Save on the edit-in-place surface.
+ *
+ * @param {number} projectId  the project whose introduction is being edited.
+ *   Carried on the action rather than read from the store in the epic, so a
+ *   save can never be applied to whatever project an SPA hop loaded since.
+ * @param {object} source     `{description, body, owner_limitations}` — the raw
+ *   Markdown. The BASELINE is not in this shape and cannot be: it is not a
+ *   column on ProjectIntroduction, so the write serializer has no field for it
+ *   (settled decision 6 — the owner appends, never edits, the platform text).
+ */
+function saveIntroduction(projectId, source) {
+    return {
+        type: SAVE_INTRODUCTION,
+        projectId,
+        source
+    };
+}
+
+/**
+ * The PATCH landed. `data` is the server's FULL read payload for the saved
+ * content — the same shape the GET returns, including a freshly-computed
+ * `content_version` — so the modal re-renders from the server's own answer and
+ * never from an optimistic local guess.
+ */
+function introductionSaved(projectId, data) {
+    return {
+        type: INTRODUCTION_SAVED,
+        projectId,
+        data
+    };
+}
+
+/** The PATCH failed. The editor stays open with the owner's text intact. */
+function introductionSaveFailed(projectId) {
+    return {
+        type: INTRODUCTION_SAVE_FAILED,
+        projectId
     };
 }
 
@@ -154,6 +269,12 @@ module.exports = {
     SET_OPEN_MENU_GROUP_ID, setOpenMenuGroupId,
     SET_VISIBLE_LEGEND_PANEL, setVisibleLegendPanel,
     SET_VISIBLE_INTRODUCTION, setVisibleIntroduction,
+    INTRODUCTION_LOADED, introductionLoaded,
+    ACCEPT_INTRODUCTION, acceptIntroduction,
+    INTRODUCTION_ACCEPTED, introductionAccepted,
+    SAVE_INTRODUCTION, saveIntroduction,
+    INTRODUCTION_SAVED, introductionSaved,
+    INTRODUCTION_SAVE_FAILED, introductionSaveFailed,
     SET_VISIBLE_UPLOADER_PANEL, setVisibleUploaderPanel,
     SET_VISIBLE_SV_ATTRIBUTE_FORM, setVisibleSimpleViewAttributeForm,
     UPDATE_UPLOAD_STATUS, updateUploadStatus,

@@ -3,13 +3,15 @@
   "messages": {
     "hydrata": {
       "comingSoon": "Próximamente",
+      "introduction": {
+        "baseline": "Hydrata y todo lo que se muestra aquí se proporcionan «tal cual» y «según disponibilidad», sin garantía de ningún tipo, expresa o implícita — incluidas las de comerciabilidad, idoneidad para un propósito particular y no infracción. No garantizamos que el servicio satisfaga sus necesidades ni que logre el resultado previsto, ni la exactitud, fiabilidad o vigencia de la información o los contenidos mostrados. Los resultados del modelo son una simulación: aproximan lo que implican el terreno, las condiciones de contorno, los supuestos y la resolución de malla suministrados, no lo que ocurrirá. No los utilice como única base para el diseño de ingeniería, decisiones regulatorias o de planificación, respuesta ante emergencias, seguridad de las personas o navegación; haga primero que un profesional cualificado los verifique frente a las condiciones del sitio. Su uso de Hydrata se rige por nuestras Condiciones del servicio."
+      },
       "simpleView": {
         "accept": "Aceptar",
         "baseMaps": "Mapas base",
         "begin": "Comenzar",
         "cancel": "Cancelar",
         "close": "Cerrar",
-        "disclaimer": "La aplicación se proporciona \"tal cual\", sin garantía de ningún tipo, expresa o implícita, incluyendo pero no limitándose a las garantías de comerciabilidad, idoneidad para un propósito particular y no infracción. En ningún caso los autores o titulares de los derechos de autor serán responsables de cualquier reclamación, daño u otra responsabilidad, ya sea en una acción de contrato, agravio o de otra manera, que surja de, o en conexión con el software o el uso u otras operaciones con el software.",
         "dragFilesOrClick": "Arrastre archivos o haga clic aquí",
         "error": "Error",
         "failedToUpdateTitle": "Error al actualizar el título del conjunto de datos",
@@ -38,7 +40,24 @@
         "measure": "Medir",
         "welcomeTitle": "Bienvenido a Hydrata",
         "confirmDelete": "Delete",
-        "delete": "Delete"
+        "delete": "Delete",
+        "introductionEdit": "Editar introducción",
+        "introductionSaving": "Guardando…",
+        "introductionFieldDescription": "Resumen breve",
+        "introductionFieldBody": "Descripción completa",
+        "introductionFieldLimitations": "Limitaciones a tener en cuenta",
+        "introductionLimitationsTitle": "Limitaciones indicadas por el propietario del proyecto",
+        "introductionBaselineLabel": "Aviso legal de la plataforma",
+        "introductionBaselineReadOnly": "Este es el texto propio de Hydrata. Puede añadir sus propias limitaciones más arriba, pero no puede modificarlo ni eliminarlo.",
+        "introductionRepromptWarning": "Cualquier cambio que guarde publica una nueva versión de esta introducción. Todas las personas que ya la habían aceptado —incluidas aquellas a las que envió un enlace— tendrán que aceptarla de nuevo.",
+        "introductionSaveFailed": "No se ha podido guardar. Su texto sigue aquí: compruebe la conexión e inténtelo de nuevo.",
+        "introductionStatsTitle": "Detalles del proyecto",
+        "introductionAoi": "Área cubierta",
+        "introductionRuns": "Simulaciones ejecutadas",
+        "introductionProjection": "Sistema de coordenadas",
+        "introductionCreated": "Creado",
+        "introductionUpdated": "Última actualización",
+        "introductionNotRecorded": "Sin registrar"
       },
       "swamm": {
         "accept": "Accept",
@@ -260,6 +279,12 @@
         "nodes": "Nodos",
         "none": "Ninguno",
         "projectVisibility": "Visibilidad",
+        "projectLink": "Enlace del proyecto",
+        "projectLinkCopy": "Copiar el enlace del proyecto",
+        "projectLinkCopied": "Enlace del proyecto copiado al portapapeles.",
+        "projectLinkCopyFailed": "No se pudo copiar automáticamente. El enlace del proyecto de arriba está seleccionado: pulse Ctrl+C (Cmd+C en Mac) para copiarlo.",
+        "projectLinkAbsent": "Este proyecto aún no tiene mapa, así que no hay ningún enlace del proyecto que copiar.",
+        "projectLinkVisibilityNote": "Quien abra este enlace solo obtiene lo que permite el ajuste de visibilidad del proyecto.",
         "publish": "Publicar",
         "publishPrefix": "Publicar:",
         "rainfall": "Precipitación",

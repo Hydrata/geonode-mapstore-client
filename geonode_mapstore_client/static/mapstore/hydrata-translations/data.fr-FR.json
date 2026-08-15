@@ -3,13 +3,15 @@
   "messages": {
     "hydrata": {
       "comingSoon": "Bientôt disponible",
+      "introduction": {
+        "baseline": "Hydrata et tout ce qui est affiché ici sont fournis « en l'état » et « selon disponibilité », sans garantie d'aucune sorte, expresse ou implicite — y compris les garanties de qualité marchande, d'adéquation à un usage particulier et d'absence de contrefaçon. Nous ne garantissons pas que le service répondra à vos besoins ni qu'il produira le résultat escompté, ni l'exactitude, la fiabilité ou l'actualité des informations ou contenus affichés. Les résultats du modèle sont une simulation : ils approchent ce qu'impliquent le terrain, les conditions aux limites, les hypothèses et la résolution du maillage fournis — et non ce qui se produira. Ne vous en servez pas comme seule base pour une conception technique, une décision réglementaire ou d'urbanisme, une intervention d'urgence, la sécurité des personnes ou la navigation ; faites-les d'abord vérifier par un professionnel qualifié au regard des conditions du site. Votre utilisation d'Hydrata est régie par nos Conditions d'utilisation."
+      },
       "simpleView": {
         "accept": "Accepter",
         "baseMaps": "Fonds de carte",
         "begin": "Commencer",
         "cancel": "Annuler",
         "close": "Fermer",
-        "disclaimer": "L'application est fournie « telle quelle », sans garantie d'aucune sorte, expresse ou implicite, y compris, mais sans s'y limiter, les garanties de qualité marchande, d'adéquation à un usage particulier et d'absence de contrefaçon. En aucun cas les auteurs ou les détenteurs des droits d'auteur ne pourront être tenus responsables de toute réclamation, dommage ou autre responsabilité, que ce soit dans le cadre d'un contrat, d'un délit ou autrement, découlant de ou en relation avec le logiciel ou l'utilisation ou d'autres transactions liées au logiciel.",
         "dragFilesOrClick": "Glissez des fichiers ou cliquez ici",
         "error": "Erreur",
         "failedToUpdateTitle": "Échec de la mise à jour du titre du jeu de données",
@@ -38,7 +40,24 @@
         "measure": "Mesurer",
         "welcomeTitle": "Bienvenue sur Hydrata",
         "confirmDelete": "Delete",
-        "delete": "Delete"
+        "delete": "Delete",
+        "introductionEdit": "Modifier l’introduction",
+        "introductionSaving": "Enregistrement…",
+        "introductionFieldDescription": "Résumé court",
+        "introductionFieldBody": "Description complète",
+        "introductionFieldLimitations": "Limites à signaler",
+        "introductionLimitationsTitle": "Limites signalées par le propriétaire du projet",
+        "introductionBaselineLabel": "Avertissement de la plateforme",
+        "introductionBaselineReadOnly": "Ce texte appartient à Hydrata. Vous pouvez ajouter vos propres limites ci-dessus, mais vous ne pouvez ni le modifier ni le supprimer.",
+        "introductionRepromptWarning": "Toute modification enregistrée publie une nouvelle version de cette introduction. Toutes les personnes qui l’avaient déjà acceptée — y compris celles à qui vous avez envoyé un lien — devront l’accepter à nouveau.",
+        "introductionSaveFailed": "L’enregistrement a échoué. Votre texte est toujours là : vérifiez votre connexion et réessayez.",
+        "introductionStatsTitle": "Détails du projet",
+        "introductionAoi": "Zone couverte",
+        "introductionRuns": "Simulations exécutées",
+        "introductionProjection": "Système de coordonnées",
+        "introductionCreated": "Créé",
+        "introductionUpdated": "Dernière mise à jour",
+        "introductionNotRecorded": "Non renseigné"
       },
       "swamm": {
         "accept": "Accept",
@@ -260,6 +279,12 @@
         "nodes": "Nœuds",
         "none": "Aucun",
         "projectVisibility": "Visibilité",
+        "projectLink": "Lien du projet",
+        "projectLinkCopy": "Copier le lien du projet",
+        "projectLinkCopied": "Lien du projet copié dans le presse-papiers.",
+        "projectLinkCopyFailed": "La copie automatique a échoué. Le lien du projet ci-dessus est sélectionné — appuyez sur Ctrl+C (Cmd+C sur Mac) pour le copier.",
+        "projectLinkAbsent": "Ce projet n'a pas encore de carte, il n'y a donc aucun lien de projet à copier.",
+        "projectLinkVisibilityNote": "Toute personne qui ouvre ce lien n'obtient que ce que le paramètre de visibilité du projet autorise.",
         "publish": "Publier",
         "publishPrefix": "Publier :",
         "rainfall": "Précipitations",

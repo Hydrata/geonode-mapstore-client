@@ -48,6 +48,10 @@ describe('SimpleView RHS toolbar / TaskMonitor alignment', () => {
         const baseProps = {
             menuGroups: [],
             visibleIntroduction: false,
+            // TASK-2796 — the About button is payload-gated now. These tests
+            // measure the toolbar WITH it, so the surface they describe is one
+            // where an introduction has arrived.
+            introductionAvailable: true,
             visibleLegendPanel: false,
             // keep the conditional clusters off so the toolbar renders just the
             // always-present Legend button (a real, measurable button in Chrome)
@@ -67,6 +71,37 @@ describe('SimpleView RHS toolbar / TaskMonitor alignment', () => {
             // must sit below the toolbar's top (11px) — i.e. an actual offset,
             // not the old hardcoded 240px that ignored the button count.
             expect(parseFloat(val)).toBeGreaterThan(11);
+            unmount();
+        });
+
+        it('measures the toolbar WITH the About button, so Tasks still sits one gap below the LAST button', () => {
+            // TASK-2775 AC5 (epic 2765 W3). Adding a button to this column
+            // MOVES the TaskMonitor: `--sv-tm-top` is derived from the LIVE
+            // toolbar's measured bottom edge, not from a button count. Asserted
+            // rather than eyeballed — the two ways this silently breaks are a
+            // button rendered OUTSIDE the measured box, and a var computed from
+            // a stale measurement.
+            const { container, unmount } = mountWithProviders(
+                <SimpleViewContainer {...baseProps} />, { state: {} }
+            );
+            const toolbar = container.querySelector('.simple-view-right-toolbar');
+            const about = toolbar.querySelector('button[title="About this project"]');
+            expect(about).toBeTruthy();
+            // Last child, so the toolbar's bottom edge IS the About button's.
+            expect(toolbar.lastElementChild).toBe(about);
+
+            const toolbarRect = toolbar.getBoundingClientRect();
+            const aboutRect = about.getBoundingClientRect();
+            // Real Chrome under karma: a rendered button has real height, so a
+            // zero-height box would mean nothing painted and every comparison
+            // below would be vacuous.
+            expect(toolbarRect.height).toBeGreaterThan(0);
+            expect(aboutRect.height).toBeGreaterThan(0);
+            expect(aboutRect.bottom <= toolbarRect.bottom + 1).toBe(true);
+
+            const expected = computeTaskMonitorTop(toolbar.offsetTop, toolbar.offsetHeight);
+            expect(parseFloat(document.documentElement.style.getPropertyValue(TM_VAR)))
+                .toBe(expected);
             unmount();
         });
 

@@ -53,6 +53,65 @@ const ROLES = [
     {value: 4, label: 'Manager'}
 ];
 
+/**
+ * TASK-2780 (epic 2765 W4) — the project link.
+ *
+ * ONE canonical shape, matching the server's own _project_viewer_url
+ * (gn_anuga/views.py): `/catalogue/#/map/<base_map_id>`. Note the id in the
+ * path is the BASE MAP's, never the project's — pasting a project id here
+ * produces a URL that loads someone else's map or nothing at all.
+ *
+ * NAMING (epic settled decision 12, load-bearing): this is a PROJECT LINK.
+ * "Shareable" is already claimed in this codebase by the tile-caching sense
+ * (glossary.md; gwcTileRouting.js's isShareableTileLayer), where it means
+ * "identical bytes for every user in an audience scope" — a safety boundary
+ * for WMTS routing. Calling this a share/shareable link would collide a
+ * user-facing affordance with a cache-safety predicate. A test in
+ * membershipPanel-test.js greps the shipped source for the banned form.
+ *
+ * Returns null rather than a broken URL when there is no base map:
+ * Project.base_map is null=True (gn_anuga/models/project.py) and views.py
+ * falls back to '/' when it is absent, so a project genuinely can have no
+ * link. A template literal over an absent id yields ".../map/undefined",
+ * which is a link that silently goes nowhere.
+ *
+ * ABSOLUTE, not the bare path (epic 2765 W4 Phase 1.7). The whole point of the
+ * control is that an owner PASTES this somewhere else — an email, a ticket, a
+ * chat message — and `/catalogue/#/map/118` pasted into an address bar is a
+ * search query, not a navigation. The path-only form was what shipped first
+ * because the subtask's acceptance criterion quoted the server-side path
+ * literally; that is the shape of the ROUTE, not of the thing a recipient can
+ * open. The shipped copy beside the control ("Anyone who opens this link...")
+ * only makes sense for an absolute URL.
+ *
+ * `window.location.origin` is the house pattern for exactly this, not a local
+ * invention: ResourceUtils' `formatResourceLinkUrl` opens with
+ * `let href = window.location.origin` for the catalogue's own copy-link button,
+ * and simpleViewUploader.js:301 does the same (TASK-1287) specifically so the
+ * value stays right under a tunnelled/proxied origin, where a hard-coded host
+ * would be wrong for every developer but the one who wrote it.
+ */
+export const PROJECT_LINK_PREFIX = '/catalogue/#/map/';
+
+export const buildProjectLink = (baseMapId) => {
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+    if (baseMapId == null || baseMapId === '') return null;
+    const origin = typeof window !== 'undefined' ? window?.location?.origin || '' : '';
+    return `${origin}${PROJECT_LINK_PREFIX}${baseMapId}`;
+};
+
+// Copy outcome -> the message the user reads. 'failed' deliberately covers
+// BOTH "no clipboard API at all" and "the API rejected": from where the user
+// is standing those are the same event (the copy did not happen) and the same
+// remedy (the link is selected, press Ctrl+C). What must never happen is the
+// third case — nothing at all — which is what a bare `if (navigator.clipboard)`
+// guard produces, and which this panel's nearest prior art
+// (Swamm/components/dashboard/OrgTable.js) still does.
+const PROJECT_LINK_FEEDBACK_MSG_ID = {
+    copied: 'hydrata.anuga.projectLinkCopied',
+    failed: 'hydrata.anuga.projectLinkCopyFailed'
+};
+
 // TASK-2399 (dogfood F14) — 'public' previously read "Anyone can view", which
 // overstates what actually happens: get_visible_projects (gn_anuga/sync.py)
 // deliberately SUPPRESSES public projects from the global project list for
@@ -154,7 +213,11 @@ class MembershipPanelClass extends React.Component {
         paywallEnabled: PropTypes.bool,
         // TASK-2420 — Account panel active tab ('sharing'|'billing') + setter.
         activeTab: PropTypes.string,
-        setMembershipPanelTab: PropTypes.func
+        setMembershipPanelTab: PropTypes.func,
+        // TASK-2780 — the BASE MAP id the project link points at, or null when
+        // the project has no base map. Sourced in mapStateToProps; see the note
+        // there for why it is NOT read off projects.data.
+        projectLinkMapId: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
     };
 
     static defaultProps = {
@@ -172,17 +235,28 @@ class MembershipPanelClass extends React.Component {
             // removeMemberConfirm: {visible, membershipId, username} or null.
             // visibilityConfirm: {visible, newVisibility} or null.
             removeMemberConfirm: null,
-            visibilityConfirm: null
+            visibilityConfirm: null,
+            // TASK-2780 — 'copied' | 'failed' | null. Transient acknowledgement
+            // of the last copy attempt; null until the user clicks Copy.
+            projectLinkCopyStatus: null
         };
     }
 
     componentDidMount() {
+        this._mounted = true;
         // eslint-disable-next-line react/no-did-mount-set-state -- intentional reset of transient form state on (re)mount
         this.setState({inviteEmail: '', inviteRole: 1});
         this.props.fetchMemberships();
         if (this.props.canAdd) {
             this.props.fetchInvitations();
         }
+    }
+
+    // TASK-2780 — the clipboard write settles asynchronously and the panel is
+    // closeable mid-flight, so the copy handler must not setState into a
+    // corpse.
+    componentWillUnmount() {
+        this._mounted = false;
     }
 
     // TASK-860 — send invitation by email
@@ -352,6 +426,125 @@ class MembershipPanelClass extends React.Component {
                     New projects start Public (unlisted). Switch to Private any time
                     {this.props.paywallEnabled ? ' (paid)' : ''}.
                 </div>
+            </div>
+        );
+    }
+
+    // ── TASK-2780 (epic 2765 W4): copy the project link ──────────────────────
+    //
+    // GATING, confirmed rather than assumed (the spec asked). The control is
+    // placed INSIDE renderSharingContent(), so it inherits whatever gate the
+    // Sharing content itself has, on BOTH of this panel's render branches:
+    //   flags-on  — renderSharingContent() is only reached via the Sharing tab,
+    //               which render() hides unless `canAdd` (owner/manager).
+    //   flags-off — there is no tab bar at all; the whole panel is opened by
+    //               the padlock, gated upstream in simpleViewContainer.js.
+    // Hanging it off renderTabBar() instead would have made it invisible on the
+    // flags-off branch, which is the one live on three of the four prod sites.
+    //
+    // NOT additionally gated on permsLoadFailed, unlike Visibility/Invite:
+    // those are mutations and are suppressed when per-row perms can't be
+    // trusted. Copying a URL the user is already looking at is a read, and it
+    // grants nothing the recipient's own permissions don't already grant.
+    setProjectLinkCopyStatus = (projectLinkCopyStatus, done) => {
+        if (!this._mounted) return;
+        this.setState({projectLinkCopyStatus}, done);
+    };
+
+    // The clipboard did not take it. Select the link so a manual Ctrl+C works,
+    // and SAY so — an unacknowledged Copy button is indistinguishable from a
+    // broken one. Selection runs in the setState callback so it happens after
+    // React has finished re-rendering the feedback line.
+    failProjectLinkCopy = () => {
+        this.setProjectLinkCopyStatus('failed', () => {
+            if (this._projectLinkInput) {
+                this._projectLinkInput.focus();
+                this._projectLinkInput.select();
+            }
+        });
+    };
+
+    handleCopyProjectLink = () => {
+        const projectLink = buildProjectLink(this.props.projectLinkMapId);
+        if (!projectLink) return;
+        trackEvent('button', 'click', 'membership-copy-project-link');
+        // Read the API at click time, not at module load: navigator.clipboard
+        // is undefined outside a secure context, and permission state can move
+        // under a live page.
+        const clipboard = typeof navigator === 'undefined' ? null : navigator.clipboard;
+        if (!clipboard || typeof clipboard.writeText !== 'function') {
+            this.failProjectLinkCopy();
+            return;
+        }
+        // Promise.resolve().then() so a writeText that throws SYNCHRONOUSLY
+        // (some embedded webviews) lands in the same rejection path as one that
+        // returns a rejected promise, rather than escaping as an uncaught error
+        // and leaving the button silent.
+        Promise.resolve()
+            .then(() => clipboard.writeText(projectLink))
+            .then(
+                () => this.setProjectLinkCopyStatus('copied'),
+                () => this.failProjectLinkCopy()
+            );
+    };
+
+    renderProjectLinkSection() {
+        const projectLink = buildProjectLink(this.props.projectLinkMapId);
+        return (
+            <div className="sv-membership-project-link" data-testid="sv-membership-project-link">
+                <div className="sv-membership-section-title">
+                    <Message msgId="hydrata.anuga.projectLink" />
+                </div>
+                {projectLink ? (
+                    <div className="sv-membership-project-link-body">
+                        <div className="sv-membership-project-link-row">
+                            {/* readOnly + select-on-focus: this input IS the
+                                no-clipboard fallback, always present rather than
+                                conjured up only once the API has already failed.
+                                A user who never clicks Copy can still select and
+                                copy by hand. */}
+                            <input
+                                type="text"
+                                readOnly
+                                data-testid="sv-membership-project-link-input"
+                                className="sv-data-title-input sv-membership-project-link-input"
+                                aria-label="Project link"
+                                value={projectLink}
+                                ref={(el) => { this._projectLinkInput = el; }}
+                                onFocus={(e) => e.target.select()}
+                            />
+                            <Button
+                                bsStyle="primary"
+                                bsSize="xsmall"
+                                data-testid="sv-membership-project-link-copy"
+                                className="sv-membership-btn-sm sv-membership-project-link-copy"
+                                onClick={this.handleCopyProjectLink}
+                            >
+                                <Message msgId="hydrata.anuga.projectLinkCopy" />
+                            </Button>
+                        </div>
+                        {this.state.projectLinkCopyStatus ? (
+                            <div
+                                data-testid="sv-membership-project-link-feedback"
+                                className={`sv-membership-project-link-feedback sv-membership-project-link-feedback--${this.state.projectLinkCopyStatus}`}
+                                role="status"
+                                aria-live="polite"
+                            >
+                                <Message msgId={PROJECT_LINK_FEEDBACK_MSG_ID[this.state.projectLinkCopyStatus]} />
+                            </div>
+                        ) : null}
+                        <div className="sv-membership-project-link-note">
+                            <Message msgId="hydrata.anuga.projectLinkVisibilityNote" />
+                        </div>
+                    </div>
+                ) : (
+                    <div
+                        className="sv-membership-project-link-note"
+                        data-testid="sv-membership-project-link-absent"
+                    >
+                        <Message msgId="hydrata.anuga.projectLinkAbsent" />
+                    </div>
+                )}
             </div>
         );
     }
@@ -604,6 +797,10 @@ class MembershipPanelClass extends React.Component {
                         </div>
                     ) : null}
                     {this.renderVisibilitySection()}
+                    {/* TASK-2780 — directly under Visibility, because the two
+                        answer one question in sequence: who may open this, and
+                        what do I paste them. */}
+                    {this.renderProjectLinkSection()}
                     {/* UAT-2 redesign — the User/Role table became a "Members (n)"
                         avatar list; row classes (.membership-owner-row /
                         .membership-member-row) and control hooks (.change-role-btn /
@@ -788,7 +985,31 @@ const mapStateToProps = (state) => {
         panelState: state?.anuga?.ui?.movablePanels?.[MEMBERSHIP_PANEL_ID],
         // TASK-2420 — which tab is active (paywallEnabled only; flags-off
         // never reads this).
-        activeTab: state?.anuga?.ui?.membershipPanelTab || 'sharing'
+        activeTab: state?.anuga?.ui?.membershipPanelTab || 'sharing',
+        /**
+         * TASK-2780 — the base-map id for the project link.
+         *
+         * THE OBVIOUS READ IS WRONG. `projects.data` carries no base map:
+         * api_v2's retrieve serializer is ProjectSerializerV2 and only
+         * ProjectSerializerV2Full adds `base_map` (serializers_v2.py), so
+         * `data` is exactly [id, name, projection, simple_view_config,
+         * visibility, owner_username, my_role] — a point both
+         * dataActions.js and projectsReducer.js state in prose. A
+         * `data.base_map_id` read would ship "/catalogue/#/map/undefined"
+         * live while any fixture that sets the field stays green.
+         *
+         * The reachable source is the TASK-2548 STAMP: projectsReducer writes
+         * `mapId` from GEONODE:SET_RESOURCE_ID, i.e. from the map actually
+         * open, which is exactly the id this link must carry. The two
+         * `data.base_map*` fallbacks below are the same fail-safe ORDER
+         * warmTilesEpic.js uses and are expected to miss; they only fire for a
+         * host that mounts this panel without the GeoNode resource lifecycle.
+         */
+        projectLinkMapId: state?.anuga?.projects?.mapId
+            ?? state?.anuga?.projects?.data?.base_map
+            ?? state?.anuga?.projects?.data?.base_map_full?.pk
+            ?? state?.anuga?.projects?.data?.base_map_full?.id
+            ?? null
     };
 };
 

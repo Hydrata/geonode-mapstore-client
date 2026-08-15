@@ -1,0 +1,773 @@
+/**
+ * Project-introduction epics (epic 2765 W3).
+ *
+ * THE ONE THAT MATTERS MOST is
+ * `introductionAcceptEpic … issues NO request when logged out`. An anonymous
+ * POST to /accept/ answers 401 WITH a `WWW-Authenticate: Basic` header, which a
+ * browser may render as a NATIVE PASSWORD PROMPT — on precisely the anonymous
+ * link-recipient path this whole epic exists to serve. Settled decision 3 makes
+ * anonymous acceptance localStorage-only, so the fix is "never call it", and a
+ * comment cannot enforce that. This test can.
+ */
+import expect from 'expect';
+import Rx from 'rxjs';
+import MockAdapter from 'axios-mock-adapter';
+import axios from '../../../../../MapStore2/web/client/libs/ajax';
+
+import {
+    introductionFetchEpic,
+    introductionAutoShowEpic,
+    introductionAcceptEpic,
+    introductionSaveEpic,
+    __resetIntroductionDedupe
+} from '../epicsIntroduction';
+import {
+    ACCEPT_INTRODUCTION,
+    INTRODUCTION_LOADED,
+    INTRODUCTION_ACCEPTED,
+    SAVE_INTRODUCTION,
+    INTRODUCTION_SAVED,
+    INTRODUCTION_SAVE_FAILED,
+    SET_VISIBLE_INTRODUCTION
+} from '../actionsSimpleView';
+import { MAP_CONFIG_LOADED } from '../../../../../MapStore2/web/client/actions/config';
+import { INIT_ANUGA, SET_ANUGA_PROJECT_DATA } from '../../Anuga/actionsAnuga';
+import { __forgetAnonymousAcceptance } from '../introductionStorage';
+
+const PROJECT_ID = 13422;
+const MAP_ID = 118;
+// The OTHER map of the A -> B -> A hop (TASK-2804). Live fixtures: map 118 is
+// project 13422, map 104 is "test2".
+const MAP_ID_B = 104;
+const PROJECT_ID_B = 555;
+const VERSION_A = 'a'.repeat(64);
+const VERSION_B = 'b'.repeat(64);
+
+const payload = (over = {}) => ({
+    project_id: PROJECT_ID,
+    project_name: 'Msimbazi baseline',
+    content_version: VERSION_A,
+    accepted_current_version: false,
+    can_edit: false,
+    baseline: { message_id: 'hydrata.introduction.baseline', version: '1' },
+    description_html: '', body_html: '', owner_limitations_html: '', source: null,
+    stats: {},
+    ...over
+});
+
+const mockActions = (actions) => {
+    const subject = new Rx.Subject();
+    const action$ = subject.asObservable();
+    action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+    setTimeout(() => {
+        actions.forEach(a => subject.next(a));
+        subject.complete();
+    }, 0);
+    return action$;
+};
+
+// The same stream, but LEFT OPEN so a test can dispatch, wait for the requests
+// to resolve, and then dispatch again. `mockActions` above fires everything in
+// one turn, which is the burst case and cannot express "after the payload has
+// landed" or "after the map changed" — the two things TASK-2804 is about.
+const openActions = () => {
+    const subject = new Rx.Subject();
+    const action$ = subject.asObservable();
+    action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+    return { subject, action$ };
+};
+
+// One macrotask boundary drains the whole pending microtask queue, so three of
+// them comfortably cover the from-map -> introduction promise chain.
+const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+const settle = async() => {
+    await flush();
+    await flush();
+    await flush();
+};
+
+const anugaSite = [
+    { name: 'Anuga', cfg: { paywallEnabled: true } },
+    { name: 'Paywall', cfg: { paywallEnabled: true } },
+    { name: 'SimpleView' }
+];
+
+const storeOf = (state) => ({ getState: () => state });
+
+describe('introductionFetchEpic (epic 2765 W3)', () => {
+    let mockAxios;
+    beforeEach(() => {
+        mockAxios = new MockAdapter(axios);
+        __resetIntroductionDedupe();
+    });
+    afterEach(() => mockAxios.restore());
+
+    const mapOpenState = (plugins = anugaSite) => storeOf({
+        localConfig: { plugins: { map_viewer: plugins } },
+        gnresource: { id: MAP_ID },
+        security: {},
+        anuga: {},
+        simpleView: {}
+    });
+
+    it('fires on INIT_ANUGA — the trigger that actually arrives in the live app', (done) => {
+        // ⚠ THE LOAD-BEARING TRIGGER. SimpleView is a lazy module plugin, so its
+        // epics are injected into redux-observable only once the chunk loads,
+        // and redux-observable's action$ does not replay. Instrumented on a cold
+        // anonymous load of /catalogue/#/map/118, MAP_CONFIG_LOADED had fired
+        // ~930ms BEFORE this module was even evaluated and was never seen;
+        // INIT_ANUGA (dispatched by anugaContainer.componentDidUpdate, and
+        // re-dispatched until a project resolves) arrived twice, after.
+        //
+        // Every other assertion in this describe passes against a synthetic
+        // MAP_CONFIG_LOADED, which is exactly why the feature was dead live
+        // while the suite was green. This test is the one that pins the fix.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+
+        introductionFetchEpic(mockActions([{ type: INIT_ANUGA }]), mapOpenState())
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].type).toBe(INTRODUCTION_LOADED);
+                expect(emitted[0].projectId).toBe(PROJECT_ID);
+                done();
+            });
+    });
+
+    it('survives the INIT_ANUGA burst with exactly one fetch', (done) => {
+        // anugaContainer re-dispatches INIT_ANUGA on every re-render while no
+        // project has resolved — for an anonymous viewer that is forever, since
+        // initAnugaEpic drops them. The per-map dedupe absorbs the burst; a
+        // switchMap here would instead have each dispatch CANCEL the previous
+        // in-flight fetch, so the payload would never arrive at all.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+
+        introductionFetchEpic(
+            mockActions([{ type: INIT_ANUGA }, { type: INIT_ANUGA }, { type: INIT_ANUGA }]),
+            mapOpenState()
+        ).subscribe(a => emitted.push(a), done, () => {
+            expect(emitted.length).toBe(1);
+            expect(mockAxios.history.post.length).toBe(1);
+            expect(mockAxios.history.get.length).toBe(1);
+            done();
+        });
+    });
+
+    it('resolves the project from the MAP and emits INTRODUCTION_LOADED', (done) => {
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+
+        introductionFetchEpic(mockActions([{ type: MAP_CONFIG_LOADED }]), mapOpenState())
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].type).toBe(INTRODUCTION_LOADED);
+                expect(emitted[0].projectId).toBe(PROJECT_ID);
+                expect(emitted[0].data.content_version).toBe(VERSION_A);
+                done();
+            });
+    });
+
+    it('fires for an ANONYMOUS viewer — the audience this epic exists for', (done) => {
+        // The store below has an EMPTY security slice and an empty `anuga`
+        // slice, i.e. the anonymous reality: initAnugaEpic is login-gated, so it
+        // never populates state.anuga for this viewer. Nothing in the fetch path
+        // may depend on that slice — the project id comes from the map.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+
+        introductionFetchEpic(mockActions([{ type: MAP_CONFIG_LOADED }]), mapOpenState())
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                done();
+            });
+    });
+
+    it('makes NO request at all off-ANUGA (SWAMM / Sarara / NICP) — TASK-2777', (done) => {
+        const swammSite = [{ name: 'SimpleView' }, { name: 'Swamm' }, { name: 'TaskMonitor' }];
+        const emitted = [];
+
+        introductionFetchEpic(mockActions([{ type: INIT_ANUGA }, { type: MAP_CONFIG_LOADED }]), mapOpenState(swammSite))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(0);
+                // The site gate must stop it BEFORE the wire, not just before
+                // the modal — three sites would otherwise pay a round-trip per
+                // map open for a feature they can never show.
+                expect(mockAxios.history.post.length).toBe(0);
+                expect(mockAxios.history.get.length).toBe(0);
+                done();
+            });
+    });
+
+    it('emits nothing when no ANUGA project owns this map (the MAP gate)', (done) => {
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(404, { projectId: null });
+        const emitted = [];
+
+        introductionFetchEpic(mockActions([{ type: MAP_CONFIG_LOADED }]), mapOpenState())
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(0);
+                done();
+            });
+    });
+
+    it('stays silent when the introduction endpoint 404s', (done) => {
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(404);
+        const emitted = [];
+
+        introductionFetchEpic(mockActions([{ type: MAP_CONFIG_LOADED }]), mapOpenState())
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(0);
+                done();
+            });
+    });
+
+    it('seeds the anonymous localStorage acceptance for a LOGGED-OUT viewer', (done) => {
+        window.localStorage.setItem(
+            `hydrata.introduction.acceptedVersion.v1.${PROJECT_ID}`, VERSION_A
+        );
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+
+        introductionFetchEpic(mockActions([{ type: INIT_ANUGA }]), mapOpenState())
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted[0].acceptedVersion).toBe(VERSION_A);
+                __forgetAnonymousAcceptance(PROJECT_ID);
+                done();
+            });
+    });
+
+    it('IGNORES localStorage for a SIGNED-IN viewer — decision 3 (an anonymous flag is not evidence)', (done) => {
+        // `hasAcceptedCurrentIntroduction` is an OR, so a seeded local flag
+        // satisfies it even when the server reports
+        // `accepted_current_version: false`. Reading it for a named user would
+        // let a flag written while logged OUT suppress the modal for someone
+        // with no acceptance row — the platform would stop asking while its own
+        // record shows nobody agreed.
+        window.localStorage.setItem(
+            `hydrata.introduction.acceptedVersion.v1.${PROJECT_ID}`, VERSION_A
+        );
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+
+        const signedIn = storeOf({
+            localConfig: { plugins: { map_viewer: anugaSite } },
+            gnresource: { id: MAP_ID },
+            security: { user: { pk: 5 } },
+            anuga: {},
+            simpleView: {}
+        });
+
+        introductionFetchEpic(mockActions([{ type: INIT_ANUGA }]), signedIn)
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].acceptedVersion).toBe(null);
+                __forgetAnonymousAcceptance(PROJECT_ID);
+                done();
+            });
+    });
+
+    it('asks once for the map on screen — a MAP_CONFIG_LOADED re-fire adds nothing', (done) => {
+        // MAP_CONFIG_LOADED re-fires on reconfig as well as on a map switch,
+        // and both triggers overlap on a hop. Whichever arrives first for the
+        // map on screen is the one that asks. (Keeping a re-fire from RE-OPENING
+        // a dismissed modal is no longer this guard's job — TASK-2804 moved that
+        // to introductionAutoShowEpic; see the once-per-map specs below.)
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+
+        introductionFetchEpic(
+            mockActions([{ type: MAP_CONFIG_LOADED }, { type: MAP_CONFIG_LOADED }]),
+            mapOpenState()
+        ).subscribe(a => emitted.push(a), done, () => {
+            expect(emitted.length).toBe(1);
+            done();
+        });
+    });
+
+    // ── TASK-2804: the payload becomes available again, WITHOUT a storm ───────
+
+    it('makes NO further request when INIT_ANUGA re-fires AFTER the payload landed', async() => {
+        // ⚠ THE TRAP THIS TASK MUST NOT TRADE IN, and the burst spec above
+        // cannot see it: those three dispatches all land in one turn, before
+        // the first promise resolves, so an in-flight-only guard passes it.
+        // anugaContainer re-dispatches INIT_ANUGA on every re-render while no
+        // project has resolved, and for an anonymous viewer that is FOREVER
+        // (initAnugaEpic is login-gated and never populates state.anuga). If
+        // the guard stopped at the round-trip, every later re-render would fire
+        // another from-map + introduction pair — a request storm swapped for a
+        // missing button, which is the worse outcome of the two.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+        const { subject, action$ } = openActions();
+        const sub = introductionFetchEpic(action$, mapOpenState()).subscribe(a => emitted.push(a));
+
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        // The round trip is over — the payload is in hand, nothing is running.
+        expect(emitted.length).toBe(1);
+
+        subject.next({ type: INIT_ANUGA });
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        sub.unsubscribe();
+
+        expect(mockAxios.history.post.length).toBe(1);
+        expect(mockAxios.history.get.length).toBe(1);
+        expect(emitted.length).toBe(1);
+    });
+
+    it('RE-FETCHES on a return hop — A -> B -> A in one page session (AC1)', async() => {
+        // The defect, at the epic. The dedupe used to be a permanent per-map
+        // Set, so the hop back made no request at all; TASK-2790 had already
+        // cleared the slice on SET_RESOURCE_ID and TASK-2796 gates the About
+        // button on payload presence, so the introduction was unreachable
+        // without a full reload.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply((config) => (
+            JSON.parse(config.data).mapId === MAP_ID_B
+                ? [200, { projectId: PROJECT_ID_B }]
+                : [200, { projectId: PROJECT_ID }]
+        ));
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID_B}/introduction/`)
+            .reply(200, payload({ project_id: PROJECT_ID_B, project_name: 'Project B' }));
+
+        // ONE store object whose map id moves, exactly as SET_RESOURCE_ID moves
+        // it live. Nothing else about the session changes.
+        const state = {
+            localConfig: { plugins: { map_viewer: anugaSite } },
+            gnresource: { id: MAP_ID },
+            security: {},
+            anuga: {},
+            simpleView: {}
+        };
+        const emitted = [];
+        const { subject, action$ } = openActions();
+        const sub = introductionFetchEpic(action$, storeOf(state)).subscribe(a => emitted.push(a));
+
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        state.gnresource.id = MAP_ID_B;
+        subject.next({ type: MAP_CONFIG_LOADED });
+        await settle();
+        state.gnresource.id = MAP_ID;
+        subject.next({ type: MAP_CONFIG_LOADED });
+        await settle();
+        sub.unsubscribe();
+
+        expect(emitted.map(a => a.projectId)).toEqual([PROJECT_ID, PROJECT_ID_B, PROJECT_ID]);
+        // ...and the re-fetch is STAMPED for the map it was made for, so
+        // TASK-2790's reducer guard accepts it instead of refusing it as a
+        // late reply for a map we have left.
+        expect(emitted[2].mapId).toBe(MAP_ID);
+        expect(mockAxios.history.post.length).toBe(3);
+    });
+
+    it('still absorbs the burst after the return hop', async() => {
+        // The guard has to survive the hop in BOTH directions: coming back to a
+        // map re-arms the ask, and the re-render storm on the map now on screen
+        // must be absorbed exactly as it was on first arrival.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const state = {
+            localConfig: { plugins: { map_viewer: anugaSite } },
+            gnresource: { id: MAP_ID },
+            security: {},
+            anuga: {},
+            simpleView: {}
+        };
+        const emitted = [];
+        const { subject, action$ } = openActions();
+        const sub = introductionFetchEpic(action$, storeOf(state)).subscribe(a => emitted.push(a));
+
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        state.gnresource.id = MAP_ID_B;
+        subject.next({ type: MAP_CONFIG_LOADED });
+        await settle();
+        state.gnresource.id = MAP_ID;
+        subject.next({ type: MAP_CONFIG_LOADED });
+        subject.next({ type: INIT_ANUGA });
+        subject.next({ type: INIT_ANUGA });
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        sub.unsubscribe();
+
+        // Three asks in total: A, B, A again — not one per re-render.
+        expect(mockAxios.history.post.length).toBe(3);
+        expect(emitted.length).toBe(3);
+    });
+});
+
+describe('introductionAutoShowEpic — the guard, wired (TASK-2776)', () => {
+    // TASK-2804 put a module-level per-map memo on this epic, so the reset seam
+    // matters here too: without it a spec's outcome would depend on which
+    // earlier spec (in this file or another) had already auto-shown that map.
+    beforeEach(() => __resetIntroductionDedupe());
+
+    const baseState = (over = {}) => ({
+        localConfig: { plugins: { map_viewer: anugaSite } },
+        security: {},
+        anuga: { projects: {}, paywall: {} },
+        simpleView: {
+            introduction: {
+                projectId: PROJECT_ID,
+                data: payload(),
+                acceptedVersion: null
+            }
+        },
+        ...over
+    });
+
+    it('opens the modal for an eligible anonymous viewer', (done) => {
+        const emitted = [];
+        introductionAutoShowEpic(
+            mockActions([{ type: INTRODUCTION_LOADED }]),
+            storeOf(baseState())
+        ).subscribe(a => emitted.push(a), done, () => {
+            expect(emitted.length).toBe(1);
+            expect(emitted[0].type).toBe(SET_VISIBLE_INTRODUCTION);
+            expect(emitted[0].visible).toBe(true);
+            done();
+        });
+    });
+
+    it('does NOT open it for the owner (AC10)', (done) => {
+        const state = baseState();
+        state.security = { user: { pk: 1 } };
+        state.anuga.projects = { data: { id: PROJECT_ID, my_role: 'owner' } };
+        const emitted = [];
+
+        introductionAutoShowEpic(mockActions([{ type: INTRODUCTION_LOADED }]), storeOf(state))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(0);
+                done();
+            });
+    });
+
+    it('does NOT open it while the paywall dialog is up, and DOES once it clears', (done) => {
+        // A mutable store: the paywall clears between the two evaluations,
+        // exactly as DISMISS_PAYWALL_UPGRADE would do live. This is the
+        // ordering assertion AC1 asks for — paywall first, introduction after.
+        const state = baseState();
+        state.anuga.paywall = { overlay: { state: 'upgrade_prompt' }, overlayProjectId: null };
+        const emitted = [];
+        const seenWhileBlocked = [];
+
+        const subject = new Rx.Subject();
+        const action$ = subject.asObservable();
+        action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+
+        introductionAutoShowEpic(action$, storeOf(state))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(seenWhileBlocked).toEqual([], 'the introduction opened behind the paywall');
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].visible).toBe(true);
+                done();
+            });
+
+        setTimeout(() => {
+            subject.next({ type: INTRODUCTION_LOADED });
+            // Nothing may have been emitted while the refusal modal is on screen.
+            seenWhileBlocked.push(...emitted);
+            state.anuga.paywall = { overlay: null, steady: null };
+            subject.next({ type: 'PAYWALL:DISMISS_UPGRADE' });
+            subject.complete();
+        }, 0);
+    });
+
+    it('waits for a logged-in viewer role, then opens for a NON-member (AC9)', (done) => {
+        const state = baseState();
+        state.security = { user: { pk: 7 } };
+        const emitted = [];
+        const seenWhileUnresolved = [];
+
+        const subject = new Rx.Subject();
+        const action$ = subject.asObservable();
+        action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+
+        introductionAutoShowEpic(action$, storeOf(state))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(seenWhileUnresolved).toEqual([], 'decided before auth resolved');
+                expect(emitted.length).toBe(1);
+                done();
+            });
+
+        setTimeout(() => {
+            subject.next({ type: INTRODUCTION_LOADED });
+            seenWhileUnresolved.push(...emitted);
+            state.anuga.projects = { data: { id: PROJECT_ID, my_role: null } };
+            subject.next({ type: SET_ANUGA_PROJECT_DATA });
+            subject.complete();
+        }, 0);
+    });
+
+    it('does not re-open after the viewer has accepted the current version', (done) => {
+        const state = baseState();
+        state.simpleView.introduction.acceptedVersion = VERSION_A;
+        const emitted = [];
+
+        introductionAutoShowEpic(mockActions([{ type: INTRODUCTION_LOADED }]), storeOf(state))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(0);
+                done();
+            });
+    });
+
+    it('RE-PROMPTS when the content version has moved past what was accepted', (done) => {
+        const state = baseState();
+        state.simpleView.introduction.data = payload({ content_version: VERSION_B });
+        state.simpleView.introduction.acceptedVersion = VERSION_A;
+        const emitted = [];
+
+        introductionAutoShowEpic(mockActions([{ type: INTRODUCTION_LOADED }]), storeOf(state))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                done();
+            });
+    });
+
+    // ── TASK-2804: the INTERRUPTION is what happens once per page session ─────
+
+    const loadedOn = (mapId) => ({ type: INTRODUCTION_LOADED, projectId: PROJECT_ID, mapId });
+    const runAutoShow = (actions, state) => new Promise((resolve, reject) => {
+        const emitted = [];
+        introductionAutoShowEpic(mockActions(actions), storeOf(state))
+            .subscribe(a => emitted.push(a), reject, () => resolve(emitted));
+    });
+
+    it('AC2 — a return hop re-fetches the payload but does NOT re-open the modal', async() => {
+        // The half of the old fetch dedupe that had to survive. The viewer
+        // dismissed this with the cross on map A; coming back to A now re-asks
+        // for the payload (so the About button is there, AC1), and the dialog
+        // must not volunteer itself over their map a second time.
+        const first = await runAutoShow([loadedOn(MAP_ID)], baseState());
+        expect(first.length).toBe(1);
+        expect(first[0].type).toBe(SET_VISIBLE_INTRODUCTION);
+        expect(first[0].visible).toBe(true);
+
+        const returnHop = await runAutoShow([loadedOn(MAP_ID)], baseState());
+        expect(returnHop.length).toBe(0);
+    });
+
+    it('POSITIVE CONTROL — another map still gets its own interruption', async() => {
+        // Without this, the assertion above would also pass against a dedupe
+        // that simply silenced every auto-show after the first — which would
+        // break the feature for every map after the landing one.
+        const first = await runAutoShow([loadedOn(MAP_ID)], baseState());
+        expect(first.length).toBe(1);
+
+        const otherMap = await runAutoShow([loadedOn(MAP_ID_B)], baseState());
+        expect(otherMap.length).toBe(1);
+
+        // ...and coming back to the FIRST map is still silent.
+        const returnHop = await runAutoShow([loadedOn(MAP_ID)], baseState());
+        expect(returnHop.length).toBe(0);
+    });
+
+    it('does not consume the once-per-map interruption when the verdict never SHOWs', async() => {
+        // A member is SUPPRESSed rather than shown, and a paywalled viewer
+        // WAITs forever — neither has been interrupted, so neither may spend
+        // the one interruption this map is owed. The memo is written where the
+        // modal actually opens, not where the verdict is computed.
+        const member = baseState();
+        member.security = { user: { pk: 1 } };
+        member.anuga.projects = { data: { id: PROJECT_ID, my_role: 'owner' } };
+        expect((await runAutoShow([loadedOn(MAP_ID)], member)).length).toBe(0);
+
+        // Same map, same session, now an anonymous viewer: still owed it.
+        expect((await runAutoShow([loadedOn(MAP_ID)], baseState())).length).toBe(1);
+    });
+
+    it('leaves an UNSTAMPED payload undeduped — it cannot be identified', async() => {
+        // Every production INTRODUCTION_LOADED carries the map it was fetched
+        // for (introductionFetchEpic stamps it for TASK-2790). A dispatch that
+        // does not is not silently collapsed onto some shared key — that would
+        // make one unstamped caller suppress the next.
+        expect((await runAutoShow([{ type: INTRODUCTION_LOADED }], baseState())).length).toBe(1);
+        expect((await runAutoShow([{ type: INTRODUCTION_LOADED }], baseState())).length).toBe(1);
+    });
+});
+
+describe('introductionAcceptEpic — settled decision 3', () => {
+    let mockAxios;
+    beforeEach(() => {
+        mockAxios = new MockAdapter(axios);
+        __forgetAnonymousAcceptance(PROJECT_ID);
+    });
+    afterEach(() => {
+        mockAxios.restore();
+        __forgetAnonymousAcceptance(PROJECT_ID);
+    });
+
+    const acceptState = (user) => storeOf({
+        security: user ? { user } : {},
+        simpleView: { introduction: { projectId: PROJECT_ID, data: payload() } }
+    });
+
+    it('POSTs the acceptance row for an AUTHENTICATED viewer (AC4)', (done) => {
+        mockAxios
+            .onPost(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/accept/`)
+            .reply(200, payload({ accepted_current_version: true }));
+        const emitted = [];
+
+        introductionAcceptEpic(mockActions([{ type: ACCEPT_INTRODUCTION }]), acceptState({ pk: 3 }))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(mockAxios.history.post.length).toBe(1);
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].type).toBe(INTRODUCTION_ACCEPTED);
+                expect(emitted[0].contentVersion).toBe(VERSION_A);
+                done();
+            });
+    });
+
+    it('issues NO request when logged out — the WWW-Authenticate trap (AC4)', (done) => {
+        // An anonymous POST to /accept/ answers 401 with `WWW-Authenticate:
+        // Basic`, which a browser may render as a native password prompt. This
+        // assertion, not the comment above the call site, is what keeps that
+        // dialog off an anonymous link-recipient's screen.
+        const emitted = [];
+
+        introductionAcceptEpic(mockActions([{ type: ACCEPT_INTRODUCTION }]), acceptState(null))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(mockAxios.history.post.length).toBe(0);
+                expect(mockAxios.history.get.length).toBe(0);
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].type).toBe(INTRODUCTION_ACCEPTED);
+                expect(emitted[0].contentVersion).toBe(VERSION_A);
+                done();
+            });
+    });
+
+    it('records the anonymous acceptance in localStorage only', (done) => {
+        introductionAcceptEpic(mockActions([{ type: ACCEPT_INTRODUCTION }]), acceptState(null))
+            .subscribe(() => {}, done, () => {
+                expect(window.localStorage.getItem(
+                    `hydrata.introduction.acceptedVersion.v1.${PROJECT_ID}`
+                )).toBe(VERSION_A);
+                done();
+            });
+    });
+
+    it('does NOT record an acceptance when the POST fails', (done) => {
+        // Better to ask again next session than to claim a liability
+        // acknowledgement was stored when the server never got it.
+        mockAxios
+            .onPost(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/accept/`)
+            .reply(500);
+        const emitted = [];
+
+        introductionAcceptEpic(mockActions([{ type: ACCEPT_INTRODUCTION }]), acceptState({ pk: 3 }))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(0);
+                done();
+            });
+    });
+
+    it('emits nothing when there is no payload to accept', (done) => {
+        const emitted = [];
+        introductionAcceptEpic(
+            mockActions([{ type: ACCEPT_INTRODUCTION }]),
+            storeOf({ security: {}, simpleView: {} })
+        ).subscribe(a => emitted.push(a), done, () => {
+            expect(emitted.length).toBe(0);
+            done();
+        });
+    });
+});
+
+describe('introductionSaveEpic (epic 2765 W4, TASK-2778)', () => {
+    let mockAxios;
+    beforeEach(() => { mockAxios = new MockAdapter(axios); });
+    afterEach(() => mockAxios.restore());
+
+    const source = {
+        description: 'A rain-on-grid model of the lower Msimbazi.',
+        body: 'Built from 2 m LiDAR.',
+        owner_limitations: 'Culverts are not represented.'
+    };
+    const save = () => ({ type: SAVE_INTRODUCTION, projectId: PROJECT_ID, source });
+
+    it('PATCHes the owner-authored fields and emits INTRODUCTION_SAVED', (done) => {
+        mockAxios
+            .onPatch(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`)
+            .reply(200, payload({ content_version: VERSION_B, can_edit: true, source }));
+        const emitted = [];
+
+        introductionSaveEpic(mockActions([save()]), storeOf({}))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(mockAxios.history.patch.length).toBe(1);
+                expect(JSON.parse(mockAxios.history.patch[0].data)).toEqual(source);
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].type).toBe(INTRODUCTION_SAVED);
+                expect(emitted[0].projectId).toBe(PROJECT_ID);
+                // The PATCH response IS the full read payload, with a
+                // recomputed version — so a save needs no follow-up GET.
+                expect(emitted[0].data.content_version).toBe(VERSION_B);
+                done();
+            });
+    });
+
+    it('NEVER emits INTRODUCTION_LOADED — the two live wires that would break', (done) => {
+        // ⚠ THE ONE THAT MATTERS HERE. The PATCH response is byte-for-byte the
+        // GET payload, so `introductionLoaded(...)` is the obvious one-liner.
+        // It would (1) re-run introductionAutoShowEpic, which is
+        // ofType(INTRODUCTION_LOADED), underneath the modal the owner is
+        // editing in, and (2) hit the INTRODUCTION_LOADED reducer case, which
+        // rewrites `acceptedVersion` from the action — erasing this browser's
+        // anonymous acceptance stamp every time an owner fixes a typo.
+        mockAxios
+            .onPatch(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`)
+            .reply(200, payload({ content_version: VERSION_B }));
+        const emitted = [];
+
+        introductionSaveEpic(mockActions([save()]), storeOf({}))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.filter(a => a.type === INTRODUCTION_LOADED).length).toBe(0);
+                done();
+            });
+    });
+
+    it('emits a FAILURE rather than going silent when the PATCH is refused', (done) => {
+        // Unlike the accept path, silence is not affordable here: the owner has
+        // just typed several paragraphs, and a Save that quietly does nothing
+        // is how that text gets lost. 403 is the shape a demoted manager sees.
+        mockAxios
+            .onPatch(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`)
+            .reply(403);
+        const emitted = [];
+
+        introductionSaveEpic(mockActions([save()]), storeOf({}))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                expect(emitted[0].type).toBe(INTRODUCTION_SAVE_FAILED);
+                expect(emitted[0].projectId).toBe(PROJECT_ID);
+                done();
+            });
+    });
+
+    it('issues no request without a project or a payload', (done) => {
+        const emitted = [];
+        introductionSaveEpic(
+            mockActions([
+                { type: SAVE_INTRODUCTION, projectId: null, source },
+                { type: SAVE_INTRODUCTION, projectId: PROJECT_ID, source: null }
+            ]),
+            storeOf({})
+        ).subscribe(a => emitted.push(a), done, () => {
+            expect(mockAxios.history.patch.length).toBe(0);
+            expect(emitted.length).toBe(0);
+            done();
+        });
+    });
+});

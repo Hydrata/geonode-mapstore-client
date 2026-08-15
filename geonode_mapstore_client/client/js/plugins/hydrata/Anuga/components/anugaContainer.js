@@ -493,11 +493,23 @@ export const mapStateToProps = (state) => {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups?.length || 1,
         showAddAnugaTerrainData: state?.anuga?.ui?.showAddAnugaTerrainData,
-        // TASK-1491 — optional-chain through .hasOwnProperty: state.simpleView
-        // is undefined for an anon viewer (initAnugaEpic auth-gated), and the
-        // raw .hasOwnProperty() call crashed the whole ViewerRoute. Semantics
-        // preserved: explicit visibleIntroduction wins; absent/undefined → true.
-        visibleIntroduction: state?.simpleView?.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
+        // TASK-2777 (epic 2765 W3) — THERE IS NO `visibleIntroduction` HERE ANY
+        // MORE, and the reason is worth the paragraph.
+        //
+        // It mapped `state.simpleView.hasOwnProperty('visibleIntroduction')
+        // ? ... : true` into props that NOTHING in this container rendered: a
+        // dead prop whose absent-key default was TRUE. Harmless only for as
+        // long as nobody wired a render to it — and the moment someone did,
+        // every anonymous viewer (for whom `state.simpleView` is undefined,
+        // because initAnugaEpic is login-gated) would have got a permanently
+        // open modal with no way to dismiss it, on exactly the anonymous-link
+        // path epic 2765 exists to serve.
+        //
+        // The introduction's visibility is now decided in ONE place —
+        // SimpleView/introductionGate.js — and rendered in ONE place,
+        // simpleViewContainer. TASK-1491's crash fix (optional-chaining the
+        // .hasOwnProperty call) is not lost by deleting this: it was a guard on
+        // a read that no longer happens.
         showNetworkMenu: state?.anuga?.ui?.showNetworkMenu,
         visibleNetworkMenu: state?.anuga?.ui?.visibleNetworkMenu,
         canEditAnugaMap: canEditAnugaMap(state),
