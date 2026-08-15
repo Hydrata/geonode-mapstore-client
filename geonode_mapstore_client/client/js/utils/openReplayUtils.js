@@ -30,7 +30,7 @@
 import Tracker from '@openreplay/tracker';
 import trackerRedux from '@openreplay/tracker-redux';
 // Pure, tracker-independent redaction helpers (unit-tested in openReplayPrivacy-test).
-import { scrubUrlCredentials, sanitizeReduxAction, resolveOpenReplayUserId } from './openReplayPrivacy';
+import { scrubUrlCredentials, sanitizeReduxAction, resolveOpenReplayUserId, stripHeavyStateForReplay } from './openReplayPrivacy';
 
 const CONSENT_KEY = 'or_consent_v1';
 // Separate from CONSENT_KEY: tracks that a non-EU visitor has already seen the
@@ -114,13 +114,22 @@ function sanitizeNetwork(data) {
     return data;
 }
 
-// Redux PII scrub: the MapStore `security` slice holds the OAuth access_token
-// and the full user object — drop it from every captured state snapshot.
+// Redux PII scrub + heavy-binary strip. The `security` slice holds the OAuth
+// access_token and full user object — drop it from every captured snapshot.
+// TASK-2794: additionally strip any slice carrying large binary arrays —
+// tracker-redux structured-clones this transformer's ENTIRE return value into
+// its encoder worker on every captured action and string-encodes every array
+// element, which on a playback map (~150 MB of mesh typed arrays in
+// anugaPlayback) is a fatal single allocation: the production renderer OOM.
+// Fail CLOSED: if the strip itself breaks, ship only a stub — never the raw
+// state.
 function reduxStateTransformer(state) {
     if (!state) { return state; }
     try {
-        return { ...state, security: '[REDACTED]' };
-    } catch (e) { return state; }
+        return { ...stripHeavyStateForReplay(state), security: '[REDACTED]' };
+    } catch (e) {
+        return { security: '[REDACTED]', replayNote: '[state transform failed — raw state withheld, TASK-2794]' };
+    }
 }
 
 // Build the masked tracker once. Returns null when inert (no projectKey / no

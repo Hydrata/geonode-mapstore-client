@@ -10,7 +10,7 @@
  */
 
 import expect from 'expect';
-import { scrubUrlCredentials, sanitizeReduxAction, extractUsername, resolveOpenReplayUserId } from '../openReplayPrivacy';
+import { scrubUrlCredentials, sanitizeReduxAction, extractUsername, resolveOpenReplayUserId, stripHeavyStateForReplay } from '../openReplayPrivacy';
 
 describe('openReplayPrivacy', () => {
     describe('scrubUrlCredentials', () => {
@@ -110,6 +110,61 @@ describe('openReplayPrivacy', () => {
         });
         it('stamps an email-shaped username as the userID (TASK-2376)', () => {
             expect(resolveOpenReplayUserId({ username: 'jdoe@example.com' }, false)).toBe('jdoe@example.com');
+        });
+    });
+
+    // TASK-2794: the prod renderer OOM. tracker-redux structured-clones the FULL
+    // redux state (and each action) into its encoder worker per captured action,
+    // then string-encodes every element of every array. On a playback map the
+    // state carries ~150 MB of mesh Float32/Int32Arrays plus uint16 chunk cache
+    // — the clone+encode is the fatal allocation (2/2 local repro on the prod
+    // bundle with the tracker enabled; 5/5 survival without). Large binary
+    // payloads must therefore NEVER reach the middleware.
+    describe('heavy binary stripping (TASK-2794)', () => {
+        it('sanitizeReduxAction replaces a large typed array in an action payload with a descriptor string', () => {
+            const nodeX = new Float32Array(100000); // 400 KB, over the 64 KiB threshold
+            const action = { type: 'PLAYBACK:MESH_LOADED', mesh: { nodeX, label: 'm' } };
+            const out = sanitizeReduxAction(action);
+            expect(typeof out.mesh.nodeX).toBe('string');
+            expect(out.mesh.nodeX.indexOf('Float32Array')).toNotBe(-1);
+            expect(out.mesh.nodeX.indexOf('100000')).toNotBe(-1);
+            expect(out.mesh.label).toBe('m');
+            // never mutates the input
+            expect(action.mesh.nodeX).toBe(nodeX);
+        });
+        it('sanitizeReduxAction replaces a large raw ArrayBuffer with a descriptor string', () => {
+            const buf = new ArrayBuffer(1048576);
+            const out = sanitizeReduxAction({ type: 'X', payload: { buf } });
+            expect(typeof out.payload.buf).toBe('string');
+            expect(out.payload.buf.indexOf('ArrayBuffer')).toNotBe(-1);
+        });
+        it('sanitizeReduxAction passes small typed arrays through by reference (colormaps etc.)', () => {
+            const lut = new Uint8Array(64);
+            const action = { type: 'X', lut };
+            expect(sanitizeReduxAction(action)).toBe(action);
+        });
+        it('stripHeavyStateForReplay replaces any top-level slice carrying a large typed array and keeps light slices by reference', () => {
+            const state = {
+                anugaPlayback: { status: 'ready', mesh: { nodeX: new Float32Array(100000) } },
+                map: { zoom: 5 }
+            };
+            const out = stripHeavyStateForReplay(state);
+            expect(typeof out.anugaPlayback).toBe('string');
+            expect(out.anugaPlayback.indexOf('anugaPlayback')).toNotBe(-1);
+            expect(out.map).toBe(state.map);
+            // never mutates the input
+            expect(state.anugaPlayback.mesh.nodeX.length).toBe(100000);
+        });
+        it('stripHeavyStateForReplay finds large arrays held inside a Map', () => {
+            const cache = new Map();
+            cache.set('depth/0', new Uint16Array(3393075));
+            const out = stripHeavyStateForReplay({ pb: { cache }, other: { a: 1 } });
+            expect(typeof out.pb).toBe('string');
+            expect(out.other.a).toBe(1);
+        });
+        it('stripHeavyStateForReplay returns the same reference for an all-light state', () => {
+            const state = { a: { b: 1 }, c: [1, 2, 3] };
+            expect(stripHeavyStateForReplay(state)).toBe(state);
         });
     });
 });
