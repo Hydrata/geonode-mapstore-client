@@ -63,7 +63,18 @@ function createMockStore({
     // no-op), so a click cannot arm this; tests preset it instead and the
     // arming itself is pinned by the reducer test in epicsAnuga-test.js.
     visibilityPending = null,
-    membershipsLoading = false
+    membershipsLoading = false,
+    // TASK-2780 (epic 2765 W4) — the TASK-2548 map-id STAMP on the projects
+    // slice, which is where the project link's <base_map_id> comes from. It is
+    // deliberately NOT a field of `projects.data`: the retrieve serializer is
+    // ProjectSerializerV2 and only ProjectSerializerV2Full carries `base_map`
+    // (see projectsReducer.js's "WHY A STAMP AND NOT A FIELD OF `data`" note),
+    // so a fixture that put base_map on `data` would green a read that is
+    // undefined in the live app. Pass `null` to exercise the no-map project.
+    mapId = 118,
+    // Legacy/fail-safe source, matching warmTilesEpic.js's documented read
+    // order. Only reachable when the host never dispatched SET_RESOURCE_ID.
+    baseMapOnData = undefined
 } = {}) {
     const state = {
         anuga: {
@@ -75,11 +86,13 @@ function createMockStore({
                 invitations_enabled: invitationsEnabled
             },
             projects: {
+                mapId,
                 data: {
                     id: 42,
                     my_role: role,
                     owner_username: 'project_owner',
-                    visibility
+                    visibility,
+                    ...(baseMapOnData === undefined ? {} : {base_map: baseMapOnData})
                 },
                 visibilityPending
             },
@@ -915,5 +928,237 @@ describe('TASK-2440 MembershipPanel — visibility rows show in-flight state', (
             expect(rowNamed('Public').getAttribute('aria-checked')).toBe('true');
             expect(rowNamed('Private').getAttribute('aria-checked')).toBe('false');
         });
+    });
+});
+
+// ─── TASK-2780 (epic 2765 W4): copy-project-link control ─────────────────────
+//
+// Epic AC18 / settled decision 11: ONE small control that copies
+// /catalogue/#/map/<base_map_id> to the clipboard with user feedback. No richer
+// share UI — no expiry, no per-recipient links, no QR.
+//
+// Settled decision 12 (naming, load-bearing): it is a PROJECT LINK, never a
+// "share link" — "shareable" is already claimed by the tile-caching sense
+// (glossary.md; Anuga/gwcTileRouting.js's isShareableTileLayer). The naming
+// guard at the bottom of this block asserts that in the shipped source, not
+// just in review.
+//
+// WHERE <base_map_id> COMES FROM. `state.anuga.projects.data` does NOT carry
+// base_map — the retrieve serializer is ProjectSerializerV2 and only
+// ProjectSerializerV2Full adds it (dataActions.js:164-168 and
+// projectsReducer.js both say so verbatim). The reachable source is the
+// TASK-2548 stamp at state.anuga.projects.mapId. A fixture is free to green
+// whichever field the implementation happens to read, so the store stub above
+// deliberately mirrors the LIVE shape: mapId on the slice, nothing on `data`.
+describe('TASK-2780 MembershipPanel — copy project link', () => {
+    let container;
+    let restoreClipboard = null;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        if (restoreClipboard) {
+            restoreClipboard();
+            restoreClipboard = null;
+        }
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    // navigator.clipboard is a prototype getter in a secure context (karma
+    // serves http://localhost, which counts), so it cannot be assigned — shadow
+    // it with an own property and delete the shadow to restore.
+    function stubClipboard(impl) {
+        Object.defineProperty(window.navigator, 'clipboard', {
+            value: impl, configurable: true, writable: true
+        });
+        restoreClipboard = () => { delete window.navigator.clipboard; };
+    }
+
+    // The copy path is a promise chain; a click returns before setState runs.
+    const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    function mountPanel(opts = {}, ownProps = {}) {
+        const { MembershipPanel } = require('../membershipPanel');
+        const store = createMockStore(opts);
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}><MembershipPanel {...ownProps} /></Provider>,
+                container,
+                () => resolve(container)
+            );
+        });
+    }
+
+    const linkInput = () => container.querySelector('[data-testid="sv-membership-project-link-input"]');
+    const copyBtn = () => container.querySelector('[data-testid="sv-membership-project-link-copy"]');
+    const feedback = () => container.querySelector('[data-testid="sv-membership-project-link-feedback"]');
+
+    it('AC1 — the Sharing tab carries a copy-project-link control showing /catalogue/#/map/<base_map_id>', () => {
+        return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: true}).then(() => {
+            expect(container.querySelector('[data-testid="sv-account-tab-sharing"]')).toExist();
+            expect(copyBtn()).toExist('no copy-project-link control on the Sharing tab');
+            expect(linkInput()).toExist();
+            expect(linkInput().value).toBe('/catalogue/#/map/118');
+        });
+    });
+
+    it('AC1 — the control also renders on the flags-off Permissions panel (which has no tab bar)', () => {
+        // paywallEnabled defaults false and ships dark. render() takes a
+        // separate branch there with NO tab bar, calling renderSharingContent()
+        // directly — a control hung off renderTabBar() would be invisible on
+        // the branch that is actually live today.
+        return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: false}).then(() => {
+            expect(container.querySelector('[data-testid="sv-account-tab-bar"]')).toBe(null);
+            expect(copyBtn()).toExist('the copy-project-link control is missing when the paywall flag is off');
+            expect(linkInput().value).toBe('/catalogue/#/map/118');
+        });
+    });
+
+    it('AC1 — the link is built from the TASK-2548 mapId stamp, NOT from projects.data', () => {
+        // Guards the exact trap this subtask's red-team flagged: reading
+        // data.base_map_id ships "/catalogue/#/map/undefined" live while a
+        // fixture that sets that field stays green.
+        return mountPanel({role: 'owner', layerCount: 0, mapId: 4242}, {paywallEnabled: true}).then(() => {
+            expect(linkInput().value).toBe('/catalogue/#/map/4242');
+            expect(linkInput().value).toNotInclude('undefined');
+        });
+    });
+
+    it('AC1 — falls back to projects.data.base_map when no SET_RESOURCE_ID stamp exists', () => {
+        // warmTilesEpic.js reads base_map/base_map_full in exactly this order as
+        // a documented fail-safe. Same order here, same expectation that it
+        // normally misses.
+        return mountPanel({role: 'owner', layerCount: 0, mapId: null, baseMapOnData: 77}, {paywallEnabled: true}).then(() => {
+            expect(linkInput().value).toBe('/catalogue/#/map/77');
+        });
+    });
+
+    it('AC1+AC2 — clicking Copy writes exactly the project link, then confirms the copy', () => {
+        const written = [];
+        stubClipboard({writeText: (t) => { written.push(t); return Promise.resolve(); }});
+        return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: true}).then(() => {
+            expect(feedback()).toBe(null, 'success feedback showed before anything was copied');
+            copyBtn().click();
+            return flush();
+        }).then(() => {
+            expect(written).toEqual(['/catalogue/#/map/118']);
+            expect(feedback()).toExist('the copy succeeded silently — the user got no confirmation');
+            expect(feedback().textContent).toInclude('hydrata.anuga.projectLinkCopied');
+        });
+    });
+
+    it('AC3 — with no clipboard API the click is NOT a silent no-op: it selects the link and says so', () => {
+        stubClipboard(undefined);
+        return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: true}).then(() => {
+            copyBtn().click();
+            return flush();
+        }).then(() => {
+            expect(feedback()).toExist('clipboard unavailable and the control said nothing at all');
+            expect(feedback().textContent).toInclude('hydrata.anuga.projectLinkCopyFailed');
+            // The fallback is a real one: the link is still there to copy by hand.
+            expect(linkInput().value).toBe('/catalogue/#/map/118');
+            expect(linkInput().readOnly).toBe(true);
+            expect(document.activeElement).toBe(linkInput(), 'the fallback did not select the link for a manual copy');
+            expect(linkInput().selectionStart).toBe(0);
+            expect(linkInput().selectionEnd).toBe('/catalogue/#/map/118'.length);
+        });
+    });
+
+    it('AC3 — a REJECTED writeText (permission denied) reports failure rather than a false success', () => {
+        stubClipboard({writeText: () => Promise.reject(new Error('NotAllowedError'))});
+        return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: true}).then(() => {
+            copyBtn().click();
+            return flush();
+        }).then(() => {
+            expect(feedback()).toExist();
+            expect(feedback().textContent).toInclude('hydrata.anuga.projectLinkCopyFailed');
+            expect(feedback().textContent).toNotInclude('hydrata.anuga.projectLinkCopied');
+        });
+    });
+
+    it('AC2 — the feedback is announced to assistive tech, not just painted', () => {
+        stubClipboard({writeText: () => Promise.resolve()});
+        return mountPanel({role: 'owner', layerCount: 0, mapId: 118}, {paywallEnabled: true}).then(() => {
+            copyBtn().click();
+            return flush();
+        }).then(() => {
+            expect(feedback().getAttribute('role')).toBe('status');
+            expect(feedback().getAttribute('aria-live')).toBe('polite');
+        });
+    });
+
+    it('AC1 — a project with no base map renders an honest absence, never /catalogue/#/map/undefined', () => {
+        // Project.base_map is null=True (gn_anuga/models/project.py) and
+        // views.py falls back to '/' when it is absent. The UI must not offer a
+        // link that leads nowhere.
+        return mountPanel({role: 'owner', layerCount: 0, mapId: null}, {paywallEnabled: true}).then(() => {
+            expect(copyBtn()).toBe(null, 'a Copy button was offered for a project that has no link');
+            expect(linkInput()).toBe(null);
+            const absent = container.querySelector('[data-testid="sv-membership-project-link-absent"]');
+            expect(absent).toExist('no project link and no explanation either');
+            expect(container.querySelector('#membership-panel').textContent).toNotInclude('undefined');
+        });
+    });
+
+    it('AC1 — a non-manager never reaches the control (it inherits the Sharing tab gate by placement)', () => {
+        return mountPanel({role: 'viewer', layerCount: 0, mapId: 118}, {paywallEnabled: true}).then(() => {
+            expect(container.querySelector('[data-testid="sv-account-tab-sharing"]')).toBe(null);
+            expect(copyBtn()).toBe(null);
+        });
+    });
+
+    it('AC4 — every i18n key the control uses exists and is translated in all four content locales', () => {
+        const {enMessages, frMessages, esMessages, htMessages} = require('../../../../../__tests__/fixtures/translations');
+        const keys = [
+            'hydrata.anuga.projectLink',
+            'hydrata.anuga.projectLinkCopy',
+            'hydrata.anuga.projectLinkCopied',
+            'hydrata.anuga.projectLinkCopyFailed',
+            'hydrata.anuga.projectLinkAbsent',
+            'hydrata.anuga.projectLinkVisibilityNote'
+        ];
+        [['en-US', enMessages], ['fr-FR', frMessages], ['es-ES', esMessages], ['ht-HT', htMessages]].forEach(([loc, msgs]) => {
+            keys.forEach(key => {
+                expect(msgs[key]).toExist(`Missing i18n key ${key} in ${loc}`);
+                expect(typeof msgs[key]).toBe('string', `${key} in ${loc} should be a string`);
+                expect(msgs[key].length).toBeGreaterThan(0, `Empty value for ${key} in ${loc}`);
+            });
+        });
+    });
+
+    it('AC4 — no user-visible string or identifier says "share link" (settled decision 12)', () => {
+        const {enMessages, frMessages, esMessages, htMessages} = require('../../../../../__tests__/fixtures/translations');
+        // English wording guard: the four strings a user actually reads.
+        ['hydrata.anuga.projectLink', 'hydrata.anuga.projectLinkCopy',
+            'hydrata.anuga.projectLinkCopied', 'hydrata.anuga.projectLinkCopyFailed',
+            'hydrata.anuga.projectLinkAbsent'].forEach(key => {
+            expect(/share\s*(able)?\s*link/i.test(enMessages[key])).toBe(
+                false, `en-US ${key} says "share link": ${enMessages[key]}`);
+        });
+        // And the phrase is absent from every locale's whole hydrata.anuga block.
+        [['fr-FR', frMessages], ['es-ES', esMessages], ['ht-HT', htMessages]].forEach(([loc, msgs]) => {
+            Object.keys(msgs).filter(k => k.indexOf('hydrata.anuga.projectLink') === 0).forEach(k => {
+                expect(/share\s*(able)?\s*link/i.test(msgs[k])).toBe(false, `${loc} ${k} says "share link"`);
+            });
+        });
+        // Source-level identifier guard, run against the deployed bytes rather
+        // than a re-imported AST (same raw-loader trick as the
+        // window.confirm regression guard in anugaScenarioMenu-test.js).
+        // Comments are stripped first: this block's own prose has to be able to
+        // NAME the banned phrase in order to explain why it is banned.
+        const raw = require('!!raw-loader!../membershipPanel.js');
+        const source = (typeof raw === 'string' ? raw : raw && raw.default)
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/^\s*\/\/.*$/gm, '');
+        expect(/share[-_\s]?(able)?[-_\s]?link/i.test(source)).toBe(
+            false, 'membershipPanel.js contains a share-link identifier');
+        // Deliberately not toInclude(): a failure there prints the whole 40 KB
+        // source into the karma log.
+        expect(source.indexOf('projectLink') >= 0).toBe(
+            true, 'membershipPanel.js has no projectLink identifier at all');
     });
 });
