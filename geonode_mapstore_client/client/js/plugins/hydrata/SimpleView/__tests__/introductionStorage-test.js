@@ -40,7 +40,7 @@ import {
     rememberAnonymousAcceptance,
     __forgetAnonymousAcceptance
 } from '../introductionStorage';
-import { introductionFetchEpic, introductionAcceptEpic, __resetIntroductionFetchDedupe } from '../epicsIntroduction';
+import { introductionFetchEpic, introductionAcceptEpic, __resetIntroductionDedupe } from '../epicsIntroduction';
 import { ACCEPT_INTRODUCTION, INTRODUCTION_LOADED, INTRODUCTION_ACCEPTED } from '../actionsSimpleView';
 import { INIT_ANUGA } from '../../Anuga/actionsAnuga';
 
@@ -198,7 +198,7 @@ describe('introductionStorage — a storage fault must not eat the modal (2765 W
     let undo = null;
     beforeEach(() => {
         mockAxios = new MockAdapter(axios);
-        __resetIntroductionFetchDedupe();
+        __resetIntroductionDedupe();
     });
     afterEach(() => {
         mockAxios.restore();

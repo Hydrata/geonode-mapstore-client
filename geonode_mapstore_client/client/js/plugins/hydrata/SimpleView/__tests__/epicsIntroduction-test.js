@@ -19,7 +19,7 @@ import {
     introductionAutoShowEpic,
     introductionAcceptEpic,
     introductionSaveEpic,
-    __resetIntroductionFetchDedupe
+    __resetIntroductionDedupe
 } from '../epicsIntroduction';
 import {
     ACCEPT_INTRODUCTION,
@@ -36,6 +36,10 @@ import { __forgetAnonymousAcceptance } from '../introductionStorage';
 
 const PROJECT_ID = 13422;
 const MAP_ID = 118;
+// The OTHER map of the A -> B -> A hop (TASK-2804). Live fixtures: map 118 is
+// project 13422, map 104 is "test2".
+const MAP_ID_B = 104;
+const PROJECT_ID_B = 555;
 const VERSION_A = 'a'.repeat(64);
 const VERSION_B = 'b'.repeat(64);
 
@@ -62,6 +66,26 @@ const mockActions = (actions) => {
     return action$;
 };
 
+// The same stream, but LEFT OPEN so a test can dispatch, wait for the requests
+// to resolve, and then dispatch again. `mockActions` above fires everything in
+// one turn, which is the burst case and cannot express "after the payload has
+// landed" or "after the map changed" — the two things TASK-2804 is about.
+const openActions = () => {
+    const subject = new Rx.Subject();
+    const action$ = subject.asObservable();
+    action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+    return { subject, action$ };
+};
+
+// One macrotask boundary drains the whole pending microtask queue, so three of
+// them comfortably cover the from-map -> introduction promise chain.
+const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+const settle = async() => {
+    await flush();
+    await flush();
+    await flush();
+};
+
 const anugaSite = [
     { name: 'Anuga', cfg: { paywallEnabled: true } },
     { name: 'Paywall', cfg: { paywallEnabled: true } },
@@ -74,7 +98,7 @@ describe('introductionFetchEpic (epic 2765 W3)', () => {
     let mockAxios;
     beforeEach(() => {
         mockAxios = new MockAdapter(axios);
-        __resetIntroductionFetchDedupe();
+        __resetIntroductionDedupe();
     });
     afterEach(() => mockAxios.restore());
 
@@ -249,7 +273,12 @@ describe('introductionFetchEpic (epic 2765 W3)', () => {
             });
     });
 
-    it('fetches once per map — a MAP_CONFIG_LOADED re-fire must not re-open a closed modal', (done) => {
+    it('asks once for the map on screen — a MAP_CONFIG_LOADED re-fire adds nothing', (done) => {
+        // MAP_CONFIG_LOADED re-fires on reconfig as well as on a map switch,
+        // and both triggers overlap on a hop. Whichever arrives first for the
+        // map on screen is the one that asks. (Keeping a re-fire from RE-OPENING
+        // a dismissed modal is no longer this guard's job — TASK-2804 moved that
+        // to introductionAutoShowEpic; see the once-per-map specs below.)
         mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
         mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
         const emitted = [];
@@ -262,9 +291,130 @@ describe('introductionFetchEpic (epic 2765 W3)', () => {
             done();
         });
     });
+
+    // ── TASK-2804: the payload becomes available again, WITHOUT a storm ───────
+
+    it('makes NO further request when INIT_ANUGA re-fires AFTER the payload landed', async() => {
+        // ⚠ THE TRAP THIS TASK MUST NOT TRADE IN, and the burst spec above
+        // cannot see it: those three dispatches all land in one turn, before
+        // the first promise resolves, so an in-flight-only guard passes it.
+        // anugaContainer re-dispatches INIT_ANUGA on every re-render while no
+        // project has resolved, and for an anonymous viewer that is FOREVER
+        // (initAnugaEpic is login-gated and never populates state.anuga). If
+        // the guard stopped at the round-trip, every later re-render would fire
+        // another from-map + introduction pair — a request storm swapped for a
+        // missing button, which is the worse outcome of the two.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const emitted = [];
+        const { subject, action$ } = openActions();
+        const sub = introductionFetchEpic(action$, mapOpenState()).subscribe(a => emitted.push(a));
+
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        // The round trip is over — the payload is in hand, nothing is running.
+        expect(emitted.length).toBe(1);
+
+        subject.next({ type: INIT_ANUGA });
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        sub.unsubscribe();
+
+        expect(mockAxios.history.post.length).toBe(1);
+        expect(mockAxios.history.get.length).toBe(1);
+        expect(emitted.length).toBe(1);
+    });
+
+    it('RE-FETCHES on a return hop — A -> B -> A in one page session (AC1)', async() => {
+        // The defect, at the epic. The dedupe used to be a permanent per-map
+        // Set, so the hop back made no request at all; TASK-2790 had already
+        // cleared the slice on SET_RESOURCE_ID and TASK-2796 gates the About
+        // button on payload presence, so the introduction was unreachable
+        // without a full reload.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply((config) => (
+            JSON.parse(config.data).mapId === MAP_ID_B
+                ? [200, { projectId: PROJECT_ID_B }]
+                : [200, { projectId: PROJECT_ID }]
+        ));
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID_B}/introduction/`)
+            .reply(200, payload({ project_id: PROJECT_ID_B, project_name: 'Project B' }));
+
+        // ONE store object whose map id moves, exactly as SET_RESOURCE_ID moves
+        // it live. Nothing else about the session changes.
+        const state = {
+            localConfig: { plugins: { map_viewer: anugaSite } },
+            gnresource: { id: MAP_ID },
+            security: {},
+            anuga: {},
+            simpleView: {}
+        };
+        const emitted = [];
+        const { subject, action$ } = openActions();
+        const sub = introductionFetchEpic(action$, storeOf(state)).subscribe(a => emitted.push(a));
+
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        state.gnresource.id = MAP_ID_B;
+        subject.next({ type: MAP_CONFIG_LOADED });
+        await settle();
+        state.gnresource.id = MAP_ID;
+        subject.next({ type: MAP_CONFIG_LOADED });
+        await settle();
+        sub.unsubscribe();
+
+        expect(emitted.map(a => a.projectId)).toEqual([PROJECT_ID, PROJECT_ID_B, PROJECT_ID]);
+        // ...and the re-fetch is STAMPED for the map it was made for, so
+        // TASK-2790's reducer guard accepts it instead of refusing it as a
+        // late reply for a map we have left.
+        expect(emitted[2].mapId).toBe(MAP_ID);
+        expect(mockAxios.history.post.length).toBe(3);
+    });
+
+    it('still absorbs the burst after the return hop', async() => {
+        // The guard has to survive the hop in BOTH directions: coming back to a
+        // map re-arms the ask, and the re-render storm on the map now on screen
+        // must be absorbed exactly as it was on first arrival.
+        mockAxios.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PROJECT_ID });
+        mockAxios.onGet(`/api/v2/anuga/projects/${PROJECT_ID}/introduction/`).reply(200, payload());
+        const state = {
+            localConfig: { plugins: { map_viewer: anugaSite } },
+            gnresource: { id: MAP_ID },
+            security: {},
+            anuga: {},
+            simpleView: {}
+        };
+        const emitted = [];
+        const { subject, action$ } = openActions();
+        const sub = introductionFetchEpic(action$, storeOf(state)).subscribe(a => emitted.push(a));
+
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        state.gnresource.id = MAP_ID_B;
+        subject.next({ type: MAP_CONFIG_LOADED });
+        await settle();
+        state.gnresource.id = MAP_ID;
+        subject.next({ type: MAP_CONFIG_LOADED });
+        subject.next({ type: INIT_ANUGA });
+        subject.next({ type: INIT_ANUGA });
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        subject.next({ type: INIT_ANUGA });
+        await settle();
+        sub.unsubscribe();
+
+        // Three asks in total: A, B, A again — not one per re-render.
+        expect(mockAxios.history.post.length).toBe(3);
+        expect(emitted.length).toBe(3);
+    });
 });
 
 describe('introductionAutoShowEpic — the guard, wired (TASK-2776)', () => {
+    // TASK-2804 put a module-level per-map memo on this epic, so the reset seam
+    // matters here too: without it a spec's outcome would depend on which
+    // earlier spec (in this file or another) had already auto-shown that map.
+    beforeEach(() => __resetIntroductionDedupe());
+
     const baseState = (over = {}) => ({
         localConfig: { plugins: { map_viewer: anugaSite } },
         security: {},
@@ -385,6 +535,67 @@ describe('introductionAutoShowEpic — the guard, wired (TASK-2776)', () => {
                 expect(emitted.length).toBe(1);
                 done();
             });
+    });
+
+    // ── TASK-2804: the INTERRUPTION is what happens once per page session ─────
+
+    const loadedOn = (mapId) => ({ type: INTRODUCTION_LOADED, projectId: PROJECT_ID, mapId });
+    const runAutoShow = (actions, state) => new Promise((resolve, reject) => {
+        const emitted = [];
+        introductionAutoShowEpic(mockActions(actions), storeOf(state))
+            .subscribe(a => emitted.push(a), reject, () => resolve(emitted));
+    });
+
+    it('AC2 — a return hop re-fetches the payload but does NOT re-open the modal', async() => {
+        // The half of the old fetch dedupe that had to survive. The viewer
+        // dismissed this with the cross on map A; coming back to A now re-asks
+        // for the payload (so the About button is there, AC1), and the dialog
+        // must not volunteer itself over their map a second time.
+        const first = await runAutoShow([loadedOn(MAP_ID)], baseState());
+        expect(first.length).toBe(1);
+        expect(first[0].type).toBe(SET_VISIBLE_INTRODUCTION);
+        expect(first[0].visible).toBe(true);
+
+        const returnHop = await runAutoShow([loadedOn(MAP_ID)], baseState());
+        expect(returnHop.length).toBe(0);
+    });
+
+    it('POSITIVE CONTROL — another map still gets its own interruption', async() => {
+        // Without this, the assertion above would also pass against a dedupe
+        // that simply silenced every auto-show after the first — which would
+        // break the feature for every map after the landing one.
+        const first = await runAutoShow([loadedOn(MAP_ID)], baseState());
+        expect(first.length).toBe(1);
+
+        const otherMap = await runAutoShow([loadedOn(MAP_ID_B)], baseState());
+        expect(otherMap.length).toBe(1);
+
+        // ...and coming back to the FIRST map is still silent.
+        const returnHop = await runAutoShow([loadedOn(MAP_ID)], baseState());
+        expect(returnHop.length).toBe(0);
+    });
+
+    it('does not consume the once-per-map interruption when the verdict never SHOWs', async() => {
+        // A member is SUPPRESSed rather than shown, and a paywalled viewer
+        // WAITs forever — neither has been interrupted, so neither may spend
+        // the one interruption this map is owed. The memo is written where the
+        // modal actually opens, not where the verdict is computed.
+        const member = baseState();
+        member.security = { user: { pk: 1 } };
+        member.anuga.projects = { data: { id: PROJECT_ID, my_role: 'owner' } };
+        expect((await runAutoShow([loadedOn(MAP_ID)], member)).length).toBe(0);
+
+        // Same map, same session, now an anonymous viewer: still owed it.
+        expect((await runAutoShow([loadedOn(MAP_ID)], baseState())).length).toBe(1);
+    });
+
+    it('leaves an UNSTAMPED payload undeduped — it cannot be identified', async() => {
+        // Every production INTRODUCTION_LOADED carries the map it was fetched
+        // for (introductionFetchEpic stamps it for TASK-2790). A dispatch that
+        // does not is not silently collapsed onto some shared key — that would
+        // make one unstamped caller suppress the next.
+        expect((await runAutoShow([{ type: INTRODUCTION_LOADED }], baseState())).length).toBe(1);
+        expect((await runAutoShow([{ type: INTRODUCTION_LOADED }], baseState())).length).toBe(1);
     });
 });
 
