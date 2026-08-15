@@ -21,6 +21,32 @@
 // Credential query-param keys to strip from captured request URLs.
 export const CREDENTIAL_QUERY_KEYS = ['access_token', 'token', 'refresh_token', 'jwt', 'id_token', 'code', 'api_key', 'apikey'];
 
+// TASK-2794: binary payloads at or over this many bytes are stripped before
+// anything reaches tracker-redux. The middleware structured-clones each action
+// AND the full redux state into its encoder worker per captured action, then
+// string-encodes every element of every array — on a playback map the state
+// carries ~150 MB of mesh Float32/Int32Arrays plus uint16 chunk cache, and that
+// clone+encode IS the production renderer OOM (V8 CALL_AND_RETRY_LAST; 2/2
+// local repro on the prod bundle with the tracker enabled, 5/5 survival with it
+// off — evidence in deploy docs/epic-state/wave-reports/TASK-2706-W8-evidence/).
+// 64 KiB keeps colormap LUTs and small lookup tables while catching anything
+// mesh- or chunk-shaped.
+export const HEAVY_BINARY_BYTES = 65536;
+
+// A replay-safe descriptor for a large binary value, or null when the value is
+// not a large binary. ArrayBuffer.isView covers every TypedArray + DataView.
+function describeHeavyBinary(v) {
+    if (ArrayBuffer.isView(v) && v.byteLength >= HEAVY_BINARY_BYTES) {
+        const name = (v.constructor && v.constructor.name) || 'TypedArray';
+        const n = v.length !== undefined ? v.length : v.byteLength;
+        return `[${name} x ${n} STRIPPED — TASK-2794]`;
+    }
+    if (v instanceof ArrayBuffer && v.byteLength >= HEAVY_BINARY_BYTES) {
+        return `[ArrayBuffer ${v.byteLength} B STRIPPED — TASK-2794]`;
+    }
+    return null;
+}
+
 // Top-level action keys whose values may carry credentials.
 export const SENSITIVE_ACTION_KEYS = ['userDetails', 'access_token', 'refresh_token', 'token', 'authHeader', 'password', 'apikey', 'api_key'];
 
@@ -62,10 +88,16 @@ function stripNonCloneable(value, depth) {
                 if (!copy) { copy = value.slice(); }
                 copy[i] = undefined;
             } else if (v && typeof v === 'object') {
-                const stripped = stripNonCloneable(v, depth + 1);
-                if (stripped !== v) {
+                const heavy = describeHeavyBinary(v);
+                if (heavy) {
                     if (!copy) { copy = value.slice(); }
-                    copy[i] = stripped;
+                    copy[i] = heavy;
+                } else {
+                    const stripped = stripNonCloneable(v, depth + 1);
+                    if (stripped !== v) {
+                        if (!copy) { copy = value.slice(); }
+                        copy[i] = stripped;
+                    }
                 }
             }
         }
@@ -85,14 +117,96 @@ function stripNonCloneable(value, depth) {
             if (!copy) { copy = { ...value }; }
             delete copy[k];
         } else if (v && typeof v === 'object') {
-            const stripped = stripNonCloneable(v, depth + 1);
-            if (stripped !== v) {
+            const heavy = describeHeavyBinary(v);
+            if (heavy) {
                 if (!copy) { copy = { ...value }; }
-                copy[k] = stripped;
+                copy[k] = heavy;
+            } else {
+                const stripped = stripNonCloneable(v, depth + 1);
+                if (stripped !== v) {
+                    if (!copy) { copy = { ...value }; }
+                    copy[k] = stripped;
+                }
             }
         }
     }
     return copy || value;
+}
+
+// TASK-2794: bounded probe — does this redux slice hold a large binary payload
+// anywhere shallow? Read-only, never throws, budgeted so a huge all-light slice
+// costs a bounded number of node visits. Descends plain objects, arrays (first
+// 64 entries), Maps and Sets; a plain Array of 65536+ elements is itself heavy
+// (it string-encodes just as fatally as a typed array).
+const _PROBE_DEPTH = 5;
+const _PROBE_BUDGET = 1200;
+function sliceCarriesHeavyBinary(value, depth, budget) {
+    if (!value || typeof value !== 'object' || depth > _PROBE_DEPTH || budget.n <= 0) { return false; }
+    budget.n--;
+    if (describeHeavyBinary(value)) { return true; }
+    try {
+        if (value instanceof Map || value instanceof Set) {
+            for (const v of value.values()) {
+                if (sliceCarriesHeavyBinary(v, depth + 1, budget)) { return true; }
+                if (budget.n <= 0) { break; }
+            }
+            return false;
+        }
+        if (Array.isArray(value)) {
+            if (value.length >= 65536) { return true; }
+            for (let i = 0; i < value.length && i < 64; i++) {
+                if (sliceCarriesHeavyBinary(value[i], depth + 1, budget)) { return true; }
+                if (budget.n <= 0) { break; }
+            }
+            return false;
+        }
+        const keys = Object.keys(value);
+        for (let i = 0; i < keys.length; i++) {
+            if (sliceCarriesHeavyBinary(value[keys[i]], depth + 1, budget)) { return true; }
+            if (budget.n <= 0) { break; }
+        }
+    } catch (e) { /* a throwing getter must never break capture */ }
+    return false;
+}
+
+// Per-slice verdict caches keyed on object identity: redux replaces a slice
+// reference whenever it changes, so identity is a sound cache key and the
+// per-action steady-state cost collapses to "probe only the slices that
+// changed". WeakSets so retired slices are collectable.
+const _lightSlices = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+const _heavySlices = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+
+// TASK-2794: replace every top-level redux slice that carries a large binary
+// payload with a short descriptor string BEFORE the state is handed to
+// tracker-redux (which would structured-clone it into its encoder worker and
+// string-encode every array element — the production renderer OOM). Returns the
+// SAME reference when nothing is heavy. Never mutates the input, never throws.
+export function stripHeavyStateForReplay(state) {
+    if (!state || typeof state !== 'object') { return state; }
+    try {
+        let copy = null;
+        const keys = Object.keys(state);
+        for (let i = 0; i < keys.length; i++) {
+            const k = keys[i];
+            const v = state[k];
+            if (!v || typeof v !== 'object') { continue; }
+            let heavy;
+            if (_heavySlices && _heavySlices.has(v)) {
+                heavy = true;
+            } else if (_lightSlices && _lightSlices.has(v)) {
+                heavy = false;
+            } else {
+                heavy = sliceCarriesHeavyBinary(v, 0, { n: _PROBE_BUDGET });
+                const cache = heavy ? _heavySlices : _lightSlices;
+                if (cache) { cache.add(v); }
+            }
+            if (heavy) {
+                if (!copy) { copy = { ...state }; }
+                copy[k] = `[STRIPPED ${k}: carries large binary arrays; never ship them to the replay worker — TASK-2794]`;
+            }
+        }
+        return copy || state;
+    } catch (e) { return state; }
 }
 
 // Redact credential payloads from a Redux action (defense-in-depth behind the
