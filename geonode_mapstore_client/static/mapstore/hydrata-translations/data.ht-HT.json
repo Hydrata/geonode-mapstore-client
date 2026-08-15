@@ -3,13 +3,15 @@
   "messages": {
     "hydrata": {
       "comingSoon": "Ap vini talè",
+      "introduction": {
+        "baseline": "Hydrata ak tout sa ki parèt isit la bay « jan yo ye a » epi « selon disponibilite », san okenn garanti, eksplisit oswa enplisit — ki gen ladan garanti komèsyalizasyon, bon jan pou yon itilizasyon patikilye ak non-vyolasyon. Nou pa garanti sèvis la ap satisfè bezwen ou yo ni li ap bay rezilta ou t'ap tann nan, ni egzaktitid, fyabilite oswa aktyalite enfòmasyon oswa kontni ki parèt yo. Rezilta modèl la se yon similasyon : yo apwoche sa teren an, kondisyon limit yo, ipotèz yo ak rezolisyon may la bay — se pa sa ki pral rive vre. Pa sèvi ak yo kòm sèl baz pou konsepsyon jeni, desizyon regilasyon oswa planifikasyon, entèvansyon dijans, sekirite moun oswa navigasyon ; fè yon pwofesyonèl kalifye verifye yo anvan ak kondisyon sit la. Itilizasyon Hydrata ou a gouvène pa Kondisyon Sèvis nou yo."
+      },
       "simpleView": {
         "accept": "Aksepte",
         "baseMaps": "Kat debaz",
         "begin": "Kòmanse",
         "cancel": "Anile",
         "close": "Fèmen",
-        "disclaimer": "Aplikasyon sa a bay « jan li ye a », san okenn garanti nan okenn kalite, eksplisit oswa enplisit, ki gen ladan men pa limite a garanti komèsyalizasyon, bon jan pou yon itilizasyon patikilye ak non-vyolasyon. Nan okenn ka otè yo oswa detantè dwa dotè yo pa pral responsab pou okenn reklamasyon, domaj oswa lòt responsabilite, kit se nan yon aksyon kontra, neglijans oswa otreman, ki soti nan oswa ki gen koneksyon ak lojisyèl la oswa itilizasyon oswa lòt tranzaksyon ki gen rapò ak lojisyèl la.",
         "dragFilesOrClick": "Trennen fichye oswa klike isit la",
         "error": "Erè",
         "failedToUpdateTitle": "Echèk nan mete ajou tit jeu de done a",

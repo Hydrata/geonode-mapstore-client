@@ -506,10 +506,19 @@ export class simpleViewIntroduction extends React.Component {
                                 : <Message msgId="hydrata.simpleView.welcomeTitle" />}
                         </Modal.Title>
                     </Modal.Header>
+                    {/* ONE platform disclaimer, and it is the baseline block
+                        at the bottom (W4, TASK-2779). A second small-print
+                        paragraph used to sit here rendering
+                        `hydrata.simpleView.disclaimer` — an MIT software
+                        warranty — and it was retired INTO
+                        `hydrata.introduction.baseline` rather than left beside
+                        it. Only the baseline id is covered by
+                        INTRODUCTION_BASELINE_VERSION, so revising the other
+                        paragraph would have shipped new legal text to every
+                        already-accepted viewer with no re-prompt. Do not
+                        reintroduce a second platform legal string here; append
+                        to the baseline msgId and bump the version. */}
                     <Modal.Body>
-                        <p className="sv-introduction-warranty" style={{"fontSize": "small"}}>
-                            <Message msgId="hydrata.simpleView.disclaimer" />
-                        </p>
                         {this.state.editing ? this.renderEditor() : (
                             <React.Fragment>
                                 {this.renderOwnerContent()}
