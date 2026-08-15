@@ -56,6 +56,47 @@ export const PARTICLE_DROP_RATE = 0.004; // per-frame recycle chance for a FLOWI
 export const PARTICLE_STALL_DROP_RATE = 0.30; // per-frame recycle chance for a NOT-FLOWING (dry/still/off-mesh) particle
 export const DEFAULT_TRAIL_FADE = 0.955; // per-frame trail decay; higher = longer tails
 
+// ── TASK-2743 UAT-02 (W6, epic 2706) — seed and cull against the VIEW ────────
+//
+// Particle positions are [0,1] UV over the WHOLE square-padded run bbox. On the
+// 6,779,432-triangle Msimbazi store that square is 3,808.68 m on a side, while a
+// working view at zoom 19 covers 388 x 349 m — 1.03% of it. So even a perfectly
+// uniform population puts only ~446 of 43,264 particles on screen. It is not
+// uniform either: the stall-recycle asymmetry below (0.30/frame when not
+// flowing vs 0.004 when flowing) drags the population into the wet region and
+// parks it there. Measured live: 36.09% of particles inside 4.15% of the domain
+// — an 8.7x concentration — with 2,437 in the hottest 1/256 UV cell against a
+// uniform expectation of 169. The overlay was reporting where water IS, which
+// the colour fill already shows, instead of where it is GOING.
+//
+// The fix restricts WHERE particles respawn and where they are culled, in the
+// same [0,1] UV frame they already live in. The sampling window does NOT move:
+// computeBboxOrtho, worldToVelocityUv, composePosToClipMatrix,
+// computeAdvectionSpeedScale, the velocity texture and every arrow code path
+// are untouched. That matters — making the window follow the view would have
+// (a) pushed the arrow grid from ~2.6 to ~21.9 texels between samples, turning
+// the one overlay that works at this scale into a point-sampled scatter,
+// (b) turned the constant fp32 rounding of `cx` in the uBboxOrtho upload into a
+// per-frame-varying misregistration that flickers bank arrows on every pan,
+// (c) silently divided on-screen particle speed by ~8.5x, since
+// PARTICLE_BASE_SPEED_SCALE is a UV-per-second rate, and (d) changed what every
+// already-stored particle UV means on every camera move.
+//
+// Margins are DIRECT multipliers on the view's half-extent: 1.0 is exactly the
+// viewport, 1.3 is 30% larger per axis. Stated once, here, because this is
+// exactly the sort of factor two readers will disagree about.
+export const PARTICLE_RESPAWN_VIEW_MARGIN = 1.3;
+// The cull rect is deliberately WIDER than the respawn rect: a particle must be
+// able to drift out of the respawn area without being killed the moment it
+// leaves, or the two rects thrash against each other.
+export const PARTICLE_CULL_VIEW_MARGIN = 2.0;
+// Below this UV extent the view/window intersection is degenerate — the mesh
+// has been panned off screen entirely, or the clamp collapsed. Fall back to the
+// FULL domain (i.e. exactly today's behaviour) rather than respawning all
+// 43,264 particles onto a single texel.
+export const PARTICLE_MIN_VIEW_UV_EXTENT = 0.002;
+export const FULL_UV_RECT = Object.freeze({ u: 0, v: 0, du: 1, dv: 1 });
+
 /**
  * Advection UV-space-per-second scale from the "speed exaggeration"
  * control — a direct multiplier on PARTICLE_BASE_SPEED_SCALE.
@@ -110,9 +151,97 @@ export function isParticleFlowing(depth, wetThreshold, speedMps, minSpeed = PART
  */
 export function pickRespawnRate(
     depth, wetThreshold, speedMps, minSpeed = PARTICLE_MIN_SPEED,
-    dropRate = PARTICLE_DROP_RATE, stallDropRate = PARTICLE_STALL_DROP_RATE
+    dropRate = PARTICLE_DROP_RATE, stallDropRate = PARTICLE_STALL_DROP_RATE,
+    inView = true
 ) {
+    // TASK-2743 UAT-02 — `inView` defaults true, so every pre-existing caller
+    // and karma case behaves exactly as before. Off-view is treated as
+    // not-flowing rather than as its own rate, mirroring the shader's single
+    // `notFlowing = max(notFlowing, offView)` line: one recycle rate, one code
+    // path, nothing new to keep in sync.
+    if (!inView) {
+        return stallDropRate;
+    }
     return isParticleFlowing(depth, wetThreshold, speedMps, minSpeed) ? dropRate : stallDropRate;
+}
+
+/**
+ * The respawn and cull rectangles, in the SAME [0,1] velocity-UV frame the
+ * particle position texture already stores.
+ *
+ * Computed on the CPU in JS float64 and uploaded as two `vec4`s whose every
+ * component is in [0,1] — so no world coordinate reaches the GPU and TASK-2661's
+ * fp32 lattice cannot reappear through this door BY CONSTRUCTION, not by
+ * promise. Mirrors playbackFlowViz.worldToVelocityUv's mapping exactly (a world
+ * delta D maps to a UV delta D/(2*halfW)); pinned against it by karma.
+ *
+ * Rotation-aware: the view is an axis-aligned rect in SCREEN space, so under a
+ * rotated camera the world-space region it covers is that rect's AABB, which is
+ * larger by |cos|+|sin| per axis.
+ *
+ * @param {{center:[number,number], resolution:number, rotation?:number}} viewState
+ * @param {[number,number]} sizeCssPx
+ * @param {{cx:number,cy:number,halfW:number,halfH:number}} bboxOrtho
+ * @returns {{respawn:{u:number,v:number,du:number,dv:number}, cull:{u:number,v:number,du:number,dv:number}}}
+ */
+export function computeParticleViewRects(viewState, sizeCssPx, bboxOrtho) {
+    const full = { respawn: { ...FULL_UV_RECT }, cull: { ...FULL_UV_RECT } };
+    if (!viewState || !sizeCssPx || !bboxOrtho) {
+        return full;
+    }
+    const { center, resolution, rotation = 0 } = viewState;
+    const [w, h] = sizeCssPx;
+    if (!center || !(resolution > 0) || !(w > 0) || !(h > 0)
+        || !(bboxOrtho.halfW > 0) || !(bboxOrtho.halfH > 0)) {
+        return full;
+    }
+    // Screen-space half-extent in world metres, then its AABB under rotation.
+    const halfWm = (w * resolution) / 2;
+    const halfHm = (h * resolution) / 2;
+    const c = Math.abs(Math.cos(rotation));
+    const s = Math.abs(Math.sin(rotation));
+    const aabbHalfW = halfWm * c + halfHm * s;
+    const aabbHalfH = halfWm * s + halfHm * c;
+    // Centre in UV — the same mapping as worldToVelocityUv.
+    const cu = (center[0] - bboxOrtho.cx) / (2 * bboxOrtho.halfW) + 0.5;
+    const cv = (center[1] - bboxOrtho.cy) / (2 * bboxOrtho.halfH) + 0.5;
+
+    const rectFor = (margin) => {
+        // A world half-extent E maps to a UV half-extent E/(2*halfW).
+        const hu = (aabbHalfW * margin) / (2 * bboxOrtho.halfW);
+        const hv = (aabbHalfH * margin) / (2 * bboxOrtho.halfH);
+        const u0 = Math.max(0, Math.min(1, cu - hu));
+        const u1 = Math.max(0, Math.min(1, cu + hu));
+        const v0 = Math.max(0, Math.min(1, cv - hv));
+        const v1 = Math.max(0, Math.min(1, cv + hv));
+        return { u: u0, v: v0, du: u1 - u0, dv: v1 - v0 };
+    };
+
+    const respawn = rectFor(PARTICLE_RESPAWN_VIEW_MARGIN);
+    const cull = rectFor(PARTICLE_CULL_VIEW_MARGIN);
+    // Degenerate: the view does not meaningfully overlap the window (panned off
+    // the mesh, or zoomed so far that the clamp collapsed). Today's behaviour.
+    if (respawn.du < PARTICLE_MIN_VIEW_UV_EXTENT || respawn.dv < PARTICLE_MIN_VIEW_UV_EXTENT
+        || cull.du < PARTICLE_MIN_VIEW_UV_EXTENT || cull.dv < PARTICLE_MIN_VIEW_UV_EXTENT) {
+        return full;
+    }
+    return { respawn, cull };
+}
+
+/**
+ * JS mirror of the advect shader's `uCullRect` test — the same four `step()`
+ * comparisons, so the GLSL and the headless model can be pinned against each
+ * other rather than trusted to agree.
+ * @param {number} u
+ * @param {number} v
+ * @param {{u:number,v:number,du:number,dv:number}} rect
+ * @returns {boolean}
+ */
+export function isParticleInView(u, v, rect) {
+    if (!rect) {
+        return true;
+    }
+    return u >= rect.u && u <= rect.u + rect.du && v >= rect.v && v <= rect.v + rect.dv;
 }
 
 /**
@@ -238,6 +367,13 @@ uniform float uDropRate;
 uniform float uStallDropRate;
 uniform float uMinSpeed;
 uniform float uWetThreshold;
+// TASK-2743 UAT-02 — both are [0,1] UV rects (origin.xy, size.zw), computed on
+// the CPU in float64 by computeParticleViewRects. Every component is O(1), so
+// no large-magnitude world coordinate reaches the GPU here (TASK-2661).
+// Defaulting both to the full domain makes an un-uploaded uniform behave
+// exactly like the pre-2743 shader rather than killing every particle.
+uniform vec4 uRespawnRect;
+uniform vec4 uCullRect;
 out vec4 fragColor;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
 void main() {
@@ -254,9 +390,18 @@ void main() {
   float dry = step(depth, uWetThreshold);
   float still = step(length(vel), uMinSpeed);
   float notFlowing = max(dry, still);
+  // TASK-2743 UAT-02 — a particle outside the CULL rect recycles at the same
+  // fast stall rate as a dry one. Folded into notFlowing on its own line so the
+  // two lines below stay byte-identical to the shipped shader.
+  vec2 offLo = step(pos, uCullRect.xy);
+  vec2 offHi = step(uCullRect.xy + uCullRect.zw, pos);
+  float offView = max(max(offLo.x, offLo.y), max(offHi.x, offHi.y));
+  notFlowing = max(notFlowing, offView);
   float rate = mix(uDropRate, uStallDropRate, notFlowing);
   vec2 seed = gl_FragCoord.xy + vec2(uRandSeed);
-  vec2 respawn = vec2(hash(seed + 1.3), hash(seed + 7.7));
+  // ... and it respawns inside the RESPAWN rect, which is narrower than the
+  // cull rect so a fresh particle has room to drift before it is culled again.
+  vec2 respawn = uRespawnRect.xy + vec2(hash(seed + 1.3), hash(seed + 7.7)) * uRespawnRect.zw;
   fragColor = vec4(mix(pos, respawn, step(hash(seed), rate)), 0.0, 1.0);
 }`;
 

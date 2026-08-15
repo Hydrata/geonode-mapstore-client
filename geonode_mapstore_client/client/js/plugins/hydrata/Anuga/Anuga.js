@@ -17,7 +17,10 @@ import {
     playbackIdentifyEpic,
     // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
     // Inspect is armed.
-    playbackSuppressIdentifyEpic
+    playbackSuppressIdentifyEpic,
+    // TASK-2744 (AC2, epic 2706) — free the run's fetcher/caches and remove
+    // the map overlay on Unload.
+    playbackDisposeEpic
 } from './playback/epics/playbackEpics';
 import anugaContainer from "./components/anugaContainer";
 import {
@@ -54,6 +57,12 @@ import {
     updateComputeInstanceEpic,
     updateAnugaModelTitle,
     compareScenarioEpic,
+    // TASK-2707 (epic 2706 W1.1) — Build / Build-and-Run. Exported from the
+    // barrel since TASK-2079 but NEVER enumerated here, so the epic never
+    // subscribed: every Build click dispatched BUILD_SCENARIO into a stream
+    // with no listener (no request, no error, no toast). Registration is the
+    // fix; epicRegistrationCompleteness-test.js is the guard against a repeat.
+    buildScenarioEpic,
     getAnugaResourcesEpic,
     manageTerrain3DEpic,
     // TASK-2572 — a terrain superseded by a datum-shift conversion has no TOC
@@ -240,6 +249,10 @@ export default createPlugin('Anuga', {
         updateComputeInstanceEpic,
         updateAnugaModelTitle,
         compareScenarioEpic,
+        // TASK-2707 (epic 2706 W1.1) — Build / Build-and-Run: POSTs
+        // /api/v2/anuga/projects/{p}/scenarios/{s}/build/ on BUILD_SCENARIO.
+        // Absent from this map until now; see the import-block note above.
+        buildScenarioEpic,
         getAnugaResourcesEpic,
         manageTerrain3DEpic,
         supersededTerrainVisibilityEpic,
@@ -358,6 +371,11 @@ export default createPlugin('Anuga', {
         playbackIdentifyEpic,
         // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
         // Inspect is armed; restores mapInfo.enabled verbatim on disarm.
-        playbackSuppressIdentifyEpic
+        playbackSuppressIdentifyEpic,
+        // TASK-2744 (AC2, epic 2706) — Unload: drop the fetcher + its decoded
+        // chunk cache + the cloned/reprojected mesh copies, and remove the
+        // map overlay. Without it a scenario switch retained ~578 MiB per
+        // stale run.
+        playbackDisposeEpic
     }
 });

@@ -595,7 +595,24 @@ describe('AnugaResultsMenuClass (unconnected — rendering logic)', () => {
         expect(rows[0].textContent).toBe('Baseline');
     });
 
-    it('excludes a scenario whose complete run has NO playback store (pre-authorized tradeoff — same treatment as no complete run)', () => {
+    /*
+     * TASK-2715 (W5, epic 2706) REWRITES THIS SPEC IN PLACE — declared, not
+     * hidden.
+     *
+     * TASK-2684's AC allowed either branch: a storeless complete run could be
+     * "row absent OR clearly non-actionable". It elected "row absent", and this
+     * spec pinned that. 2715 elects the OTHER sanctioned branch of the same AC,
+     * because absence turned out to be indistinguishable from "you have no
+     * completed runs" for a user who has just paid for a 29-hour run — see
+     * prod scenario #407, run 1314, 6.8M triangles, no store.
+     *
+     * So the row is no longer absent; it is present and unmistakably dead. The
+     * assertion below still counts ACTIONABLE rows by their class, and that
+     * count is still 1 — the explanation row deliberately does NOT carry the
+     * `sv-anuga-results-row` token, because three shipped specs (and this
+     * describe's own fixtures) count actionable rows by exactly that selector.
+     */
+    it('renders a non-actionable explanation row for a complete run with no playback store', () => {
         const scenarios = [
             makeScenario(1, 'Baseline', {latest_complete_run: {id: 101, has_playback_store: true}}),
             makeScenario(2, 'Legacy run', {latest_complete_run: {id: 102, has_playback_store: false}})
@@ -604,9 +621,74 @@ describe('AnugaResultsMenuClass (unconnected — rendering logic)', () => {
             <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={() => {}} />,
             container
         );
+        // the actionable row is untouched (AC3)
         const rows = container.querySelectorAll('.sv-anuga-results-row');
         expect(rows.length).toBe(1);
         expect(rows[0].textContent).toBe('Baseline');
+        expect(rows[0].tagName).toBe('BUTTON');
+
+        // ...and the storeless one is now VISIBLE, named, and explained
+        const dead = container.querySelector('[data-testid="anuga-results-row-unavailable-2"]');
+        expect(dead).toExist('no explanation row for the storeless scenario');
+        expect(dead.textContent).toInclude('Legacy run');
+        // one sentence saying why, not just a greyed-out name
+        expect(dead.textContent.replace('Legacy run', '').trim().length > 20).toBe(true);
+
+        // visibly non-actionable: not an enabled button, and it does not
+        // borrow the actionable row's class token.
+        expect(dead.tagName).toNotBe('BUTTON');
+        expect(dead.className).toNotInclude('sv-anuga-results-row ');
+        expect(dead.classList.contains('sv-anuga-results-row')).toBe(false);
+    });
+
+    it('the no-playback row dispatches no playbackInit', () => {
+        // AC2. The row is not a button, so there is nothing to click — but the
+        // guard in resultsMenuMapDispatchToProps must survive regardless, which
+        // is what the mapDispatchToProps spec elsewhere in this file pins.
+        // Here: even if a caller reaches in and invokes onSelectScenario with
+        // the storeless scenario, the component offers no path that does so.
+        const calls = [];
+        const scenarios = [
+            makeScenario(2, 'Legacy run', {latest_complete_run: {id: 102, has_playback_store: false}})
+        ];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={(s) => calls.push(s)} />,
+            container
+        );
+        const dead = container.querySelector('[data-testid="anuga-results-row-unavailable-2"]');
+        expect(dead).toExist();
+        dead.click();
+        expect(calls.length).toBe(0);
+    });
+
+    it('resultsNoRuns is NOT rendered when a complete-but-storeless scenario is present', () => {
+        // AC4 — the empty state stops lying. "No scenarios have completed runs
+        // with results yet." is affirmatively FALSE for a scenario that has a
+        // completed run; it just has no player.
+        const scenarios = [
+            makeScenario(2, 'Legacy run', {latest_complete_run: {id: 102, has_playback_store: false}})
+        ];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={() => {}} />,
+            container
+        );
+        // ANTI-VACUITY: a bare absence assertion passes if the component threw
+        // and rendered nothing at all. Assert the replacement is present in the
+        // SAME render before asserting the lie is gone.
+        expect(container.querySelector('[data-testid="anuga-results-row-unavailable-2"]')).toExist();
+        expect(container.querySelector('[data-testid="anuga-results-empty"]')).toNotExist();
+    });
+
+    it('resultsNoRuns STILL renders when there are genuinely no complete runs', () => {
+        // The other half of AC4: the sentence is reserved for the case where it
+        // is true, not deleted.
+        const scenarios = [makeScenario(1, 'Never run', {latest_complete_run: null})];
+        ReactDOM.render(
+            <AnugaResultsMenuClass scenarios={scenarios} activeRunId={null} onSelectScenario={() => {}} />,
+            container
+        );
+        expect(container.querySelector('[data-testid="anuga-results-empty"]')).toExist();
+        expect(container.querySelector('[data-testid="anuga-results-row-unavailable-1"]')).toNotExist();
     });
 
     it('renders a clear non-actionable empty state when NO scenario has an activatable run', () => {

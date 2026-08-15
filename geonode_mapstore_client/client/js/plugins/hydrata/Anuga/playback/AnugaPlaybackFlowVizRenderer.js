@@ -27,6 +27,7 @@ import { linkProgram } from './playbackShaders';
 import { computeMeshBounds } from './playbackMeshGeometry';
 import {
     VEL_TEX_SIZE,
+    resolveVelocityTextureSize,
     pickVelocityTextureFormat,
     shouldUseLinearFiltering,
     computeBboxOrtho,
@@ -53,6 +54,9 @@ export class AnugaPlaybackFlowVizRenderer {
         this.velTex = null;
         this.velFbo = null;
         this.velFboComplete = false;
+        // TASK-2743 UAT-03 — the size actually accepted (may be < VEL_TEX_SIZE
+        // if the GPU refused the FBO); 0 until _ensureVelocityTexture runs.
+        this.velTexSize = 0;
         this.velVao = null;
         this.arrowVao = null;
         this.arrowShapeBuf = null;
@@ -92,23 +96,43 @@ export class AnugaPlaybackFlowVizRenderer {
             return;
         }
         const gl = this.gl;
-        this.velTex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.velTex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, this.format.internal, VEL_TEX_SIZE, VEL_TEX_SIZE, 0, this.format.format, this.format.type, null);
         // W0 scar: an incomplete/undefined filtering mode silently samples
         // as zero — request LINEAR only when its extension is actually
         // present, else NEAREST (correct, just blockier).
         const linear = shouldUseLinearFiltering(gl, this.format.type === gl.FLOAT);
         const filter = linear ? gl.LINEAR : gl.NEAREST;
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        this.velFbo = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.velFbo);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.velTex, 0);
-        this.velFboComplete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        // TASK-2743 UAT-03 — try VEL_TEX_SIZE, halving on an incomplete FBO.
+        // Before this, velFboComplete was computed here and read by NOTHING, so
+        // an incomplete FBO rendered garbage instead of disabling the overlay;
+        // raising the requested size makes that path more reachable, so it is
+        // now actually handled. Each failed attempt frees its own objects.
+        const accepted = resolveVelocityTextureSize(VEL_TEX_SIZE, (size) => {
+            this.velTex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, this.velTex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, this.format.internal, size, size, 0, this.format.format, this.format.type, null);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            this.velFbo = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.velFbo);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.velTex, 0);
+            const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            if (!ok) {
+                gl.deleteFramebuffer(this.velFbo);
+                gl.deleteTexture(this.velTex);
+                this.velFbo = null;
+                this.velTex = null;
+            }
+            return ok;
+        });
+        this.velTexSize = accepted;
+        this.velFboComplete = accepted > 0;
+        if (!accepted) {
+            // Nothing renders rather than something wrong.
+            this.supported = false;
+        }
     }
 
     _ensureArrowGeometry() {
@@ -171,7 +195,7 @@ export class AnugaPlaybackFlowVizRenderer {
         const gl = this.gl;
         const bboxOrtho = computeBboxOrtho(this.meshBbox);
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.velFbo);
-        gl.viewport(0, 0, VEL_TEX_SIZE, VEL_TEX_SIZE);
+        gl.viewport(0, 0, this.velTexSize, this.velTexSize);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.useProgram(this.velProgram);
@@ -246,7 +270,7 @@ export class AnugaPlaybackFlowVizRenderer {
             return { supported: false };
         }
         const gl = this.gl;
-        const n = VEL_TEX_SIZE;
+        const n = this.velTexSize;
         const buf = new Float32Array(n * n * 4);
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.velFbo);
         const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;

@@ -2075,6 +2075,32 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.85);
 }
 
+/* Role word beside the price (TASK-2716, epic 2706 W5).
+   The chip's tooltip already said whether the figure is the charge or an
+   estimate, and the dogfood's reader still misread it — so the word is now
+   on screen. It is deliberately QUIETER than the amount: the number is what
+   the eye should land on, the word is what disambiguates it once it has.
+   Landing it with its own rule rather than as bare inherited text, because
+   that is the defect this very block was written to fix. */
+.sv-scenario-run-price-role {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: baseline;
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+/* The amount follows the word immediately — collapse the chip's own leading
+   margin so the pair reads as one phrase rather than two chips. */
+.sv-scenario-run-price-role + .sv-scenario-run-price {
+    margin-left: 3px;
+}
+
 /* Over balance: the SAME amber token pair as the estimate section's
    actionable badge (.sv-anuga-scenario-estimate-badge--action) — identical
    colours, therefore identical MEASURED contrast: #2b1d00 on #ffc107 ->
@@ -2978,16 +3004,53 @@ span.sv-scenario-run-price--short {
    z-index band so both can never overlap on the same map (Timeline is not
    mounted on Anuga result maps today, but this keeps the stacking order
    correct if that ever changes). */
+/* TASK-2744 (AC5, epic 2706) — THE BAR MUST FIT, AND ITS CONTROLS MUST STAY
+   USABLE.
+
+   Measured on map 1461: the bar never overflowed the viewport, so AC5's
+   stated predicate (left >= 0 && right <= innerWidth) already passed at HEAD
+   and could not be shown RED. The real defect was the opposite failure mode —
+   the bar CRUSHED its children instead. At a 1248 px viewport the scrubber,
+   the primary control, rendered THREE CSS PIXELS wide and the overlay slider
+   groups rendered at one.
+
+   Root cause: an absolutely-positioned shrink-to-fit box laid out from
+   `left: 50%` has only the containing block's RIGHT HALF available, so the
+   bar's max width is 50% of its container — measured at a hard 959.15 px for
+   BOTH a 2368 px and a 3769 px viewport. Natural content exceeds that, and the
+   default `flex-shrink: 1` then squeezed whatever had no min-width, which was
+   everything.
+
+   The fix is `left: 0; right: 0; margin: auto` + `width: fit-content` — a
+   box anchored to BOTH edges gets the full container width to size against
+   while still centring — plus `flex-wrap` and explicit widths below so a
+   narrow viewport wraps to a second row rather than shaving the scrubber. */
+/* TASK-2751 — .sv-playback-bar is now the CARD: a bottom-anchored column
+   holding the Display drawer (order:-1, so it grows UPWARD) above the
+   transport row. Its width is CONTENT-INDEPENDENT, which is what makes
+   "a mounting label must not move the play button" true by construction:
+   nothing that appears inside can change the box. It still varies with the
+   viewport below 1352px, which is fine — that is not content. */
+/* The bar must not sit on top of the map's own bottom controls. Measured live
+   at 1300px: the left cluster (basemap switcher to x=46, the Ref tag to x=76.8)
+   and the right cluster (two square-buttons from x=1256.2, i.e. 43.8px in from
+   the right edge) both fell UNDER the old full-bleed `100vw - 32px`.
+   88px of clearance each side covers the wider of the two with room to spare,
+   and because those controls are viewport-anchored the inset is a constant,
+   not a breakpoint. On a wide viewport max-width wins and the margins centre
+   it, exactly as before. */
 .sv-playback-bar {
     position: absolute;
-    left: 50%;
+    left: 88px;
+    right: 88px;
+    width: auto;
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
     bottom: 16px;
-    transform: translateX(-50%);
     z-index: 1000;
     display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
+    flex-direction: column;
     border-radius: 6px;
     background: var(--sv-panel-bg, rgba(20, 24, 28, 0.88));
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -2995,9 +3058,295 @@ span.sv-scenario-run-price--short {
     font-family: Montserrat, sans-serif;
     font-size: 12px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    /* NOT `hidden`: the status toast is a child positioned at `bottom: 100%`,
+       i.e. deliberately outside the card's own box, and `hidden` clipped it to
+       nothing. The corners this used to round are now rounded by the drawer
+       itself (it is the top child whenever it is open, and the only child with
+       its own background). */
+    overflow: visible;
+}
+/* The transport row. `nowrap` is deliberate down to ~1100px: the whole point
+   of moving eight controls into the drawer was to stop this row reflowing.
+   Below that it wraps rather than clipping — a deterministic, content-free
+   breakpoint, not the old "whatever happened to be widest" behaviour. */
+.sv-playback-transport {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    min-height: 40px;
+}
+@media (max-width: 1100px) {
+    .sv-playback-transport {
+        flex-wrap: wrap;
+        row-gap: 6px;
+        justify-content: center;
+    }
 }
 .sv-playback-bar--loader {
+    flex-direction: row;
+    align-items: center;
     gap: 6px;
+    padding: 8px 14px;
+}
+.sv-playback-divider {
+    flex: 0 0 auto;
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* ── The Display drawer (TASK-2751) ─────────────────────────────────────────
+   Always mounted, `hidden` when shut — `hidden` also takes its controls out of
+   the tab order and the a11y tree, which a display:none wrapper alone would
+   not. The `[hidden]` rule is required because `display:grid` on the class
+   beats the UA sheet's `[hidden] { display: none }`. */
+.sv-playback-drawer {
+    order: -1;
+    display: grid;
+    grid-template-columns: 230px 280px 1fr;
+    gap: 18px;
+    padding: 12px 14px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(0, 0, 0, 0.16);
+    /* Rounds the card's TOP corners now that the card no longer clips: the
+       drawer is the top child whenever it is open. */
+    border-radius: 6px 6px 0 0;
+    /* TASK-2743 UAT-04 (W6, epic 2706). Was a flat 42vh, which sounds modest but
+       is measured against the VIEWPORT while the bar the user actually sees is
+       the drawer PLUS the fixed transport row. On a 1280x720 window the viewport
+       is 504 px, so 42vh (212 px) + the 47 px transport row put the whole bar at
+       259 px = 51.4% of the screen, leaving 245 px of map. Budgeting the bar as a
+       whole at ~33% and subtracting the transport row keeps the map dominant at
+       every window size (measured: 162 px / 32.1% at 1280x720, 281 px / 32.6% at
+       1920x1080). The drawer already scrolls, so capping it costs reach, not
+       content. */
+    max-height: calc(33vh - 3.2rem);
+    overflow-y: auto;
+}
+.sv-playback-drawer[hidden] {
+    display: none;
+}
+@media (max-width: 900px) {
+    .sv-playback-drawer {
+        grid-template-columns: 1fr;
+    }
+}
+.sv-playback-drawer-col {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+.sv-playback-drawer-title {
+    margin: 0 0 2px 0;
+    padding-bottom: 5px;
+    width: 100%;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+}
+/* TASK-2788 — label ABOVE its slider, not beside it, so the two opacity
+   sliders start at the same x and read as a pair.
+
+   Side-by-side cannot align them here and never could: this column is a fixed
+   230px (.sv-playback-drawer's grid-template-columns), and the slider group
+   alone is 72px of track + 34px of value + 4px gap = 110px, leaving ~112px for
+   the label. "BACKGROUND OPACITY" at 10px uppercase with 0.06em tracking
+   already exceeds that, and the translations are longer still
+   ("OPACITÉ DE L'ARRIÈRE-PLAN"), so the label wrapped to two lines on one row
+   and one line on the other — which is exactly what knocked the sliders out of
+   line. Stacking makes the alignment a property of the layout rather than of
+   how long the words happen to be in the current locale. */
+.sv-playback-drawer-field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+.sv-playback-drawer-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+/* ── The primary-path group: result quantity + its ceiling + Max ──────────── */
+.sv-playback-primary {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+/* A <select> sizes to its WIDEST option, and "Depth-integrated velocity (dIV)"
+   would take 220px of a row that has none to spare. */
+/* The cap is now a backstop for a long locale ("Cisaillement", "Peligrosidad"),
+   not the everyday width: the options carry short forms, so the control sizes
+   to ~72px in English instead of reserving room for a 31-character label it
+   never displays. Everything the cap would have clipped is on the option's
+   tooltip and in the Display drawer. */
+.sv-playback-quantity {
+    max-width: 140px;
+}
+.sv-playback-bar .sv-playback-max-envelope {
+    padding: 5px 8px;
+}
+
+/* ── EditableCeiling (TASK-2751) ───────────────────────────────────────────
+   The colour-scale ceiling. NOT called "max" anywhere visible — epic 2706
+   reserves that word for the temporal-max envelope (TASK-2752). */
+/* FIXED WIDTH, and this is the point of it: the value button and the number
+   input that replaces it are the same size, and the reset affordance's slot is
+   reserved whether or not it is occupied. Measured on map 1461 before the
+   width was pinned, clicking the ceiling to edit it moved the scrubber by
+   10px — small, but the exact class of involuntary reflow this card exists to
+   remove. A long value ("≤ 512.7 Pa") is the sizing case. */
+.sv-playback-ceiling {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    flex: 0 0 118px;
+    width: 118px;
+}
+.sv-playback-ceiling-value {
+    width: 92px;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: inherit;
+    border-radius: 4px;
+    padding: 4px 7px;
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.sv-playback-ceiling-value:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+.sv-playback-ceiling-value.is-override {
+    border-color: var(--sv-accent-lime, #cae33b);
+    color: var(--sv-accent-lime, #cae33b);
+}
+.sv-playback-ceiling-value:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.sv-playback-ceiling-input {
+    width: 92px;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--sv-accent-lime, #cae33b);
+    color: inherit;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.sv-playback-ceiling-reset {
+    flex: 0 0 auto;
+    width: 22px;
+    text-align: center;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    border-radius: 3px;
+    padding: 2px 0;
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.2;
+    cursor: pointer;
+}
+.sv-playback-ceiling-reset:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+/* ── The all-quantities ceiling table, in the drawer ─────────────────────── */
+.sv-playback-ceiling-table {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.sv-playback-ceiling-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 4px;
+    border-radius: 3px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.sv-playback-ceiling-row.is-active {
+    background: rgba(202, 227, 59, 0.13);
+}
+.sv-playback-ceiling-swatch {
+    flex: 0 0 auto;
+    width: 46px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.30);
+}
+.sv-playback-ceiling-row-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-size: 11px;
+    padding: 2px 0;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sv-playback-ceiling-row-name:hover {
+    text-decoration: underline;
+}
+.sv-playback-ceiling-row.is-active .sv-playback-ceiling-swatch {
+    flex: 0 0 auto;
+    width: 46px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.30);
+}
+.sv-playback-ceiling-row-name {
+    color: var(--sv-accent-lime, #cae33b);
+    font-weight: 600;
+}
+.sv-playback-ceiling-row-fixed {
+    font-size: 10px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    white-space: nowrap;
+}
+
+/* The legend has room to breathe; only the bar is width-critical. */
+.sv-playback-legend-ceiling .sv-playback-ceiling,
+.sv-playback-ceiling-row .sv-playback-ceiling {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+/* The legend's own ceiling row — same component, above the swatch list. */
+.sv-playback-legend-ceiling {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 0 6px 0;
 }
 .sv-playback-manifest-input {
     min-width: 260px;
@@ -3013,12 +3362,45 @@ span.sv-scenario-run-price--short {
     border: 1px solid rgba(255, 255, 255, 0.18);
     color: inherit;
     border-radius: 4px;
-    padding: 5px 10px;
+    padding: 5px 8px;
+    white-space: nowrap;
     font-size: 12px;
     cursor: pointer;
 }
 .sv-playback-bar .sv-glass-button:hover {
     background: rgba(255, 255, 255, 0.12);
+}
+/* TASK-2726 follow-up — the Display button's disclosure chevron. Two borders
+   on a rotated empty box, so it inherits `currentColor` and therefore flips to
+   the dark ink automatically when .active paints the button accent-blue. An
+   arrow CHARACTER would not: at emoji presentation it ignores `color` outright
+   (memory reference-emoji-presentation-glyph-ignores-css-color), and its metrics
+   vary by platform font. Points UP when shut, because the drawer grows upward. */
+.sv-playback-display-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.sv-playback-chevron {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-left: 1.5px solid currentColor;
+    border-top: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    /* the box is rotated about its centre, so the visible wedge sits low;
+       nudge it back onto the text baseline rather than fighting it with margin */
+    transform-origin: center;
+    position: relative;
+    top: 1px;
+    transition: transform 140ms ease;
+}
+.sv-playback-display-toggle[aria-expanded="true"] .sv-playback-chevron {
+    transform: rotate(-135deg);
+    top: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sv-playback-chevron { transition: none; }
 }
 .sv-playback-bar .sv-glass-button.active {
     background: var(--sv-accent-blue, #5bc0ff);
@@ -3029,12 +3411,135 @@ span.sv-scenario-run-price--short {
     opacity: 0.5;
     cursor: not-allowed;
 }
-.sv-playback-playpause {
+/* Scoped to the bar deliberately: `.sv-playback-bar .sv-glass-button` above
+   sets `color: inherit` at two classes, so a bare `.sv-playback-playpause`
+   loses on specificity and the glyph stays white. */
+.sv-playback-bar .sv-playback-playpause {
     min-width: 32px;
     text-align: center;
+    /* The transport's one coloured control, in the shared site green. Only
+       reachable because the glyphs are text-presentation codepoints — an
+       emoji-presentation ▶ paints its own orange and ignores `color`. */
+    color: var(--sv-accent-green, rgba(39, 202, 59, 1));
+    font-size: 13px;
+    line-height: 1;
+}
+/* TASK-2744 AC5 — the scrubber may shrink, but never below usable. It was
+   measured at 3px on a 1248px viewport. */
+/* Two stacked bands: the slider (SLIDER_BAND) and the tick axis under it. The
+   tick band is reserved ALWAYS, ticks or no ticks — same discipline as the old
+   fixed status slot, for the same reason: a manifest resolving and populating
+   `time` must not change the row's height and shove the play button. */
+.sv-playback-scrubber-track {
+    position: relative;
+    display: block;
+    flex: 1 1 220px;
+    min-width: 150px;
+    height: 30px;
 }
 .sv-playback-scrubber {
-    width: 220px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    min-width: 140px;
+    height: 18px;
+    margin: 0;
+    z-index: 1;
+    background: transparent;
+}
+/* TASK-2744 AC9 — buffered coverage, drawn UNDER the range input's thumb.
+   One element per contiguous run of buffered time-chunks, positioned as a
+   fraction of the track (see bufferedTrackSegments). */
+.sv-playback-scrubber-buffered {
+    position: absolute;
+    /* 9px = the centre of the 18px SLIDER band, not of the track: the track is
+       now 30px tall because it also carries the tick axis, so the old `top:50%`
+       would float these 6px below the groove they are meant to fill. */
+    top: 9px;
+    transform: translateY(-50%);
+    height: 4px;
+    border-radius: 2px;
+    background: var(--sv-accent-blue, #5bc0ff);
+    opacity: 0.45;
+    pointer-events: none;
+    z-index: 0;
+}
+/* The tick axis, under the slider. Marks sit at the exact index fraction; the
+   labels centre on their mark except at the two ends, which align inward so
+   the axis cannot overhang the track. */
+.sv-playback-ticks {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    right: 0;
+    height: 12px;
+    pointer-events: none;
+}
+.sv-playback-tick {
+    position: absolute;
+    top: 0;
+}
+.sv-playback-tick-mark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.38);
+}
+.sv-playback-tick-label {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    transform: translateX(-50%);
+    font-size: 9px;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.6));
+    font-variant-numeric: tabular-nums;
+}
+.sv-playback-tick-label--first {
+    transform: translateX(0);
+}
+.sv-playback-tick-label--last {
+    transform: translateX(-100%);
+}
+.sv-playback-tick-unit {
+    margin-left: 2px;
+    opacity: 0.75;
+}
+/* TASK-2744 AC7 — every slider now renders its current value beside it. */
+.sv-playback-slider {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+.sv-playback-slider input[type="range"] {
+    width: 72px;
+    flex: 0 0 auto;
+}
+.sv-playback-slider-value {
+    min-width: 34px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+    text-align: right;
+}
+.sv-playback-flowviz-controls,
+.sv-playback-particles-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+/* TASK-2744 AC7 — the bar had no :focus styling at all, so a keyboard user
+   could not see where they were. */
+.sv-playback-bar .sv-glass-button:focus-visible,
+.sv-playback-bar input:focus-visible,
+.sv-playback-bar select:focus-visible {
+    outline: 2px solid var(--sv-accent-blue, #5bc0ff);
+    outline-offset: 1px;
 }
 .sv-playback-readout {
     min-width: 90px;
@@ -3050,13 +3555,71 @@ span.sv-scenario-run-price--short {
     padding: 4px 6px;
     font-size: 12px;
 }
+/* The status toast: transient text, floated ABOVE the card and out of flow so
+   it cannot take width from the transport row (the slot it replaces reserved
+   92px permanently, and the degraded chip beside it measured 233.6px and
+   crushed the scrubber onto its min-width floor). Centred with the
+   `left:0; right:0; margin:auto` idiom, NOT `left:50%` — a shrink-to-fit
+   absolute box at 50% is capped at half its container and crushes its own
+   children. */
+.sv-playback-toast {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 6px auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 3px 10px;
+    padding: 5px 11px;
+    border-radius: 6px;
+    background: var(--sv-panel-bg, rgba(20, 24, 28, 0.92));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    font-size: 11px;
+    /* Never intercept a click meant for the map or the bar beneath it. */
+    pointer-events: none;
+}
 .sv-playback-buffering {
     color: var(--sv-accent-blue, #5bc0ff);
     white-space: nowrap;
 }
+.sv-playback-load-progress {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
 .sv-playback-degraded {
     color: #f0a830;
     white-space: nowrap;
+}
+/* The warning always gets its own line under the buffering state. */
+.sv-playback-toast .sv-playback-degraded {
+    flex-basis: 100%;
+    text-align: center;
+}
+/* The toast is pointer-events:none so it can never swallow a map click; the
+   dismiss control is the one thing inside it that opts back in. */
+.sv-playback-toast-dismiss {
+    pointer-events: auto;
+    margin-left: 8px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.7;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+}
+.sv-playback-toast-dismiss:hover,
+.sv-playback-toast-dismiss:focus-visible {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.14);
 }
 
 /* TASK-2628 (W3.2, epic 2618) — playback legend, mirrors .sv-dem-legend-*. */
@@ -3188,4 +3751,36 @@ span.sv-scenario-run-price--short {
     font-size: 12px;
     color: rgba(255, 255, 255, 0.6);
     line-height: 1.4;
+}
+
+/* A completed run whose playback was never recorded (TASK-2715, epic 2706 W5).
+   Same footprint as an actionable row so the list still reads as one column,
+   but everything that says "you can act on this" is deliberately absent: no
+   hover, no pointer, no raised background, no border highlight. The scenario
+   name stays at full strength — the user needs to recognise their run — while
+   the reason sits under it, quieter. Not a disabled <button>: there is no
+   action to disable. */
+.sv-anuga-results-row-unavailable {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    margin: 0;
+    background-color: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    font-family: Montserrat, sans-serif;
+    cursor: default;
+}
+.sv-anuga-results-row-unavailable-name {
+    display: block;
+    font-size: 12px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+.sv-anuga-results-row-unavailable-reason {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: rgba(255, 255, 255, 0.6);
 }

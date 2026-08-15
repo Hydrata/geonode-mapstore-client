@@ -30,6 +30,11 @@
  */
 import { computeMixFactor } from './playbackMeshGeometry';
 import { availableQuantityIds } from './playbackDerivedQuantities';
+import { isUsableChunkLength } from './playbackChunkShape';
+// TASK-2744 AC11 — the overlay knobs' defaults, now that they are controller
+// state rather than the control bar's component-local state.
+import { DEFAULT_ARROW_DENSITY_PX, DEFAULT_ARROW_SCALE } from './playbackFlowViz';
+import { DEFAULT_PARTICLE_GRID, DEFAULT_SPEED_EXAGGERATION } from './playbackParticles';
 import {
     PLAYBACK_INIT,
     PLAYBACK_MANIFEST_LOADED,
@@ -46,12 +51,24 @@ import {
     PLAYBACK_SET_IDENTIFY_ARMED,
     PLAYBACK_SET_IDENTIFY_RESULT,
     PLAYBACK_SET_LEGEND_OPEN,
-    PLAYBACK_SET_WIREFRAME
+    PLAYBACK_DISMISS_DEGRADED,
+    PLAYBACK_SET_WIREFRAME,
+    PLAYBACK_SET_OPACITY,
+    PLAYBACK_SET_BACKGROUND_OPACITY,
+    PLAYBACK_SET_OVERLAY,
+    PLAYBACK_SET_COLOR_MAX,
+    PLAYBACK_MANIFEST_FETCHED,
+    PLAYBACK_LOAD_PROGRESS
 } from './actions/playbackActions';
 
 export const PLAYBACK_STATUS = Object.freeze({
     IDLE: 'idle',
     LOADING_MANIFEST: 'loading-manifest',
+    // TASK-2744 AC18 — the phase AFTER the manifest response has landed:
+    // downloading and unpacking the store's static mesh arrays. On the
+    // prod-scale store this is >99% of the wait, and before this existed it
+    // wore the 'loading-manifest' label for its entire duration.
+    LOADING_MESH: 'loading-mesh',
     BUFFERING: 'buffering', // initial buffer, no playable window yet
     READY: 'ready', // buffered, paused (incl. after a normal pause)
     PLAYING: 'playing',
@@ -63,12 +80,69 @@ export const PLAYBACK_STATUS = Object.freeze({
 
 export const DEFAULT_SPEED = 1;
 export const MIN_SPEED = 0.25;
-export const MAX_SPEED = 8;
+/**
+ * TASK-2744 (AC17, epic 2706) — raised from 8.
+ *
+ * `speed` is a SIM-seconds-per-WALL-second multiplier: the TICK case advances
+ * playheadSeconds by `(nowMs - lastTickMs)/1000 * speed` against the store's
+ * own `time` array in seconds. The Msimbazi store is 0..1800 s in 60 s steps,
+ * so at the old default of 1 a single timestep took SIXTY SECONDS of wall
+ * clock (measured live: currentTimestep 0 -> 1 after 64.6 s; 3000 ms of wall
+ * clock advanced the playhead exactly 3.00 sim-seconds and zero timesteps).
+ * End-to-end was 30 minutes, and the old ceiling of 8 still meant 3.75 —
+ * for a tool whose job is reviewing a finished result.
+ *
+ * A 24 h design storm at "whole run in 5 s" needs 86400/5 = 17,280x, so the
+ * ceiling is set above that. Blast radius is provably tiny: MAX_SPEED is read
+ * only by clampSpeed and by the control bar's option builder.
+ */
+export const MAX_SPEED = 20000;
+/** The wall-clock duration a freshly loaded run defaults to playing in. */
+export const DEFAULT_PLAYBACK_WALL_SECONDS = 15;
+// TASK-2744 AC3 — the starting alpha. Kept at the historical 0.85 so the
+// default look is unchanged; what changes is that it is now movable.
+export const DEFAULT_PLAYBACK_OPACITY = 0.85;
+/**
+ * TASK-2788 — the dry-ground sheet is TRANSPARENT by default.
+ *
+ * The results layer covers the entire model domain, and for most of a run most
+ * of that domain is dry, so an opaque background is a grey sheet over the
+ * catchment the water is moving through. Everything a reader wants to check the
+ * flood against — the river, the roads, the buildings it is reaching — lives on
+ * the basemap underneath it.
+ */
+export const DEFAULT_PLAYBACK_BACKGROUND_OPACITY = 0;
+/**
+ * The window BEFORE any store is known. TASK-2708 (W1.2, epic 2706): this is
+ * no longer the playback window — once a manifest lands, both the radius and
+ * the (asymmetric) lookahead come from playbackMemoryPolicy's byte budget for
+ * that specific store, because a fixed chunk COUNT means a completely
+ * different byte cost on a 253k-node mesh and a 3.39M-node one (5.07 MiB vs
+ * 64.7 MiB per chunk). It survives only as the pre-manifest default.
+ */
 const DEFAULT_WINDOW_RADIUS = 2;
-// Graceful degradation (AC): after this many consecutive stalls, `degraded`
-// flips true so the UI can show a "slow connection" note rather than just
-// silently re-buffering forever.
-const STALL_DEGRADED_THRESHOLD = 3;
+/*
+ * Graceful degradation: how long playback must sit waiting for frames before
+ * we say so.
+ *
+ * This was `stallCount >= 3` — a count of TICKS, and TICK_INTERVAL_MS is 50,
+ * so the real threshold was 150ms and the constant silently tracked the tick
+ * rate. Two things followed, both measured on the Msimbazi UAT store:
+ *
+ *   - 150ms is shorter than any chunk fetch that store can do. One ordinary
+ *     fetch was timed at 869ms, so a HEALTHY run tripped it ~6x over on the
+ *     very first chunk boundary. It never measured the connection; it
+ *     measured "is this file big", and answered yes.
+ *   - `stallCount` was incremented and never reset, so despite the comment
+ *     saying "consecutive" it accumulated for the life of the run. A live
+ *     reading found stallCount=144 with degraded=true on a run that had just
+ *     played end to end without a hitch.
+ *
+ * A DURATION is the honest measure: it says what a user would say ("playback
+ * has been stuck for a few seconds"), and it cannot drift if the tick rate
+ * changes.
+ */
+const STALL_DEGRADED_MS = 2500;
 
 export function createInitialPlaybackState() {
     return {
@@ -76,12 +150,23 @@ export function createInitialPlaybackState() {
         runId: null,
         manifest: null,
         mesh: null,
+        // TASK-2726 (W5.5, epic 2706) — [minX, minY, maxX, maxY] in EPSG:3857,
+        // published by playbackInitEpic at MANIFEST_LOADED. NOT derived from
+        // `mesh` above, which is in the STORE'S NATIVE CRS; handing MapStore
+        // native UTM numbers as a 3857 extent is the specific mistake this
+        // separate field exists to make impossible. Null until a store loads,
+        // and null for a store whose epsg is unusable — the "zoom to results"
+        // control renders disabled on null rather than inert.
+        meshBounds3857: null,
         quantization: null,
         status: PLAYBACK_STATUS.IDLE,
         error: null,
         nTime: 0,
         nNode: 0,
-        chunkLengthT: 10,
+        // null until a manifest is loaded — TASK-2724 removed the `10` that
+        // used to sit here. No store means no chunk grid, and a placeholder
+        // chunk length is indistinguishable from a real one downstream.
+        chunkLengthT: null,
         totalChunks: 0,
         time: null, // Float64Array|null — per-timestep simulation seconds
         dtMs: null, // Float32Array|null — per-timestep global dt, MILLISECONDS (schema O2); dt_ms[0] always NaN
@@ -98,18 +183,67 @@ export function createInitialPlaybackState() {
         speed: DEFAULT_SPEED,
         bufferedChunks: [], // sorted, deduped time-chunk indices confirmed cached (all 3 quantity arrays)
         bufferWindowRadius: DEFAULT_WINDOW_RADIUS,
+        // TASK-2708 — chunks AHEAD of the playhead. Separate from the radius
+        // because playback runs forwards and the byte budget is finite: on a
+        // prod-scale chunk-10 store the plan is 0 behind / 1 ahead.
+        bufferWindowAhead: DEFAULT_WINDOW_RADIUS,
+        // TASK-2708 — the store's own memory plan
+        // (playbackMemoryPolicy.computePlaybackMemoryPlan), kept in state so
+        // the UI/diagnostics can show what was decided and why. null until a
+        // manifest lands; never defaulted.
+        memoryPlan: null,
+        // TASK-2744 AC18 — determinate load progress for the mesh phase.
+        // null when no load is in flight; never a fake percentage.
+        loadProgress: null,
         lastTickMs: null,
         stalledSinceMs: null,
+        // Consecutive stalled ticks WITHIN the current stall episode; reset the
+        // moment the window becomes playable again. Diagnostic only now that
+        // `degraded` is driven by elapsed stall time.
         stallCount: 0,
         degraded: false,
+        // Sticky for the life of the loaded run: "I know, stop telling me".
+        // Cleared only by RESET/loading another store, so dismissing does not
+        // have to be repeated every time a slow link stalls again.
+        degradedDismissed: false,
         pendingPlay: false,
         identifyArmed: false,
         identifyResult: null,
         legendOpen: false,
         // TASK-2656d (W6.5) — real wireframe toggle, default OFF (AC).
-        wireframe: false
+        wireframe: false,
+        // TASK-2744 AC3 — layer opacity. Controller state, not a hardcoded
+        // epic literal, so a control can move it AND it survives the bar's
+        // own unmount/remount.
+        opacity: DEFAULT_PLAYBACK_OPACITY,
+        // TASK-2788 — alpha of the dry-ground sheet ONLY; see the constant.
+        backgroundOpacity: DEFAULT_PLAYBACK_BACKGROUND_OPACITY,
+        // TASK-2744 AC4 — per-quantity operator override of the colour ramp's
+        // upper bound; {} means "use the store-derived maximum for every
+        // quantity". Keyed by quantity so metres never leak onto m/s.
+        colorMaxOverride: {},
+        // TASK-2744 AC11 — the flow-viz / particle overlay knobs, promoted out
+        // of the bar's component-local state for the same reason wireframe was
+        // (TASK-2656d): the bar is UNMOUNTED whenever the SimpleView menu
+        // group leaves 'Results', and local state died with it while the
+        // layer kept the property — the button read OFF over a layer that was
+        // still ON. Measured on map 1461.
+        flowVizEnabled: false,
+        arrowDensity: DEFAULT_ARROW_DENSITY_PX,
+        arrowScale: DEFAULT_ARROW_SCALE,
+        particlesEnabled: false,
+        particleDensity: DEFAULT_PARTICLE_GRID,
+        particleSpeedExaggeration: DEFAULT_SPEED_EXAGGERATION
     };
 }
+
+// TASK-2744 AC11 — the only keys PLAYBACK_SET_OVERLAY may write. A whitelist
+// rather than a blind spread, so a mistyped key is dropped instead of
+// inventing a controller-state field nothing reads.
+const OVERLAY_KEYS = Object.freeze([
+    'flowVizEnabled', 'arrowDensity', 'arrowScale',
+    'particlesEnabled', 'particleDensity', 'particleSpeedExaggeration'
+]);
 
 export function clampSpeed(speed) {
     const n = Number(speed);
@@ -119,9 +253,61 @@ export function clampSpeed(speed) {
     return Math.min(MAX_SPEED, Math.max(MIN_SPEED, n));
 }
 
-/** Which O1 time-chunk a timestep index falls in. */
+/**
+ * The simulated span of a store's own `time` array, in seconds.
+ * @returns {number} 0 when the array is absent or degenerate.
+ */
+export function simulatedSpanSeconds(time) {
+    if (!time || time.length < 2) {
+        return 0;
+    }
+    const span = time[time.length - 1] - time[0];
+    return span > 0 ? span : 0;
+}
+
+/**
+ * TASK-2744 AC17 — the speed that plays a whole run in `targetWallSeconds`.
+ *
+ * Derived PER RUN rather than fixed, because "1x" means something completely
+ * different for a 30-minute flash-flood store and a 7-day riverine one, and
+ * neither is what someone reviewing a finished result wants by default. On the
+ * Msimbazi store (1800 s) this yields 120, i.e. the whole event in 15 s.
+ *
+ * Falls back to DEFAULT_SPEED when the store declares no usable time array —
+ * never guesses a multiplier for a run whose duration is unknown.
+ */
+export function defaultSpeedForTime(time, targetWallSeconds = DEFAULT_PLAYBACK_WALL_SECONDS) {
+    const span = simulatedSpanSeconds(time);
+    if (!span || !(targetWallSeconds > 0)) {
+        return DEFAULT_SPEED;
+    }
+    return clampSpeed(span / targetWallSeconds);
+}
+
+/** TASK-2744 AC3 — clamp to a real 0..1 alpha; ignore garbage. */
+export function clampOpacity(opacity, fallback = DEFAULT_PLAYBACK_OPACITY) {
+    const n = Number(opacity);
+    if (!isFinite(n)) {
+        return fallback;
+    }
+    return Math.min(1, Math.max(0, n));
+}
+
+/**
+ * Which time-chunk a timestep index falls in, at the STORE's own chunk length
+ * (playbackChunkShape.resolveChunkLengthT — never a constant, TASK-2724).
+ *
+ * Returns 0 when there is no usable chunk length, which is only reachable
+ * before a manifest has loaded (initial state's `chunkLengthT: null`); every
+ * caller gates on `totalChunks > 0` first. It does NOT stand in a plausible
+ * length: pretending 1 (the old `|| 1`) would silently answer with a real
+ * chunk index for a store whose grid is unknown.
+ */
 export function timestepToChunkIndex(timestepIndex, chunkLengthT) {
-    return Math.floor(timestepIndex / (chunkLengthT || 1));
+    if (!isUsableChunkLength(chunkLengthT)) {
+        return 0;
+    }
+    return Math.floor(timestepIndex / chunkLengthT);
 }
 
 /**
@@ -209,6 +395,41 @@ function depthValidMax(quantization) {
 const HAZARD_COLOR_MAX = 5;
 
 /**
+ * The renderer's `colorMin` uniform — non-zero ONLY for `stage` (a datum-
+ * absolute elevation field, so its per-run visible range does not start at
+ * zero the way every other quantity's does). Every other quantity is 0.
+ * @param {string} quantity
+ * @param {{elevationMin?: number}} [context]
+ * @returns {number}
+ */
+export function colorMinForQuantity(quantity, context = {}) {
+    if (quantity === 'stage') {
+        return (context && context.elevationMin) || 0;
+    }
+    return 0;
+}
+
+/**
+ * TASK-2784 (W7, epic 2706) — does the reader's ceiling override actually
+ * TAKE EFFECT for this quantity?
+ *
+ * Not the same question as `isFinite(colorMaxOverride)`, which is what the
+ * legend and the bar used to ask. colorMaxForQuantity ignores an override at
+ * or below colorMin (a ceiling of 0 is not a ceiling), so the looser test let
+ * the UI show the is-override styling and the reset affordance for a value
+ * the renderer was discarding. One predicate, so the ramp mode, the uniform,
+ * the legend labels and the reset button can never disagree.
+ *
+ * @param {string} quantity
+ * @param {{elevationMin?: number, colorMaxOverride?: number}} [context]
+ * @returns {boolean}
+ */
+export function isColorMaxOverridden(quantity, context = {}) {
+    const override = context && context.colorMaxOverride;
+    return isFinite(override) && Number(override) > colorMinForQuantity(quantity, context);
+}
+
+/**
  * The renderer's `colorMax` uniform for the active quantity (TASK-2629,
  * W4.1 extends this from {depth,speed} to all eight), derived from the
  * manifest's own quantization ranges / store attrs — never a hardcoded
@@ -224,6 +445,17 @@ const HAZARD_COLOR_MAX = 5;
  * @returns {number}
  */
 export function colorMaxForQuantity(quantity, quantization, context = {}) {
+    // TASK-2744 AC4 — an operator override wins over every store-derived
+    // branch below. Honoured HERE, at the single shared derivation point, so
+    // the renderer uniform (playbackEpics' baseProps) and the legend
+    // (PlaybackLegend's own call) can never disagree about the active range.
+    //
+    // The default for `depth` is the store's `valid_max` — 16.86 m on run
+    // 1328 — which squeezes every urban street depth (0.1-1.0 m) into the
+    // bottom 6% of the ramp, i.e. into one indistinguishable colour band.
+    if (isColorMaxOverridden(quantity, context)) {
+        return Number(context.colorMaxOverride);
+    }
     if (quantity === 'hazard') {
         return HAZARD_COLOR_MAX;
     }
@@ -253,21 +485,6 @@ export function colorMaxForQuantity(quantity, quantization, context = {}) {
     return depthValidMax(quantization);
 }
 
-/**
- * The renderer's `colorMin` uniform — non-zero ONLY for `stage` (a datum-
- * absolute elevation field, so its per-run visible range does not start at
- * zero the way every other quantity's does). Every other quantity is 0.
- * @param {string} quantity
- * @param {{elevationMin?: number}} [context]
- * @returns {number}
- */
-export function colorMinForQuantity(quantity, context = {}) {
-    if (quantity === 'stage') {
-        return (context && context.elevationMin) || 0;
-    }
-    return 0;
-}
-
 function requiredWindowFor(state, currentTimestep) {
     return requiredChunkIndices(currentTimestep, state.nTime, state.chunkLengthT);
 }
@@ -291,6 +508,30 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             status: PLAYBACK_STATUS.LOADING_MANIFEST
         };
     }
+    // TASK-2744 AC18 — the manifest response landed; the mesh phase starts.
+    case PLAYBACK_MANIFEST_FETCHED: {
+        if (action.runId !== state.runId) {
+            return state;
+        }
+        return {
+            ...state,
+            status: PLAYBACK_STATUS.LOADING_MESH,
+            loadProgress: { objectsLoaded: 0, objectCount: action.objectCount || 0, bytesLoaded: 0 }
+        };
+    }
+    case PLAYBACK_LOAD_PROGRESS: {
+        if (action.runId !== state.runId) {
+            return state;
+        }
+        return {
+            ...state,
+            loadProgress: {
+                objectsLoaded: action.objectsLoaded,
+                objectCount: action.objectCount,
+                bytesLoaded: action.bytesLoaded
+            }
+        };
+    }
     case PLAYBACK_MANIFEST_LOADED: {
         // A superseded init (user switched runs before the first one's
         // manifest resolved) — drop the stale response.
@@ -309,12 +550,33 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             ...state,
             manifest: action.manifest,
             mesh: action.mesh || null,
+            // TASK-2726 — never carried over from a previous store; a run
+            // switch must not leave the zoom control aimed at the old extent.
+            meshBounds3857: action.meshBounds3857 || null,
             quantization: action.quantization || null,
             nTime: action.nTime,
             nNode: action.nNode,
-            chunkLengthT: action.chunkLengthT || state.chunkLengthT,
+            // TASK-2724 — whatever the store declared, or null. Never carried
+            // over from a previous store, and never defaulted.
+            chunkLengthT: action.chunkLengthT || null,
             totalChunks: action.totalChunks,
+            // TASK-2708 — the window is whatever this store's byte budget
+            // affords, not a constant. A plan is always present in production
+            // (playbackInitEpic computes it before dispatching); the fallback
+            // keeps a hand-built test action working.
+            memoryPlan: action.memoryPlan || null,
+            bufferWindowRadius: action.memoryPlan
+                ? action.memoryPlan.bufferWindowRadius
+                : state.bufferWindowRadius,
+            bufferWindowAhead: action.memoryPlan
+                ? action.memoryPlan.bufferWindowAhead
+                : state.bufferWindowAhead,
             time: action.time || null,
+            // TASK-2744 AC17 — a results-review tool defaults to "watch the
+            // whole event in about fifteen seconds", not to real time. Seeded
+            // per run from the store's own duration; the picker still offers
+            // an explicit, labelled real-time option.
+            speed: defaultSpeedForTime(action.time),
             dtMs: action.dtMs || null,
             hasDt,
             wetThreshold: meta.minimum_storable_height > 0 ? meta.minimum_storable_height : state.wetThreshold,
@@ -324,6 +586,8 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             elevationMax: action.mesh ? action.mesh.elevationMax || 0 : state.elevationMax,
             quantity,
             status: PLAYBACK_STATUS.BUFFERING,
+            // TASK-2744 AC18 — the mesh phase is over; stop reporting it.
+            loadProgress: null,
             currentTimestep: 0,
             playheadSeconds: action.time ? action.time[0] : 0,
             mixT: 0
@@ -336,10 +600,26 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         return { ...state, status: PLAYBACK_STATUS.ERROR, error: action.error || 'manifest load failed' };
     }
     case PLAYBACK_CHUNKS_BUFFERED: {
-        const bufferedChunks = mergeBufferedChunks(state.bufferedChunks, action.chunkIndices);
+        // TASK-2744 AC20 — an authoritative report REPLACES the set. Union-only
+        // made `bufferedChunks` a record of "was fetched at some point", not
+        // "is resident", so it both overstated residency AND let
+        // isWindowBuffered wave through a window whose chunks had been evicted
+        // — suppressing the very refetch that would have corrected it.
+        const bufferedChunks = action.authoritative
+            ? mergeBufferedChunks([], action.chunkIndices)
+            : mergeBufferedChunks(state.bufferedChunks, action.chunkIndices);
         let status = state.status;
         let pendingPlay = state.pendingPlay;
         let stalledSinceMs = state.stalledSinceMs;
+        // RECOVERY CLEARS THE STALL BOOKKEEPING. It used to clear only
+        // `stalledSinceMs` and carry `stallCount` and `degraded` through, which
+        // is what made "consecutive" false (isolated hiccups an hour apart
+        // still summed) and what made the warning unclearable: `degraded` was
+        // written as `state.degraded || …` and set false in exactly one place,
+        // the initial state, so nothing short of Unload could take it back down
+        // — not recovering, not pausing, not finishing the run cleanly.
+        let stallCount = state.stallCount;
+        let degraded = state.degraded;
         const windowReady = isWindowBuffered(bufferedChunks, requiredWindowFor(state, state.currentTimestep));
         if (windowReady && (
             status === PLAYBACK_STATUS.BUFFERING ||
@@ -349,8 +629,10 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             status = pendingPlay ? PLAYBACK_STATUS.PLAYING : PLAYBACK_STATUS.READY;
             pendingPlay = false;
             stalledSinceMs = null;
+            stallCount = 0;
+            degraded = false;
         }
-        return { ...state, bufferedChunks, status, pendingPlay, stalledSinceMs };
+        return { ...state, bufferedChunks, status, pendingPlay, stalledSinceMs, stallCount, degraded };
     }
     case PLAYBACK_CHUNK_BUFFER_ERROR: {
         // Recorded for visibility only — a single chunk error among a
@@ -435,14 +717,19 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             // resumes from the frozen point, so a stuck link keeps re-hitting
             // this branch) counts as one more consecutive stall.
             const stallCount = state.stallCount + 1;
+            const stalledSinceMs = state.stalledSinceMs || nowMs;
             return {
                 ...state,
                 lastTickMs: nowMs,
                 status: PLAYBACK_STATUS.STALLED,
                 pendingPlay: true,
-                stalledSinceMs: state.stalledSinceMs || nowMs,
+                stalledSinceMs,
                 stallCount,
-                degraded: state.degraded || stallCount >= STALL_DEGRADED_THRESHOLD
+                // Elapsed time in THIS stall episode, not a running tally of
+                // ticks across the whole run. `stalledSinceMs` resets on every
+                // recovery, so a run that stutters briefly and recovers never
+                // reaches the bar however many times it does it.
+                degraded: state.degraded || (nowMs - stalledSinceMs) >= STALL_DEGRADED_MS
             };
         }
         const atEnd = state.time && playheadSeconds >= state.time[state.time.length - 1];
@@ -477,8 +764,46 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
     case PLAYBACK_SET_LEGEND_OPEN: {
         return { ...state, legendOpen: !!action.open };
     }
+    case PLAYBACK_DISMISS_DEGRADED: {
+        // Only the dismissal is recorded — `degraded` itself stays honest so
+        // state remains a truthful record of what playback is doing; the flag
+        // below governs whether we SAY it.
+        return { ...state, degradedDismissed: true };
+    }
     case PLAYBACK_SET_WIREFRAME: {
         return { ...state, wireframe: !!action.enabled };
+    }
+    // TASK-2744 AC3 — operator-controlled layer opacity.
+    case PLAYBACK_SET_OPACITY: {
+        return { ...state, opacity: clampOpacity(action.opacity, state.opacity) };
+    }
+    // TASK-2788 — dry-ground alpha. Same clamp, its own field: a reader who
+    // pulls the background to 0 must not lose the water with it.
+    case PLAYBACK_SET_BACKGROUND_OPACITY: {
+        return {
+            ...state,
+            backgroundOpacity: clampOpacity(action.backgroundOpacity, state.backgroundOpacity)
+        };
+    }
+    // TASK-2744 AC11 — a flow-viz/particle knob. Whitelisted key, so an
+    // unknown one is a no-op rather than a new controller-state field.
+    case PLAYBACK_SET_OVERLAY: {
+        if (!OVERLAY_KEYS.includes(action.key)) {
+            return state;
+        }
+        return { ...state, [action.key]: action.value };
+    }
+    // TASK-2744 AC4 — per-quantity colour-ramp override; null/undefined or a
+    // non-finite value CLEARS the override and restores the store-derived max.
+    case PLAYBACK_SET_COLOR_MAX: {
+        const quantity = action.quantity || state.quantity;
+        const next = { ...(state.colorMaxOverride || {}) };
+        if (action.value === null || action.value === undefined || !isFinite(action.value)) {
+            delete next[quantity];
+        } else {
+            next[quantity] = Number(action.value);
+        }
+        return { ...state, colorMaxOverride: next };
     }
     case PLAYBACK_RESET: {
         return createInitialPlaybackState();

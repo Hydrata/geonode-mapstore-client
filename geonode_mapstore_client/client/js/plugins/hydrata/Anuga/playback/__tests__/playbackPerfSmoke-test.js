@@ -31,6 +31,7 @@
  * measured numbers are logged to console every run for a human trend-watch
  * (see the wave report for how to read a genuine regression out of them).
  */
+import expect from 'expect';
 import Layers from '@mapstore/framework/utils/openlayers/Layers';
 import '@js/plugins/index'; // registers 'anuga-playback' (side effect)
 import { LAYER_TYPE } from '../AnugaPlaybackLayer';
@@ -153,6 +154,101 @@ describe('playback perf smoke (TASK-2631, W6.2) — gross-regression guard, not 
                 `on a real GPU) — investigate before shipping.`
             );
         }
+
+        layer.remove();
+    });
+
+    // TASK-2734 (W3, epic 2706) — AC7. THE automated proof of the epic's
+    // headline fix: setMesh must not touch the wireframe edge buffer at all,
+    // and the first render() that asks for the wireframe must build it once
+    // and then never again.
+    //
+    // RED against gmc 2819b2a07: setMesh there called
+    // decimateWireframeIndices(buildWireframeIndices(fnc), 2) eagerly, so
+    // nWireIndices was 119,202 immediately after setMesh — the first
+    // assertion below failed on the pre-fix tree, which is what makes a
+    // post-fix pass mean something.
+    it('setMesh builds no wireframe buffer; the first wireframe render builds it once', function() {
+        this.timeout(20000);
+        // 2*(200-1)^2 = 79,202 triangles -> wireframeDecimationStride === 2,
+        // i.e. the DECIMATED path, not the small-mesh identity path.
+        const mesh = buildSyntheticMesh(200);
+        expect(mesh.nTri).toBe(79202);
+
+        const layer = Layers.createLayer(LAYER_TYPE, { id: 'lazy-wireframe' });
+        const renderer = layer.__anugaPlaybackRenderer;
+        renderer.setMesh({
+            x3857: mesh.nodeX,
+            y3857: mesh.nodeY,
+            elevation: mesh.elevation,
+            faceNodeConnectivity: mesh.faceNodeConnectivity
+        });
+        const frameVec3 = packQuantityVec3(mesh.depth, mesh.xVelocity, mesh.yVelocity);
+        renderer.setFrames(frameVec3, frameVec3);
+
+        // (1) DEFAULT PATH IS FREE — nothing built, nothing uploaded.
+        expect(renderer.nWireIndices).toBe(0);
+        expect(renderer._wireBuildCount).toBe(0);
+
+        const frameState = {
+            viewState: { center: [500995, 6900995], resolution: 4, rotation: 0 },
+            size: [700, 500], pixelRatio: 1
+        };
+        const params = {
+            opacity: 1, mixT: 0.5, colorMode: 'depth', colorMax: 5, colorMin: 0,
+            wetThreshold: 0.01, g: 9.8, rhoW: 1000, dt: 1,
+            flowVizEnabled: false, particlesEnabled: false
+        };
+
+        // A wireframe-OFF frame must still build nothing.
+        renderer.render({ ...frameState, ...params, wireframe: false });
+        expect(renderer.nWireIndices).toBe(0);
+        expect(renderer._wireBuildCount).toBe(0);
+
+        // (2) FIRST wireframe frame builds it.
+        renderer.render({ ...frameState, ...params, wireframe: true });
+        expect(renderer.nWireIndices).toBeGreaterThan(0);
+        expect(renderer._wireBuildCount).toBe(1);
+        const builtCount = renderer.nWireIndices;
+
+        // (3) MEMOISED — further wireframe frames rebuild nothing.
+        renderer.render({ ...frameState, ...params, wireframe: true });
+        renderer.render({ ...frameState, ...params, wireframe: false });
+        renderer.render({ ...frameState, ...params, wireframe: true });
+        expect(renderer._wireBuildCount).toBe(1);
+        expect(renderer.nWireIndices).toBe(builtCount);
+
+        // (4) The GL trap: building inside render() must not have clobbered
+        // the mesh VAO's ELEMENT_ARRAY_BUFFER binding (wireIdxBuf is bound
+        // into wireVao, so an unguarded bufferData would have redirected
+        // whichever VAO happened to be current). The mesh draw still uses
+        // idxBuf with the full triangle index count.
+        const gl = renderer.gl;
+        gl.bindVertexArray(renderer.meshVao);
+        expect(gl.getParameter(gl.ELEMENT_ARRAY_BUFFER_BINDING)).toBe(renderer.idxBuf);
+        gl.bindVertexArray(renderer.wireVao);
+        expect(gl.getParameter(gl.ELEMENT_ARRAY_BUFFER_BINDING)).toBe(renderer.wireIdxBuf);
+        gl.bindVertexArray(null);
+        expect(renderer.nIndices).toBe(mesh.faceNodeConnectivity.length);
+
+        // (5) setMesh INVALIDATES — a second store load rebuilds on demand.
+        renderer.setMesh({
+            x3857: mesh.nodeX,
+            y3857: mesh.nodeY,
+            elevation: mesh.elevation,
+            faceNodeConnectivity: mesh.faceNodeConnectivity
+        });
+        expect(renderer.nWireIndices).toBe(0);
+        renderer.render({ ...frameState, ...params, wireframe: true });
+        expect(renderer._wireBuildCount).toBe(2);
+        expect(renderer.nWireIndices).toBe(builtCount);
+
+        // eslint-disable-next-line no-console -- deliberate: this IS the record for TASK-2734 AC7
+        console.log(
+            `[TASK-2734 AC7] mesh=${mesh.nTri} tri, nWireIndices after setMesh=0 ` +
+            `(pre-fix HEAD 2819b2a07: 119202), after first wireframe render=${builtCount}, ` +
+            `builds after 4 wireframe frames + one reload=${renderer._wireBuildCount}`
+        );
 
         layer.remove();
     });

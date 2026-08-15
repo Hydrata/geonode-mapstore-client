@@ -19,8 +19,6 @@ import {
     CREATE_ANUGA_RAINFALL,
     CREATE_ANUGA_MESH_REGION,
     CREATE_ANUGA_STRUCTURE,
-    // TASK-1594 (W1) — Culvert create action.
-    CREATE_ANUGA_CULVERT,
     CREATE_NETWORK,
     CREATE_FIGURE,
     CREATE_LUMPED_CATCHMENT,
@@ -173,8 +171,6 @@ export const createAnugaInflowEpic = makeCreateEpic(CREATE_ANUGA_INFLOW, 'inflow
 export const createAnugaRainfallEpic = makeCreateEpic(CREATE_ANUGA_RAINFALL, 'rainfall', 'rainfallTitle');
 export const createAnugaStructureEpic = makeCreateEpic(CREATE_ANUGA_STRUCTURE, 'structure', 'structureTitle');
 export const createAnugaMeshRegionEpic = makeCreateEpic(CREATE_ANUGA_MESH_REGION, 'mesh-region', 'meshRegionTitle');
-// TASK-1594 (W1) — Culvert: terrain-workbench drainage structure creation.
-export const createAnugaCulvertEpic = makeCreateEpic(CREATE_ANUGA_CULVERT, 'culvert', 'culvertTitle');
 export const createNetworkEpic = makeCreateEpic(CREATE_NETWORK, 'network', 'networkTitle');
 export const createCatchmentEpic = makeCreateEpic(CREATE_LUMPED_CATCHMENT, 'catchment', 'catchmentTitle');
 export const createNodesEpic = makeCreateEpic(CREATE_NODES, 'nodes', 'nodesTitle');

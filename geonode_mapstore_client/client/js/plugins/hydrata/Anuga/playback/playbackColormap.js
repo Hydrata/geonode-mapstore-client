@@ -99,39 +99,178 @@ export const DIV_SLD_MAX = 20; // m²/s — depth_integrated_velocity_5m2s.sld's
  * low->high visual separation, documented here rather than silently
  * invented in the renderer.
  */
+// TASK-2743 (W6, epic 2706) — stage was ColorBrewer RdBu, a DIVERGING map, and
+// diverging is not defensible for this quantity. The strongest argument is not
+// perceptual, it is semantic: the pivot is an arithmetic artefact — the middle
+// of the run's own [elevationMin, elevationMax + depthMax] span. Not sea level,
+// not ground level, not bankfull, not a levee crest. Two runs of the SAME site
+// with different depthMax put the neutral band at different absolute
+// elevations, so the same colour means different things run to run, which
+// defeats the run-to-run comparison a playback exists for.
+//
+// It also placed a perceptual flat spot at a meaningless value. Kovesi (2015,
+// arXiv:1509.03700 sec 4.4): a lightness gradient reversal "will induce a
+// perceptual flat spot", making structures that straddle the centre
+// "effectively isoluminant" and "the source of both type 1 and type 2 errors
+// simultaneously". And it was never even a correct RdBu — the five stops skip
+// #F7F7F7, RdBu's actual neutral, so the true pivot sat between fractions 0.5
+// and 0.75, measurably flat (L* 89.81 vs 89.71 across the middle quarter).
+//
+// So: a plain sequential map. `batlow` from the same Crameri v8.0.1 archive,
+// t = q. Verified in numpy: L* monotonic INCREASING under normal vision, both
+// deuteranopia models, both protanopia models and tritanopia; no non-adjacent
+// pair below dE2000 10 (worst 13.98); uniformity ratio 3.3 -> 1.4. Checked
+// against the obvious objection that it would be confused with `div`'s viridis:
+// mean dE2000 at matched positions is 33.6, so it is not.
+//
+// IF stage ANOMALY is ever added — stage minus initial stage, or minus a fixed
+// datum or bank crest — that quantity DOES have a real zero and `vik` centred
+// on it would be exactly right. That is a different quantity worth adding, not
+// a reason to fake a centre here.
 export const STAGE_RAMP_STOPS = [
-    { quantity: 0, color: [33, 102, 172] }, // #2166ac — low (matches stage_max.sld's low-end blue)
-    { quantity: 0.25, color: [103, 169, 207] }, // #67a9cf
-    { quantity: 0.5, color: [209, 229, 240] }, // light blue
-    { quantity: 0.75, color: [253, 219, 199] }, // light tan
-    { quantity: 1, color: [178, 24, 43] } // #b2182b — high
+    { quantity: 0, color: [1, 25, 89] }, // L*=12.11
+    { quantity: 0.125, color: [17, 67, 96] }, // L*=26.67
+    { quantity: 0.25, color: [34, 96, 97] }, // L*=37.06
+    { quantity: 0.375, color: [77, 115, 77] }, // L*=44.77
+    { quantity: 0.5, color: [130, 130, 49] }, // L*=52.88
+    { quantity: 0.625, color: [192, 144, 54] }, // L*=62.86
+    { quantity: 0.75, color: [242, 157, 109] }, // L*=72.29
+    { quantity: 0.875, color: [253, 180, 182] }, // L*=80.12
+    { quantity: 1, color: [250, 204, 250] } // L*=87.20
 ]; // fractional stops of the RUN's own [elevationMin, elevationMax+depthMax] span — see colorMinForQuantity
 
+// TASK-2743 (W6, epic 2706) — Froude was a blue->green->yellow->orange->red
+// RAINBOW: five hues with no perceptual ordering, so the green/yellow/orange
+// middle band carries almost no information under red-green colour blindness.
+//
+// TO ITS CREDIT, and stated plainly because the first draft of this comment got
+// it wrong: the OLD ramp's lightness peak WAS already at Fr=1.0. Re-measured on
+// the realised 256-texel LUT, the peak sits at 1.000 in normal vision and under
+// both deuteranopia and protanopia. The replacement is NOT fixing a misplaced
+// peak. What it fixes is that the peak was the only thing carrying the
+// threshold — the hues either side were arbitrary, and Fr=0.5 vs Fr=1.5
+// separate by only dE76 17.5 under protanopia despite being on opposite sides
+// of a flow regime change.
+//
+// Fr = 1.0 is the critical-flow threshold separating subcritical from
+// supercritical, so this is a textbook case for a DIVERGING map with its
+// neutral pinned to the threshold (Kovesi 2015, arXiv:1509.03700 sec 4.2:
+// diverging maps are for "data having a well defined reference value", the
+// reference "denoted by a neutral colour"). Cool blue = subcritical, pale
+// band = critical, warm red = supercritical, and the lightness peak renders a
+// hydraulic jump as a bright contour.
+//
+// Map: `vik` from Crameri, F. (2023) Scientific colour maps v8.0.1, Zenodo
+// doi:10.5281/zenodo.8409685 (MIT). Rationale: Crameri, Shephard & Heron
+// (2020) Nat. Commun. 11:5444, doi:10.1038/s41467-020-19160-7.
+//
+// SAMPLED ASYMMETRICALLY, because Fr=1 is at value-fraction 0.333 but must
+// land on map-fraction 0.5:  t = 0.5*v      for v <= 1
+//                           t = 0.5 + 0.5*(v-1)/2  for v > 1
+// Verified in numpy under Vienot-Brettel-Mollon (1999) AND Machado-Oliveira-
+// Fernandes (2009) at severity 1.0: L* is Lambda-shaped about Fr=1 in normal
+// vision, both deuteranopia models, both protanopia models and tritanopia; no
+// non-adjacent pair below dE2000 10; and the minimum separation between ANY
+// subcritical and ANY supercritical stop is 20.52 in the worst condition, so
+// subcritical can never be misread as supercritical.
+//
+// The extra stops are interpolation control points, not new breakpoints —
+// every original breakpoint is retained. They are needed because the LUT
+// lerps in linear RGB, not a perceptual space: with only the original five
+// stops the realised ramp departs from true `vik` by up to dE2000 13.06 (a
+// visible corner mid-ramp); with these it is 2.96.
 export const FROUDE_RAMP_STOPS = [
-    { quantity: 0, color: [49, 130, 189] }, // subcritical, calm — blue
-    { quantity: 0.5, color: [116, 196, 118] }, // green
-    { quantity: 1.0, color: [255, 237, 111] }, // critical (Fr=1) — yellow
-    { quantity: 1.5, color: [253, 141, 60] }, // orange
-    { quantity: 3.0, color: [165, 15, 21] } // supercritical — dark red
+    { quantity: 0, color: [0, 18, 97] }, // L*=11.25 subcritical, still
+    { quantity: 0.25, color: [3, 68, 129] }, // L*=28.74
+    { quantity: 0.5, color: [48, 125, 166] }, // L*=49.56
+    { quantity: 0.75, color: [148, 190, 210] }, // L*=74.68
+    { quantity: 1.0, color: [236, 229, 224] }, // L*=91.35 CRITICAL FLOW (Fr=1)
+    { quantity: 1.25, color: [233, 202, 184] }, // L*=83.46
+    { quantity: 1.5, color: [219, 170, 141] }, // L*=73.37
+    { quantity: 2.0, color: [194, 112, 65] }, // L*=55.52
+    { quantity: 2.5, color: [145, 45, 6] }, // L*=33.79
+    { quantity: 3.0, color: [89, 0, 8] } // L*=16.21 supercritical
 ];
 export const FROUDE_RAMP_MAX = 3.0;
 
+// TASK-2743 (W6, epic 2706) — shear was pale-green->green->yellow->orange->
+// dark-red, and it was NOT MONOTONIC IN LIGHTNESS: the 100 Pa stop was
+// ColorBrewer Set3's QUALITATIVE yellow #FFED6F, which spikes L* from 72.6
+// back up to 93.0. A lightness reversal mid-ramp invents a boundary in the
+// data that is not there.
+//
+// Shear is a plain magnitude with no meaningful midpoint, so it takes a plain
+// perceptually-uniform SEQUENTIAL map: `lajolla` traversed high->low index so
+// it runs light->dark, from the same Crameri v8.0.1 archive. Cream -> gold ->
+// salmon -> brick -> near-black keeps the old pale-low/dark-warm-high reading
+// while making it monotonic.  t = 1 - q/500.
+//
+// THE BREAKPOINTS CHANGED, deliberately, and this is the one judgement call
+// here worth stating: keeping 0/10/50/100/250/500 and sampling `lajolla`
+// evenly gives a realised ramp with uniformity ratio 22.5 — WORSE than the
+// ramp being replaced (13.9) and worse than `jet` (21.7), because those
+// breakpoints are a pseudo-log stretch and warp the value axis so hard that a
+// uniform map stops being uniform in Pa. Even spacing gives 1.3.
+// Verified in numpy: L* monotonic decreasing under normal vision, both
+// deuteranopia models, both protanopia models and tritanopia.
+// DISCLOSED: 400 vs 500 Pa reads dE2000 8.58 under protanopia — below the 10
+// bar — but dE76 is 13.13 and delta-L* is 14.6, so the ORDER is never lost;
+// CIEDE2000 heavily discounts chroma at low lightness. No other pair is under.
+// OPEN, not decided here: if low-Pa detail matters (sand mobilises ~0.2-2 Pa),
+// the principled fix is a lower SHEAR_RAMP_MAX or an explicitly log-labelled
+// axis — not re-warping a linear one, which makes the legend unreadable.
 export const SHEAR_RAMP_STOPS = [
-    { quantity: 0, color: [237, 248, 233] }, // pale green
-    { quantity: 10, color: [161, 217, 155] },
-    { quantity: 50, color: [116, 196, 118] },
-    { quantity: 100, color: [255, 237, 111] },
-    { quantity: 250, color: [253, 141, 60] },
-    { quantity: 500, color: [165, 15, 21] } // Pa
+    { quantity: 0, color: [255, 254, 203] }, // L*=98.61
+    { quantity: 25, color: [253, 243, 171] }, // L*=95.13
+    { quantity: 50, color: [249, 227, 132] }, // L*=90.20
+    { quantity: 100, color: [240, 189, 87] }, // L*=79.39
+    { quantity: 150, color: [234, 158, 83] }, // L*=71.26
+    { quantity: 200, color: [227, 128, 80] }, // L*=63.63
+    { quantity: 250, color: [217, 96, 78] }, // L*=55.75
+    { quantity: 300, color: [179, 73, 71] }, // L*=45.36
+    { quantity: 350, color: [125, 59, 53] }, // L*=33.45
+    { quantity: 400, color: [81, 45, 30] }, // L*=22.72
+    { quantity: 450, color: [48, 33, 13] }, // L*=14.09
+    { quantity: 500, color: [25, 25, 0] } // L*=8.15  Pa
 ];
 export const SHEAR_RAMP_MAX = 500; // Pa — engineering default, no SLD precedent
 
+// TASK-2743 (W6, epic 2706) — Courant had the worst measured defect of the
+// four, and this one was independently re-verified rather than taken on trust:
+// its colours were ColorBrewer RdYlGn, the one diverging scheme
+// colorbrewer2.org explicitly flags as NOT colourblind-safe, and on it CFL=0.5
+// and CFL=2.0 separate by only dE76 6.68 under deuteranopia (Vienot-Brettel-
+// Mollon). "Stable" and "twice the stability limit" were very nearly the same
+// colour for roughly 8% of men. As with Froude, the old lightness peak WAS
+// already at the threshold (measured 1.004) — that part was never broken.
+//
+// CFL = 1.0 is the stability threshold, so this takes the same treatment as
+// Froude: `vik` with its neutral pinned to the threshold. Reusing the same map
+// is deliberate — it gives one visual grammar across the two threshold
+// quantities (the pale band is ALWAYS the threshold), and they are never on
+// screen together.
+//   t = 0.5*v            for v <= 1
+//   t = 0.5 + 0.5*(v-1)/3  for v > 1
+// Verified as for Froude: L* Lambda-shaped about CFL=1 in all five conditions,
+// no non-adjacent pair below dE2000 10, worst-case separation between any
+// stable and any unstable stop 19.55.
+//
+// STATED TRADEOFF: uniformity-per-CFL is 4.3 vs the old 4.2 — no gain, BY
+// DESIGN. Pinning neutral at CFL=1 under a cap of 4.0 gives 0..1 half the
+// colour budget, so the ramp is deliberately 3x steeper below the threshold.
+// Uniformity is the wrong metric for a threshold map; the Lambda shape and the
+// cross-threshold separation are the right ones, and both pass cleanly.
 export const COURANT_RAMP_STOPS = [
-    { quantity: 0, color: [26, 152, 80] }, // stable — green
-    { quantity: 0.5, color: [166, 217, 106] },
-    { quantity: 1.0, color: [255, 255, 191] }, // at the CFL=1 boundary — yellow
-    { quantity: 2.0, color: [253, 174, 97] },
-    { quantity: 4.0, color: [215, 48, 39] } // well past stable — red
+    { quantity: 0, color: [0, 18, 97] }, // L*=11.25 well inside stability
+    { quantity: 0.25, color: [3, 68, 129] }, // L*=28.74
+    { quantity: 0.5, color: [48, 125, 166] }, // L*=49.56
+    { quantity: 0.75, color: [148, 190, 210] }, // L*=74.68
+    { quantity: 1.0, color: [236, 229, 224] }, // L*=91.35 CFL=1 (stability limit)
+    { quantity: 1.25, color: [237, 213, 200] }, // L*=86.88
+    { quantity: 1.5, color: [228, 191, 170] }, // L*=79.99
+    { quantity: 2.0, color: [211, 151, 116] }, // L*=67.46
+    { quantity: 3.0, color: [169, 69, 18] }, // L*=42.36
+    { quantity: 4.0, color: [89, 0, 8] } // L*=16.21 well past stable
 ];
 export const COURANT_RAMP_MAX = 4.0;
 
@@ -143,13 +282,53 @@ export const COURANT_RAMP_MAX = 4.0;
  * classification boundaries in Table 2, not official swatch hex values, so
  * these are a chosen, documented palette, not a transcription).
  */
+// TASK-2743 (W6, epic 2706) — H1..H6 is a REGULATORY classification, so before
+// changing anything we asked whether there are canonical colours to conform to.
+// THERE ARE NONE. Searched for colour|color|rgb|hex|legend|symbology across ten
+// primary documents — AIDR Guideline 7-3 (BOTH the 2016 and 2017 editions),
+// AIDR Handbook 7, Guidelines 7-2 and 7-5, WRL TR 2014/07 (Smith, Davey & Cox,
+// the source study), ARR 2019 Book 6, NSW guideline FB03, the NSW Flood Risk
+// Management Manual 2023, and Melbourne Water — and got ZERO specification
+// hits. Every one defines the classes by D*V thresholds only (AIDR Tables 1-2
+// p.11; ARR Tables 6.7.3-6.7.4 pp.260-261). AIDR confirms no edition newer than
+// 2017. Decisively: AIDR REPAINTED ITS OWN FIGURE between the 2016 and 2017
+// editions of the same guideline, and its example maps use a third scheme. A
+// body that silently changes its own artwork is not maintaining a standard.
+//
+// The published FIGURE palettes, extracted from the PDFs and verified
+// geometrically against the thresholds rather than read off labels, recorded
+// here as the reference artwork they are:
+//   ARR 2019 Book 6 Fig 6.7.9  #96B9E1 #BEE5E9 #BFDCB7 #D9E8AD #FFE7A6 #FABDA6
+//     (CC BY 4.0, (c) Commonwealth of Australia / Geoscience Australia; figure
+//      credited to Smith et al. 2014. The widely-copied HEC-RAS community
+//      palette is BYTE-IDENTICAL to this, so it is the de-facto practitioner
+//      artwork if anything is.)
+//   AIDR 7-3 Fig 6             #C3CBE7 #C1E8FB #C0DFB1 #E8EEB1 #FFECAC #FBC2AC
+//   NSW FB03 Fig 1             #83A6BC #ACE0EE #9ED7CE #D1D193 #FEE69C #F8A48C
+// TUFLOW ships no hazard style at all; InfoWorks ICM uses the UK DEFRA rating.
+//
+// EVERY ONE OF THOSE FAILS A COLOUR-VISION CHECK, and they fail in the same
+// place: H4 vs H5 collapses in all of them (ARR dE2000 2.36 under protanopia,
+// AIDR 1.22, NSW 5.96, FLO-2D 4.96, Melbourne Water 7.40) — the yellow-green
+// to yellow step is where Australian flood-practice palettes break under CVD.
+// None has monotonic lightness; the two most discriminable achieve it by
+// abandoning ordinality outright (Melbourne Water makes H3 LIGHTER than H1).
+//
+// So this is a HYDRATA HOUSE CHOICE, not conformance — there is nothing to
+// conform to — and we choose accessibility: six even samples of matplotlib
+// `inferno` REVERSED, light-safe to dark-severe. L* monotonic 98.0 -> 0.1 under
+// normal vision, both deuteranopia models, both protanopia models and
+// tritanopia, with ZERO of fifteen pairs below dE2000 10. `inferno` is
+// perceptually uniform by construction (Smith & van der Walt, matplotlib,
+// CC0). To switch to the ARR artwork instead, replace the six values with the
+// ARR row above and accept its measured numbers.
 export const HAZARD_CLASS_COLORS = [
-    { classIndex: 0, className: 'H1', color: [121, 134, 203] }, // blue-lavender — generally safe
-    { classIndex: 1, className: 'H2', color: [79, 195, 247] }, // light blue — unsafe for small vehicles
-    { classIndex: 2, className: 'H3', color: [129, 199, 132] }, // green — unsafe for vehicles/children/elderly
-    { classIndex: 3, className: 'H4', color: [220, 231, 117] }, // yellow-green — unsafe for vehicles and people
-    { classIndex: 4, className: 'H5', color: [255, 202, 40] }, // amber — + buildings vulnerable to damage
-    { classIndex: 5, className: 'H6', color: [211, 47, 47] } // red — + buildings vulnerable to failure
+    { classIndex: 0, className: 'H1', color: [252, 255, 164] }, // L*=98.0 generally safe
+    { classIndex: 1, className: 'H2', color: [252, 165, 10] }, // L*=76.0 unsafe for small vehicles
+    { classIndex: 2, className: 'H3', color: [221, 81, 58] }, // L*=52.6 unsafe for vehicles/children/elderly
+    { classIndex: 3, className: 'H4', color: [147, 38, 103] }, // L*=33.5 unsafe for vehicles and people
+    { classIndex: 4, className: 'H5', color: [66, 10, 104] }, // L*=16.1 + buildings vulnerable to damage
+    { classIndex: 5, className: 'H6', color: [0, 0, 4] } // L*=0.1  + buildings vulnerable to failure
 ];
 
 /**
@@ -161,12 +340,23 @@ export const HAZARD_CLASS_COLORS = [
  * is the LUT's colorMax for a FIXED-cap ramp; `stage`'s `max` of 1 is a
  * placeholder — stage rescales PER RUN (colorMinForStage/colorMaxForStage
  * in playbackController.js), unlike every other fixed SLD-style cap.
+ *
+ * TASK-2784 (W7, epic 2706) — `normalized` says what a stop's `quantity`
+ * MEANS. For every SLD-derived ramp it is an ABSOLUTE physical value (2
+ * really means 2 m/s), which is the whole point: the same value gets the
+ * same colour here as in the GeoServer-rendered `*_max` raster. For `stage`
+ * the stops were always FRACTIONS of the run's own [elevationMin,
+ * elevationMax + depthMax] span (see STAGE_RAMP_STOPS' trailing comment) —
+ * and buildQuantityColormapLUT was reading them as absolute metres anyway,
+ * so on a run with a 30 m elevation span every texel above 1 m clamped to
+ * the top colour: 96.5% of the rendered range collapsed to one flat pink.
+ * The flag is what tells the LUT builder which of the two it is holding.
  */
 export const QUANTITY_RAMPS = Object.freeze({
     depth: { stops: DEPTH_SLD_STOPS, max: DEPTH_SLD_MAX, discrete: false },
     speed: { stops: VELOCITY_SLD_STOPS, max: VELOCITY_SLD_MAX, discrete: false },
     div: { stops: DIV_SLD_STOPS, max: DIV_SLD_MAX, discrete: false },
-    stage: { stops: STAGE_RAMP_STOPS, max: 1, discrete: false },
+    stage: { stops: STAGE_RAMP_STOPS, max: 1, discrete: false, normalized: true },
     froude: { stops: FROUDE_RAMP_STOPS, max: FROUDE_RAMP_MAX, discrete: false },
     shear: { stops: SHEAR_RAMP_STOPS, max: SHEAR_RAMP_MAX, discrete: false },
     courant: { stops: COURANT_RAMP_STOPS, max: COURANT_RAMP_MAX, discrete: false },
@@ -176,6 +366,100 @@ export const QUANTITY_RAMPS = Object.freeze({
         discrete: true
     }
 });
+
+/**
+ * TASK-2784 (W7, epic 2706) — is this quantity's ramp STRETCHED across the
+ * display range, or pinned to absolute physical values?
+ *
+ * Two callers, one answer, because a disagreement between them is exactly the
+ * bug this fixes: AnugaPlaybackRenderer (which LUT to build) and
+ * PlaybackLegend (what value to write beside each swatch).
+ *
+ * Normalized when EITHER:
+ *  - the ramp's own stops are fractional (`stage`), or
+ *  - the reader has typed a ceiling. Setting the top of a colour scale to
+ *    4 m/s means "4 m/s is the last colour", not "cut the spectrum off at
+ *    the colour 4 m/s used to have" — the latter throws away most of the
+ *    contrast the reader asked for.
+ *
+ * Absolute otherwise, and that default is load-bearing: depth/speed/div
+ * mirror real SLDs, so with no override a given physical value keeps exactly
+ * the colour GeoServer gives it in the `*_max` raster of the same run.
+ * Normalizing unconditionally would silently break that agreement.
+ *
+ * @param {string} quantityId
+ * @param {boolean} [ceilingOverridden] the reader has set an EFFECTIVE ceiling
+ *   (playbackController.isColorMaxOverridden — not merely a finite number)
+ * @returns {boolean}
+ */
+export function isRampNormalized(quantityId, ceilingOverridden) {
+    const ramp = QUANTITY_RAMPS[quantityId] || QUANTITY_RAMPS.depth;
+    if (ramp.discrete) {
+        return false; // H1-H6 are classes; there is no range to stretch
+    }
+    return !!ramp.normalized || !!ceilingOverridden;
+}
+
+/**
+ * TASK-2784 — the value each ramp stop stands for AT THE CURRENT DISPLAY
+ * RANGE, i.e. the number the legend must print beside that swatch.
+ *
+ * Lives here, beside buildQuantityColormapLUT, on purpose: these two are the
+ * forward and inverse of the same mapping, and the entire point of
+ * QUANTITY_RAMPS is that the legend and the render cannot drift apart.
+ *
+ * @param {string} quantityId
+ * @param {{colorMin?: number, colorMax?: number, normalized?: boolean}} [range]
+ * @returns {Array<object>} the ramp's stops, each with a `value` field
+ */
+export function rampStopValues(quantityId, range = {}) {
+    const ramp = QUANTITY_RAMPS[quantityId] || QUANTITY_RAMPS.depth;
+    const { colorMin = 0, colorMax, normalized = false } = range;
+    if (!normalized || !isFinite(colorMax)) {
+        return ramp.stops.map((stop) => ({ ...stop, value: stop.quantity }));
+    }
+    const lo = ramp.stops[0].quantity;
+    const hi = ramp.stops[ramp.stops.length - 1].quantity;
+    const span = (hi - lo) || 1;
+    return ramp.stops.map((stop) => ({
+        ...stop,
+        value: colorMin + (stop.quantity - lo) / span * (colorMax - colorMin)
+    }));
+}
+
+/**
+ * A CSS `linear-gradient` of one result quantity's ramp (TASK-2751).
+ *
+ * Built from QUANTITY_RAMPS — the SAME stops the renderer's dual-LUT draws
+ * with — so a swatch beside a row in the colour-scale table shows the colours
+ * that quantity will actually be drawn in, not a decorative approximation.
+ *
+ * Continuous ramps place each stop at its own position in the ramp's value
+ * range, so an uneven SLD (depth's 0/0.05/0.1/0.2/0.5/1/2/3/4/5/6) reads with
+ * the same crowding at the low end that the map shows. Discrete ramps are
+ * banded with hard edges — H1..H6 are classes and must never look blended.
+ *
+ * @param {string} quantityId
+ * @returns {string} a `linear-gradient(...)` value
+ */
+export function rampGradientCss(quantityId) {
+    const ramp = QUANTITY_RAMPS[quantityId] || QUANTITY_RAMPS.depth;
+    const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+    if (ramp.discrete) {
+        const n = ramp.stops.length;
+        const bands = ramp.stops.map((s, i) => {
+            const from = (i / n * 100).toFixed(2);
+            const to = ((i + 1) / n * 100).toFixed(2);
+            return `${rgb(s.color)} ${from}%, ${rgb(s.color)} ${to}%`;
+        });
+        return `linear-gradient(to right, ${bands.join(', ')})`;
+    }
+    const lo = ramp.stops[0].quantity;
+    const hi = ramp.stops[ramp.stops.length - 1].quantity;
+    const span = (hi - lo) || 1;
+    const parts = ramp.stops.map((s) => `${rgb(s.color)} ${((s.quantity - lo) / span * 100).toFixed(2)}%`);
+    return `linear-gradient(to right, ${parts.join(', ')})`;
+}
 
 function lerp(a, b, t) {
     return a + (b - a) * t;
@@ -191,12 +475,26 @@ function lerp(a, b, t) {
  * physical value `(i/(size-1)) * colorMax`; a value past the last stop's
  * quantity clamps to the last stop's colour (the SLD's own saturation
  * behaviour — see VELOCITY_SLD_STOPS' ">6.0 m/s" label).
+ * TASK-2784 (W7, epic 2706) — `normalized` switches that value axis. The
+ * texel axis is always the DISPLAY range [colorMin, colorMax] (the shader
+ * normalizes to 0..1 before sampling — playbackShaders.js's `vValue`), and
+ * matching stops against it by ABSOLUTE value is only right when the display
+ * range happens to equal the ramp's own span. When it does not, the default
+ * mode does exactly what an SLD does — and that is right for depth/speed/div,
+ * where matching GeoServer beats using the whole spectrum. Under `normalized`
+ * the ramp's own span is STRETCHED to fill the display range instead, so the
+ * last stop's colour lands on colorMax whatever colorMax is. See
+ * isRampNormalized for which mode a given render gets, and why.
+ *
  * @param {Array<{quantity: number, color: number[]}>} stops ascending by quantity, >= 2 entries
  * @param {number} colorMax the physical value texel size-1 represents (matches the renderer's uColorMax uniform)
  * @param {number} [size=256]
+ * @param {{normalized?: boolean}} [options] `normalized` stretches the ramp's
+ *   own [first, last] stop span across the LUT, ignoring `colorMax` for the
+ *   lookup (the caller still validates it as the range's physical top).
  * @returns {Uint8Array} length size*4, RGBA8 row-major
  */
-export function buildQuantityColormapLUT(stops, colorMax, size = 256) {
+export function buildQuantityColormapLUT(stops, colorMax, size = 256, options = {}) {
     if (!Array.isArray(stops) || stops.length < 2) {
         throw new Error('playbackColormap.buildQuantityColormapLUT: stops must have at least 2 entries');
     }
@@ -208,8 +506,12 @@ export function buildQuantityColormapLUT(stops, colorMax, size = 256) {
     }
     const data = new Uint8Array(size * 4);
     const last = stops.length - 1;
+    const normalized = !!options.normalized;
+    const rampLo = stops[0].quantity;
+    const rampSpan = (stops[last].quantity - rampLo) || 1;
     for (let i = 0; i < size; i++) {
-        const value = (i / (size - 1)) * colorMax;
+        const t = i / (size - 1);
+        const value = normalized ? rampLo + t * rampSpan : t * colorMax;
         let a = stops[0];
         let b = stops[last];
         let f = 0;

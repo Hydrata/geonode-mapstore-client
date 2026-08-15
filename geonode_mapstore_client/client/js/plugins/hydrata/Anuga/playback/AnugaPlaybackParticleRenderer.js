@@ -39,6 +39,7 @@ import {
     buildCameraKey,
     hasCameraMoved,
     composePosToClipMatrix,
+    computeParticleViewRects,
     PARTICLE_ADVECT_VERTEX_SHADER,
     PARTICLE_ADVECT_FRAGMENT_SHADER,
     PARTICLE_RENDER_VERTEX_SHADER,
@@ -84,7 +85,10 @@ export class AnugaPlaybackParticleRenderer {
             uDropRate: gl.getUniformLocation(this.advectProgram, 'uDropRate'),
             uStallDropRate: gl.getUniformLocation(this.advectProgram, 'uStallDropRate'),
             uMinSpeed: gl.getUniformLocation(this.advectProgram, 'uMinSpeed'),
-            uWetThreshold: gl.getUniformLocation(this.advectProgram, 'uWetThreshold')
+            uWetThreshold: gl.getUniformLocation(this.advectProgram, 'uWetThreshold'),
+            // TASK-2743 UAT-02 — [0,1] UV rects, see computeParticleViewRects.
+            uRespawnRect: gl.getUniformLocation(this.advectProgram, 'uRespawnRect'),
+            uCullRect: gl.getUniformLocation(this.advectProgram, 'uCullRect')
         };
         this.renderUniforms = {
             uPosTex: gl.getUniformLocation(this.renderProgram, 'uPosTex'),
@@ -236,9 +240,12 @@ export class AnugaPlaybackParticleRenderer {
     /**
      * One advection step — reads the CURRENT ping-pong position texture +
      * the shared velocity texture, writes the NEXT position texture, swaps.
-     * @param {{velocityTexture: WebGLTexture, dtSec: number, speedExaggeration?: number}} params
+     * `viewState`/`sizeCssPx`/`bboxOrtho` are TASK-2743 UAT-02's view-restricted
+     * respawn+cull rects. All three optional: without them the rects fall back
+     * to the full [0,1] domain, i.e. exactly the pre-2743 behaviour.
+     * @param {{velocityTexture: WebGLTexture, dtSec: number, speedExaggeration?: number, viewState?: object, sizeCssPx?: number[], bboxOrtho?: object}} params
      */
-    step({ velocityTexture, dtSec, speedExaggeration }) {
+    step({ velocityTexture, dtSec, speedExaggeration, viewState, sizeCssPx, bboxOrtho }) {
         if (!this.supported || !this.particleFbos) {
             return;
         }
@@ -262,6 +269,13 @@ export class AnugaPlaybackParticleRenderer {
         gl.uniform1f(this.advectUniforms.uStallDropRate, PARTICLE_STALL_DROP_RATE);
         gl.uniform1f(this.advectUniforms.uMinSpeed, PARTICLE_MIN_SPEED);
         gl.uniform1f(this.advectUniforms.uWetThreshold, this._lastWetThreshold || 1e-5);
+        // TASK-2743 UAT-02 — seed and cull against the view, in UV space. The
+        // sampling window is NOT moved; see computeParticleViewRects' header.
+        const rects = computeParticleViewRects(viewState, sizeCssPx, bboxOrtho);
+        gl.uniform4f(this.advectUniforms.uRespawnRect,
+            rects.respawn.u, rects.respawn.v, rects.respawn.du, rects.respawn.dv);
+        gl.uniform4f(this.advectUniforms.uCullRect,
+            rects.cull.u, rects.cull.v, rects.cull.du, rects.cull.dv);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.bindVertexArray(null);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);

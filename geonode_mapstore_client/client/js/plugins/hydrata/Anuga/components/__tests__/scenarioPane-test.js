@@ -2012,6 +2012,53 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 );
             });
 
+            /*
+             * TASK-2716 (W5, epic 2706). This is the one figure with no word
+             * on it at all: a bare ` — ~$45.20` welded onto the end of the
+             * built-mesh line. It is a POST-BUILD compute-cost estimate, not
+             * the charge — the charge is the price band on the toolbar chip,
+             * and the two legitimately differ.
+             *
+             * It is TRANSLATED, unlike the toolbar chip. The figure sits inside
+             * a <span> whose preceding sibling is <Message
+             * msgId="hydrata.anuga.meshComparisonLabel"> — a translated
+             * sentence — so an English role word appended here would produce a
+             * mixed-language line in fr-FR/es-ES/ht-HT. Hence a real msgId
+             * across all four locale files that carry hydrata copy, rather than
+             * the hardcoded-English convention the toolbar follows.
+             */
+            it('the post-build mesh-comparison cost is visibly labelled as an estimate, not a charge', (done) => {
+                ReactDOM.render(
+                    <Localized locale="en-US" messages={enData.messages}>
+                        <ScenarioPane
+                            scenario={{
+                                ...baseScenario,
+                                latest_run: {
+                                    mesh_triangle_count: 250000,
+                                    mesh_provenance: {pre_build_triangle_estimate: 100000},
+                                    mesh_actual_cost_estimate: 45.2
+                                }
+                            }}
+                            selectedCategoryId={'runConfig'}
+                            canEdit
+                        />
+                    </Localized>,
+                    container,
+                    () => {
+                        const comparison = container.querySelector('.anuga-scenario-mesh-comparison-section');
+                        expect(comparison).toExist();
+                        // the role word, resolved through the message catalogue
+                        expect(comparison.textContent).toInclude('estimated compute cost');
+                        // and the figure itself is untouched (AC5: no arithmetic change)
+                        expect(comparison.textContent).toInclude('~$45.20');
+                        // NON-VACUITY: an unresolved msgId renders as the id
+                        // itself, which would satisfy a naive toInclude.
+                        expect(comparison.textContent).toNotInclude('hydrata.anuga');
+                        done();
+                    }
+                );
+            });
+
             it('degrades gracefully (renders nothing) when mesh_provenance is an empty object (failed build)', (done) => {
                 ReactDOM.render(
                     <ScenarioPane
@@ -2265,6 +2312,125 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                         done();
                     }
                 );
+            });
+
+            /*
+             * TASK-2717 (W5, epic 2706) — the ceiling badge must honour the
+             * tester bypass.
+             *
+             * The bypass is DESIGNED, not a hole: gn_anuga.capabilities.is_tester
+             * (explicitly not is_staff, decision 2635-D3) lets a tester's
+             * over-ceiling estimate dispatch, debiting nothing, and
+             * test_tester_meter_bypass.py::TestTesterEstimateCeilingBypass pins
+             * that server-side. The FE never got the memo, so a tester is told to
+             * "contact us for a quote" for something they can already do. The
+             * capability is already on the wire, already in Redux, and already a
+             * prop on this component — the bug is one unthreaded argument.
+             */
+            const overCeilingScenario = {...baseScenario, compute_cost_estimate: 5000, mesh_triangle_count_estimate: 9000000};
+            const overCeilingBand = {cap: 3, usedToday: 0, edge: '0.5', table: [['2', '1'], ['5', '2']]};
+            const CEILING_BADGE = '[data-testid="sv-anuga-scenario-estimate-over-ceiling-badge"]';
+
+            function renderOverCeiling(props, then) {
+                ReactDOM.render(
+                    <ScenarioPane
+                        scenario={overCeilingScenario}
+                        selectedCategoryId={'runConfig'}
+                        canEdit
+                        paywallEnabled
+                        accountBalance="0.00"
+                        freeBand={overCeilingBand}
+                        {...props}
+                    />,
+                    container,
+                    then
+                );
+            }
+
+            it('over-ceiling badge is suppressed for a tester (isStaff true)', (done) => {
+                renderOverCeiling({isStaff: true}, () => {
+                    expect(container.querySelector(CEILING_BADGE)).toBe(null);
+                    // Paired positive assertion — a pure absence check passes
+                    // vacuously if the pane threw and rendered nothing at all.
+                    // The estimate section must still be here.
+                    expect(container.querySelector('.anuga-scenario-estimate-section')).toExist();
+                    done();
+                });
+            });
+
+            it('over-ceiling badge still renders for a non-tester (negative control)', (done) => {
+                renderOverCeiling({isStaff: false}, () => {
+                    const ceiling = container.querySelector(CEILING_BADGE);
+                    expect(ceiling).toExist('over-ceiling badge did not render for a non-tester');
+                    expect(ceiling.textContent).toBe('Above the automatic dispatch ceiling — contact us for a quote');
+                    expect(ceiling.className).toInclude('sv-anuga-scenario-estimate-badge--ceiling');
+                    done();
+                });
+            });
+
+            /*
+             * FAIL-CLOSED, PROVED AT A SEAM THAT CAN ACTUALLY FAIL.
+             *
+             * The obvious spec here — "renders while the config is unhydrated,
+             * i.e. isStaff undefined" — is VACUOUS and can never be red in any
+             * tree: ScenarioPane.defaultProps sets `isStaff: false` and React
+             * substitutes defaultProps for undefined, so that case is
+             * byte-identical to the negative control above. It would pass with
+             * the developer doing nothing, before and after the change.
+             *
+             * The fail-closed property that CAN break is the one below: the
+             * suppression must require the capability to be EXACTLY true, not
+             * merely truthy. `canSelectComputeTarget` is fail-closed by
+             * construction (uiReducer's `false` initial value, mapped through
+             * `!!state?...`), but a gate written as `!isStaff` opens for ANY
+             * truthy value — a config object, a 1, a non-empty string — so a
+             * single dropped `!!` upstream, or a future mapStateToProps that
+             * passes the raw capability through, would silently suppress the
+             * ceiling badge for every user on the site. That is a worse bug
+             * than the one this task fixes, and unlike `undefined` these values
+             * survive defaultProps and reach the component untouched.
+             */
+            [
+                ['undefined (config not yet hydrated)', undefined],
+                ['null', null],
+                ['0', 0],
+                ['the empty string', ''],
+                ['a truthy number', 1],
+                ['a truthy string', 'yes'],
+                ['a truthy object', {}]
+            ].forEach(([label, value]) => {
+                it(`over-ceiling badge still renders when isStaff is ${label} — suppression requires exactly true`, (done) => {
+                    renderOverCeiling({isStaff: value}, () => {
+                        expect(container.querySelector(CEILING_BADGE)).toExist(
+                            `over-ceiling badge was suppressed for a non-true isStaff (${label})`
+                        );
+                        done();
+                    });
+                });
+            });
+
+            /*
+             * TASK-2717 x TASK-2716, same wave and same ship: what does an
+             * over-ceiling TESTER actually see?
+             *
+             * This task removes the ceiling badge for them, and the toolbar
+             * price chip is already deliberately EMPTY when band === Infinity
+             * (scenarioHeaderActions renders priceLabel, which is null for the
+             * Infinity sentinel). Between them a tester could be left with no
+             * cost information anywhere — and TASK-2716 is about to put a role
+             * word beside that empty chip, which would make it a label with no
+             * amount. Pin the floor here: the PANE still states the money.
+             */
+            it('an over-ceiling tester still sees the cost estimate itself', (done) => {
+                renderOverCeiling({isStaff: true}, () => {
+                    const label = container.querySelector('.sv-anuga-scenario-estimate-label');
+                    expect(label).toExist();
+                    expect(label.textContent).toInclude('Estimate:');
+                    expect(label.textContent).toInclude('9,000,000 triangles');
+                    // the dollar figure, not just the triangle count
+                    expect(label.textContent).toInclude('$5000.00');
+                    done();
+                });
             });
         });
 

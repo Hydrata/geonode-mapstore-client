@@ -20,7 +20,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import TestUtils from 'react-dom/test-utils';
 
-import { AnugaPlaybackControlBarComponent } from '../AnugaPlaybackControlBar';
+import { AnugaPlaybackControlBarComponent, formatClock, bufferedTrackSegments, PLAYBACK_ZOOM_MAX } from '../AnugaPlaybackControlBar';
 import { PLAYBACK_STATUS, createInitialPlaybackState } from '../../playbackController';
 
 describe('AnugaPlaybackControlBar — TASK-2627', () => {
@@ -67,14 +67,17 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         const readyState = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 10, currentTimestep: 0 };
         render({ playback: readyState, onPlay, onPause });
         const btn = container.querySelector('[data-testid="anuga-playback-playpause"]');
-        expect(btn.textContent).toBe('▶');
+        // TEXT-presentation codepoints, not emoji: U+25B6 (▶) defaults to
+        // emoji presentation, so the browser painted its own orange square
+        // and the button's `color` did nothing.
+        expect(btn.textContent).toBe('►');
         TestUtils.Simulate.click(btn);
         expect(onPlay.calls.length).toBe(1);
         expect(onPause.calls.length).toBe(0);
 
         render({ playback: { ...readyState, status: PLAYBACK_STATUS.PLAYING }, onPlay, onPause });
         const btn2 = container.querySelector('[data-testid="anuga-playback-playpause"]');
-        expect(btn2.textContent).toBe('❙❙');
+        expect(btn2.textContent).toBe('❚❚');
         TestUtils.Simulate.click(btn2);
         expect(onPause.calls.length).toBe(1);
     });
@@ -171,6 +174,542 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             render({ playback: state });
             const btn = container.querySelector('[data-testid="anuga-playback-wireframe-toggle"]');
             expect(btn.className).toNotContain('active');
+        });
+    });
+
+    // TASK-2744 (AC2, epic 2706) — THE RUN MUST BE UNLOADABLE.
+    // RED on HEAD: there was NO control anywhere on the bar that dispatched
+    // playbackReset(), so a loaded run could never be released — measured live
+    // on map 1461, `[data-testid="anuga-playback-unload"]` was null while
+    // status was 'ready'.
+    describe('Unload — TASK-2744 AC2', () => {
+        function loadedState(extra = {}) {
+            return {
+                ...createInitialPlaybackState(),
+                status: PLAYBACK_STATUS.READY,
+                nTime: 31,
+                runId: 'run-77',
+                layerId: 'layer-77',
+                ...extra
+            };
+        }
+
+        it('renders a visible Unload control whenever a run is active', () => {
+            render({ playback: loadedState() });
+            const btn = container.querySelector('[data-testid="anuga-playback-unload"]');
+            expect(btn).toBeTruthy();
+            // an accessible name, not a bare glyph (AC7 applies to it too)
+            expect(btn.getAttribute('title')).toBeTruthy();
+        });
+
+        it('dispatches onReset(runId, layerId) so the epic can free the fetcher AND remove the overlay', () => {
+            const onReset = expect.createSpy();
+            render({ playback: loadedState(), onReset });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-unload"]'));
+            expect(onReset.calls.length).toBe(1);
+            expect(onReset.calls[0].arguments[0]).toBe('run-77');
+            expect(onReset.calls[0].arguments[1]).toBe('layer-77');
+        });
+
+        it('AC3 — a labelled opacity control exists and moves the value across 0.2..1.0', () => {
+            const onSetOpacity = expect.createSpy();
+            render({ playback: loadedState(), onSetOpacity });
+            const slider = container.querySelector('[data-testid="anuga-playback-opacity"]');
+            expect(slider).toBeTruthy();
+            // RED on HEAD: no such control existed at all and the layer was
+            // pinned at 0.85 by playbackInitEpic (measured on map 1461).
+            expect(slider.getAttribute('aria-label')).toBeTruthy();
+            expect(Number(slider.min)).toBeLessThanOrEqualTo(0.2);
+            expect(Number(slider.max)).toBe(1);
+            [0.2, 0.5, 1].forEach((v) => TestUtils.Simulate.change(slider, { target: { value: String(v) } }));
+            expect(onSetOpacity.calls.length).toBe(3);
+            expect(onSetOpacity.calls[0].arguments[0]).toBe(0.2);
+            expect(onSetOpacity.calls[2].arguments[0]).toBe(1);
+            // AC7 — the current value is rendered, not just held in the handle
+            expect(container.querySelector('[data-testid="anuga-playback-opacity-value"]').textContent).toBe('85%');
+        });
+
+        /* TASK-2751 ported these from the bare `anuga-playback-colormax`
+           number input; the operator then moved the control off the primary row
+           entirely, so the ceiling now lives one row per quantity in the
+           Display drawer. Same guarantee, new home. */
+        it('AC4 — the colour-scale ceiling is settable and shows the effective value', () => {
+            const onSetColorMax = expect.createSpy();
+            const quantization = { depth: { valid_max: 16.862720489501953 } };
+            render({ playback: loadedState({ quantity: 'depth', quantization }), onSetColorMax });
+            const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth"]');
+            expect(chip).toBeTruthy();
+            // This is the store's valid_max — every urban depth lands in the
+            // bottom 6% of the ramp, which is what AC4 existed to fix.
+            expect(chip.textContent).toInclude('16.863');
+            TestUtils.Simulate.click(chip);
+            const input = container.querySelector('[data-testid="anuga-playback-ceiling-depth-input"]');
+            TestUtils.Simulate.change(input, { target: { value: '1.5' } });
+            TestUtils.Simulate.keyDown(input, { key: 'Enter' });
+            expect(onSetColorMax.calls[0].arguments[0]).toBe('depth');
+            expect(onSetColorMax.calls[0].arguments[1]).toBe(1.5);
+        });
+
+        it('AC4 — once overridden, the chip shows the OVERRIDE rather than the store maximum', () => {
+            const quantization = { depth: { valid_max: 16.862720489501953 } };
+            render({ playback: loadedState({ quantity: 'depth', quantization, colorMaxOverride: { depth: 1.5 } }) });
+            const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth"]');
+            expect(chip.textContent).toInclude('1.5');
+            expect(chip.textContent).toNotInclude('16.863');
+        });
+
+        it('after a reset the component returns to IDLE and shows the manifest loader again', () => {
+            render({ playback: loadedState() });
+            expect(container.querySelector('[data-testid="anuga-playback-manifest-input"]')).toBe(null);
+            // what the reducer's PLAYBACK_RESET case actually produces
+            render({ playback: createInitialPlaybackState() });
+            expect(container.querySelector('[data-testid="anuga-playback-manifest-input"]')).toBeTruthy();
+            expect(container.querySelector('[data-testid="anuga-playback-unload"]')).toBe(null);
+        });
+    });
+
+    // TASK-2744 (AC1, epic 2706) — UNMOUNT MUST NOT LEAVE PLAYBACK RUNNING.
+    //
+    // RED, measured on map 1461: press Play, switch the SimpleView menu away
+    // from 'Results' (which unmounts this bar, anugaContainer.js:431) and the
+    // controller stayed 'playing' — the playhead advanced 3.00 s over 3 s of
+    // wall clock with the bar gone and no control left to stop it. There was
+    // no componentWillUnmount in the file at all, and playbackTickEpic only
+    // stops on PLAYBACK_PAUSE/PLAYBACK_RESET.
+    describe('unmount stops playback — TASK-2744 AC1', () => {
+        function playing(extra = {}) {
+            return { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.PLAYING, nTime: 31, runId: 'r', layerId: 'l', ...extra };
+        }
+
+        it('dispatches pause on unmount while PLAYING', () => {
+            const onPause = expect.createSpy();
+            render({ playback: playing(), onPause });
+            expect(onPause.calls.length).toBe(0);
+            ReactDOM.unmountComponentAtNode(container);
+            expect(onPause.calls.length).toBe(1);
+        });
+
+        it('does NOT dispatch pause on unmount when it was not playing', () => {
+            const onPause = expect.createSpy();
+            render({ playback: playing({ status: PLAYBACK_STATUS.READY }), onPause });
+            ReactDOM.unmountComponentAtNode(container);
+            expect(onPause.calls.length).toBe(0);
+        });
+
+        it('does not throw when unmounted with no run at all', () => {
+            render({ playback: createInitialPlaybackState() });
+            expect(() => ReactDOM.unmountComponentAtNode(container)).toNotThrow();
+        });
+    });
+
+    // TASK-2744 (AC17, epic 2706) — the speed picker must state what it means.
+    // RED on map 1461: options were bare multipliers 0.25x..8x, the default was
+    // 1x, and at 1x a Msimbazi timestep took 60 SECONDS of wall clock.
+    describe('speed picker states wall-clock meaning — TASK-2744 AC17', () => {
+        const MSIMBAZI_TIME = Array.from({ length: 31 }, (_, i) => i * 60); // 0..1800 s
+
+        function loadedRun(extra = {}) {
+            return {
+                ...createInitialPlaybackState(),
+                status: PLAYBACK_STATUS.READY, nTime: 31, runId: 'r', layerId: 'l',
+                time: MSIMBAZI_TIME, speed: 120,
+                ...extra
+            };
+        }
+
+        it('every option label states a duration or an explicit multiplier — never a bare "8x"', () => {
+            render({ playback: loadedRun() });
+            const labels = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => o.textContent);
+            expect(labels.length > 0).toBe(true);
+            // the AC's actual words, checked against EVERY row rather than a
+            // sample: a duration, or a multiplier that is spelled out.
+            labels.forEach((l) => {
+                expect(/\d+(\.\d+)?\s*(s|min|h)\b/.test(l) || /\d+(\.\d+)?x/.test(l)).toBe(true, `bare label: ${l}`);
+            });
+            // the default option says the whole run takes 15 s, and that it is 120x
+            expect(labels.some((l) => l.indexOf('15 s') !== -1 && l.indexOf('120x') !== -1)).toBe(true);
+            // real time is offered AND labelled
+            expect(labels.some((l) => l.indexOf('Real time') !== -1 && l.indexOf('1x') !== -1)).toBe(true);
+        });
+
+        /* The run's own length used to ride along inside the real-time
+           option's parenthetical, which made that ONE row the widest in the
+           list and so set the width of the whole control. It describes the
+           RUN, not the speed you are choosing, so it moved to the control's
+           accessible name — and it is no longer only there: the scrubber's
+           tick axis renders it permanently as the last tick. AC17's intent
+           ("the picker states its wall-clock meaning") is what is graded. */
+        it('still states how long the run is — now on the control, not buried in one row', () => {
+            render({ playback: loadedRun() });
+            const sel = container.querySelector('[data-testid="anuga-playback-speed"]');
+            expect(sel.getAttribute('aria-label')).toContain('30 min');
+            expect(sel.getAttribute('title')).toContain('30 min');
+        });
+
+        it('falls back to the plain control name when the store declares no duration', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, time: null, speed: 1 } });
+            const sel = container.querySelector('[data-testid="anuga-playback-speed"]');
+            expect(sel.getAttribute('aria-label')).toBe('Playback speed');
+        });
+
+        it('drops the prefix that repeated on every row, keeping the duration and the multiplier', () => {
+            render({ playback: loadedRun() });
+            const labels = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => o.textContent);
+            expect(labels.some((l) => l.indexOf('Whole run in') !== -1)).toBe(false);
+            expect(labels.indexOf('15 s · 120x')).toBeGreaterThan(-1);
+        });
+
+        it('offers an option whose value is exactly 1 (real time stays reachable)', () => {
+            render({ playback: loadedRun() });
+            const values = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => Number(o.value));
+            expect(values.indexOf(1) !== -1).toBe(true);
+        });
+
+        it('the controlled value always has a matching option, even for an odd seeded speed', () => {
+            render({ playback: loadedRun({ speed: 37.5 }) });
+            const values = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => Number(o.value));
+            expect(values.indexOf(37.5) !== -1).toBe(true);
+        });
+
+        it('degrades to real time + slow motion when the store declares no duration', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, time: null, speed: 1 } });
+            const values = [...container.querySelectorAll('[data-testid="anuga-playback-speed"] option')].map((o) => Number(o.value));
+            expect(values.indexOf(1) !== -1).toBe(true);
+            expect(values.every((v) => v <= 1)).toBe(true);
+        });
+    });
+
+    // TASK-2744 (AC11, epic 2706) — OVERLAY TOGGLES MUST NOT DESYNC ACROSS A
+    // REMOUNT. RED, measured on map 1461: enable Flow viz, switch the
+    // SimpleView menu away from 'Results' (which UNMOUNTS this bar per
+    // anugaContainer.js:431) and back — the layer still had flowVizEnabled
+    // true while the button had lost its `active` class.
+    //
+    // The fix is structural: the knobs are controller state now, so an
+    // unmount cannot lose them. The spec below reproduces the remount by
+    // literally unmounting and re-rendering the component, which is what the
+    // menu switch does.
+    describe('overlay knobs survive a remount — TASK-2744 AC11', () => {
+        function loaded(extra = {}) {
+            return { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, runId: 'r', layerId: 'l', ...extra };
+        }
+
+        it('reads the toggle state from the controller, not component-local state', () => {
+            render({ playback: loaded({ flowVizEnabled: true }) });
+            expect(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]').className).toContain('active');
+            render({ playback: loaded({ flowVizEnabled: false }) });
+            expect(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]').className).toNotContain('active');
+        });
+
+        it('button and layer AGREE after a real unmount/remount, for flow viz AND particles', () => {
+            const state = loaded({ flowVizEnabled: true, particlesEnabled: true });
+            render({ playback: state });
+            expect(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]').className).toContain('active');
+            expect(container.querySelector('[data-testid="anuga-playback-particles-toggle"]').className).toContain('active');
+
+            // the menu switch: unmount, then mount again against the SAME
+            // controller state (which the reducer, not the bar, owns)
+            ReactDOM.unmountComponentAtNode(container);
+            render({ playback: state });
+
+            expect(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]').className).toContain('active');
+            expect(container.querySelector('[data-testid="anuga-playback-particles-toggle"]').className).toContain('active');
+            // and the knobs kept their values too
+            expect(Number(container.querySelector('[data-testid="anuga-playback-flowviz-density"]').value)).toBe(state.arrowDensity);
+            expect(Number(container.querySelector('[data-testid="anuga-playback-particles-density"]').value)).toBe(state.particleDensity);
+        });
+
+        it('dispatches onSetOverlay(key, value) for every knob', () => {
+            const onSetOverlay = expect.createSpy();
+            render({ playback: loaded({ flowVizEnabled: true, particlesEnabled: true }), onSetOverlay });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-flowviz-toggle"]'));
+            expect(onSetOverlay.calls[0].arguments).toEqual(['flowVizEnabled', false]);
+            TestUtils.Simulate.change(container.querySelector('[data-testid="anuga-playback-flowviz-density"]'), { target: { value: '80' } });
+            expect(onSetOverlay.calls[1].arguments).toEqual(['arrowDensity', 80]);
+            TestUtils.Simulate.change(container.querySelector('[data-testid="anuga-playback-particles-exaggeration"]'), { target: { value: '2.5' } });
+            expect(onSetOverlay.calls[2].arguments).toEqual(['particleSpeedExaggeration', 2.5]);
+        });
+
+        it('AC7 — every slider renders its current numeric value adjacent to it', () => {
+            render({ playback: loaded({ flowVizEnabled: true, particlesEnabled: true }) });
+            ['anuga-playback-opacity', 'anuga-playback-flowviz-density', 'anuga-playback-flowviz-scale',
+                'anuga-playback-particles-density', 'anuga-playback-particles-exaggeration'].forEach((testid) => {
+                const valueEl = container.querySelector(`[data-testid="${testid}-value"]`);
+                expect(valueEl).toBeTruthy();
+                expect(valueEl.textContent.length > 0).toBe(true);
+            });
+        });
+    });
+
+    // TASK-2744 (AC8, epic 2706) — THE CLOCK MUST HANDLE LONG RUNS.
+    // formatClock was module-private (the file exported only the component and
+    // the connected default), so no spec could reach the arithmetic. Adding
+    // `export` is sanctioned explicitly by the card. It emitted
+    // `${minutes}:${ss}` with no hour carry, so a 25 h design storm read
+    // '1500:00'. Run 1328 is 30 minutes, which is exactly why it survived.
+    describe('formatClock — TASK-2744 AC8', () => {
+        it('carries hours: 90000 s is 25:00:00, not 1500:00', () => {
+            expect(formatClock(90000)).toBe('25:00:00');
+        });
+
+        it('leaves sub-hour output UNCHANGED (the rig still reads 28:00)', () => {
+            expect(formatClock(1680)).toBe('28:00');
+            expect(formatClock(0)).toBe('0:00');
+            expect(formatClock(59)).toBe('0:59');
+            expect(formatClock(3599)).toBe('59:59');
+        });
+
+        it('pads minutes and seconds once hours appear', () => {
+            expect(formatClock(3600)).toBe('1:00:00');
+            expect(formatClock(3661)).toBe('1:01:01');
+            expect(formatClock(86400)).toBe('24:00:00');
+        });
+
+        it('still refuses to invent a value for a non-finite playhead', () => {
+            expect(formatClock(NaN)).toBe('—:—');
+            expect(formatClock(Infinity)).toBe('—:—');
+        });
+
+        // AC8 requires BOTH halves: the unit test above AND a render
+        // cross-check, which is what proves the RENDER PATH uses the fixed
+        // function rather than a second copy of the arithmetic.
+        it('the rendered readout uses the fixed function (render cross-check)', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, playheadSeconds: 90000 } });
+            expect(container.querySelector('[data-testid="anuga-playback-readout"]').textContent).toContain('25:00:00');
+        });
+    });
+
+    // TASK-2744 (AC9, epic 2706) — THE SCRUBBER MUST SHOW WHAT IS BUFFERED.
+    // `bufferedChunks` has been controller state since epic 2618 and no
+    // component ever read it; on HEAD
+    // document.querySelector('[data-testid="anuga-playback-scrubber-buffered"]')
+    // returned null (measured on map 1461).
+    describe('buffered range on the scrubber — TASK-2744 AC9', () => {
+        it('bufferedTrackSegments maps chunk indices onto track fractions', () => {
+            // 2 of 4 chunks, chunkLengthT 10, nTime 40 -> the first half
+            expect(bufferedTrackSegments([0, 1], 10, 40)).toEqual([{ start: 0, width: 0.5 }]);
+            // non-contiguous stays non-contiguous: two separate spans
+            expect(bufferedTrackSegments([0, 3], 10, 40)).toEqual([
+                { start: 0, width: 0.25 },
+                { start: 0.75, width: 0.25 }
+            ]);
+            // the final chunk is clipped to nTime, not run past it
+            expect(bufferedTrackSegments([3], 10, 31)).toEqual([{ start: 30 / 31, width: 1 / 31 }]);
+            expect(bufferedTrackSegments([], 10, 40)).toEqual([]);
+            expect(bufferedTrackSegments([0], null, 40)).toEqual([]);
+        });
+
+        it('renders the buffered bar at the right width for a known 2-of-4-chunks state', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY,
+                nTime: 40, chunkLengthT: 10, totalChunks: 4, bufferedChunks: [0, 1] } });
+            const el = container.querySelector('[data-testid="anuga-playback-scrubber-buffered"]');
+            expect(el).toBeTruthy();
+            // 2 of 4 chunks buffered == half the track, to within 1 CSS px on
+            // any track width (asserted as the exact percentage the style sets)
+            expect(el.style.width).toBe('50%');
+            expect(el.style.left).toBe('0%');
+        });
+
+        it('renders one bar per contiguous run, not one per chunk', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY,
+                nTime: 40, chunkLengthT: 10, totalChunks: 4, bufferedChunks: [0, 1, 3] } });
+            expect(container.querySelectorAll('.sv-playback-scrubber-buffered').length).toBe(2);
+        });
+
+        it('renders nothing when nothing is buffered', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY,
+                nTime: 40, chunkLengthT: 10, totalChunks: 4, bufferedChunks: [] } });
+            expect(container.querySelector('[data-testid="anuga-playback-scrubber-buffered"]')).toBe(null);
+        });
+    });
+
+    // TASK-2744 (AC7, epic 2706) — EVERY CONTROL MUST HAVE AN ACCESSIBLE NAME.
+    // RED on map 1461: the scrubber and BOTH <select>s had labels 0,
+    // aria-label null, title null.
+    describe('accessible names — TASK-2744 AC7', () => {
+        it('every range input and select on the bar has a non-empty accessible name', () => {
+            render({ playback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY,
+                nTime: 31, time: [0, 60, 120], flowVizEnabled: true, particlesEnabled: true } });
+            const rows = [...container.querySelectorAll('.sv-playback-bar input[type=range], .sv-playback-bar select')];
+            expect(rows.length > 0).toBe(true);
+            rows.forEach((el) => {
+                const name = (el.labels && el.labels.length)
+                    || el.getAttribute('aria-label')
+                    || el.getAttribute('title');
+                expect(!!name).toBe(true);
+                // and never a raw dotted msgId
+                expect(String(el.getAttribute('aria-label') || '').indexOf('hydrata.')).toBe(-1);
+            });
+        });
+    });
+
+    // TASK-2744 (AC7/AC10, epic 2706) — REGRESSION GUARD for a defect the rest
+    // of this file structurally cannot catch.
+    //
+    // Every other spec here renders the component bare, so `this.context` is
+    // {} and EVERY getMessageById lookup misses and falls back to English.
+    // That means no spec exercised the path where a lookup SUCCEEDS. Found
+    // live on map 1461: the quantity <select> announced "[object Object]",
+    // because the option labels had been nested under
+    // `hydrata.playback.quantity.*` while `hydrata.playback.quantity` was also
+    // the select's own label — so getMessageById resolved the id to the
+    // SUB-TREE and it stringified into the aria-label.
+    //
+    // The fix is two-part and this guards both: the option labels moved to
+    // `quantityOption.*`, and tr() now refuses any non-string resolution.
+    describe('translated labels with a real catalogue — TASK-2744 AC7/AC10', () => {
+        // React 16 legacy context: a provider parent is the only way to put
+        // `messages` where the component's contextTypes will see it.
+        class MessagesProvider extends React.Component {
+            static propTypes = { children: () => null, messages: () => null };
+            static childContextTypes = { messages: () => null };
+            getChildContext() {
+                return { messages: this.props.messages };
+            }
+            render() {
+                return this.props.children;
+            }
+        }
+
+        function renderWithMessages(messages, playback) {
+            ReactDOM.render(
+                <MessagesProvider messages={messages}>
+                    <AnugaPlaybackControlBarComponent playback={playback} />
+                </MessagesProvider>,
+                container
+            );
+        }
+
+        const loaded = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31, time: [0, 60, 120] };
+
+        it('never announces "[object Object]" when a msgId also has child keys', () => {
+            renderWithMessages({
+                hydrata: { playback: {
+                    // the SHAPE that caused the live defect: a scalar label
+                    // beside a sub-tree of option labels. TASK-2751 renamed the
+                    // scalar to `resultQuantity`, which is ALSO the arrangement
+                    // that makes the collision impossible — but the guard stays,
+                    // because the next person to nest a key under an existing
+                    // one will not remember why.
+                    resultQuantity: 'Result quantity',
+                    quantity: { depth: 'Profondeur' },
+                    quantityOption: { depth: 'Depth', speed: 'Velocity' },
+                    speed: 'Playback speed',
+                    scrubber: 'Timeline position'
+                } }
+            }, loaded);
+
+            const rows = [...container.querySelectorAll('.sv-playback-bar input[type=range], .sv-playback-bar select')];
+            rows.forEach((el) => {
+                const aria = el.getAttribute('aria-label');
+                expect(aria).toNotBe('[object Object]');
+                expect(String(aria).indexOf('object Object')).toBe(-1);
+            });
+            expect(container.querySelector('[data-testid="anuga-playback-quantity"]').getAttribute('aria-label'))
+                .toBe('Result quantity');
+        });
+
+        it('falls back to English rather than announcing a sub-tree', () => {
+            // `resultQuantity` is ONLY a sub-tree here — no scalar at all
+            renderWithMessages({ hydrata: { playback: { resultQuantity: { depth: 'Profondeur' } } } }, loaded);
+            const aria = container.querySelector('[data-testid="anuga-playback-quantity"]').getAttribute('aria-label');
+            expect(aria).toBe('Result quantity');
+        });
+
+        it('uses the catalogue when the id really does resolve to a string', () => {
+            renderWithMessages({ hydrata: { playback: { scrubber: 'Position sur la chronologie' } } }, loaded);
+            expect(container.querySelector('[data-testid="anuga-playback-scrubber"]').getAttribute('aria-label'))
+                .toBe('Position sur la chronologie');
+        });
+    });
+
+    // TASK-2726 (W5.5, epic 2706) — "zoom to results".
+    //
+    // AC2 IS SATISFIED BY CONSTRUCTION, not by a spec that mocks it away: the
+    // bounds arrive as `playback.meshBounds3857` out of Redux (published by
+    // playbackInitEpic at MANIFEST_LOADED), so this control never touches
+    // AnugaPlaybackFlowVizRenderer.getMeshBbox() and cannot care whether
+    // flow-viz reports supported=false. There is no renderer in this file's
+    // render path at all — which is the point.
+    describe('zoom to results — TASK-2726', () => {
+        const READY = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31 };
+        // Msimbazi (map 1461 / prod run 1328), EPSG:32737 -> EPSG:3857.
+        const MSIMBAZI_3857 = [4369623.8, -761565.1, 4373166.8, -757776.3];
+
+        it('is DISABLED, not hidden, while the extent is unknown', () => {
+            render({ playback: { ...READY, meshBounds3857: null } });
+            const button = container.querySelector('[data-testid="anuga-playback-zoom-to-results"]');
+            // "disabled (not hidden, not silently inert)" — AC1, verbatim.
+            expect(button).toBeTruthy();
+            expect(button.disabled).toBe(true);
+        });
+
+        it('enables once the extent is published, and does not fire while disabled', () => {
+            const onZoomToExtent = expect.createSpy();
+            render({ playback: { ...READY, meshBounds3857: null }, onZoomToExtent });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-zoom-to-results"]'));
+            expect(onZoomToExtent.calls.length).toBe(0);
+
+            render({ playback: { ...READY, meshBounds3857: MSIMBAZI_3857 }, onZoomToExtent });
+            expect(container.querySelector('[data-testid="anuga-playback-zoom-to-results"]').disabled).toBe(false);
+        });
+
+        // Operator moved this out of the transport row on 2026-08-14: the
+        // transport row is what you touch WHILE watching, and a one-shot
+        // navigation action was pushing those controls apart. Pinned as a test
+        // because "which container is it in" is exactly the kind of thing a
+        // later refactor undoes without noticing.
+        it('lives INSIDE the Display drawer, not in the transport row', () => {
+            render({ playback: { ...READY, meshBounds3857: MSIMBAZI_3857 } });
+            const drawer = container.querySelector('[data-testid="anuga-playback-drawer"]');
+            const button = container.querySelector('[data-testid="anuga-playback-zoom-to-results"]');
+            expect(drawer).toBeTruthy();
+            expect(button).toBeTruthy();
+            expect(drawer.contains(button)).toBe(true);
+        });
+
+        it('dispatches zoomToExtent(bounds, EPSG:3857, maxZoom) — the pollingEpics.js:954 call shape', () => {
+            const onZoomToExtent = expect.createSpy();
+            render({ playback: { ...READY, meshBounds3857: MSIMBAZI_3857 }, onZoomToExtent });
+            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-zoom-to-results"]'));
+            expect(onZoomToExtent.calls.length).toBe(1);
+            const args = onZoomToExtent.calls[0].arguments;
+            expect(args[0]).toEqual(MSIMBAZI_3857);
+            // The CRS is the load-bearing assertion: handing MapStore the
+            // store's native UTM epsg here is the specific defect AC3 names.
+            expect(args[1]).toBe('EPSG:3857');
+            expect(args[2]).toBe(PLAYBACK_ZOOM_MAX);
+        });
+    });
+
+    // Operator request, 2026-08-14. The Display button now hides a control the
+    // user may be hunting for (Zoom to results), so it has to READ as a panel
+    // rather than as one more toggle in a row of toggles.
+    describe('Display disclosure chevron', () => {
+        const READY_BAR = { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.READY, nTime: 31 };
+
+        it('renders a chevron inside the Display button, hidden from assistive tech', () => {
+            render({ playback: READY_BAR });
+            const toggle = container.querySelector('[data-testid="anuga-playback-display-toggle"]');
+            const chevron = toggle.querySelector('.sv-playback-chevron');
+            expect(chevron).toBeTruthy();
+            // aria-expanded on the button already carries the state; announcing
+            // it a second time would be noise.
+            expect(chevron.getAttribute('aria-hidden')).toBe('true');
+        });
+
+        it('drives the chevron off aria-expanded, which the CSS rotates on', () => {
+            // The rotation is a CSS rule keyed on
+            // [aria-expanded="true"], so the assertion that matters in a unit
+            // test is that the ATTRIBUTE tracks the drawer — a transform read
+            // back from jsdom would prove nothing about the real stylesheet.
+            render({ playback: READY_BAR });
+            const toggle = container.querySelector('[data-testid="anuga-playback-display-toggle"]');
+            expect(toggle.getAttribute('aria-expanded')).toBe('false');
+            TestUtils.Simulate.click(toggle);
+            const after = container.querySelector('[data-testid="anuga-playback-display-toggle"]');
+            expect(after.getAttribute('aria-expanded')).toBe('true');
+            expect(after.querySelector('.sv-playback-chevron')).toBeTruthy();
         });
     });
 });
