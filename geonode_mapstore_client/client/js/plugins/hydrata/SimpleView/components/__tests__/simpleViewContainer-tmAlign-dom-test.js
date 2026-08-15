@@ -48,6 +48,10 @@ describe('SimpleView RHS toolbar / TaskMonitor alignment', () => {
         const baseProps = {
             menuGroups: [],
             visibleIntroduction: false,
+            // TASK-2796 — the About button is payload-gated now. These tests
+            // measure the toolbar WITH it, so the surface they describe is one
+            // where an introduction has arrived.
+            introductionAvailable: true,
             visibleLegendPanel: false,
             // keep the conditional clusters off so the toolbar renders just the
             // always-present Legend button (a real, measurable button in Chrome)

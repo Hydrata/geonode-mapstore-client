@@ -14,6 +14,12 @@ import { fireEvent } from '@testing-library/react';
 import mountWithProviders from '../../../../../__tests__/helpers/mountWithProviders';
 import ConnectedSimpleView from '../simpleViewContainer';
 
+// TASK-2796 — a MINIMAL arrived payload. Deliberately not a realistic one: the
+// gate is `!!introduction.data`, so the smallest object that satisfies it is
+// the honest fixture, and anything richer would imply the gate reads fields it
+// does not read.
+const LOADED_PAYLOAD = { project_name: 'Msimbazi baseline', content_version: 'v1' };
+
 function makeStore(state) {
     const dispatched = [];
     return {
@@ -136,7 +142,9 @@ describe('SimpleView RHS toolbar order (TASK-2465)', () => {
         anuga: { projects: { data: { my_role: 'owner' } }, ui: { showMembershipPanel: false } },
         security: { user: { pk: 1, is_superuser: true } },
         gnresource: { permissions: { canEdit: true } },
-        simpleView: {},
+        // TASK-2796 — the About button is now payload-gated, so "every
+        // conditional button switched ON" includes an arrived introduction.
+        simpleView: { introduction: { projectId: 13422, data: LOADED_PAYLOAD } },
         layers: { groups: [] },
         localConfig: { plugins: { map_viewer: [{ name: 'Search' }, { name: 'Measure' }] } }
     });
@@ -193,7 +201,10 @@ describe('SimpleView RHS "About this project" button (TASK-2775)', () => {
     const anonState = () => ({
         anuga: { projects: {}, ui: {} },
         security: {},
-        simpleView: {},
+        // TASK-2796 — every case in this block is about WHO may reach the
+        // control, so each one now starts from a surface that has something to
+        // show. The no-payload surface has its own block below.
+        simpleView: { introduction: { projectId: 13422, data: LOADED_PAYLOAD } },
         layers: { groups: [] },
         localConfig: { plugins: { map_viewer: [] } }
     });
@@ -252,5 +263,120 @@ describe('SimpleView RHS "About this project" button (TASK-2775)', () => {
             container.querySelectorAll('.simple-view-right-toolbar > button')
         );
         expect(buttons[buttons.length - 1].getAttribute('title')).toBe('About this project');
+    });
+});
+
+// TASK-2796 (epic 2765 W5) — THE NO-PAYLOAD SURFACE.
+//
+// W3 shipped the About button unconditionally and W4 (TASK-2779) removed the
+// one unconditional element in the modal body, so a surface with no
+// introduction payload got: title "Welcome to Hydrata", a COMPLETELY EMPTY
+// body, and a lone Accept. Reproduced live on localhost before the fix — a
+// 131px dialog with nothing in it.
+//
+// That surface is not hypothetical. theswamm.com / sararaportal.com /
+// nicaraguahydroportal.com all ship SimpleView in `plugins.map_viewer` WITHOUT
+// Anuga (ansible/playbooks/roles/ansible-geonode/files/*.json, re-verified
+// 2026-08-15), and `introductionFetchEpic` bails on `!isAnugaContext` before it
+// makes a request, so `state.simpleView.introduction` is never written there at
+// all. A plain GeoNode map on hydrata.com arrives at the same state through the
+// other door: `POST /projects/from-map/` 404s and the epic stops.
+//
+// ⚠ THE POSITIVE CONTROL IS PART OF THE PROOF. "No `.modal-body` in the
+// document" is only evidence of an absent modal once the same query has been
+// shown to FIND a populated one; the first test below does that, so a query
+// that silently matches nothing (wrong selector, portal moved) cannot pass this
+// block by accident.
+describe('SimpleView "About this project" with no introduction payload (TASK-2796)', () => {
+    const surfaceState = (introduction, mapViewer = []) => ({
+        anuga: { projects: {}, ui: {} },
+        security: {},
+        simpleView: { visibleIntroduction: true, ...(introduction ? { introduction } : {}) },
+        layers: { groups: [] },
+        localConfig: { plugins: { map_viewer: mapViewer } }
+    });
+
+    const aboutButton = (container) =>
+        container.querySelector('.simple-view-right-toolbar button[title="About this project"]');
+    // The modal portals to document.body, so query the document.
+    const modalBody = () => document.querySelector('.sv-introduction-modal-host .modal-body');
+
+    it('POSITIVE CONTROL — with a payload the modal mounts and its body is NOT empty', () => {
+        const withPayload = {
+            projectId: 13422,
+            data: {
+                project_name: 'Msimbazi baseline',
+                content_version: 'v1',
+                baseline: { message_id: 'hydrata.introduction.baseline', version: '1' }
+            }
+        };
+        const { store } = makeStore(surfaceState(withPayload));
+        const { container, unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+
+        expect(aboutButton(container)).toBeTruthy();
+        const body = modalBody();
+        expect(body).toBeTruthy();
+        // Asserting on the BODY, not on the button: this is the thing the bug
+        // was about. The baseline block alone guarantees content here.
+        expect(body.textContent.trim().length).toBeGreaterThan(0);
+        expect(body.querySelector('.sv-introduction-baseline-block')).toBeTruthy();
+        unmount();
+    });
+
+    it('offers no About button when no payload ever arrived', () => {
+        const { store } = makeStore(surfaceState(null));
+        const { container, unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container)).toBe(null);
+        unmount();
+    });
+
+    it('renders NO modal body at all — never an empty one — with visibleIntroduction latched true', () => {
+        // The flag is deliberately set: this pins the TERMINAL gate rather than
+        // the button's, so a payload that vanishes under an already-open modal
+        // (a map switch clears the slice — TASK-2790) stands the dialog down
+        // instead of blanking it in place.
+        const { store } = makeStore(surfaceState(null));
+        const { unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(modalBody()).toBe(null);
+        unmount();
+    });
+
+    it('offers no About button on a SimpleView-without-Anuga site (theswamm / sarara / nicp)', () => {
+        // The three sites' shipped config shape: SimpleView present, Anuga
+        // absent, so the fetch epic never runs and the slice stays unwritten.
+        const { store } = makeStore(surfaceState(null, [{ name: 'Search' }, { name: 'Measure' }]));
+        const { container, unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container)).toBe(null);
+        unmount();
+    });
+
+    it('AC5 — a hydrata.com plain GeoNode map (Anuga configured, no project) sees exactly the same', () => {
+        // Anuga IS in map_viewer here, so the SITE gate passes and the fetch
+        // runs; the MAP gate is what stops it (from-map 404 -> no payload).
+        // The user therefore sees the rest of the RHS toolbar with NO About
+        // control, and no dialog can be opened — identical to the three
+        // non-ANUGA sites, and identical to today's shipped 5.x, where this
+        // modal does not exist at all.
+        const { store } = makeStore(surfaceState(null, [{ name: 'Anuga' }, { name: 'Search' }]));
+        const { container, unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container)).toBe(null);
+        expect(modalBody()).toBe(null);
+        // The column is still there and still populated — this hides ONE
+        // control, it does not empty the toolbar.
+        expect(container.querySelectorAll('.simple-view-right-toolbar > button').length)
+            .toBeGreaterThan(0);
+        unmount();
+    });
+
+    it('an arriving payload turns the control back on — the gate is state, not a one-way kill', () => {
+        const { store } = makeStore(surfaceState(null));
+        const { container, unmount } = mountWithProviders(<ConnectedSimpleView />, { store });
+        expect(aboutButton(container)).toBe(null);
+        unmount();
+
+        const loaded = makeStore(surfaceState({ projectId: 13422, data: LOADED_PAYLOAD }));
+        const second = mountWithProviders(<ConnectedSimpleView />, { store: loaded.store });
+        expect(aboutButton(second.container)).toBeTruthy();
+        second.unmount();
     });
 });

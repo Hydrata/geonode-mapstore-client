@@ -110,6 +110,33 @@ export const isPaywallBlocking = (state) =>
 const introductionSlice = (state) => state?.simpleView?.introduction || {};
 
 /**
+ * IS THERE ANYTHING TO SHOW? (TASK-2796)
+ *
+ * Every block of the modal body is gated on a payload field — owner content,
+ * derived stats and the baseline each render null when their half of `data` is
+ * absent — so with no payload at all the dialog is a title, an empty body and a
+ * lone Accept button. That is reachable on three of the four sites by design:
+ * theswamm.com / sararaportal.com / nicaraguahydroportal.com ship SimpleView
+ * WITHOUT Anuga, `introductionFetchEpic` bails on `!isAnugaContext` before any
+ * request, and nothing else writes this slice. A plain GeoNode map on
+ * hydrata.com reaches the same state by the other door (the from-map 404).
+ *
+ * ⚠ THIS IS THE *ONE* PREDICATE, and both consumers in `simpleViewContainer`
+ * read it: the About button is not offered, and the modal cannot mount. Two
+ * reads, one question — the button answers "is this control worth offering",
+ * the mount answers "can this dialog say anything" — and they must never be
+ * able to disagree, because a payload can vanish UNDER an open modal (the
+ * slice is cleared on a map switch, TASK-2790).
+ *
+ * Deliberately `!!data` and not a richer emptiness test: `data` is written only
+ * by INTRODUCTION_LOADED / INTRODUCTION_SAVED, both of which carry a server
+ * payload that always includes the baseline block, so "a payload arrived" and
+ * "the body renders something" are the same fact. A field-by-field check here
+ * would be a second, drifting copy of the render conditions.
+ */
+export const hasIntroductionPayload = (state) => !!introductionSlice(state).data;
+
+/**
  * Does `state.anuga.projects.data` describe the project the introduction
  * payload is for? See the TASK-2427 warning in the header — an unstamped or
  * mismatched slice is treated as "we do not know", never as "not a member".
@@ -217,7 +244,7 @@ export const introductionVerdictFor = (state) => introductionVerdict({
     loggedIn: !!state?.security?.user,
     roleResolved: roleDescribesIntroductionProject(state),
     paywallBlocking: isPaywallBlocking(state),
-    payloadLoaded: !!introductionSlice(state).data,
+    payloadLoaded: hasIntroductionPayload(state),
     isMember: isIntroductionProjectMember(state),
     hasAccepted: hasAcceptedCurrentIntroduction(state)
 });

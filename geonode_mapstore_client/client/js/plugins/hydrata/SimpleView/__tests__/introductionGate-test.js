@@ -21,7 +21,8 @@ import {
     isPaywallArmed,
     isPaywallBlocking,
     isIntroductionProjectMember,
-    hasAcceptedCurrentIntroduction
+    hasAcceptedCurrentIntroduction,
+    hasIntroductionPayload
 } from '../introductionGate';
 
 // A non-member anonymous viewer on an ANUGA map who has not accepted: the one
@@ -151,6 +152,38 @@ const stateWith = ({
 });
 
 describe('introductionGate selectors', () => {
+    // TASK-2796 (epic 2765 W5) — the predicate that decides whether the About
+    // control is offered at all and whether the modal may mount. Unit-tested
+    // here, next to the rules it belongs to; the DOM consequences are in
+    // simpleViewContainer-permissions-dom-test.js.
+    describe('hasIntroductionPayload — is there anything to show', () => {
+        it('is false on a site that never fetches (no simpleView slice at all)', () => {
+            expect(hasIntroductionPayload({})).toBe(false);
+        });
+        it('is false before the payload lands, even with the project resolved', () => {
+            expect(hasIntroductionPayload(stateWith({ introduction: { projectId: 13422 } })))
+                .toBe(false);
+        });
+        it('is false for an explicitly null payload — the cleared-on-map-switch shape', () => {
+            expect(hasIntroductionPayload(stateWith({
+                introduction: { projectId: null, data: null }
+            }))).toBe(false);
+        });
+        it('is true once the server payload has arrived', () => {
+            expect(hasIntroductionPayload(stateWith({
+                introduction: { projectId: 13422, data: { content_version: VERSION_A } }
+            }))).toBe(true);
+        });
+        it('is the SAME fact the ordering guard calls payloadLoaded', () => {
+            // One predicate, not two: `introductionVerdictFor` reads this, so
+            // the guard can never think there is a payload while the toolbar
+            // thinks there is not.
+            const noPayload = stateWith({ introduction: { projectId: 13422 } });
+            expect(hasIntroductionPayload(noPayload)).toBe(false);
+            expect(introductionVerdictFor(noPayload)).toBe(INTRODUCTION_WAIT);
+        });
+    });
+
     describe('isAnugaContext — the site gate', () => {
         it('is true where the Anuga plugin is configured (hydrata.com)', () => {
             expect(isAnugaContext(stateWith())).toBe(true);
