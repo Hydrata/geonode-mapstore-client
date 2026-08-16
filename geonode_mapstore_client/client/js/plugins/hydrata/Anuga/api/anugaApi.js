@@ -59,6 +59,45 @@ const v2Plural = (type) => V2_PLURAL[type] || type;
 export const getProjectFromMapId = (mapId) =>
     axios.post('/api/v2/anuga/projects/from-map/', { mapId });
 
+// Epic 2765 W2 — the viewer-orientation introduction.
+//
+// GET is AllowAny for any project the caller can VIEW (a public project is
+// reachable by direct link with no credentials — orienting that anonymous
+// stranger is the whole point), and 404s for anything else. The body varies per
+// caller (`accepted_current_version`, `can_edit`, `source`), and the server
+// sends `Cache-Control: private, no-cache` accordingly — do not put any client
+// cache in front of it.
+export const getProjectIntroduction = (projectId) =>
+    axios.get(`/api/v2/anuga/projects/${projectId}/introduction/`);
+
+// Epic 2765 W4 — owner/manager edit-in-place (TASK-2778).
+//
+// SAME URL as the GET above; the METHOD is the whole authorization difference.
+// The view resolves visibility first (404) and only then the role (403), so a
+// caller who can read but not edit gets 403 rather than an existence oracle.
+//
+// `source` is `{description, body, owner_limitations}` — raw Markdown, and the
+// ONLY three fields the write serializer accepts. Sending `baseline` (or any
+// other key) is not a client-side mistake to guard against here: DRF drops
+// unknown keys and the baseline is not a column, so the platform disclaimer is
+// unreachable from this call by SHAPE.
+//
+// The response is the FULL read payload with a recomputed `content_version`,
+// so a save needs no follow-up GET.
+export const updateProjectIntroduction = (projectId, source) =>
+    axios.patch(`/api/v2/anuga/projects/${projectId}/introduction/`, source);
+
+// ⚠ AUTHENTICATED CALLERS ONLY. This endpoint is IsAuthenticated and answers an
+// anonymous POST 401 WITH a `WWW-Authenticate: Basic` header, which a browser
+// may render as a native password prompt. Settled decision 3 makes anonymous
+// acceptance a localStorage flag and nothing else, so the anonymous path must
+// never reach this function — see SimpleView/introductionStorage.js.
+//
+// The accepted version is read from the server, never sent: a client-supplied
+// version would let a caller mint one acceptance row per POST.
+export const acceptProjectIntroduction = (projectId) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/introduction/accept/`);
+
 // TASK-1930 W2.6 — map-OPEN GWC prefetch. POST the visible cacheable COG layer
 // alternates so GeoServer pre-warms their tiles before the cold tile-storm.
 // Fire-and-forget (the epic ignores the response); AllowAny on the BE side so

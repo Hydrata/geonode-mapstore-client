@@ -31,6 +31,9 @@ import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
 const {setStep: setHGevalStep, reset: resetHGeval} = require('../../HGeval/actionsHGeval');
 
 import {setOpenMenuGroupId, setVisibleIntroduction, setVisibleLegendPanel} from "../actionsSimpleView";
+// TASK-2796 — the single "is there anything to show" predicate, kept next to
+// the rest of the introduction's eligibility rules rather than re-derived here.
+import {hasIntroductionPayload} from "../introductionGate";
 import "../simpleView.css";
 import LegendPanel from "./simpleViewLegend";
 import {MenuRows} from "./simpleViewMenuRows";
@@ -64,6 +67,10 @@ export class SimpleViewContainer extends React.Component {
         baseMapMenuGroup: PropTypes.object,
         openMenuGroupId: PropTypes.string,
         visibleIntroduction: PropTypes.bool,
+        // TASK-2796 — has an introduction payload arrived for the map on
+        // screen. Gates BOTH the About button and the modal mount; see the
+        // render comments and `hasIntroductionPayload` in introductionGate.js.
+        introductionAvailable: PropTypes.bool,
         visibleSimpleViewAttributeForm: PropTypes.bool,
         visibleSimpleViewAttributeResult: PropTypes.bool,
         setVisibleIntroduction: PropTypes.func,
@@ -103,6 +110,10 @@ export class SimpleViewContainer extends React.Component {
 
     static defaultProps = {
         visibleIntroduction: false,
+        // FAIL-CLOSED. An unconnected host that never passes this gets no
+        // About button rather than a button onto an empty dialog — the
+        // outcome TASK-2796 exists to remove.
+        introductionAvailable: false,
         paywallEnabled: false,
         lockVisibility: null
     };
@@ -307,6 +318,49 @@ export class SimpleViewContainer extends React.Component {
                             </button>
                         </>
                     ) : null}
+                    {/* TASK-2775 (epic 2765 W3) — "About this project": reopens
+                        the introduction on demand, for EVERY role including
+                        anonymous. Reopen-any-time is what makes the one-click
+                        accept acceptable: the viewer never loses access to the
+                        framing they just dismissed. (It is also how an owner
+                        will reach edit mode in W4.)
+
+                        WHY LAST IN THE COLUMN, deliberately. Every other button
+                        here is conditional, so "unconditional" does not by
+                        itself imply a slot. Appending leaves the relative order
+                        of all six existing buttons byte-identical — in
+                        particular TASK-2465's recorded decision that the
+                        Account/Permissions button is FIRST, which this task has
+                        no mandate to overturn — and it puts About directly
+                        above the Tasks icon, so the two read as the tail of the
+                        one column. Source order IS the ordering mechanism here
+                        (see the TASK-2465 block above): no CSS `order` was
+                        added, and none may be.
+
+                        The plain English `title` matches its six neighbours;
+                        this column carries no i18n today, and translating one
+                        control of seven would be inconsistency rather than
+                        improvement.
+
+                        TASK-2796 — AND ONLY WHERE THERE IS SOMETHING TO SHOW.
+                        Shipped unconditionally in W3, this button opened a
+                        title-plus-Accept dialog with a COMPLETELY EMPTY body on
+                        every surface with no payload: the three sites that ship
+                        SimpleView without Anuga, and any plain GeoNode map on
+                        hydrata.com. `introductionAvailable` is
+                        `hasIntroductionPayload` (introductionGate.js) — see
+                        there for why one predicate governs both this control
+                        and the mount below. An empty modal is a worse first
+                        impression than no modal, and a control that opens
+                        nothing is worse than an absent one. */}
+                    {this.props.introductionAvailable ? (
+                        <button
+                            className="simple-view-right-button"
+                            onClick={() => this.props.setVisibleIntroduction(true)}
+                            title="About this project">
+                            <Glyphicon glyph="info-sign" />
+                        </button>
+                    ) : null}
                 </div>
                 {this.state.saveConfirmVisible ?
                     <div className="sv-save-confirm-overlay">
@@ -347,7 +401,15 @@ export class SimpleViewContainer extends React.Component {
                     }
                 })()}
                 <LegendPanel/>
-                {this.props.visibleIntroduction ?
+                {/* TASK-2796 — the TERMINAL gate, and not a duplicate of the
+                    button's. The button decides whether to OFFER the control;
+                    this decides whether the dialog can render at all, which is
+                    a different moment: `visibleIntroduction` is a latched flag,
+                    and the payload can disappear UNDER an already-open modal
+                    when the viewer hops to another map (the slice is cleared on
+                    the map change — TASK-2790). Without this the modal would go
+                    blank in place instead of standing down. */}
+                {this.props.visibleIntroduction && this.props.introductionAvailable ?
                     <Introduction/>
                     : null
                 }
@@ -385,6 +447,10 @@ const mapStateToProps = (state, ownProps) => {
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         visibleIntroduction: state?.simpleView?.visibleIntroduction,
+        // TASK-2796 — a bare boolean, not the payload: connect() shallow-compares,
+        // so handing the whole `data` object down would re-render the toolbar on
+        // every owner edit for no visual reason.
+        introductionAvailable: hasIntroductionPayload(state),
         visibleSimpleViewAttributeForm: state?.simpleView?.visibleSimpleViewAttributeForm,
         visibleSimpleViewAttributeResult: state?.simpleView?.visibleSimpleViewAttributeResult,
         visibleLegendPanel: state?.simpleView?.visibleLegendPanel || false,
