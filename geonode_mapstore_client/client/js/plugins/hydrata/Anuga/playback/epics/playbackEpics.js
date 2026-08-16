@@ -123,8 +123,10 @@ import {
     playbackChunkBufferError,
     playbackTick,
     playbackSetIdentifyResult,
-    playbackEnvelopeLoaded
+    playbackEnvelopeLoaded,
+    playbackSetEnvelopeMode
 } from '../actions/playbackActions';
+import { show } from '@mapstore/framework/actions/notifications';
 
 // ~20Hz controller clock. NOT a render-fps claim (memory:
 // reference-claude-in-chrome-prod-ui-driving-traps — never measure
@@ -728,7 +730,31 @@ export function playbackEnvelopeFetchEpic(action$, store) {
         const quantity = pb.quantity;
         return Rx.Observable.fromPromise(
             loadPlaybackEnvelope(fetcher, quantity).catch(() => null)
-        ).map((data) => playbackEnvelopeLoaded(runId, quantity, data));
+        ).mergeMap((data) => {
+            if (!data) {
+                // TASK-2814 — a null envelope (failed fetch, or a store that
+                // could not serve this quantity after all) must NOT leave Max
+                // mode on: the renderer would draw its zero-filled buffer as
+                // an "everything dry" run-maximum — false data, worse than an
+                // error. Exit the mode and say so. Stale-guarded like
+                // ENVELOPE_LOADED: if the operator has since switched run or
+                // quantity, this failure is about an envelope nobody is
+                // waiting for — drop it silently instead of kicking the NEW
+                // context out of Max.
+                const now = store.getState().anugaPlayback || {};
+                if (now.runId !== runId || now.quantity !== quantity || !now.envelopeMode) {
+                    return Rx.Observable.empty();
+                }
+                return Rx.Observable.of(
+                    playbackSetEnvelopeMode(false),
+                    show({
+                        title: 'hydrata.playback.envelopeLoadFailedTitle',
+                        message: 'hydrata.playback.envelopeLoadFailed'
+                    }, 'warning')
+                );
+            }
+            return Rx.Observable.of(playbackEnvelopeLoaded(runId, quantity, data));
+        });
     });
 }
 

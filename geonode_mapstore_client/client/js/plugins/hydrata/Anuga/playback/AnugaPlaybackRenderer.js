@@ -279,6 +279,13 @@ export class AnugaPlaybackRenderer {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.envelopeBuf);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(n), gl.STATIC_DRAW);
         this._envelopeLength = n;
+        // TASK-2814 — apply an envelope handed to setEnvelope() before this
+        // mesh landed (create()'s upload order); a length mismatch means it
+        // belongs to a different mesh and is dropped, never uploaded.
+        if (this._pendingEnvelope && this._pendingEnvelope.length === n) {
+            gl.bufferData(gl.ARRAY_BUFFER, this._pendingEnvelope, gl.DYNAMIC_DRAW);
+        }
+        this._pendingEnvelope = null;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.idxBuf);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, faceNodeConnectivity, gl.STATIC_DRAW);
         this.nIndices = faceNodeConnectivity.length;
@@ -500,6 +507,12 @@ export class AnugaPlaybackRenderer {
     setEnvelope(envelopeData) {
         const gl = this.gl;
         const n = this._envelopeLength || 0;
+        // TASK-2814 — create() calls this BEFORE the async mesh load lands
+        // (a layer recreate while Max is on), when _envelopeLength is still
+        // 0; discarding the supplied array there rendered a zero-filled
+        // ("everything dry") envelope. Hold it instead — setMesh uploads it
+        // the moment the real node count is known.
+        this._pendingEnvelope = envelopeData || null;
         const data = envelopeData && envelopeData.length === n ? envelopeData : new Float32Array(n);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.envelopeBuf);
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);

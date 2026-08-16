@@ -560,13 +560,29 @@ describe('playbackController', () => {
         });
 
         it('MANIFEST_LOADED populates envelopeQuantities from schema_metadata, translating the backend name (velocity -> speed)', () => {
+            // TASK-2814 — availability now ALSO requires the per-array
+            // quantization block (availability == fetchability), so the
+            // manifest must carry {q}_max quantization for a quantity to
+            // be offered.
             const s = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
                 playbackManifestLoaded({
                     runId: 7, manifest: { schema_metadata: { envelope_quantities: ['depth', 'velocity'] } },
                     mesh: null, time: TIME, nTime: TIME.length, nNode: 6,
-                    chunkLengthT: 10, totalChunks: 2, quantization: {}
+                    chunkLengthT: 10, totalChunks: 2,
+                    quantization: { depth_max: { scale: 0.001, offset: 0 }, velocity_max: { scale: 0.002, offset: -1 } }
                 }));
             expect(s.envelopeQuantities).toEqual(['depth', 'speed']);
+        });
+
+        it('MANIFEST_LOADED does NOT offer a declared quantity whose {q}_max quantization block is missing (TASK-2814)', () => {
+            const s = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { schema_metadata: { envelope_quantities: ['depth', 'velocity'] } },
+                    mesh: null, time: TIME, nTime: TIME.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 2,
+                    quantization: { depth_max: { scale: 0.001, offset: 0 } }
+                }));
+            expect(s.envelopeQuantities).toEqual(['depth']);
         });
 
         it('MANIFEST_LOADED defaults to [] for a store that declares none (has_dt shape)', () => {
@@ -599,6 +615,19 @@ describe('playbackController', () => {
                     playbackSetEnvelopeMode(true)
                 );
                 expect(s.envelopeMode).toBe(false);
+            });
+            it('clears lastTickMs BOTH ways — the mid-play catapult guard (TASK-2814)', () => {
+                // The envelope-mode TICK guard swallows ticks without
+                // touching lastTickMs, so toggling Max off while PLAYING
+                // used to compute the first post-toggle elapsed over the
+                // whole Max-on dwell and jump the playhead by minutes.
+                const playing = bufferedState({
+                    envelopeQuantities: ['depth'], quantity: 'depth', lastTickMs: 123456
+                });
+                const on = reduce(playing, playbackSetEnvelopeMode(true));
+                expect(on.lastTickMs).toBe(null);
+                const off = reduce({ ...on, lastTickMs: 999999 }, playbackSetEnvelopeMode(false));
+                expect(off.lastTickMs).toBe(null);
             });
             it('turning off clears envelopeData too — re-enabling always re-fetches', () => {
                 const on = reduce(

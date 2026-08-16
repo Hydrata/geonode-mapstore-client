@@ -695,7 +695,9 @@
         "speedSlowShort": "ralanti",
         "speedTooltipRun": "Vitès lekti — tout senaryo a se {d} nan tan simile",
         "zoomToResults": "Zoum sou rezilta yo",
-        "zoomToResultsTooltip": "Santre kat la sou rezilta similasyon sa a"
+        "zoomToResultsTooltip": "Santre kat la sou rezilta similasyon sa a",
+        "envelopeLoadFailedTitle": "Maksimòm simulasyon an pa disponib",
+        "envelopeLoadFailed": "Kouch maksimòm simulasyon an (Max) pa t ka chaje pou varyab sa a. N ap montre lekti nòmal la pito."
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",

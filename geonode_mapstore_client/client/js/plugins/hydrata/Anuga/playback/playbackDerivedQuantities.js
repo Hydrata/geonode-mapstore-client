@@ -117,9 +117,25 @@ export function envelopeArrayName(quantityId) {
  * @param {*} declaredBackendNames manifest.schema_metadata.envelope_quantities
  * @returns {string[]}
  */
-export function availableEnvelopeQuantityIds(declaredBackendNames) {
+export function availableEnvelopeQuantityIds(declaredBackendNames, quantization) {
     const declared = Array.isArray(declaredBackendNames) ? declaredBackendNames : [];
-    return ENVELOPE_QUANTITY_IDS.filter((feId) => declared.indexOf(ENVELOPE_BACKEND_NAME[feId]) !== -1);
+    return ENVELOPE_QUANTITY_IDS.filter((feId) => {
+        if (declared.indexOf(ENVELOPE_BACKEND_NAME[feId]) === -1) {
+            return false;
+        }
+        // TASK-2814 — availability must match FETCHABILITY: the fetch path
+        // dequantizes with quantization['{backend}_max'], a block the
+        // manifest relays per-array and can legitimately lack (a store that
+        // declares envelopes but whose array zarr.json read failed). A
+        // quantity offered here but unfetchable degrades to the silent-dry
+        // envelope TASK-2814 exists to kill. Callers that pass no
+        // quantization (older tests) keep the declaration-only behaviour.
+        if (quantization === undefined) {
+            return true;
+        }
+        const block = quantization && quantization[`${ENVELOPE_BACKEND_NAME[feId]}_max`];
+        return !!block;
+    });
 }
 
 // ---------------------------------------------------------------------------

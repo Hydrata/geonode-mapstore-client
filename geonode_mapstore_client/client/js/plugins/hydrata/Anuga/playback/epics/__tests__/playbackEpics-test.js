@@ -22,6 +22,7 @@ import {
     playbackBufferEpic,
     playbackTickEpic,
     playbackSyncLayerEpic,
+    playbackEnvelopeFetchEpic,
     playbackIdentifyEpic,
     playbackSuppressIdentifyEpic,
     playbackDisposeEpic,
@@ -62,8 +63,12 @@ import {
     PLAYBACK_LOAD_PROGRESS,
     PLAYBACK_MANIFEST_FAILED,
     PLAYBACK_CHUNKS_BUFFERED,
-    PLAYBACK_CHUNK_BUFFER_ERROR
+    PLAYBACK_CHUNK_BUFFER_ERROR,
+    PLAYBACK_SET_ENVELOPE_MODE,
+    PLAYBACK_ENVELOPE_LOADED,
+    playbackSetEnvelopeMode
 } from '../../actions/playbackActions';
+import { SHOW_NOTIFICATION } from '@mapstore/framework/actions/notifications';
 import { createInitialPlaybackState, playbackControllerReducer } from '../../playbackController';
 import { FIXTURE_STORE_FILES, FIXTURE_MANIFEST, FIXTURE_MESH, FIXTURE_PHYSICAL } from '../../__tests__/fixtures/fixturePlaybackStore';
 
@@ -1428,6 +1433,92 @@ describe('playbackEpics', () => {
                 { type: PLAYBACK_CHUNKS_BUFFERED, chunkIndices: [2] }
             );
             expect(unioned.bufferedChunks).toEqual([0, 2]);
+        });
+    });
+
+    // TASK-2814 — a null/failed envelope must EXIT Max mode with a warning,
+    // never leave the renderer drawing its zero-filled buffer as a false
+    // "everything dry" run-maximum.
+    describe('playbackEnvelopeFetchEpic failure paths (TASK-2814)', () => {
+        function envelopeState(overrides = {}) {
+            return {
+                ...createInitialPlaybackState(),
+                runId: '9', quantity: 'depth', envelopeMode: true, envelopeData: null,
+                envelopeQuantities: ['depth'],
+                ...overrides
+            };
+        }
+
+        it('a REJECTED fetch exits Max mode and shows a warning — never ENVELOPE_LOADED(null)', (done) => {
+            const store = makeStore(envelopeState());
+            fetcherRegistry.set('9', {
+                manifest: { quantization: { depth_max: { scale: 0.001, offset: 0 } } },
+                fetchAndDecodeChunk: () => Promise.reject(new Error('boom'))
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackEnvelopeFetchEpic(action$, store).subscribe((a) => seen.push(a), done, () => {
+                expect(seen.map((a) => a.type)).toEqual([PLAYBACK_SET_ENVELOPE_MODE, SHOW_NOTIFICATION]);
+                expect(seen[0].enabled).toBe(false);
+                expect(seen[1].level).toBe('warning');
+                expect(seen.filter((a) => a.type === PLAYBACK_ENVELOPE_LOADED).length).toBe(0);
+                done();
+            });
+            subject.next(playbackSetEnvelopeMode(true));
+            setTimeout(() => subject.complete(), 50);
+        });
+
+        it('a NULL result (store cannot serve the quantity after all) takes the same exit, not silent-dry', (done) => {
+            const store = makeStore(envelopeState());
+            // No quantization block for depth_max -> loadPlaybackEnvelope
+            // resolves null without even fetching.
+            fetcherRegistry.set('9', {
+                manifest: { quantization: {} },
+                fetchAndDecodeChunk: () => Promise.reject(new Error('must not be called'))
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackEnvelopeFetchEpic(action$, store).subscribe((a) => seen.push(a), done, () => {
+                expect(seen.map((a) => a.type)).toEqual([PLAYBACK_SET_ENVELOPE_MODE, SHOW_NOTIFICATION]);
+                done();
+            });
+            subject.next(playbackSetEnvelopeMode(true));
+            setTimeout(() => subject.complete(), 50);
+        });
+
+        it('a stale failure (run switched mid-fetch) emits NOTHING — it must not kick the new context out of Max', (done) => {
+            const store = makeStore(envelopeState());
+            fetcherRegistry.set('9', {
+                manifest: { quantization: { depth_max: { scale: 0.001, offset: 0 } } },
+                fetchAndDecodeChunk: () => new Promise((_, reject) => setTimeout(() => reject(new Error('late boom')), 10))
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackEnvelopeFetchEpic(action$, store).subscribe((a) => seen.push(a), done, () => {
+                expect(seen.length).toBe(0);
+                done();
+            });
+            subject.next(playbackSetEnvelopeMode(true));
+            // the operator switches runs while the fetch is in flight
+            store.__setPlayback(envelopeState({ runId: '10' }));
+            setTimeout(() => subject.complete(), 60);
+        });
+
+        it('a successful fetch still lands as ENVELOPE_LOADED with the dequantized array', (done) => {
+            const store = makeStore(envelopeState());
+            fetcherRegistry.set('9', {
+                manifest: { quantization: { depth_max: { scale: 0.5, offset: 1.0 } } },
+                fetchAndDecodeChunk: () => Promise.resolve(new Uint16Array([0, 2]))
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackEnvelopeFetchEpic(action$, store).subscribe((a) => seen.push(a), done, () => {
+                expect(seen.map((a) => a.type)).toEqual([PLAYBACK_ENVELOPE_LOADED]);
+                expect(Array.from(seen[0].data)).toEqual([1.0, 2.0]);
+                done();
+            });
+            subject.next(playbackSetEnvelopeMode(true));
+            setTimeout(() => subject.complete(), 50);
         });
     });
 });

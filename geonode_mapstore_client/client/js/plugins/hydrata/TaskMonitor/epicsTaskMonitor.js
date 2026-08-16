@@ -213,9 +213,25 @@ export const cancelProcessEpic = (action$) =>
         .exhaustMap(action =>
             Rx.Observable.from(taskMonitorApi.cancelProcess(action.processId))
                 .map(response => cancelProcessResult(response.data))
-                .catch(() => Rx.Observable.of(show({
-                    message: 'hydrata.taskMonitor.cancelError'
-                }, 'error')))
+                .catch((e) => {
+                    // TASK-2814 — the backend returns 409 SPECIFICALLY for the
+                    // benign "already terminal" case (TASK-2763: a
+                    // reaper/cancel settled the row first); nothing failed,
+                    // there was just nothing left to cancel. Red-toasting it
+                    // reads as an error in a healthy flow. Every other
+                    // rejection (403/404/500, network drop) still surfaces.
+                    // MapStore's ajax interceptor rejects with the FLATTENED
+                    // response ({...error.response, originalError}), so the
+                    // status is at e.status; the e.response fallback covers a
+                    // raw axios error that bypassed the interceptor.
+                    const status = e && (e.status || (e.response && e.response.status));
+                    if (status === 409) {
+                        return Rx.Observable.empty();
+                    }
+                    return Rx.Observable.of(show({
+                        message: 'hydrata.taskMonitor.cancelError'
+                    }, 'error'));
+                })
         );
 
 /**

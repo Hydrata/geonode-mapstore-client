@@ -130,6 +130,46 @@ describe('AnugaPlaybackLayer', () => {
             expect(disposed).toBe(true);
         });
 
+        it('an envelope handed over BEFORE the mesh lands is applied by setMesh, not discarded (TASK-2814)', () => {
+            // create() uploads options.envelopeData synchronously while the
+            // mesh only lands after the async reproject promise — so a layer
+            // recreate with Max on used to zero-fill ("everything dry").
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-pending-envelope' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            renderer.setEnvelope(new Float32Array([0.5, 1.5, 2.5])); // pre-mesh: _envelopeLength still 0
+            renderer.setMesh({
+                x3857: new Float32Array([0, 1, 0]),
+                y3857: new Float32Array([0, 0, 1]),
+                elevation: new Float32Array([0, 0, 0]),
+                faceNodeConnectivity: new Uint32Array([0, 1, 2])
+            });
+            const gl = renderer.gl;
+            const out = new Float32Array(3);
+            gl.bindBuffer(gl.ARRAY_BUFFER, renderer.envelopeBuf);
+            gl.getBufferSubData(gl.ARRAY_BUFFER, 0, out);
+            expect(Array.from(out)).toEqual([0.5, 1.5, 2.5]);
+            layer.remove();
+        });
+
+        it('a pending envelope whose length mismatches the mesh is dropped, never uploaded (stale data guard)', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-pending-mismatch' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            renderer.setEnvelope(new Float32Array([9, 9])); // wrong length for the 3-node mesh below
+            renderer.setMesh({
+                x3857: new Float32Array([0, 1, 0]),
+                y3857: new Float32Array([0, 0, 1]),
+                elevation: new Float32Array([0, 0, 0]),
+                faceNodeConnectivity: new Uint32Array([0, 1, 2])
+            });
+            const gl = renderer.gl;
+            const out = new Float32Array(3);
+            gl.bindBuffer(gl.ARRAY_BUFFER, renderer.envelopeBuf);
+            gl.getBufferSubData(gl.ARRAY_BUFFER, 0, out);
+            expect(Array.from(out)).toEqual([0, 0, 0]); // setMesh's zero-fill stands
+            expect(renderer._pendingEnvelope).toBe(null); // and the stale array is not retained
+            layer.remove();
+        });
+
         it('create() without a map still returns a usable layer (map is optional — used by karma/tests)', () => {
             const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-no-map' });
             expect(layer.detached).toBe(true);

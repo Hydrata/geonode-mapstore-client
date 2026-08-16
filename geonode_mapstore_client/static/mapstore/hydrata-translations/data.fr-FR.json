@@ -695,7 +695,9 @@
         "speedSlowShort": "ralenti",
         "speedTooltipRun": "Vitesse de lecture — la simulation entière dure {d} de temps simulé",
         "zoomToResults": "Zoom sur les résultats",
-        "zoomToResultsTooltip": "Centrer la carte sur les résultats de cette simulation"
+        "zoomToResultsTooltip": "Centrer la carte sur les résultats de cette simulation",
+        "envelopeLoadFailedTitle": "Maximum de simulation indisponible",
+        "envelopeLoadFailed": "La couche du maximum de simulation (Max) n'a pas pu être chargée pour cette grandeur. Retour à la lecture normale."
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

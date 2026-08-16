@@ -695,7 +695,9 @@
         "speedSlowShort": "lenta",
         "speedTooltipRun": "Velocidad de reproducción — la simulación completa dura {d} de tiempo simulado",
         "zoomToResults": "Zoom a los resultados",
-        "zoomToResultsTooltip": "Centrar el mapa en los resultados de esta simulación"
+        "zoomToResultsTooltip": "Centrar el mapa en los resultados de esta simulación",
+        "envelopeLoadFailedTitle": "Máximo de la simulación no disponible",
+        "envelopeLoadFailed": "No se pudo cargar la capa del máximo de la simulación (Max) para esta variable. Se muestra la reproducción normal."
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

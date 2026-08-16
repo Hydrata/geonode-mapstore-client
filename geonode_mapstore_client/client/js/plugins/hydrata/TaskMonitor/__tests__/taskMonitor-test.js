@@ -1078,7 +1078,14 @@ describe('TaskMonitor', () => {
             // asserted here — that 0-vs-1 failure IS the "current 409/500
             // verbatim" capture, inverted in place rather than kept as a
             // separate always-green fossil test.
-            it('a 409 rejection emits a user-visible error notification', (done) => {
+            // TASK-2814 INVERTS the 409 half of the 2761 contract above: the
+            // backend returns 409 SPECIFICALLY for the benign "already
+            // terminal" case (TASK-2763 — a reaper/cancel settled the row
+            // first), so nothing failed and a red toast misreports a healthy
+            // flow. 409 is now the ONE status that stays quiet; every other
+            // rejection (500, network) still surfaces — see the two tests
+            // below, which are unchanged from 2761.
+            it('a 409 rejection (already terminal — benign) emits NO notification', (done) => {
                 const mock = mockAxios();
                 mock.onPost('/api/v2/tasks/processes/proc-409/cancel/').reply(409, {
                     detail: 'Process is already in a terminal state.'
@@ -1087,10 +1094,7 @@ describe('TaskMonitor', () => {
                 const emitted = [];
                 cancelProcessEpic(action$)
                     .subscribe(a => emitted.push(a), done, () => {
-                        expect(emitted.length).toBe(1);
-                        expect(emitted[0].type).toBe(SHOW_NOTIFICATION);
-                        expect(emitted[0].level).toBe('error');
-                        expect(emitted[0].message).toBeTruthy();
+                        expect(emitted.length).toBe(0);
                         done();
                     });
             });

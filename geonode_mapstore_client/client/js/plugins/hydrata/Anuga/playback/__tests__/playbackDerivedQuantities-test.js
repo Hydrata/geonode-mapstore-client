@@ -296,6 +296,31 @@ describe('playbackDerivedQuantities', () => {
             it('ignores an unrecognised backend name rather than inventing an FE id for it', () => {
                 expect(availableEnvelopeQuantityIds(['depth', 'bogus'])).toEqual(['depth']);
             });
+
+            // TASK-2814 — availability == FETCHABILITY. The fetch path needs
+            // quantization['{backend}_max']; a quantity declared but missing
+            // that block used to be offered and then degrade to the
+            // silent-dry zero-filled envelope.
+            describe('quantization gating (TASK-2814)', () => {
+                it('a declared quantity with a quantization block stays available', () => {
+                    expect(availableEnvelopeQuantityIds(
+                        ['depth', 'velocity'],
+                        { depth_max: { scale: 0.001 }, velocity_max: { scale: 0.002 } }
+                    )).toEqual(['depth', 'speed']);
+                });
+                it('a declared quantity MISSING its quantization block is not offered', () => {
+                    expect(availableEnvelopeQuantityIds(
+                        ['depth', 'velocity'],
+                        { depth_max: { scale: 0.001 } }
+                    )).toEqual(['depth']);
+                });
+                it('an empty quantization object offers nothing, however much is declared', () => {
+                    expect(availableEnvelopeQuantityIds(['depth', 'velocity', 'div'], {})).toEqual([]);
+                });
+                it('omitting the quantization argument keeps the declaration-only behaviour (legacy callers)', () => {
+                    expect(availableEnvelopeQuantityIds(['depth', 'velocity'])).toEqual(['depth', 'speed']);
+                });
+            });
         });
     });
 });

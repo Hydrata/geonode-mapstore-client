@@ -695,7 +695,9 @@
         "speedSlowShort": "slow",
         "speedTooltipRun": "Playback speed — the whole run is {d} of simulated time",
         "zoomToResults": "Zoom to results",
-        "zoomToResultsTooltip": "Zoom the map to this run’s results"
+        "zoomToResultsTooltip": "Zoom the map to this run’s results",
+        "envelopeLoadFailedTitle": "Run maximum unavailable",
+        "envelopeLoadFailed": "The run-maximum (Max) layer could not be loaded for this quantity. Showing normal playback instead."
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",

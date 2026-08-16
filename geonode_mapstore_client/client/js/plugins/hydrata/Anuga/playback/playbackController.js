@@ -609,7 +609,10 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             hasDt,
             // TASK-2752 — first-class-absence, mirroring hasDt immediately
             // above: a store exported before this task simply has none.
-            envelopeQuantities: availableEnvelopeQuantityIds(meta.envelope_quantities),
+            // TASK-2814 — gated on the quantization block too, so a quantity
+            // is only offered when its envelope can actually be fetched AND
+            // dequantized (availability == fetchability).
+            envelopeQuantities: availableEnvelopeQuantityIds(meta.envelope_quantities, action.quantization || {}),
             // A run switch always lands with Max off — carrying it over
             // would draw the OLD run's envelope (or none) under the NEW
             // run's label for one frame, and RESET below already agrees.
@@ -888,7 +891,14 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             // Turning OFF drops whatever was loaded too — re-enabling later
             // (same or different quantity) always re-fetches rather than
             // risking a stale array from a run/quantity that has since moved on.
-            envelopeData: enabled ? state.envelopeData : null
+            envelopeData: enabled ? state.envelopeData : null,
+            // TASK-2814 — the envelope-mode TICK guard below swallows ticks
+            // WITHOUT touching lastTickMs, so a toggle-off while PLAYING
+            // would otherwise compute the first post-toggle tick's elapsed
+            // over the entire Max-on dwell and catapult the playhead.
+            // Cleared in BOTH directions: the next tick then seeds from its
+            // own nowMs (same null-seed the TICK case already handles).
+            lastTickMs: null
         };
     }
     // TASK-2752 — the epic's fetch landed. Stale-response guarded on BOTH
