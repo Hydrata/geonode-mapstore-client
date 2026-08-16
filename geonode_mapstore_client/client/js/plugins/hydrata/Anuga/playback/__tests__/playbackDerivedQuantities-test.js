@@ -252,11 +252,16 @@ describe('playbackDerivedQuantities', () => {
     // TASK-2752 (W8.2, epic 2706) — temporal-max envelope capability mapping.
     describe('envelope capability mapping (TASK-2752)', () => {
         it('ENVELOPE_BACKEND_NAME translates the FE speed id to the backend velocity name', () => {
-            expect(ENVELOPE_BACKEND_NAME).toEqual({ depth: 'depth', speed: 'velocity', div: 'div' });
+            // Spread strips Object.freeze: expect@1.20.1's toEqual treats
+            // extensibility as part of deep-equality (same trap and same
+            // workaround as the AIDR_HAZARD_TABLE test above) — the direct
+            // compare passes on local node but fails on CI's.
+            expect({ ...ENVELOPE_BACKEND_NAME }).toEqual({ depth: 'depth', speed: 'velocity', div: 'div' });
         });
 
         it('ENVELOPE_QUANTITY_IDS is exactly the three quantities the *_max.tif set covers', () => {
-            expect(ENVELOPE_QUANTITY_IDS).toEqual(['depth', 'speed', 'div']);
+            // .slice() for the same frozen-ness reason as above.
+            expect(ENVELOPE_QUANTITY_IDS.slice()).toEqual(['depth', 'speed', 'div']);
         });
 
         describe('envelopeArrayName', () => {
