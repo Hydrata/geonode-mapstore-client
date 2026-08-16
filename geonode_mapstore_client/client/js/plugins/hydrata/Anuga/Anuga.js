@@ -20,7 +20,11 @@ import {
     playbackSuppressIdentifyEpic,
     // TASK-2744 (AC2, epic 2706) — free the run's fetcher/caches and remove
     // the map overlay on Unload.
-    playbackDisposeEpic
+    playbackDisposeEpic,
+    // TASK-2752 (W8.2, epic 2706) — fetches the temporal-max envelope for
+    // the active quantity when the Max toggle turns on (or the operator
+    // switches to a different envelope-having quantity while it is on).
+    playbackEnvelopeFetchEpic
 } from './playback/epics/playbackEpics';
 import anugaContainer from "./components/anugaContainer";
 import {
@@ -376,6 +380,8 @@ export default createPlugin('Anuga', {
         // chunk cache + the cloned/reprojected mesh copies, and remove the
         // map overlay. Without it a scenario switch retained ~578 MiB per
         // stale run.
-        playbackDisposeEpic
+        playbackDisposeEpic,
+        // TASK-2752 (W8.2, epic 2706) — the Max envelope fetch.
+        playbackEnvelopeFetchEpic
     }
 });

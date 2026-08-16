@@ -66,11 +66,14 @@ export class PlaybackLegendComponent extends React.Component {
         colorMaxOverride: PropTypes.number,
         // TASK-2751 — the ceiling is editable HERE too, from the number the
         // reader is already looking at.
-        onSetColorMax: PropTypes.func
+        onSetColorMax: PropTypes.func,
+        // TASK-2752 AC6 — "the legend states this is the run maximum, not a
+        // timestep" while Max is on.
+        envelopeMode: PropTypes.bool
     };
 
     render() {
-        const { quantity, quantization, elevationMin, elevationMax, colorMaxOverride, onSetColorMax } = this.props;
+        const { quantity, quantization, elevationMin, elevationMax, colorMaxOverride, onSetColorMax, envelopeMode } = this.props;
         const ramp = QUANTITY_RAMPS[quantity] || QUANTITY_RAMPS.depth;
         const meta = QUANTITY_META[quantity] || QUANTITY_META.depth;
         const titleId = QUANTITY_TITLE_ID[quantity] || QUANTITY_TITLE_ID.depth;
@@ -118,6 +121,15 @@ export class PlaybackLegendComponent extends React.Component {
                 <div className="sv-playback-legend-header">
                     <span className="sv-playback-legend-title"><Message msgId={titleId} /></span>
                 </div>
+                {/* TASK-2752 AC6 — "the legend states this is the run maximum,
+                    not a timestep" while Max is on, so a reader who opens the
+                    legend mid-Max cannot mistake the drawn field for the
+                    current playhead's timestep. */}
+                {envelopeMode ? (
+                    <div className="sv-playback-legend-note sv-playback-legend-envelope-note" data-testid="playback-legend-envelope-note">
+                        <Message msgId="hydrata.playback.legendMaxEnvelopeNote" />
+                    </div>
+                ) : null}
                 {/* TASK-2751 — THE CEILING, as its own row: the one place the
                     number can be TYPED. (Until TASK-2784 it was also the only
                     place the ceiling appeared at all, since the stop list was
@@ -184,7 +196,8 @@ const mapStateToPropsLegend = (state) => ({
     // TASK-2744 AC4 — same shared derivation the renderer uniform uses, so
     // the legend and the mesh can never disagree about the active range.
     colorMaxOverride: state.anugaPlayback
-        && (state.anugaPlayback.colorMaxOverride || {})[(state.anugaPlayback.quantity) || 'depth']
+        && (state.anugaPlayback.colorMaxOverride || {})[(state.anugaPlayback.quantity) || 'depth'],
+    envelopeMode: !!(state.anugaPlayback && state.anugaPlayback.envelopeMode)
 });
 
 export const PlaybackLegendConnected = connect(mapStateToPropsLegend, {

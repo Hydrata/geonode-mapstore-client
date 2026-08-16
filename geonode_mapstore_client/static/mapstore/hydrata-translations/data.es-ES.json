@@ -621,6 +621,7 @@
         "legendExceedsSld": "Escala extendida a {colorMax} {unit} — esta simulación supera la escala estándar",
         "legendCourantApprox": "Aproximado — calculado a partir del paso de tiempo global único del solucionador, no un número CFL por celda.",
         "legendToleranceNote": "Los valores provienen del campo de vértices suavizado, no de las capas ráster *_max — una lectura en el fotograma de pico puede diferir visiblemente del COG *_max en el mismo punto.",
+        "legendMaxEnvelopeNote": "Mostrando el máximo de la simulación — el valor de pico alcanzado en cualquier punto durante toda la simulación, no un único paso de tiempo.",
         "identifyReadoutTitle": "Inspeccionar",
         "identifyReadoutNoData": "Sin datos de malla en este punto",
         "identifyReadoutSurface": "Campo de vértices suavizado (no el ráster *_max)",
@@ -671,7 +672,8 @@
         "drawerOverlays": "Superposiciones",
         "drawerColourScale": "Escala de color",
         "maxEnvelope": "Máx",
-        "maxEnvelopeUnavailable": "Valor máximo de toda la simulación — próximamente; el almacén de esta simulación aún no tiene envolvente máxima",
+        "maxEnvelopeTooltip": "Mostrar el valor máximo alcanzado en cualquier punto de la simulación, en lugar del paso de tiempo actual",
+        "maxEnvelopeUnavailable": "Valor máximo de toda la simulación — el almacén de esta simulación no tiene envolvente máxima para la magnitud seleccionada",
         "tickUnit": {
           "s": "s",
           "min": "min",
@@ -693,7 +695,9 @@
         "speedSlowShort": "lenta",
         "speedTooltipRun": "Velocidad de reproducción — la simulación completa dura {d} de tiempo simulado",
         "zoomToResults": "Zoom a los resultados",
-        "zoomToResultsTooltip": "Centrar el mapa en los resultados de esta simulación"
+        "zoomToResultsTooltip": "Centrar el mapa en los resultados de esta simulación",
+        "envelopeLoadFailedTitle": "Máximo de la simulación no disponible",
+        "envelopeLoadFailed": "No se pudo cargar la capa del máximo de la simulación (Max) para esta variable. Se muestra la reproducción normal."
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",
@@ -788,6 +792,7 @@
         "title": "Tareas",
         "log": "Registro",
         "cancel": "Cancelar",
+        "cancelError": "No se pudo cancelar esta tarea",
         "noProcesses": "No hay tareas para mostrar",
         "filterActive": "Activas",
         "filterCompleted": "Completadas",

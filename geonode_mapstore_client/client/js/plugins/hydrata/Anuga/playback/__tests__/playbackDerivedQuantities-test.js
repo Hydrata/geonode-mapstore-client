@@ -33,7 +33,11 @@ import {
     computeFroude,
     computeShear,
     computeCourant,
-    mixDtSeconds
+    mixDtSeconds,
+    ENVELOPE_BACKEND_NAME,
+    ENVELOPE_QUANTITY_IDS,
+    envelopeArrayName,
+    availableEnvelopeQuantityIds
 } from '../playbackDerivedQuantities';
 
 describe('playbackDerivedQuantities', () => {
@@ -242,6 +246,81 @@ describe('playbackDerivedQuantities', () => {
         it('returns 0 for an empty/missing array', () => {
             expect(mixDtSeconds([], 0, 1, 0.5)).toBe(0);
             expect(mixDtSeconds(null, 0, 1, 0.5)).toBe(0);
+        });
+    });
+
+    // TASK-2752 (W8.2, epic 2706) — temporal-max envelope capability mapping.
+    describe('envelope capability mapping (TASK-2752)', () => {
+        it('ENVELOPE_BACKEND_NAME translates the FE speed id to the backend velocity name', () => {
+            // Spread strips Object.freeze: expect@1.20.1's toEqual treats
+            // extensibility as part of deep-equality (same trap and same
+            // workaround as the AIDR_HAZARD_TABLE test above) — the direct
+            // compare passes on local node but fails on CI's.
+            expect({ ...ENVELOPE_BACKEND_NAME }).toEqual({ depth: 'depth', speed: 'velocity', div: 'div' });
+        });
+
+        it('ENVELOPE_QUANTITY_IDS is exactly the three quantities the *_max.tif set covers', () => {
+            // .slice() for the same frozen-ness reason as above.
+            expect(ENVELOPE_QUANTITY_IDS.slice()).toEqual(['depth', 'speed', 'div']);
+        });
+
+        describe('envelopeArrayName', () => {
+            it('maps each envelope-capable FE id to its zarr array name', () => {
+                expect(envelopeArrayName('depth')).toBe('depth_max');
+                expect(envelopeArrayName('speed')).toBe('velocity_max');
+                expect(envelopeArrayName('div')).toBe('div_max');
+            });
+            it('returns null for a quantity outside the minimum set (stage/hazard/froude/shear/courant)', () => {
+                ['stage', 'hazard', 'froude', 'shear', 'courant'].forEach((id) => {
+                    expect(envelopeArrayName(id)).toBe(null);
+                });
+            });
+        });
+
+        describe('availableEnvelopeQuantityIds', () => {
+            it('translates the manifest\'s declared backend names into FE ids', () => {
+                expect(availableEnvelopeQuantityIds(['depth', 'velocity', 'div'])).toEqual(['depth', 'speed', 'div']);
+            });
+            it('preserves QUANTITY_IDS order (depth before speed before div), regardless of declared order', () => {
+                expect(availableEnvelopeQuantityIds(['div', 'depth', 'velocity'])).toEqual(['depth', 'speed', 'div']);
+            });
+            it('a partial declaration only reports the declared ones', () => {
+                expect(availableEnvelopeQuantityIds(['depth'])).toEqual(['depth']);
+            });
+            it('first-class absence: undefined/null/empty/malformed all resolve to [], never throw', () => {
+                expect(availableEnvelopeQuantityIds(undefined)).toEqual([]);
+                expect(availableEnvelopeQuantityIds(null)).toEqual([]);
+                expect(availableEnvelopeQuantityIds([])).toEqual([]);
+                expect(availableEnvelopeQuantityIds('not-an-array')).toEqual([]);
+            });
+            it('ignores an unrecognised backend name rather than inventing an FE id for it', () => {
+                expect(availableEnvelopeQuantityIds(['depth', 'bogus'])).toEqual(['depth']);
+            });
+
+            // TASK-2814 — availability == FETCHABILITY. The fetch path needs
+            // quantization['{backend}_max']; a quantity declared but missing
+            // that block used to be offered and then degrade to the
+            // silent-dry zero-filled envelope.
+            describe('quantization gating (TASK-2814)', () => {
+                it('a declared quantity with a quantization block stays available', () => {
+                    expect(availableEnvelopeQuantityIds(
+                        ['depth', 'velocity'],
+                        { depth_max: { scale: 0.001 }, velocity_max: { scale: 0.002 } }
+                    )).toEqual(['depth', 'speed']);
+                });
+                it('a declared quantity MISSING its quantization block is not offered', () => {
+                    expect(availableEnvelopeQuantityIds(
+                        ['depth', 'velocity'],
+                        { depth_max: { scale: 0.001 } }
+                    )).toEqual(['depth']);
+                });
+                it('an empty quantization object offers nothing, however much is declared', () => {
+                    expect(availableEnvelopeQuantityIds(['depth', 'velocity', 'div'], {})).toEqual([]);
+                });
+                it('omitting the quantization argument keeps the declaration-only behaviour (legacy callers)', () => {
+                    expect(availableEnvelopeQuantityIds(['depth', 'velocity'])).toEqual(['depth', 'speed']);
+                });
+            });
         });
     });
 });

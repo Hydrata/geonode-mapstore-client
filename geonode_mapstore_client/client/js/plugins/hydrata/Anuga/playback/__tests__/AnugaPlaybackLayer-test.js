@@ -130,6 +130,46 @@ describe('AnugaPlaybackLayer', () => {
             expect(disposed).toBe(true);
         });
 
+        it('an envelope handed over BEFORE the mesh lands is applied by setMesh, not discarded (TASK-2814)', () => {
+            // create() uploads options.envelopeData synchronously while the
+            // mesh only lands after the async reproject promise — so a layer
+            // recreate with Max on used to zero-fill ("everything dry").
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-pending-envelope' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            renderer.setEnvelope(new Float32Array([0.5, 1.5, 2.5])); // pre-mesh: _envelopeLength still 0
+            renderer.setMesh({
+                x3857: new Float32Array([0, 1, 0]),
+                y3857: new Float32Array([0, 0, 1]),
+                elevation: new Float32Array([0, 0, 0]),
+                faceNodeConnectivity: new Uint32Array([0, 1, 2])
+            });
+            const gl = renderer.gl;
+            const out = new Float32Array(3);
+            gl.bindBuffer(gl.ARRAY_BUFFER, renderer.envelopeBuf);
+            gl.getBufferSubData(gl.ARRAY_BUFFER, 0, out);
+            expect(Array.from(out)).toEqual([0.5, 1.5, 2.5]);
+            layer.remove();
+        });
+
+        it('a pending envelope whose length mismatches the mesh is dropped, never uploaded (stale data guard)', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-pending-mismatch' });
+            const renderer = layer.__anugaPlaybackRenderer;
+            renderer.setEnvelope(new Float32Array([9, 9])); // wrong length for the 3-node mesh below
+            renderer.setMesh({
+                x3857: new Float32Array([0, 1, 0]),
+                y3857: new Float32Array([0, 0, 1]),
+                elevation: new Float32Array([0, 0, 0]),
+                faceNodeConnectivity: new Uint32Array([0, 1, 2])
+            });
+            const gl = renderer.gl;
+            const out = new Float32Array(3);
+            gl.bindBuffer(gl.ARRAY_BUFFER, renderer.envelopeBuf);
+            gl.getBufferSubData(gl.ARRAY_BUFFER, 0, out);
+            expect(Array.from(out)).toEqual([0, 0, 0]); // setMesh's zero-fill stands
+            expect(renderer._pendingEnvelope).toBe(null); // and the stale array is not retained
+            layer.remove();
+        });
+
         it('create() without a map still returns a usable layer (map is optional — used by karma/tests)', () => {
             const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-no-map' });
             expect(layer.detached).toBe(true);
@@ -215,6 +255,45 @@ describe('AnugaPlaybackLayer', () => {
             expect(layer.getOpacity()).toBe(0.4);
             expect(layer.getVisible()).toBe(false);
             expect(layer.get('wireframe')).toBe(true);
+        });
+
+        // TASK-2752 (W8.2, epic 2706) AC5/AC6 — the Max envelope toggle,
+        // same plain layer-property class as wireframe above.
+        it('carries envelopeMode through create() and update(), defaulting to false', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-envelope-mode' });
+            expect(layer.get('envelopeMode')).toBe(false);
+
+            const off = { id: 'playback-envelope-mode' };
+            const on = { id: 'playback-envelope-mode', envelopeMode: true };
+            Layers.updateLayer(LAYER_TYPE, layer, on, off);
+            expect(layer.get('envelopeMode')).toBe(true);
+
+            Layers.updateLayer(LAYER_TYPE, layer, off, on);
+            expect(layer.get('envelopeMode')).toBe(false);
+        });
+
+        it('setEnvelope() runs without a GL error at create() time and on update(), and resets on null', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, {
+                id: 'playback-envelope-data',
+                mesh: {
+                    nodeX: Float32Array.from([0, 10, 0, 10]),
+                    nodeY: Float32Array.from([0, 0, 10, 10]),
+                    elevation: Float32Array.from([1, 2, 3, 4]),
+                    faceNodeConnectivity: Int32Array.from([0, 1, 2, 1, 3, 2]),
+                    epsg: 32756, xllcorner: 500000, yllcorner: 6900000
+                },
+                envelopeData: Float32Array.from([1, 2, 3, 4])
+            });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const gl = renderer.gl;
+            expect(gl.getError()).toBe(gl.NO_ERROR);
+
+            const withEnvelope = { id: 'playback-envelope-data', envelopeData: Float32Array.from([9, 9, 9, 9]) };
+            const cleared = { id: 'playback-envelope-data', envelopeData: null };
+            Layers.updateLayer(LAYER_TYPE, layer, cleared, withEnvelope);
+            expect(gl.getError()).toBe(gl.NO_ERROR);
+            Layers.updateLayer(LAYER_TYPE, layer, withEnvelope, cleared);
+            expect(gl.getError()).toBe(gl.NO_ERROR);
         });
 
         it('render(frameState) returns the same canvas element on repeated calls (no per-frame element churn)', () => {

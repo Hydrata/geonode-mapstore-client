@@ -541,8 +541,19 @@ describe('playbackMeshGeometry', () => {
         });
 
         it('is deterministic — two builds of the same input are identical', () => {
-            expect(buildFaceDecimatedWireframeIndices(faces, 4))
-                .toEqual(buildFaceDecimatedWireframeIndices(faces, 4));
+            // NOT toEqual: expect@1 routes typed arrays through is-equal's
+            // generic deep-equal, ~5s on these 118,806-element Uint32Arrays
+            // (measured after the TASK-2807 dependency re-resolution), which
+            // blows the 2s mocha budget. Compare natively instead.
+            const first = buildFaceDecimatedWireframeIndices(faces, 4);
+            const second = buildFaceDecimatedWireframeIndices(faces, 4);
+            expect(second.constructor).toBe(first.constructor);
+            expect(second.length).toBe(first.length);
+            let mismatch = -1;
+            for (let i = 0; i < first.length; i++) {
+                if (first[i] !== second[i]) { mismatch = i; break; }
+            }
+            expect(mismatch).toBe(-1);
         });
 
         it('stays exact above 2^53/2654435761 — the Math.imul trap', () => {

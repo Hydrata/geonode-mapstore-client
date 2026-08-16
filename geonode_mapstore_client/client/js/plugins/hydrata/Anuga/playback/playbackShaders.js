@@ -29,6 +29,17 @@
  * per-vertex attributes (friction: store's real per-vertex Manning n;
  * inradius: the store's per-FACE inradius broadcast to vertices by
  * playbackMeshGeometry.computeVertexInradius — see AnugaPlaybackRenderer.setMesh).
+ *
+ * TASK-2752 (W8.2, epic 2706) adds a SUPPLIED-SCALAR mode: `aEnvelope` is a
+ * third static per-vertex attribute (a store's temporal-max envelope array,
+ * already dequantized to physical units by the caller — same contract as
+ * aElev/aFriction/aInradius) and `uEnvelopeMode` switches `main()` to
+ * display it DIRECTLY as `raw`, bypassing every derivation branch below
+ * entirely. This is deliberate, not an oversight: the envelope is already
+ * the max-of-DERIVED value (run_anuga.playback_store.compute_envelopes) —
+ * re-deriving anything from aQty0/aQty1 in this mode would either recompute
+ * the wrong (current-timestep) value or, worse, silently combine a
+ * mistimed derivation with the envelope's own semantics.
  */
 
 // aQty0/aQty1 = (depth, x_velocity, y_velocity) at the two buffered
@@ -42,6 +53,11 @@ layout(location=2) in vec3 aQty0;
 layout(location=3) in vec3 aQty1;
 layout(location=4) in float aFriction;
 layout(location=5) in float aInradius;
+// TASK-2752 — the temporal-max envelope for the ACTIVE quantity, already
+// dequantized. Zero-filled (harmless — uEnvelopeMode gates it) whenever no
+// envelope is loaded (AnugaPlaybackRenderer.setMesh's default, and any
+// store without one — AC4's "no throw, plays exactly as today").
+layout(location=6) in float aEnvelope;
 uniform mat3 uProj;
 uniform float uMixT;
 // 0=depth 1=speed 2=stage 3=dIV 4=hazard 5=froude 6=shear 7=courant —
@@ -54,6 +70,12 @@ uniform float uWetThreshold; // store's minimum_storable_height (NOT hardcoded)
 uniform float uG; // store attr g (9.8), NOT the textbook 9.81
 uniform float uRhoW; // store attr rho_w
 uniform float uDt; // frame-mixed dt(t), SECONDS — approximate/global-dt (review F6)
+// TASK-2752 (AC5) — 0.0 (default) derives raw/wet from aQty0/aQty1+uColorMode
+// exactly as before this task; > 0.5 displays aEnvelope directly and derives
+// nothing. AnugaPlaybackControlBar's Max toggle is the only thing that sets
+// this to 1.0, and only when the store declares an envelope for the active
+// quantity (playbackController.hasEnvelopeForQuantity).
+uniform float uEnvelopeMode;
 out float vValue;
 out float vWet;
 
@@ -73,33 +95,46 @@ float classifyHazardIndex(float d, float v) {
 }
 
 void main() {
-  vec3 q = mix(aQty0, aQty1, uMixT);
-  float depth = max(q.x, 0.0);
-  float wet = step(uWetThreshold, depth);
-  float speed = length(q.yz) * wet;
-  // Guarded (never zero) denominator for the div-heavy formulas below —
-  // schema §8: "GLSL divide-by-zero is undefined per spec ... the mask
-  // should be applied before the formula" — dry cells still render the flat
-  // dry-ground tint in the fragment shader regardless of this value.
-  float safeDepth = max(depth, 1e-6);
-
   float raw;
-  if (uColorMode == 0) {
-    raw = depth;
-  } else if (uColorMode == 1) {
-    raw = speed;
-  } else if (uColorMode == 2) {
-    raw = aElev + depth; // stage
-  } else if (uColorMode == 3) {
-    raw = depth * speed; // dIV
-  } else if (uColorMode == 4) {
-    raw = classifyHazardIndex(depth, speed) * wet; // hazard class index 0..5
-  } else if (uColorMode == 5) {
-    raw = (speed / sqrt(uG * safeDepth)) * wet; // Froude
-  } else if (uColorMode == 6) {
-    raw = (uRhoW * uG * aFriction * aFriction * speed * speed / pow(safeDepth, 1.0 / 3.0)) * wet; // Manning shear
+  float wet;
+  if (uEnvelopeMode > 0.5) {
+    // TASK-2752 (AC5) — SUPPLIED SCALAR, verbatim. Every envelope quantity
+    // (depth_max/velocity_max/div_max) is a non-negative magnitude that is
+    // exactly 0 at a node the whole run never wet (compute_envelopes: depth
+    // clamped >=0, velocity forced to 0 at every dry timestep upstream in
+    // compute_velocity, so their per-timestep product is too) — "materially
+    // nonzero" is therefore a correct wet/dry split for all three, with no
+    // dependency on uWetThreshold's depth-in-metres unit.
+    raw = aEnvelope;
+    wet = step(1e-9, aEnvelope);
   } else {
-    raw = (sqrt(uG * safeDepth) * uDt / max(aInradius, 1e-6)) * wet; // Courant (celerity*dt/inradius)
+    vec3 q = mix(aQty0, aQty1, uMixT);
+    float depth = max(q.x, 0.0);
+    wet = step(uWetThreshold, depth);
+    float speed = length(q.yz) * wet;
+    // Guarded (never zero) denominator for the div-heavy formulas below —
+    // schema §8: "GLSL divide-by-zero is undefined per spec ... the mask
+    // should be applied before the formula" — dry cells still render the flat
+    // dry-ground tint in the fragment shader regardless of this value.
+    float safeDepth = max(depth, 1e-6);
+
+    if (uColorMode == 0) {
+      raw = depth;
+    } else if (uColorMode == 1) {
+      raw = speed;
+    } else if (uColorMode == 2) {
+      raw = aElev + depth; // stage
+    } else if (uColorMode == 3) {
+      raw = depth * speed; // dIV
+    } else if (uColorMode == 4) {
+      raw = classifyHazardIndex(depth, speed) * wet; // hazard class index 0..5
+    } else if (uColorMode == 5) {
+      raw = (speed / sqrt(uG * safeDepth)) * wet; // Froude
+    } else if (uColorMode == 6) {
+      raw = (uRhoW * uG * aFriction * aFriction * speed * speed / pow(safeDepth, 1.0 / 3.0)) * wet; // Manning shear
+    } else {
+      raw = (sqrt(uG * safeDepth) * uDt / max(aInradius, 1e-6)) * wet; // Courant (celerity*dt/inradius)
+    }
   }
   vValue = clamp((raw - uColorMin) / max(uColorMax - uColorMin, 1e-9), 0.0, 1.0);
   vWet = wet;

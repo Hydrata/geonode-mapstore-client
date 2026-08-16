@@ -621,6 +621,7 @@
         "legendExceedsSld": "Echèl la ap etann rive {colorMax} {unit} — kouri sa a depase echèl estanda a",
         "legendCourantApprox": "Apwoksimatif — kalkile ak sèl pa tan global solvè a, se pa yon nimewo CFL pou chak selil.",
         "legendToleranceNote": "Valè yo soti nan chan somè lise a, pa nan kouch raster *_max yo — yon lekti nan kad pik la ka diferan ak COG *_max la nan menm pwen an.",
+        "legendMaxEnvelopeNote": "N ap montre pi gwo valè senilasyon an — pi gwo valè ki te rive nenpòt kote pandan tout senilasyon an, se pa yon sèl etap tan.",
         "identifyReadoutTitle": "Enspekte",
         "identifyReadoutNoData": "Pa gen done maj nan pwen sa a",
         "identifyReadoutSurface": "Chan somè lise (pa raster *_max)",
@@ -671,7 +672,8 @@
         "drawerOverlays": "Kouch anlè",
         "drawerColourScale": "Echèl koulè",
         "maxEnvelope": "Maks",
-        "maxEnvelopeUnavailable": "Pi gwo valè pandan tout senilasyon an — l ap vini; magazen senilasyon sa a poko gen anvlòp maks",
+        "maxEnvelopeTooltip": "Montre pi gwo valè ki rive nenpòt kote pandan senilasyon an, olye pou w montre etap tan aktyèl la",
+        "maxEnvelopeUnavailable": "Pi gwo valè pandan tout senilasyon an — magazen senilasyon sa a pa gen anvlòp maks pou grandè ou chwazi a",
         "tickUnit": {
           "s": "s",
           "min": "min",
@@ -693,7 +695,9 @@
         "speedSlowShort": "ralanti",
         "speedTooltipRun": "Vitès lekti — tout senaryo a se {d} nan tan simile",
         "zoomToResults": "Zoum sou rezilta yo",
-        "zoomToResultsTooltip": "Santre kat la sou rezilta similasyon sa a"
+        "zoomToResultsTooltip": "Santre kat la sou rezilta similasyon sa a",
+        "envelopeLoadFailedTitle": "Maksimòm simulasyon an pa disponib",
+        "envelopeLoadFailed": "Kouch maksimòm simulasyon an (Max) pa t ka chaje pou varyab sa a. N ap montre lekti nòmal la pito."
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",
@@ -788,6 +792,7 @@
         "title": "Travay",
         "log": "Jounal",
         "cancel": "Anile",
+        "cancelError": "Nou pa t ka anile travay sa a",
         "noProcesses": "Pa gen travay pou montre",
         "filterActive": "Aktif",
         "filterCompleted": "Fini",

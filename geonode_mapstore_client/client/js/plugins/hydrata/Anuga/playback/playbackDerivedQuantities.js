@@ -77,6 +77,68 @@ export function availableQuantityIds(hasDt) {
 }
 
 // ---------------------------------------------------------------------------
+// TASK-2752 (W8.2, epic 2706) — temporal-max envelope capability mapping.
+//
+// The backend (run_anuga.playback_store.ENVELOPE_QUANTITIES) speaks
+// 'depth'/'velocity'/'div'; this module's own QUANTITY_IDS calls the same
+// concept 'speed', not 'velocity' (see QUANTITY_MODE_INDEX above). This is
+// the ONE place that translation happens — every other envelope-aware
+// module (playbackController, the control bar, the epic) goes through it
+// rather than re-deriving the mapping.
+// ---------------------------------------------------------------------------
+
+/** FE quantity id -> the backend's own name for the same physical quantity. */
+export const ENVELOPE_BACKEND_NAME = Object.freeze({ depth: 'depth', speed: 'velocity', div: 'div' });
+
+/** The FE quantity ids that CAN ever have an envelope (a fixed subset of QUANTITY_IDS). */
+export const ENVELOPE_QUANTITY_IDS = Object.freeze(Object.keys(ENVELOPE_BACKEND_NAME));
+
+/**
+ * The store's zarr array name for a quantity's envelope, e.g. 'speed' ->
+ * 'velocity_max' (run_anuga.playback_store's `{name}_max` convention).
+ * @param {string} quantityId one of ENVELOPE_QUANTITY_IDS
+ * @returns {string|null} null for a quantity that can never have one
+ *   (stage/hazard/froude/shear/courant — composite/derived, outside AC1's
+ *   minimum set)
+ */
+export function envelopeArrayName(quantityId) {
+    const backendName = ENVELOPE_BACKEND_NAME[quantityId];
+    return backendName ? `${backendName}_max` : null;
+}
+
+/**
+ * Translate a manifest's declared backend envelope names
+ * (schema_metadata.envelope_quantities, e.g. ['depth','velocity','div']) into
+ * the FE quantity ids that have one, e.g. ['depth','speed','div'].
+ * First-class-absence, the SAME shape has_dt already uses: an
+ * undeclared/empty/malformed list returns [], never throws — a store
+ * exported before TASK-2752 (including every store in production today)
+ * looks exactly like a store that was asked and said "none".
+ * @param {*} declaredBackendNames manifest.schema_metadata.envelope_quantities
+ * @returns {string[]}
+ */
+export function availableEnvelopeQuantityIds(declaredBackendNames, quantization) {
+    const declared = Array.isArray(declaredBackendNames) ? declaredBackendNames : [];
+    return ENVELOPE_QUANTITY_IDS.filter((feId) => {
+        if (declared.indexOf(ENVELOPE_BACKEND_NAME[feId]) === -1) {
+            return false;
+        }
+        // TASK-2814 — availability must match FETCHABILITY: the fetch path
+        // dequantizes with quantization['{backend}_max'], a block the
+        // manifest relays per-array and can legitimately lack (a store that
+        // declares envelopes but whose array zarr.json read failed). A
+        // quantity offered here but unfetchable degrades to the silent-dry
+        // envelope TASK-2814 exists to kill. Callers that pass no
+        // quantization (older tests) keep the declaration-only behaviour.
+        if (quantization === undefined) {
+            return true;
+        }
+        const block = quantization && quantization[`${ENVELOPE_BACKEND_NAME[feId]}_max`];
+        return !!block;
+    });
+}
+
+// ---------------------------------------------------------------------------
 // AIDR H1-H6 flood hazard classification
 //
 // Source: Australian Institute for Disaster Resilience, "Flood Hazard",

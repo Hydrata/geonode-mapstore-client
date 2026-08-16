@@ -115,7 +115,9 @@ export class AnugaPlaybackRenderer {
             uRhoW: gl.getUniformLocation(this.meshProgram, 'uRhoW'),
             uDt: gl.getUniformLocation(this.meshProgram, 'uDt'),
             uBackgroundAlpha: gl.getUniformLocation(this.meshProgram, 'uBackgroundAlpha'),
-            uLUT: gl.getUniformLocation(this.meshProgram, 'uLUT')
+            uLUT: gl.getUniformLocation(this.meshProgram, 'uLUT'),
+            // TASK-2752 (AC5) — the supplied-scalar (Max envelope) toggle.
+            uEnvelopeMode: gl.getUniformLocation(this.meshProgram, 'uEnvelopeMode')
         };
         this.wireUniforms = {
             uProj: gl.getUniformLocation(this.wireProgram, 'uProj'),
@@ -146,6 +148,12 @@ export class AnugaPlaybackRenderer {
         this.qty1Buf = gl.createBuffer();
         this.frictionBuf = gl.createBuffer();
         this.inradiusBuf = gl.createBuffer();
+        // TASK-2752 (AC5) — the active quantity's temporal-max envelope,
+        // one float per vertex. Same lifecycle class as frictionBuf/
+        // inradiusBuf (static per-vertex, zero-filled by default in
+        // setMesh), except it can also be re-populated later by
+        // setEnvelope() alone — see that method's header.
+        this.envelopeBuf = gl.createBuffer();
         this.idxBuf = gl.createBuffer();
         this.wireIdxBuf = gl.createBuffer();
 
@@ -169,6 +177,9 @@ export class AnugaPlaybackRenderer {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.inradiusBuf);
         gl.enableVertexAttribArray(5);
         gl.vertexAttribPointer(5, 1, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.envelopeBuf);
+        gl.enableVertexAttribArray(6);
+        gl.vertexAttribPointer(6, 1, gl.FLOAT, false, 0, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.idxBuf);
         gl.bindVertexArray(null);
 
@@ -259,6 +270,22 @@ export class AnugaPlaybackRenderer {
         gl.bufferData(gl.ARRAY_BUFFER, friction && friction.length === n ? friction : new Float32Array(n), gl.STATIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.inradiusBuf);
         gl.bufferData(gl.ARRAY_BUFFER, inradius && inradius.length === n ? inradius : new Float32Array(n), gl.STATIC_DRAW);
+        // TASK-2752 (AC4) — zero-filled by default: a store with no envelope
+        // loaded for the active quantity renders exactly as before this
+        // task (uEnvelopeMode stays 0 unless the Max toggle is on AND
+        // setEnvelope was actually called, so these zeros are never sampled
+        // in practice — this is belt-and-braces well-formedness, matching
+        // frictionBuf/inradiusBuf's own default above).
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.envelopeBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(n), gl.STATIC_DRAW);
+        this._envelopeLength = n;
+        // TASK-2814 — apply an envelope handed to setEnvelope() before this
+        // mesh landed (create()'s upload order); a length mismatch means it
+        // belongs to a different mesh and is dropped, never uploaded.
+        if (this._pendingEnvelope && this._pendingEnvelope.length === n) {
+            gl.bufferData(gl.ARRAY_BUFFER, this._pendingEnvelope, gl.DYNAMIC_DRAW);
+        }
+        this._pendingEnvelope = null;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.idxBuf);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, faceNodeConnectivity, gl.STATIC_DRAW);
         this.nIndices = faceNodeConnectivity.length;
@@ -458,6 +485,40 @@ export class AnugaPlaybackRenderer {
     }
 
     /**
+     * TASK-2752 (AC5) — upload (or clear) the active quantity's temporal-max
+     * envelope, one float per vertex, ALREADY DEQUANTIZED to physical units
+     * by the caller (same contract as elevation/friction/inradius — this
+     * class never dequantizes). Independent of setFrames/setMesh: a caller
+     * flips the Max toggle far more often than it loads a new mesh or steps
+     * a timestep, and re-uploading the whole mesh's worth of statics on
+     * every toggle would be wasteful.
+     *
+     * `null`/undefined (no envelope loaded — e.g. the active quantity has
+     * none in this store, or a fetch is still in flight) resets the buffer
+     * to zero-filled rather than leaving stale bytes from a PREVIOUS
+     * quantity's envelope resident: uEnvelopeMode is the caller's
+     * responsibility to gate, but a stray envelope render must never show
+     * yesterday's quantity's numbers.
+     * @param {Float32Array|null} envelopeData length must equal the current
+     *   mesh's node count, or the call is a well-formed no-op (logged only
+     *   via the thrown-away mismatch — never partially uploads a wrong-
+     *   length buffer, which would silently mix two meshes' data).
+     */
+    setEnvelope(envelopeData) {
+        const gl = this.gl;
+        const n = this._envelopeLength || 0;
+        // TASK-2814 — create() calls this BEFORE the async mesh load lands
+        // (a layer recreate while Max is on), when _envelopeLength is still
+        // 0; discarding the supplied array there rendered a zero-filled
+        // ("everything dry") envelope. Hold it instead — setMesh uploads it
+        // the moment the real node count is known.
+        this._pendingEnvelope = envelopeData || null;
+        const data = envelopeData && envelopeData.length === n ? envelopeData : new Float32Array(n);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.envelopeBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    }
+
+    /**
      * (Re)build the LUT texture for one quantity only when its display range
      * has actually changed (a fresh texture upload per render would be
      * wasteful — the range only changes when the operator switches quantity,
@@ -518,6 +579,9 @@ export class AnugaPlaybackRenderer {
      * @param {boolean} [params.particlesEnabled] TASK-2633 (W5.2) particle-trail overlay toggle
      * @param {number} [params.particleDensity] particle-grid side length (playbackParticles.clampParticleGrid)
      * @param {number} [params.particleSpeedExaggeration] multiplier on the advection speed scale
+     * @param {boolean} [params.envelopeMode] TASK-2752 (AC5/AC6) — display the
+     *   uploaded envelope (setEnvelope) directly instead of deriving from
+     *   aQty0/aQty1. Default false — byte-identical to pre-TASK-2752 output.
      * @returns {HTMLCanvasElement}
      */
     render({
@@ -526,7 +590,8 @@ export class AnugaPlaybackRenderer {
         backgroundOpacity = 0,
         g = 9.8, rhoW = 1000, dt = 0,
         flowVizEnabled = false, arrowDensity, arrowScale,
-        particlesEnabled = false, particleDensity, particleSpeedExaggeration
+        particlesEnabled = false, particleDensity, particleSpeedExaggeration,
+        envelopeMode = false
     }) {
         const gl = this.gl;
         const canvas = this.canvas;
@@ -575,6 +640,11 @@ export class AnugaPlaybackRenderer {
         gl.uniform1f(this.meshUniforms.uG, g);
         gl.uniform1f(this.meshUniforms.uRhoW, rhoW);
         gl.uniform1f(this.meshUniforms.uDt, dt);
+        // TASK-2752 (AC5) — the LUT/colorMax/colorMin above are UNCHANGED:
+        // the envelope reuses the active quantity's own ramp (depth_max is
+        // still metres of depth, on the depth ramp), only the shader's raw
+        // value stops being derived.
+        gl.uniform1f(this.meshUniforms.uEnvelopeMode, envelopeMode ? 1 : 0);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.lutTextures[mode]);
         gl.uniform1i(this.meshUniforms.uLUT, 0);
@@ -718,7 +788,7 @@ export class AnugaPlaybackRenderer {
 
     dispose() {
         const gl = this.gl;
-        [this.posBuf, this.elevBuf, this.qty0Buf, this.qty1Buf, this.frictionBuf, this.inradiusBuf, this.idxBuf, this.wireIdxBuf].forEach((b) => gl.deleteBuffer(b));
+        [this.posBuf, this.elevBuf, this.qty0Buf, this.qty1Buf, this.frictionBuf, this.inradiusBuf, this.envelopeBuf, this.idxBuf, this.wireIdxBuf].forEach((b) => gl.deleteBuffer(b));
         [this.meshVao, this.wireVao].forEach((v) => gl.deleteVertexArray(v));
         [this.meshProgram, this.wireProgram].forEach((p) => gl.deleteProgram(p));
         Object.keys(this.lutTextures).forEach((mode) => {

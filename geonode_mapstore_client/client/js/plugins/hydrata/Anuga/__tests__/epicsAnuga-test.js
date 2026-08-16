@@ -218,6 +218,121 @@ describe('ANUGA Epics', () => {
                     }
                 );
         });
+
+        // TASK-2803 (epic 2706 W8.5) — non-409 cancel failures (403 denied,
+        // e.g. below TASK-2764's CONTRIBUTOR floor; 500 backend blew up)
+        // used to hit the bare `.catch(() => Rx.Observable.empty())`: a
+        // Cancel click that silently did NOTHING. ANTI-VACUITY: at HEAD
+        // pre-fix, neither of the 403/500 arms below emits a
+        // SHOW_NOTIFICATION (the catch falls straight to Rx.Observable.
+        // empty()), so `.toExist()` on the notification goes RED for the
+        // right reason — 0 emissions, not an import/setup error. The AC2
+        // (409) arm ALSO goes RED at HEAD, for a related but distinct
+        // pre-existing reason — see that test's own comment.
+        describe('TASK-2803 non-409 error handling', () => {
+            const MockAdapter = require('axios-mock-adapter');
+            const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+            const { SHOW_NOTIFICATION } = require('../../../../../MapStore2/web/client/actions/notifications');
+            const { START_ACTIVE_RUN_POLLING } = require('../actions/pollingActions');
+
+            let mockAxios;
+            beforeEach(() => { mockAxios = new MockAdapter(axios); });
+            afterEach(() => {
+                mockAxios.restore();
+                expect.restoreSpies();
+            });
+
+            it('AC1 — 403 (denied, below the CONTRIBUTOR floor) emits an error notification and logs to console.error', function(done) {
+                this.timeout(4000);
+                const errorSpy = expect.spyOn(console, 'error');
+                mockAxios.onPost('/api/v2/anuga/runs/601/cancel/').reply(403, {
+                    detail: 'Contributor role or higher required.'
+                });
+
+                const action$ = mockActions([{ type: 'CANCEL_ANUGA_RUN', runId: 601 }]);
+                const emitted = [];
+
+                cancelAnugaRunEpic(action$)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        // try/catch so a failing assertion here reports a
+                        // clean message via done(e) instead of an ambiguous
+                        // mocha "Timeout of 2000ms exceeded" (established
+                        // convention in this file — see fetchMyPermsEpic's
+                        // 4xx test above).
+                        try {
+                            const notification = emitted.find(a => a.type === SHOW_NOTIFICATION);
+                            expect(notification).toExist();
+                            // memory: mapstore-show-notification-level-second-arg
+                            expect(notification.level).toBe('error');
+                            expect(errorSpy).toHaveBeenCalled();
+                            // State write — the panel re-syncs with the run's
+                            // REAL (not cancelled) status rather than being
+                            // left mid-cancel.
+                            const polling = emitted.find(a => a.type === START_ACTIVE_RUN_POLLING);
+                            expect(polling).toExist();
+                            expect(polling.runId).toBe(601);
+                            done();
+                        } catch (e) {
+                            done(e);
+                        }
+                    });
+            });
+
+            it('AC1 — 500 (backend blew up) emits an error notification and logs to console.error', function(done) {
+                this.timeout(4000);
+                const errorSpy = expect.spyOn(console, 'error');
+                mockAxios.onPost('/api/v2/anuga/runs/602/cancel/').reply(500, { detail: 'boom' });
+
+                const action$ = mockActions([{ type: 'CANCEL_ANUGA_RUN', runId: 602 }]);
+                const emitted = [];
+
+                cancelAnugaRunEpic(action$)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            const notification = emitted.find(a => a.type === SHOW_NOTIFICATION);
+                            expect(notification).toExist();
+                            expect(notification.level).toBe('error');
+                            expect(errorSpy).toHaveBeenCalled();
+                            done();
+                        } catch (e) {
+                            done(e);
+                        }
+                    });
+            });
+
+            it('AC2 — the 409 (already terminal) TREATMENT is pinned unchanged: warning level, no console.error, no polling re-arm', function(done) {
+                this.timeout(4000);
+                // This arm is what caught the pre-existing detection bug:
+                // the check used to read `error?.response?.status`, which
+                // libs/ajax.js's response interceptor had already rewritten
+                // away (see the epic's own comment) — a genuine 409 fell
+                // through to the swallow, same as every other error. Fixed
+                // to `_readErrStatus(error)`; the OUTCOME below (level
+                // 'warning', same msgId, no console.error, no polling
+                // re-arm) is what stays pinned, both before and after.
+                const errorSpy = expect.spyOn(console, 'error');
+                mockAxios.onPost('/api/v2/anuga/runs/603/cancel/').reply(409, {
+                    error_code: 'ALREADY_TERMINAL'
+                });
+
+                const action$ = mockActions([{ type: 'CANCEL_ANUGA_RUN', runId: 603 }]);
+                const emitted = [];
+
+                cancelAnugaRunEpic(action$)
+                    .subscribe(a => emitted.push(a), done, () => {
+                        try {
+                            expect(emitted.length).toBe(1);
+                            expect(emitted[0].type).toBe(SHOW_NOTIFICATION);
+                            expect(emitted[0].level).toBe('warning');
+                            expect(emitted[0].message).toBe('hydrata.anuga.cancelError');
+                            expect(errorSpy).toNotHaveBeenCalled();
+                            done();
+                        } catch (e) {
+                            done(e);
+                        }
+                    });
+            });
+        });
     });
 
     describe('retryAnugaRunEpic', () => {

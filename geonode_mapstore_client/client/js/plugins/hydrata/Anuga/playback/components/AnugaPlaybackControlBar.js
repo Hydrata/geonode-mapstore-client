@@ -53,7 +53,10 @@ import {
     colorMaxForQuantity,
     isColorMaxOverridden,
     clampSpeed,
-    simulatedSpanSeconds
+    simulatedSpanSeconds,
+    // TASK-2752 (AC6) — the one predicate the reducer, the epic and this bar
+    // all share for "does the active quantity have a Max envelope here".
+    hasEnvelopeForQuantity
 } from '../playbackController';
 import { availableQuantityIds, QUANTITY_META } from '../playbackDerivedQuantities';
 import { rampGradientCss } from '../playbackColormap';
@@ -72,7 +75,8 @@ import {
     playbackSetOpacity,
     playbackSetBackgroundOpacity,
     playbackSetOverlay,
-    playbackSetColorMax
+    playbackSetColorMax,
+    playbackSetEnvelopeMode
 } from '../actions/playbackActions';
 
 /**
@@ -378,7 +382,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         // TASK-2788 — dry-ground alpha only; onSetOpacity fades the whole canvas.
         onSetBackgroundOpacity: PropTypes.func,
         onSetOverlay: PropTypes.func,
-        onSetColorMax: PropTypes.func
+        onSetColorMax: PropTypes.func,
+        onSetEnvelopeMode: PropTypes.func
     };
 
     // TASK-2744 AC10 — legacy context, NOT a `state.locale` selector: the
@@ -1007,7 +1012,10 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         }
         const isPlaying = playback.status === PLAYBACK_STATUS.PLAYING;
         const isBuffering = [PLAYBACK_STATUS.LOADING_MANIFEST, PLAYBACK_STATUS.LOADING_MESH, PLAYBACK_STATUS.BUFFERING, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED].includes(playback.status);
-        const canScrub = playback.nTime > 0;
+        // TASK-2752 AC6 — "the scrubber is disabled" while Max is on: a
+        // temporal-max envelope has no timestep to scrub towards.
+        const canScrub = playback.nTime > 0 && !playback.envelopeMode;
+        const hasEnvelope = hasEnvelopeForQuantity(playback.envelopeQuantities, playback.quantity);
         const statusMsgId = STATUS_MESSAGE_ID[playback.status];
         const quantityLabel = this.tr('hydrata.playback.resultQuantity', 'Result quantity');
         const ticks = scrubberTicks(playback.time, playback.nTime, tickBudgetForWidth(this.state.trackWidth));
@@ -1141,24 +1149,29 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             ))}
                         </select>
 
-                        {/* TASK-2752 — RESERVED, NOT IMPLEMENTED. The temporal-max
-                            envelope (the in-browser `*_max.tif`) needs per-vertex
-                            max arrays that the playback store does not currently
-                            contain: playback_store.py writes per-timestep
-                            primitives and statics only, and max-of-derived is not
-                            derived-of-max, so it cannot be faked client-side from
-                            what is there. The slot is reserved so the layout is
-                            final; the control stays disabled until the store can
-                            answer it. */}
+                        {/* TASK-2752 — LIVE. The temporal-max envelope (the
+                            in-browser `*_max.tif`) is drawn from a per-vertex
+                            max array the store declares in its manifest
+                            (has_dt's own first-class-absence shape) — enabled
+                            exactly when this store has one for the CURRENTLY
+                            selected quantity, disabled with an explanatory
+                            tooltip otherwise. */}
                         <button
-                            className="btn sv-glass-button sv-playback-max-envelope"
+                            className={`btn sv-glass-button sv-playback-max-envelope ${playback.envelopeMode ? 'active' : ''}`}
                             data-testid="anuga-playback-max-envelope"
-                            disabled
-                            aria-disabled="true"
-                            title={this.tr(
-                                'hydrata.playback.maxEnvelopeUnavailable',
-                                'Peak value over the whole run — coming soon; this run’s store has no max envelope yet'
-                            )}
+                            disabled={!hasEnvelope}
+                            aria-disabled={hasEnvelope ? 'false' : 'true'}
+                            aria-pressed={playback.envelopeMode ? 'true' : 'false'}
+                            onClick={() => this.props.onSetEnvelopeMode(!playback.envelopeMode)}
+                            title={hasEnvelope
+                                ? this.tr(
+                                    'hydrata.playback.maxEnvelopeTooltip',
+                                    'Show the peak value reached anywhere in the run, instead of the current timestep'
+                                )
+                                : this.tr(
+                                    'hydrata.playback.maxEnvelopeUnavailable',
+                                    'Peak value over the whole run — this run’s store has no max envelope for the selected quantity'
+                                )}
                         >
                             <Message msgId="hydrata.playback.maxEnvelope" />
                         </button>
@@ -1266,7 +1279,9 @@ const mapDispatchToProps = {
     onSetOpacity: playbackSetOpacity,
     onSetBackgroundOpacity: playbackSetBackgroundOpacity,
     onSetOverlay: playbackSetOverlay,
-    onSetColorMax: playbackSetColorMax
+    onSetColorMax: playbackSetColorMax,
+    // TASK-2752 (AC6) — the Max toggle.
+    onSetEnvelopeMode: playbackSetEnvelopeMode
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(AnugaPlaybackControlBarComponent);

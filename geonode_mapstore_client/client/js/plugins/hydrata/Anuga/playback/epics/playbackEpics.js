@@ -66,7 +66,7 @@ import { changeMapInfoState } from '@mapstore/framework/actions/mapInfo';
 import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 
 import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
-import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame } from '../loadPlaybackLayerOptions';
+import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame, loadPlaybackEnvelope } from '../loadPlaybackLayerOptions';
 import {
     QUANTITY_ARRAYS,
     resolveChunkLengthT,
@@ -113,6 +113,8 @@ import {
     PLAYBACK_SET_BACKGROUND_OPACITY,
     PLAYBACK_SET_OVERLAY,
     PLAYBACK_SET_COLOR_MAX,
+    PLAYBACK_SET_ENVELOPE_MODE,
+    PLAYBACK_ENVELOPE_LOADED,
     playbackManifestLoaded,
     playbackManifestFetched,
     playbackLoadProgress,
@@ -120,8 +122,11 @@ import {
     playbackChunksBuffered,
     playbackChunkBufferError,
     playbackTick,
-    playbackSetIdentifyResult
+    playbackSetIdentifyResult,
+    playbackEnvelopeLoaded,
+    playbackSetEnvelopeMode
 } from '../actions/playbackActions';
+import { show } from '@mapstore/framework/actions/notifications';
 
 // ~20Hz controller clock. NOT a render-fps claim (memory:
 // reference-claude-in-chrome-prod-ui-driving-traps — never measure
@@ -695,6 +700,65 @@ export function playbackBufferEpic(action$, store) {
 }
 
 /**
+ * TASK-2752 (AC5/AC6, W8.2, epic 2706) — fetches (and dequantizes) the
+ * ACTIVE quantity's temporal-max envelope whenever the Max toggle turns on,
+ * or the operator switches to a DIFFERENT envelope-having quantity while it
+ * is already on (the reducer nulls `envelopeData` on both PLAYBACK_
+ * SET_ENVELOPE_MODE(true) and a quantity switch that stays in envelope mode
+ * — see playbackController.js — so "envelopeMode true AND envelopeData
+ * null" is exactly the "needs a fetch" state this epic watches for).
+ *
+ * A single chunk (the whole (nNode,) array, one fetch, cached by the
+ * fetcher's own `_staticArrays` map thereafter — see playbackChunkFetcher.
+ * _storeFor) — nothing like the per-tick frame traffic playbackBufferEpic
+ * manages. Never throws into the stream: a failed/unavailable fetch
+ * dispatches `data: null` exactly like loadPlaybackDt's `.catch(() => null)`
+ * pattern in playbackInitEpic, so a transient failure degrades to "no
+ * envelope drawn" rather than an unhandled rejection.
+ */
+export function playbackEnvelopeFetchEpic(action$, store) {
+    return action$.ofType(PLAYBACK_SET_ENVELOPE_MODE, PLAYBACK_SET_QUANTITY).mergeMap(() => {
+        const pb = store.getState().anugaPlayback;
+        if (!pb || !pb.runId || !pb.envelopeMode || pb.envelopeData) {
+            return Rx.Observable.empty();
+        }
+        const fetcher = fetcherRegistry.get(pb.runId);
+        if (!fetcher) {
+            return Rx.Observable.empty();
+        }
+        const runId = pb.runId;
+        const quantity = pb.quantity;
+        return Rx.Observable.fromPromise(
+            loadPlaybackEnvelope(fetcher, quantity).catch(() => null)
+        ).mergeMap((data) => {
+            if (!data) {
+                // TASK-2814 — a null envelope (failed fetch, or a store that
+                // could not serve this quantity after all) must NOT leave Max
+                // mode on: the renderer would draw its zero-filled buffer as
+                // an "everything dry" run-maximum — false data, worse than an
+                // error. Exit the mode and say so. Stale-guarded like
+                // ENVELOPE_LOADED: if the operator has since switched run or
+                // quantity, this failure is about an envelope nobody is
+                // waiting for — drop it silently instead of kicking the NEW
+                // context out of Max.
+                const now = store.getState().anugaPlayback || {};
+                if (now.runId !== runId || now.quantity !== quantity || !now.envelopeMode) {
+                    return Rx.Observable.empty();
+                }
+                return Rx.Observable.of(
+                    playbackSetEnvelopeMode(false),
+                    show({
+                        title: 'hydrata.playback.envelopeLoadFailedTitle',
+                        message: 'hydrata.playback.envelopeLoadFailed'
+                    }, 'warning')
+                );
+            }
+            return Rx.Observable.of(playbackEnvelopeLoaded(runId, quantity, data));
+        });
+    });
+}
+
+/**
  * The controller's clock: while playing (or stalled — see
  * playbackController's TICK guard, which keeps re-attempting a stalled
  * crossing so `degraded` can accumulate), dispatch PLAYBACK_TICK at
@@ -746,7 +810,12 @@ export function playbackSyncLayerEpic(action$, store) {
         PLAYBACK_SET_OPACITY,
         PLAYBACK_SET_BACKGROUND_OPACITY,
         PLAYBACK_SET_OVERLAY,
-        PLAYBACK_SET_COLOR_MAX
+        PLAYBACK_SET_COLOR_MAX,
+        // TASK-2752 — the Max toggle and its fetch landing are each their
+        // own trigger for the SAME reason SET_WIREFRAME is: flipping either
+        // while PAUSED has no other action to ride to the layer.
+        PLAYBACK_SET_ENVELOPE_MODE,
+        PLAYBACK_ENVELOPE_LOADED
     );
     return trigger$.switchMap(() => {
         const pb = store.getState().anugaPlayback;
@@ -804,7 +873,17 @@ export function playbackSyncLayerEpic(action$, store) {
             // and unused). Controller state (pb.wireframe), NOT the local
             // component state the flow-viz/particle overlay knobs use — see
             // playbackActions.js's PLAYBACK_SET_WIREFRAME header.
-            wireframe: !!pb.wireframe
+            wireframe: !!pb.wireframe,
+            // TASK-2752 (AC5/AC6, W8.2, epic 2706) — the Max toggle reaching
+            // the actual renderer. Without this the controller/epic state
+            // machine above is a closed loop that never paints anything:
+            // envelopeMode flips uEnvelopeMode, envelopeData is the
+            // Float32Array setEnvelope() uploads — both are plain re-
+            // asserted-every-sync layer properties, same class as
+            // wireframe/opacity above (so a bar remount/unmount can never
+            // desync them from controller state).
+            envelopeMode: !!pb.envelopeMode,
+            envelopeData: pb.envelopeData || null
         };
         if (lastSyncedTimestep.get(pb.runId) === pb.currentTimestep) {
             return Rx.Observable.of(mergeOptionsById(pb.layerId, baseProps));

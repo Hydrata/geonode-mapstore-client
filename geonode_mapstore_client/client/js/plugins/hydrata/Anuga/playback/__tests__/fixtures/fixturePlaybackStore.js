@@ -66,7 +66,10 @@ export const FIXTURE_STORE_FILES = {
 
 export const FIXTURE_GROUP_META = {
     "attributes": {
-        "format_version": 1,
+        "format_version": 2,
+        "n_node": 6,
+        "n_time": 13,
+        "chunk_length_t": 10,
         "xllcorner": 500000.0,
         "yllcorner": 6900000.0,
         "false_easting": 500000.0,
@@ -591,7 +594,10 @@ export const FIXTURE_MANIFEST = {
         "node_x/c/0": "node_x/c/0"
     },
     "schema_metadata": {
-        "format_version": 1,
+        "format_version": 2,
+        "n_node": 6,
+        "n_time": 13,
+        "chunk_length_t": 10,
         "xllcorner": 500000.0,
         "yllcorner": 6900000.0,
         "false_easting": 500000.0,

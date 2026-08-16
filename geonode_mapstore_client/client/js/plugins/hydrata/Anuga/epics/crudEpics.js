@@ -335,6 +335,29 @@ export const loadAnugaComputeConfigEpic = (action$) =>
 
 // Bug #1 fix: removed the spurious runScenario call before cancel.
 // Now calls cancelRun(runId) directly.
+//
+// TASK-2803 (epic 2706 W8.5) — every failure OTHER than 409 used to hit the
+// bare `return Rx.Observable.empty()` below: a denied (403, TASK-2764's own
+// CONTRIBUTOR floor), gone (404), or backend-blown-up (500) cancel produced
+// no toast, no console line and no state write — a Cancel click that
+// silently did NOTHING, indistinguishable from success or a slow response.
+// Mirrors TASK-2761's cancelProcessEpic (epicsTaskMonitor.js): a
+// user-visible toast plus a console line for support/debugging.
+//
+// While RED-proving AC2 (the 409 branch's treatment must be PINNED, not
+// just left alone) a second, pre-existing bug surfaced: the 409 check read
+// `error?.response?.status`, but libs/ajax.js's response interceptor
+// rewrites every same-origin axios rejection to the response blob directly
+// (`{status, data, ..., originalError}` — see apiErrorUtils.js's "MapStore2
+// ajax-interceptor gotcha" docstring); `runAnugaScenarioEpic` right above
+// already reads errors the correct way via the shared `_readErrStatus`.
+// `error?.response?.status` is therefore ALWAYS undefined on a real
+// rejection, so the 409 branch could never have matched — an actual
+// rank-guard-race 409 fell through to the same silent `Rx.Observable.
+// empty()` this task exists to fix, and after this fix would have been
+// wrongly reported as an 'error' instead of the benign 'warning' it is.
+// Switched to `_readErrStatus` (already imported, zero new deps) so the
+// 409 branch finally does what its comment always claimed.
 export const cancelAnugaRunEpic = (action$) =>
     action$
         .ofType(CANCEL_ANUGA_RUN)
@@ -347,12 +370,27 @@ export const cancelAnugaRunEpic = (action$) =>
                 ))
                 .catch((error) => {
                     // 409 = already terminal — show info instead of error
-                    if (error?.response?.status === 409) {
+                    if (_readErrStatus(error) === 409) {
                         return Rx.Observable.of(
                             show({"message": "hydrata.anuga.cancelError"}, "warning")
                         );
                     }
-                    return Rx.Observable.empty();
+                    // memory: mapstore-show-notification-level-second-arg —
+                    // show(opts, level) takes level as the SECOND positional
+                    // argument. Re-uses the SAME msgId as the 409 branch
+                    // above ("Run could not be cancelled" reads fine for a
+                    // denied/failed cancel too) at 'error' level instead of
+                    // 'warning' — this is NOT the benign race.
+                    console.error('cancelAnugaRunEpic: cancel failed', error);
+                    return Rx.Observable.of(
+                        show({"message": "hydrata.anuga.cancelError"}, "error"),
+                        // State write: re-arm active-run polling for this run
+                        // so the panel keeps reconciling with its REAL
+                        // status (still computing/queued/etc, NOT
+                        // cancelled) rather than being left showing
+                        // whatever it showed at click time.
+                        startActiveRunPolling(action.runId)
+                    );
                 })
         );
 
