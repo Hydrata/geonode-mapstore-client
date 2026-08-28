@@ -2154,283 +2154,54 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             });
         });
 
-        // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge: highlight
-        // + "View account" link when the estimate's BAND charge (never raw
-        // cents) exceeds the account balance. Free band ($0) never highlights.
-        describe('TASK-2420 over-balance estimate badge', () => {
-            const freeBand = { cap: 3, usedToday: 0, edge: '0.5', table: [['2', '1'], ['5', '2'], [null, '5']] };
-            const badgeSelector = '[data-testid="sv-anuga-scenario-estimate-over-balance-badge"]';
-
-            it('shows the badge when the band charge exceeds the balance (paywallEnabled)', (done) => {
+        // TASK-2848 (epic 2839 W2.1) — the over-balance and over-ceiling
+        // badges TASK-2420/2436/2717 built here are RETIRED along with
+        // bandForEstimate (AC2839-AC6: the FE band mirror is gone from every
+        // surface). paywallEnabled/accountBalance/freeBand/onOpenAccountBilling
+        // are no longer threaded into this pane at all (ScenarioPane no
+        // longer reads them) — there is no margin/cap surface on the wire to
+        // rebuild an equivalent pre-build mirror of the new exact quote(),
+        // so nothing here tries to. The pre-build section is a hedge only
+        // now; the Built line's `quote` (scenarioHeaderActions.js) is the
+        // one place a customer sees an authoritative, actionable price.
+        describe('TASK-2848 — over-balance/over-ceiling badges retired with the band mirror', () => {
+            it('never renders an over-balance badge, however far the estimate would once have exceeded a balance', (done) => {
                 ReactDOM.render(
                     <ScenarioPane
                         scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
                         selectedCategoryId={'runConfig'}
                         canEdit
-                        paywallEnabled
-                        accountBalance="1.00"
-                        freeBand={freeBand}
                     />,
                     container,
                     () => {
-                        // $3 estimate -> band $2 (table: (2,1),(5,2),(null,5)) > $1 balance.
-                        expect(container.querySelector(badgeSelector)).toExist();
+                        expect(container.querySelector('[data-testid="sv-anuga-scenario-estimate-over-balance-badge"]')).toBe(null);
+                        // The hedge itself still renders — retiring the badge
+                        // is not retiring the estimate.
+                        expect(container.querySelector('.anuga-scenario-estimate-section').textContent).toInclude('~$3.00 est.');
                         done();
                     }
                 );
             });
 
-            it('does NOT show the badge when the band charge is within balance', (done) => {
-                ReactDOM.render(
-                    <ScenarioPane
-                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
-                        selectedCategoryId={'runConfig'}
-                        canEdit
-                        paywallEnabled
-                        accountBalance="10.00"
-                        freeBand={freeBand}
-                    />,
-                    container,
-                    () => {
-                        expect(container.querySelector(badgeSelector)).toBe(null);
-                        done();
-                    }
-                );
-            });
-
-            it('never highlights a free-band ($0) estimate, even with zero balance', (done) => {
-                ReactDOM.render(
-                    <ScenarioPane
-                        scenario={{...baseScenario, compute_cost_estimate: 0.2, mesh_triangle_count_estimate: 100}}
-                        selectedCategoryId={'runConfig'}
-                        canEdit
-                        paywallEnabled
-                        accountBalance="0.00"
-                        freeBand={freeBand}
-                    />,
-                    container,
-                    () => {
-                        expect(container.querySelector(badgeSelector)).toBe(null);
-                        done();
-                    }
-                );
-            });
-
-            it('never shows the badge when paywallEnabled is false, regardless of balance', (done) => {
-                ReactDOM.render(
-                    <ScenarioPane
-                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
-                        selectedCategoryId={'runConfig'}
-                        canEdit
-                        paywallEnabled={false}
-                        accountBalance="0.00"
-                        freeBand={freeBand}
-                    />,
-                    container,
-                    () => {
-                        expect(container.querySelector(badgeSelector)).toBe(null);
-                        done();
-                    }
-                );
-            });
-
-            it('clicking the badge calls onOpenAccountBilling', (done) => {
-                let called = false;
-                ReactDOM.render(
-                    <ScenarioPane
-                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
-                        selectedCategoryId={'runConfig'}
-                        canEdit
-                        paywallEnabled
-                        accountBalance="1.00"
-                        freeBand={freeBand}
-                        onOpenAccountBilling={() => { called = true; }}
-                    />,
-                    container,
-                    () => {
-                        container.querySelector(badgeSelector).click();
-                        expect(called).toBe(true);
-                        done();
-                    }
-                );
-            });
-
-            // TASK-2436 (epic 2425 W2) — both badges shared ONE className and
-            // had NO rule anywhere in the repo, so neither could be styled and
-            // the clickable one could not be told apart from the inert one
-            // without keying off a data-testid (which we don't style). Each now
-            // carries a distinguishing modifier.
-            //
-            // NOTE: karma cannot prove the resulting appearance — jsdom has no
-            // cascade or layout engine. These assert the HOOK exists; the rules
-            // themselves live in anuga.css and their contrast is recorded on
-            // TASK-2436.
-            it('over-balance badge is a BUTTON carrying the --action modifier', (done) => {
-                ReactDOM.render(
-                    <ScenarioPane
-                        scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
-                        selectedCategoryId={'runConfig'}
-                        canEdit
-                        paywallEnabled
-                        accountBalance="1.00"
-                        freeBand={freeBand}
-                    />,
-                    container,
-                    () => {
-                        const badge = container.querySelector(badgeSelector);
-                        expect(badge.tagName).toBe('BUTTON');
-                        expect(badge.className).toInclude('sv-anuga-scenario-estimate-over-balance-badge');
-                        expect(badge.className).toInclude('sv-anuga-scenario-estimate-badge--action');
-                        expect(badge.className).toNotInclude('sv-anuga-scenario-estimate-badge--ceiling');
-                        done();
-                    }
-                );
-            });
-
-            it('over-ceiling badge is a SPAN carrying the --ceiling modifier (distinct affordance)', (done) => {
-                // band === Infinity: the final table row's cap is null, so an
-                // estimate above it has no finite band -> over-ceiling.
+            it('never renders an over-ceiling badge for a huge estimate, tester or not — the pane still states the money', (done) => {
                 ReactDOM.render(
                     <ScenarioPane
                         scenario={{...baseScenario, compute_cost_estimate: 5000, mesh_triangle_count_estimate: 9000000}}
                         selectedCategoryId={'runConfig'}
                         canEdit
-                        paywallEnabled
-                        accountBalance="0.00"
-                        freeBand={{cap: 3, usedToday: 0, edge: '0.5', table: [['2', '1'], ['5', '2']]}}
+                        isStaff
                     />,
                     container,
                     () => {
-                        const ceiling = container.querySelector('[data-testid="sv-anuga-scenario-estimate-over-ceiling-badge"]');
-                        expect(ceiling).toExist('over-ceiling badge did not render');
-                        expect(ceiling.tagName).toBe('SPAN');
-                        expect(ceiling.className).toInclude('sv-anuga-scenario-estimate-over-balance-badge');
-                        expect(ceiling.className).toInclude('sv-anuga-scenario-estimate-badge--ceiling');
-                        expect(ceiling.className).toNotInclude('sv-anuga-scenario-estimate-badge--action');
-                        // Mutually exclusive with the actionable badge.
-                        expect(container.querySelector(badgeSelector)).toBe(null);
+                        expect(container.querySelector('[data-testid="sv-anuga-scenario-estimate-over-ceiling-badge"]')).toBe(null);
+                        const label = container.querySelector('.sv-anuga-scenario-estimate-label');
+                        expect(label).toExist();
+                        expect(label.textContent).toInclude('Estimate:');
+                        expect(label.textContent).toInclude('9,000,000 triangles');
+                        expect(label.textContent).toInclude('~$5000.00 est.');
                         done();
                     }
                 );
-            });
-
-            /*
-             * TASK-2717 (W5, epic 2706) — the ceiling badge must honour the
-             * tester bypass.
-             *
-             * The bypass is DESIGNED, not a hole: gn_anuga.capabilities.is_tester
-             * (explicitly not is_staff, decision 2635-D3) lets a tester's
-             * over-ceiling estimate dispatch, debiting nothing, and
-             * test_tester_meter_bypass.py::TestTesterEstimateCeilingBypass pins
-             * that server-side. The FE never got the memo, so a tester is told to
-             * "contact us for a quote" for something they can already do. The
-             * capability is already on the wire, already in Redux, and already a
-             * prop on this component — the bug is one unthreaded argument.
-             */
-            const overCeilingScenario = {...baseScenario, compute_cost_estimate: 5000, mesh_triangle_count_estimate: 9000000};
-            const overCeilingBand = {cap: 3, usedToday: 0, edge: '0.5', table: [['2', '1'], ['5', '2']]};
-            const CEILING_BADGE = '[data-testid="sv-anuga-scenario-estimate-over-ceiling-badge"]';
-
-            function renderOverCeiling(props, then) {
-                ReactDOM.render(
-                    <ScenarioPane
-                        scenario={overCeilingScenario}
-                        selectedCategoryId={'runConfig'}
-                        canEdit
-                        paywallEnabled
-                        accountBalance="0.00"
-                        freeBand={overCeilingBand}
-                        {...props}
-                    />,
-                    container,
-                    then
-                );
-            }
-
-            it('over-ceiling badge is suppressed for a tester (isStaff true)', (done) => {
-                renderOverCeiling({isStaff: true}, () => {
-                    expect(container.querySelector(CEILING_BADGE)).toBe(null);
-                    // Paired positive assertion — a pure absence check passes
-                    // vacuously if the pane threw and rendered nothing at all.
-                    // The estimate section must still be here.
-                    expect(container.querySelector('.anuga-scenario-estimate-section')).toExist();
-                    done();
-                });
-            });
-
-            it('over-ceiling badge still renders for a non-tester (negative control)', (done) => {
-                renderOverCeiling({isStaff: false}, () => {
-                    const ceiling = container.querySelector(CEILING_BADGE);
-                    expect(ceiling).toExist('over-ceiling badge did not render for a non-tester');
-                    expect(ceiling.textContent).toBe('Above the automatic dispatch ceiling — contact us for a quote');
-                    expect(ceiling.className).toInclude('sv-anuga-scenario-estimate-badge--ceiling');
-                    done();
-                });
-            });
-
-            /*
-             * FAIL-CLOSED, PROVED AT A SEAM THAT CAN ACTUALLY FAIL.
-             *
-             * The obvious spec here — "renders while the config is unhydrated,
-             * i.e. isStaff undefined" — is VACUOUS and can never be red in any
-             * tree: ScenarioPane.defaultProps sets `isStaff: false` and React
-             * substitutes defaultProps for undefined, so that case is
-             * byte-identical to the negative control above. It would pass with
-             * the developer doing nothing, before and after the change.
-             *
-             * The fail-closed property that CAN break is the one below: the
-             * suppression must require the capability to be EXACTLY true, not
-             * merely truthy. `canSelectComputeTarget` is fail-closed by
-             * construction (uiReducer's `false` initial value, mapped through
-             * `!!state?...`), but a gate written as `!isStaff` opens for ANY
-             * truthy value — a config object, a 1, a non-empty string — so a
-             * single dropped `!!` upstream, or a future mapStateToProps that
-             * passes the raw capability through, would silently suppress the
-             * ceiling badge for every user on the site. That is a worse bug
-             * than the one this task fixes, and unlike `undefined` these values
-             * survive defaultProps and reach the component untouched.
-             */
-            [
-                ['undefined (config not yet hydrated)', undefined],
-                ['null', null],
-                ['0', 0],
-                ['the empty string', ''],
-                ['a truthy number', 1],
-                ['a truthy string', 'yes'],
-                ['a truthy object', {}]
-            ].forEach(([label, value]) => {
-                it(`over-ceiling badge still renders when isStaff is ${label} — suppression requires exactly true`, (done) => {
-                    renderOverCeiling({isStaff: value}, () => {
-                        expect(container.querySelector(CEILING_BADGE)).toExist(
-                            `over-ceiling badge was suppressed for a non-true isStaff (${label})`
-                        );
-                        done();
-                    });
-                });
-            });
-
-            /*
-             * TASK-2717 x TASK-2716, same wave and same ship: what does an
-             * over-ceiling TESTER actually see?
-             *
-             * This task removes the ceiling badge for them, and the toolbar
-             * price chip is already deliberately EMPTY when band === Infinity
-             * (scenarioHeaderActions renders priceLabel, which is null for the
-             * Infinity sentinel). Between them a tester could be left with no
-             * cost information anywhere — and TASK-2716 is about to put a role
-             * word beside that empty chip, which would make it a label with no
-             * amount. Pin the floor here: the PANE still states the money.
-             */
-            it('an over-ceiling tester still sees the cost estimate itself', (done) => {
-                renderOverCeiling({isStaff: true}, () => {
-                    const label = container.querySelector('.sv-anuga-scenario-estimate-label');
-                    expect(label).toExist();
-                    expect(label.textContent).toInclude('Estimate:');
-                    expect(label.textContent).toInclude('9,000,000 triangles');
-                    // the dollar figure, not just the triangle count
-                    expect(label.textContent).toInclude('$5000.00');
-                    done();
-                });
             });
         });
 

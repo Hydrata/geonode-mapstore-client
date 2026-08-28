@@ -4,7 +4,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
     getMeshComparison, getMeshCostDriverHint, findScenarioStatus, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES,
-    runSettingsMustStayOpen, formatCostEstimate, bandForEstimate
+    runSettingsMustStayOpen, formatCostEstimate
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -217,10 +217,10 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
  * confirm dialog can reuse the exact same predicate (DRY) rather than
  * re-derive it.
  *
- * NO auto-attach (operator-rejected: TASK-2100's price_band prices off the
- * build-frozen triangle count, so silently attaching a fine region would
- * silently multiply the run's price band post-flip). This is hint + confirm
- * only — the build-time confirm dialog lives in anugaScenarioMenu.js.
+ * NO auto-attach (operator-rejected: the Quote, gn_anuga.estimate.quote(),
+ * prices off the build-frozen triangle count, so silently attaching a finer
+ * region would silently inflate the run's charge post-flip). This is hint +
+ * confirm only — the build-time confirm dialog lives in anugaScenarioMenu.js.
  */
 /**
  * TASK-2267 — a drawn layer whose linked PostGIS table is empty
@@ -811,7 +811,7 @@ function computeTargetLabel(target, defaultComputeTarget) {
     return target === defaultComputeTarget ? `${base} (site default)` : base;
 }
 
-function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling, isStaff) {
+function renderEstimateOrBuiltSection(scenario) {
     const hasEstimate = (scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined)
         || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined);
     const comparison = getMeshComparison(scenario?.latest_run);
@@ -823,38 +823,21 @@ function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, 
     if (!hasEstimate) {
         return null;
     }
-    // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge: highlight +
-    // link to the Billing tab when the estimate's BAND charge (never raw
-    // cents — bandForEstimate mirrors gn_anuga.estimate.band()'s bucketing)
-    // exceeds the account's balance. The free band ($0) never highlights —
-    // a $0 run is never blocked by balance. Dark behind paywallEnabled
-    // (AC1/AC3): flags-off renders nothing here regardless of balance data.
-    const band = paywallEnabled
-        ? bandForEstimate(scenario.compute_cost_estimate, freeBand?.edge, freeBand?.table)
-        : null;
-    // band === Infinity: estimate exceeds the finite dispatch ceiling — the
-    // BE refuses these outright (review A14), so say that, never a band price.
-    //
-    // ...unless the user holds the tester capability (TASK-2717). The bypass is
-    // DESIGNED: gn_anuga.capabilities.is_tester (deliberately not is_staff,
-    // decision 2635-D3) lets a tester's over-ceiling estimate dispatch and
-    // debits nothing, so telling them to "contact us for a quote" is a false
-    // refusal for something they can already do. `isStaff` is that capability —
-    // the prop name predates the source change, and it is fed by
-    // `!!state.anuga.ui.canSelectComputeTarget`, i.e. the config endpoint's
-    // `can_select_compute_target` = `is_tester`.
-    //
-    // `!== true`, not `!isStaff`: `canSelectComputeTarget` is false until GET
-    // /api/v2/anuga/config/ lands, so this gate has to stay shut for every
-    // value that is not an explicit true. A truthy-but-not-true value here — a
-    // dropped `!!` upstream, a raw config object threaded through — would open
-    // the gate for every user on the site, which is a worse bug than the one
-    // this fixes.
-    const overCeiling = paywallEnabled && band === Infinity && isStaff !== true;
-    const overBalance = paywallEnabled && band !== null && Number.isFinite(band)
-        && band > 0
-        && accountBalance !== null && accountBalance !== undefined
-        && band > Number(accountBalance);
+    // TASK-2848 (epic 2839 W2.1) — the over-ceiling and over-balance badges
+    // that used to render here (TASK-2420/2436/2717) both derived from
+    // bandForEstimate, mirroring gn_anuga.estimate.band()'s discrete
+    // bucketing so a pre-build figure could never disagree with the BE's
+    // decision. Epic 2839's operator ruling retired banding outright
+    // (AC2839-AC6: the FE band mirror is gone from EVERY surface), and there
+    // is no margin/cap surface on the wire to rebuild an equivalent pre-build
+    // mirror of the new exact quote() — at the 100% launch margin, comparing
+    // the raw (un-margined) compute_cost_estimate to the account balance
+    // would silently UNDER-warn by exactly that factor, which is worse than
+    // showing nothing. Both badges are retired with band() rather than
+    // rebuilt on a number that would be quietly wrong; the pre-build section
+    // below is now a hedge only (formatCostEstimate, in the label), and the
+    // Built line's `quote` (scenarioHeaderActions.js) is the one place a
+    // customer sees an authoritative, actionable price.
     return (
         <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
             <span className="sv-anuga-scenario-estimate-label">
@@ -866,33 +849,6 @@ function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, 
                     ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
                     : ''}
             </span>
-            {/* TASK-2436 — the two badges share the ...-over-balance-badge
-                chassis but carry a distinguishing MODIFIER class, because they
-                need different affordances: this one is a <span> stating a
-                limit the user cannot self-serve past (contact us), the one
-                below is a <button> that opens the Billing tab. Styling was
-                previously impossible without keying off a data-testid, which
-                we don't do. They are mutually exclusive at runtime
-                (overCeiling === band Infinity; overBalance requires a finite
-                band), so only one ever renders. */}
-            {overCeiling ? (
-                <span
-                    className="sv-anuga-scenario-estimate-over-balance-badge sv-anuga-scenario-estimate-badge--ceiling"
-                    data-testid="sv-anuga-scenario-estimate-over-ceiling-badge"
-                >
-                    {'Above the automatic dispatch ceiling — contact us for a quote'}
-                </span>
-            ) : null}
-            {overBalance ? (
-                <button
-                    type="button"
-                    className="sv-anuga-scenario-estimate-over-balance-badge sv-anuga-scenario-estimate-badge--action"
-                    data-testid="sv-anuga-scenario-estimate-over-balance-badge"
-                    onClick={() => { if (onOpenAccountBilling) onOpenAccountBilling(); }}
-                >
-                    {'Over balance — view account'}
-                </button>
-            ) : null}
             {/* TASK-2400(a)/2421 — when local edits are unsaved (scenario.unsaved,
                 set by UPDATE_ANUGA_SCENARIO, cleared by SAVE_ANUGA_SCENARIO_SUCCESS
                 or by a poll tick that delivers a genuinely refreshed estimate —
@@ -923,7 +879,7 @@ function renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, 
  * is preserved — it shows ETA, progress, and error messages which the user
  * needs before deciding to retry or cancel. No data is dropped.
  */
-function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling}) {
+function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -1108,7 +1064,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
                 only; a built, non-stale scenario shows Built only. Before
                 this fix both blocks rendered independently and could appear
                 stacked together post-build. */}
-            {renderEstimateOrBuiltSection(scenario, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling, isStaff)}
+            {renderEstimateOrBuiltSection(scenario)}
             {renderMeshCostDriverHint(scenario)}
         </div>
     );
@@ -1127,13 +1083,12 @@ function renderRunPane(props) {
     const {
         scenario, canEdit, isStaff, onUpdateScenario,
         availableComputeTargets, defaultComputeTarget,
-        sessionComputeTarget, onSetSessionComputeTarget,
-        paywallEnabled, accountBalance, freeBand, onOpenAccountBilling
+        sessionComputeTarget, onSetSessionComputeTarget
     } = props;
     return (
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
             {/* Section (a): config fields */}
-            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget, paywallEnabled, accountBalance, freeBand, onOpenAccountBilling})}
+            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
             {/* Section (b): status feedback (ETA, progress). TASK-2244
                 (epic 2237 W2.2) — the standalone ScenarioErrorStrip render
                 that used to sit here is REMOVED: it's now embedded as the
@@ -1544,11 +1499,6 @@ ScenarioPane.propTypes = {
     // renderTerrainCoverageGapSuggestion). Same action anugaInputMenu.js's
     // header button dispatches (setTerrainWorkbenchVisible(true)).
     onOpenMergeTerrainsPanel: PropTypes.func,
-    // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge.
-    paywallEnabled: PropTypes.bool,
-    accountBalance: PropTypes.string,
-    freeBand: PropTypes.shape({cap: PropTypes.number, usedToday: PropTypes.number, edge: PropTypes.string, table: PropTypes.array}),
-    onOpenAccountBilling: PropTypes.func,
     terrain: PropTypes.array,
     boundaries: PropTypes.array,
     inflows: PropTypes.array,

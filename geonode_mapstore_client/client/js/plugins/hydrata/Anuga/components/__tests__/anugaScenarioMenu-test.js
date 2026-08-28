@@ -2201,7 +2201,7 @@ describe('anugaScenarioMenu — paywall props reach the run-actions strip (TASK-
         document.body.removeChild(container);
     });
 
-    it('a never-run priced scenario shows its price inside #scenario-run-actions', () => {
+    it('a never-run priced scenario shows its HEDGE estimate inside #scenario-run-actions (TASK-2848 — no band mirror left to shortfall against)', () => {
         const scenario = {
             id: 21, name: 'Priced', status: 'built', created_by: 9999,
             terrain: 10, boundary: 20, inflow: 30, rainfall: null,
@@ -2225,7 +2225,7 @@ describe('anugaScenarioMenu — paywall props reach the run-actions strip (TASK-
                 runAnugaScenario={() => {}}
                 paywallEnabled
                 accountBalance="0.00"
-                freeBand={{cap: 3, usedToday: 0, edge: '0.50', table: [[2, '1'], [5, '2'], [20, '5']]}}
+                freeBand={{cap: 3, usedToday: 0, edge: '0.50'}}
                 onOpenAccountBilling={() => { opened++; }}
                 scenarios={[scenario]}
                 selectedScenario={scenario}
@@ -2236,13 +2236,13 @@ describe('anugaScenarioMenu — paywall props reach the run-actions strip (TASK-
         expect(strip).toExist();
         const price = strip.querySelector('[data-testid="sv-scenario-run-price"]');
         expect(price).toExist();
-        // "at least" — W3c adversarial: a pre-build estimate is a floor, not the
-        // bill, and dropping the hedge in the one state where the number is an
-        // instruction is what let a customer top up exactly $2, watch a larger
-        // mesh price at $5, and be refused for doing what the chip said.
-        expect(price.textContent).toBe('Costs $2 · balance $0.00 · add at least $2 to run');
-        price.click();
-        expect(opened).toBe(1);
+        // TASK-2848 — no run yet means no `quote`, and there is no FE band
+        // mirror left to derive a shortfall-comparable number from
+        // (AC2839-AC6). The chip shows the SAME hedge scenarioPane.js shows —
+        // a floor, not a shortfall instruction — and is inert (no billing CTA).
+        expect(price.textContent).toBe('~$3.00 est.');
+        expect(price.tagName).toBe('SPAN');
+        expect(opened).toBe(0);
     });
 });
 

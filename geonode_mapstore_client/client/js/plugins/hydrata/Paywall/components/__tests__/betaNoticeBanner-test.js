@@ -5,13 +5,15 @@
  * AC2 — remaining-credit text is store-sourced (changes with balance).
  * AC3 — dismissal persists across a reload for the SAME user; does not
  *       suppress the banner for a DIFFERENT user on the same browser.
- * AC4 — the banner, scenarioHelpers.formatCostEstimate (the scenario-pane
- *       estimate's derivation) and scenarioHelpers.bandForEstimate (the
- *       header chip's derivation) cannot tell three different stories for
- *       one fixture: the banner states account balance (a DIFFERENT fact
- *       from a run's price) and never claims anything about run pricing,
- *       while the two estimate-derivation functions themselves resolve the
- *       SAME fixture to the SAME Free/priced verdict.
+ * AC4 — the banner states account balance (a DIFFERENT fact from a run's
+ *       price) and never claims anything about run pricing.
+ *
+ * TASK-2848 (epic 2839 W2.1) — band()/bandForEstimate retired everywhere
+ * (AC2839-AC6); this file's AC4 originally also cross-checked
+ * scenarioHelpers.formatCostEstimate against the now-deleted bandForEstimate
+ * for agreement on one fixture. There is only one pre-build estimate
+ * derivation left (formatCostEstimate), so that cross-check is gone with the
+ * function it checked, not replaced.
  */
 import expect from 'expect';
 import React from 'react';
@@ -22,7 +24,7 @@ import { createStore, combineReducers } from 'redux';
 import BetaNoticeBannerContainer from '../../containers/BetaNoticeBannerContainer';
 import accountSummaryReducer from '../../account/reducer';
 import { setAccountSummary } from '../../account/actions';
-import { formatCostEstimate, bandForEstimate } from '../../../Anuga/components/scenarioHelpers';
+import { formatCostEstimate } from '../../../Anuga/components/scenarioHelpers';
 
 function makeStore({ jobName = 'hydratabase', username = 'e2e_regular' } = {}) {
     const rootReducer = combineReducers({
@@ -76,13 +78,13 @@ describe('TASK-2638 BetaNoticeBanner', () => {
 
     it('AC2 — the remaining-credit text is sourced from the store balance, not a hardcoded literal', () => {
         const store = makeStore({ jobName: 'hydratabase' });
-        store.dispatch(setAccountSummary({ balance: '12.34', free_band: { cap: 3, used_today: 0, edge: '0.5', table: [] } }));
+        store.dispatch(setAccountSummary({ balance: '12.34', free_band: { cap: 3, used_today: 0, edge: '0.5' } }));
         ReactDOM.render(<Provider store={store}><BetaNoticeBannerContainer /></Provider>, host);
         const textEl = host.querySelector('[data-testid="sv-beta-notice-banner-text"]');
         expect(textEl.textContent).toInclude('$12.34');
 
         // Change the store balance — the SAME mounted component must reflect it.
-        store.dispatch(setAccountSummary({ balance: '99.00', free_band: { cap: 3, used_today: 0, edge: '0.5', table: [] } }));
+        store.dispatch(setAccountSummary({ balance: '99.00', free_band: { cap: 3, used_today: 0, edge: '0.5' } }));
         expect(host.querySelector('[data-testid="sv-beta-notice-banner-text"]').textContent).toInclude('$99.00');
         expect(host.querySelector('[data-testid="sv-beta-notice-banner-text"]').textContent).toNotInclude('$12.34');
     });
@@ -125,7 +127,7 @@ describe('TASK-2638 BetaNoticeBanner', () => {
 
     it('AC4 — the banner never claims anything about run pricing (states account balance only)', () => {
         const store = makeStore({ jobName: 'hydratabase' });
-        store.dispatch(setAccountSummary({ balance: '50.00', free_band: { cap: 3, used_today: 0, edge: '0.5', table: [[2, '1'], [5, '2'], [null, '5']] } }));
+        store.dispatch(setAccountSummary({ balance: '50.00', free_band: { cap: 3, used_today: 0, edge: '0.5' } }));
         ReactDOM.render(<Provider store={store}><BetaNoticeBannerContainer /></Provider>, host);
         const text = host.querySelector('[data-testid="sv-beta-notice-banner-text"]').textContent;
         expect(text).toInclude('$50.00');
@@ -135,19 +137,12 @@ describe('TASK-2638 BetaNoticeBanner', () => {
         expect(text).toNotInclude('band');
     });
 
-    it('AC4 — formatCostEstimate (scenario-pane) and bandForEstimate (header chip) agree on ONE fixture', () => {
-        // One shared fixture: a $0.20 estimate, free threshold $0.50 —
-        // both derivations must resolve this to "Free", never disagree.
-        const freeEstimate = 0.20;
-        expect(formatCostEstimate(freeEstimate)).toBe('~$0.20 est.');
-        // formatCostEstimate only special-cases EXACTLY 0 as 'Free' — the
-        // header chip's bandForEstimate is the one that buckets sub-threshold
-        // amounts into the Free BAND (0). Confirm the band-level verdict:
-        expect(bandForEstimate(freeEstimate, '0.5', [[2, '1'], [5, '2'], [null, '5']])).toBe(0);
-        // And the true free-band case (estimate itself is exactly 0)
-        // agrees on both surfaces without contradiction.
+    it('AC4 — formatCostEstimate agrees with itself on the true-zero and non-zero cases (no second derivation left to cross-check)', () => {
+        // TASK-2848 — bandForEstimate is gone (AC2839-AC6); formatCostEstimate
+        // is now the ONLY pre-build estimate derivation, so this pins its own
+        // two branches rather than cross-checking a retired sibling.
+        expect(formatCostEstimate(0.20)).toBe('~$0.20 est.');
         expect(formatCostEstimate(0)).toBe('Free');
-        expect(bandForEstimate(0, '0.5', [[2, '1'], [5, '2'], [null, '5']])).toBe(0);
     });
 });
 

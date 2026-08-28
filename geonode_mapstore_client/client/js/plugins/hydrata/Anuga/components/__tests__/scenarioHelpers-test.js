@@ -24,8 +24,7 @@ import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP,
     ERROR_CLASS_MESSAGE_IDS, tailLines, capChars, TAIL_MAX_CHARS, buildCloudWatchDeepLink,
     getMeshComparison, getMeshDivergence, getMeshCostDriverHint,
-    DEFAULT_MESH_DIVERGENCE_THRESHOLD, runSettingsMustStayOpen, IN_FLIGHT_STATUSES,
-    bandForEstimate
+    DEFAULT_MESH_DIVERGENCE_THRESHOLD, runSettingsMustStayOpen, IN_FLIGHT_STATUSES
 } from '../scenarioHelpers';
 
 function makeValidScenario(overrides) {
@@ -873,48 +872,13 @@ describe('TASK-2245 runSettingsMustStayOpen', () => {
     });
 });
 
-// TASK-2420 (epic 2359 W4.5) — mirrors gn_anuga.estimate.band()'s bucketing
-// EXACTLY (free threshold, then ascending table lookup) so the FE's
-// pre-build over-balance badge can never disagree with the gate's own price.
-describe('TASK-2420 bandForEstimate', () => {
-    // Shipped-default shape (settings.COMPUTE_PRICE_BAND_TABLE):
-    // [(2, 1), (5, 2), (None, 5)].
-    const table = [['2', '1'], ['5', '2'], [null, '5']];
-
-    it('returns 0 (free band) when the estimate is at or under the free threshold', () => {
-        expect(bandForEstimate(0.3, '0.5', table)).toBe(0);
-        expect(bandForEstimate(0.5, '0.5', table)).toBe(0); // boundary is free (<=)
-    });
-
-    it('buckets into the first band just above the free threshold', () => {
-        expect(bandForEstimate(1.5, '0.5', table)).toBe(1);
-        expect(bandForEstimate(2, '0.5', table)).toBe(1); // boundary belongs to the LOWER band
-    });
-
-    it('buckets into the second band', () => {
-        expect(bandForEstimate(3, '0.5', table)).toBe(2);
-        expect(bandForEstimate(5, '0.5', table)).toBe(2);
-    });
-
-    it('falls through to the catch-all (null upper) last band', () => {
-        expect(bandForEstimate(20, '0.5', table)).toBe(5);
-        expect(bandForEstimate(500, '0.5', table)).toBe(5);
-    });
-
-    it('returns Infinity above a FINITE last bound — BE refuses dispatch there, never a band price (review A14)', () => {
-        const finiteTable = [[2, 1], [5, 2], [20, 5]];
-        expect(bandForEstimate(20, '0.5', finiteTable)).toBe(5); // boundary belongs to the band
-        expect(bandForEstimate(34.57, '0.5', finiteTable)).toBe(Infinity);
-        expect(Number.isFinite(bandForEstimate(34.57, '0.5', finiteTable))).toBe(false);
-    });
-
-    it('returns null when dollars is null/undefined (nothing to price yet)', () => {
-        expect(bandForEstimate(null, '0.5', table)).toBe(null);
-        expect(bandForEstimate(undefined, '0.5', table)).toBe(null);
-    });
-
-    it('returns null when the table is missing/empty (defensive — never mis-band on bad data)', () => {
-        expect(bandForEstimate(3, '0.5', [])).toBe(null);
-        expect(bandForEstimate(3, '0.5', null)).toBe(null);
-    });
-});
+// TASK-2420 (epic 2359 W4.5) shipped bandForEstimate here, mirroring
+// gn_anuga.estimate.band()'s bucketing so the FE's pre-build over-balance
+// badge could never disagree with the gate's own price. TASK-2848 (epic
+// 2839 W2.1) deletes bandForEstimate along with band() itself (AC2839-AC6 —
+// the FE band mirror is gone from EVERY surface): there is no margin/cap
+// surface on the wire with which to rebuild an equivalent pre-build mirror
+// of the new exact quote(), and reconstructing one from the raw
+// (un-margined) compute_cost_estimate would silently understate the real
+// charge by the margin factor. formatCostEstimate (tested above) is now the
+// only pre-build price derivation — a hedge, not a mirrored charge.

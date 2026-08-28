@@ -21,7 +21,12 @@ const initialState = {
     manager: null,
     isManager: false,
     balance: null,
-    freeBand: { cap: 0, usedToday: 0, edge: '0', table: [] },
+    // TASK-2848 (epic 2839 W2.1) — `table` retired: AC2839-AC6 kills band()
+    // and its FE mirror (bandForEstimate) everywhere; the account-summary
+    // payload no longer carries a price-band table to consume
+    // (commerce/account_views.py's free_band dict dropped its 'table' key
+    // in TASK-2841, same epic W1.1).
+    freeBand: { cap: 0, usedToday: 0, edge: '0' },
     subscription: { active: false, since: null },
     availablePacks: [],
     recentEntries: [],
@@ -46,10 +51,7 @@ export default (state = initialState, action) => {
             freeBand: {
                 cap: freeBand.cap !== undefined ? freeBand.cap : 0,
                 usedToday: freeBand.used_today !== undefined ? freeBand.used_today : 0,
-                edge: freeBand.edge !== undefined ? freeBand.edge : '0',
-                // TASK-2420 — the price band table (scenarioPane.js's
-                // over-balance estimate badge, bandForEstimate helper).
-                table: freeBand.table || []
+                edge: freeBand.edge !== undefined ? freeBand.edge : '0'
             },
             subscription: {
                 active: !!subscription.active,

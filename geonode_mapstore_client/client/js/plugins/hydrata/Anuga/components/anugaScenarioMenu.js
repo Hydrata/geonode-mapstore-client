@@ -393,10 +393,11 @@ class AnugaScenarioMenuClass extends React.Component {
       meshDivergenceThreshold: PropTypes.number,
       canCreateScenario: PropTypes.bool,
       canRunScenario: PropTypes.bool,
-      // TASK-2420 (epic 2359 W4.5) — over-balance estimate badge.
+      // TASK-2420 (epic 2359 W4.5); `table` retired by TASK-2848 (epic 2839
+      // W2.1, AC2839-AC6 — band()/bandForEstimate gone from every surface).
       paywallEnabled: PropTypes.bool,
       accountBalance: PropTypes.string,
-      freeBand: PropTypes.shape({cap: PropTypes.number, usedToday: PropTypes.number, edge: PropTypes.string, table: PropTypes.array}),
+      freeBand: PropTypes.shape({cap: PropTypes.number, usedToday: PropTypes.number, edge: PropTypes.string}),
       myRole: PropTypes.string,
       currentUserId: PropTypes.number,
       selectedScenarios: PropTypes.array,
@@ -1144,10 +1145,6 @@ class AnugaScenarioMenuClass extends React.Component {
               onOptionalInputsExpanded={this.handleOptionalInputsExpanded}
               requiredExpandToken={this.state.requiredExpandToken}
               onRequiredExpanded={this.handleRequiredExpanded}
-              paywallEnabled={this.props.paywallEnabled}
-              accountBalance={this.props.accountBalance}
-              freeBand={this.props.freeBand}
-              onOpenAccountBilling={this.props.onOpenAccountBilling}
           />
       );
   }
