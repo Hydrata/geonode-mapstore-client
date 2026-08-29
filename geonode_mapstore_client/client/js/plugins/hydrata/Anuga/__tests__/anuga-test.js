@@ -1,5 +1,6 @@
 import expect from 'expect';
 import reducer from '../reducersAnuga';
+import { SET_RESOURCE_ID } from "@js/actions/gnresource";
 import {
     INIT_ANUGA,
     SET_ANUGA_INPUT_MENU,
@@ -9,6 +10,8 @@ import {
     SET_PUBLICATION_PANEL,
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_INIT_IN_FLIGHT,
+    SET_ANUGA_NO_PROJECT_FOR_MAP,
+    setAnugaNoProjectForMap,
     SET_ANUGA_SCENARIO_DATA,
     SET_ANUGA_INFLOW_DATA,
     SET_ANUGA_FRICTION_DATA,
@@ -292,6 +295,78 @@ describe('Anuga Plugin', () => {
             const done = reducer(inFlight, { type: SET_ANUGA_PROJECT_DATA, data: { id: 1 } });
             expect(done.projects.initInFlight).toBe(false);
             expect(done.projects.data).toEqual({ id: 1 });
+        });
+
+        // TASK-2850 (epic 2839 W2.3) — the TERMINAL "no ANUGA project for
+        // this map" state. See anugaContainer.js's componentDidUpdate gate
+        // and pollingEpics.js's initAnugaEpic catch for the mechanism this
+        // closes: without a positive, cacheable "asked, and there is none"
+        // answer, `!isAnugaProject` can never itself become false for a map
+        // with no project to ever set, so this reducer slice is the ONLY
+        // thing that can stop the gate from re-arming forever.
+        describe('TASK-2850 SET_ANUGA_NO_PROJECT_FOR_MAP', () => {
+            it('action creator carries the map id', () => {
+                expect(setAnugaNoProjectForMap(1418)).toEqual({
+                    type: SET_ANUGA_NO_PROJECT_FOR_MAP, mapId: 1418
+                });
+            });
+
+            it('defaults to null (never answered) on a fresh slice', () => {
+                const state = reducer(undefined, { type: '@@INIT' });
+                expect(state.projects.noProjectForMapId).toBe(null);
+            });
+
+            it('records the map id and clears the in-flight guard', () => {
+                const inFlight = reducer(undefined, { type: SET_ANUGA_INIT_IN_FLIGHT, mapId: 1418 });
+                const answered = reducer(inFlight, setAnugaNoProjectForMap(1418));
+                expect(answered.projects.noProjectForMapId).toBe(1418);
+                expect(answered.projects.initInFlight).toBe(false);
+            });
+
+            it('a late answer for a map the user has since left is REFUSED (TOCTOU guard, mirrors SET_ANUGA_PROJECT_DATA)', () => {
+                // The slice is already stamped to a DIFFERENT map (1418) when
+                // a stale 404 for the abandoned map (1417) lands late.
+                let state = reducer(undefined, { type: SET_RESOURCE_ID, id: 1418 });
+                state = reducer(state, setAnugaNoProjectForMap(1417));
+                expect(state.projects.noProjectForMapId).toBe(
+                    null, 'a stale answer for an abandoned map must not poison the current one'
+                );
+            });
+
+            it('SET_ANUGA_PROJECT_DATA clears a stale noProjectForMapId (a project now genuinely exists)', () => {
+                const answered = reducer(undefined, setAnugaNoProjectForMap(1418));
+                const withData = reducer(answered, { type: SET_ANUGA_PROJECT_DATA, data: { id: 1 }, mapId: 1418 });
+                expect(withData.projects.noProjectForMapId).toBe(null);
+            });
+
+            it('SET_RESOURCE_ID for a DIFFERENT map resets the terminal answer — a fresh map gets its own fresh question', () => {
+                let state = reducer(undefined, setAnugaNoProjectForMap(1418));
+                expect(state.projects.noProjectForMapId).toBe(1418);
+                state = reducer(state, { type: SET_RESOURCE_ID, id: 1459 });
+                expect(state.projects.noProjectForMapId).toBe(null);
+            });
+
+            it('SET_RESOURCE_ID for the SAME map (repeat dispatch) preserves the terminal answer', () => {
+                let state = reducer(undefined, { type: SET_RESOURCE_ID, id: 1418 });
+                state = reducer(state, setAnugaNoProjectForMap(1418));
+                state = reducer(state, { type: SET_RESOURCE_ID, id: 1418 });
+                expect(state.projects.noProjectForMapId).toBe(
+                    1418, 'a repeat SET_RESOURCE_ID for the map already on screen must not re-arm its own answer'
+                );
+            });
+
+            it('a string/number map-id type mismatch still matches (gnresource.id is a route-path STRING)', () => {
+                // Mirrors projectsReducer.js's own _isSameMap idiom: a type-only
+                // difference between the stamped id and the route's string id
+                // must never read as "different map".
+                let state = reducer(undefined, { type: SET_RESOURCE_ID, id: '1418' });
+                state = reducer(state, setAnugaNoProjectForMap(1418));
+                expect(state.projects.noProjectForMapId).toBe(1418);
+                // A repeat SET_RESOURCE_ID with the STRING id for the SAME map
+                // must not clear it via the reset branch.
+                state = reducer(state, { type: SET_RESOURCE_ID, id: '1418' });
+                expect(state.projects.noProjectForMapId).toBe(1418);
+            });
         });
     });
 

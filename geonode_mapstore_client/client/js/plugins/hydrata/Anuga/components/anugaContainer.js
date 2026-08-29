@@ -121,6 +121,10 @@ export class AnugaContainer extends React.Component {
         isAnugaProject: PropTypes.oneOfType([PropTypes.bool, PropTypes.number]),
         // TASK-1637 — map id (number) of an in-flight init, or false.
         initInFlight: PropTypes.oneOfType([PropTypes.bool, PropTypes.number, PropTypes.string]),
+        // TASK-2850 — true once the CURRENT map has been confirmed to have
+        // no ANUGA project (a terminal, cacheable answer — never re-derived
+        // from anything that only means "have not asked yet").
+        noProjectForThisMap: PropTypes.bool,
         hydrologyPluginPresent: PropTypes.bool,
         showHydrologyMainMenu: PropTypes.bool,
         setHydrologyMainMenu: PropTypes.func,
@@ -200,8 +204,28 @@ export class AnugaContainer extends React.Component {
         // project slice on SET_RESOURCE_ID, so `!isAnugaProject` genuinely
         // means "no project for the map on screen". Do not re-derive
         // isAnugaProject from anything that can outlive a map switch.
+        //
+        // TASK-2850 (epic 2839 W2.3) — `!noProjectForThisMap` is the THIRD
+        // conjunct this gate needed. `!isAnugaProject` can never itself
+        // become false for a map with no ANUGA project — there is no
+        // project to ever set one — so on such a map (the large majority of
+        // ordinary GeoNode maps) EVERY re-render re-armed this gate the
+        // instant initAnugaEpic's catch cleared initInFlight (below,
+        // pollingEpics.js): an unbounded ~8.8 dispatches/sec retry storm
+        // against POST /from-map/, each pairing an authenticated write-
+        // shaped request with a user-visible error toast, for as long as
+        // the user stayed on the map. noProjectForThisMap is the missing
+        // TERMINAL state: a positive, cacheable "asked, and there is none"
+        // that (unlike isAnugaProject) genuinely can and does become true,
+        // so the gate stays shut for the rest of this map's life. It resets
+        // on SET_RESOURCE_ID for a different map (projectsReducer.js's
+        // _NO_PROJECT_LOADED, mirroring its own per-map reset pattern), so a
+        // map switch always gets its own fresh answer.
         const initRunningForThisMap = this.props.initInFlight === this.props.gnResourceLoaded;
-        if (this.props.gnResourceLoaded && !this.props.isAnugaProject && !initRunningForThisMap) {
+        if (
+            this.props.gnResourceLoaded && !this.props.isAnugaProject
+            && !initRunningForThisMap && !this.props.noProjectForThisMap
+        ) {
             this.props.initAnuga();
         }
     }
@@ -484,6 +508,18 @@ export const mapStateToProps = (state) => {
         // TASK-1637 — map id of an init currently in flight (or false). Lets
         // componentDidUpdate skip a redundant INIT_ANUGA re-dispatch.
         initInFlight: state?.anuga?.projects?.initInFlight,
+        // TASK-2850 — `noProjectForMapId` is stored as a bare map id (or
+        // null), like `initInFlight`; this resolves it to the boolean the
+        // gate actually needs, comparing against the CURRENT map. String()
+        // on both sides mirrors projectsReducer.js's own `_isSameMap` idiom
+        // (gnresource.id is a route-path STRING; the stamped id can arrive
+        // numeric) — a type-only difference must never read as "different
+        // map" here either.
+        noProjectForThisMap: (
+            state?.anuga?.projects?.noProjectForMapId != null
+            && state?.gnresource?.id != null
+            && String(state.anuga.projects.noProjectForMapId) === String(state.gnresource.id)
+        ),
         hasEPSGset: !!state?.anuga?.projects?.data?.projection,
         showAnugaInputMenu: state?.anuga?.ui?.showAnugaInputMenu,
         showAnugaScenarioMenu: state?.anuga?.ui?.showAnugaScenarioMenu,
