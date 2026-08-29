@@ -703,6 +703,14 @@ export const createCheckoutSession = (
 export const getComputeBalance = () =>
     axios.get('/commerce/balance/');
 
+// TASK-2849 (epic 2839 W2.2) — resend surface for TASK-2844's BE gate
+// (gn_anuga.api_v2.EmailVerificationResendView, name v2-email-verification-
+// resend). `url` comes from the 403 EMAIL_UNVERIFIED body's `resend_url`
+// field, never hardcoded here, so a future path change on the BE side needs
+// no matching FE edit.
+export const resendEmailVerification = (url) =>
+    axios.post(url);
+
 // -- Account panel (TASK-2419/2420, epic 2359 W4.5) ------------------------
 //
 // GET /commerce/account/ — the viewing user's own Account summary (org/

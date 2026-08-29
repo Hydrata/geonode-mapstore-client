@@ -7,10 +7,14 @@ import {
     triggerFetchBalanceOnInitEpic,
     fetchComputeBalanceEpic,
     refetchBalanceOnAccountSummaryEpic,
+    resendEmailVerificationEpic,
     __resetComputeMeterInitForTests
 } from '../epics/computeMeterEpics';
 import {INIT_ANUGA} from '../actionsAnuga';
-import {FETCH_COMPUTE_BALANCE, SET_COMPUTE_BALANCE} from '../../Paywall/meter/actions';
+import {
+    FETCH_COMPUTE_BALANCE, SET_COMPUTE_BALANCE,
+    RESEND_EMAIL_VERIFICATION_REQUEST, SET_RESEND_EMAIL_VERIFICATION_RESULT
+} from '../../Paywall/meter/actions';
 import {SET_ACCOUNT_SUMMARY} from '../../Paywall/account/actions';
 
 const mockActions = (actions) => {
@@ -299,6 +303,90 @@ describe('TASK-2100 computeMeterEpics', () => {
                                 done();
                             } catch (err) { done(err); }
                         });
+                });
+        });
+    });
+
+    // ── TASK-2849 (epic 2839 W2.2): resend-verification surface ─────────────
+    describe('resendEmailVerificationEpic', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        const storeWithModal = (modal) => ({
+            getState: () => ({anuga: {computeMeter: {modal}}})
+        });
+
+        it('POSTs to the OPEN modal\'s resendUrl and emits SET_RESEND_EMAIL_VERIFICATION_RESULT("sent")', (done) => {
+            mockAxios.onPost('/api/v2/anuga/account/resend-verification/').reply(200, {status: 'sent'});
+            const store = storeWithModal({type: 'email_unverified', detail: 'x', resendUrl: '/api/v2/anuga/account/resend-verification/'});
+            const emitted = [];
+            resendEmailVerificationEpic(mockActions([{type: RESEND_EMAIL_VERIFICATION_REQUEST}]), store)
+                .subscribe(a => emitted.push(a), done, () => {
+                    try {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_RESEND_EMAIL_VERIFICATION_RESULT);
+                        expect(emitted[0].status).toBe('sent');
+                        done();
+                    } catch (err) { done(err); }
+                });
+        });
+
+        it('an already_verified response passes that status through verbatim', (done) => {
+            mockAxios.onPost('/resend/').reply(200, {status: 'already_verified'});
+            const store = storeWithModal({type: 'email_unverified', detail: 'x', resendUrl: '/resend/'});
+            const emitted = [];
+            resendEmailVerificationEpic(mockActions([{type: RESEND_EMAIL_VERIFICATION_REQUEST}]), store)
+                .subscribe(a => emitted.push(a), done, () => {
+                    try {
+                        expect(emitted[0].status).toBe('already_verified');
+                        done();
+                    } catch (err) { done(err); }
+                });
+        });
+
+        it('a 429 cooldown response emits status=cooldown carrying the server detail', (done) => {
+            mockAxios.onPost('/resend/').reply(429, {status: 'cooldown', detail: 'wait a bit', retry_after_seconds: 200});
+            const store = storeWithModal({type: 'email_unverified', detail: 'x', resendUrl: '/resend/'});
+            const emitted = [];
+            resendEmailVerificationEpic(mockActions([{type: RESEND_EMAIL_VERIFICATION_REQUEST}]), store)
+                .subscribe(a => emitted.push(a), done, () => {
+                    try {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].status).toBe('cooldown');
+                        expect(emitted[0].detail).toBe('wait a bit');
+                        done();
+                    } catch (err) { done(err); }
+                });
+        });
+
+        it('a network/5xx failure emits status=error rather than throwing', (done) => {
+            mockAxios.onPost('/resend/').reply(500);
+            const store = storeWithModal({type: 'email_unverified', detail: 'x', resendUrl: '/resend/'});
+            const emitted = [];
+            resendEmailVerificationEpic(mockActions([{type: RESEND_EMAIL_VERIFICATION_REQUEST}]), store)
+                .subscribe(a => emitted.push(a), done, () => {
+                    try {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].status).toBe('error');
+                        done();
+                    } catch (err) { done(err); }
+                });
+        });
+
+        it('a stray click with no open modal emits status=error without guessing a URL', (done) => {
+            const store = storeWithModal(null);
+            const emitted = [];
+            resendEmailVerificationEpic(mockActions([{type: RESEND_EMAIL_VERIFICATION_REQUEST}]), store)
+                .subscribe(a => emitted.push(a), done, () => {
+                    try {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].status).toBe('error');
+                        done();
+                    } catch (err) { done(err); }
                 });
         });
     });

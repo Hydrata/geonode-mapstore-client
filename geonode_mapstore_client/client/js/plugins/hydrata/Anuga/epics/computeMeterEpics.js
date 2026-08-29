@@ -10,11 +10,13 @@
 import Rx from 'rxjs';
 import * as anugaApi from '../api/anugaApi';
 import { INIT_ANUGA } from '../actionsAnuga';
-import { readErrStatus } from '../utils/apiErrorUtils';
+import { readErrStatus, readErrData } from '../utils/apiErrorUtils';
 import {
     FETCH_COMPUTE_BALANCE,
     fetchComputeBalance,
-    setComputeBalance
+    setComputeBalance,
+    RESEND_EMAIL_VERIFICATION_REQUEST,
+    setResendEmailVerificationResult
 } from '../../Paywall/meter/actions';
 import { SET_ACCOUNT_SUMMARY } from '../../Paywall/account/actions';
 import { getComputeMeterState } from '../../Paywall/meter/reducer';
@@ -111,8 +113,52 @@ export const refetchBalanceOnAccountSummaryEpic = (action$, store) => action$
     .filter(() => getComputeMeterState(store.getState()).loaded === false)
     .map(() => fetchComputeBalance());
 
+/**
+ * TASK-2849 (epic 2839 W2.2) — resend surface for TASK-2844's BE dispatch
+ * gate. Reads `resendUrl` off the OPEN email_unverified modal in the store
+ * (the 403 body's `resend_url`, never hardcoded) rather than off the action,
+ * because the click carries no payload — it can only ever mean "resend for
+ * whatever refusal is currently on screen".
+ *
+ * `switchMap` (not `exhaustMap`): a genuine double-click is already guarded
+ * by the BE's own 5-minute cooldown (EmailVerificationResendView), and the
+ * button disables locally via `pending` for the same reason
+ * subscribeCheckoutEpic's buttons do — this just needs to not pile up
+ * concurrent requests if the user mashes it before `pending` paints.
+ */
+export const resendEmailVerificationEpic = (action$, store) => action$
+    .ofType(RESEND_EMAIL_VERIFICATION_REQUEST)
+    .switchMap(() => {
+        const resendUrl = getComputeMeterState(store.getState())?.modal?.resendUrl;
+        if (!resendUrl) {
+            // No open modal to resend for — a stray/late click. Say nothing
+            // rather than guess at a URL.
+            return Rx.Observable.of(setResendEmailVerificationResult('error'));
+        }
+        return Rx.Observable
+            .defer(() => Rx.Observable.from(anugaApi.resendEmailVerification(resendUrl)))
+            .map((response) => {
+                const data = response?.data || {};
+                // EmailVerificationResendView's status values: 'sent' |
+                // 'already_verified' | 'send_failed' (all HTTP 200) — never
+                // guess a status this view didn't send.
+                return setResendEmailVerificationResult(data.status || 'sent', data.detail);
+            })
+            .catch((err) => {
+                const status = readErrStatus(err);
+                const data = readErrData(err);
+                // 429 cooldown carries its own detail + retry_after_seconds —
+                // surfaced as 'cooldown', distinct from a hard failure.
+                if (status === 429 && data?.status === 'cooldown') {
+                    return Rx.Observable.of(setResendEmailVerificationResult('cooldown', data.detail));
+                }
+                return Rx.Observable.of(setResendEmailVerificationResult('error'));
+            });
+    });
+
 export default {
     triggerFetchBalanceOnInitEpic,
     fetchComputeBalanceEpic,
-    refetchBalanceOnAccountSummaryEpic
+    refetchBalanceOnAccountSummaryEpic,
+    resendEmailVerificationEpic
 };

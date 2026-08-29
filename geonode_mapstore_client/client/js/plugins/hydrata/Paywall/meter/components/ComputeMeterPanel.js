@@ -32,7 +32,9 @@
  * all until a refusal arrives, then portals exactly one modal:
  * insufficient_balance -> pack purchase CTAs; cap_exceeded -> its OWN
  * distinct message (never conflated); estimate_ceiling (TASK-2123) -> a
- * contact-us path (no CTA fixes an over-ceiling run).
+ * contact-us path (no CTA fixes an over-ceiling run); email_unverified
+ * (TASK-2849, epic 2839 W2.2 — TASK-2844's BE gate) -> a Resend-verification
+ * CTA, never a pack/subscribe CTA (not a billing refusal).
  *
  * BalanceStrip itself is NOT deleted — it is still the Billing tab's balance
  * card (BillingTabPanel.js, its one and only caller). Its second, inline
@@ -375,6 +377,75 @@ EstimateCeilingModal.propTypes = {
     onViewAccount: PropTypes.func
 };
 
+/**
+ * TASK-2849 (epic 2839 W2.2) — EMAIL_UNVERIFIED 403 (TASK-2844's dispatch
+ * gate) -> its OWN distinct message and action: a "Resend verification
+ * email" button, never a pack/subscribe CTA (this isn't a billing refusal —
+ * verifying an email doesn't cost anything). `resendStatus`/`resendPending`
+ * drive the feedback line beneath the button; `resendStatus` is one of
+ * EmailVerificationResendView's own response shapes ('sent',
+ * 'already_verified', 'cooldown', 'send_failed') or 'error' for a
+ * network/5xx failure — never a guessed string.
+ */
+const RESEND_STATUS_COPY = {
+    sent: 'Verification email sent — check your inbox.',
+    already_verified: 'Your email is already verified — try running again.',
+    send_failed: "We couldn't send that email just now. Please try again shortly.",
+    error: "We couldn't reach the server. Please try again."
+};
+
+function EmailUnverifiedModal({ detail, onResend, onDismiss, resendPending, resendStatus, resendStatusDetail }) {
+    // 'cooldown' carries its OWN server-supplied detail (names the wait);
+    // every other status has a fixed, known-good copy above so a malformed
+    // or future BE status string can never render blank.
+    const feedback = resendStatus === 'cooldown'
+        ? resendStatusDetail
+        : RESEND_STATUS_COPY[resendStatus] || null;
+    return (
+        <div data-testid="meter-email-unverified-modal" className="compute-meter-modal-overlay">
+            <div className="compute-meter-modal">
+                <h2 id={MODAL_TITLE_ID} className="compute-meter-modal-title">Verify your email to run this model</h2>
+                <p data-testid="meter-email-unverified-detail" className="compute-meter-modal-body">
+                    {detail}
+                </p>
+                <div className="compute-meter-modal-actions">
+                    <button
+                        type="button"
+                        data-testid="meter-resend-verification-cta"
+                        className="compute-meter-buy-pack-btn"
+                        disabled={resendPending}
+                        onClick={onResend}
+                    >
+                        {resendPending ? 'Sending…' : 'Resend verification email'}
+                    </button>
+                    <button
+                        type="button"
+                        data-testid="meter-dismiss-modal"
+                        className="compute-meter-dismiss-btn"
+                        onClick={onDismiss}
+                    >
+                        OK
+                    </button>
+                </div>
+                {feedback ? (
+                    <p data-testid="meter-resend-verification-feedback" className="compute-meter-modal-body">
+                        {feedback}
+                    </p>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
+EmailUnverifiedModal.propTypes = {
+    detail: PropTypes.string,
+    onResend: PropTypes.func,
+    onDismiss: PropTypes.func,
+    resendPending: PropTypes.bool,
+    resendStatus: PropTypes.string,
+    resendStatusDetail: PropTypes.string
+};
+
 class ComputeMeterPanel extends React.Component {
     static propTypes = {
         /** Kill-switch — from the balance endpoint's `enabled` field. Default false (dark). */
@@ -387,13 +458,21 @@ class ComputeMeterPanel extends React.Component {
          * richer list (BalanceStrip stopped rendering one in TASK-2458).
          */
         availablePacks: PropTypes.array,
-        /** {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling', checkoutUrl, detail} | null */
+        /** {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling'|'email_unverified', checkoutUrl, detail, resendUrl} | null */
         modal: PropTypes.shape({
             type: PropTypes.string,
             checkoutUrl: PropTypes.string,
-            detail: PropTypes.string
+            detail: PropTypes.string,
+            resendUrl: PropTypes.string
         }),
         onBuyPack: PropTypes.func,
+        // TASK-2849 (epic 2839 W2.2) — email_unverified modal's Resend button.
+        onResendVerification: PropTypes.func,
+        resendVerification: PropTypes.shape({
+            pending: PropTypes.bool,
+            status: PropTypes.string,
+            detail: PropTypes.string
+        }),
         /**
          * TASK-2441 (epic 2425 W4.2) — a checkout-session create is on the
          * wire, so every buy control disables. Mapped from the paywall slice's
@@ -414,11 +493,16 @@ class ComputeMeterPanel extends React.Component {
         checkoutPending: false,
         onBuyPack: () => {},
         onDismissModal: () => {},
-        onViewAccount: () => {}
+        onViewAccount: () => {},
+        onResendVerification: () => {},
+        resendVerification: { pending: false, status: null, detail: null }
     };
 
     render() {
-        const { enabled, availablePacks, modal, checkoutPending, onBuyPack, onDismissModal, onViewAccount } = this.props;
+        const {
+            enabled, availablePacks, modal, checkoutPending, onBuyPack, onDismissModal, onViewAccount,
+            onResendVerification, resendVerification
+        } = this.props;
 
         // Kill-switch: render nothing when the backend reports no meter
         // (ships dark — see commerce.balance_views.AccountBalanceView).
@@ -452,6 +536,17 @@ class ComputeMeterPanel extends React.Component {
             content = (<CapExceededModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />);
         } else if (modal.type === 'estimate_ceiling') {
             content = (<EstimateCeilingModal detail={modal.detail} onDismiss={onDismissModal} onViewAccount={onViewAccount} />);
+        } else if (modal.type === 'email_unverified') {
+            content = (
+                <EmailUnverifiedModal
+                    detail={modal.detail}
+                    onResend={onResendVerification}
+                    onDismiss={onDismissModal}
+                    resendPending={resendVerification.pending}
+                    resendStatus={resendVerification.status}
+                    resendStatusDetail={resendVerification.detail}
+                />
+            );
         }
 
         // An unrecognised modal.type is a contract break, not a reason to
@@ -475,4 +570,4 @@ class ComputeMeterPanel extends React.Component {
 }
 
 export default ComputeMeterPanel;
-export { BalanceStrip, MeterModalHost, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal, ViewAccountLink };
+export { BalanceStrip, MeterModalHost, InsufficientBalanceModal, CapExceededModal, EstimateCeilingModal, EmailUnverifiedModal, ViewAccountLink };

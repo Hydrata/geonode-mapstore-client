@@ -197,7 +197,10 @@ import {
     // TASK-2513 (epic 2425 W3d) — the second trigger: a boot-time miss left the
     // meter slice dark for the whole session, and a dark slice render-nulls all
     // three refusal modals.
-    refetchBalanceOnAccountSummaryEpic
+    refetchBalanceOnAccountSummaryEpic,
+    // TASK-2849 (epic 2839 W2.2) — resend surface for the EMAIL_UNVERIFIED
+    // refusal's "Resend verification email" button.
+    resendEmailVerificationEpic
 } from "./epics/computeMeterEpics";
 // TASK-2420 (epic 2359 W4.5) — Account panel Billing-tab fetch + Stripe
 // Customer Portal round-trip epics.
@@ -287,6 +290,8 @@ export default createPlugin('Anuga', {
         fetchComputeBalanceEpic,
         // TASK-2513 (epic 2425 W3d) — repairs a boot fetch that failed.
         refetchBalanceOnAccountSummaryEpic,
+        // TASK-2849 (epic 2839 W2.2) — resend-verification surface.
+        resendEmailVerificationEpic,
         // TASK-2420 (epic 2359 W4.5) — Account panel Billing-tab fetch + portal.
         triggerFetchAccountSummaryOnInitEpic,
         triggerFetchAccountSummaryOnBillingTabOpenEpic,

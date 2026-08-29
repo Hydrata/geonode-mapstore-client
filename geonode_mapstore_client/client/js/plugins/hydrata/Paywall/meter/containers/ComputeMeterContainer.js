@@ -7,7 +7,7 @@ import ComputeMeterPanel from '../components/ComputeMeterPanel';
 import { getComputeMeterState } from '../reducer';
 // TASK-2441 (epic 2425 W4.2) — the account-scoped checkout in-flight flag.
 import { isCheckoutInFlight } from '../../reducer';
-import { dismissMeterModal } from '../actions';
+import { dismissMeterModal, resendEmailVerificationRequest } from '../actions';
 import { subscribeCheckoutRequest } from '../../actions';
 // TASK-2420 (epic 2359 W4.5) — "View account" on the refusal modals.
 import { setMembershipPanel, setMembershipPanelTab } from '../../../Anuga/actionsAnuga';
@@ -22,13 +22,17 @@ const mapStateToProps = (state) => {
         enabled: meter.enabled,
         availablePacks: meter.availablePacks,
         modal: meter.modal,
-        checkoutPending: isCheckoutInFlight(state)
+        checkoutPending: isCheckoutInFlight(state),
+        // TASK-2849 (epic 2839 W2.2) — email_unverified modal's Resend feedback.
+        resendVerification: meter.resendVerification
     };
 };
 
 const mapDispatchToProps = (dispatch) => ({
     onBuyPack: (priceId) => dispatch(subscribeCheckoutRequest('credit_pack', { priceId })),
     onDismissModal: () => dispatch(dismissMeterModal()),
+    // TASK-2849 (epic 2839 W2.2) — email_unverified modal's Resend button.
+    onResendVerification: () => dispatch(resendEmailVerificationRequest()),
     // "View account" MUST dismiss the refusal modal first (W2 remediation).
     //
     // TASK-2435 made this host a body-level portal at z-index 100000 with a

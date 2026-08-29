@@ -45,11 +45,11 @@ export const CONTRACT_FIXTURE = {
         },
         {
             "state": "upgrade_prompt",
-            "description": "Returned in the 402 body from perform_update when a public->private transition is attempted WITHOUT entitlement. Not a steady-state from my_perms — it is the error response shape from the PUT/PATCH endpoint. checkout_url is ALWAYS null (TASK-2639, epic 2635 W1): hydrata.com runs on Stripe TEST keys during beta, so a checkout page here would be an unpayable dead end (refused, offered a payment page, unable to pay on it). detail carries an honest beta message ('not available during beta — contact us') instead of a dead payment CTA. The gate itself (still 402, still GateHitEvent(surface='privacy') + the paywall_hit event) is unchanged — only the CTA.",
+            "description": "Returned in the 402 body from perform_update when a public->private transition is attempted WITHOUT entitlement. Not a steady-state from my_perms — it is the error response shape from the PUT/PATCH endpoint.",
             "backend_condition": "perform_update: current==public, incoming==private, acting-user account NOT entitled",
             "payload": {
                 "state": "upgrade_prompt",
-                "checkout_url": null,
+                "checkout_url": "<checkout-session-url>",
                 "read_only": false
             }
         },

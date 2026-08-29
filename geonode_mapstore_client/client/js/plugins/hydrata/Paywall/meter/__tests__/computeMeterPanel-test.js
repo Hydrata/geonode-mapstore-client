@@ -561,6 +561,97 @@ describe('ComputeMeterPanel — estimate_ceiling modal (TASK-2123, distinct mess
     });
 });
 
+// TASK-2849 (epic 2839 W2.2) — email_unverified modal (TASK-2844's dispatch
+// gate). NOT a billing refusal: no pack CTA, no "View account" link — the
+// only action is Resend.
+describe('ComputeMeterPanel — email_unverified modal (TASK-2849)', () => {
+    it('shows the email-unverified modal with the server detail, distinct from every other modal', () => {
+        const c = render({
+            enabled: true,
+            modal: {type: 'email_unverified', detail: 'Please verify your email address before running a model.', resendUrl: '/resend/'}
+        });
+        expect(c.querySelector('[data-testid="meter-email-unverified-modal"]')).toBeTruthy();
+        expect(c.querySelector('[data-testid="meter-email-unverified-detail"]').textContent)
+            .toBe('Please verify your email address before running a model.');
+        expect(c.querySelector('[data-testid="meter-insufficient-balance-modal"]')).toBe(null);
+        expect(c.querySelector('[data-testid="meter-cap-exceeded-modal"]')).toBe(null);
+        expect(c.querySelector('[data-testid="meter-estimate-ceiling-modal"]')).toBe(null);
+    });
+
+    it('offers a Resend CTA, never a pack-purchase or View-account CTA (not a billing refusal)', () => {
+        const c = render({
+            enabled: true,
+            availablePacks: [{price_id: 'price_a', amount: '10', currency: 'usd'}],
+            modal: {type: 'email_unverified', detail: 'verify', resendUrl: '/resend/'}
+        });
+        expect(c.querySelector('[data-testid="meter-resend-verification-cta"]')).toBeTruthy();
+        expect(c.querySelector('[data-testid="meter-buy-pack-cta-price_a"]')).toBe(null);
+        expect(c.querySelector('[data-testid="meter-email-unverified-view-account"]')).toBe(null);
+    });
+
+    it('onResendVerification fires when the Resend CTA is clicked', () => {
+        let clicked = 0;
+        const c = render({
+            enabled: true,
+            modal: {type: 'email_unverified', detail: 'verify', resendUrl: '/resend/'},
+            onResendVerification: () => { clicked++; }
+        });
+        c.querySelector('[data-testid="meter-resend-verification-cta"]').click();
+        expect(clicked).toBe(1);
+    });
+
+    it('the Resend CTA disables and reads "Sending…" while a resend is pending', () => {
+        const c = render({
+            enabled: true,
+            modal: {type: 'email_unverified', detail: 'verify', resendUrl: '/resend/'},
+            resendVerification: {pending: true, status: null, detail: null}
+        });
+        const btn = c.querySelector('[data-testid="meter-resend-verification-cta"]');
+        expect(btn.disabled).toBe(true);
+        expect(btn.textContent).toBe('Sending…');
+    });
+
+    it('shows "sent" feedback after a successful resend', () => {
+        const c = render({
+            enabled: true,
+            modal: {type: 'email_unverified', detail: 'verify', resendUrl: '/resend/'},
+            resendVerification: {pending: false, status: 'sent', detail: null}
+        });
+        expect(c.querySelector('[data-testid="meter-resend-verification-feedback"]').textContent)
+            .toBe('Verification email sent — check your inbox.');
+    });
+
+    it('shows the server-supplied cooldown detail verbatim, not a hardcoded copy', () => {
+        const c = render({
+            enabled: true,
+            modal: {type: 'email_unverified', detail: 'verify', resendUrl: '/resend/'},
+            resendVerification: {pending: false, status: 'cooldown', detail: 'A verification email was sent recently. Please wait a few minutes before resending.'}
+        });
+        expect(c.querySelector('[data-testid="meter-resend-verification-feedback"]').textContent)
+            .toBe('A verification email was sent recently. Please wait a few minutes before resending.');
+    });
+
+    it('shows no feedback line before any resend has been attempted', () => {
+        const c = render({
+            enabled: true,
+            modal: {type: 'email_unverified', detail: 'verify', resendUrl: '/resend/'},
+            resendVerification: {pending: false, status: null, detail: null}
+        });
+        expect(c.querySelector('[data-testid="meter-resend-verification-feedback"]')).toBe(null);
+    });
+
+    it('onDismissModal fires on OK', () => {
+        let dismissed = false;
+        const c = render({
+            enabled: true,
+            modal: {type: 'email_unverified', detail: 'verify', resendUrl: '/resend/'},
+            onDismissModal: () => { dismissed = true; }
+        });
+        c.querySelector('[data-testid="meter-dismiss-modal"]').click();
+        expect(dismissed).toBe(true);
+    });
+});
+
 // TASK-2420 (epic 2359 W4.5) — "View account" on all three refusal modals,
 // routing to the Account panel's Billing tab (UAT-1 findings 4+13: the
 // discoverable home for balance/free-run accounting).

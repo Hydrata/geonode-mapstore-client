@@ -435,7 +435,7 @@ describe('ANUGA Epics', () => {
         describe('TASK-2100 meter-gate 402/429 interception', () => {
             const MockAdapter = require('axios-mock-adapter');
             const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
-            const {SET_METER_INSUFFICIENT_BALANCE, SET_METER_CAP_EXCEEDED} = require('../../Paywall/meter/actions');
+            const {SET_METER_INSUFFICIENT_BALANCE, SET_METER_CAP_EXCEEDED, SET_METER_EMAIL_UNVERIFIED} = require('../../Paywall/meter/actions');
 
             let mockAxios;
             beforeEach(() => { mockAxios = new MockAdapter(axios); });
@@ -475,6 +475,44 @@ describe('ANUGA Epics', () => {
                         expect(emitted.length).toBe(1);
                         expect(emitted[0].type).toBe(SET_METER_CAP_EXCEEDED);
                         expect(emitted[0].detail).toInclude('Free daily compute-run cap');
+                        done();
+                    });
+            });
+
+            // TASK-2849 (epic 2839 W2.2) — TASK-2844's dispatch gate (403, not
+            // 402/429 — an identity refusal, never a billing one).
+            it('403 EMAIL_UNVERIFIED -> SET_METER_EMAIL_UNVERIFIED with detail + resend_url', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(403, {
+                    error_code: 'EMAIL_UNVERIFIED',
+                    detail: 'Please verify your email address before running a model.',
+                    resend_url: '/api/v2/anuga/account/resend-verification/'
+                });
+
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeTarget: 'batch-x32'}]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, {getState: () => ({})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_METER_EMAIL_UNVERIFIED);
+                        expect(emitted[0].detail).toInclude('verify your email');
+                        expect(emitted[0].resendUrl).toBe('/api/v2/anuga/account/resend-verification/');
+                        done();
+                    });
+            });
+
+            it('a 403 with a DIFFERENT error_code is NOT folded into email_unverified (regression guard)', (done) => {
+                mockAxios.onPost('/api/v2/anuga/scenarios/7/run/').reply(403, {
+                    error_code: 'SOME_OTHER_REFUSAL',
+                    detail: 'unrelated'
+                });
+
+                const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 7}, computeTarget: 'batch-x32'}]);
+                const emitted = [];
+
+                runAnugaScenarioEpic(action$, {getState: () => ({})})
+                    .subscribe(a => emitted.push(a), done, () => {
+                        expect(emitted.length).toBe(0);
                         done();
                     });
             });
