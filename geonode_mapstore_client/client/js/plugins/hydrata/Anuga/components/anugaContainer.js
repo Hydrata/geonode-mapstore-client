@@ -516,7 +516,9 @@ export const mapStateToProps = (state) => {
         // numeric) — a type-only difference must never read as "different
         // map" here either.
         noProjectForThisMap: (
+            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
             state?.anuga?.projects?.noProjectForMapId != null
+            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
             && state?.gnresource?.id != null
             && String(state.anuga.projects.noProjectForMapId) === String(state.gnresource.id)
         ),

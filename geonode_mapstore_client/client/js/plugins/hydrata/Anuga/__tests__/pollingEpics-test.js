@@ -3057,7 +3057,7 @@ describe('Polling Epics', () => {
             const gateWouldFireInit = () => {
                 const p = state.anuga.projects;
                 const initRunningForThisMap = p.initInFlight === state.gnresource.id;
-                const noProjectForThisMap = p.noProjectForMapId != null // eslint-disable-line eqeqeq -- null-or-undefined idiom, matches anugaContainer.js's mapStateToProps
+                const noProjectForThisMap = p.noProjectForMapId != null // eslint-disable-line no-eq-null, eqeqeq -- null-or-undefined idiom, matches anugaContainer.js's mapStateToProps
                     && String(p.noProjectForMapId) === String(state.gnresource.id);
                 const isAnugaProject = !!(p.data && p.data.id);
                 return !!state.gnresource.id && !isAnugaProject && !initRunningForThisMap && !noProjectForThisMap;
