@@ -8,6 +8,19 @@ const SET_ANUGA_PROJECT_DATA = 'SET_ANUGA_PROJECT_DATA';
 // chain. Keyed on map id so a map switch (new gnresource.id) is never deduped
 // against the previous map's stale guard.
 const SET_ANUGA_INIT_IN_FLIGHT = 'SET_ANUGA_INIT_IN_FLIGHT';
+// TASK-2850 (epic 2839 W2.3) — the TERMINAL "no ANUGA project for this map"
+// state. initAnugaEpic's from-map POST 404s for the (large majority of)
+// maps that simply are not ANUGA projects; before this, that 404 only ever
+// cleared SET_ANUGA_INIT_IN_FLIGHT, which left `!isAnugaProject` permanently
+// true (there is no project to ever set) and re-armed anugaContainer's
+// componentDidUpdate gate on literally every re-render — an unbounded
+// ~8.8 dispatches/sec retry storm against a write-shaped endpoint, one per
+// ordinary map view. This records a POSITIVE, cacheable answer ("asked, and
+// there genuinely is none") that the gate can check, distinguishing it from
+// "have not asked yet" (initial null) and "asking now" (initInFlight).
+// Keyed on map id for the same reason initInFlight is: a map switch must
+// never be gated by the PREVIOUS map's terminal answer.
+const SET_ANUGA_NO_PROJECT_FOR_MAP = 'SET_ANUGA_NO_PROJECT_FOR_MAP';
 const SET_ANUGA_SCENARIO_DATA = 'SET_ANUGA_SCENARIO_DATA';
 const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
 const SET_ANUGA_FRICTION_DATA = 'SET_ANUGA_FRICTION_DATA';
@@ -177,6 +190,12 @@ function setAnugaProjectData(data, mapId) {
 // the live gnresource.id) and `false` to clear on completion/error.
 function setAnugaInitInFlight(mapId) {
     return { type: SET_ANUGA_INIT_IN_FLIGHT, mapId };
+}
+
+// TASK-2850 — dispatched by initAnugaEpic's catch on (and only on) a 404
+// from the from-map lookup: this map genuinely has no ANUGA project.
+function setAnugaNoProjectForMap(mapId) {
+    return { type: SET_ANUGA_NO_PROJECT_FOR_MAP, mapId };
 }
 
 function setAnugaScenarioData(scenarios) {
@@ -547,6 +566,7 @@ function ackTerrainDatum(projectId, terrainId, ack) {
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_INIT_IN_FLIGHT, setAnugaInitInFlight,
+    SET_ANUGA_NO_PROJECT_FOR_MAP, setAnugaNoProjectForMap,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
     SET_ANUGA_BOUNDARY_DATA, setAnugaBoundaryData,
     SET_ANUGA_FRICTION_DATA, setAnugaFrictionData,

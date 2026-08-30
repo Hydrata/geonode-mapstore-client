@@ -129,19 +129,6 @@ const TIER_COPY_NEUTRAL = {
     cta: 'Subscribe'
 };
 
-// TASK-2639 (epic 2635 W1) — hydrata.com runs on Stripe TEST keys, so the
-// checkout_url this modal used to render was a dead end (refused, offered a
-// payment page, unable to pay on it). _check_private_entitlement_response
-// now sends checkout_url: null unconditionally for every upgrade_prompt —
-// that ABSENCE (not a visibility check) is what selects this copy below, so
-// the FE can never show a live Subscribe CTA the BE has already killed. No
-// `cta` key: there is nothing to click that pays, so nothing renders in its
-// place (View account / Keep it public remain — see betaMode below).
-const BETA_TIER_COPY = {
-    title: 'Not available during beta',
-    body: "Private models aren't available during beta — contact us if you need one."
-};
-
 /**
  * UpgradeModal — shown when upgrade_prompt state is active (after 402 response).
  * checkout_url comes from the contract payload.
@@ -159,14 +146,18 @@ const BETA_TIER_COPY = {
  * body-level portal and the dialog semantics (role, accessible name, focus
  * entry/trap/restore, Escape). Before that it was a full-viewport
  * click-absorbing scrim with none of them.
+ *
+ * TASK-2849 (epic 2839 W2.2) — REVERTS TASK-2639's beta-copy swap (which had
+ * replaced this CTA with "Not available during beta" because Stripe TEST
+ * keys made checkout_url an unpayable dead end). De-beta restores the real
+ * Subscribe CTA the LIVE flip (W5) needs working from the same deploy; the
+ * BE (_check_private_entitlement_response, api_v2.py) sends a real
+ * checkout_url again in the same change. BETA_TIER_COPY and its betaMode
+ * branch are deleted, not merely unreached — recover from git history
+ * (TASK-2639/2646) if a future beta window needs this again.
  */
 function UpgradeModal({ checkoutUrl, visibility, onDismiss, onSubscribeClick, onViewAccount, checkoutPending }) {
-    // TASK-2639 — the ABSENCE of checkout_url is the signal (never a
-    // visibility/tier check): the BE sends null unconditionally now, so a
-    // future FE build can never show a live Subscribe CTA against a killed
-    // checkout endpoint even if this component's tier logic changes later.
-    const betaMode = !checkoutUrl;
-    const copy = betaMode ? BETA_TIER_COPY : (TIER_COPY[visibility] || TIER_COPY_NEUTRAL);
+    const copy = TIER_COPY[visibility] || TIER_COPY_NEUTRAL;
     return (
         <div data-testid="upgrade-modal" className="paywall-upgrade-modal-overlay">
             <div className="paywall-upgrade-modal">
@@ -177,26 +168,24 @@ function UpgradeModal({ checkoutUrl, visibility, onDismiss, onSubscribeClick, on
                     {copy.body}
                 </p>
                 <div className="paywall-upgrade-modal-actions">
-                    {!betaMode ? (
-                        <button
-                            type="button"
-                            data-testid="subscribe-cta"
-                            data-tier={visibility || null}
-                            className="paywall-subscribe-btn"
-                            data-href={checkoutUrl}
-                            // TASK-2441 — this CTA commits to $100/mo and had LESS
-                            // double-submit protection than the $10 credit pack.
-                            // The authoritative guard is subscribeCheckoutEpic's
-                            // `exhaustMap`, NOT a store read on this flag: that was
-                            // the original spec and it refuses the FIRST click too
-                            // (redux-observable reduces before it emits to epics).
-                            // This is the affordance.
-                            disabled={checkoutPending}
-                            onClick={() => onSubscribeClick(checkoutUrl)}
-                        >
-                            {copy.cta}
-                        </button>
-                    ) : null}
+                    <button
+                        type="button"
+                        data-testid="subscribe-cta"
+                        data-tier={visibility || null}
+                        className="paywall-subscribe-btn"
+                        data-href={checkoutUrl}
+                        // TASK-2441 — this CTA commits to $100/mo and had LESS
+                        // double-submit protection than the $10 credit pack.
+                        // The authoritative guard is subscribeCheckoutEpic's
+                        // `exhaustMap`, NOT a store read on this flag: that was
+                        // the original spec and it refuses the FIRST click too
+                        // (redux-observable reduces before it emits to epics).
+                        // This is the affordance.
+                        disabled={checkoutPending}
+                        onClick={() => onSubscribeClick(checkoutUrl)}
+                    >
+                        {copy.cta}
+                    </button>
                     {/* TASK-2420 (epic 2359 W4.5) — "View account" -> Billing tab. */}
                     <button
                         type="button"

@@ -13,6 +13,9 @@ import {
     SET_METER_INSUFFICIENT_BALANCE,
     SET_METER_CAP_EXCEEDED,
     SET_METER_ESTIMATE_CEILING,
+    SET_METER_EMAIL_UNVERIFIED,
+    RESEND_EMAIL_VERIFICATION_REQUEST,
+    SET_RESEND_EMAIL_VERIFICATION_RESULT,
     DISMISS_METER_MODAL
 } from './actions';
 
@@ -33,8 +36,13 @@ const initialState = {
     balance: null,
     availablePacks: [],
     recentEntries: [],
-    // {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling', checkoutUrl, detail} | null
-    modal: null
+    // {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling'|'email_unverified', checkoutUrl, detail, resendUrl} | null
+    modal: null,
+    // TASK-2849 — feedback for the email_unverified modal's Resend button.
+    // {pending, status: 'sent'|'already_verified'|'cooldown'|'send_failed'|'error'|null, detail} — pending is
+    // a separate bool (not folded into status) so the button's disabled
+    // state does not depend on parsing a string.
+    resendVerification: { pending: false, status: null, detail: null }
 };
 
 export default (state = initialState, action) => {
@@ -67,8 +75,22 @@ export default (state = initialState, action) => {
             ...state,
             modal: { type: 'estimate_ceiling', checkoutUrl: null, detail: action.detail }
         };
+    case SET_METER_EMAIL_UNVERIFIED:
+        return {
+            ...state,
+            modal: { type: 'email_unverified', checkoutUrl: null, detail: action.detail, resendUrl: action.resendUrl },
+            // A fresh refusal always starts from a clean resend-feedback slate.
+            resendVerification: { pending: false, status: null, detail: null }
+        };
+    case RESEND_EMAIL_VERIFICATION_REQUEST:
+        return { ...state, resendVerification: { pending: true, status: null, detail: null } };
+    case SET_RESEND_EMAIL_VERIFICATION_RESULT:
+        return {
+            ...state,
+            resendVerification: { pending: false, status: action.status, detail: action.detail || null }
+        };
     case DISMISS_METER_MODAL:
-        return { ...state, modal: null };
+        return { ...state, modal: null, resendVerification: { pending: false, status: null, detail: null } };
     default:
         return state;
     }

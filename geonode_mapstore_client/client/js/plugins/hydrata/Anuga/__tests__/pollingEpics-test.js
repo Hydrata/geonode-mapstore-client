@@ -24,7 +24,8 @@ import {
     SET_ANUGA_RAINFALL_DATA,
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_TERRAIN_DATA,
-    SET_ANUGA_INIT_IN_FLIGHT
+    SET_ANUGA_INIT_IN_FLIGHT,
+    SET_ANUGA_NO_PROJECT_FOR_MAP
 } from '../actionsAnuga';
 import {
     START_ACTIVE_RUN_POLLING,
@@ -2980,6 +2981,233 @@ describe('Polling Epics', () => {
                     done();
                 } catch (e) { sub.unsubscribe(); done(e); }
             }, 30);
+        });
+    });
+
+
+    // -- TASK-2850 (epic 2839 W2.3): kill the from-map retry storm --------
+    //
+    // Live on prod 2026-08-22 (user 3188): 217 requests + 217 error toasts
+    // against POST /from-map/ in three bursts (peak 5/s; the fixture-rig
+    // measurement this task's own diagnosis cites clocked ~8.8/sec on
+    // localhost), on ORDINARY (non-ANUGA) maps — the majority of map views.
+    //
+    // MECHANISM: `!isAnugaProject` (anugaContainer.js's componentDidUpdate
+    // gate) can NEVER become false for a map with no ANUGA project — there
+    // is no project to ever set one. Before this task the ONLY thing that
+    // ever closed that gate was `initRunningForThisMap`, which the TASK-2117
+    // catch above clears (setAnugaInitInFlight(false)) the instant the
+    // from-map POST 404s. So every re-render re-armed the gate the moment
+    // the previous attempt's response landed — forever, for as long as the
+    // user stayed on the map.
+    //
+    // FIX: initAnugaEpic's catch now ALSO dispatches
+    // SET_ANUGA_NO_PROJECT_FOR_MAP on (and only on) a 404 — the from-map
+    // endpoint's own documented contract for "no project" (api_v2.py
+    // ProjectViewSetV2.from_map: Project.DoesNotExist -> 404). That is a
+    // TERMINAL, cacheable answer the gate can check (anuga-test.js and
+    // projectsReducer.js cover the reducer half: per-map reset on
+    // SET_RESOURCE_ID, TOCTOU-refused for an abandoned map, cleared by a
+    // genuine SET_ANUGA_PROJECT_DATA). This suite proves the EPIC half —
+    // which status codes set the terminal flag — plus an end-to-end replay
+    // of the gate itself, the way anugaContainer.componentDidUpdate
+    // evaluates it, to prove the retry LOOP is actually bounded.
+    describe('TASK-2850 — terminal "no ANUGA project" state stops the retry storm', () => {
+        let mock;
+        beforeEach(() => {
+            mock = mockAxios();
+            __setVisibilityForTests(new Rx.BehaviorSubject(true));
+        });
+        afterEach(() => __setVisibilityForTests(null));
+
+        const countFromMapPosts = () =>
+            mock.history.post.filter(r => /\/api\/v2\/anuga\/projects\/from-map\//.test(r.url)).length;
+
+        // Extends the sibling describe blocks' makeGuardStore with
+        // noProjectForMapId (mirroring projectsReducer.js's real reducer
+        // exactly) plus `gateWouldFireInit()` — a byte-for-byte mirror of
+        // anugaContainer.js's componentDidUpdate condition:
+        //   gnResourceLoaded && !isAnugaProject && !initRunningForThisMap
+        //     && !noProjectForThisMap
+        // Kept as an explicit, commented mirror (the same pattern the
+        // TASK-1637 suite above already uses for initRunningForThisMap)
+        // rather than importing the container, which would need a full
+        // React mount for a componentDidUpdate lifecycle test.
+        const makeGuardStore = (mapId) => {
+            const state = {
+                gnresource: { id: mapId },
+                security: { user: { name: 'tester' } },
+                anuga: {
+                    projects: { data: null, initInFlight: false, noProjectForMapId: null },
+                    scenarios: { archiveFilter: 'none' }
+                }
+            };
+            const applyGuardReducer = (action) => {
+                if (action.type === SET_ANUGA_INIT_IN_FLIGHT) {
+                    state.anuga.projects.initInFlight = action.mapId || false;
+                } else if (action.type === SET_ANUGA_PROJECT_DATA) {
+                    state.anuga.projects.initInFlight = false;
+                    state.anuga.projects.data = action.data;
+                    state.anuga.projects.noProjectForMapId = null;
+                } else if (action.type === SET_ANUGA_NO_PROJECT_FOR_MAP) {
+                    state.anuga.projects.initInFlight = false;
+                    state.anuga.projects.noProjectForMapId = action.mapId;
+                }
+            };
+            const gateWouldFireInit = () => {
+                const p = state.anuga.projects;
+                const initRunningForThisMap = p.initInFlight === state.gnresource.id;
+                const noProjectForThisMap = p.noProjectForMapId != null // eslint-disable-line no-eq-null, eqeqeq -- null-or-undefined idiom, matches anugaContainer.js's mapStateToProps
+                    && String(p.noProjectForMapId) === String(state.gnresource.id);
+                const isAnugaProject = !!(p.data && p.data.id);
+                return !!state.gnresource.id && !isAnugaProject && !initRunningForThisMap && !noProjectForThisMap;
+            };
+            return { getState: () => state, applyGuardReducer, gateWouldFireInit, state };
+        };
+
+        // ** THIS IS THE RED CRITERION (AC1/AC2) ** — against the
+        // pre-TASK-2850 reducer/epic (noProjectForMapId never set, the gate
+        // has no third conjunct), every one of the 20 simulated re-renders
+        // below re-fires INIT_ANUGA: dispatchCount lands at 21 and
+        // countFromMapPosts() at 21, both failing the assertions.
+        it('a non-ANUGA map: INIT_ANUGA fires AT MOST ONCE across a burst of re-renders after the 404 lands', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(404, { projectId: null });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(1418);
+            const emitted = [];
+            let dispatchCount = 0;
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            // componentDidUpdate's real trigger — a re-render — happens on
+            // every store change in the live app. Simulating it as a
+            // function call (rather than an actual React re-render) is what
+            // lets this test drive dozens of them synchronously and prove
+            // the GATE is what bounds the count, not incidental timing.
+            const simulateRerender = () => {
+                if (guard.gateWouldFireInit()) {
+                    dispatchCount++;
+                    subject.next({ type: INIT_ANUGA });
+                }
+            };
+
+            simulateRerender(); // first mount's gate check
+            setTimeout(() => {
+                // The 404 has landed and the guard is SET_ANUGA_NO_PROJECT_
+                // FOR_MAP-armed by now. Fire a burst of 20 more re-renders —
+                // exactly the runaway this task exists to fix.
+                for (let i = 0; i < 20; i++) simulateRerender();
+                setTimeout(() => {
+                    try {
+                        expect(dispatchCount).toBe(
+                            1, `expected exactly one INIT_ANUGA dispatch across 21 simulated re-renders, the gate re-armed and fired ${dispatchCount} times`
+                        );
+                        expect(countFromMapPosts()).toBe(1);
+                        expect(guard.state.anuga.projects.noProjectForMapId).toBe(1418);
+                        sub.unsubscribe();
+                        done();
+                    } catch (e) { sub.unsubscribe(); done(e); }
+                }, 30);
+            }, 30);
+        });
+
+        it('a 404 from the from-map POST dispatches SET_ANUGA_NO_PROJECT_FOR_MAP carrying the map id', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(404, { projectId: null });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(1418);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    const terminal = emitted.filter(a => a.type === SET_ANUGA_NO_PROJECT_FOR_MAP);
+                    expect(terminal.length).toBe(1);
+                    expect(terminal[0].mapId).toBe(1418);
+                    // The pre-existing generic-error toast and guard-clear
+                    // are UNCHANGED (AC5-equivalent — nothing here weakens
+                    // the TASK-2117 behaviour, it only adds to it).
+                    const notifications = emitted.filter(a => a.type === SHOW_NOTIFICATION);
+                    expect(notifications.length).toBe(1);
+                    expect(notifications[0].message).toBe('hydrata.anuga.initGenericError');
+                    expect(guard.state.anuga.projects.initInFlight).toBe(false);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 30);
+        });
+
+        // Regression guard — a REAL failure (auth lapse, server error) must
+        // stay non-terminal: it is not "no project", it is "could not ask
+        // this time", and the existing 401/403/500/network branches (TASK-
+        // 2117 above) must still be able to retry on the NEXT INIT_ANUGA.
+        [
+            ['401', () => mock.onPost('/api/v2/anuga/projects/from-map/').reply(401, {})],
+            ['403', () => mock.onPost('/api/v2/anuga/projects/from-map/').reply(403, {})],
+            ['500', () => mock.onPost('/api/v2/anuga/projects/from-map/').reply(500, {})],
+            ['a network error', () => mock.onPost('/api/v2/anuga/projects/from-map/').networkError()]
+        ].forEach(([label, arrange]) => {
+            it(`a ${label} response does NOT set the terminal "no project" state (only a 404 means "none")`, (done) => {
+                arrange();
+                const { subject, action$ } = liveActions();
+                const guard = makeGuardStore(1418);
+                const emitted = [];
+                const sub = initAnugaEpic(action$, guard)
+                    .subscribe(
+                        action => { emitted.push(action); guard.applyGuardReducer(action); },
+                        err => done(err)
+                    );
+
+                subject.next({ type: INIT_ANUGA });
+                setTimeout(() => {
+                    try {
+                        expect(emitted.filter(a => a.type === SET_ANUGA_NO_PROJECT_FOR_MAP).length).toBe(0);
+                        expect(guard.state.anuga.projects.noProjectForMapId).toBe(null);
+                        sub.unsubscribe();
+                        done();
+                    } catch (e) { sub.unsubscribe(); done(e); }
+                }, 30);
+            });
+        });
+
+        // AC5 (spec) — neither pollingEpics.js's auth gate nor
+        // projectsReducer.js's map-stamp refusal is weakened. Both already
+        // have dedicated coverage (the TASK-1637 "fires ZERO from-map POSTs
+        // for an anonymous visitor" test above; anuga-test.js's "a late
+        // answer for a map the user has since left is REFUSED" test for the
+        // new action) — this is a single end-to-end regression pin that a
+        // logged-out visitor still fires zero POSTs even after this change.
+        it('regression: an anonymous visitor on a non-ANUGA map still fires ZERO from-map POSTs', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(404, { projectId: null });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(1418);
+            guard.state.security = {};
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    expect(countFromMapPosts()).toBe(0);
+                    expect(emitted.length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 0);
         });
     });
 

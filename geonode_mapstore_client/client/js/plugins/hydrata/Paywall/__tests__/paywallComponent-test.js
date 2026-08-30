@@ -146,17 +146,11 @@ describe('PaywallPanel — contract fixture shape', () => {
         expect(payload.checkout_url).toBe(null);
     });
 
-    it('upgrade_prompt payload: read_only=false, checkout_url=null (TASK-2639/2646)', () => {
-        // Re-pinned TASK-2646 (epic 2635 W2): the fixture used to carry a
-        // placeholder checkout_url STRING here, stale against
-        // _check_private_entitlement_response's TASK-2639 (W1) live change to
-        // always return null. The fixture is now the accurate source of
-        // truth; a truthy-checkout_url regression on the SAME component is
-        // separately proven by upgradeModalBetaCopy-test.js's last case.
+    it('upgrade_prompt payload: read_only=false, checkout_url is a string', () => {
         const { payload } = getStatePayload('upgrade_prompt');
         expect(payload.state).toBe('upgrade_prompt');
         expect(payload.read_only).toBe(false);
-        expect(payload.checkout_url).toBe(null);
+        expect(typeof payload.checkout_url).toBe('string');
     });
 
     it('pending payload: read_only=false, checkout_url=null', () => {
@@ -293,6 +287,7 @@ describe('PaywallPanel — the non-blocking states render nothing (TASK-2463)', 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PaywallPanel — state: upgrade_prompt', () => {
     let c;
+    const checkoutUrl = getStatePayload('upgrade_prompt').payload.checkout_url;
 
     beforeEach(() => {
         c = renderPaywall({
@@ -318,14 +313,12 @@ describe('PaywallPanel — state: upgrade_prompt', () => {
         expect(modal).toExist('upgrade modal not found in upgrade_prompt state');
     });
 
-    it('modal shows NO subscribe CTA — the fixture carries checkout_url: null (TASK-2639/2646)', () => {
-        // Was "modal contains a subscribe CTA link pointing to checkout_url",
-        // asserting against the fixture's pre-2646 placeholder string. The
-        // fixture now correctly mirrors live: checkout_url is always null
-        // for upgrade_prompt (TASK-2639), and AC4 there is "absent, not
-        // merely disabled/unlinked" — see upgradeModalBetaCopy-test.js.
+    it('modal contains a subscribe CTA link pointing to checkout_url', () => {
         const cta = c.querySelector('[data-testid="subscribe-cta"]');
-        expect(cta).toBe(null, 'checkout_url is null in the fixture — no CTA should render');
+        expect(cta).toExist('"Subscribe" CTA not found');
+        // The CTA href or data attribute should reference the checkout URL from the fixture
+        const href = cta.getAttribute('href') || cta.getAttribute('data-href');
+        expect(href).toBe(checkoutUrl);
     });
 
     it('modal contains a "Keep it public" dismiss action', () => {
@@ -478,23 +471,11 @@ describe('PaywallPanel — Subscribe CTA in-flight state (TASK-2441)', () => {
         expect(doc.querySelector('[data-testid="subscribe-cta"]').disabled).toBe(false);
     });
 
-    it('is enabled by default (the checkoutPending prop is absent)', () => {
-        // TASK-2646 (epic 2635 W2): this used to render via fixtureMode,
-        // which only worked because the fixture's upgrade_prompt.checkout_url
-        // was still the pre-2639 placeholder string. The fixture now
-        // correctly carries checkout_url: null (TASK-2639's live behaviour),
-        // so fixture mode renders NO subscribe CTA here — nothing to assert
-        // .disabled on. Use an explicit truthy checkout_url payload instead,
-        // matching the other cases in this describe block, to keep testing
-        // what this test is actually about: the checkoutPending-absent default.
+    it('is enabled by default (the prop is absent in fixture mode)', () => {
         const doc = renderPaywall({
             paywallEnabled: true,
-            paywallPayload: {
-                state: 'upgrade_prompt',
-                checkout_url: 'https://x/create-session/',
-                read_only: false,
-                visibility: 'private'
-            }
+            fixtureMode: true,
+            fixtureState: 'upgrade_prompt'
         });
         expect(doc.querySelector('[data-testid="subscribe-cta"]').disabled).toBe(false);
     });

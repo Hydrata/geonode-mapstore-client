@@ -1,6 +1,7 @@
 import {
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_INIT_IN_FLIGHT,
+    SET_ANUGA_NO_PROJECT_FOR_MAP,
     SET_ANUGA_RESOURCES,
     SET_ANUGA_RESOURCE_PERMS,
     UPDATE_PROJECT_VISIBILITY_REQUEST,
@@ -31,7 +32,11 @@ const _NO_PROJECT_LOADED = {
     data: null,
     initInFlight: false,
     visibilityPending: null,
-    visibilityPendingProjectId: null
+    visibilityPendingProjectId: null,
+    // TASK-2850 — a new map's own terminal answer has not been asked for
+    // yet, so any answer recorded for the PREVIOUS map must not leak
+    // forward and wrongly gate the new one's own from-map attempt.
+    noProjectForMapId: null
 };
 
 // `gnresource.id` is a STRING on the SPA route path (measured live: "1418"),
@@ -108,7 +113,17 @@ const initialState = {
     // project" (fail-closed) instead of the wrong one. On a money path a
     // transient dead edit-pencil beats a transient wrong project_id.
     mapId: null,
-    anugaHomePageResources: null
+    anugaHomePageResources: null,
+    // TASK-2850 (epic 2839 W2.3) — the TERMINAL "no ANUGA project for this
+    // map" answer: the id of the map the from-map lookup 404d for, or null
+    // when no such answer has been recorded (either never asked, or the
+    // question is still in flight — see initInFlight for that distinction).
+    // anugaContainer.componentDidUpdate's gate checks this against
+    // gnResourceLoaded so a confirmed "none" stops re-arming the retry —
+    // see that gate's own comment for the full mechanism this closes (an
+    // unbounded ~8.8 dispatches/sec storm against POST /from-map/, one per
+    // ordinary — i.e. non-ANUGA — map view).
+    noProjectForMapId: null
 };
 
 export default (state = initialState, action) => {
@@ -162,6 +177,12 @@ export default (state = initialState, action) => {
             // guard here too (belt-and-braces with the epic's explicit clear)
             // so a re-init is always permitted once data is present.
             initInFlight: false,
+            // TASK-2850 — a project unambiguously EXISTS for this map now,
+            // so any prior "no project" terminal answer for it was either
+            // stale (a project was created since) or never applied to this
+            // map to begin with. Never leave a real project gated by a
+            // leftover terminal flag.
+            noProjectForMapId: null,
             data: action.data,
             // Adopt the stamp only when the slice has no map identity yet (no
             // SET_RESOURCE_ID seen — unit tests, and any host that mounts the
@@ -270,6 +291,31 @@ export default (state = initialState, action) => {
             ...state,
             initInFlight: action.mapId || false
         };
+    /**
+     * TASK-2850 (epic 2839 W2.3) — record the TERMINAL "no project" answer.
+     *
+     * Same TOCTOU guard as SET_ANUGA_PROJECT_DATA just above, and for the
+     * identical reason: initAnugaEpic's switchMap cancels its own in-flight
+     * waterfall on a fresh INIT_ANUGA, so THIS dispatch cannot land late for
+     * an abandoned map via that path — but staying defensive costs nothing
+     * here, and matching the sibling case's shape keeps the two readable
+     * side by side. A late 404 for a map the user has since left must not
+     * poison the CURRENT map's own from-map answer.
+     */
+    case SET_ANUGA_NO_PROJECT_FOR_MAP: {
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+        if (action.mapId != null && state.mapId != null && !_isSameMap(action.mapId, state.mapId)) {
+            return state;
+        }
+        return {
+            ...state,
+            // The waterfall is done (with a definitive "none") — same
+            // belt-and-braces clear SET_ANUGA_PROJECT_DATA performs.
+            initInFlight: false,
+            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+            noProjectForMapId: action.mapId == null ? null : action.mapId
+        };
+    }
     case SET_ANUGA_RESOURCES: {
         let projects = action.data?.projects
             ?.map(project => project?.base_map_full)

@@ -8,6 +8,9 @@ import {
     setMeterInsufficientBalance,
     setMeterCapExceeded,
     setMeterEstimateCeiling,
+    setMeterEmailUnverified,
+    resendEmailVerificationRequest,
+    setResendEmailVerificationResult,
     dismissMeterModal
 } from '../actions';
 
@@ -115,6 +118,56 @@ describe('TASK-2100 compute-meter reducer', () => {
         let state = meterReducer(undefined, setMeterCapExceeded('cap reached'));
         state = meterReducer(state, dismissMeterModal());
         expect(state.modal).toBe(null);
+    });
+
+    // ── TASK-2849 (epic 2839 W2.2): email_unverified + resend feedback ──────
+    describe('TASK-2849 email_unverified + resend-verification', () => {
+        it('SET_METER_EMAIL_UNVERIFIED arms a DISTINCT modal type carrying resendUrl, no checkoutUrl', () => {
+            const state = meterReducer(undefined, setMeterEmailUnverified('verify please', '/api/v2/anuga/account/resend-verification/'));
+            expect(state.modal.type).toBe('email_unverified');
+            expect(state.modal.type).toNotBe('insufficient_balance');
+            expect(state.modal.type).toNotBe('cap_exceeded');
+            expect(state.modal.type).toNotBe('estimate_ceiling');
+            expect(state.modal.checkoutUrl).toBe(null);
+            expect(state.modal.detail).toBe('verify please');
+            expect(state.modal.resendUrl).toBe('/api/v2/anuga/account/resend-verification/');
+        });
+
+        it('a fresh email_unverified refusal resets any stale resend feedback', () => {
+            let state = meterReducer(undefined, setResendEmailVerificationResult('sent'));
+            state = meterReducer(state, setMeterEmailUnverified('verify please', '/resend/'));
+            expect(state.resendVerification).toEqual({pending: false, status: null, detail: null});
+        });
+
+        it('RESEND_EMAIL_VERIFICATION_REQUEST arms pending and clears any prior status', () => {
+            let state = meterReducer(undefined, setResendEmailVerificationResult('send_failed'));
+            state = meterReducer(state, resendEmailVerificationRequest());
+            expect(state.resendVerification).toEqual({pending: true, status: null, detail: null});
+        });
+
+        it('SET_RESEND_EMAIL_VERIFICATION_RESULT("sent") clears pending and records the status', () => {
+            let state = meterReducer(undefined, resendEmailVerificationRequest());
+            state = meterReducer(state, setResendEmailVerificationResult('sent'));
+            expect(state.resendVerification).toEqual({pending: false, status: 'sent', detail: null});
+        });
+
+        it('SET_RESEND_EMAIL_VERIFICATION_RESULT("cooldown") carries the server detail', () => {
+            const state = meterReducer(undefined, setResendEmailVerificationResult('cooldown', 'wait a few minutes'));
+            expect(state.resendVerification).toEqual({pending: false, status: 'cooldown', detail: 'wait a few minutes'});
+        });
+
+        it('DISMISS_METER_MODAL also clears resend feedback, not just the modal', () => {
+            let state = meterReducer(undefined, setMeterEmailUnverified('verify please', '/resend/'));
+            state = meterReducer(state, setResendEmailVerificationResult('sent'));
+            state = meterReducer(state, dismissMeterModal());
+            expect(state.modal).toBe(null);
+            expect(state.resendVerification).toEqual({pending: false, status: null, detail: null});
+        });
+
+        it('initial state ships a clean, non-pending resendVerification slate', () => {
+            const state = meterReducer(undefined, {type: '@@INIT'});
+            expect(state.resendVerification).toEqual({pending: false, status: null, detail: null});
+        });
     });
 
     describe('getComputeMeterState', () => {

@@ -4,7 +4,7 @@ import {addLayer, removeLayer, removeNode} from '../../../../../MapStore2/web/cl
 import * as anugaApi from '../api/anugaApi';
 // TASK-2100 (epic 2092 W4.2) — StartRunView's meter gate 402/429 contract.
 // TASK-2123 (epic 2092 W5-preflip) — adds the estimate_ceiling 402 branch.
-import {setMeterInsufficientBalance, setMeterCapExceeded, setMeterEstimateCeiling} from '../../Paywall/meter/actions';
+import {setMeterInsufficientBalance, setMeterCapExceeded, setMeterEstimateCeiling, setMeterEmailUnverified} from '../../Paywall/meter/actions';
 // Shared axios error-shape readers (epic-2092 W4 simplify pass — see the
 // util's own docstring for the MapStore2 ajax-interceptor gotcha).
 import {readErrStatus as _readErrStatus, readErrData as _readErrData} from '../utils/apiErrorUtils';
@@ -285,6 +285,15 @@ export const runAnugaScenarioEpic = (action$, _store) =>
                     // fix this, so no checkout_url is expected in the body.
                     if (status === 402 && data?.state === 'estimate_ceiling') {
                         return Rx.Observable.of(setMeterEstimateCeiling(data.detail));
+                    }
+                    // TASK-2849 (epic 2839 W2.2) — TASK-2844's dispatch gate:
+                    // 403 (not 402/429 — this is an identity/verification
+                    // refusal, not a billing one), EMAIL_UNVERIFIED. Routes
+                    // through the SAME compute-meter modal host as the
+                    // billing refusals above (one refusal surface, one place
+                    // to look) even though this one isn't a money state.
+                    if (status === 403 && data?.error_code === 'EMAIL_UNVERIFIED') {
+                        return Rx.Observable.of(setMeterEmailUnverified(data.detail, data.resend_url));
                     }
                     if (status === 429 && data?.error_code === 'FREE_CAP_EXCEEDED') {
                         return Rx.Observable.of(setMeterCapExceeded(data.detail));

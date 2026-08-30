@@ -152,8 +152,9 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
-    // TASK-2100 (epic 2092 W4.2) — the Run action's price-band label.
-    it('shows no price label when latest_run.price_band is absent (meter off / unpriceable — ships dark)', (done) => {
+    // TASK-2100 (epic 2092 W4.2), re-homed to `quote` by TASK-2848 (epic
+    // 2839 W2.1) — the Run action's exact-price label.
+    it('shows no price label when latest_run.quote is absent (meter off / unpriceable — ships dark)', (done) => {
         ReactDOM.render(
             <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
             container,
@@ -164,8 +165,8 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
-    it('shows "$5" when latest_run.price_band is a priced band', (done) => {
-        const scenario = {...baseScenario, latest_run: {price_band: '5'}};
+    it('shows "$5" when latest_run.quote is a priced Decimal string', (done) => {
+        const scenario = {...baseScenario, latest_run: {quote: '5'}};
         ReactDOM.render(
             <ScenarioHeaderActions scenario={scenario} canEdit canRunScenario />,
             container,
@@ -178,8 +179,8 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         );
     });
 
-    it('shows "Free" when latest_run.price_band is the $0 band', (done) => {
-        const scenario = {...baseScenario, latest_run: {price_band: '0'}};
+    it('shows "Free" when latest_run.quote is "0" (at/under the free threshold)', (done) => {
+        const scenario = {...baseScenario, latest_run: {quote: '0'}};
         ReactDOM.render(
             <ScenarioHeaderActions scenario={scenario} canEdit canRunScenario />,
             container,
@@ -193,27 +194,25 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
     });
 
     /*
-     * TASK-2438 (epic 2425 W3.1) — the price beside Run, sourced from the
-     * PRE-BUILD estimate when no run exists yet.
+     * TASK-2848 (epic 2839 W2.1) — band()/bandForEstimate retired everywhere
+     * (AC2839-AC6). The price beside Run before a build exists is now a
+     * HEDGE ONLY (formatCostEstimate — the same one scenarioPane.js shows),
+     * never a mirrored band figure: there is no margin/cap surface on the
+     * wire to reconstruct an exact pre-build price without risking exactly
+     * the silent-drift bug banding existed to prevent (at the 100% launch
+     * margin, the raw un-margined estimate is HALF the real charge).
      *
-     * The defect these pin: the label above is sourced from
-     * `scenario.latest_run.price_band`, which is null until a run EXISTS —
-     * so a priced scenario that has never been run structurally cannot show
-     * a price, which is the one moment the customer most needs it. The
-     * built run's price_band stays authoritative wherever it exists (it is
-     * frozen off the built mesh; the estimate is not).
+     * A built run's `quote` (RunSerializerV2.get_quote, renamed from
+     * price_band by TASK-2841) stays authoritative wherever it exists — it
+     * is frozen off the built mesh and IS the ledger debit to the cent.
      */
-    describe('TASK-2438 — price + shortfall from the pre-build estimate', () => {
-        // The local band table (ansible/inventories/localhost.yaml) and the
-        // shape the account summary reducer hands down: a $0.50 free edge,
-        // then (0.50, 2] -> $1, (2, 5] -> $2, (5, 20] -> $5.
-        const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50', table: [[2, '1'], [5, '2'], [20, '5']]};
-        // $3.00 clears the free edge and lands in the (2, 5] -> $2 band.
+    describe('TASK-2848 — pre-build hedge, no FE band mirror', () => {
+        const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50'};
         const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
 
         const priceEl = () => container.querySelector('[data-testid="sv-scenario-run-price"]');
 
-        it('a never-run priced scenario shows its band price beside Run', (done) => {
+        it('a never-run scenario shows the HEDGE, not a mirrored band price', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={priced}
@@ -225,44 +224,26 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 () => {
                     const el = priceEl();
                     expect(el).toExist();
-                    expect(el.textContent).toBe('$2');
+                    // formatCostEstimate($3.00) — a floor, not the bill; never
+                    // the discrete "$2" band this used to bucket into.
+                    expect(el.textContent).toBe('~$3.00 est.');
                     done();
                 }
             );
         });
 
-        it('a built run\'s price_band stays authoritative over the estimate', (done) => {
+        it('a built run\'s quote stays authoritative over the hedge', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
-                    scenario={{...priced, latest_run: {price_band: '5'}}}
+                    scenario={{...priced, latest_run: {quote: '5'}}}
                     canEdit canRunScenario
                     paywallEnabled
                     freeBand={FREE_BAND}
                 />,
                 container,
                 () => {
-                    // $5 (what the built mesh will actually be charged), never
-                    // the $2 the pre-build estimate buckets into.
+                    // $5 (the real quote), never the "~$3.00 est." hedge.
                     expect(priceEl().textContent).toBe('$5');
-                    done();
-                }
-            );
-        });
-
-        it('renders NOTHING, not "$NaN", before the band table has loaded', (done) => {
-            // The account summary reducer's initialState is
-            // {edge: '0', table: []} — every map load renders at least once
-            // in this state, before GET /commerce/account/ returns.
-            ReactDOM.render(
-                <ScenarioHeaderActions
-                    scenario={priced}
-                    canEdit canRunScenario
-                    paywallEnabled
-                    freeBand={{cap: 0, usedToday: 0, edge: '0', table: []}}
-                />,
-                container,
-                () => {
-                    expect(priceEl()).toNotExist();
                     done();
                 }
             );
@@ -284,13 +265,10 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('an estimate inside the free edge reads "Free" through the same element', (done) => {
-            // 0.10 <= the 0.50 free edge -> band 0. formatCostEstimate would
-            // render this "~$0.10 est."; the BAND is what gets charged, and
-            // it is free.
+        it('an estimate that is literally zero reads "Free" through the same element', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
-                    scenario={{...priced, compute_cost_estimate: 0.1}}
+                    scenario={{...priced, compute_cost_estimate: 0}}
                     canEdit canRunScenario
                     paywallEnabled
                     freeBand={FREE_BAND}
@@ -304,26 +282,28 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('an estimate above the dispatch ceiling shows no price at all', (done) => {
-            // bandForEstimate returns Infinity past the table's last finite
-            // bound — the BE refuses these outright, so there is no price to
-            // state. "$Infinity" would be worse than silence.
+        // TASK-2848 regression guard — the old ceiling badge used to hide the
+        // chip entirely once a pre-build estimate crossed the (mirrored) BE
+        // ceiling. There is no client-side ceiling mirror any more, so a huge
+        // estimate now shows the (huge) hedge rather than disappearing — the
+        // BE still refuses dispatch at build/dispatch time regardless.
+        it('an astronomically large pre-build estimate still shows the hedge, not silence', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
-                    scenario={{...priced, compute_cost_estimate: 999}}
+                    scenario={{...priced, compute_cost_estimate: 5000}}
                     canEdit canRunScenario
                     paywallEnabled
                     freeBand={FREE_BAND}
                 />,
                 container,
                 () => {
-                    expect(priceEl()).toNotExist();
+                    expect(priceEl().textContent).toBe('~$5000.00 est.');
                     done();
                 }
             );
         });
 
-        it('states the shortfall and opens Billing when the price exceeds the balance', (done) => {
+        it('the pre-build hedge is never comparable to balance — no shortfall, no Billing CTA', (done) => {
             let opened = 0;
             ReactDOM.render(
                 <ScenarioHeaderActions
@@ -337,8 +317,29 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 container,
                 () => {
                     const el = priceEl();
-                    expect(el).toExist();
-                    expect(el.textContent).toBe('Costs $2 · balance $0.00 · add at least $2 to run');
+                    expect(el.textContent).toBe('~$3.00 est.');
+                    expect(el.tagName).toBe('SPAN');
+                    expect(opened).toBe(0);
+                    done();
+                }
+            );
+        });
+
+        it('a BUILT quote over balance states the shortfall and opens Billing', (done) => {
+            let opened = 0;
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...priced, latest_run: {quote: '5'}}}
+                    canEdit canRunScenario
+                    paywallEnabled
+                    freeBand={FREE_BAND}
+                    accountBalance="0.00"
+                    onOpenAccountBilling={() => { opened++; }}
+                />,
+                container,
+                () => {
+                    const el = priceEl();
+                    expect(el.textContent).toBe('Costs $5 · balance $0.00 · add $5 to run');
                     expect(el.tagName).toBe('BUTTON');
                     Simulate.click(el);
                     expect(opened).toBe(1);
@@ -347,10 +348,10 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('shortfall arithmetic is the gap, not the price (partial balance)', (done) => {
+        it('shortfall arithmetic is the gap, not the price (partial balance, built quote)', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
-                    scenario={priced}
+                    scenario={{...priced, latest_run: {quote: '5'}}}
                     canEdit canRunScenario
                     paywallEnabled
                     freeBand={FREE_BAND}
@@ -359,16 +360,16 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 />,
                 container,
                 () => {
-                    expect(priceEl().textContent).toBe('Costs $2 · balance $1.50 · add at least $0.50 to run');
+                    expect(priceEl().textContent).toBe('Costs $5 · balance $1.50 · add $3.50 to run');
                     done();
                 }
             );
         });
 
-        it('a covered balance shows the bare price, no shortfall and no CTA', (done) => {
+        it('a covered balance shows the bare quote, no shortfall and no CTA', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
-                    scenario={priced}
+                    scenario={{...priced, latest_run: {quote: '5'}}}
                     canEdit canRunScenario
                     paywallEnabled
                     freeBand={FREE_BAND}
@@ -378,40 +379,20 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 container,
                 () => {
                     const el = priceEl();
-                    expect(el.textContent).toBe('$2');
+                    expect(el.textContent).toBe('$5');
                     expect(el.tagName).toBe('SPAN');
                     done();
                 }
             );
         });
 
-        it('a BUILT run over balance states the shortfall too', (done) => {
-            // A built run's $5 charge against a $0 balance will be refused on
-            // dispatch exactly like an estimated one — same warning.
-            ReactDOM.render(
-                <ScenarioHeaderActions
-                    scenario={{...priced, latest_run: {price_band: '5'}}}
-                    canEdit canRunScenario
-                    paywallEnabled
-                    freeBand={FREE_BAND}
-                    accountBalance="0.00"
-                    onOpenAccountBilling={() => {}}
-                />,
-                container,
-                () => {
-                    expect(priceEl().textContent).toBe('Costs $5 · balance $0.00 · add $5 to run');
-                    done();
-                }
-            );
-        });
-
-        it('Run / Build / Build-and-Run stay ENABLED at insufficient balance', (done) => {
+        it('a BUILT run over balance states the shortfall — Run / Build / Build-and-Run stay ENABLED', (done) => {
             // Epic decision 4: the server is the single source of truth; a
             // button disabled from a stale client-side estimate produces
             // FALSE refusals, which are worse than caught ones.
             ReactDOM.render(
                 <ScenarioHeaderActions
-                    scenario={priced}
+                    scenario={{...priced, latest_run: {quote: '5'}}}
                     canEdit canRunScenario
                     paywallEnabled
                     freeBand={FREE_BAND}
@@ -431,9 +412,9 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        // ── W3c adversarial: two claims the chip made that the server refuses ──
+        // ── W3c adversarial, re-homed to `quote`: what the chip promises ──
         describe('the chip stops promising what the server will refuse (W3c)', () => {
-            const free = {...priced, compute_cost_estimate: 0.25};
+            const free = {...priced, latest_run: {quote: '0'}};
 
             it('says plain "Free" while free dispatches remain', (done) => {
                 ReactDOM.render(
@@ -453,9 +434,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 // The dispatch gate refuses exactly these runs with `free_cap`
                 // (apps/gn_anuga/api_v2.py), counting the same query the summary
                 // reports as used_today — so the promise is refutable server-side
-                // before the customer ever clicks. Before TASK-2438 this chip
-                // rendered nothing at all for a never-run scenario, so the
-                // promise is newly introduced.
+                // before the customer ever clicks.
                 ReactDOM.render(
                     <ScenarioHeaderActions
                         scenario={free} canEdit canRunScenario paywallEnabled
@@ -481,9 +460,9 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 // GET /commerce/account/ lands.
                 ReactDOM.render(
                     <ScenarioHeaderActions
-                        scenario={{...free, latest_run: {price_band: '0'}}}
+                        scenario={free}
                         canEdit canRunScenario paywallEnabled
-                        freeBand={{cap: 0, usedToday: 0, edge: '0.50', table: []}}
+                        freeBand={{cap: 0, usedToday: 0, edge: '0.50'}}
                     />,
                     container,
                     () => {
@@ -493,33 +472,10 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 );
             });
 
-            it('the shortfall on an ESTIMATE keeps the hedge in both the sentence and the tooltip', (done) => {
-                // The over-balance title used to REPLACE the estimate caveat, so
-                // "add $2 to run" read as a precise instruction in the one state
-                // where the number is one. A larger built mesh can price higher,
-                // and then the customer is refused having done exactly what the
-                // chip told them.
+            it('the shortfall on a BUILT quote carries no pre-build hedge language', (done) => {
                 ReactDOM.render(
                     <ScenarioHeaderActions
-                        scenario={priced} canEdit canRunScenario paywallEnabled
-                        freeBand={FREE_BAND} accountBalance="0.00"
-                        onOpenAccountBilling={() => {}}
-                    />,
-                    container,
-                    () => {
-                        const el = priceEl();
-                        expect(el.textContent).toInclude('at least');
-                        expect(el.getAttribute('title')).toInclude('confirmed when it builds');
-                        done();
-                    }
-                );
-            });
-
-            it('a BUILT run\'s shortfall carries NO hedge — its price is frozen off the real mesh', (done) => {
-                ReactDOM.render(
-                    <ScenarioHeaderActions
-                        scenario={{...priced, latest_run: {price_band: '5'}}}
-                        canEdit canRunScenario paywallEnabled
+                        scenario={{...priced, latest_run: {quote: '5'}}} canEdit canRunScenario paywallEnabled
                         freeBand={FREE_BAND} accountBalance="0.00"
                         onOpenAccountBilling={() => {}}
                     />,
@@ -540,7 +496,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             // rendered copy: a tooltip is customer-visible.
             ReactDOM.render(
                 <ScenarioHeaderActions
-                    scenario={priced}
+                    scenario={{...priced, latest_run: {quote: '5'}}}
                     canEdit canRunScenario
                     paywallEnabled
                     freeBand={FREE_BAND}
@@ -1409,21 +1365,25 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
      * Three dollar figures can be on screen for one scenario at once, and the
      * dogfood produced a live misreading from them: the $5 charge was read as
      * a band index rendered as money. This is a comprehension bug, not a
-     * calculation bug — the $5 is correct and deliberately supersedes the
-     * exact estimate (a scenario can estimate $10.48 and still be charged $5).
+     * calculation bug — the $5 is correct.
      *
      * The chip ALREADY had a correct tooltip saying exactly this. Nobody read
      * it. So the fix is VISIBLE text, and the role word has to live in its own
-     * element OUTSIDE the chip: three shipped specs from TASK-2100/2438 assert
-     * the chip's textContent by EXACT equality ('$5', 'Free', '$2') and those
-     * are the contract that the amount is the amount. They stay unedited.
+     * element OUTSIDE the chip: a shipped spec from TASK-2100 (re-homed to
+     * `quote` by TASK-2848) asserts the chip's textContent by EXACT equality
+     * ('$5', 'Free') and that is the contract that the amount is the amount.
+     *
+     * TASK-2848 (epic 2839 W2.1) — the pre-build hedge gets NO role word any
+     * more: formatCostEstimate's own string already says "est." (or "Free"),
+     * so a second "Estimated" beside it would read as prose, not a label. The
+     * built Quote is the only figure that still needs a word to name its role.
      */
     describe('TASK-2716 — the money figures name their role in visible text', () => {
-        const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50', table: [[2, '1'], [5, '2'], [20, '5']]};
+        const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50'};
         const ROLE = '[data-testid="sv-scenario-run-price-role"]';
 
         it('the run-price chip names its role in VISIBLE text, not only in title', (done) => {
-            const scenario = {...baseScenario, latest_run: {price_band: '5'}};
+            const scenario = {...baseScenario, latest_run: {quote: '5'}};
             ReactDOM.render(
                 <ScenarioHeaderActions scenario={scenario} canEdit canRunScenario />,
                 container,
@@ -1436,43 +1396,44 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                     const chip = container.querySelector('[data-testid="sv-scenario-run-price"]');
                     expect(chip.textContent).toBe('$5');
                     expect(chip.contains(role)).toBe(false);
-                    // and the tooltip is not a substitute — it stays.
-                    expect(chip.getAttribute('title')).toBe('What this run will be charged (compute meter)');
+                    // and the tooltip is not a substitute — it stays, now as
+                    // the TASK-2848 charge copy.
+                    expect(chip.getAttribute('title')).toBe(
+                        "You'll be charged $5 for this run — full credit back if it produces no results"
+                    );
                     done();
                 }
             );
         });
 
-        it('a pre-build banded figure is visibly labelled as an estimate', (done) => {
+        it('a pre-build hedge gets NO role word — its own text already says "est."', (done) => {
             const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
             ReactDOM.render(
                 <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
                 container,
                 () => {
-                    const role = container.querySelector(ROLE);
-                    expect(role).toExist('no visible role word beside the pre-build estimate');
-                    expect(role.textContent).toBe('Estimated');
-                    expect(container.querySelector('[data-testid="sv-scenario-run-price"]').textContent).toBe('$2');
+                    expect(container.querySelector(ROLE)).toNotExist('the hedge does not get a role word');
+                    expect(container.querySelector('[data-testid="sv-scenario-run-price"]').textContent).toBe('~$3.00 est.');
                     done();
                 }
             );
         });
 
-        it('the two role words actually differ — charged is not estimated', (done) => {
-            // NON-VACUITY: without this, a role word hardcoded to one string
-            // would satisfy both specs above and label nothing at all.
-            const built = {...baseScenario, latest_run: {price_band: '5'}};
+        it('the role word appears for a built quote and disappears again for the pre-build hedge (non-vacuity)', (done) => {
+            // Without this, a role word hardcoded to always render (or never
+            // render) would satisfy the two specs above independently.
+            const built = {...baseScenario, latest_run: {quote: '5'}};
             ReactDOM.render(
                 <ScenarioHeaderActions scenario={built} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
                 container,
                 () => {
-                    const charged = container.querySelector(ROLE).textContent;
+                    expect(container.querySelector(ROLE)).toExist();
                     const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
                     ReactDOM.render(
                         <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
                         container,
                         () => {
-                            expect(container.querySelector(ROLE).textContent).toNotBe(charged);
+                            expect(container.querySelector(ROLE)).toNotExist();
                             done();
                         }
                     );
@@ -1480,17 +1441,10 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('renders NO role word when there is no price to label (over the dispatch ceiling)', (done) => {
-            // THE FENCE. priceLabel is null whenever the price is not finite —
-            // and band === Infinity, the above-the-ceiling sentinel, is exactly
-            // that case — so the chip does not render at all. An ungated role
-            // word would leave a label standing on its own with no amount
-            // anywhere beside it. Worse in the same ship as TASK-2717, which
-            // removes the ceiling badge for testers: that reader would be left
-            // with the word and nothing else.
-            const overCeiling = {...baseScenario, compute_cost_estimate: 5000, mesh_triangle_count_estimate: 9000000, latest_run: null};
+        it('renders NO role word when nothing renders at all (paywall dark)', (done) => {
+            const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
             ReactDOM.render(
-                <ScenarioHeaderActions scenario={overCeiling} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
+                <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled={false} freeBand={FREE_BAND} />,
                 container,
                 () => {
                     expect(container.querySelector('[data-testid="sv-scenario-run-price"]')).toNotExist();
@@ -1502,17 +1456,17 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
 
         it('renders NO role word in the shortfall state, which already says "Costs"', (done) => {
             // The shortfall branch replaces the bare amount with a whole
-            // sentence — "Costs $2 · balance $0.00 · add at least $2 to run" —
-            // which already names the role. A second role word beside it would
-            // read as "Estimated Costs $2 · ...".
-            const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
+            // sentence — "Costs $5 · balance $0.00 · add $5 to run" — which
+            // already names the role. A second role word beside it would
+            // read as "Charged Costs $5 · ...".
+            const built = {...baseScenario, latest_run: {quote: '5'}};
             ReactDOM.render(
-                <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled accountBalance="0.00" freeBand={FREE_BAND} />,
+                <ScenarioHeaderActions scenario={built} canEdit canRunScenario paywallEnabled accountBalance="0.00" freeBand={FREE_BAND} />,
                 container,
                 () => {
                     const chip = container.querySelector('[data-testid="sv-scenario-run-price"]');
                     expect(chip).toExist();
-                    expect(chip.textContent).toInclude('Costs $2');
+                    expect(chip.textContent).toInclude('Costs $5');
                     expect(container.querySelector(ROLE)).toNotExist();
                     done();
                 }

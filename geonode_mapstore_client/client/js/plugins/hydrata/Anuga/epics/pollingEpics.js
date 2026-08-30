@@ -48,6 +48,7 @@ import {
     setAnugaPollingData,
     setAnugaProjectData,
     setAnugaInitInFlight,
+    setAnugaNoProjectForMap,
     setAnugaScenarioData,
     setAnugaScenarioResultsLoaded,
     setAnugaStructureData,
@@ -337,7 +338,35 @@ export const initAnugaEpic = (action$, store) =>
                             const notification = isAuthError
                                 ? show({message: 'hydrata.anuga.initSessionExpiredError'}, 'error')
                                 : show({message: 'hydrata.anuga.initGenericError'}, 'error');
-                            return Rx.Observable.of(notification, setAnugaInitInFlight(false));
+                            // TASK-2850 (epic 2839 W2.3) — a 404 here means
+                            // "no ANUGA project resolves for this map": the
+                            // from-map lookup's OWN documented contract is
+                            // Project.DoesNotExist -> 404 (api_v2.py
+                            // ProjectViewSetV2.from_map) — the only other
+                            // possible origin of a 404 in this chain,
+                            // getProjectV2, is reachable only once from-map
+                            // has ALREADY returned a real projectId, so in
+                            // practice a 404 landing here always traces back
+                            // to "none". Record the TERMINAL answer alongside
+                            // the existing notification/guard-clear (both
+                            // unchanged, on every status) so anugaContainer's
+                            // componentDidUpdate gate stops re-arming: without
+                            // this, `!isAnugaProject` can never become false
+                            // for a map with no project to ever set (there is
+                            // nothing to load), so every re-render re-fired
+                            // INIT_ANUGA the instant this catch cleared
+                            // initInFlight below — an unbounded ~8.8
+                            // dispatches/sec retry storm, one per ordinary
+                            // (non-ANUGA) map view, each pairing this SAME
+                            // toast with an authenticated write-shaped POST.
+                            // Fixing the loop is what makes the toast fire
+                            // exactly once per map view too — no separate
+                            // de-dup needed, since INIT_ANUGA itself now only
+                            // ever reaches this catch once per map.
+                            const terminalAction = httpStatus === 404
+                                ? [setAnugaNoProjectForMap(mapId)]
+                                : [];
+                            return Rx.Observable.of(notification, setAnugaInitInFlight(false), ...terminalAction);
                         })
                 );
         });

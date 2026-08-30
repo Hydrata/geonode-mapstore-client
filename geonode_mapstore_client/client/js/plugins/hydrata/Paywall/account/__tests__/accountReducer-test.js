@@ -1,5 +1,8 @@
 /**
  * TASK-2420 (epic 2359 W4.5) — Account summary reducer.
+ * TASK-2848 (epic 2839 W2.1) — `free_band.table` retired: band() and its FE
+ * mirror are gone from every surface (AC2839-AC6); the /commerce/account/
+ * payload no longer carries a price-band table.
  */
 import expect from 'expect';
 import accountReducer, { getAccountSummaryState } from '../reducer';
@@ -12,7 +15,7 @@ describe('TASK-2420 account summary reducer', () => {
         expect(state.balance).toBe(null);
         expect(state.isPersonal).toBe(true);
         expect(state.isManager).toBe(false);
-        expect(state.freeBand).toEqual({ cap: 0, usedToday: 0, edge: '0', table: [] });
+        expect(state.freeBand).toEqual({ cap: 0, usedToday: 0, edge: '0' });
     });
 
     it('SET_ACCOUNT_SUMMARY populates every field from the /commerce/account/ shape', () => {
@@ -22,7 +25,7 @@ describe('TASK-2420 account summary reducer', () => {
             manager: 'acme_manager',
             is_manager: true,
             balance: '15.00',
-            free_band: { cap: 3, used_today: 1, edge: '0.5', table: [['2', '1'], [null, '5']] },
+            free_band: { cap: 3, used_today: 1, edge: '0.5' },
             subscription: { active: true, since: '2026-01-01T00:00:00Z' },
             available_packs: [{ price_id: 'p1', amount: '10', currency: 'usd' }],
             recent_entries: [{ date: '2026-07-23', entry_type: 'debit', amount: '2.00', run: null }]
@@ -33,7 +36,7 @@ describe('TASK-2420 account summary reducer', () => {
         expect(state.manager).toBe('acme_manager');
         expect(state.isManager).toBe(true);
         expect(state.balance).toBe('15.00');
-        expect(state.freeBand).toEqual({ cap: 3, usedToday: 1, edge: '0.5', table: [['2', '1'], [null, '5']] });
+        expect(state.freeBand).toEqual({ cap: 3, usedToday: 1, edge: '0.5' });
         expect(state.subscription).toEqual({ active: true, since: '2026-01-01T00:00:00Z' });
         expect(state.availablePacks.length).toBe(1);
         expect(state.recentEntries.length).toBe(1);
@@ -46,7 +49,7 @@ describe('TASK-2420 account summary reducer', () => {
             manager: 'solo_user',
             is_manager: true,
             balance: '0.00',
-            free_band: { cap: 3, used_today: 0, edge: '0.5', table: [] },
+            free_band: { cap: 3, used_today: 0, edge: '0.5' },
             subscription: { active: false, since: null },
             available_packs: [],
             recent_entries: []

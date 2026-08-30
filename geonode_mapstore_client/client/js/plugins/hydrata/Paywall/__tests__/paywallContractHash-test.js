@@ -73,17 +73,16 @@ import {CONTRACT_FIXTURE} from '../paywallContract';
 // old pin was ea5d4ac7a4831430a117583a7ef881283bb394869c2549d6589839cc4f7043cb.
 // _meta.version stays '1.1': the contract's SHAPE did not change.
 //
-// v1.1 re-pin (TASK-2646, epic 2635 W2): TASK-2639 (W1) changed the LIVE
-// _check_private_entitlement_response (hydrata repo) to always return
-// checkout_url: null for upgrade_prompt (Stripe TEST keys during beta make a
-// real checkout_url an unpayable dead end) but did not update the fixture at
-// the time. upgrade_prompt's payload.checkout_url is now null (was the
-// placeholder string "<checkout-session-url>") and its description explains
-// why. _meta.version stays '1.1' — a value correction to match already-
-// shipped live behaviour, not a shape change. The superseded digest was
-// eb1a72bdbe52ec6474f5329a3fd594f331b9f2c142e3777cf96a1a223c9d7cbd.
+// v1.1 re-pin (TASK-2646, epic 2635 W2) landed
+// d1a699df98415fdb2274d0929dc30c37d4ece83d1df472a8c54e9cab4b0736bf
+// documenting TASK-2639's beta-mode checkout_url:null. TASK-2849 (epic 2839
+// W2.2) REVERTS that: de-beta restores the real checkout_url this contract
+// now documents again, byte-identical to the pre-2639/2646 hash below (a
+// straight revert, not a new shape) — recorded so the history isn't
+// silently ambiguous about why the hash reappeared. _meta.version stays
+// '1.1'. Mirrors hydrata's test_paywall_contract_pin.py verbatim.
 const PINNED_CONTRACT_HASH =
-    'd1a699df98415fdb2274d0929dc30c37d4ece83d1df472a8c54e9cab4b0736bf';
+    'eb1a72bdbe52ec6474f5329a3fd594f331b9f2c142e3777cf96a1a223c9d7cbd';
 
 /**
  * Stable, sorted-key canonical serialization. Order-independent for object
