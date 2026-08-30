@@ -286,6 +286,17 @@ export const runAnugaScenarioEpic = (action$, _store) =>
                     if (status === 402 && data?.state === 'estimate_ceiling') {
                         return Rx.Observable.of(setMeterEstimateCeiling(data.detail));
                     }
+                    // TASK-2869 (epic 2839 W4-pre) — GpuOversizeForTarget's
+                    // 402 (api_v2.py:3862-3877, TASK-2840's batch-gpu-l40s
+                    // pre-dispatch memory ceiling). Same family as
+                    // estimate_ceiling above (a 402 no CTA can fix — contact
+                    // us for a custom quote) so it reuses that EXACT modal
+                    // via the EXACT same action, not a new surface. Before
+                    // this branch a size-refused Run fell through to the
+                    // silent Rx.Observable.empty() below.
+                    if (status === 402 && data?.state === 'oversize') {
+                        return Rx.Observable.of(setMeterEstimateCeiling(data.detail));
+                    }
                     // TASK-2849 (epic 2839 W2.2) — TASK-2844's dispatch gate:
                     // 403 (not 402/429 — this is an identity/verification
                     // refusal, not a billing one), EMAIL_UNVERIFIED. Routes

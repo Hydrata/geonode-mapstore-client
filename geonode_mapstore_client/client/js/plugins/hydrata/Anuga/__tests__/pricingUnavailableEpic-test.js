@@ -119,4 +119,52 @@ describe('TASK-2645 runAnugaScenarioEpic — PRICING_UNAVAILABLE', () => {
                 done();
             });
     });
+
+    // TASK-2869 (epic 2839 W4-pre) — GpuOversizeForTarget's 402
+    // (api_v2.py:3862-3877, TASK-2840's batch-gpu-l40s pre-dispatch memory
+    // gate). Same "no CTA fixes this, contact us" family as estimate_ceiling
+    // — reuses that EXACT modal via the EXACT same action (not a new
+    // surface), so a size-refused Run shows the BE's detail text instead of
+    // the pre-2869 silent no-op.
+    //
+    // ANTI-VACUITY: AC1 fails at HEAD — pre-2869, runAnugaScenarioEpic's
+    // catch block has no branch for status===402/state==='oversize', so it
+    // falls through to `return Rx.Observable.empty()` and this test's
+    // `emitted.length === 1` assertion goes red (0 emitted, not 1).
+    describe('TASK-2869 — 402 oversize', () => {
+        it('AC1 — 402 oversize emits SET_METER_ESTIMATE_CEILING with the BE detail text (was a silent no-op)', (done) => {
+            const { SET_METER_ESTIMATE_CEILING } = require('../../Paywall/meter/actions');
+            mockAxios.onPost('/api/v2/anuga/scenarios/13/run/').reply(402, {
+                state: 'oversize',
+                detail: 'This run is predicted to need 42000 MiB of memory, above the 32000 MiB batch-gpu-l40s dispatch capacity. Contact us for a custom quote.'
+            });
+
+            const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 13}, computeTarget: 'batch-gpu-l40s'}]);
+            const emitted = [];
+
+            runAnugaScenarioEpic(action$, {getState: () => ({})})
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(SET_METER_ESTIMATE_CEILING);
+                    expect(emitted[0].detail).toInclude('Contact us for a custom quote');
+                    done();
+                });
+        });
+
+        it('a 402 with an unrecognized state still falls through silently (regression guard — unknown-shape errors stay a no-op)', (done) => {
+            mockAxios.onPost('/api/v2/anuga/scenarios/14/run/').reply(402, {
+                state: 'some_future_state',
+                detail: 'unrelated'
+            });
+
+            const action$ = mockActions([{type: 'RUN_ANUGA_SCENARIO', scenario: {id: 14}, computeTarget: 'batch-gpu-l40s'}]);
+            const emitted = [];
+
+            runAnugaScenarioEpic(action$, {getState: () => ({})})
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    done();
+                });
+        });
+    });
 });
