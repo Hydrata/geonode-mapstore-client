@@ -294,7 +294,6 @@
         "meshCostDriverHintBreaklines": "Vos lignes de rupture représentent ~{share}% du coût de votre maillage — la taille de maillage de base seule ne changera pas grand-chose.",
         "meshCostDriverHintHolePerimeter": "Les limites des trous de structure représentent ~{share}% du coût de votre maillage — la taille de maillage de base seule ne changera pas grand-chose.",
         "meshComparisonLabel": "Construit : {actual} triangles (estimé {estimate})",
-        "meshComparisonCost": "coût de calcul estimé {cost}",
         "results": "Résultats",
         "viewResults": "Voir les Résultats",
         "resultsNoRuns": "Aucun scénario n'a encore d'exécution terminée avec des résultats.",

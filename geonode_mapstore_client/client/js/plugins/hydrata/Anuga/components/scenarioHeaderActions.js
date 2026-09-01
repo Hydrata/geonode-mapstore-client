@@ -4,7 +4,7 @@ import {Button, OverlayTrigger, Tooltip} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
-import {findScenarioStatus, IN_FLIGHT_STATUSES, formatCostEstimate} from './scenarioHelpers';
+import {findScenarioStatus, IN_FLIGHT_STATUSES} from './scenarioHelpers';
 import {TERMINAL_RUN_STATES} from '../anugaConstants';
 
 /**
@@ -136,31 +136,29 @@ export const ACTION_DEBOUNCE_MS = 2000;
 const PANE_TOOLTIP_STYLE = {zIndex: 100000};
 
 // TASK-2242 — Build / Build-and-Run tooltips echo the SAME pre-build
-// estimate scenarioPane.js's own in-pane section renders (mesh triangle
-// count + dollar cost), read-only, no new data plumbing (amendment A1).
-// Returns null (renders nothing) when the scenario carries neither value.
+// triangle estimate scenarioPane.js's own in-pane section renders,
+// read-only, no new data plumbing (amendment A1). Returns null (renders
+// nothing) when the scenario carries no triangle estimate.
 //
-// TASK-2400 (dogfood F1 #1/#2a) — two truth-pass fixes mirroring
-// scenarioPane.js's in-pane estimate section (the $0/hedge wording itself
-// is the SHARED formatCostEstimate helper, scenarioHelpers.js):
-//   (b) a $0 (free-threshold) run reads "Free", never a bare "$0.00" — same
-//       call scenarioHeaderActions.js's own priceLabel already makes for the
-//       POST-build exact Quote, below.
-//   (a) when the scenario carries unsaved local edits (scenario.unsaved),
-//       this echo is committing the user to a run priced off the LAST
-//       SAVED config, not what they're currently editing — flagged inline
-//       so the tooltip never reads as authoritative for an edit in flight.
+// TASK-2400(a) — when the scenario carries unsaved local edits
+// (scenario.unsaved), this echo is committing the user to a run priced off
+// the LAST SAVED config, not what they're currently editing — flagged
+// inline so the tooltip never reads as authoritative for an edit in flight.
+//
+// TASK-2872 (epic 2839 W5.0b) — used to also echo a dollar cost
+// (formatCostEstimate(scenario.compute_cost_estimate), TASK-2400 F1 #2a).
+// Deleted outright, not re-pointed to the GPU formula: compute_cost_estimate
+// is the retired CPU vCPU-hour formula, 17.6x the real GPU cost for a
+// typical run (operator ruling — one dollar figure on screen, and it is the
+// built Quote, priceLabel below). Triangle count is not a dollar figure and
+// stays.
 const estimateEcho = (scenario) => {
     const hasTriangles = scenario?.mesh_triangle_count_estimate !== null
         && scenario?.mesh_triangle_count_estimate !== undefined;
-    const hasCost = scenario?.compute_cost_estimate !== null
-        && scenario?.compute_cost_estimate !== undefined;
-    if (!hasTriangles && !hasCost) return null;
-    const parts = [];
-    if (hasTriangles) parts.push(`~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`);
-    if (hasCost) parts.push(formatCostEstimate(scenario.compute_cost_estimate));
+    if (!hasTriangles) return null;
+    const triangles = `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`;
     const stale = scenario?.unsaved ? ' — estimate outdated, rebuild to refresh' : '';
-    return ` (${parts.join(', ')}${stale})`;
+    return ` (${triangles}${stale})`;
 };
 
 // TASK-2242 — wraps an executable button in an OverlayTrigger + a plain
@@ -188,7 +186,6 @@ const ScenarioHeaderActions = (props, context) => {
         onBuildAndRunClick,
         onRetryClick,
         onConfirmCancelRun,
-        paywallEnabled,
         accountBalance,
         freeBand,
         onOpenAccountBilling
@@ -279,23 +276,27 @@ const ScenarioHeaderActions = (props, context) => {
     // figure — at the 100% launch margin, the raw pre-build cost estimate
     // (Scenario.compute_cost_estimate = dollar_estimate(), no margin) is
     // exactly HALF the real charge, so bucketing it as if it were priceable
-    // would silently under-state by that factor. The pre-build state falls
-    // back to the same hedge scenarioPane.js already shows — formatCostEstimate()
-    // ("~$X est." / "Free" / nothing): a floor, explicitly not the bill. The
-    // built run's `quote` stays authoritative wherever it exists — it is
-    // frozen off the real mesh and IS the ledger debit to the cent.
+    // would silently under-state by that factor.
+    //
+    // TASK-2872 (epic 2839 W5.0b) — the pre-build state used to fall back to
+    // a HEDGE label here (formatCostEstimate(scenario.compute_cost_estimate),
+    // "~$X est." / "Free"): a floor, explicitly not the bill, but STILL a
+    // CPU-anchored dollar figure — 17.6x the real GPU cost for a typical
+    // run, sitting in the exact chip a customer reads as the price. Deleted
+    // outright (operator ruling: one dollar figure on screen, and it is the
+    // built Quote): the price chip now renders NOTHING before a run has a
+    // real quote, rather than a number that would need reconciling against
+    // it. The built run's `quote` stays the ONLY figure this chip ever
+    // shows — frozen off the real mesh, and IS the ledger debit to the cent.
     const runQuote = scenario?.latest_run?.quote;
     const hasRunQuote = runQuote !== null && runQuote !== undefined;
     const price = hasRunQuote ? Number(runQuote) : null;
-    // Number.isFinite rejects null (no run yet — the hedge branch below
-    // covers that) and NaN (a malformed quote would otherwise render
-    // "$NaN"). There is no Infinity sentinel any more: quote() either
-    // returns a real Decimal or the BE refuses dispatch outright, so there
-    // is no "priced but over the ceiling" FE state left to render here.
+    // Number.isFinite rejects null (no run yet — the chip renders nothing,
+    // below) and NaN (a malformed quote would otherwise render "$NaN").
+    // There is no Infinity sentinel any more: quote() either returns a real
+    // Decimal or the BE refuses dispatch outright, so there is no "priced
+    // but over the ceiling" FE state left to render here.
     const hasPrice = Number.isFinite(price);
-    const hedgeLabel = !hasRunQuote && paywallEnabled
-        ? formatCostEstimate(scenario?.compute_cost_estimate)
-        : '';
     // Trailing-zero strip keeps whole-dollar Quotes reading as "$2", not
     // "$2.00", while a fractional shortfall still gets its cents.
     const usd = (n) => `$${Number(n).toFixed(2).replace(/\.00$/, '')}`;
@@ -304,10 +305,8 @@ const ScenarioHeaderActions = (props, context) => {
     // `free_cap` (apps/gn_anuga/api_v2.py), counting the SAME query the
     // account summary reports as `used_today` (apps/commerce/account_views.py),
     // so the two cannot disagree. This only fires off a BUILT run's real $0
-    // quote now: the pre-build hedge never promises "Free" from a threshold
-    // comparison it cannot make correctly pre-margin (formatCostEstimate
-    // only ever says "Free" for a LITERAL zero estimate, which stays zero at
-    // any margin — that promise is still safe to make).
+    // quote — there is no pre-build hedge left to make a threshold promise
+    // it cannot keep pre-margin.
     //
     // `cap > 0` is load-bearing: the account reducer's initialState is
     // {cap: 0, usedToday: 0}, and 0 >= 0 would stamp "limit reached" on every
@@ -319,7 +318,7 @@ const ScenarioHeaderActions = (props, context) => {
         && Number.isFinite(freeUsed) && freeUsed >= freeCap;
     const priceLabel = hasPrice
         ? (price === 0 ? (freeCapSpent ? 'Free · daily limit reached' : 'Free') : usd(price))
-        : (hedgeLabel || null);
+        : null;
 
     // The shortfall: what the customer is short by, stated BEFORE the click
     // instead of inside the refusal. Applies to a built run's price too — a
@@ -339,15 +338,21 @@ const ScenarioHeaderActions = (props, context) => {
     // back in full (commerce.ComputeLedgerEntry.credit_back_run, called from
     // every run-terminates-without-results path — services.py's error
     // handling, api_v2.py's cancel). A $0 quote is never "charged" anything,
-    // so it keeps its own, simpler tooltip; the pre-build hedge (no run yet)
-    // keeps the existing "confirmed when it builds" caveat unchanged.
+    // so it keeps its own, simpler tooltip.
+    //
+    // TASK-2872 (epic 2839 W5.0b) — the pre-build hedge branch this ternary
+    // used to carry ("What this run will cost ... confirmed when it
+    // builds") is DELETED, not merely unused: priceTitle is only ever read
+    // by renderPrice(), which is only ever called when priceLabel is
+    // truthy (`canRunScenario && priceLabel ? renderPrice() : null` below),
+    // and priceLabel is truthy only when hasPrice — which is only true when
+    // hasRunQuote is true. So a `!hasRunQuote` branch here could never
+    // actually render; simplify (mechanical) rather than carry dead text.
     const priceTitle = freeCapSpent
         ? `Free runs are capped at ${freeCap} a day and today's are used — this one will be refused until tomorrow`
-        : (hasRunQuote
-            ? (price > 0
-                ? `You'll be charged ${usd(price)} for this run — full credit back if it produces no results`
-                : 'This run is free — nothing will be charged')
-            : 'What this run will cost, from the current size estimate — confirmed when it builds');
+        : (price > 0
+            ? `You'll be charged ${usd(price)} for this run — full credit back if it produces no results`
+            : 'This run is free — nothing will be charged');
     // Only a BUILT run's quote can ever reach the shortfall branch now
     // (shortfall requires hasPrice, which is only true for hasRunQuote —
     // the pre-build hedge is a non-numeric string, never comparable to
@@ -376,10 +381,11 @@ const ScenarioHeaderActions = (props, context) => {
     // COPY RULE (decision 5, glossary.md:609): never say "band" to a customer
     // — it collides with Analysis band, a raster concept.
     //
-    // TASK-2848 — the pre-build hedge gets NO role word: formatCostEstimate's
-    // own string already says "est." (or "Free"), so a second "Estimated"
-    // beside it would read as "Estimated ~$12.38 est." — the built Quote is
-    // the only figure that still needs a word to name its role.
+    // TASK-2872 — there is no pre-build state left to give a role word to:
+    // the chip renders nothing until a real Quote exists (priceLabel is
+    // null pre-build), so `hasRunQuote` here is equivalent to "the chip is
+    // rendering at all" — the built Quote is the only figure this chip ever
+    // shows, and it always gets 'Charged'.
     const priceRoleWord = hasRunQuote ? 'Charged' : '';
     const renderPrice = () => {
         const shared = {

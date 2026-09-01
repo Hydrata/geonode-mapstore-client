@@ -4,7 +4,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {
     secondsToHM, hmToSeconds, DURATION_MAX_HOURS, DURATION_MINUTE_STEP, validateCategoryProgress,
     getMeshComparison, getMeshCostDriverHint, findScenarioStatus, RUN_FAILURE_STATES, IN_FLIGHT_STATUSES,
-    runSettingsMustStayOpen, formatCostEstimate
+    runSettingsMustStayOpen
 } from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioStatusCard} from './scenarioStatusCard';
@@ -667,16 +667,30 @@ function renderMeshCostDriverHint(scenario) {
 
 /**
  * TASK-2210 (W3.1, AC#3) — post-build transparency: actual triangle count
- * vs. the stamped pre-build estimate + a re-priced actual-$ cost, once a
- * build has completed. Reads scenario.latest_run (RunSerializerV2's
- * mesh_provenance / mesh_triangle_count / mesh_actual_cost_estimate, W3.1
- * BE) via the SAME getMeshComparison the divergence-interrupt gate
- * (anugaScenarioMenu.js, TASK-2211) uses — one arithmetic source.
+ * vs. the stamped pre-build estimate, once a build has completed. Reads
+ * scenario.latest_run (RunSerializerV2's mesh_provenance /
+ * mesh_triangle_count) via the SAME getMeshComparison the
+ * divergence-interrupt gate (anugaScenarioMenu.js, TASK-2211) uses — one
+ * arithmetic source.
  *
  * Degrades gracefully (renders nothing) when there is nothing honest to
  * show: mesh_provenance REALITY (epic 2204 environment note, verified
  * live) — a FAILED build carries an EMPTY {}; a pre-epic/legacy run
  * carries NULL. Never fabricates a comparison from either.
+ *
+ * TASK-2872 (epic 2839 W5.0b) — this used to also append a re-priced
+ * actual-$ cost (` — estimated compute cost ~$27.16`, TASK-2716's wording
+ * fix over a bare ` — ~$45.20`). DELETED, not re-worded: it was
+ * Run.mesh_actual_cost_estimate, the CPU vCPU-hour formula
+ * (dollar_estimate) — 17.6x the real GPU cost for a typical run, and every
+ * hydrata.com customer run is GPU-only (epic 2839 W0). TASK-2716's own
+ * justification ("the charge is the price band on the toolbar chip, and
+ * the two legitimately differ") no longer holds either: bands were deleted
+ * in W1.1, and under exact pricing the toolbar chip's `quote` IS derived
+ * from this same build's actual mesh — there is nothing left for a second
+ * figure to legitimately differ from. The toolbar `.sv-scenario-run-price`
+ * chip (scenarioHeaderActions.js) is now the ONLY dollar figure this pane
+ * shows for a built run.
  */
 function renderMeshBuildComparison(scenario) {
     const comparison = getMeshComparison(scenario?.latest_run);
@@ -691,27 +705,6 @@ function renderMeshBuildComparison(scenario) {
                         estimate: Number(comparison.estimate).toLocaleString()
                     }}
                 />
-                {/* TASK-2716 — this figure used to be a bare ` — ~$45.20`
-                    welded onto the end of the sentence with no word on it at
-                    all, and it is the one a reader is most likely to mistake
-                    for the bill. It is a POST-BUILD compute-cost estimate; the
-                    charge is the price band on the toolbar chip, and the two
-                    legitimately differ.
-
-                    Translated, unlike the toolbar chip's role word: this sits
-                    INSIDE a sentence that is already a <Message>, so hardcoded
-                    English here would produce a mixed-language line in
-                    fr-FR/es-ES/ht-HT. The amount itself is untouched. */}
-                {comparison.actualCost !== null
-                    ? [
-                        ' — ',
-                        <Message
-                            key="cost"
-                            msgId="hydrata.anuga.meshComparisonCost"
-                            msgParams={{cost: `~$${Number(comparison.actualCost).toFixed(2)}`}}
-                        />
-                    ]
-                    : ''}
             </span>
         </div>
     );
@@ -812,8 +805,18 @@ function computeTargetLabel(target, defaultComputeTarget) {
 }
 
 function renderEstimateOrBuiltSection(scenario) {
-    const hasEstimate = (scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined)
-        || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined);
+    // TASK-2872 (epic 2839 W5.0b) — compute_cost_estimate (the CPU
+    // vCPU-hour formula, dollar_estimate) no longer drives whether this
+    // section renders OR what it shows: this pre-build line used to append
+    // ` — ~$2.17 est.` (formatCostEstimate) beside the triangle count, a
+    // figure 17.6x the real GPU cost for a typical run and describing
+    // hardware no customer run uses (epic 2839 W0 is GPU-only). Deleted
+    // outright per the operator ruling (one dollar figure on screen, and it
+    // is the built Quote — scenarioHeaderActions.js's `.sv-scenario-run-price`
+    // chip); NOT re-pointed to the GPU formula. The pre-build state now
+    // shows the triangle estimate alone, with no dollar figure at all —
+    // AC#3: it must never render a CPU-derived dollar amount to a customer.
+    const hasEstimate = scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined;
     const comparison = getMeshComparison(scenario?.latest_run);
     const showBuilt = !scenario?.unsaved && !!comparison;
 
@@ -823,31 +826,11 @@ function renderEstimateOrBuiltSection(scenario) {
     if (!hasEstimate) {
         return null;
     }
-    // TASK-2848 (epic 2839 W2.1) — the over-ceiling and over-balance badges
-    // that used to render here (TASK-2420/2436/2717) both derived from
-    // bandForEstimate, mirroring gn_anuga.estimate.band()'s discrete
-    // bucketing so a pre-build figure could never disagree with the BE's
-    // decision. Epic 2839's operator ruling retired banding outright
-    // (AC2839-AC6: the FE band mirror is gone from EVERY surface), and there
-    // is no margin/cap surface on the wire to rebuild an equivalent pre-build
-    // mirror of the new exact quote() — at the 100% launch margin, comparing
-    // the raw (un-margined) compute_cost_estimate to the account balance
-    // would silently UNDER-warn by exactly that factor, which is worse than
-    // showing nothing. Both badges are retired with band() rather than
-    // rebuilt on a number that would be quietly wrong; the pre-build section
-    // below is now a hedge only (formatCostEstimate, in the label), and the
-    // Built line's `quote` (scenarioHeaderActions.js) is the one place a
-    // customer sees an authoritative, actionable price.
     return (
         <div className="sv-anuga-scenario-pane-section anuga-scenario-estimate-section">
             <span className="sv-anuga-scenario-estimate-label">
                 {'Estimate: '}
-                {scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined
-                    ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
-                    : ''}
-                {scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined
-                    ? ` — ${formatCostEstimate(scenario.compute_cost_estimate)}`
-                    : ''}
+                {`~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`}
             </span>
             {/* TASK-2400(a)/2421 — when local edits are unsaved (scenario.unsaved,
                 set by UPDATE_ANUGA_SCENARIO, cleared by SAVE_ANUGA_SCENARIO_SUCCESS

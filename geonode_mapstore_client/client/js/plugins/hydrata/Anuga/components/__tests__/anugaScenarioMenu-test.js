@@ -2201,7 +2201,7 @@ describe('anugaScenarioMenu — paywall props reach the run-actions strip (TASK-
         document.body.removeChild(container);
     });
 
-    it('a never-run priced scenario shows its HEDGE estimate inside #scenario-run-actions (TASK-2848 — no band mirror left to shortfall against)', () => {
+    it('a never-run priced scenario shows NO price chip inside #scenario-run-actions (TASK-2872 — the CPU hedge is deleted, not merely un-banded)', () => {
         const scenario = {
             id: 21, name: 'Priced', status: 'built', created_by: 9999,
             terrain: 10, boundary: 20, inflow: 30, rainfall: null,
@@ -2234,14 +2234,14 @@ describe('anugaScenarioMenu — paywall props reach the run-actions strip (TASK-
         );
         const strip = container.querySelector('#scenario-run-actions');
         expect(strip).toExist();
-        const price = strip.querySelector('[data-testid="sv-scenario-run-price"]');
-        expect(price).toExist();
         // TASK-2848 — no run yet means no `quote`, and there is no FE band
         // mirror left to derive a shortfall-comparable number from
-        // (AC2839-AC6). The chip shows the SAME hedge scenarioPane.js shows —
-        // a floor, not a shortfall instruction — and is inert (no billing CTA).
-        expect(price.textContent).toBe('~$3.00 est.');
-        expect(price.tagName).toBe('SPAN');
+        // (AC2839-AC6). TASK-2872 (epic 2839 W5.0b) went further: the pane
+        // used to fall back to a HEDGE here (formatCostEstimate of
+        // compute_cost_estimate, the retired CPU vCPU-hour formula — 17.6x
+        // the real GPU cost for a typical run). Deleted outright — the chip
+        // renders nothing at all until a real Quote exists.
+        expect(strip.querySelector('[data-testid="sv-scenario-run-price"]')).toNotExist();
         expect(opened).toBe(0);
     });
 });

@@ -1773,10 +1773,11 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // TASK-2400 (dogfood F1 #2a) — a free-band ($0) pre-build estimate
-        // must render 'Free', never a bare '$0.00' (a precise-looking,
-        // billable-reading figure for what is actually a zero-cost run).
-        it('TASK-2400: renders "Free" (never "$0.00") for a free-band ($0) compute_cost_estimate', (done) => {
+        // TASK-2872 (epic 2839 W5.0b) — REPLACES the old TASK-2400 "Free"
+        // clamp spec here. There is no dollar clause left to clamp: the
+        // pre-build estimate line now shows the triangle count alone,
+        // regardless of compute_cost_estimate's value (0, huge, or absent).
+        it('TASK-2872: the pre-build estimate line never renders a dollar figure, whatever compute_cost_estimate is', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={{...baseScenario, mesh_triangle_count_estimate: 200, compute_cost_estimate: 0}}
@@ -1787,8 +1788,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 () => {
                     const label = container.querySelector('.sv-anuga-scenario-estimate-label');
                     expect(label).toBeTruthy();
-                    expect(label.textContent).toContain('Free');
-                    expect(label.textContent.includes('$0.00')).toBe(false);
+                    expect(label.textContent).toContain('200 triangles');
+                    expect(label.textContent).toNotContain('$');
+                    expect(label.textContent).toNotContain('Free');
                     done();
                 }
             );
@@ -1830,12 +1832,15 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        // TASK-2093 (epic 2092 W1.1) — the "$5237" bug: compute_cost_estimate
-        // used to be raw vCPU-hours mislabeled as a cost, printed as
-        // '~$X.XX vCPU-h' (both units on one number). BE now returns a
-        // genuine dollar figure; the pane must render ONE consistent dollar
-        // amount with no 'vCPU-h' unit suffix.
-        it('TASK-2093: renders one dollar figure for compute_cost_estimate, no vCPU-h suffix', (done) => {
+        // TASK-2093 (epic 2092 W1.1) fixed the "$5237" vCPU-h unit-conflation
+        // bug by making compute_cost_estimate a genuine dollar figure.
+        // TASK-2872 (epic 2839 W5.0b) goes further and deletes the dollar
+        // clause here ENTIRELY (not just fixes its units): compute_cost_estimate
+        // is dollar_estimate, the retired CPU vCPU-hour formula — 17.6x the
+        // real GPU cost for a typical run. The pane now renders the triangle
+        // count alone; no dollar figure at all, no matter how compute_cost_estimate
+        // is populated on the fixture.
+        it('TASK-2872: renders the triangle estimate, never a dollar figure for compute_cost_estimate', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={{...baseScenario, mesh_triangle_count_estimate: 123456, compute_cost_estimate: 5237.42}}
@@ -1846,7 +1851,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 () => {
                     const label = container.querySelector('.sv-anuga-scenario-estimate-label');
                     expect(label).toBeTruthy();
-                    expect(label.textContent).toContain('$5237.42');
+                    expect(label.textContent).toContain('123,456 triangles');
+                    expect(label.textContent.includes('$')).toBe(false);
                     expect(label.textContent.includes('vCPU-h')).toBe(false);
                     done();
                 }
@@ -1984,7 +1990,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
 
         // TASK-2210 (W3.1, AC#3) — post-build actual-vs-estimate comparison.
         describe('TASK-2210 post-build mesh comparison', () => {
-            it('renders actual vs estimate + re-priced cost once a run has built', (done) => {
+            it('renders actual vs estimate triangle counts once a run has built', (done) => {
                 ReactDOM.render(
                     <Localized locale="en-US" messages={enData.messages}>
                         <ScenarioPane
@@ -1992,8 +1998,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                                 ...baseScenario,
                                 latest_run: {
                                     mesh_triangle_count: 250000,
-                                    mesh_provenance: {pre_build_triangle_estimate: 100000},
-                                    mesh_actual_cost_estimate: 45.2
+                                    mesh_provenance: {pre_build_triangle_estimate: 100000}
                                 }
                             }}
                             selectedCategoryId={'runConfig'}
@@ -2006,37 +2011,47 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                         expect(comparison).toExist();
                         expect(comparison.textContent).toInclude('250,000');
                         expect(comparison.textContent).toInclude('100,000');
-                        expect(comparison.textContent).toInclude('$45.20');
                         done();
                     }
                 );
             });
 
             /*
-             * TASK-2716 (W5, epic 2706). This is the one figure with no word
-             * on it at all: a bare ` — ~$45.20` welded onto the end of the
-             * built-mesh line. It is a POST-BUILD compute-cost estimate, not
-             * the charge — the charge is the price band on the toolbar chip,
-             * and the two legitimately differ.
+             * TASK-2872 (epic 2839 W5.0b) — REPLACES the old spec here
+             * ('the post-build mesh-comparison cost is visibly labelled as
+             * an estimate, not a charge'), which only ever asserted the
+             * STRING 'estimated compute cost' was present — never the
+             * NUMBER. That gap is exactly what let a re-pointed `quote`
+             * (TASK-2841/W1.1) ship alongside an UN-re-pointed
+             * mesh_actual_cost_estimate (still the CPU vCPU-hour formula,
+             * dollar_estimate) without any spec going red: prod showed
+             * "Free" on the toolbar chip and "estimated compute cost
+             * ~$27.16" one line above it for the SAME run (TASK-2853 W4
+             * drill, hydrata.com 2026-08-30). This spec pins the NUMBER —
+             * there must be exactly one, and it must equal Run.quote to the
+             * cent — so the same class of drift cannot ship silently again.
              *
-             * It is TRANSLATED, unlike the toolbar chip. The figure sits inside
-             * a <span> whose preceding sibling is <Message
-             * msgId="hydrata.anuga.meshComparisonLabel"> — a translated
-             * sentence — so an English role word appended here would produce a
-             * mixed-language line in fr-FR/es-ES/ht-HT. Hence a real msgId
-             * across all four locale files that carry hydrata copy, rather than
-             * the hardcoded-English convention the toolbar follows.
+             * mesh_actual_cost_estimate is passed on the fixture DELIBERATELY
+             * (17.6x the real quote, matching the live TASK-2853 ratio) to
+             * prove it truly has NO reader left, not merely that this
+             * fixture happens not to set it.
              */
-            it('the post-build mesh-comparison cost is visibly labelled as an estimate, not a charge', (done) => {
+            it('AC#1/AC#6 — a built, priceable run shows exactly ONE dollar figure, equal to Run.quote to the cent (never the CPU mesh_actual_cost_estimate)', (done) => {
                 ReactDOM.render(
                     <Localized locale="en-US" messages={enData.messages}>
                         <ScenarioPane
                             scenario={{
                                 ...baseScenario,
                                 latest_run: {
-                                    mesh_triangle_count: 250000,
+                                    mesh_triangle_count: 727417,
                                     mesh_provenance: {pre_build_triangle_estimate: 100000},
-                                    mesh_actual_cost_estimate: 45.2
+                                    // The live TASK-2853 ratio: dollar_estimate
+                                    // ~17.6x gpu_l40s_cost_estimate for this
+                                    // triangle/duration pair. If anything in
+                                    // the pane still read this field, it would
+                                    // show up as a SECOND dollar figure here.
+                                    mesh_actual_cost_estimate: 27.16,
+                                    quote: '1.54'
                                 }
                             }}
                             selectedCategoryId={'runConfig'}
@@ -2047,13 +2062,22 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     () => {
                         const comparison = container.querySelector('.anuga-scenario-mesh-comparison-section');
                         expect(comparison).toExist();
-                        // the role word, resolved through the message catalogue
-                        expect(comparison.textContent).toInclude('estimated compute cost');
-                        // and the figure itself is untouched (AC5: no arithmetic change)
-                        expect(comparison.textContent).toInclude('~$45.20');
-                        // NON-VACUITY: an unresolved msgId renders as the id
-                        // itself, which would satisfy a naive toInclude.
-                        expect(comparison.textContent).toNotInclude('hydrata.anuga');
+                        // triangle counts still render — AC#5 no arithmetic
+                        // change to what IS shown, only to the cost clause.
+                        expect(comparison.textContent).toInclude('727,417');
+                        // the exact defect this spec exists to catch: the
+                        // retired CPU figure must never render here again.
+                        expect(comparison.textContent).toNotInclude('27.16');
+                        expect(comparison.textContent).toNotInclude('$');
+                        expect(comparison.textContent).toNotInclude('estimated compute cost');
+                        // scenarioPane.js itself never renders the toolbar
+                        // price chip (a sibling, ScenarioHeaderActions,
+                        // anugaScenarioMenu.js) — asserting its absence here
+                        // AND asserting scenarioHeaderActions-test.js's own
+                        // chip pins '$1.54'/'$5' to Run.quote exactly is what
+                        // jointly proves "exactly one dollar figure, equal to
+                        // quote" for the scenario pane as the user sees it.
+                        expect(container.querySelector('[data-testid="sv-scenario-run-price"]')).toNotExist();
                         done();
                     }
                 );
@@ -2160,12 +2184,17 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
         // surface). paywallEnabled/accountBalance/freeBand/onOpenAccountBilling
         // are no longer threaded into this pane at all (ScenarioPane no
         // longer reads them) — there is no margin/cap surface on the wire to
-        // rebuild an equivalent pre-build mirror of the new exact quote(),
-        // so nothing here tries to. The pre-build section is a hedge only
-        // now; the Built line's `quote` (scenarioHeaderActions.js) is the
+        // rebuild an equivalent pre-build mirror of the new exact quote().
+        //
+        // TASK-2872 (epic 2839 W5.0b) — went further and deleted the
+        // pre-build HEDGE these two specs used to pin ('~$3.00 est.',
+        // '~$5000.00 est.') too: compute_cost_estimate is the retired CPU
+        // formula, 17.6x the real GPU cost for a typical run. The pane now
+        // states the triangle estimate alone; the Built line's `quote`
+        // (scenarioHeaderActions.js's `.sv-scenario-run-price` chip) is the
         // one place a customer sees an authoritative, actionable price.
-        describe('TASK-2848 — over-balance/over-ceiling badges retired with the band mirror', () => {
-            it('never renders an over-balance badge, however far the estimate would once have exceeded a balance', (done) => {
+        describe('TASK-2848/2872 — over-balance/over-ceiling badges AND the CPU hedge itself are retired', () => {
+            it('never renders an over-balance badge, and no dollar figure however far compute_cost_estimate would once have exceeded a balance', (done) => {
                 ReactDOM.render(
                     <ScenarioPane
                         scenario={{...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 1000}}
@@ -2175,15 +2204,17 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     container,
                     () => {
                         expect(container.querySelector('[data-testid="sv-anuga-scenario-estimate-over-balance-badge"]')).toBe(null);
-                        // The hedge itself still renders — retiring the badge
-                        // is not retiring the estimate.
-                        expect(container.querySelector('.anuga-scenario-estimate-section').textContent).toInclude('~$3.00 est.');
+                        // The triangle estimate still renders — retiring the
+                        // dollar clause is not retiring the estimate line.
+                        const text = container.querySelector('.anuga-scenario-estimate-section').textContent;
+                        expect(text).toInclude('1,000 triangles');
+                        expect(text).toNotInclude('$');
                         done();
                     }
                 );
             });
 
-            it('never renders an over-ceiling badge for a huge estimate, tester or not — the pane still states the money', (done) => {
+            it('never renders an over-ceiling badge for a huge estimate, tester or not — and never a dollar figure either', (done) => {
                 ReactDOM.render(
                     <ScenarioPane
                         scenario={{...baseScenario, compute_cost_estimate: 5000, mesh_triangle_count_estimate: 9000000}}
@@ -2198,7 +2229,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                         expect(label).toExist();
                         expect(label.textContent).toInclude('Estimate:');
                         expect(label.textContent).toInclude('9,000,000 triangles');
-                        expect(label.textContent).toInclude('~$5000.00 est.');
+                        expect(label.textContent).toNotInclude('$');
                         done();
                     }
                 );
