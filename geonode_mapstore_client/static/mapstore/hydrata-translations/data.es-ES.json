@@ -262,7 +262,6 @@
           "title": "Error en el pago",
           "message": "No se pudo iniciar el pago. Por favor, intentelo de nuevo."
         },
-        "betaEngineUpdateNotice": "Durante la beta, es posible que actualicemos el motor de cálculo; los resultados del mismo modelo pueden variar ligeramente entre ejecuciones.",
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "El Mesh aparecerá aquí cuando se construya un escenario.",
@@ -295,7 +294,6 @@
         "meshCostDriverHintBreaklines": "Tus líneas de ruptura generan ~{share}% del costo de tu malla — el tamaño de malla base por sí solo no cambiará esto mucho.",
         "meshCostDriverHintHolePerimeter": "Los límites de los huecos de estructura generan ~{share}% del costo de tu malla — el tamaño de malla base por sí solo no cambiará esto mucho.",
         "meshComparisonLabel": "Construido: {actual} triángulos (estimado {estimate})",
-        "meshComparisonCost": "coste de cálculo estimado {cost}",
         "results": "Resultados",
         "viewResults": "Ver Resultados",
         "resultsNoRuns": "Ningún escenario tiene ejecuciones completadas con resultados todavía.",

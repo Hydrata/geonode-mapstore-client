@@ -86,7 +86,17 @@ function FreeBandSection({ freeBand }) {
                     </div>
                 ) : null}
                 <span className="sv-account-free-band-explainer">
-                    {`Runs estimated under $${edge} are free — up to ${cap} per day for your account.`}
+                    {/* TASK-2872 (epic 2839 W5.0b) — two defects fixed in copy
+                        only, never in the underlying `<=` (estimate.py's
+                        `if quoted <= free_threshold` is the intended ruling):
+                        (a) BOUNDARY — "under $X" implied a run quoted at
+                        EXACTLY $X was NOT free; it is. "$X or less" matches
+                        the real boundary and plans.html's TASK-2849 wording.
+                        (b) "estimated" was the retired band-era word (a run
+                        is now QUOTED, exactly, post-build) — plans.html:94
+                        was already swept to "quoted" by TASK-2849; this
+                        surface was missed by that sweep. */}
+                    {`Runs quoted at $${edge} or less are free — up to ${cap} per day for your account.`}
                 </span>
             </div>
         </Section>

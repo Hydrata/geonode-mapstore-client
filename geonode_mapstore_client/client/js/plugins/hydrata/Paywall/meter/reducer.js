@@ -39,7 +39,7 @@ const initialState = {
     // {type: 'insufficient_balance'|'cap_exceeded'|'estimate_ceiling'|'email_unverified', checkoutUrl, detail, resendUrl} | null
     modal: null,
     // TASK-2849 — feedback for the email_unverified modal's Resend button.
-    // {pending, status: 'sent'|'already_verified'|'cooldown'|'send_failed'|'error'|null, detail} — pending is
+    // {pending, status: 'sent'|'already_verified'|'cooldown'|'no_email'|'send_failed'|'error'|null, detail} — pending is
     // a separate bool (not folded into status) so the button's disabled
     // state does not depend on parsing a string.
     resendVerification: { pending: false, status: null, detail: null }

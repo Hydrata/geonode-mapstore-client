@@ -121,8 +121,11 @@ export const refetchBalanceOnAccountSummaryEpic = (action$, store) => action$
  * whatever refusal is currently on screen".
  *
  * `switchMap` (not `exhaustMap`): a genuine double-click is already guarded
- * by the BE's own 5-minute cooldown (EmailVerificationResendView), and the
- * button disables locally via `pending` for the same reason
+ * by allauth's own 180s confirm_email throttle, which the BE now reports
+ * honestly as a 429 'cooldown' instead of a false 'sent' (TASK-2874 — the
+ * view's own 5-minute cooldown that this comment used to cite was dead code:
+ * it queried EmailConfirmation rows the HMAC path never writes). The button
+ * also disables locally via `pending` for the same reason
  * subscribeCheckoutEpic's buttons do — this just needs to not pile up
  * concurrent requests if the user mashes it before `pending` paints.
  */
@@ -139,16 +142,18 @@ export const resendEmailVerificationEpic = (action$, store) => action$
             .defer(() => Rx.Observable.from(anugaApi.resendEmailVerification(resendUrl)))
             .map((response) => {
                 const data = response?.data || {};
-                // EmailVerificationResendView's status values: 'sent' |
-                // 'already_verified' | 'send_failed' (all HTTP 200) — never
-                // guess a status this view didn't send.
+                // EmailVerificationResendView's 200 status values: 'sent' |
+                // 'already_verified' | 'no_email' | 'send_failed' — never guess
+                // a status this view didn't send. ('cooldown' is the 429 below.)
                 return setResendEmailVerificationResult(data.status || 'sent', data.detail);
             })
             .catch((err) => {
                 const status = readErrStatus(err);
                 const data = readErrData(err);
                 // 429 cooldown carries its own detail + retry_after_seconds —
-                // surfaced as 'cooldown', distinct from a hard failure.
+                // surfaced as 'cooldown', distinct from a hard failure. Since
+                // TASK-2874 this is the REAL allauth suppression, not a
+                // never-fired branch.
                 if (status === 429 && data?.status === 'cooldown') {
                     return Rx.Observable.of(setResendEmailVerificationResult('cooldown', data.detail));
                 }

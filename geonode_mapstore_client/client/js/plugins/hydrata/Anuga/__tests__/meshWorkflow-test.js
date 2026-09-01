@@ -279,22 +279,37 @@ describe('W6 MeshTriangleLayerSection — authed tile request (TASK-1423)', () =
 // TASK-1424: BuiltMeshRoster — renders table + empty state
 // ---------------------------------------------------------------------------
 
-describe('CostEstimateSection — dollar display, no vCPU-h conflation (TASK-2122)', () => {
+describe('CostEstimateSection — triangle count only, no CPU dollar figure (TASK-2872)', () => {
     let div;
     afterEach(() => { if (div) { unmountDiv(div); div = null; } });
 
-    it('renders the compute_cost_estimate as a dollar amount with NO "vCPU-h" suffix', () => {
-        // compute_cost_estimate is a DOLLAR value from the BE (2093 re-unit).
-        // The dogfood F5 bug printed "~$884.02 vCPU-h" — a $-prefixed raw
-        // vCPU-hours number ~3000x off. This must now be a clean dollar figure.
-        div = renderIntoDiv(<CostEstimateSection scenario={{mesh_triangle_count_estimate: 216802, compute_cost_estimate: 0.83}}/>);
-        expect(div.textContent).toContain('~$0.83');
-        expect(div.textContent).toNotContain('vCPU-h');
-    });
-
-    it('renders the triangle count alongside the dollar estimate', () => {
+    // TASK-2122 shipped a dollar clause here (fixing a "~$884.02 vCPU-h"
+    // unit-conflation bug); TASK-2872 (epic 2839 W5.0b) deletes the dollar
+    // clause OUTRIGHT rather than fixing it further. compute_cost_estimate
+    // is Scenario.compute_cost_estimate — the retired CPU vCPU-hour formula
+    // (dollar_estimate), 17.6x the real GPU cost for a typical run, and this
+    // component's hand-rolled formatter additionally had NO free-threshold
+    // clamp: a $0 estimate rendered the literal "~$0.00" here while the rest
+    // of the app said "Free" for the identical figure elsewhere. One dollar
+    // figure on screen now (scenarioHeaderActions.js's `.sv-scenario-run-price`
+    // chip, sourced from the real Quote) — this section shows the triangle
+    // estimate alone.
+    it('renders the triangle estimate with no dollar figure, even when compute_cost_estimate is present', () => {
         div = renderIntoDiv(<CostEstimateSection scenario={{mesh_triangle_count_estimate: 216802, compute_cost_estimate: 0.83}}/>);
         expect(div.textContent).toContain('216,802 triangles');
+        expect(div.textContent).toNotContain('$');
+    });
+
+    it('never renders the literal "~$0.00" a free-threshold estimate used to produce (no Free clamp needed — there is no dollar clause left)', () => {
+        div = renderIntoDiv(<CostEstimateSection scenario={{mesh_triangle_count_estimate: 500, compute_cost_estimate: 0}}/>);
+        expect(div.textContent).toContain('500 triangles');
+        expect(div.textContent).toNotContain('$0.00');
+        expect(div.textContent).toNotContain('$');
+    });
+
+    it('renders nothing when the triangle estimate is absent, regardless of compute_cost_estimate', () => {
+        div = renderIntoDiv(<CostEstimateSection scenario={{compute_cost_estimate: 4.5}}/>);
+        expect(div.querySelector('.sv-anuga-mesh-workflow-estimate')).toNotExist();
     });
 
     it('renders nothing when both estimate fields are absent', () => {

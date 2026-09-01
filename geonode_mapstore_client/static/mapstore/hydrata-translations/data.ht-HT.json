@@ -262,7 +262,6 @@
           "title": "Peman echwe",
           "message": "Pa t kapab kòmanse peman an. Tanpri eseye ankò."
         },
-        "betaEngineUpdateNotice": "Pandan peryòd beta a, nou ka mete ajou motè kalkil la; rezilta pou menm modèl la ka chanje yon ti jan ant egzekisyon.",
         "mesh": "May",
         "meshRegions": "Rejyon May",
         "meshWillAppear": "Mesh la ap parèt isit la lè yo konstwi yon senaryo.",
@@ -295,7 +294,6 @@
         "meshCostDriverHintBreaklines": "Liy kase ou yo reprezante ~{share}% nan pri rezo ou a — gwosè rezo debaz poukont li p ap chanje sa anpil.",
         "meshCostDriverHintHolePerimeter": "Fwontyè twou estrikti yo reprezante ~{share}% nan pri rezo ou a — gwosè rezo debaz poukont li p ap chanje sa anpil.",
         "meshComparisonLabel": "Bati: {actual} triyang (estime {estimate})",
-        "meshComparisonCost": "estimasyon pri kalkil {cost}",
         "results": "Rezilta",
         "viewResults": "Wè Rezilta",
         "resultsNoRuns": "Poko gen senaryo ki gen egzekisyon konplè ak rezilta.",

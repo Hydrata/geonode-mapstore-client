@@ -11,19 +11,20 @@
  * `enabled`) and renders null independently — so either, both, or neither
  * can be dark at once, exactly like two independently-killable flags.
  *
- * TASK-2638 (epic 2635 W1) added a THIRD sibling, BetaNoticeBannerContainer
- * — its own kill-switch is the jobName==='hydratabase' + signed-in + not-
- * dismissed gate computed inside the container, same independent-render
- * pattern as its two siblings.
+ * TASK-2638 (epic 2635 W1) added a THIRD sibling, BetaNoticeBannerContainer,
+ * later RETIRED OUTRIGHT by TASK-2871 (epic 2839 W5.0): its hardcoded
+ * "Payments are in test mode — no card will be charged" became a lie the
+ * instant TASK-2103 flips stripe_use_test_keys to false, and its "free
+ * compute credit" copy never matched the TASK-2841 exact-pricing model
+ * (a paid wallet balance, not a credit pool). Deleted rather than rewritten
+ * (operator ruling) — back to the original two siblings.
  */
 import React from 'react';
 import PaywallPanelContainer from '../containers/PaywallPanelContainer';
 import ComputeMeterContainer from '../meter/containers/ComputeMeterContainer';
-import BetaNoticeBannerContainer from '../containers/BetaNoticeBannerContainer';
 
 const PaywallAndMeterRoot = (props) => (
     <React.Fragment>
-        <BetaNoticeBannerContainer />
         <PaywallPanelContainer {...props} />
         <ComputeMeterContainer />
     </React.Fragment>

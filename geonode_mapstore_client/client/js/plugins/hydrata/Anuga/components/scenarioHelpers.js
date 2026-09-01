@@ -417,11 +417,19 @@ export const validateCategoryProgress = (category, scenario, opts) => {
 // ---------------------------------------------------------------------------
 // TASK-2210/2211 (W3.1/W3.2, epic 2204) — mesh cost transparency + the
 // divergence-interrupt gate. Pure functions over a Run object shaped by
-// RunSerializerV2 (BE: mesh_provenance / mesh_triangle_count /
-// mesh_actual_cost_estimate) so scenarioPane.js's post-build comparison
-// (2210 AC#3) and anugaScenarioMenu.js's Build-and-Run pause (2211 AC#1)
-// share ONE arithmetic source — they can never disagree about what
-// "diverged" means.
+// RunSerializerV2 (BE: mesh_provenance / mesh_triangle_count) so
+// scenarioPane.js's post-build comparison (2210 AC#3) and
+// anugaScenarioMenu.js's Build-and-Run pause (2211 AC#1) share ONE
+// arithmetic source — they can never disagree about what "diverged" means.
+//
+// TASK-2872 (epic 2839 W5.0b) — this comparison used to also carry
+// `actualCost` (Run.mesh_actual_cost_estimate, the CPU vCPU-hour formula),
+// rendered beside the real GPU-priced `quote` chip as "estimated compute
+// cost ~$27.16" — 17.6x the real GPU charge, and describing hardware no
+// customer run uses (epic 2839 W0 is GPU-only). Deleted outright (operator
+// ruling: one dollar figure on screen, and it is the quote) rather than
+// re-pointed to the GPU formula — a triangle/duration re-price is still
+// useful for a divergence warning, a SECOND dollar figure never is.
 // ---------------------------------------------------------------------------
 
 // od-4 (2026-07-10 grill): default 2x. Overridden by the BE's
@@ -430,8 +438,9 @@ export const validateCategoryProgress = (category, scenario, opts) => {
 export const DEFAULT_MESH_DIVERGENCE_THRESHOLD = 2;
 
 /**
- * The actual-vs-estimate mesh comparison for a completed build, or `null`
- * when there is nothing honest to show.
+ * The actual-vs-estimate mesh TRIANGLE comparison for a completed build, or
+ * `null` when there is nothing honest to show. Triangle counts only — see
+ * the TASK-2872 file-header note above for why no dollar figure rides here.
  *
  * mesh_provenance REALITY (epic 2204 environment note, verified live): a
  * FAILED build carries an EMPTY `{}`; a pre-epic/legacy run carries `null`.
@@ -439,9 +448,8 @@ export const DEFAULT_MESH_DIVERGENCE_THRESHOLD = 2;
  * rather than a fabricated comparison (never show "0 vs 0" or "NaN%").
  *
  * @param {object} run - a Run as RunSerializerV2 shapes it (or any object
- *   carrying `mesh_provenance` + `mesh_triangle_count` + optionally
- *   `mesh_actual_cost_estimate`).
- * @returns {{estimate: number, actual: number, ratio: number|null, actualCost: number|null}|null}
+ *   carrying `mesh_provenance` + `mesh_triangle_count`).
+ * @returns {{estimate: number, actual: number, ratio: number|null}|null}
  */
 export const getMeshComparison = (run) => {
     const mp = run && typeof run.mesh_provenance === 'object' && run.mesh_provenance !== null
@@ -450,13 +458,10 @@ export const getMeshComparison = (run) => {
     const estimate = mp.pre_build_triangle_estimate;
     const actual = run.mesh_triangle_count;
     if (estimate === null || estimate === undefined || !actual) return null;
-    const actualCost = run.mesh_actual_cost_estimate !== null && run.mesh_actual_cost_estimate !== undefined
-        ? run.mesh_actual_cost_estimate : null;
     return {
         estimate,
         actual,
-        ratio: estimate > 0 ? actual / estimate : null,
-        actualCost
+        ratio: estimate > 0 ? actual / estimate : null
     };
 };
 
@@ -517,31 +522,14 @@ export const getMeshCostDriverHint = (breakdown) => {
     return {driver: bestKey, share: Math.round((bestValue / total) * 100)};
 };
 
-// TASK-2400 (dogfood F1 #2a/#3) — shared pre-build cost-estimate formatter,
-// used by BOTH the in-pane estimate section (scenarioPane.js) and the
-// Build/Build-and-Run tooltip echo (scenarioHeaderActions.js), which used to
-// each carry their own copy of this same $0-vs-hedge logic (mechanical
-// simplify — one formatter, one place to fix the wording again).
-//   (b) a $0 (free-threshold) run never renders as "$0.00" — reads "Free".
-//   (c) a non-zero figure is hedged ("est.") rather than bare precision — it
-//       is dollar_estimate() rounded to 2dp, PURE COST with no margin applied
-//       and NOT what a build will actually be charged — the Built line's
-//       `quote` (gn_anuga.estimate.quote(); scenarioHeaderActions.js's
-//       priceLabel, TASK-2100/2848) is the one number that IS the charge.
-//
-// TASK-2848 (epic 2839 W2.1) — this is now the ONLY pre-build price surface.
-// Its sibling bandForEstimate (TASK-2420) mirrored gn_anuga.estimate.band()'s
-// discrete bucketing so a pre-build figure could never disagree with a
-// build's charge; epic 2839's operator ruling retired banding outright
-// (AC2839-AC6: the FE band mirror is gone from every surface), and there is
-// no margin/cap surface on the wire with which to rebuild an equivalent
-// pre-build mirror of the new exact quote() — reconstructing one from the
-// raw (un-margined) compute_cost_estimate would silently understate the real
-// charge by the margin factor (2x at the 100% launch margin). So pre-build
-// stays a HEDGE, nothing more: a floor, explicitly not the bill.
-// Returns '' when computeCostEstimate is null/undefined (nothing to show).
-export const formatCostEstimate = (computeCostEstimate) => {
-    if (computeCostEstimate === null || computeCostEstimate === undefined) return '';
-    if (Number(computeCostEstimate) === 0) return 'Free';
-    return `~$${Number(computeCostEstimate).toFixed(2)} est.`;
-};
+// formatCostEstimate (TASK-2400) — the shared pre-build $0-vs-hedge
+// formatter for Scenario.compute_cost_estimate — is RETIRED by TASK-2872
+// (epic 2839 W5.0b), not merely unused: compute_cost_estimate is the same
+// retired CPU vCPU-hour formula as the mesh-comparison figure above
+// (dollar_estimate), and every one of its 3 render call sites (this pane's
+// pre-build line, the Build/Build-and-Run tooltip echo, and the Run-button
+// pre-build price-chip hedge — all in scenarioPane.js/scenarioHeaderActions.js)
+// rendered a customer-visible dollar amount 17.6x the real GPU cost. Deleted
+// with its callers rather than re-pointed to the GPU formula (operator
+// ruling: one dollar figure on screen, and it is the quote — see the
+// TASK-2872 comments at each former call site for the deletion record).

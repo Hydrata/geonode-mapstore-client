@@ -2463,7 +2463,12 @@ span.sv-scenario-run-price--short {
     border-top: 1px solid rgba(255, 255, 255, 0.10);
 }
 
-.sv-anuga-scenario-estimate-label {
+/* TASK-2872 (epic 2839 W5.0b) — de-duplicated: MeshWorkflow.js's own
+   estimate label used to share this exact class with scenarioPane.js's
+   (two unrelated DOM subtrees, one selector), which could grab the wrong
+   element in a selector-based check. Same visual treatment, two names now. */
+.sv-anuga-scenario-estimate-label,
+.sv-anuga-mesh-workflow-estimate-label {
     font-size: 11.5px;
     color: rgba(255, 255, 255, 0.75);
 }

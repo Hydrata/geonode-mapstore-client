@@ -1405,7 +1405,14 @@ class AnugaScenarioMenuClass extends React.Component {
   // via CSS for Karma determinism) — kept separate from the 5-action
   // CONFIRM_DIALOG_REGISTRY for the same reason those two are. Reuses
   // getMeshComparison (the SAME arithmetic TASK-2210's post-build panel
-  // renders) for the actual/estimate/cost numbers in the confirm copy.
+  // renders) for the actual/estimate triangle numbers in the confirm copy.
+  //
+  // TASK-2872 (epic 2839 W5.0b) — this used to also append a re-priced
+  // actual-$ cost (comparison.actualCost, Run.mesh_actual_cost_estimate —
+  // the retired CPU vCPU-hour formula). Deleted with getMeshComparison's
+  // actualCost field itself: 17.6x the real GPU cost for a typical run, and
+  // a confirm dialog about mesh SIZE divergence has no need to editorialise
+  // about cost at all.
   renderDivergenceConfirmDialog() {
       const {divergenceConfirm} = this.state;
       const isOpen = !!divergenceConfirm;
@@ -1438,9 +1445,6 @@ class AnugaScenarioMenuClass extends React.Component {
                               ? Number(comparison.estimate).toLocaleString() : ''
                       }}
                   />
-                  {comparison.actualCost !== null && comparison.actualCost !== undefined
-                      ? ` (~$${Number(comparison.actualCost).toFixed(2)})`
-                      : ''}
               </span>
               <button
                   type="button"

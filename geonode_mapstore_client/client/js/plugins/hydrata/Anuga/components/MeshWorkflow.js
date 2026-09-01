@@ -184,25 +184,36 @@ PreviewSection.defaultProps = {
 };
 
 /**
- * CostEstimateSection — renders the W3.2 pre-dispatch triangle/cost estimate.
- * Only renders when at least one of the two fields is non-null on the scenario.
+ * CostEstimateSection — renders the W3.2 pre-dispatch triangle estimate.
+ * Only renders when the triangle-count field is non-null on the scenario.
+ *
+ * TASK-2872 (epic 2839 W5.0b) — this used to also append a HAND-ROLLED
+ * ` — ~$${scenario.compute_cost_estimate.toFixed(2)}` clause: a second,
+ * independent copy of the retired CPU vCPU-hour formula's $0/hedge
+ * rendering (scenarioPane.js's formatCostEstimate, TASK-2400, had a
+ * "Free" clamp for a literal $0 estimate; this hand-rolled copy did not,
+ * so a free-class run rendered the literal "~$0.00" here while the rest of
+ * the app said "Free" — the same class of inconsistency this task exists
+ * to remove). Deleted outright, not re-clamped and not re-pointed to the
+ * GPU formula (operator ruling: one dollar figure on screen, and it is the
+ * built Quote — scenarioHeaderActions.js's `.sv-scenario-run-price` chip).
+ *
+ * The label's className is also renamed off the shared
+ * `sv-anuga-scenario-estimate-label` (still used, unrelated, by
+ * scenarioPane.js's OWN pre-build estimate label) to a component-scoped
+ * class — the two were never the same DOM subtree and a shared class name
+ * only invited a selector-based check to grab the wrong element.
  */
 export function CostEstimateSection({scenario}) {
     if (!scenario) return null;
     const hasTriangles = scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined;
-    const hasCost = scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined;
-    if (!hasTriangles && !hasCost) return null;
+    if (!hasTriangles) return null;
 
     return (
         <div className="sv-anuga-mesh-workflow-section sv-anuga-mesh-workflow-estimate">
-            <span className="sv-anuga-scenario-estimate-label">
+            <span className="sv-anuga-mesh-workflow-estimate-label">
                 {'Estimate: '}
-                {hasTriangles
-                    ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
-                    : ''}
-                {hasCost
-                    ? ` — ~$${Number(scenario.compute_cost_estimate).toFixed(2)}`
-                    : ''}
+                {`~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`}
             </span>
         </div>
     );

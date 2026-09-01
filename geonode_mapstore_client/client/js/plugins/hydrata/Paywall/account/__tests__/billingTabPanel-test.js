@@ -76,6 +76,22 @@ describe('BillingTabPanel — free-band explainer (spec item 3)', () => {
         expect(section.textContent).toInclude('2 of 3 used');
         expect(section.textContent).toInclude('$0.5');
     });
+
+    // TASK-2872 (epic 2839 W5.0b) — two copy defects, fixed in copy only
+    // (the underlying `if quoted <= free_threshold` in estimate.py is the
+    // intended ruling and is untouched):
+    //   (a) BOUNDARY — "under $X" said a run quoted at EXACTLY $X was not
+    //       free; it is (`<=`). "$X or less" is the true boundary.
+    //   (b) "estimated" was the retired band-era word; plans.html:94 was
+    //       already swept to "quoted" by TASK-2849 — this surface was
+    //       missed by that sweep.
+    it('says "quoted at $X or less" — never the retired-boundary "estimated under $X"', () => {
+        const c = render({ loaded: true, freeBand: { cap: 3, usedToday: 0, edge: '5.00' } });
+        const section = c.querySelector('[data-testid="sv-account-free-band"]');
+        expect(section.textContent).toInclude('quoted at $5.00 or less are free');
+        expect(section.textContent).toNotInclude('estimated under');
+        expect(section.textContent).toNotInclude('estimated');
+    });
 });
 
 describe('BillingTabPanel — credit packs (spec item 4)', () => {

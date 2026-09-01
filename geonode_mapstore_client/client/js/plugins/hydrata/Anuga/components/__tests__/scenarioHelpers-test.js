@@ -699,23 +699,29 @@ describe('TASK-2210 getMeshComparison', () => {
         })).toBe(null);
     });
 
-    it('returns {estimate, actual, ratio, actualCost} when both are present', () => {
+    it('returns {estimate, actual, ratio} when both are present', () => {
+        const run = {
+            mesh_provenance: {pre_build_triangle_estimate: 100000},
+            mesh_triangle_count: 250000
+        };
+        expect(getMeshComparison(run)).toEqual({
+            estimate: 100000, actual: 250000, ratio: 2.5
+        });
+    });
+
+    // TASK-2872 (epic 2839 W5.0b) — actualCost (Run.mesh_actual_cost_estimate,
+    // the retired CPU vCPU-hour formula) is REMOVED from this shape entirely,
+    // not merely never-rendered: 17.6x the real GPU cost for a typical run,
+    // and no caller reads it any more (scenarioPane.js's mesh-comparison
+    // clause and anugaScenarioMenu.js's divergence confirm were both the
+    // callers, both deleted their cost clauses in the same task).
+    it('never returns an actualCost key, even when the BE field is present on the run', () => {
         const run = {
             mesh_provenance: {pre_build_triangle_estimate: 100000},
             mesh_triangle_count: 250000,
             mesh_actual_cost_estimate: 12.5
         };
-        expect(getMeshComparison(run)).toEqual({
-            estimate: 100000, actual: 250000, ratio: 2.5, actualCost: 12.5
-        });
-    });
-
-    it('actualCost is null (never fabricated) when the BE field is absent', () => {
-        const run = {
-            mesh_provenance: {pre_build_triangle_estimate: 100000},
-            mesh_triangle_count: 250000
-        };
-        expect(getMeshComparison(run).actualCost).toBe(null);
+        expect('actualCost' in getMeshComparison(run)).toBe(false);
     });
 
     it('ratio is null (never divide-by-zero) when the estimate is 0', () => {
@@ -781,11 +787,10 @@ describe('TASK-2211 getMeshDivergence', () => {
     it('carries the comparison alongside the verdict, for the confirm dialog to render', () => {
         const run = {
             mesh_provenance: {pre_build_triangle_estimate: 100000},
-            mesh_triangle_count: 250000,
-            mesh_actual_cost_estimate: 40
+            mesh_triangle_count: 250000
         };
         const result = getMeshDivergence(run, 2);
-        expect(result.comparison).toEqual({estimate: 100000, actual: 250000, ratio: 2.5, actualCost: 40});
+        expect(result.comparison).toEqual({estimate: 100000, actual: 250000, ratio: 2.5});
     });
 });
 
@@ -871,14 +876,3 @@ describe('TASK-2245 runSettingsMustStayOpen', () => {
         expect(runSettingsMustStayOpen({status: 'computing', computed_status: 'built'})).toBe(false);
     });
 });
-
-// TASK-2420 (epic 2359 W4.5) shipped bandForEstimate here, mirroring
-// gn_anuga.estimate.band()'s bucketing so the FE's pre-build over-balance
-// badge could never disagree with the gate's own price. TASK-2848 (epic
-// 2839 W2.1) deletes bandForEstimate along with band() itself (AC2839-AC6 —
-// the FE band mirror is gone from EVERY surface): there is no margin/cap
-// surface on the wire with which to rebuild an equivalent pre-build mirror
-// of the new exact quote(), and reconstructing one from the raw
-// (un-margined) compute_cost_estimate would silently understate the real
-// charge by the margin factor. formatCostEstimate (tested above) is now the
-// only pre-build price derivation — a hedge, not a mirrored charge.

@@ -262,7 +262,6 @@
           "title": "Echec du paiement",
           "message": "Impossible de demarrer le paiement. Veuillez reessayer."
         },
-        "betaEngineUpdateNotice": "Pendant la bêta, il est possible que nous mettions à jour le moteur de calcul ; les résultats d'un même modèle peuvent varier légèrement d'une exécution à l'autre.",
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "Le mesh apparaîtra ici lorsqu'un scénario sera construit.",
@@ -295,7 +294,6 @@
         "meshCostDriverHintBreaklines": "Vos lignes de rupture représentent ~{share}% du coût de votre maillage — la taille de maillage de base seule ne changera pas grand-chose.",
         "meshCostDriverHintHolePerimeter": "Les limites des trous de structure représentent ~{share}% du coût de votre maillage — la taille de maillage de base seule ne changera pas grand-chose.",
         "meshComparisonLabel": "Construit : {actual} triangles (estimé {estimate})",
-        "meshComparisonCost": "coût de calcul estimé {cost}",
         "results": "Résultats",
         "viewResults": "Voir les Résultats",
         "resultsNoRuns": "Aucun scénario n'a encore d'exécution terminée avec des résultats.",

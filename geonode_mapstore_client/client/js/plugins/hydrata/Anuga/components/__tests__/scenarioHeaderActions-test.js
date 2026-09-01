@@ -195,24 +195,30 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
 
     /*
      * TASK-2848 (epic 2839 W2.1) — band()/bandForEstimate retired everywhere
-     * (AC2839-AC6). The price beside Run before a build exists is now a
-     * HEDGE ONLY (formatCostEstimate — the same one scenarioPane.js shows),
-     * never a mirrored band figure: there is no margin/cap surface on the
-     * wire to reconstruct an exact pre-build price without risking exactly
-     * the silent-drift bug banding existed to prevent (at the 100% launch
-     * margin, the raw un-margined estimate is HALF the real charge).
+     * (AC2839-AC6): no mirrored band figure beside Run before a build.
+     *
+     * TASK-2872 (epic 2839 W5.0b) — went further: the pre-build HEDGE this
+     * chip used to fall back to (formatCostEstimate(compute_cost_estimate))
+     * is ALSO deleted, not merely un-banded. compute_cost_estimate is the
+     * retired CPU vCPU-hour formula (dollar_estimate) — 17.6x the real GPU
+     * cost for a typical run, and every hydrata.com customer run is GPU-only
+     * (epic 2839 W0). A "floor, not the bill" was still a second dollar
+     * figure sitting in the exact chip a customer reads as the price.
+     * Operator ruling: one dollar figure on screen, and it is the built
+     * Quote — this chip now renders NOTHING until a real quote exists,
+     * regardless of paywallEnabled/compute_cost_estimate.
      *
      * A built run's `quote` (RunSerializerV2.get_quote, renamed from
-     * price_band by TASK-2841) stays authoritative wherever it exists — it
-     * is frozen off the built mesh and IS the ledger debit to the cent.
+     * price_band by TASK-2841) stays the ONLY figure this chip ever shows —
+     * it is frozen off the built mesh and IS the ledger debit to the cent.
      */
-    describe('TASK-2848 — pre-build hedge, no FE band mirror', () => {
+    describe('TASK-2872 — no pre-build price chip, no CPU-formula hedge', () => {
         const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50'};
         const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
 
         const priceEl = () => container.querySelector('[data-testid="sv-scenario-run-price"]');
 
-        it('a never-run scenario shows the HEDGE, not a mirrored band price', (done) => {
+        it('a never-run scenario shows NO price chip at all — no hedge, no mirrored band price', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={priced}
@@ -222,17 +228,16 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 />,
                 container,
                 () => {
-                    const el = priceEl();
-                    expect(el).toExist();
-                    // formatCostEstimate($3.00) — a floor, not the bill; never
-                    // the discrete "$2" band this used to bucket into.
-                    expect(el.textContent).toBe('~$3.00 est.');
+                    // Pre-2872 this rendered '~$3.00 est.' (formatCostEstimate
+                    // of the CPU-anchored compute_cost_estimate) — the exact
+                    // regression this spec pins against.
+                    expect(priceEl()).toNotExist();
                     done();
                 }
             );
         });
 
-        it('a built run\'s quote stays authoritative over the hedge', (done) => {
+        it('a built run\'s quote is the ONLY figure this chip ever shows', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={{...priced, latest_run: {quote: '5'}}}
@@ -242,7 +247,6 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 />,
                 container,
                 () => {
-                    // $5 (the real quote), never the "~$3.00 est." hedge.
                     expect(priceEl().textContent).toBe('$5');
                     done();
                 }
@@ -265,7 +269,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('an estimate that is literally zero reads "Free" through the same element', (done) => {
+        it('a literally-zero pre-build compute_cost_estimate still shows no chip (there is no hedge left to clamp to "Free")', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={{...priced, compute_cost_estimate: 0}}
@@ -276,18 +280,19 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 />,
                 container,
                 () => {
-                    expect(priceEl().textContent).toBe('Free');
+                    expect(priceEl()).toNotExist();
                     done();
                 }
             );
         });
 
-        // TASK-2848 regression guard — the old ceiling badge used to hide the
-        // chip entirely once a pre-build estimate crossed the (mirrored) BE
-        // ceiling. There is no client-side ceiling mirror any more, so a huge
-        // estimate now shows the (huge) hedge rather than disappearing — the
-        // BE still refuses dispatch at build/dispatch time regardless.
-        it('an astronomically large pre-build estimate still shows the hedge, not silence', (done) => {
+        // TASK-2848 used to note the old ceiling badge hid the chip once a
+        // pre-build estimate crossed the (mirrored) BE ceiling, and that the
+        // hedge showed instead of disappearing. TASK-2872 removes the hedge
+        // itself, so an astronomically large pre-build estimate is now
+        // exactly like every other pre-build state: no chip. The BE still
+        // refuses dispatch at build/dispatch time regardless.
+        it('an astronomically large pre-build compute_cost_estimate still shows no chip', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={{...priced, compute_cost_estimate: 5000}}
@@ -297,13 +302,13 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 />,
                 container,
                 () => {
-                    expect(priceEl().textContent).toBe('~$5000.00 est.');
+                    expect(priceEl()).toNotExist();
                     done();
                 }
             );
         });
 
-        it('the pre-build hedge is never comparable to balance — no shortfall, no Billing CTA', (done) => {
+        it('with no chip pre-build, there is no shortfall and no Billing CTA to click', (done) => {
             let opened = 0;
             ReactDOM.render(
                 <ScenarioHeaderActions
@@ -316,9 +321,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                 />,
                 container,
                 () => {
-                    const el = priceEl();
-                    expect(el.textContent).toBe('~$3.00 est.');
-                    expect(el.tagName).toBe('SPAN');
+                    expect(priceEl()).toNotExist();
                     expect(opened).toBe(0);
                     done();
                 }
@@ -1162,7 +1165,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('Build & Run tooltip echoes the live estimate when the scenario carries one', (done) => {
+        it('Build & Run tooltip echoes the live TRIANGLE estimate, with no dollar figure (TASK-2872)', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={{...baseScenario, mesh_triangle_count_estimate: 12345, compute_cost_estimate: 3.2}}
@@ -1173,14 +1176,17 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                     hoverTooltipWrapOf('.sv-scenario-action-build-run', () => {
                         const tooltip = document.getElementById('sv-scenario-build-and-run-tooltip');
                         expect(tooltip.textContent).toInclude('12,345 triangles');
-                        expect(tooltip.textContent).toInclude('$3.20');
+                        // Pre-2872 this also included '$3.20' — the CPU-anchored
+                        // compute_cost_estimate hedge. Deleted outright, not
+                        // re-pointed: this is the regression this spec pins.
+                        expect(tooltip.textContent).toNotInclude('$');
                         done();
                     });
                 }
             );
         });
 
-        it('Build tooltip echoes the live estimate when the scenario carries one', (done) => {
+        it('Build tooltip echoes the live TRIANGLE estimate, with no dollar figure', (done) => {
             ReactDOM.render(
                 <ScenarioHeaderActions
                     scenario={{...baseScenario, mesh_triangle_count_estimate: 500, compute_cost_estimate: 0.5}}
@@ -1191,21 +1197,6 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                     hoverTooltipWrapOf('.sv-scenario-action-build', () => {
                         const tooltip = document.getElementById('sv-scenario-build-tooltip');
                         expect(tooltip.textContent).toInclude('500 triangles');
-                        expect(tooltip.textContent).toInclude('$0.50');
-                        done();
-                    });
-                }
-            );
-        });
-
-        it('omits the estimate echo cleanly when the scenario carries neither value', (done) => {
-            ReactDOM.render(
-                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario />,
-                container,
-                () => {
-                    hoverTooltipWrapOf('.sv-scenario-action-build-run', () => {
-                        const tooltip = document.getElementById('sv-scenario-build-and-run-tooltip');
-                        expect(tooltip.textContent).toNotInclude('triangles');
                         expect(tooltip.textContent).toNotInclude('$');
                         done();
                     });
@@ -1213,20 +1204,15 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        // TASK-2400 (dogfood F1 #2a) — a free-band ($0) pre-build estimate
-        // must read 'Free', never a bare '$0.00'.
-        it('Build tooltip echo renders "Free" (never "$0.00") for a free-band ($0) estimate', (done) => {
+        it('omits the estimate echo cleanly when the scenario carries no triangle estimate (compute_cost_estimate alone is not enough)', (done) => {
             ReactDOM.render(
-                <ScenarioHeaderActions
-                    scenario={{...baseScenario, mesh_triangle_count_estimate: 200, compute_cost_estimate: 0}}
-                    canEdit canRunScenario
-                />,
+                <ScenarioHeaderActions scenario={{...baseScenario, compute_cost_estimate: 9.99}} canEdit canRunScenario />,
                 container,
                 () => {
-                    hoverTooltipWrapOf('.sv-scenario-action-build', () => {
-                        const tooltip = document.getElementById('sv-scenario-build-tooltip');
-                        expect(tooltip.textContent).toInclude('Free');
-                        expect(tooltip.textContent).toNotInclude('$0.00');
+                    hoverTooltipWrapOf('.sv-scenario-action-build-run', () => {
+                        const tooltip = document.getElementById('sv-scenario-build-and-run-tooltip');
+                        expect(tooltip.textContent).toNotInclude('triangles');
+                        expect(tooltip.textContent).toNotInclude('$');
                         done();
                     });
                 }
@@ -1373,10 +1359,11 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
      * `quote` by TASK-2848) asserts the chip's textContent by EXACT equality
      * ('$5', 'Free') and that is the contract that the amount is the amount.
      *
-     * TASK-2848 (epic 2839 W2.1) — the pre-build hedge gets NO role word any
-     * more: formatCostEstimate's own string already says "est." (or "Free"),
-     * so a second "Estimated" beside it would read as prose, not a label. The
-     * built Quote is the only figure that still needs a word to name its role.
+     * TASK-2872 (epic 2839 W5.0b) — the pre-build hedge this once referred to
+     * is gone entirely (deleted, not merely un-labelled): there is no chip at
+     * all before a build has a real Quote. The built Quote stays the only
+     * figure this chip ever shows, and the only one needing a word to name
+     * its role.
      */
     describe('TASK-2716 — the money figures name their role in visible text', () => {
         const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50'};
@@ -1406,14 +1393,14 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('a pre-build hedge gets NO role word — its own text already says "est."', (done) => {
+        it('a pre-build scenario gets NO role word — there is no chip to name (TASK-2872: the CPU hedge is deleted)', (done) => {
             const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
             ReactDOM.render(
                 <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
                 container,
                 () => {
-                    expect(container.querySelector(ROLE)).toNotExist('the hedge does not get a role word');
-                    expect(container.querySelector('[data-testid="sv-scenario-run-price"]').textContent).toBe('~$3.00 est.');
+                    expect(container.querySelector(ROLE)).toNotExist('nothing pre-build gets a role word');
+                    expect(container.querySelector('[data-testid="sv-scenario-run-price"]')).toNotExist();
                     done();
                 }
             );
