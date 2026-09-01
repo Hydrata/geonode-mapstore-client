@@ -78,8 +78,10 @@ export function resendEmailVerificationRequest() {
 
 /**
  * @param {string} status — one of 'sent' | 'already_verified' | 'cooldown' |
- *   'send_failed' | 'error' (EmailVerificationResendView's response shapes,
- *   plus 'error' for a network/5xx failure the epic itself catches).
+ *   'no_email' | 'send_failed' | 'error' (EmailVerificationResendView's
+ *   response shapes, plus 'error' for a network/5xx failure the epic itself
+ *   catches). 'cooldown' = allauth suppressed the send inside its 180s window
+ *   (TASK-2874 — reported as a false 'sent' before that).
  * @param {string} [detail] — present for 'cooldown' (and any future status
  *   that carries one); undefined otherwise.
  */

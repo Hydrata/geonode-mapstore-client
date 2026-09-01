@@ -384,12 +384,19 @@ EstimateCeilingModal.propTypes = {
  * verifying an email doesn't cost anything). `resendStatus`/`resendPending`
  * drive the feedback line beneath the button; `resendStatus` is one of
  * EmailVerificationResendView's own response shapes ('sent',
- * 'already_verified', 'cooldown', 'send_failed') or 'error' for a
+ * 'already_verified', 'cooldown', 'no_email', 'send_failed') or 'error' for a
  * network/5xx failure — never a guessed string.
+ *
+ * TASK-2874 (epic 2839 W5-A): 'cooldown' is now REACHABLE and means allauth
+ * suppressed the send inside its own 180s window — the BE used to answer 'sent'
+ * for that, so this line was confidently telling users an email was on its way
+ * that had never been sent. 'no_email' is new: there is no address on file to
+ * send to, which reporting as a cooldown would just be a second lie.
  */
 const RESEND_STATUS_COPY = {
     sent: 'Verification email sent — check your inbox.',
     already_verified: 'Your email is already verified — try running again.',
+    no_email: "We don't have an email address on file for your account — please add one in your profile.",
     send_failed: "We couldn't send that email just now. Please try again shortly.",
     error: "We couldn't reach the server. Please try again."
 };

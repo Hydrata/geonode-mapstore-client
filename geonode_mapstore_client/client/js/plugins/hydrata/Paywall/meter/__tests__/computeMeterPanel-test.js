@@ -631,6 +631,19 @@ describe('ComputeMeterPanel — email_unverified modal (TASK-2849)', () => {
             .toBe('A verification email was sent recently. Please wait a few minutes before resending.');
     });
 
+    // TASK-2874 (epic 2839 W5-A) — the BE can now answer 'no_email' (no address
+    // on file). Without its own copy the feedback line would render blank,
+    // which is the same "user cannot self-diagnose" failure this task fixes.
+    it('shows dedicated copy for the no_email status', () => {
+        const c = render({
+            enabled: true,
+            modal: {type: 'email_unverified', detail: 'verify', resendUrl: '/resend/'},
+            resendVerification: {pending: false, status: 'no_email', detail: null}
+        });
+        expect(c.querySelector('[data-testid="meter-resend-verification-feedback"]').textContent)
+            .toBe("We don't have an email address on file for your account — please add one in your profile.");
+    });
+
     it('shows no feedback line before any resend has been attempted', () => {
         const c = render({
             enabled: true,
