@@ -262,7 +262,6 @@
           "title": "Echec du paiement",
           "message": "Impossible de demarrer le paiement. Veuillez reessayer."
         },
-        "betaEngineUpdateNotice": "Pendant la bêta, il est possible que nous mettions à jour le moteur de calcul ; les résultats d'un même modèle peuvent varier légèrement d'une exécution à l'autre.",
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "Le mesh apparaîtra ici lorsqu'un scénario sera construit.",
