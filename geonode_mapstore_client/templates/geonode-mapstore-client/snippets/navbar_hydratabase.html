@@ -44,6 +44,21 @@
                     <li><a href="/about" class="nav-link btn btn-default">About</a></li>
                     <li><a href="/docs/" class="nav-link btn btn-default">Docs</a></li>
                     <li><a href="/docs/mcp/" class="nav-link btn btn-default">MCP</a></li>
+                    {% if support_enabled %}
+                        {% comment %}
+                            TASK-2900 (epic 2895 W1). Gated on support_enabled
+                            (hydrata.context_processors.support_enabled, TASK-2899) because
+                            D7 scopes the page to hydrata.com and it 404s on the other three
+                            sites. The spec also asked this link to append ?project=<id>
+                            parsed from location.hash — HELD BACK pending a decision: the map
+                            route is #/map/<base_map_id> (gn_anuga/views.py:61,
+                            commerce/account_views.py:60), a GeoNode Map pk, whereas
+                            support.views resolves ?project= as a gn_anuga Project pk through
+                            viewable_project_or_404. Feeding one to the other attaches the
+                            wrong project, so the link ships without it.
+                        {% endcomment %}
+                        <li><a id="gn-navbar-support-link" href="/support/" class="nav-link btn btn-default">Support</a></li>
+                    {% endif %}
                     <li><a href="https://github.com/Hydrata" class="nav-link btn btn-default">GitHub</a></li>
                     <li><a href="/plans" class="nav-link btn btn-default">Pricing</a></li>
                 </ul>
