@@ -50,15 +50,23 @@
                             TASK-2900 (epic 2895 W1). Gated on support_enabled
                             (hydrata.context_processors.support_enabled, TASK-2899) because
                             D7 scopes the page to hydrata.com and it 404s on the other three
-                            sites. The spec also asked this link to append ?project=<id>
-                            parsed from location.hash — HELD BACK pending a decision: the map
+                            sites.
+
+                            TASK-2925 (W2) adds the context handler 2900 held back. The map
                             route is #/map/<base_map_id> (gn_anuga/views.py:61,
-                            commerce/account_views.py:60), a GeoNode Map pk, whereas
-                            support.views resolves ?project= as a gn_anuga Project pk through
-                            viewable_project_or_404. Feeding one to the other attaches the
-                            wrong project, so the link ships without it.
+                            commerce/account_views.py:60) — a GeoNode Map pk, NOT the
+                            gn_anuga Project pk that support.views resolves ?project= as, so
+                            appending it as ?project= would attach an UNRELATED project. It
+                            is appended as ?map= instead, and support.views translates it via
+                            Project.objects.filter(base_map_id=...) through the same
+                            viewable_project_or_404, so the permission scoping is unchanged
+                            and anything unresolvable is dropped silently.
+
+                            Read at click time, not at render time: this snippet is rendered
+                            once and the map is hash-routed, so location.hash changes under
+                            it without a reload.
                         {% endcomment %}
-                        <li><a id="gn-navbar-support-link" href="/support/" class="nav-link btn btn-default">Support</a></li>
+                        <li><a id="gn-navbar-support-link" href="/support/" class="nav-link btn btn-default" onclick="var m = /^#\/map\/(\d+)/.exec(window.location.hash); this.href = m ? '/support/?map=' + m[1] : '/support/';">Support</a></li>
                     {% endif %}
                 </ul>
                 {% endblock %}
