@@ -1614,7 +1614,7 @@ describe('ANUGA Epics', () => {
         beforeEach(() => { mockAxios = new MockAdapter(axios); });
         afterEach(() => { mockAxios.restore(); });
 
-        it('PATCH body contains EXACTLY the 11 allow-list keys (no read-only leakage)', (done) => {
+        it('PATCH body contains EXACTLY the 12 allow-list keys (no read-only leakage)', (done) => {
             mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/42/').reply(200, { id: 42 });
 
             // Scenario with EVERY known read-only field populated alongside
@@ -1622,10 +1622,12 @@ describe('ANUGA Epics', () => {
             // before PATCH; anything else is a regression.
             // TASK-955 (W2.2 FE) — `rainfall` added to the allow-list as the
             // 11th writable field; same shape as inflow.
+            // TASK-2820 (epic 2815 W1.1) — `description` added as the 12th.
             const fatScenario = {
-                // Writable allow-list (all 11):
+                // Writable allow-list (all 12):
                 id: 42,
                 name: 'my-scenario',
+                description: 'a draft, described',
                 terrain: 1,
                 boundary: 2,
                 friction: 3,
@@ -1659,6 +1661,7 @@ describe('ANUGA Epics', () => {
                     // Spot-check that the values flowed through correctly for
                     // both an identifier-typed and a primitive-typed field.
                     expect(body.name).toBe('my-scenario');
+                    expect(body.description).toBe('a draft, described');
                     expect(body.terrain).toBe(1);
                     expect(body.duration).toBe(3600);
                     // Explicit negative assertions on the read-only fields

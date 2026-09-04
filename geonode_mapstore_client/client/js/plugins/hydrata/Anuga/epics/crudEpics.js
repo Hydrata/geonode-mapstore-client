@@ -453,8 +453,12 @@ export const retryAnugaRunEpic = (action$) =>
 // surface accepts it; the BE serializer drops anything not in its writable
 // allow-list silently, so this addition is forward-safe even if the BE deploy
 // lags the FE bundle.
+// TASK-2820 (epic 2815 W1.1): 'description' added — the BE made it writable
+// on BOTH ScenarioCreateSerializerV2 and ScenarioUpdateSerializerV2 in the
+// same task (it was silently dropped before). Same forward-safety as
+// rainfall: an older BE just ignores the key.
 export const SCENARIO_PATCH_FIELDS = [
-    'name', 'terrain', 'boundary', 'friction', 'inflow', 'rainfall',
+    'name', 'description', 'terrain', 'boundary', 'friction', 'inflow', 'rainfall',
     'structure', 'mesh_region', 'network', 'resolution', 'duration'
 ];
 
@@ -499,8 +503,11 @@ export const compareScenarioEpic = (action$, store) =>
 
 // TASK-958: explicit build endpoint, decoupled from PATCH side-effect. Fires
 // when the user clicks Build on a scenario row that has no unsaved changes
-// (otherwise SAVE_ANUGA_SCENARIO is dispatched, which now only triggers a
-// rebuild when a BUILD_AFFECTING_FIELDS field is in the diff).
+// (otherwise SAVE_ANUGA_SCENARIO is dispatched). TASK-2820 (epic 2815 W1.1):
+// a save NEVER builds any more — the BE auto-build on POST/PATCH is gone, so
+// a saved scenario is a draft until this endpoint is POSTed. Until W2.1
+// (TASK-2826) makes dispatchBuild save-then-POST-/build/, a Build click on
+// an unsaved scenario only saves it (interim state, same epic branch).
 //
 // TASK-2079: the BE build-dedup guard 409s this POST when a build is already
 // in flight for the scenario. buildScenarioError (comparisonActions.js)
