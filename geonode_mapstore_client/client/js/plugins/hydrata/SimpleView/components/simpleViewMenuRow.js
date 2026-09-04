@@ -116,6 +116,50 @@ const _GROUP_TO_DELETE_TYPE = {
 };
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
 
+// TASK-2823 — how many blocking scenarios the refusal names before it switches
+// to "and N more". Mirrors BLOCKER_NAMES_IN_MESSAGE in
+// /opt/hydrata/apps/gn_anuga/api_v2.py; the full list is rendered underneath
+// the sentence either way.
+const BLOCKER_NAMES_IN_MESSAGE = 5;
+
+/**
+ * TASK-2823 — local twin of gn_anuga/api_v2.py `blocked_delete_message`.
+ *
+ * The API ALWAYS sends a `message` on its 409, and the reducer stamps it onto
+ * `row.blockingError.message`, so this composer only runs when the body
+ * reached us without one — an older backend, a proxy that ate the body, or
+ * crudEpics' `data.message || ''`. Before 2823 that path printed the
+ * pre-TASK-2855 claim ("N active scenarios reference this dataset"), which is
+ * both wrong (an IDLE scenario blocks too, since 2855) and useless (no names,
+ * no instruction). Keep the wording in step with the Python.
+ *
+ * @param {Array} blocking blocking[] from the 409 body: {type,id,name,state}
+ * @param {string} datasetType e.g. 'terrain' | 'mesh_region' | null
+ * @return {string} the refusal, naming the scenarios and the way out
+ */
+export const composeBlockedDeleteMessage = (blocking, datasetType) => {
+    const rows = Array.isArray(blocking) ? blocking : [];
+    const label = (datasetType || 'dataset').replace(/_/g, ' ');
+    if (rows.length === 0) {
+        return `Cannot delete: this ${label} is referenced by one or more scenarios. `
+            + 'Detach it from those scenarios first.';
+    }
+    const shown = rows.slice(0, BLOCKER_NAMES_IN_MESSAGE).map((b) => {
+        const name = String(b?.name || '').trim();
+        // Same fallback label the backend uses for a nameless scenario, so the
+        // sentence and the list underneath it name the same thing.
+        return name ? `"${name}"` : `Scenario ${b?.id}`;
+    });
+    const remainder = rows.length - shown.length;
+    const listed = remainder > 0
+        ? `${shown.join(', ')} and ${remainder} more`
+        : shown.join(', ');
+    const tail = rows.length === 1
+        ? 'Detach it from that scenario first.'
+        : 'Detach it from those scenarios first.';
+    return `Cannot delete: this ${label} is referenced by ${listed}. ${tail}`;
+};
+
 // STRUCTURE_METHODS — keep in sync with /opt/hydrata/apps/gn_anuga/models/scenario.py:STRUCTURE_METHODS
 // ADR-4 (2026-05-29, TASK-1269): three-method taxonomy.
 //   Reflective — interior void hole; building obstructs/reflects flow.
@@ -998,9 +1042,9 @@ class MenuRowClass extends React.Component {
         if (!row) return null;
         if (row.blockingError) {
             const blocking = Array.isArray(row.blockingError.blocking) ? row.blockingError.blocking : [];
-            const fallbackMsg = blocking.length > 0
-                ? `Cannot delete: ${blocking.length} active scenario${blocking.length === 1 ? '' : 's'} reference${blocking.length === 1 ? 's' : ''} this dataset.`
-                : 'Cannot delete: this dataset is referenced by active scenarios.';
+            const fallbackMsg = composeBlockedDeleteMessage(
+                blocking, getDeleteDatasetType(this.props.layer)
+            );
             return (
                 <div className="sv-menu-row-delete-error" role="alert">
                     <div className="sv-menu-row-delete-error-message">

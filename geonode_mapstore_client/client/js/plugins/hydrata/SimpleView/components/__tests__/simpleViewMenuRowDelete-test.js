@@ -697,7 +697,13 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                         id: 99,
                         gn_layer_name: 'ele_xxxxxx',
                         blockingError: {
-                            message: 'Cannot delete: 2 active scenarios reference this terrain',
+                            // TASK-2823 — verbatim shape of the API's 409 `message`
+                            // (gn_anuga/api_v2.py blocked_delete_message). This is the
+                            // path production actually takes: the API ALWAYS sends a
+                            // message, so `row.blockingError.message` wins over the
+                            // locally-composed fallback below.
+                            message: 'Cannot delete: this terrain is referenced by "Scenario A", '
+                                + '"Scenario B". Detach it from those scenarios first.',
                             blocking: [
                                 { type: 'scenario', id: 11, name: 'Scenario A', state: 'computing' },
                                 { type: 'scenario', id: 12, name: 'Scenario B', state: 'queued' }
@@ -719,6 +725,91 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 expect(errBlock.textContent).toInclude('Scenario A');
                 expect(errBlock.textContent).toInclude('Scenario B');
                 expect(errBlock.textContent).toInclude('computing');
+                done();
+            }
+        );
+    });
+
+    // TASK-2823 — the fallback branch. `row.blockingError.message` is empty
+    // whenever the 409 body reached the reducer without a `message` (an older
+    // backend, a proxy that stripped the body, or crudEpics' `data.message ||
+    // ''`), and pre-2823 the fallback still said "active scenarios" — the
+    // pre-TASK-2855 claim, with no names and no instruction. It must now
+    // compose the same detach-first copy the backend sends, from blocking[].
+    it('composes the detach-first copy from blocking[] when the API sent no message', (done) => {
+        const { MenuRow } = require('../simpleViewMenuRow');
+        const store = createMockStore({
+            anuga: {
+                projects: { data: { id: 42, my_role: 'editor' } },
+                resources: {
+                    terrain: [{
+                        id: 99,
+                        gn_layer_name: 'ele_xxxxxx',
+                        blockingError: {
+                            message: '',
+                            blocking: [
+                                { type: 'scenario', id: 11, name: 'Ubungo baseline', state: 'idle' },
+                                { type: 'scenario', id: 12, name: 'Ubungo 100yr ARI', state: 'idle' }
+                            ]
+                        }
+                    }]
+                }
+            }
+        });
+        ReactDOM.render(
+            <Provider store={store}>
+                <MenuRow layer={baseLayer({ group: 'Input Data.Terrain', name: 'geonode:ele_xxxxxx' })} />
+            </Provider>,
+            container,
+            () => {
+                const msg = container.querySelector('.sv-menu-row-delete-error-message');
+                expect(msg).toExist();
+                // Names, not a count.
+                expect(msg.textContent).toInclude('"Ubungo baseline"');
+                expect(msg.textContent).toInclude('"Ubungo 100yr ARI"');
+                // The corrective action, and the dataset type from the group.
+                expect(msg.textContent).toInclude('this terrain is referenced by');
+                expect(msg.textContent).toInclude('Detach it from those scenarios first.');
+                // The pre-2855 claim is gone (an idle scenario blocks too).
+                expect(msg.textContent).toNotInclude('active scenario');
+                done();
+            }
+        );
+    });
+
+    it('composes singular detach-first copy, naming an unnamed scenario by id', (done) => {
+        const { MenuRow } = require('../simpleViewMenuRow');
+        const store = createMockStore({
+            anuga: {
+                projects: { data: { id: 42, my_role: 'editor' } },
+                resources: {
+                    inflows: [{
+                        id: 1440,
+                        gn_layer_name: 'inf_770_c2ubungo_1c3f',
+                        blockingError: {
+                            blocking: [{ type: 'scenario', id: 77, name: '', state: 'idle' }]
+                        }
+                    }]
+                }
+            }
+        });
+        ReactDOM.render(
+            <Provider store={store}>
+                <MenuRow layer={baseLayer({
+                    group: 'Input Data.Inflows',
+                    name: 'geonode:inf_770_c2ubungo_1c3f',
+                    title: 'C2Ubungo'
+                })} />
+            </Provider>,
+            container,
+            () => {
+                const msg = container.querySelector('.sv-menu-row-delete-error-message');
+                expect(msg).toExist();
+                // Matches the backend's own fallback label for a nameless scenario.
+                expect(msg.textContent).toInclude('Scenario 77');
+                expect(msg.textContent).toInclude('this inflow is referenced by');
+                expect(msg.textContent).toInclude('Detach it from that scenario first.');
+                expect(msg.textContent).toNotInclude('those scenarios');
                 done();
             }
         );
