@@ -20,7 +20,7 @@ import { mockAxios as setupMockAxios } from '../../../../__tests__/helpers';
 // ---------------------------------------------------------------------------
 // 1. rowDataToHyetograph transform
 // ---------------------------------------------------------------------------
-import { rowDataToHyetograph } from '../components/hydrologyDetailTimeSeries';
+import { rowDataToHyetograph, resolveDerivePattern } from '../components/hydrologyDetailTimeSeries';
 import {
     suggestPatternFromLatLon,
     ALTERNATING_BLOCK,
@@ -348,6 +348,71 @@ describe('TASK-1451 W4 — design-storm combine', () => {
             const tp = state.temporalPatterns[0];
             expect(tp.pattern_key === null || tp.pattern_key === undefined).toBe(true);
             expect(tp.selectedPreset).toBe(ALTERNATING_BLOCK);
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // 3b. TASK-2951 (demo-trial finding F1) — a pristine create is derivable
+    // -------------------------------------------------------------------------
+    // The Derive preview guard (hydrologyDetailTimeSeries.js) opens on
+    // resolveDerivePattern()'s RETURN, not on pattern_key directly. A pattern
+    // created and saved WITHOUT ever clicking a preset card used to carry
+    // pattern_type=undefined + pattern_key=null, so the resolver fell through to
+    // `item.pattern_key || null` -> null, the guard stayed shut, and no preview
+    // request ever fired: the selects looked populated and Derive was dead
+    // (prod project 770 row 17 is exactly this — {pattern_type: 'preset',
+    // pattern_key: null}, an internally contradictory pair the BE default
+    // manufactured from a POST that named no type at all).
+    // The constructor now declares the type the item honestly IS — alternating
+    // block, which is also what the picker seats by default
+    // (hydrologyDetailTemporalPattern's useEffect else-branch) — and leaves
+    // pattern_key null, which is correct for an algorithmic pattern (hydrology
+    // models.py: "Null for custom user-defined patterns or alternating_block
+    // rows"). No preset key is invented.
+    describe('TASK-2951 — a freshly created TemporalPattern is derivable (F1)', () => {
+        it('a fresh TemporalPattern declares pattern_type=alternating_block and keeps pattern_key null', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const tp = new TemporalPattern();
+            expect(tp.pattern_type).toBe(ALTERNATING_BLOCK);
+            expect(tp.pattern_key).toBe(null);
+        });
+
+        it('a fresh TemporalPattern resolves to a non-null selectedPatternKey (the Derive guard opens)', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const tp = new TemporalPattern();
+            const {patternKey, customCurve} = resolveDerivePattern(tp);
+            // Non-null is what the auto-preview useEffect guard tests.
+            expect(patternKey).toNotBe(null);
+            expect(patternKey).toBe(ALTERNATING_BLOCK);
+            expect(customCurve).toBe(null);
+        });
+
+        it('the pristine pattern_type survives the save epic {...item} spread (own property, not a getter)', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const tp = new TemporalPattern();
+            // saveHydrologyItemEpic POSTs `{...action.item}`: an OWN property is
+            // forwarded, a prototype getter (like `data`) is not — which is why
+            // pattern_type must be stamped in the constructor, not derived.
+            expect(Object.prototype.hasOwnProperty.call(tp, 'pattern_type')).toBe(true);
+            expect({...tp}.pattern_type).toBe(ALTERNATING_BLOCK);
+        });
+
+        // Guard the one thing the fix must NOT do: a preset click still wins.
+        it('an explicit preset click still overrides the constructor default', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const reducer = require('../reducersHydrology').default;
+            const {SET_TEMPORAL_PATTERN_PRESET} = require('../actionsHydrology');
+            const tp = new TemporalPattern();
+            const baseState = reducer(undefined, {type: '@@INIT'});
+            const withItems = {...baseState, temporalPatterns: [tp], activeHydrologyItem: tp};
+            const state = reducer(withItems, {
+                type: SET_TEMPORAL_PATTERN_PRESET,
+                temporalPatternId: tp.id,
+                patternKey: SCS_TYPE_II
+            });
+            expect(state.temporalPatterns[0].pattern_type).toBe('preset');
+            expect(state.temporalPatterns[0].pattern_key).toBe(SCS_TYPE_II);
+            expect(resolveDerivePattern(state.temporalPatterns[0]).patternKey).toBe(SCS_TYPE_II);
         });
     });
 

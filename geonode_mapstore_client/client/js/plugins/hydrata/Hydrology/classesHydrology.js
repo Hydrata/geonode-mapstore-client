@@ -1,4 +1,5 @@
 import {v4 as uuidv4} from "uuid";
+import {ALTERNATING_BLOCK} from "./temporalPatternPresets";
 
 export class IdfTable {
     constructor() {
@@ -393,6 +394,26 @@ export class TemporalPattern {
         // SET_TEMPORAL_PATTERN_PRESET would be absent on a never-touched item).
         // null = no preset chosen yet (alternating-block / custom default).
         this.pattern_key = null;
+        // TASK-2951 (demo-trial finding F1): declare the pattern_type too, for
+        // the same reason. pattern_key alone is not enough — a pattern created
+        // and saved WITHOUT ever clicking a preset card sent no pattern_type at
+        // all, so the BE stamped its own model default ('preset') onto a row
+        // with a NULL key. That pair is self-contradictory, and downstream it is
+        // fatal: DesignStormDerive resolves a row through resolveDerivePattern,
+        // whose preset branch returns `pattern_key || null` — null — so the
+        // auto-preview guard (`selectedIdfTableId && selectedPatternKey`) never
+        // opened and the Derive preview request was never made. Selects looked
+        // populated and nothing happened (prod project 770 row 17).
+        // ALTERNATING_BLOCK is the honest type of a brand-new pattern: it is
+        // what the picker seats by default (hydrologyDetailTemporalPattern's
+        // useEffect else-branch) and what the geography rule returns outside the
+        // US, it is algorithmic so a NULL pattern_key is correct for it (see the
+        // BE models.py note: "Null for custom user-defined patterns or
+        // alternating_block rows"), and it needs no invented preset key. An
+        // explicit preset click still overwrites both fields via
+        // SET_TEMPORAL_PATTERN_PRESET, and a reload takes pattern_type from the
+        // API response, so this only ever fills the never-touched case.
+        this.pattern_type = ALTERNATING_BLOCK;
         this.columnDefs = [
             {
                 header: 'Percentage',

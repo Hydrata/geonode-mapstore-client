@@ -1562,6 +1562,55 @@ describe('Hydrology Plugin', () => {
             expect(cell.custom_curve).toEqual(curve);
             cleanup(container);
         });
+
+        // TASK-2951 (demo-trial finding F1) — the create path's own item must be
+        // previewable. A Temporal Pattern created through the UI and never given
+        // an explicit preset click reached this component with pattern_type
+        // unset and pattern_key null; resolveDerivePattern fell through to
+        // `pattern_key || null` -> null, so the auto-preview useEffect guard
+        // (`selectedIdfTableId && selectedPatternKey`) never opened and
+        // onPreview was NEVER called — the dropdowns looked populated and no
+        // network request was made (the 20-minute block on the recorded trial).
+        // This renders the REAL constructor output, not a hand-written literal,
+        // so it fails at HEAD for the actual product reason.
+        it('TASK-2951: a freshly created TemporalPattern fires the Derive preview (F1)', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const fresh = new TemporalPattern();
+            const idfTables = [{
+                id: 7,
+                name: 'IDF 7',
+                columnDefs: [
+                    {accessorKey: 'duration', header: 'Duration'},
+                    {accessorKey: 'rp100', header: '100yr ARI'}
+                ],
+                rowData: [{duration: 360, rp100: 12.5}]
+            }];
+            let previewArgs = null;
+            const container = render({
+                temporalPatterns: [fresh],
+                idfTables,
+                selectedIdfTableId: 7,
+                selectedPattern: String(fresh.id),
+                onPreview: (cells, idfId) => { previewArgs = {cells, idfId}; }
+            });
+            // The F1 assertion: a preview request is actually dispatched.
+            expect(previewArgs).toExist();
+            expect(previewArgs.idfId).toBe(7);
+            expect(previewArgs.cells.length).toBeGreaterThan(0);
+            // ...carrying the honest BE pattern, with no invented preset key.
+            expect(previewArgs.cells[0].pattern).toBe('alternating_block');
+            expect(previewArgs.cells[0].custom_curve).toBe(undefined);
+            expect(fresh.pattern_key).toBe(null);
+            cleanup(container);
+        });
+
+        // The resolver half of the same contract, on the real constructor.
+        it('TASK-2951: resolveDerivePattern on a fresh TemporalPattern is non-null', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const r = resolveDerivePattern(new TemporalPattern());
+            expect(r.patternKey).toBe('alternating_block');
+            expect(r.customCurve).toBe(null);
+        });
     });
 
     // TASK-2008 (epic-2001 W2b) — the Derive preview is a shared MatrixGrid
