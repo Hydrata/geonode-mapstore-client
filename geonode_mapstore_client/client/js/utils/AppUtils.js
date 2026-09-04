@@ -38,9 +38,6 @@ import { setViewer } from '@mapstore/framework/utils/MapInfoUtils';
 import { setObservableConfig } from 'recompose';
 import rxjsConfig from 'recompose/rxjsObservableConfig';
 import { getGeoNodeConfig, getGeoNodeLocalConfig } from "@js/utils/APIUtils";
-// epic 1511 W3 (TASK-1516): OpenReplay session-replay integration. Inert unless
-// window.__GEONODE_CONFIG__.openReplay.projectKey is set server-side.
-import { getOpenReplayReduxMiddleware, startOpenReplayWithConsent, setOpenReplayUser } from "@js/utils/openReplayUtils";
 import { bootstrapAuthkeyWarmup, shouldAwaitAuthkeyWarmup } from "@js/utils/AuthkeyWarmupProbe";
 setObservableConfig(rxjsConfig);
 
@@ -461,14 +458,6 @@ export function setupConfiguration({
         window.onInitMapStoreAPI(window.MapStoreAPI, geoNodePageConfig);
     }
 
-    // epic 1511 W3 (TASK-1516): build the OpenReplay tracker-redux middleware
-    // ONCE (it constructs the masked tracker as a side effect). null when inert
-    // (no projectKey). Returned as appMiddlewares so main()/StandardStore prepend
-    // it to the applyMiddleware chain — capturing every dispatched action,
-    // including those re-dispatched by redux-observable epics. The tracker is not
-    // started here; onStoreInit runs the consent gate then start().
-    const openReplayReduxMiddleware = getOpenReplayReduxMiddleware();
-
     return setupLocale(getLanguageKey(geoNodePageConfig.languageCode))
         .then(() => (awaitAuthkeyWarmup ? authkeyWarmup : undefined))
         .then(() => ({
@@ -480,7 +469,6 @@ export function setupConfiguration({
             mapType: geoNodePageConfig.mapType,
             settings: localConfig.geoNodeSettings,
             MapStoreAPI: window.MapStoreAPI,
-            appMiddlewares: openReplayReduxMiddleware ? [openReplayReduxMiddleware] : [],
             onStoreInit: (store) => {
                 store.addActionListener((action) => {
                     const act = action.type === 'PERFORM_ACTION' && action.action || action; // Needed to works also in debug
@@ -489,17 +477,7 @@ export function setupConfiguration({
                         .forEach((listener) => {
                             listener.call(null, act);
                         });
-                    // TASK-2129 W3 (F1): stamp the OpenReplay userID the first time
-                    // an authenticated user appears (login mid-session, or an async
-                    // session-restore on a reload). The session usually starts anon
-                    // on the homepage/login page, so boot-time setUserID no-ops;
-                    // this closes the run->replay linkage's join key. Idempotent +
-                    // a cheap no-op once stamped / while anon / when inert.
-                    setOpenReplayUser(userSelector(store.getState()));
                 });
-                // Start OpenReplay (consent-gated) now that the store exists and
-                // the redux middleware is attached. No-op when inert.
-                startOpenReplayWithConsent(user);
             },
             configEpics: {
                 gnMapStoreApiEpic: actionTrigger.epic
