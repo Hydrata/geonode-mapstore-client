@@ -216,7 +216,7 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
  * globally, across owners, layers and geometry families.
  *
  * Two consumers then prefer that stale value over the feature actually being
- * edited: `vectorDrawSaveEpic` below (:318-321) and the popup's edit-mode Save
+ * edited: `vectorDrawSaveEpic` below (:364-366) and the popup's edit-mode Save
  * button (`components/VectorDrawPopup.js:545-546`). Live on :8081 (project 15834,
  * 2026-09-04): vertex-drag `rai_15834_rainfall_01`, cancel, then map-click
  * `inf_15834_inflow_01` and Save → the WFS-T Update posted the rainfall POLYGON
@@ -228,14 +228,16 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
  *
  * The fix is the session boundary, not a guard:
  *  - an OWNER guard is inert — the poisoning geometry is drawn by VectorDraw itself
- *    (VECTOR_DRAW_OWNER above is the owner on :129/:144/:191 for every layer type);
+ *    (VECTOR_DRAW_OWNER at :32 is the owner on :131/:146/:193 for every layer type);
  *  - a geomType/family guard is inert for the Polygon→Polygon corruption;
  *  - preferring `draw.features` over `draw.tempFeatures` would revert TASK-1407
  *    (gmc 9875b2f76) — after a fresh draw, a vertex drag lands ONLY in tempFeatures.
  *
- * START_VECTOR_DRAW is the boundary: every entry point (map-click via
- * `Anuga/anugaClickTargets.js:88`, the SimpleView pencil, and the picker's
- * SELECT_EXISTING_FEATURE re-dispatch) passes through it, and everything the user
+ * START_VECTOR_DRAW is the boundary: ALL FOUR entry points pass through it —
+ * the ANUGA map-click (`Anuga/anugaClickTargets.js:88`), the SimpleView pencil
+ * (`SimpleView/components/simpleViewMenuRow.js:816`), the SWAMM BMP form
+ * (`Swamm/components/bmpForm/BmpFormContainer.js:290`) and the picker's own
+ * SELECT_EXISTING_FEATURE re-dispatch (:339 below) — and everything the user
  * draws or drags AFTER it still lands in `tempFeatures` normally. Kept as its own
  * one-line epic rather than folded into `vectorDrawStartEpic` so the start epic's
  * emitted stream is unchanged (its picker specs assert `emitted[0]`).

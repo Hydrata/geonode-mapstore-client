@@ -9,7 +9,7 @@
  *      `changeDrawingStatus("clean", ...)`, and `CHANGE_DRAWING_STATUS`
  *      (`reducers/draw.js:36-44`) never touches `tempFeatures` — so the Polygon
  *      SURVIVES, globally, for the rest of the map session.
- *   3. Map-click an Inflow LINE and Save. `epicsVectorDraw.js:318-321` and
+ *   3. Map-click an Inflow LINE and Save. `epicsVectorDraw.js:364-366` and
  *      `components/VectorDrawPopup.js:545-546` BOTH prefer
  *      `draw.tempFeatures[0].geometry` — so the WFS-T Update posts the stale
  *      Polygon into `inf_*`'s `com.vividsolutions.jts.geom.LineString` column and
@@ -19,8 +19,8 @@
  *
  * WHY THE SEAM IS `drawStopped()` AT `START_VECTOR_DRAW` AND NOT A GUARD:
  *   - An OWNER guard is provably inert: the poisoning geometry is produced BY
- *     VectorDraw itself (`epicsVectorDraw.js:30` VECTOR_DRAW_OWNER = 'vectorDraw',
- *     dispatched at :129/:144/:191 for rai_/mes_ polygons and inf_ lines alike).
+ *     VectorDraw itself (`epicsVectorDraw.js:32` VECTOR_DRAW_OWNER = 'vectorDraw',
+ *     dispatched at :131/:146/:193 for rai_/mes_ polygons and inf_ lines alike).
  *   - A geomType/family guard is inert for the same-family corruption above.
  *   - Reversing the tempFeatures/features precedence would REVERT TASK-1407
  *     (gmc 9875b2f76): a vertex drag after a fresh draw lands ONLY in tempFeatures.
