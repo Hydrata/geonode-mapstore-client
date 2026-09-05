@@ -46,6 +46,15 @@ const bareLayerName = (name) => String(name || '').replace(/^[^:./]+:/, '');
 // simpleViewMenuRow.js (lines 736-745). Note that `ele_` covers both legacy
 // elevation-vector layers AND terrain rasters (ele_*_cog); for the raster case
 // the match() guard (!!featureId) prevents a false match (rasters have id="").
+//
+// TASK-2936 (2026-09-04): `full_mesh_` is DEAD — it has never matched a real
+// layer. FullMesh datasets are named `fms_<projectId>_<title>` (AnugaModel.save
+// builds the name from `code`, and FullMesh.code === 'fms'), and as of
+// TASK-2936 a build creates no FullMesh at all. The entry is left registered
+// (an unreachable no-op, zero behaviour change) because the 7-prefix contract
+// is asserted by Anuga/__tests__/legacyClickTargets-test.js and
+// shared/__tests__/buildOpenActionsClonability-test.js; dropping it belongs
+// with the row/layer cleanup on TASK-2698.
 export const LEGACY_PREFIXES = [
     'terrain_', 'ele_', 'cat_', 'nod_', 'lin_', 'full_mesh_', 'network_'
 ];

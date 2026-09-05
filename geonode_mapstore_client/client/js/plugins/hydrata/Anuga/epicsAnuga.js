@@ -47,7 +47,10 @@ export {
     pollActiveRunStatusEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
-    anugaMapLayerGroupEpic
+    anugaMapLayerGroupEpic,
+    // TASK-2890 (epic 2815 W3, Layer 4) — deferred-run resolver (backstop for
+    // an armed Build-and-Run whose menu unmounted before 'built').
+    runAfterBuildEpic
 } from './epics/pollingEpics';
 
 export {
@@ -72,6 +75,8 @@ export {
     cancelAnugaRunEpic,
     retryAnugaRunEpic,
     saveAnugaScenarioEpic,
+    // TASK-2953 (epic 2815 W3, Layer 1) — per-field commit (lazy create/PATCH).
+    commitAnugaScenarioFieldEpic,
     saveNetworkEpic,
     compareScenarioEpic,
     buildScenarioEpic,

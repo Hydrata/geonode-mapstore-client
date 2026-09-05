@@ -129,12 +129,14 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders sv-status-error with truncated error_message tooltip', (done) => {
+        it('renders sv-status-error with truncated user_message tooltip', (done) => {
+            // TASK-2860 (W3, epic 2815) AC3 — sourced from user_message,
+            // never the raw error_message.
             const longMsg = 'a'.repeat(50);
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{
                     status: 'error',
-                    latest_run: {error_message: longMsg}
+                    latest_run: {error_message: 'irrelevant raw text', user_message: longMsg}
                 }} />,
                 container,
                 () => {
@@ -312,11 +314,13 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
     // tooltip on the compact pill wrapper so hovering the rail row reveals
     // the failure reason without needing to drill into Pane 3.
     describe('Wave 3B B2 — compact + error native tooltip', () => {
-        it('sets title on the compact pill wrapper to the error_message', (done) => {
+        it('sets title on the compact pill wrapper to the user_message', (done) => {
+            // TASK-2860 (W3, epic 2815) AC3 — sourced from user_message,
+            // never the raw error_message.
             const msg = 'mesh validation failed at boundary B-3';
             ReactDOM.render(
                 <ScenarioStatusPill
-                    scenario={{status: 'error', latest_run: {error_message: msg}}}
+                    scenario={{status: 'error', latest_run: {error_message: 'irrelevant raw text', user_message: msg}}}
                     compact
                 />,
                 container,
@@ -329,11 +333,11 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('truncates an oversized error_message to 200 chars + ellipsis', (done) => {
+        it('truncates an oversized user_message to 200 chars + ellipsis', (done) => {
             const longMsg = 'x'.repeat(500);
             ReactDOM.render(
                 <ScenarioStatusPill
-                    scenario={{status: 'error', latest_run: {error_message: longMsg}}}
+                    scenario={{status: 'error', latest_run: {user_message: longMsg}}}
                     compact
                 />,
                 container,
@@ -347,7 +351,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('omits title when error_message is absent', (done) => {
+        it('omits title when user_message is absent', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'error'}} compact />,
                 container,

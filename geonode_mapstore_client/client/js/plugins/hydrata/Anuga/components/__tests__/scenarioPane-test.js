@@ -1529,6 +1529,61 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     });
 
     // ------------------------------------------------------------------
+    // Review fix (adversarial pass, TASK-2953/2890, data-loss/blocker
+    // finding 2) — the debounced name-commit closure used to capture
+    // `scenario` from the render pass active AT KEYSTROKE TIME; a field
+    // committed (immediately) within the 800ms debounce window supplied a
+    // NEWER scenario via a later render the pending name-commit never saw,
+    // so the eventual PATCH shipped the OLD value for that field, silently
+    // reverting it server-side.
+    // ------------------------------------------------------------------
+    describe('Name-commit debounce does not ship a stale snapshot (review fix)', () => {
+        it('RED-FIRST target: a terrain change made after typing the name, but before the debounce fires, is reflected in the eventual name commit', function(done) {
+            this.timeout(5000);
+            const commits = [];
+            const onCommitScenario = (s, kv) => { commits.push({s, kv}); };
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'inputs'}
+                    canEdit
+                    terrain={terrainOpts}
+                    onUpdateScenario={() => {}}
+                    onCommitScenario={onCommitScenario}
+                />,
+                container,
+                () => {
+                    const input = container.querySelector('#name');
+                    Simulate.change(input, {target: {value: 'New name'}});
+                    // The terrain select's OWN immediate commit lands in the
+                    // SAME window (well under the 800ms name debounce) and
+                    // the parent re-renders with the updated scenario — the
+                    // real-world sequence this bug reproduces.
+                    ReactDOM.render(
+                        <ScenarioPane
+                            scenario={{...baseScenario, terrain: 4}}
+                            selectedCategoryId={'inputs'}
+                            canEdit
+                            terrain={terrainOpts}
+                            onUpdateScenario={() => {}}
+                            onCommitScenario={onCommitScenario}
+                        />,
+                        container,
+                        () => {
+                            setTimeout(() => {
+                                const nameCommit = commits.find(c => c.kv && c.kv.name === 'New name');
+                                expect(nameCommit).toExist();
+                                expect(nameCommit.s.terrain).toBe(4);
+                                done();
+                            }, 900);
+                        }
+                    );
+                }
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------
     // Advanced pane (Pane 3)
     // ------------------------------------------------------------------
     describe('Advanced pane', () => {
@@ -2838,7 +2893,13 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
         const erroredScenario = {
             ...baseScenario,
             status: 'error',
-            latest_run: {status: 'error', error_message: 'mesh validation failed'}
+            latest_run: {
+                status: 'error',
+                error_message: 'mesh validation failed',
+                // TASK-2860 (W3, epic 2815) AC3 — the notice panel's error
+                // strip renders user_message, never the raw error_message.
+                user_message: 'This scenario could not be built. Please try again.'
+            }
         };
 
         it('renders the title pill (toolbar, compact, error-styled) only when the latest run errored', (done) => {
@@ -2878,7 +2939,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     expect(panel).toExist();
                     const strip = panel.querySelector('.sv-anuga-scenario-error-strip');
                     expect(strip).toExist();
-                    expect(strip.textContent).toInclude('mesh validation failed');
+                    expect(strip.textContent).toInclude('This scenario could not be built');
+                    expect(strip.textContent).toNotInclude('mesh validation failed');
                     done();
                 }
             );

@@ -18,6 +18,49 @@ import {ScenarioErrorStrip} from './scenarioErrorStrip';
 // the FormRow child so the readonly-count contract holds.
 import {FormRow, ErrorStrip} from '../../SimpleView/components/primitives';
 
+// TASK-2953 (epic 2815 W3, Layer 1) — `name` is the ONLY free-text field
+// among the three discrete-field panes (everything else is a select or a
+// numeric stepper, which commits the instant it changes — see
+// renderInputsPane/renderAdvancedPane/renderRunConfigPane below). Committing
+// per keystroke would fire a PATCH/create per character, so `name` commits
+// on a short debounce, flushed immediately on blur. Plain module-level
+// setTimeout bookkeeping (not a hook) because renderInputsPane is a plain
+// helper function invoked during ScenarioPane's render, not its own
+// component. Keyed by scenario id/_tempId so two panes (impossible today,
+// future-proofing) never share a timer.
+const NAME_COMMIT_DEBOUNCE_MS = 800;
+const _nameCommitTimers = {};
+function scheduleNameCommit(key, commit) {
+    if (key === undefined || key === null) { commit(); return; }
+    if (_nameCommitTimers[key]) clearTimeout(_nameCommitTimers[key]);
+    _nameCommitTimers[key] = setTimeout(() => {
+        delete _nameCommitTimers[key];
+        commit();
+    }, NAME_COMMIT_DEBOUNCE_MS);
+}
+function flushNameCommit(key, commit) {
+    if (_nameCommitTimers[key]) {
+        clearTimeout(_nameCommitTimers[key]);
+        delete _nameCommitTimers[key];
+    }
+    commit();
+}
+
+// Review fix (adversarial pass, TASK-2953/2890, data-loss/blocker finding 2)
+// — the LATEST scenario object renderInputsPane has seen for a given
+// scenario key, refreshed on EVERY render (see the write near the top of
+// renderInputsPane below). The debounced name-commit closure used to capture
+// `scenario` from the render pass active AT KEYSTROKE TIME: if the user
+// changed any OTHER field (a select, which commits immediately) within the
+// 800ms debounce window, the eventual name-commit PATCH shipped THAT OLDER
+// render's scenario snapshot — silently reverting the other field's
+// already-persisted value on the server the instant the debounced commit
+// fired, even though the local UI (driven by the newer render) looked
+// correct. Reading the scenario from this cache at FIRE time, not from the
+// closure captured at SCHEDULE time, fixes it: by the time the debounce
+// fires, this cache has been kept current by every render in between.
+const _latestScenarioByKey = {};
+
 /**
  * Merged-panel renderer for the Miller-columns scenarios panel (TASK-2114,
  * epic 2111 W2, dogfood findings A+B). Pane 3 stacks THREE sections —
@@ -710,9 +753,37 @@ function renderMeshBuildComparison(scenario) {
     );
 }
 
-function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundaries, inflows, rainfalls}) {
+function renderInputsPane({scenario, canEdit, onUpdateScenario, onCommitScenario, terrain, boundaries, inflows, rainfalls}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
+    };
+    // TASK-2953 (epic 2815 W3, Layer 1) — commits the field over the network
+    // (lazy CREATE on the scenario's first-ever commit, PATCH after — see
+    // commitAnugaScenarioField, scenarioActions.js). A SELECT's value is
+    // complete the instant it changes, so it commits immediately alongside
+    // its local write; see the name field below for the debounced exception.
+    const commitField = (kv) => {
+        if (onCommitScenario) onCommitScenario(scenario, kv);
+    };
+    const commitFieldNow = (kv) => { handleField(kv); commitField(kv); };
+    const scenarioKey = scenario?.id != null ? scenario.id : scenario?._tempId; // eslint-disable-line no-eq-null, eqeqeq
+    // Review fix (finding 2) — keep the latest-scenario cache current on
+    // EVERY render so a name-commit debounce timer scheduled on an EARLIER
+    // render can read the FRESHEST scenario when it eventually fires. See
+    // _latestScenarioByKey's doc comment above.
+    if (scenarioKey !== undefined && scenarioKey !== null) {
+        _latestScenarioByKey[scenarioKey] = scenario;
+    }
+    // The debounced/flushed name commit reads the scenario from that cache
+    // AT FIRE TIME, never the `scenario` closed over here at schedule time —
+    // by the time the timer fires, any OTHER field's own immediate commit
+    // (terrain/boundary/inflow/rainfall, all committed synchronously above)
+    // has already updated the cache via a subsequent render, so the name
+    // commit's PATCH carries that field's CURRENT value instead of
+    // silently reverting it to what was on screen when the user started
+    // typing the name.
+    const commitNameField = (kv) => {
+        if (onCommitScenario) onCommitScenario(_latestScenarioByKey[scenarioKey] || scenario, kv);
     };
     // TASK-1587 W1.9 UAT (2026-06-19): the V2 terrain list now (correctly)
     // surfaces layer-less terrains (status 'creating' / 'error') so they can be
@@ -743,13 +814,21 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                         className="sv-scenario-input"
                         value={scenario?.name || ''}
                         readOnly={!canEdit}
-                        onChange={(e) => handleField({name: e.target.value})}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            handleField({name: value});
+                            scheduleNameCommit(scenarioKey, () => commitNameField({name: value}));
+                        }}
+                        onBlur={(e) => {
+                            const value = e.target.value;
+                            flushNameCommit(scenarioKey, () => commitNameField({name: value}));
+                        }}
                     />
                 </div>
             </FormRow>
-            {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, handleField)}
-            {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
-            {renderSelectField('inflow', 'hydrata.anuga.inflow', scenario?.inflow, inflows, !canEdit, handleField)}
+            {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, selectableTerrain, !canEdit, commitFieldNow)}
+            {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, commitFieldNow)}
+            {renderSelectField('inflow', 'hydrata.anuga.inflow', scenario?.inflow, inflows, !canEdit, commitFieldNow)}
             {/* TASK-2083 (epic 2077) — empty-state helper explaining an Inflow
                 (the layer) can hold more than one inflow location (a feature
                 inside it), each with its own hydrograph. Shown only while the
@@ -762,7 +841,7 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                     </span>
                 </div> : null
             }
-            {renderSelectField('rainfall', 'hydrata.anuga.rainfall', scenario?.rainfall, rainfalls, !canEdit, handleField)}
+            {renderSelectField('rainfall', 'hydrata.anuga.rainfall', scenario?.rainfall, rainfalls, !canEdit, commitFieldNow)}
         </div>
     );
 }
@@ -772,15 +851,21 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
 // Network belongs in the Hydrology panel, not scenario inputs).
 // 'networks' prop intentionally not destructured to avoid breaking the
 // parent's prop-passing (anugaScenarioMenu still passes it for future use).
-function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, structures, meshRegions}) {
+function renderAdvancedPane({scenario, canEdit, onUpdateScenario, onCommitScenario, frictions, structures, meshRegions}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
+    // TASK-2953 (epic 2815 W3, Layer 1) — every field here is a select; it
+    // commits the instant it changes (see renderInputsPane's doc comment).
+    const commitFieldNow = (kv) => {
+        handleField(kv);
+        if (onCommitScenario) onCommitScenario(scenario, kv);
+    };
     return (
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-advanced">
-            {renderSelectField('friction', 'hydrata.anuga.friction', scenario?.friction, frictions, !canEdit, handleField)}
-            {renderSelectField('structure', 'hydrata.anuga.structures', scenario?.structure, structures, !canEdit, handleField)}
-            {renderSelectField('mesh_region', 'hydrata.anuga.meshRegions', scenario?.mesh_region, meshRegions, !canEdit, handleField)}
+            {renderSelectField('friction', 'hydrata.anuga.friction', scenario?.friction, frictions, !canEdit, commitFieldNow)}
+            {renderSelectField('structure', 'hydrata.anuga.structures', scenario?.structure, structures, !canEdit, commitFieldNow)}
+            {renderSelectField('mesh_region', 'hydrata.anuga.meshRegions', scenario?.mesh_region, meshRegions, !canEdit, commitFieldNow)}
         </div>
     );
 }
@@ -862,9 +947,15 @@ function renderEstimateOrBuiltSection(scenario) {
  * is preserved — it shows ETA, progress, and error messages which the user
  * needs before deciding to retry or cancel. No data is dropped.
  */
-function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget}) {
+function renderRunConfigPane({scenario, canEdit, onUpdateScenario, onCommitScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
+    };
+    // TASK-2953 (epic 2815 W3, Layer 1) — both duration dropdowns and the
+    // resolution stepper commit the instant they change (see
+    // renderInputsPane's doc comment).
+    const commitField = (kv) => {
+        if (onCommitScenario) onCommitScenario(scenario, kv);
     };
     // UAT #9 — duration is entered via two dropdowns (Hours + Minutes), not a
     // free-typed HH:MM string. The stored field is unchanged
@@ -873,10 +964,14 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
     // "duration > 0" build validation still holds.
     const {hours: durationHours, minutes: durationMinutes} = secondsToHM(scenario?.duration);
     const handleHoursChange = (e) => {
-        handleField({duration: hmToSeconds(parseInt(e.target.value, 10), durationMinutes)});
+        const kv = {duration: hmToSeconds(parseInt(e.target.value, 10), durationMinutes)};
+        handleField(kv);
+        commitField(kv);
     };
     const handleMinutesChange = (e) => {
-        handleField({duration: hmToSeconds(durationHours, parseInt(e.target.value, 10))});
+        const kv = {duration: hmToSeconds(durationHours, parseInt(e.target.value, 10))};
+        handleField(kv);
+        commitField(kv);
     };
     const hourOptions = [];
     for (let h = 0; h <= DURATION_MAX_HOURS; h++) hourOptions.push(h);
@@ -889,6 +984,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
         const next = parseFloat(raw);
         if (!Number.isFinite(next)) return;
         handleField({resolution: next});
+        commitField({resolution: next});
     };
     // TASK-2194 (review fix) — the chosen target is SESSION state on the ui
     // slice (state.anuga.ui.sessionComputeTargets, keyed per scenario), NOT a
@@ -1064,14 +1160,14 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, avai
  */
 function renderRunPane(props) {
     const {
-        scenario, canEdit, isStaff, onUpdateScenario,
+        scenario, canEdit, isStaff, onUpdateScenario, onCommitScenario,
         availableComputeTargets, defaultComputeTarget,
         sessionComputeTarget, onSetSessionComputeTarget
     } = props;
     return (
         <div className="sv-anuga-scenario-pane-rows sv-anuga-scenario-pane-rows-run">
             {/* Section (a): config fields */}
-            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
+            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, onCommitScenario, isStaff, availableComputeTargets, defaultComputeTarget, sessionComputeTarget, onSetSessionComputeTarget})}
             {/* Section (b): status feedback (ETA, progress). TASK-2244
                 (epic 2237 W2.2) — the standalone ScenarioErrorStrip render
                 that used to sit here is REMOVED: it's now embedded as the
@@ -1491,6 +1587,12 @@ ScenarioPane.propTypes = {
     meshRegions: PropTypes.array,
     networks: PropTypes.array,
     onUpdateScenario: PropTypes.func,
+    // TASK-2953 (epic 2815 W3, Layer 1) — the three discrete-field panes call
+    // THIS (never onUpdateScenario) to commit over the network. Kept
+    // deliberately separate from onUpdateScenario so useAutoPopulateDefaults
+    // below stays on the local-only path (amendment A3 — see
+    // commitAnugaScenarioField's doc comment, scenarioActions.js).
+    onCommitScenario: PropTypes.func,
     // TASK-2268 (epic 2237 W5.3) — expand-then-focus bridge for the
     // REQUIRED section, mirroring runSettingsExpandToken/
     // optionalInputsExpandToken below exactly: the menu bumps

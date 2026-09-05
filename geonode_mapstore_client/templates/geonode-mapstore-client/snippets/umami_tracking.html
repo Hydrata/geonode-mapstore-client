@@ -25,14 +25,7 @@ prefix — do NOT add data-host-url pointing back at analytics.hydrata.com.
     // per-occurrence detail stays queryable via event data.
     function trackError(msg, source, line, stack) {
         if (typeof umami === 'undefined') return;
-        // TASK-1806(b): Skip the OpenReplay canvas-capture SecurityError (~16/wk).
-        // OpenReplay tries toBlob() on the OpenLayers/WebGL map canvas which is
-        // cross-origin-tainted; the browser fires a SecurityError that window.onerror
-        // catches here. The session still records — only the canvas snapshot fails.
         var msgStr = String(msg);
-        if (msgStr.indexOf('SecurityError') !== -1 && msgStr.indexOf('toBlob') !== -1) {
-            return;
-        }
         var key = msg + (source || '') + (line || '');
         if (seen[key]) return;
         seen[key] = true;
@@ -76,13 +69,16 @@ prefix — do NOT add data-host-url pointing back at analytics.hydrata.com.
         // over-engineered bot detection (the nginx ai_type layer already
         // handles that server-side): a data-tag on the SAME identify() call
         // so a Umami dashboard filter can exclude automation in one shot.
-        // Mirrors the OpenReplay-side query convention
-        // (`user_browser <> 'HeadlessChrome'`) so both surfaces agree on what
-        // "synthetic" means — see epic TASK-2129 W1/W2 notes.
+        // The HeadlessChrome signal deliberately matches the query-time
+        // convention the session-replay surface used on its ClickHouse
+        // sessions table (`user_browser <> 'HeadlessChrome'`, epic TASK-2129
+        // W1/W2 notes) so that surface's historical numbers and this Umami tag
+        // agree on what "synthetic" means. That surface was removed
+        // (TASK-2812 / TASK-2835); Umami is the only consumer of the
+        // definition now.
         //   - 800x600 is the claude-in-chrome extension's fixed window size.
         //   - HeadlessChrome / navigator.webdriver catches e2e / Karma-style
-        //     automated browsers (the same signal the OpenReplay convention
-        //     keys on, so both surfaces agree on what "synthetic" means).
+        //     automated browsers.
         // Anonymous automation (unauthenticated smoke hits) isn't tagged by
         // this mechanism since identify() only fires inside this authenticated
         // block — see W2 wave-agent novel_questions for that residual gap.

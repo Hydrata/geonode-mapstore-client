@@ -22,7 +22,12 @@ import {
     // Build button instead of a toast.
     BUILD_SCENARIO,
     BUILD_SCENARIO_SUCCESS,
-    BUILD_SCENARIO_ERROR
+    BUILD_SCENARIO_ERROR,
+    // TASK-2890 (epic 2815 W3, Layer 4) — Redux mirror of a deferred
+    // Build-and-Run intent, keyed by scenario id.
+    ARM_RUN_AFTER_BUILD,
+    ADVANCE_RUN_AFTER_BUILD,
+    CLEAR_RUN_AFTER_BUILD
 } from "../actionsAnuga";
 
 const initialState = {
@@ -31,7 +36,10 @@ const initialState = {
     selectedId: null,
     // Active/Archived view filter. 'none' = active only (default, matches BE
     // default queryset), 'only' = archived only, 'all' = both.
-    archiveFilter: 'none'
+    archiveFilter: 'none',
+    // TASK-2890 (epic 2815 W3, Layer 4) — { [scenarioId]: {phase: 'awaiting-inflight' | 'awaiting-built', localOwned} }.
+    // See runAfterBuildEpic (epics/pollingEpics.js).
+    runAfterBuild: {}
 };
 
 /**
@@ -137,7 +145,19 @@ export default (state = initialState, action) => {
                 [tempId]: {
                     id: null,
                     _tempId: tempId,
-                    name: "",
+                    // TASK-2953 (epic 2815 W3, Layer 1 sub-decision, top's
+                    // pre-decided tradeoff) — Scenario.name is required
+                    // non-blank server-side (models/scenario.py:1487). Layer
+                    // 1's lazy create fires on the scenario's FIRST COMMIT,
+                    // which is usually a SELECT field (terrain/boundary/
+                    // inflow), not the name field — holding the create until
+                    // a name exists would mean a user who only ever touches
+                    // selects never gets a server row. Seeding a non-blank
+                    // default here keeps the create POST valid regardless of
+                    // which field is committed first. Grepped ZERO uses of a
+                    // falsy/blank/'untitled' name sentinel anywhere in the
+                    // non-test Anuga FE tree, so this is safe (H3).
+                    name: "New scenario",
                     code: null,
                     description: "",
                     // TASK-2038 (F5): matches the BE default
@@ -187,19 +207,72 @@ export default (state = initialState, action) => {
         };
     }
     case SAVE_ANUGA_SCENARIO_SUCCESS: {
-        const newById = { ...state.byId };
-        const newAllIds = [...state.allIds];
-        const saved = { ...action.scenario, unsaved: false };
+        // TASK-2953 (epic 2815 W3, Layer 2 / amendment A1) — action.scenario
+        // is now GUARANTEED to carry a real `id`: crudEpics.js injects it for
+        // the PATCH branch, whose raw response never includes one (PROVEN
+        // live: a PATCH response carries ONLY ScenarioUpdateSerializerV2's
+        // writable fields — no id, no computed_status, no
+        // latest_run_is_valid, nothing read-only). Before this fix, a PATCH
+        // success wrote to `byId[undefined]` here on EVERY existing-scenario
+        // save, silently orphaning the real entry.
+        //
+        // action.sentPayload (the outgoing PATCH body, present on the update
+        // branch only) and action.tempId (present on the create branch only)
+        // drive a no-clobber merge instead of the old verbatim full replace:
+        // a field is accepted from the server ONLY where nothing has changed
+        // locally since the request went out (sent[k] === local[k]);
+        // anything that moved on locally in the meantime (e.g. a second
+        // commit fired while this one was still in flight) is kept. Fields
+        // the client never sends (id, computed_status, latest_run,
+        // latest_run_is_valid, perms, ...) always come from the server —
+        // there is no local value to protect.
+        const server = action.scenario;
+        if (!server || server.id === undefined || server.id === null) return state;
+        const sent = action.sentPayload;
+        const tempId = action.tempId !== undefined && action.tempId !== null ? action.tempId : null;
+        const localKey = tempId !== null ? tempId : server.id;
+        // TASK-2953 (Layer 1, H4 in-flight-create race) — a second commit for
+        // the SAME tempId that arrived while the first commit's create was
+        // still in flight PATCHes once that create resolves; by the time ITS
+        // PATCH response lands, the first success may have ALREADY migrated
+        // byId[tempId] -> byId[realId]. Fall back to the real-id row as the
+        // merge baseline so this doesn't clobber fields the PATCH response
+        // itself doesn't carry (computed_status, latest_run, estimates, ...).
+        const localExisting = state.byId[localKey]
+            || (tempId !== null ? state.byId[server.id] : undefined);
 
-        // Find and replace the temp entry (null id) or existing entry
-        const tempKey = newAllIds.find(id => newById[id]?.id === null);
-        if (tempKey && !action.scenario._tempId) {
-            // Replace temp with real
-            delete newById[tempKey];
-            const idx = newAllIds.indexOf(tempKey);
-            newAllIds[idx] = saved.id;
+        let merged;
+        if (sent && localExisting) {
+            merged = { ...localExisting };
+            Object.keys(server).forEach((k) => {
+                if (Object.prototype.hasOwnProperty.call(sent, k)) {
+                    if (sent[k] === localExisting[k]) {
+                        merged[k] = server[k];
+                    }
+                    // else: local has moved on since this PATCH was sent — keep local.
+                } else {
+                    merged[k] = server[k]; // read-only / server-computed field
+                }
+            });
+        } else {
+            // Create response, or no local row left to protect — full merge
+            // (matches the old full-replace behaviour, plus preserving any
+            // purely-local keys like `selected`).
+            merged = { ...(localExisting || {}), ...server };
         }
-        newById[saved.id] = saved;
+        merged.unsaved = false;
+        delete merged._tempId;
+
+        const newById = { ...state.byId };
+        let newAllIds = state.allIds;
+        if (tempId !== null && Object.prototype.hasOwnProperty.call(newById, tempId)) {
+            delete newById[tempId];
+            const idx = newAllIds.indexOf(tempId);
+            newAllIds = idx === -1 ? [...newAllIds, server.id] : newAllIds.map((id, i) => (i === idx ? server.id : id));
+        } else if (newAllIds.indexOf(server.id) === -1) {
+            newAllIds = [...newAllIds, server.id];
+        }
+        newById[server.id] = merged;
 
         return { ...state, byId: newById, allIds: newAllIds };
     }
@@ -311,6 +384,41 @@ export default (state = initialState, action) => {
             ...state,
             byId: { ...state.byId, [id]: { ...state.byId[id], buildConflict } }
         };
+    }
+    // TASK-2890 (epic 2815 W3, Layer 4) — the Redux mirror of the deferred
+    // Build-and-Run intent. See runAfterBuildEpic (epics/pollingEpics.js).
+    // Review fix (finding 1) — each entry is {phase, localOwned}, not a bare
+    // phase string: localOwned distinguishes an arm the MOUNTED component's
+    // own local machine will also resolve (armAndDispatchBuildAndRun's
+    // dispatched==='build' path only) from a mechanism-2/save-dispatched arm
+    // that has no local counterpart, ever — see armRunAfterBuild's doc
+    // comment (scenarioActions.js) for the full rationale.
+    case ARM_RUN_AFTER_BUILD: {
+        if (action.scenarioId === undefined || action.scenarioId === null) return state;
+        return {
+            ...state,
+            runAfterBuild: {
+                ...state.runAfterBuild,
+                [action.scenarioId]: { phase: 'awaiting-inflight', localOwned: !!action.localOwned }
+            }
+        };
+    }
+    case ADVANCE_RUN_AFTER_BUILD: {
+        const existing = state.runAfterBuild[action.scenarioId];
+        if (!existing || existing.phase !== 'awaiting-inflight') return state;
+        return {
+            ...state,
+            runAfterBuild: {
+                ...state.runAfterBuild,
+                [action.scenarioId]: { ...existing, phase: 'awaiting-built' }
+            }
+        };
+    }
+    case CLEAR_RUN_AFTER_BUILD: {
+        if (!Object.prototype.hasOwnProperty.call(state.runAfterBuild, action.scenarioId)) return state;
+        const runAfterBuild = { ...state.runAfterBuild };
+        delete runAfterBuild[action.scenarioId];
+        return { ...state, runAfterBuild };
     }
     default:
         return state;

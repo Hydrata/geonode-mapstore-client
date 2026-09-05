@@ -1,5 +1,7 @@
 import Rx from 'rxjs';
-import { changeDrawingStatus, END_DRAWING, drawSupportReset } from '../../../../MapStore2/web/client/actions/draw';
+import {
+    changeDrawingStatus, END_DRAWING, drawSupportReset, drawStopped
+} from '../../../../MapStore2/web/client/actions/draw';
 import { refreshLayerVersion } from '../../../../MapStore2/web/client/actions/layers';
 import { show } from '../../../../MapStore2/web/client/actions/notifications';
 import { describeFeatureType } from '../../../../MapStore2/web/client/api/WFS';
@@ -200,6 +202,49 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
                     })
             );
         });
+
+/**
+ * TASK-2830 (W2V) — session-scoped invalidation of a stale `draw.tempFeatures`.
+ *
+ * `draw.tempFeatures` is set by GEOMETRY_CHANGED (`reducers/draw.js:49-50`) on every
+ * draw and every vertex drag, and is cleared by exactly ONE action —
+ * DRAW_SUPPORT_STOPPED (`reducers/draw.js:51-52`). The OpenLayers renderer Hydrata
+ * runs never fires it (only `leaflet/DrawSupport.jsx:597` does), and
+ * `drawSupportReset` is `changeDrawingStatus("clean", …)` (`actions/draw.js:81`),
+ * whose reducer case never touches `tempFeatures`. So the FIRST geometry drawn or
+ * vertex-edited in a map session stayed pinned there for the whole session —
+ * globally, across owners, layers and geometry families.
+ *
+ * Two consumers then prefer that stale value over the feature actually being
+ * edited: `vectorDrawSaveEpic` below (:364-366) and the popup's edit-mode Save
+ * button (`components/VectorDrawPopup.js:545-546`). Live on :8081 (project 15834,
+ * 2026-09-04): vertex-drag `rai_15834_rainfall_01`, cancel, then map-click
+ * `inf_15834_inflow_01` and Save → the WFS-T Update posted the rainfall POLYGON
+ * into the inflow's `com.vividsolutions.jts.geom.LineString` column and GeoServer's
+ * `UpdateElementHandler.checkConsistentGeometryDimensions` answered
+ * "Incorrect geometry dimension for property the_geom" (2/2, as the 2026-08-17
+ * demo trial recorded — finding F2, checkpoint 7). Between two POLYGON layers the
+ * same stale value is ACCEPTED and silently overwrites the target's geometry.
+ *
+ * The fix is the session boundary, not a guard:
+ *  - an OWNER guard is inert — the poisoning geometry is drawn by VectorDraw itself
+ *    (VECTOR_DRAW_OWNER at :32 is the owner on :131/:146/:193 for every layer type);
+ *  - a geomType/family guard is inert for the Polygon→Polygon corruption;
+ *  - preferring `draw.features` over `draw.tempFeatures` would revert TASK-1407
+ *    (gmc 9875b2f76) — after a fresh draw, a vertex drag lands ONLY in tempFeatures.
+ *
+ * START_VECTOR_DRAW is the boundary: ALL FOUR entry points pass through it —
+ * the ANUGA map-click (`Anuga/anugaClickTargets.js:88`), the SimpleView pencil
+ * (`SimpleView/components/simpleViewMenuRow.js:816`), the SWAMM BMP form
+ * (`Swamm/components/bmpForm/BmpFormContainer.js:290`) and the picker's own
+ * SELECT_EXISTING_FEATURE re-dispatch (:339 below) — and everything the user
+ * draws or drags AFTER it still lands in `tempFeatures` normally. Kept as its own
+ * one-line epic rather than folded into `vectorDrawStartEpic` so the start epic's
+ * emitted stream is unchanged (its picker specs assert `emitted[0]`).
+ */
+export const vectorDrawClearStaleGeometryEpic = (action$) =>
+    action$.ofType(START_VECTOR_DRAW)
+        .map(() => drawStopped());
 
 /**
  * Start epic: handles describe → draw for CREATE mode, describe → load → edit

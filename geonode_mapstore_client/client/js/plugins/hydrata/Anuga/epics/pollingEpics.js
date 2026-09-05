@@ -46,6 +46,12 @@ import {
     setAnugaNodesData,
     setAnugaLinksData,
     setAnugaPollingData,
+    SET_ANUGA_POLLING_DATA,
+    // TASK-2890 (epic 2815 W3, Layer 4) — Redux-armed deferred-run resolver.
+    advanceRunAfterBuild,
+    clearRunAfterBuild,
+    runAnugaScenario,
+    setAnugaScenarioMenu,
     setAnugaProjectData,
     setAnugaInitInFlight,
     setAnugaNoProjectForMap,
@@ -73,6 +79,10 @@ import {
 } from "../../SimpleView/actionsSimpleView";
 import {TM_SET_PROCESSES} from "../../TaskMonitor/actionsTaskMonitor";
 import {getProjectId} from "../selectorsAnuga";
+// TASK-2890 (epic 2815 W3, Layer 4) — the SAME pure predicates/arithmetic
+// anugaScenarioMenu.js's local maybeRunAfterBuild uses, so the epic-side
+// backstop below can never drift from the mounted-component semantics.
+import {IN_FLIGHT_STATUSES, RUN_FAILURE_STATES, findScenarioStatus, getMeshDivergence} from "../components/scenarioHelpers";
 
 const getArchiveFilter = (state) => state?.anuga?.scenarios?.archiveFilter || 'none';
 // Run statuses past which polling work is wasted. Shared with
@@ -510,13 +520,29 @@ export const selectStaleResultLayers = (flatLayers, latestRun) => {
     );
 };
 
+// TASK-2890 (epic 2815 W3, Layer 4 / amendment A4) — a plain
+// takeUntil(STOP_ANUGA_SCENARIO_POLLING) tears this timer down the instant
+// the Scenarios menu closes, which is EXACTLY the mechanism that strands a
+// deferred Build-and-Run: the menu-close is what stops the only poll that
+// could ever observe the build reaching 'built' (runAfterBuildEpic below
+// resolves off THIS epic's setAnugaPollingData ticks). So a STOP while a run
+// is armed does not tear the timer down — it only takes effect once no arm
+// is pending (checked again on every subsequent tick), matching the
+// documented one-tick-of-slack this granularity implies.
+export const hasArmedRunAfterBuild = (store) =>
+    Object.keys(store.getState()?.anuga?.scenarios?.runAfterBuild || {}).length > 0;
+
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_SCENARIO_POLLING)
-        .switchMap(() =>
-            Rx.Observable
+        .switchMap(() => {
+            let stopRequested = false;
+            const stopSub = action$.ofType(STOP_ANUGA_SCENARIO_POLLING)
+                .subscribe(() => { stopRequested = true; });
+            return Rx.Observable
                 .timer(0, 8000)
-                .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
+                .takeWhile(() => !stopRequested || hasArmedRunAfterBuild(store))
+                .finally(() => stopSub.unsubscribe())
                 .switchMap(() =>
                     Rx.Observable.from(
                         anugaApi.getScenariosByArchive(
@@ -597,8 +623,137 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 return Rx.Observable.of(setAnugaPollingData(action.scenarios));
                             })
                         )
-                )
-        );
+                );
+        });
+
+// TASK-2890 (epic 2815 W3, Layer 4) — the deferred-run RESOLVER. Reacts to
+// EVERY poll tick regardless of whether the Scenarios menu is mounted (see
+// pollAnugaScenarioEpic's takeWhile fix above, which is what keeps polling
+// alive long enough for this to ever fire once the menu closes).
+//
+// Two arm "owners" share state.anuga.scenarios.runAfterBuild, distinguished
+// by the `localOwned` flag on each entry (review fix, adversarial pass,
+// TASK-2953/2890, correctness/blocker finding 1 — see armRunAfterBuild's doc
+// comment, scenarioActions.js, for why a bare mount check was not enough):
+//   - localOwned:true — the MOUNTED component
+//     (anugaScenarioMenu.js's armAndDispatchBuildAndRun, dispatched==='build'
+//     branch ONLY) keeps its OWN local this.state.runAfterBuild machine so
+//     the TASK-2211 divergence-pause dialog can keep rendering while
+//     mounted, and clears this Redux mirror the instant IT resolves
+//     (fire/fail/vanish) — see maybeRunAfterBuild. While
+//     state.anuga.ui.showAnugaScenarioMenu is true AND localOwned is true,
+//     this epic only ADVANCES phase (harmless bookkeeping, keeps the mirror
+//     accurate for continuity) and never takes the terminal action, so the
+//     two resolvers can never double-dispatch a run.
+//   - localOwned:false (the default) — saveAnugaScenarioEpic's mechanism-2
+//     chain arms DIRECTLY for EVERY 'save'-dispatched Build-and-Run
+//     (dispatchBuild's save branch, which is virtually every click post-
+//     Layer-1 — see armAndDispatchBuildAndRun's own doc comment). These arms
+//     have NO local-component owner, EVER — armAndDispatchBuildAndRun never
+//     sets local state on a 'save' dispatch — so this epic is their ONLY
+//     resolver, mount state irrelevant. A prior version of this epic ignored
+//     localOwned entirely and deferred to "the mounted component" for EVERY
+//     arm whenever the menu was mounted, silently stranding every
+//     save-dispatched Build-and-Run whose panel stayed open through the
+//     build — this is the fix for that gap.
+//
+// DIVERGENCE DECISION (TASK-2890 comment #2002 finding 1 / top's hint —
+// decided here, not discovered in code): this epic cannot render the
+// TASK-2211 confirm dialog (no component may be mounted at all). Rather than
+// leaving a diverged build stranded forever with no dialog ever able to
+// reach it, an epic-resolved arm BYPASSES the pause and fires the run
+// directly, then reopens the Scenarios panel (mirrors runAnugaScenarioEpic's
+// own re-open at crudEpics.js:270-274) so the dispatched run is immediately
+// visible. This is a DELIBERATE, DOCUMENTED reversal of TASK-2211, scoped
+// EXACTLY to arms this epic resolves (unmounted-at-resolution component arms,
+// and every epic-only/lazy-create arm) — the mounted-component path is
+// completely untouched and keeps pausing exactly as before.
+export const runAfterBuildEpic = (action$, store) =>
+    action$
+        .ofType(SET_ANUGA_POLLING_DATA)
+        .mergeMap((action) => {
+            const state = store.getState();
+            const armed = state?.anuga?.scenarios?.runAfterBuild || {};
+            const armedIds = Object.keys(armed);
+            if (armedIds.length === 0) return Rx.Observable.empty();
+
+            const byId = {};
+            (action.scenarios || []).forEach((s) => { if (s && s.id != null) byId[String(s.id)] = s; }); // eslint-disable-line no-eq-null, eqeqeq
+
+            const menuMounted = !!state?.anuga?.ui?.showAnugaScenarioMenu;
+            const emissions = [];
+
+            armedIds.forEach((idKey) => {
+                const scenario = byId[idKey];
+                const scenarioId = Number(idKey);
+                if (!scenario) {
+                    // Genuinely gone from a SUCCESSFUL poll response (deleted,
+                    // or filtered out by the current archive view) — never
+                    // leak the arm.
+                    emissions.push(clearRunAfterBuild(scenarioId));
+                    return;
+                }
+                // Review fix (adversarial pass, TASK-2953/2890,
+                // correctness/blocker finding 1) — armed[idKey] is
+                // {phase, localOwned}, not a bare phase string. localOwned
+                // is the ONLY thing that may ever justify staying silent
+                // below: it is true exclusively for an arm
+                // armAndDispatchBuildAndRun (anugaScenarioMenu.js) set on
+                // its OWN dispatched==='build' branch, where the MOUNTED
+                // component's local this.state.runAfterBuild machine is
+                // ALSO tracking this exact arm and will resolve it itself
+                // (see maybeRunAfterBuild). Every mechanism-2/save-dispatched
+                // arm (chainAfterSave, crudEpics.js — virtually every click
+                // post-Layer-1, since UPDATE_ANUGA_SCENARIO always sets
+                // unsaved:true) has localOwned:false: armAndDispatchBuildAndRun
+                // only arms its OWN local state on the 'build' branch, so
+                // that machine is a permanent no-op for a save-dispatched
+                // arm. Before this fix, `if (menuMounted) return;` applied
+                // unconditionally to EVERY arm regardless of origin, so a
+                // save-dispatched arm was silently stranded forever whenever
+                // the panel stayed open through the build — reproducing, for
+                // a far larger set of clicks, exactly the bug TASK-2890 was
+                // written to fix.
+                const armedEntry = armed[idKey];
+                const phase = armedEntry && armedEntry.phase;
+                const localOwned = !!(armedEntry && armedEntry.localOwned);
+                const status = findScenarioStatus(scenario);
+
+                if (RUN_FAILURE_STATES.includes(status)) {
+                    emissions.push(clearRunAfterBuild(scenarioId));
+                    return;
+                }
+                if (phase === 'awaiting-inflight') {
+                    if (IN_FLIGHT_STATUSES.includes(status)) {
+                        emissions.push(advanceRunAfterBuild(scenarioId));
+                    }
+                    return;
+                }
+                // phase === 'awaiting-built'
+                if (status !== 'built') return;
+                if (menuMounted && localOwned) {
+                    // The mounted component owns resolution (and the
+                    // divergence-pause dialog) for this tick — do nothing;
+                    // it clears this mirror itself once it resolves. An
+                    // epic-only (localOwned:false) arm has no such owner —
+                    // mount state is irrelevant for it; fall through and
+                    // resolve unconditionally.
+                    return;
+                }
+                emissions.push(clearRunAfterBuild(scenarioId));
+                const {exceedsThreshold} = getMeshDivergence(
+                    scenario.latest_run, state?.anuga?.ui?.meshDivergenceThreshold
+                );
+                if (exceedsThreshold) {
+                    trackEvent('button', 'click', 'anuga-scenario-menu-build-and-run-divergence-bypass-unmounted');
+                }
+                const computeTarget = (state?.anuga?.ui?.sessionComputeTargets || {})[scenarioId] || null;
+                emissions.push(runAnugaScenario(scenario, computeTarget));
+                emissions.push(setAnugaScenarioMenu(true));
+            });
+
+            return emissions.length ? Rx.Observable.from(emissions) : Rx.Observable.empty();
+        });
 
 // Lightweight run-status poller for active runs (3s interval).
 //

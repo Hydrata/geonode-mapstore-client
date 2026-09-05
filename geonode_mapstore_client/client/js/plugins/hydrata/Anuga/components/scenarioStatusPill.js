@@ -104,7 +104,12 @@ const ScenarioStatusPill = ({scenario, compact}) => {
     // a native `title=` tooltip on the pill wrapper so hovering the rail
     // row still shows the failure reason. Truncate to 200 chars so a
     // multi-page stack trace doesn't make the tooltip unreadable.
-        const fullMsg = latestRun?.error_message;
+    //
+    // TASK-2860 (W3, epic 2815) — AC3: reads `user_message` (BE-derived,
+    // human-facing), NEVER `error_message`, which stays raw for operators
+    // (TASK-2824) and can hold a traceback line or bare exception class
+    // name.
+        const fullMsg = latestRun?.user_message;
         const tooltip = (compact && fullMsg)
             ? (fullMsg.length > 200 ? fullMsg.substring(0, 200) + '...' : fullMsg)
             : undefined;

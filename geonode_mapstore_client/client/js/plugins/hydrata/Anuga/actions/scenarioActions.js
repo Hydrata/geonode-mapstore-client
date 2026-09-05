@@ -33,6 +33,18 @@ const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const UPDATE_NETWORK = 'UPDATE_NETWORK';
 const SAVE_NETWORK = 'SAVE_NETWORK';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
+// TASK-2953 (epic 2815 W3, Layer 1) — dispatched by scenarioPane.js's three
+// discrete-field handleField closures ONLY (never useAutoPopulateDefaults —
+// see commitAnugaScenarioField's doc comment below). Consumed by
+// commitAnugaScenarioFieldEpic (crudEpics.js): lazy CREATE on the first
+// commit for an id-less scenario, PATCH on every commit after.
+const COMMIT_ANUGA_SCENARIO_FIELD = 'COMMIT_ANUGA_SCENARIO_FIELD';
+// TASK-2890 (epic 2815 W3, Layer 4) — Redux-held mirror of a Build-and-Run
+// deferred-run intent, keyed by scenario id, so it survives the Scenarios
+// menu unmounting (see runAfterBuildEpic, pollingEpics.js).
+const ARM_RUN_AFTER_BUILD = 'ARM_RUN_AFTER_BUILD';
+const ADVANCE_RUN_AFTER_BUILD = 'ADVANCE_RUN_AFTER_BUILD';
+const CLEAR_RUN_AFTER_BUILD = 'CLEAR_RUN_AFTER_BUILD';
 
 function createAnugaTerrainFromLayer(pk, title) {
     return { type: CREATE_ANUGA_TERRAIN_FROM_LAYER, pk, title };
@@ -42,26 +54,57 @@ function addAnugaScenario() {
     return { type: ADD_ANUGA_SCENARIO };
 }
 
-function saveAnugaScenario(scenario) {
-    return { type: SAVE_ANUGA_SCENARIO, scenario };
-}
-
-function saveAnugaScenarioSuccess(scenario) {
-    return (dispatch) => {
-        dispatch({
-            type: SHOW_NOTIFICATION,
-            title: 'Success',
-            autoDismiss: 6,
-            position: 'tc',
-            message: scenario.id ? `Scenario ${scenario.id} building` : (scenario.name ? `'${scenario.name}' building` : 'Scenario building'),
-            uid: uuidv1(),
-            level: 'success'
-        });
-        dispatch({ type: SAVE_ANUGA_SCENARIO_SUCCESS, scenario });
+// TASK-2953 (epic 2815 W3, mechanism 1) — opts.buildAfterSave / opts.runAfterBuild
+// let dispatchBuild's save branch (anugaScenarioMenu.js) ask
+// saveAnugaScenarioEpic to chain a build (and arm a deferred run) onto the
+// SAME create/update round-trip's success, reading the REAL id off the
+// create response rather than the click-time scenario.id (which is null for
+// a scenario that has never been saved — see crudEpics.js's
+// saveAnugaScenarioEpic).
+function saveAnugaScenario(scenario, opts = {}) {
+    return {
+        type: SAVE_ANUGA_SCENARIO,
+        scenario,
+        buildAfterSave: !!opts.buildAfterSave,
+        runAfterBuild: !!opts.runAfterBuild
     };
 }
 
-function saveAnugaScenarioError(error) {
+// TASK-2953 AC3 — a save never builds any more (TASK-2820); saying
+// "building" here was left over from before that change and is simply
+// false. meta.buildAfterSave suppresses the toast entirely — the chained
+// build (dispatchBuild / saveAnugaScenarioEpic) owns the user-facing notice
+// for that case, so this toast would otherwise show TWICE for one click.
+// meta.sentPayload (Layer 2) / meta.tempId (set only on a CREATE response)
+// are forwarded verbatim onto the plain action for
+// scenariosReducer.js's SAVE_ANUGA_SCENARIO_SUCCESS no-clobber merge.
+function saveAnugaScenarioSuccess(scenario, meta = {}) {
+    return (dispatch) => {
+        if (!meta.buildAfterSave) {
+            dispatch({
+                type: SHOW_NOTIFICATION,
+                title: 'Success',
+                autoDismiss: 6,
+                position: 'tc',
+                message: scenario.name ? `'${scenario.name}' saved` : 'Scenario saved',
+                uid: uuidv1(),
+                level: 'success'
+            });
+        }
+        dispatch({
+            type: SAVE_ANUGA_SCENARIO_SUCCESS,
+            scenario,
+            sentPayload: meta.sentPayload || null,
+            tempId: meta.tempId != null ? meta.tempId : null // eslint-disable-line no-eq-null, eqeqeq
+        });
+    };
+}
+
+// TASK-2953 AC4 / TASK-2890 finding 2 — meta.scenarioId lets the dispatcher
+// clear any armed run-after-build intent for the scenario whose save just
+// failed, so a 4xx PATCH/create can never leave a dangling arm to
+// surprise-fire a run on a later, unrelated build.
+function saveAnugaScenarioError(error, meta = {}) {
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -72,8 +115,71 @@ function saveAnugaScenarioError(error) {
             uid: uuidv1(),
             level: 'error'
         });
+        if (meta.scenarioId != null) { // eslint-disable-line no-eq-null, eqeqeq
+            dispatch({ type: CLEAR_RUN_AFTER_BUILD, scenarioId: meta.scenarioId });
+        }
         dispatch({ type: SAVE_ANUGA_SCENARIO_ERROR, error });
     };
+}
+
+// TASK-2953 (epic 2815 W3, Layer 1) — the three discrete-field handleField
+// closures (scenarioPane.js renderInputsPane/renderAdvancedPane/
+// renderRunConfigPane) call THIS, never updateAnugaScenario directly.
+// useAutoPopulateDefaults (scenarioPane.js) is DELIBERATELY left on
+// updateAnugaScenario/UPDATE_ANUGA_SCENARIO (local-only) — amendment A3
+// (TASK-2953 comment #2007): that effect runs automatically on mount for
+// ANY id-null scenario, with no user action, so routing it through a
+// commit/lazy-create dispatcher would fire an eager POST the instant a
+// brand-new scenario's panel mounts — landmine #1 through a different door.
+// Dispatches the SAME local write (UPDATE_ANUGA_SCENARIO, for instant UI
+// feedback) plus COMMIT_ANUGA_SCENARIO_FIELD, which
+// commitAnugaScenarioFieldEpic (crudEpics.js) turns into a lazy CREATE (the
+// scenario's first-ever commit) or a PATCH (every commit after).
+function commitAnugaScenarioField(scenario, kv) {
+    return (dispatch) => {
+        const merged = { ...scenario, ...kv };
+        dispatch({ type: UPDATE_ANUGA_SCENARIO, scenario: merged });
+        dispatch({ type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: merged });
+    };
+}
+
+// TASK-2890 (epic 2815 W3, Layer 4) — arm/advance/clear the Redux mirror of
+// a deferred "run when this build reaches built" intent. armRunAfterBuild is
+// dispatched both by anugaScenarioMenu.js's armAndDispatchBuildAndRun
+// (existing scenario, id known at click time — ALSO keeps its own local
+// this.state.runAfterBuild machine, unchanged, so the TASK-2211 divergence
+// dialog keeps rendering while the menu stays mounted) and directly from
+// saveAnugaScenarioEpic's projection for a scenario that had no id at click
+// time (mechanism 2 — nothing else could ever arm that case). See
+// runAfterBuildEpic (pollingEpics.js) for the resolver this backstops.
+//
+// Review fix (adversarial pass, TASK-2953/2890, correctness/blocker finding
+// 1) — opts.localOwned marks an arm that a MOUNTED component's own local
+// machine is ALSO tracking and will resolve itself (the dispatched==='build'
+// path only). Every mechanism-2 arm (a 'save' dispatch — which, post-Layer 1,
+// is virtually every click since UPDATE_ANUGA_SCENARIO always sets
+// unsaved:true) has NO local counterpart: armAndDispatchBuildAndRun only ever
+// sets this.state.runAfterBuild on the 'build' branch, so a save-dispatched
+// arm's local machine is a permanent no-op for it. runAfterBuildEpic used to
+// treat EVERY arm as component-owned while the menu was mounted and defer to
+// it unconditionally — for a save-dispatched arm that meant NEITHER resolver
+// ever fired: the component because it was never armed locally, the epic
+// because it saw the menu mounted and stood down. localOwned:false (the
+// default — crudEpics.js's chainAfterSave never passes opts) tells the epic
+// this arm has no live local counterpart, so it must resolve regardless of
+// mount state; localOwned:true (set only by armAndDispatchBuildAndRun) keeps
+// the original "the mounted component owns it" deferral so the TASK-2211
+// divergence dialog can still render for that path.
+function armRunAfterBuild(scenarioId, opts = {}) {
+    return { type: ARM_RUN_AFTER_BUILD, scenarioId, localOwned: !!opts.localOwned };
+}
+
+function advanceRunAfterBuild(scenarioId) {
+    return { type: ADVANCE_RUN_AFTER_BUILD, scenarioId };
+}
+
+function clearRunAfterBuild(scenarioId) {
+    return { type: CLEAR_RUN_AFTER_BUILD, scenarioId };
 }
 
 // TASK-2194 (epic 2190 W2, review fix) — `computeTarget` is the flat compute
@@ -298,5 +404,9 @@ module.exports = {
     UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
     UPDATE_NETWORK, updateNetwork,
     SAVE_NETWORK, saveNetwork,
-    SELECT_ANUGA_SCENARIO, selectAnugaScenario
+    SELECT_ANUGA_SCENARIO, selectAnugaScenario,
+    COMMIT_ANUGA_SCENARIO_FIELD, commitAnugaScenarioField,
+    ARM_RUN_AFTER_BUILD, armRunAfterBuild,
+    ADVANCE_RUN_AFTER_BUILD, advanceRunAfterBuild,
+    CLEAR_RUN_AFTER_BUILD, clearRunAfterBuild
 };
