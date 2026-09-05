@@ -37,7 +37,7 @@ const initialState = {
     // Active/Archived view filter. 'none' = active only (default, matches BE
     // default queryset), 'only' = archived only, 'all' = both.
     archiveFilter: 'none',
-    // TASK-2890 (epic 2815 W3, Layer 4) — { [scenarioId]: 'awaiting-inflight' | 'awaiting-built' }.
+    // TASK-2890 (epic 2815 W3, Layer 4) — { [scenarioId]: {phase: 'awaiting-inflight' | 'awaiting-built', localOwned} }.
     // See runAfterBuildEpic (epics/pollingEpics.js).
     runAfterBuild: {}
 };
@@ -387,18 +387,31 @@ export default (state = initialState, action) => {
     }
     // TASK-2890 (epic 2815 W3, Layer 4) — the Redux mirror of the deferred
     // Build-and-Run intent. See runAfterBuildEpic (epics/pollingEpics.js).
+    // Review fix (finding 1) — each entry is {phase, localOwned}, not a bare
+    // phase string: localOwned distinguishes an arm the MOUNTED component's
+    // own local machine will also resolve (armAndDispatchBuildAndRun's
+    // dispatched==='build' path only) from a mechanism-2/save-dispatched arm
+    // that has no local counterpart, ever — see armRunAfterBuild's doc
+    // comment (scenarioActions.js) for the full rationale.
     case ARM_RUN_AFTER_BUILD: {
         if (action.scenarioId === undefined || action.scenarioId === null) return state;
         return {
             ...state,
-            runAfterBuild: { ...state.runAfterBuild, [action.scenarioId]: 'awaiting-inflight' }
+            runAfterBuild: {
+                ...state.runAfterBuild,
+                [action.scenarioId]: { phase: 'awaiting-inflight', localOwned: !!action.localOwned }
+            }
         };
     }
     case ADVANCE_RUN_AFTER_BUILD: {
-        if (state.runAfterBuild[action.scenarioId] !== 'awaiting-inflight') return state;
+        const existing = state.runAfterBuild[action.scenarioId];
+        if (!existing || existing.phase !== 'awaiting-inflight') return state;
         return {
             ...state,
-            runAfterBuild: { ...state.runAfterBuild, [action.scenarioId]: 'awaiting-built' }
+            runAfterBuild: {
+                ...state.runAfterBuild,
+                [action.scenarioId]: { ...existing, phase: 'awaiting-built' }
+            }
         };
     }
     case CLEAR_RUN_AFTER_BUILD: {

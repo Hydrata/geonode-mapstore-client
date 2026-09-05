@@ -20,9 +20,11 @@ import {
 import {
     SAVE_ANUGA_SCENARIO,
     COMMIT_ANUGA_SCENARIO_FIELD,
+    SAVE_ANUGA_SCENARIO_SUCCESS,
     saveAnugaScenarioSuccess,
     saveAnugaScenarioError
 } from '../actions/scenarioActions';
+import scenariosReducer from '../reducers/scenariosReducer';
 import {BUILD_SCENARIO} from '../actions/comparisonActions';
 
 const mockActions = (actions) => {
@@ -220,6 +222,83 @@ describe('TASK-2953 Layer 1 (H4) — commitAnugaScenarioFieldEpic lazy create + 
             .subscribe(a => emitted.push(a), done, () => {
                 expect(mockAxios.history.post.length).toBe(0);
                 expect(mockAxios.history.patch.length).toBe(1);
+                done();
+            });
+    });
+});
+
+// Review fixes (adversarial pass, TASK-2953/2890) — two independent-lens
+// findings against the shipped commit (hydrata 1120c87, gmc f3e39c1a1).
+describe('Review fix (data-loss/blocker finding 1) — a CREATE response must not clobber a field a SECOND, still-racing local commit already set', () => {
+    const MockAdapter = require('axios-mock-adapter');
+    const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+    let mockAxios;
+    beforeEach(() => { mockAxios = new MockAdapter(axios); __resetInFlightScenarioCreatesForTests(); });
+    afterEach(() => { mockAxios.restore(); });
+
+    it('RED-FIRST target: boundary, committed locally AFTER the terrain commit posted the lazy create, survives the create response merge', (done) => {
+        // (a) terrain commit -> lazy CREATE fires with a {terrain:5} snapshot;
+        // the create response below deliberately echoes boundary:null (the
+        // server's view at THAT moment) — matching the real
+        // createScenarioV2 contract (echoes the full row as it stood when
+        // the create was processed).
+        mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/')
+            .reply(201, {id: 501, name: 'S', terrain: 5, boundary: null});
+        const action$ = mockActions([{
+            type: COMMIT_ANUGA_SCENARIO_FIELD,
+            scenario: {id: null, _tempId: 'new_9', name: 'S', terrain: 5}
+        }]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                const dispatched = collectDispatched(emitted[0]);
+                const success = dispatched.find(a => a.type === SAVE_ANUGA_SCENARIO_SUCCESS);
+                expect(success).toExist();
+
+                // (b) BEFORE the create resolved, a SECOND commit (boundary)
+                // landed locally (the optimistic UPDATE_ANUGA_SCENARIO write)
+                // -- local state now shows boundary: 9.
+                const localStateAfterSecondCommit = {
+                    byId: {new_9: {id: null, _tempId: 'new_9', name: 'S', terrain: 5, boundary: 9, selected: false}},
+                    allIds: ['new_9'],
+                    selectedId: null,
+                    archiveFilter: 'none',
+                    runAfterBuild: {}
+                };
+                // (c) the CREATE's own success (captured above, exactly as
+                // the epic actually dispatches it) now lands.
+                const merged = scenariosReducer(localStateAfterSecondCommit, success);
+                expect(merged.byId[501]).toExist();
+                expect(merged.byId[501].boundary).toBe(9);
+                done();
+            });
+    });
+});
+
+describe('Review fix (data-loss/major finding 3) — an UNRELATED field-commit failure must not clear an already-armed run', () => {
+    const MockAdapter = require('axios-mock-adapter');
+    const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+    let mockAxios;
+    beforeEach(() => { mockAxios = new MockAdapter(axios); __resetInFlightScenarioCreatesForTests(); });
+    afterEach(() => { mockAxios.restore(); });
+
+    it('RED-FIRST target: a failed PATCH from an unrelated field commit on a scenario with an ALREADY-ARMED run does not clear it', (done) => {
+        // Scenario 88 already has an armed Build-and-Run in flight (set by
+        // an EARLIER, unrelated click) -- this test only proves
+        // commitAnugaScenarioFieldEpic's OWN failure handling never touches
+        // it; the arm itself lives in Redux, not exercised here directly.
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/88/').reply(400, {detail: 'boom'});
+        const action$ = mockActions([{
+            type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 88, terrain: 9}
+        }]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, () => {
+                expect(emitted.length).toBe(1);
+                const dispatched = collectDispatched(emitted[0]);
+                const clear = dispatched.find(a => a.type === 'CLEAR_RUN_AFTER_BUILD');
+                expect(clear).toBe(undefined);
                 done();
             });
     });

@@ -631,20 +631,31 @@ export const pollAnugaScenarioEpic = (action$, store) =>
 // pollAnugaScenarioEpic's takeWhile fix above, which is what keeps polling
 // alive long enough for this to ever fire once the menu closes).
 //
-// Two arm "owners" share state.anuga.scenarios.runAfterBuild:
-//   - The MOUNTED component (anugaScenarioMenu.js's armAndDispatchBuildAndRun)
-//     keeps its OWN local this.state.runAfterBuild machine so the TASK-2211
-//     divergence-pause dialog can keep rendering while mounted, and clears
-//     this Redux mirror the instant IT resolves (fire/fail/vanish) — see
-//     maybeRunAfterBuild. While state.anuga.ui.showAnugaScenarioMenu is true,
+// Two arm "owners" share state.anuga.scenarios.runAfterBuild, distinguished
+// by the `localOwned` flag on each entry (review fix, adversarial pass,
+// TASK-2953/2890, correctness/blocker finding 1 — see armRunAfterBuild's doc
+// comment, scenarioActions.js, for why a bare mount check was not enough):
+//   - localOwned:true — the MOUNTED component
+//     (anugaScenarioMenu.js's armAndDispatchBuildAndRun, dispatched==='build'
+//     branch ONLY) keeps its OWN local this.state.runAfterBuild machine so
+//     the TASK-2211 divergence-pause dialog can keep rendering while
+//     mounted, and clears this Redux mirror the instant IT resolves
+//     (fire/fail/vanish) — see maybeRunAfterBuild. While
+//     state.anuga.ui.showAnugaScenarioMenu is true AND localOwned is true,
 //     this epic only ADVANCES phase (harmless bookkeeping, keeps the mirror
 //     accurate for continuity) and never takes the terminal action, so the
 //     two resolvers can never double-dispatch a run.
-//   - saveAnugaScenarioEpic's mechanism-2 chain arms DIRECTLY (fresh/lazily-
-//     created scenario, no id at click time — the component could never have
-//     armed its own local machine for it). These arms have NO local-component
-//     owner, ever, so this epic is their ONLY resolver, mount state
-//     irrelevant.
+//   - localOwned:false (the default) — saveAnugaScenarioEpic's mechanism-2
+//     chain arms DIRECTLY for EVERY 'save'-dispatched Build-and-Run
+//     (dispatchBuild's save branch, which is virtually every click post-
+//     Layer-1 — see armAndDispatchBuildAndRun's own doc comment). These arms
+//     have NO local-component owner, EVER — armAndDispatchBuildAndRun never
+//     sets local state on a 'save' dispatch — so this epic is their ONLY
+//     resolver, mount state irrelevant. A prior version of this epic ignored
+//     localOwned entirely and deferred to "the mounted component" for EVERY
+//     arm whenever the menu was mounted, silently stranding every
+//     save-dispatched Build-and-Run whose panel stayed open through the
+//     build — this is the fix for that gap.
 //
 // DIVERGENCE DECISION (TASK-2890 comment #2002 finding 1 / top's hint —
 // decided here, not discovered in code): this epic cannot render the
@@ -682,7 +693,30 @@ export const runAfterBuildEpic = (action$, store) =>
                     emissions.push(clearRunAfterBuild(scenarioId));
                     return;
                 }
-                const phase = armed[idKey];
+                // Review fix (adversarial pass, TASK-2953/2890,
+                // correctness/blocker finding 1) — armed[idKey] is
+                // {phase, localOwned}, not a bare phase string. localOwned
+                // is the ONLY thing that may ever justify staying silent
+                // below: it is true exclusively for an arm
+                // armAndDispatchBuildAndRun (anugaScenarioMenu.js) set on
+                // its OWN dispatched==='build' branch, where the MOUNTED
+                // component's local this.state.runAfterBuild machine is
+                // ALSO tracking this exact arm and will resolve it itself
+                // (see maybeRunAfterBuild). Every mechanism-2/save-dispatched
+                // arm (chainAfterSave, crudEpics.js — virtually every click
+                // post-Layer-1, since UPDATE_ANUGA_SCENARIO always sets
+                // unsaved:true) has localOwned:false: armAndDispatchBuildAndRun
+                // only arms its OWN local state on the 'build' branch, so
+                // that machine is a permanent no-op for a save-dispatched
+                // arm. Before this fix, `if (menuMounted) return;` applied
+                // unconditionally to EVERY arm regardless of origin, so a
+                // save-dispatched arm was silently stranded forever whenever
+                // the panel stayed open through the build — reproducing, for
+                // a far larger set of clicks, exactly the bug TASK-2890 was
+                // written to fix.
+                const armedEntry = armed[idKey];
+                const phase = armedEntry && armedEntry.phase;
+                const localOwned = !!(armedEntry && armedEntry.localOwned);
                 const status = findScenarioStatus(scenario);
 
                 if (RUN_FAILURE_STATES.includes(status)) {
@@ -697,10 +731,13 @@ export const runAfterBuildEpic = (action$, store) =>
                 }
                 // phase === 'awaiting-built'
                 if (status !== 'built') return;
-                if (menuMounted) {
+                if (menuMounted && localOwned) {
                     // The mounted component owns resolution (and the
                     // divergence-pause dialog) for this tick — do nothing;
-                    // it clears this mirror itself once it resolves.
+                    // it clears this mirror itself once it resolves. An
+                    // epic-only (localOwned:false) arm has no such owner —
+                    // mount state is irrelevant for it; fall through and
+                    // resolve unconditionally.
                     return;
                 }
                 emissions.push(clearRunAfterBuild(scenarioId));

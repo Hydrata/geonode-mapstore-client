@@ -491,11 +491,44 @@ const _createScenario = (projectId, scenario) => {
     return promise;
 };
 
+// Review fix (adversarial pass, TASK-2953/2890, data-loss/blocker finding 1)
+// — the snapshot of exactly the fields the wire request actually carries,
+// shared by every PATCH *and* CREATE call so a create response can be
+// no-clobber-merged (scenariosReducer.js's SAVE_ANUGA_SCENARIO_SUCCESS)
+// exactly like a PATCH response already was. Before this fix, a create's
+// success carried NO sentPayload at all, so the reducer's create branch did
+// a verbatim full replace — permanently reverting any field a SECOND, still
+// racing local commit had already written (e.g. terrain commits -> CREATE
+// fires; before it resolves, boundary commits too -> the create's own
+// response, with no sentPayload to protect against, then wiped the local
+// boundary edit back to the server's now-stale null).
+// Every SCENARIO_PATCH_FIELDS key is assigned here — including one the local
+// scenario hasn't set yet (value undefined) — NOT only the ones currently
+// defined. Two reasons this matters together:
+//   1. The reducer's no-clobber merge (scenariosReducer.js,
+//      SAVE_ANUGA_SCENARIO_SUCCESS) uses `Object.prototype.hasOwnProperty
+//      .call(sent, k)` to decide whether a field is a client-writable one it
+//      must protect (compare sent[k] vs local[k]) or a read-only/
+//      server-computed one it always accepts from the server. Omitting an
+//      untouched writable key from `sent` entirely made the reducer treat it
+//      as "read-only" and blindly accept the server's echo — even though the
+//      field IS writable and a local edit made AFTER this request was sent
+//      (but BEFORE its response landed) needed exactly the same protection
+//      every OTHER writable field already gets. Including it as `undefined`
+//      makes `sent[k] === localExisting[k]` correctly read `undefined === 9`
+//      as "local moved on" and keep the local value.
+//   2. This does NOT change a single byte on the wire: axios's default JSON
+//      transformRequest drops `undefined`-valued keys, so a PATCH/CREATE body
+//      built from this object is byte-identical to the old
+//      only-defined-keys version — proven by the pre-existing "PATCH body
+//      unchanged from today's allow-list" spec, unmodified, still green.
+const scenarioPatchBody = (scenario) => SCENARIO_PATCH_FIELDS.reduce((acc, k) => {
+    acc[k] = scenario[k];
+    return acc;
+}, {});
+
 const _patchScenario = (projectId, scenarioId, scenario) => {
-    const patchBody = SCENARIO_PATCH_FIELDS.reduce((acc, k) => {
-        if (scenario[k] !== undefined) acc[k] = scenario[k];
-        return acc;
-    }, {});
+    const patchBody = scenarioPatchBody(scenario);
     return anugaApi.updateScenario(projectId, scenarioId, patchBody)
         .then(response => ({response, patchBody}));
 };
@@ -551,13 +584,18 @@ export const saveAnugaScenarioEpic = (action$, store) =>
             // (via the shared _createScenario / in-flight-create map — see
             // commitAnugaScenarioFieldEpic below for the sibling trigger).
             const tempId = action.scenario._tempId;
+            // Review fix (finding 1) — snapshot exactly what THIS action's
+            // local scenario carries so the reducer can protect a field a
+            // still-racing second commit already wrote locally against this
+            // create response clobbering it back to a stale value.
+            const sentPayload = scenarioPatchBody(action.scenario);
             const createPromise = (tempId && _inFlightScenarioCreates[tempId])
                 ? _inFlightScenarioCreates[tempId]
                 : _createScenario(projectId, action.scenario);
             return Rx.Observable.from(
                 createPromise
                     .then(data => [
-                        saveAnugaScenarioSuccess(data, {tempId, buildAfterSave}),
+                        saveAnugaScenarioSuccess(data, {tempId, buildAfterSave, sentPayload}),
                         ...chainAfterSave(data && data.id)
                     ])
                     .catch(error => [saveAnugaScenarioError(error, {})])
@@ -589,7 +627,25 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
                         .then(({response, patchBody}) => saveAnugaScenarioSuccess(
                             {...response.data, id: scenarioId}, {sentPayload: patchBody}
                         ))
-                        .catch(error => saveAnugaScenarioError(error, {scenarioId}))
+                        // Review fix (adversarial pass, TASK-2953/2890,
+                        // data-loss/major finding 3) — do NOT pass
+                        // scenarioId here. saveAnugaScenarioError's only use
+                        // of meta.scenarioId is to clear an armed
+                        // Build-and-Run intent for that id; this catch fires
+                        // for ANY per-field commit failure (a stray network
+                        // blip, a validation 400 on an UNRELATED field the
+                        // user tweaks while a build they already started via
+                        // Build-and-Run is in flight), which has nothing to
+                        // do with that armed run. Passing scenarioId here
+                        // silently cancelled a legitimately armed run with no
+                        // error shown — reproducing the exact stranded-build
+                        // symptom TASK-2890 exists to fix, via a path this
+                        // delivery introduced itself. A genuine "the build
+                        // this arm awaits will never happen" signal belongs
+                        // on BUILD_SCENARIO_ERROR's real-failure path
+                        // (comparisonActions.js buildScenarioError,
+                        // conflict: false), not here.
+                        .catch(error => saveAnugaScenarioError(error, {}))
                 );
             }
 
@@ -613,9 +669,14 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
             // and any prior local-only edits have already written), matching
             // the pre-existing createScenarioV2 contract (ships the whole
             // object — anugaApi.js).
+            // Review fix (finding 1) — see scenarioPatchBody's doc comment:
+            // without this, a second commit racing this create's own
+            // in-flight request gets clobbered back to a stale value the
+            // instant this response lands.
+            const lazyCreateSentPayload = scenarioPatchBody(scenario);
             return Rx.Observable.from(
                 _createScenario(projectId, scenario)
-                    .then(data => saveAnugaScenarioSuccess(data, {tempId}))
+                    .then(data => saveAnugaScenarioSuccess(data, {tempId, sentPayload: lazyCreateSentPayload}))
                     .catch(error => saveAnugaScenarioError(error, {}))
             );
         });

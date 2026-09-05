@@ -95,14 +95,26 @@ describe('TASK-2953 Layer 2 (amendment A1) — SAVE_ANUGA_SCENARIO_SUCCESS no-cl
 });
 
 describe('TASK-2890 Layer 4 — runAfterBuild arm/advance/clear', () => {
-    it('ARM_RUN_AFTER_BUILD sets awaiting-inflight for the scenario id', () => {
+    it('ARM_RUN_AFTER_BUILD sets awaiting-inflight for the scenario id, localOwned false by default', () => {
         const state = scenariosReducer(undefined, {type: ARM_RUN_AFTER_BUILD, scenarioId: 7});
-        expect(state.runAfterBuild[7]).toBe('awaiting-inflight');
+        expect(state.runAfterBuild[7].phase).toBe('awaiting-inflight');
+        expect(state.runAfterBuild[7].localOwned).toBe(false);
     });
-    it('ADVANCE_RUN_AFTER_BUILD moves awaiting-inflight -> awaiting-built, and no-ops otherwise', () => {
-        let state = scenariosReducer(undefined, {type: ARM_RUN_AFTER_BUILD, scenarioId: 7});
+    // Review fix (adversarial pass, TASK-2953/2890, correctness/blocker
+    // finding 1) — localOwned distinguishes an arm the MOUNTED component's
+    // own local machine will also resolve (armAndDispatchBuildAndRun's
+    // dispatched==='build' path) from a mechanism-2/save-dispatched arm
+    // that has no local counterpart, ever. See armRunAfterBuild's doc
+    // comment (scenarioActions.js) and runAfterBuildEpic (pollingEpics.js).
+    it('ARM_RUN_AFTER_BUILD sets localOwned true when the component arms it', () => {
+        const state = scenariosReducer(undefined, {type: ARM_RUN_AFTER_BUILD, scenarioId: 7, localOwned: true});
+        expect(state.runAfterBuild[7].localOwned).toBe(true);
+    });
+    it('ADVANCE_RUN_AFTER_BUILD moves awaiting-inflight -> awaiting-built, preserves localOwned, and no-ops otherwise', () => {
+        let state = scenariosReducer(undefined, {type: ARM_RUN_AFTER_BUILD, scenarioId: 7, localOwned: true});
         state = scenariosReducer(state, {type: ADVANCE_RUN_AFTER_BUILD, scenarioId: 7});
-        expect(state.runAfterBuild[7]).toBe('awaiting-built');
+        expect(state.runAfterBuild[7].phase).toBe('awaiting-built');
+        expect(state.runAfterBuild[7].localOwned).toBe(true);
         // No-op: not armed at all.
         const before = state;
         state = scenariosReducer(state, {type: ADVANCE_RUN_AFTER_BUILD, scenarioId: 999});

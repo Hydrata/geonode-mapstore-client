@@ -152,8 +152,26 @@ function commitAnugaScenarioField(scenario, kv) {
 // saveAnugaScenarioEpic's projection for a scenario that had no id at click
 // time (mechanism 2 — nothing else could ever arm that case). See
 // runAfterBuildEpic (pollingEpics.js) for the resolver this backstops.
-function armRunAfterBuild(scenarioId) {
-    return { type: ARM_RUN_AFTER_BUILD, scenarioId };
+//
+// Review fix (adversarial pass, TASK-2953/2890, correctness/blocker finding
+// 1) — opts.localOwned marks an arm that a MOUNTED component's own local
+// machine is ALSO tracking and will resolve itself (the dispatched==='build'
+// path only). Every mechanism-2 arm (a 'save' dispatch — which, post-Layer 1,
+// is virtually every click since UPDATE_ANUGA_SCENARIO always sets
+// unsaved:true) has NO local counterpart: armAndDispatchBuildAndRun only ever
+// sets this.state.runAfterBuild on the 'build' branch, so a save-dispatched
+// arm's local machine is a permanent no-op for it. runAfterBuildEpic used to
+// treat EVERY arm as component-owned while the menu was mounted and defer to
+// it unconditionally — for a save-dispatched arm that meant NEITHER resolver
+// ever fired: the component because it was never armed locally, the epic
+// because it saw the menu mounted and stood down. localOwned:false (the
+// default — crudEpics.js's chainAfterSave never passes opts) tells the epic
+// this arm has no live local counterpart, so it must resolve regardless of
+// mount state; localOwned:true (set only by armAndDispatchBuildAndRun) keeps
+// the original "the mounted component owns it" deferral so the TASK-2211
+// divergence dialog can still render for that path.
+function armRunAfterBuild(scenarioId, opts = {}) {
+    return { type: ARM_RUN_AFTER_BUILD, scenarioId, localOwned: !!opts.localOwned };
 }
 
 function advanceRunAfterBuild(scenarioId) {

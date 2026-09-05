@@ -46,6 +46,21 @@ function flushNameCommit(key, commit) {
     commit();
 }
 
+// Review fix (adversarial pass, TASK-2953/2890, data-loss/blocker finding 2)
+// — the LATEST scenario object renderInputsPane has seen for a given
+// scenario key, refreshed on EVERY render (see the write near the top of
+// renderInputsPane below). The debounced name-commit closure used to capture
+// `scenario` from the render pass active AT KEYSTROKE TIME: if the user
+// changed any OTHER field (a select, which commits immediately) within the
+// 800ms debounce window, the eventual name-commit PATCH shipped THAT OLDER
+// render's scenario snapshot — silently reverting the other field's
+// already-persisted value on the server the instant the debounced commit
+// fired, even though the local UI (driven by the newer render) looked
+// correct. Reading the scenario from this cache at FIRE time, not from the
+// closure captured at SCHEDULE time, fixes it: by the time the debounce
+// fires, this cache has been kept current by every render in between.
+const _latestScenarioByKey = {};
+
 /**
  * Merged-panel renderer for the Miller-columns scenarios panel (TASK-2114,
  * epic 2111 W2, dogfood findings A+B). Pane 3 stacks THREE sections —
@@ -752,6 +767,24 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, onCommitScenario
     };
     const commitFieldNow = (kv) => { handleField(kv); commitField(kv); };
     const scenarioKey = scenario?.id != null ? scenario.id : scenario?._tempId; // eslint-disable-line no-eq-null, eqeqeq
+    // Review fix (finding 2) — keep the latest-scenario cache current on
+    // EVERY render so a name-commit debounce timer scheduled on an EARLIER
+    // render can read the FRESHEST scenario when it eventually fires. See
+    // _latestScenarioByKey's doc comment above.
+    if (scenarioKey !== undefined && scenarioKey !== null) {
+        _latestScenarioByKey[scenarioKey] = scenario;
+    }
+    // The debounced/flushed name commit reads the scenario from that cache
+    // AT FIRE TIME, never the `scenario` closed over here at schedule time —
+    // by the time the timer fires, any OTHER field's own immediate commit
+    // (terrain/boundary/inflow/rainfall, all committed synchronously above)
+    // has already updated the cache via a subsequent render, so the name
+    // commit's PATCH carries that field's CURRENT value instead of
+    // silently reverting it to what was on screen when the user started
+    // typing the name.
+    const commitNameField = (kv) => {
+        if (onCommitScenario) onCommitScenario(_latestScenarioByKey[scenarioKey] || scenario, kv);
+    };
     // TASK-1587 W1.9 UAT (2026-06-19): the V2 terrain list now (correctly)
     // surfaces layer-less terrains (status 'creating' / 'error') so they can be
     // cleaned up from the Terrain menu — but a non-runnable terrain must NOT be
@@ -784,11 +817,11 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, onCommitScenario
                         onChange={(e) => {
                             const value = e.target.value;
                             handleField({name: value});
-                            scheduleNameCommit(scenarioKey, () => commitField({name: value}));
+                            scheduleNameCommit(scenarioKey, () => commitNameField({name: value}));
                         }}
                         onBlur={(e) => {
                             const value = e.target.value;
-                            flushNameCommit(scenarioKey, () => commitField({name: value}));
+                            flushNameCommit(scenarioKey, () => commitNameField({name: value}));
                         }}
                     />
                 </div>

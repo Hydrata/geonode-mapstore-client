@@ -50,7 +50,7 @@ describe('TASK-2890 hasArmedRunAfterBuild — the exact predicate that keeps pol
 
 describe('TASK-2890 AC1 — runAfterBuildEpic resolves an armed run with the menu UNMOUNTED', () => {
     it('RED-FIRST target: advances awaiting-inflight -> awaiting-built once the build is observed in flight, does not fire yet', (done) => {
-        const store = storeWith({7: 'awaiting-inflight'});
+        const store = storeWith({7: {phase: 'awaiting-inflight', localOwned: false}});
         const action$ = mockActions([{
             type: SET_ANUGA_POLLING_DATA,
             scenarios: [{id: 7, status: 'building', computed_status: 'building'}]
@@ -68,7 +68,7 @@ describe('TASK-2890 AC1 — runAfterBuildEpic resolves an armed run with the men
     });
 
     it('fires EXACTLY ONE run dispatch on the awaiting-built -> built transition, with the menu unmounted, and clears the arm', (done) => {
-        const store = storeWith({7: 'awaiting-built'});
+        const store = storeWith({7: {phase: 'awaiting-built', localOwned: false}});
         const action$ = mockActions([{
             type: SET_ANUGA_POLLING_DATA,
             scenarios: [{id: 7, status: 'built', computed_status: 'built', latest_run: {mesh_provenance: null}}]
@@ -90,8 +90,8 @@ describe('TASK-2890 AC1 — runAfterBuildEpic resolves an armed run with the men
             });
     });
 
-    it('does NOT resolve (leaves it for the mounted component) while the menu IS mounted', (done) => {
-        const store = storeWith({7: 'awaiting-built'}, {showAnugaScenarioMenu: true});
+    it('does NOT resolve a LOCAL-OWNED arm (leaves it for the mounted component) while the menu IS mounted', (done) => {
+        const store = storeWith({7: {phase: 'awaiting-built', localOwned: true}}, {showAnugaScenarioMenu: true});
         const action$ = mockActions([{
             type: SET_ANUGA_POLLING_DATA,
             scenarios: [{id: 7, status: 'built', computed_status: 'built'}]
@@ -103,11 +103,40 @@ describe('TASK-2890 AC1 — runAfterBuildEpic resolves an armed run with the men
                 done();
             });
     });
+
+    // Review fix (adversarial pass, TASK-2953/2890, correctness/blocker
+    // finding 1) — RED-FIRST target: a mechanism-2/save-dispatched arm
+    // (localOwned:false, the default from chainAfterSave — crudEpics.js) has
+    // NO local component counterpart, ever: armAndDispatchBuildAndRun only
+    // arms this.state.runAfterBuild on the 'build' dispatch branch, never on
+    // 'save'. Before the fix, `if (menuMounted) return;` deferred to "the
+    // mounted component" for EVERY arm regardless of origin, so this case
+    // was silently and permanently stranded whenever the Scenarios panel
+    // stayed open through the build (the natural way to watch a build
+    // finish) — reproducing, for a far larger set of clicks, exactly the
+    // stranding bug TASK-2890 exists to fix.
+    it('DOES resolve an EPIC-ONLY arm (localOwned:false) even while the menu IS mounted', (done) => {
+        const store = storeWith({7: {phase: 'awaiting-built', localOwned: false}}, {showAnugaScenarioMenu: true});
+        const action$ = mockActions([{
+            type: SET_ANUGA_POLLING_DATA,
+            scenarios: [{id: 7, status: 'built', computed_status: 'built', latest_run: {mesh_provenance: null}}]
+        }]);
+        const emitted = [];
+        runAfterBuildEpic(action$, store)
+            .subscribe(a => emitted.push(a), done, () => {
+                const runDispatches = emitted.filter(a => a.type === RUN_ANUGA_SCENARIO);
+                expect(runDispatches.length).toBe(1);
+                expect(runDispatches[0].scenario.id).toBe(7);
+                const clears = emitted.filter(a => a.type === 'CLEAR_RUN_AFTER_BUILD');
+                expect(clears.length).toBe(1);
+                done();
+            });
+    });
 });
 
 describe('TASK-2890 AC2 (epic-side) — a terminal failure clears the arm without firing a run', () => {
     it('clears the arm on an error status, dispatches no run', (done) => {
-        const store = storeWith({7: 'awaiting-built'});
+        const store = storeWith({7: {phase: 'awaiting-built', localOwned: false}});
         const action$ = mockActions([{
             type: SET_ANUGA_POLLING_DATA,
             scenarios: [{id: 7, status: 'error', computed_status: 'error'}]
@@ -123,7 +152,7 @@ describe('TASK-2890 AC2 (epic-side) — a terminal failure clears the arm withou
     });
 
     it('clears the arm when the awaited scenario has vanished from a successful poll response', (done) => {
-        const store = storeWith({7: 'awaiting-built'});
+        const store = storeWith({7: {phase: 'awaiting-built', localOwned: false}});
         const action$ = mockActions([{type: SET_ANUGA_POLLING_DATA, scenarios: []}]);
         const emitted = [];
         runAfterBuildEpic(action$, store)
@@ -137,7 +166,7 @@ describe('TASK-2890 AC2 (epic-side) — a terminal failure clears the arm withou
 
 describe('TASK-2890 divergence decision (documented reversal, unmounted-arm resolution only)', () => {
     it('an unmounted-resolved arm still fires (bypasses the TASK-2211 pause) when the build diverged', (done) => {
-        const store = storeWith({7: 'awaiting-built'}, {meshDivergenceThreshold: 2});
+        const store = storeWith({7: {phase: 'awaiting-built', localOwned: false}}, {meshDivergenceThreshold: 2});
         const action$ = mockActions([{
             type: SET_ANUGA_POLLING_DATA,
             scenarios: [{

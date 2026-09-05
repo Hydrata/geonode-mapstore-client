@@ -929,7 +929,13 @@ class AnugaScenarioMenuClass extends React.Component {
           // runAfterBuildEpic, pollingEpics.js). maybeRunAfterBuild clears
           // this mirror the instant it resolves locally (fire/fail/vanish),
           // so the two resolvers can never double-fire the run.
-          if (this.props.armRunAfterBuildRedux) this.props.armRunAfterBuildRedux(scenario.id);
+          // localOwned:true (review fix, finding 1) — THIS component's own
+          // local machine, set two lines above, is tracking this exact arm
+          // and will resolve it while mounted; runAfterBuildEpic must defer
+          // to it and stay silent until this component clears the mirror
+          // itself or unmounts. Contrast with the 'save' dispatch below,
+          // which has no local counterpart and must never set this flag.
+          if (this.props.armRunAfterBuildRedux) this.props.armRunAfterBuildRedux(scenario.id, {localOwned: true});
       }
       // dispatched === 'save': for a scenario that has never been saved
       // (no id yet), THIS component has nothing to arm against — the
@@ -938,10 +944,12 @@ class AnugaScenarioMenuClass extends React.Component {
       // resolves. For an existing-but-unsaved scenario the same epic chain
       // arms using the id this component already knows; that arm is the
       // ONLY one in that case (this component's own local machine stays
-      // unarmed for a 'save' dispatch, exactly as it did before this task —
-      // the mounted TASK-2211 divergence dialog therefore does not apply to
-      // that specific path; see runAfterBuildEpic's divergence-bypass
-      // handling, which covers it).
+      // unarmed for a 'save' dispatch, exactly as it did before this task).
+      // That epic-side arm carries localOwned:false (armRunAfterBuild's
+      // default), so runAfterBuildEpic resolves it itself — including its
+      // divergence-bypass handling — REGARDLESS of whether this menu stays
+      // mounted through the build (review fix, finding 1: a mounted menu no
+      // longer assumes a local resolver exists for an arm it never armed).
   };
 
   handleBuildAndRunClick = (scenario) => {
@@ -1637,7 +1645,7 @@ const mapDispatchToProps = (dispatch) => ({
     // intent, dispatched alongside this component's own local
     // this.state.runAfterBuild machine (armAndDispatchBuildAndRun) and
     // cleared the instant that local machine resolves (maybeRunAfterBuild).
-    armRunAfterBuildRedux: (scenarioId) => dispatch(armRunAfterBuild(scenarioId)),
+    armRunAfterBuildRedux: (scenarioId, opts) => dispatch(armRunAfterBuild(scenarioId, opts)),
     clearRunAfterBuildRedux: (scenarioId) => dispatch(clearRunAfterBuild(scenarioId)),
     cancelAnugaRun: (runId) => dispatch(cancelAnugaRun(runId)),
     retryAnugaRun: (runId) => dispatch(retryAnugaRun(runId)),
