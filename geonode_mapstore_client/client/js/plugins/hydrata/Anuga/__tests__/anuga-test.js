@@ -627,6 +627,11 @@ describe('Anuga Plugin', () => {
     });
 
     describe('Reducer — scenarios save success', () => {
+        // TASK-2953 (epic 2815 W3, Layer 2) — the reducer now identifies the
+        // temp entry to replace via an EXPLICIT action.tempId (crudEpics.js
+        // always sets it on a create response) rather than auto-detecting
+        // "whichever byId entry has a null id" — the old heuristic could
+        // only ever track a single outstanding temp scenario at a time.
         it('should replace temp scenario with saved ID', () => {
             let state = reducer(undefined, { type: ADD_ANUGA_SCENARIO });
             const tempId = state.scenarios.allIds[0];
@@ -634,7 +639,8 @@ describe('Anuga Plugin', () => {
 
             state = reducer(state, {
                 type: SAVE_ANUGA_SCENARIO_SUCCESS,
-                scenario: { id: 42, name: 'Saved Scenario', resolution: 100 }
+                scenario: { id: 42, name: 'Saved Scenario', resolution: 100 },
+                tempId
             });
             expect(state.scenarios.byId[42]).toExist();
             expect(state.scenarios.byId[42].unsaved).toBe(false);

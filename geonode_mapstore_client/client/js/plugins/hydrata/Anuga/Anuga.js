@@ -40,8 +40,12 @@ import {
     loadAnugaComputeConfigEpic,
     runNetworkEpic,
     saveAnugaScenarioEpic,
+    // TASK-2953 (epic 2815 W3, Layer 1) — per-field commit (lazy create/PATCH).
+    commitAnugaScenarioFieldEpic,
     saveNetworkEpic,
     pollAnugaScenarioEpic,
+    // TASK-2890 (epic 2815 W3, Layer 4) — deferred-run resolver.
+    runAfterBuildEpic,
     deleteAnugaScenarioEpic,
     duplicateAnugaScenarioEpic,
     archiveAnugaScenarioEpic,
@@ -235,8 +239,10 @@ export default createPlugin('Anuga', {
         loadAnugaComputeConfigEpic,
         runNetworkEpic,
         saveAnugaScenarioEpic,
+        commitAnugaScenarioFieldEpic,
         saveNetworkEpic,
         pollAnugaScenarioEpic,
+        runAfterBuildEpic,
         deleteAnugaScenarioEpic,
         duplicateAnugaScenarioEpic,
         archiveAnugaScenarioEpic,

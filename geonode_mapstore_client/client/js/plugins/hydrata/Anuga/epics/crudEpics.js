@@ -49,9 +49,14 @@ import {
     SAVE_ANUGA_SCENARIO,
     saveAnugaScenarioError,
     saveAnugaScenarioSuccess,
+    // TASK-2953 (epic 2815 W3, Layer 1) — per-field commit (lazy create / PATCH).
+    COMMIT_ANUGA_SCENARIO_FIELD,
+    // TASK-2890 (epic 2815 W3, Layer 4) — Redux arm for a deferred run.
+    armRunAfterBuild,
     BUILD_SCENARIO,
     buildScenarioSuccess,
     buildScenarioError,
+    buildScenarioExplicit,
     setAnugaScenarioMenu,
     setCreatingAnugaLayer,
     UPDATE_COMPUTE_INSTANCE,
@@ -462,31 +467,156 @@ export const SCENARIO_PATCH_FIELDS = [
     'structure', 'mesh_region', 'network', 'resolution', 'duration'
 ];
 
+// TASK-2953 (epic 2815 W3, Layer 1, H4) — a scenario can acquire its real id
+// via TWO independent triggers: a field commit (commitAnugaScenarioFieldEpic
+// below) or a Build/Build-and-Run click on a still-unsaved, still id-less
+// scenario (saveAnugaScenarioEpic, mechanism 1). Both share this map so a
+// create already in flight for a tempId is NEVER raced by a second POST —
+// whichever trigger arrives second PATCHes (with its OWN, possibly newer,
+// fields) once the in-flight create resolves with a real id, instead of
+// firing a second create in parallel.
+const _inFlightScenarioCreates = {}; // tempId -> Promise<ScenarioSerializerV2 data>
+export const __resetInFlightScenarioCreatesForTests = () => {
+    Object.keys(_inFlightScenarioCreates).forEach((k) => delete _inFlightScenarioCreates[k]);
+};
+
+const _createScenario = (projectId, scenario) => {
+    const tempId = scenario._tempId;
+    const promise = anugaApi.createScenarioV2(projectId, scenario).then(r => r.data);
+    if (tempId) {
+        _inFlightScenarioCreates[tempId] = promise;
+        const clear = () => { delete _inFlightScenarioCreates[tempId]; };
+        promise.then(clear, clear);
+    }
+    return promise;
+};
+
+const _patchScenario = (projectId, scenarioId, scenario) => {
+    const patchBody = SCENARIO_PATCH_FIELDS.reduce((acc, k) => {
+        if (scenario[k] !== undefined) acc[k] = scenario[k];
+        return acc;
+    }, {});
+    return anugaApi.updateScenario(projectId, scenarioId, patchBody)
+        .then(response => ({response, patchBody}));
+};
+
+// TASK-2953 (epic 2815 W3, Layer 1) — switchMap -> mergeMap: a second SAVE
+// (e.g. a same-tick double dispatch) must not silently drop the first save's
+// success/error the way switchMap would — mergeMap lets both round-trips
+// resolve independently (comment #2007: "two saves -> two successes").
 export const saveAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(SAVE_ANUGA_SCENARIO)
-        .switchMap((action) => {
+        .mergeMap((action) => {
             const projectId = getProjectId(store.getState());
+            const buildAfterSave = !!action.buildAfterSave;
+            const runAfterBuild = !!action.runAfterBuild;
+
+            // TASK-2953 mechanisms 1/2 (comment #2007 / TASK-2890 comment
+            // #2002) — once the save resolves, optionally chain an explicit
+            // build and arm a deferred run keyed on the REAL id from the
+            // response — never the click-time scenario.id, which is null
+            // for a scenario that has never been saved.
+            const chainAfterSave = (savedId) => {
+                if (!buildAfterSave || savedId == null) return []; // eslint-disable-line no-eq-null, eqeqeq
+                return [
+                    buildScenarioExplicit(savedId),
+                    ...(runAfterBuild ? [armRunAfterBuild(savedId)] : [])
+                ];
+            };
+
             if (action.scenario.id) {
                 // V2P-79 / V2P-72 — existing scenario PATCH hits V2 partial_update at
                 // /api/v2/anuga/projects/{pid}/scenarios/{id}/. ScenarioUpdateSerializerV2
                 // limits the writable surface to SCENARIO_PATCH_FIELDS; anything else
                 // is dropped server-side without raising.
-                const scenario = SCENARIO_PATCH_FIELDS.reduce((acc, k) => {
-                    if (action.scenario[k] !== undefined) acc[k] = action.scenario[k];
-                    return acc;
-                }, {});
+                const scenarioId = action.scenario.id;
                 return Rx.Observable.from(
-                    anugaApi.updateScenario(projectId, action.scenario.id, scenario)
-                        .then(response => saveAnugaScenarioSuccess(response.data))
-                        .catch(error => saveAnugaScenarioError(error))
+                    _patchScenario(projectId, scenarioId, action.scenario)
+                        .then(({response, patchBody}) => [
+                            // TASK-2953 amendment A1 — a PATCH response
+                            // carries ONLY ScenarioUpdateSerializerV2's
+                            // writable fields, never `id` — inject the real
+                            // id ourselves so the reducer never writes
+                            // byId[undefined].
+                            saveAnugaScenarioSuccess({...response.data, id: scenarioId}, {
+                                sentPayload: patchBody, buildAfterSave
+                            }),
+                            ...chainAfterSave(scenarioId)
+                        ])
+                        .catch(error => [saveAnugaScenarioError(error, {scenarioId})])
+                ).mergeMap(actions => Rx.Observable.from(actions));
+            }
+            // V2P-79: new scenario creation routes to V2 via createScenarioV2
+            // (via the shared _createScenario / in-flight-create map — see
+            // commitAnugaScenarioFieldEpic below for the sibling trigger).
+            const tempId = action.scenario._tempId;
+            const createPromise = (tempId && _inFlightScenarioCreates[tempId])
+                ? _inFlightScenarioCreates[tempId]
+                : _createScenario(projectId, action.scenario);
+            return Rx.Observable.from(
+                createPromise
+                    .then(data => [
+                        saveAnugaScenarioSuccess(data, {tempId, buildAfterSave}),
+                        ...chainAfterSave(data && data.id)
+                    ])
+                    .catch(error => [saveAnugaScenarioError(error, {})])
+            ).mergeMap(actions => Rx.Observable.from(actions));
+        });
+
+// TASK-2953 (epic 2815 W3, Layer 1) — the three discrete-field handleField
+// closures (scenarioPane.js) dispatch COMMIT_ANUGA_SCENARIO_FIELD (never
+// UPDATE_ANUGA_SCENARIO directly — see commitAnugaScenarioField's doc
+// comment, scenarioActions.js). This epic does the actual network commit:
+// LAZY CREATE on the scenario's first-ever commit (never at "+ New
+// scenario" — that would ship terrain/boundary/inflow EMPTY, since
+// useAutoPopulateDefaults's local-only writes would never reach the server;
+// landmine #1), or a PATCH once the scenario has an id. mergeMap (not
+// switchMap) so overlapping commits on DIFFERENT scenarios never cancel each
+// other; the in-flight-create map (H4) is what protects the SAME scenario
+// from a second create while its first is still in flight.
+export const commitAnugaScenarioFieldEpic = (action$, store) =>
+    action$
+        .ofType(COMMIT_ANUGA_SCENARIO_FIELD)
+        .mergeMap((action) => {
+            const projectId = getProjectId(store.getState());
+            const scenario = action.scenario;
+
+            if (scenario.id) {
+                const scenarioId = scenario.id;
+                return Rx.Observable.from(
+                    _patchScenario(projectId, scenarioId, scenario)
+                        .then(({response, patchBody}) => saveAnugaScenarioSuccess(
+                            {...response.data, id: scenarioId}, {sentPayload: patchBody}
+                        ))
+                        .catch(error => saveAnugaScenarioError(error, {scenarioId}))
                 );
             }
-            // V2P-79: new scenario creation routes to V2 via createScenarioV2.
+
+            const tempId = scenario._tempId;
+            if (tempId && _inFlightScenarioCreates[tempId]) {
+                // H4 — a create for this scenario is already in flight (an
+                // earlier commit beat this one to the punch). Wait for it,
+                // then PATCH THIS commit's own (possibly newer) fields
+                // against the real id instead of firing a second create.
+                return Rx.Observable.from(
+                    _inFlightScenarioCreates[tempId]
+                        .then((created) => _patchScenario(projectId, created.id, scenario)
+                            .then(({response, patchBody}) => saveAnugaScenarioSuccess(
+                                {...response.data, id: created.id}, {sentPayload: patchBody, tempId}
+                            )))
+                        .catch(error => saveAnugaScenarioError(error, {}))
+                );
+            }
+            // First commit for this scenario — lazy create with the FULL
+            // current local scenario object (whatever useAutoPopulateDefaults
+            // and any prior local-only edits have already written), matching
+            // the pre-existing createScenarioV2 contract (ships the whole
+            // object — anugaApi.js).
             return Rx.Observable.from(
-                anugaApi.createScenarioV2(projectId, action.scenario)
-                    .then(response => saveAnugaScenarioSuccess(response.data))
-                    .catch(error => saveAnugaScenarioError(error))
+                _createScenario(projectId, scenario)
+                    .then(data => saveAnugaScenarioSuccess(data, {tempId}))
+                    .catch(error => saveAnugaScenarioError(error, {}))
             );
         });
 

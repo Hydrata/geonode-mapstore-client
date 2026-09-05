@@ -17,8 +17,13 @@ import {
     selectAnugaScenario,
     toggleScenarioSelected,
     updateAnugaScenario,
+    // TASK-2953 (epic 2815 W3, Layer 1) — per-field commit dispatcher.
+    commitAnugaScenarioField,
     saveAnugaScenario,
     buildScenarioExplicit,
+    // TASK-2890 (epic 2815 W3, Layer 4) — Redux mirror of a deferred run.
+    armRunAfterBuild,
+    clearRunAfterBuild,
     cancelAnugaRun,
     retryAnugaRun,
     deleteAnugaScenario,
@@ -406,8 +411,13 @@ class AnugaScenarioMenuClass extends React.Component {
       selectAnugaScenario: PropTypes.func,
       toggleScenarioSelected: PropTypes.func,
       updateAnugaScenario: PropTypes.func,
+      // TASK-2953 (epic 2815 W3, Layer 1) — per-field commit dispatcher.
+      commitAnugaScenarioField: PropTypes.func,
       saveAnugaScenario: PropTypes.func,
       buildScenarioExplicit: PropTypes.func,
+      // TASK-2890 (epic 2815 W3, Layer 4) — Redux mirror of a deferred run.
+      armRunAfterBuildRedux: PropTypes.func,
+      clearRunAfterBuildRedux: PropTypes.func,
       cancelAnugaRun: PropTypes.func,
       retryAnugaRun: PropTypes.func,
       deleteAnugaScenario: PropTypes.func,
@@ -588,6 +598,9 @@ class AnugaScenarioMenuClass extends React.Component {
           // now) to avoid churn.
           if (this.findFreshScenario(scenarioId, prevProps)) {
               this.setState({runAfterBuild: null});
+              // TASK-2890 (Layer 4) — keep the Redux mirror in lockstep so a
+              // stale arm can never survive to be resolved by runAfterBuildEpic.
+              if (this.props.clearRunAfterBuildRedux) this.props.clearRunAfterBuildRedux(scenarioId);
           }
           return;
       }
@@ -595,6 +608,7 @@ class AnugaScenarioMenuClass extends React.Component {
       if (RUN_FAILURE_STATES.includes(status)) {
           // Build reached a terminal failure — drop the intent, never run nothing.
           this.setState({runAfterBuild: null});
+          if (this.props.clearRunAfterBuildRedux) this.props.clearRunAfterBuildRedux(scenarioId);
           return;
       }
       if (phase === 'awaiting-inflight') {
@@ -610,6 +624,12 @@ class AnugaScenarioMenuClass extends React.Component {
       // pausing) so a re-entrant prop update can't double-run or double-pause.
       if (status === 'built') {
           this.setState({runAfterBuild: null});
+          // TASK-2890 (Layer 4) — clear the Redux mirror THE INSTANT this
+          // component takes resolution into its own hands (whether it goes
+          // on to fire immediately or pause for divergence confirm below) —
+          // this is what stops runAfterBuildEpic from EVER double-acting on
+          // an arm the mounted component already owns.
+          if (this.props.clearRunAfterBuildRedux) this.props.clearRunAfterBuildRedux(scenarioId);
           const {exceedsThreshold} = getMeshDivergence(fresh.latest_run, this.props.meshDivergenceThreshold);
           if (exceedsThreshold) {
               this.setState({divergenceConfirm: {scenario: fresh}});
@@ -704,6 +724,19 @@ class AnugaScenarioMenuClass extends React.Component {
       }
   };
 
+  // TASK-2953 (epic 2815 W3, Layer 1) — the three discrete-field handleField
+  // closures in ScenarioPane call THIS (via onCommitScenario), never
+  // handleUpdateScenario. useAutoPopulateDefaults stays on onUpdateScenario
+  // (local-only) — see commitAnugaScenarioField's doc comment for why
+  // (amendment A3: routing the auto-populate effect through a commit
+  // dispatcher would fire an eager create the instant a brand-new scenario's
+  // panel mounts).
+  handleCommitScenario = (scenario, kv) => {
+      if (this.props.commitAnugaScenarioField) {
+          this.props.commitAnugaScenarioField(scenario, kv);
+      }
+  };
+
   // TASK-2194 (review fix) — record the staff compute-target pick on the
   // per-scenario ui slot (state.anuga.ui.sessionComputeTargets). This MUST
   // NOT go through handleUpdateScenario/UPDATE_ANUGA_SCENARIO: that reducer
@@ -745,7 +778,7 @@ class AnugaScenarioMenuClass extends React.Component {
   // only ever surfaces as the benign inline `buildConflict` info near the
   // Build button (scenarioHeaderActions.js) — never the 'Build failed' toast,
   // which stays reserved for a REAL failure (comparisonActions.buildScenarioError).
-  dispatchBuild = (scenario) => {
+  dispatchBuild = (scenario, opts = {}) => {
       // P0-A (TASK-2217/2204 gate-fix) — dispatchBuild is the single
       // choke-point for EVERY Build/Build-and-Run dispatch (plain build via
       // proceedPastRainfall, and Build-and-Run via armAndDispatchBuildAndRun
@@ -759,8 +792,16 @@ class AnugaScenarioMenuClass extends React.Component {
       }
       let dispatched;
       if (scenario.unsaved || !this.props.buildScenarioExplicit) {
+          // TASK-2953 (epic 2815 W3, mechanisms 1/2) — a save no longer
+          // triggers a build server-side (TASK-2820), so "the operator
+          // clicked Build" must chain a build onto THIS save's success, not
+          // stop at "saved". buildAfterSave asks saveAnugaScenarioEpic to
+          // dispatch buildScenarioExplicit(realId) once the create/update
+          // resolves; runAfterBuild (Build-and-Run only) additionally arms
+          // the deferred run keyed on that SAME real id — the id this click
+          // may not have yet (a scenario that has never been saved).
           if (this.props.saveAnugaScenario) {
-              this.props.saveAnugaScenario(scenario);
+              this.props.saveAnugaScenario(scenario, {buildAfterSave: true, runAfterBuild: !!opts.runAfterBuild});
           }
           dispatched = 'save';
       } else {
@@ -880,10 +921,27 @@ class AnugaScenarioMenuClass extends React.Component {
   // (after the mesh-region warning is dismissed) can dispatch through the
   // exact same arm-then-build sequence.
   armAndDispatchBuildAndRun = (scenario) => {
-      const dispatched = this.dispatchBuild(scenario);
+      const dispatched = this.dispatchBuild(scenario, {runAfterBuild: true});
       if (dispatched === 'build' && scenario && scenario.id != null) { // eslint-disable-line no-eq-null, eqeqeq
           this.setState({runAfterBuild: {scenarioId: scenario.id, phase: 'awaiting-inflight'}});
+          // TASK-2890 (epic 2815 W3, Layer 4) — mirror the arm into Redux so
+          // it survives an unmount before this build reaches 'built' (see
+          // runAfterBuildEpic, pollingEpics.js). maybeRunAfterBuild clears
+          // this mirror the instant it resolves locally (fire/fail/vanish),
+          // so the two resolvers can never double-fire the run.
+          if (this.props.armRunAfterBuildRedux) this.props.armRunAfterBuildRedux(scenario.id);
       }
+      // dispatched === 'save': for a scenario that has never been saved
+      // (no id yet), THIS component has nothing to arm against — the
+      // saveAnugaScenarioEpic chain (mechanism 2) arms Redux directly,
+      // keyed on the real id from the create response, once the save
+      // resolves. For an existing-but-unsaved scenario the same epic chain
+      // arms using the id this component already knows; that arm is the
+      // ONLY one in that case (this component's own local machine stays
+      // unarmed for a 'save' dispatch, exactly as it did before this task —
+      // the mounted TASK-2211 divergence dialog therefore does not apply to
+      // that specific path; see runAfterBuildEpic's divergence-bypass
+      // handling, which covers it).
   };
 
   handleBuildAndRunClick = (scenario) => {
@@ -1138,6 +1196,7 @@ class AnugaScenarioMenuClass extends React.Component {
               meshRegions={meshRegions}
               networks={networks}
               onUpdateScenario={this.handleUpdateScenario}
+              onCommitScenario={this.handleCommitScenario}
               onOpenMergeTerrainsPanel={this.props.onOpenMergeTerrainsPanel}
               runSettingsExpandToken={this.state.runSettingsExpandToken}
               onRunSettingsExpanded={this.handleRunSettingsExpanded}
@@ -1569,8 +1628,17 @@ const mapDispatchToProps = (dispatch) => ({
     selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
     toggleScenarioSelected: (scenario) => dispatch(toggleScenarioSelected(scenario)),
     updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
-    saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
+    // TASK-2953 (epic 2815 W3, Layer 1) — the three ScenarioPane discrete-field
+    // closures commit through this (see handleCommitScenario above).
+    commitAnugaScenarioField: (scenario, kv) => dispatch(commitAnugaScenarioField(scenario, kv)),
+    saveAnugaScenario: (scenario, opts) => dispatch(saveAnugaScenario(scenario, opts)),
     buildScenarioExplicit: (scenarioId) => dispatch(buildScenarioExplicit(scenarioId)),
+    // TASK-2890 (epic 2815 W3, Layer 4) — Redux mirror of the deferred-run
+    // intent, dispatched alongside this component's own local
+    // this.state.runAfterBuild machine (armAndDispatchBuildAndRun) and
+    // cleared the instant that local machine resolves (maybeRunAfterBuild).
+    armRunAfterBuildRedux: (scenarioId) => dispatch(armRunAfterBuild(scenarioId)),
+    clearRunAfterBuildRedux: (scenarioId) => dispatch(clearRunAfterBuild(scenarioId)),
     cancelAnugaRun: (runId) => dispatch(cancelAnugaRun(runId)),
     retryAnugaRun: (runId) => dispatch(retryAnugaRun(runId)),
     deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),
