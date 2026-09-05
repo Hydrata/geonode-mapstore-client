@@ -56,11 +56,17 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
         );
     });
 
-    it('renders the head + error payload when status is error', (done) => {
+    it('renders the head + user_message payload when status is error', (done) => {
+        // TASK-2860 (W3, epic 2815) AC3 — the payload renders the
+        // BE-derived user_message, never the raw error_message (here a
+        // bare exception-class-name line, exactly what AC3 forbids).
         const s = {
             id: 1,
             status: 'error',
-            latest_run: {error_message: 'ValueError: mesh validation failed'}
+            latest_run: {
+                error_message: 'ValueError: mesh validation failed',
+                user_message: 'This scenario could not be built because of a problem with its inputs.'
+            }
         };
         ReactDOM.render(
             <ScenarioErrorStrip scenario={s} />,
@@ -74,13 +80,15 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
                 expect(container.querySelector('.sv-error-strip-head')).toExist();
                 const payload = container.querySelector('.sv-error-strip-payload');
                 expect(payload).toExist();
-                expect(payload.textContent).toInclude('mesh validation failed');
+                expect(payload.textContent).toInclude('problem with its inputs');
+                expect(payload.textContent).toNotInclude('ValueError');
+                expect(payload.textContent).toNotInclude('mesh validation failed');
                 done();
             }
         );
     });
 
-    it('falls back to the statusError message when latest_run has no error_message', (done) => {
+    it('falls back to the statusError message when latest_run has no user_message', (done) => {
         const s = {id: 1, status: 'error', latest_run: {}};
         ReactDOM.render(
             <ScenarioErrorStrip scenario={s} />,
@@ -104,11 +112,11 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
         );
     });
 
-    it('renders the error message as a code element when provided', (done) => {
+    it('renders the user_message as a code element when provided', (done) => {
         const s = {
             id: 1,
             status: 'error',
-            latest_run: {error_message: 'Boom'}
+            latest_run: {error_message: 'Boom', user_message: 'Boom (human)'}
         };
         ReactDOM.render(
             <ScenarioErrorStrip scenario={s} />,
@@ -116,7 +124,7 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
             () => {
                 const code = container.querySelector('code.sv-error-strip-payload');
                 expect(code).toExist();
-                expect(code.textContent).toBe('Boom');
+                expect(code.textContent).toBe('Boom (human)');
                 done();
             }
         );
@@ -395,11 +403,19 @@ describe('W1.2 AC#4 — run 1283 stored-data shape renders actionably', () => {
     // (the precedence rule recovered the real traceback summary as
     // error_message instead of the generic entrypoint text), the full
     // traceback in `log`, and captured group/stream from describe_jobs.
+    //
+    // TASK-2860 (W3, epic 2815) AC3 — user_message added: a bare
+    // 'ExceptionClass: ...' line (mark_error's own traceback-summary
+    // extraction, H4) is exactly the shape AC3 forbids surfacing in the
+    // payload, so the BE's derived property falls through to its generic
+    // fallback for this class/message combination — that fallback, not
+    // the raw error_message, is what the payload must show.
     const run1283 = {
         id: 1283,
         status: 'error',
         latest_run: {
             error_message: 'AssertionError: Volume of watrer in inlet negative!',
+            user_message: 'This run failed unexpectedly. Please try again; if the problem persists, contact support.',
             error_class: 'in-process',
             log: RUN_1283_TRACEBACK,
             log_group_name: '/aws/batch/anuga-simulation',
@@ -412,11 +428,12 @@ describe('W1.2 AC#4 — run 1283 stored-data shape renders actionably', () => {
         ReactDOM.render(<ScenarioErrorStrip scenario={run1283} isStaff />, container, () => {
             // Classified cause visible immediately.
             expect(container.querySelector('.sv-anuga-scenario-error-cause')).toExist();
-            // Raw recovered message visible immediately (not the generic
-            // "exit code 1" text — proves the BE precedence rule's output
-            // renders, not just that SOME message renders).
+            // The generic human user_message renders immediately — NEVER
+            // the raw exception-class-name line (AC3's second half, H4).
             const payload = container.querySelector('code.sv-error-strip-payload');
-            expect(payload.textContent).toBe('AssertionError: Volume of watrer in inlet negative!');
+            expect(payload.textContent).toBe(run1283.latest_run.user_message);
+            expect(payload.textContent).toNotInclude('AssertionError');
+            expect(payload.textContent).toNotInclude('Volume of watrer');
             expect(payload.textContent).toNotInclude('exit code');
             // Traceback tail behind the collapsible toggle.
             const toggle = container.querySelector('.sv-anuga-scenario-error-log-tail-toggle');

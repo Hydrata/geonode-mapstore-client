@@ -18,13 +18,16 @@ import {findScenarioStatus, ERROR_CLASS_MESSAGE_IDS, tailLines, capChars, buildC
  * CSS + scenarioPane assertions, while the inner head/payload hooks
  * canonicalise to `sv-error-strip-head` / `sv-error-strip-payload`.
  *
- * Reads `scenario.latest_run.error_message` and surfaces it verbatim in
- * the `<code>` payload, mirroring the legacy table cell. When the
- * latest_run has no message we fall back to the localised
- * `hydrata.anuga.statusError` string so the strip still anchors the
- * user's attention (the primitive renders the fallback as a `<code>`
- * payload too — a one-element-name change from the legacy `<span>`,
- * structure otherwise identical).
+ * TASK-2860 (W3, epic 2815) — reads `scenario.latest_run.user_message`
+ * (a BE-derived, human-facing sentence — see gn_anuga.models.run.Run.
+ * user_message) for the payload, NEVER `error_message` (which stays the
+ * raw operator-facing text, TASK-2824's concern, and can contain a
+ * traceback line or a bare exception class name — AC3 forbids rendering
+ * either here). When the latest_run has no user_message we fall back to
+ * the localised `hydrata.anuga.statusError` string so the strip still
+ * anchors the user's attention (the primitive renders the fallback as a
+ * `<code>` payload too — a one-element-name change from the legacy
+ * `<span>`, structure otherwise identical).
  *
  * W1.2 (TASK-2207, epic 2204) — three additions built on top of the W1.1
  * (TASK-2206, BE) capture + classification:
@@ -118,7 +121,10 @@ class ScenarioErrorStrip extends React.Component {
         if (status !== 'error') return null;
 
         const latestRun = scenario.latest_run || {};
-        const errorMessage = latestRun.error_message || null;
+        // TASK-2860 (W3, epic 2815) — AC3: the payload NEVER renders raw
+        // error_message (which can hold a traceback line or a bare
+        // exception class name). user_message is the BE-derived sentence.
+        const userMessage = latestRun.user_message || null;
         const causeMsgId = ERROR_CLASS_MESSAGE_IDS[latestRun.error_class];
         // In-process failures already have their traceback in `log` (zero
         // AWS calls to show it); everything else falls back to the
@@ -139,7 +145,7 @@ class ScenarioErrorStrip extends React.Component {
             <ErrorStrip
                 extraClassName="sv-anuga-scenario-error-strip"
                 head={<Message msgId="hydrata.anuga.runFailedHead" />}
-                payload={errorMessage || <Message msgId="hydrata.anuga.statusError" />}
+                payload={userMessage || <Message msgId="hydrata.anuga.statusError" />}
             >
                 {causeMsgId ? (
                     <div className="sv-anuga-scenario-error-cause" style={causeStyle}>

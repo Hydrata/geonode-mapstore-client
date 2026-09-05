@@ -2893,7 +2893,13 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
         const erroredScenario = {
             ...baseScenario,
             status: 'error',
-            latest_run: {status: 'error', error_message: 'mesh validation failed'}
+            latest_run: {
+                status: 'error',
+                error_message: 'mesh validation failed',
+                // TASK-2860 (W3, epic 2815) AC3 — the notice panel's error
+                // strip renders user_message, never the raw error_message.
+                user_message: 'This scenario could not be built. Please try again.'
+            }
         };
 
         it('renders the title pill (toolbar, compact, error-styled) only when the latest run errored', (done) => {
@@ -2933,7 +2939,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     expect(panel).toExist();
                     const strip = panel.querySelector('.sv-anuga-scenario-error-strip');
                     expect(strip).toExist();
-                    expect(strip.textContent).toInclude('mesh validation failed');
+                    expect(strip.textContent).toInclude('This scenario could not be built');
+                    expect(strip.textContent).toNotInclude('mesh validation failed');
                     done();
                 }
             );
