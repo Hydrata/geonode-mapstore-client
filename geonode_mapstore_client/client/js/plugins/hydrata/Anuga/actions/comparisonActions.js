@@ -134,12 +134,19 @@ function buildScenarioError(scenarioId, error) {
             });
             return;
         }
+        // TASK-2961: the BE pre-build admission gate refuses an over-ceiling
+        // mesh with 422 {error_code: 'MESH_TOO_LARGE', estimate, ceiling,
+        // detail} — `detail` is already a full user-facing sentence, so render
+        // it verbatim (no prefix). Read BOTH error shapes (raw axios
+        // `error.response.data` and the interceptor's spread `error.data`);
+        // anything without a `detail` keeps the prefixed fallback.
+        const data = error?.response?.data ?? error?.data;
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Build failed',
             autoDismiss: 12,
             position: 'tc',
-            message: `Error starting build: ${JSON.stringify(error?.data ?? error?.message)}`,
+            message: data?.detail ?? `Error starting build: ${JSON.stringify(data ?? error?.message)}`,
             uid: uuidv1(),
             level: 'error'
         });
