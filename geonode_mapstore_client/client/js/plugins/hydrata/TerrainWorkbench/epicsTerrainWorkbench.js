@@ -83,12 +83,6 @@ const TW_DERIVE_POLL_MAX = 3600;
 export const TW_DERIVE_TIMEOUT_MESSAGE =
     'Check the task monitor.';
 
-// TASK-1658: extract a human-readable message from a Hydrata/DRF error response.
-// The BE returns {success:false, errors:[...], code} for validation failures, so
-// reading only detail/error/message collapses a 400 to the generic fallback (the
-// silent-failure UAT finding 12). errors entries may be plain strings OR objects
-// ({message}/{detail}/{field,error}). Falls back to detail -> error -> message ->
-// the caller's default.
 // TASK-2970 (W3.7): the rejected value's payload, whichever shape it arrives in.
 // MapStore2's ajax lib REJECTS with `{...error.response, originalError}` — a plain
 // object carrying `data`/`status`, NOT an axios Error carrying `.response`
@@ -99,6 +93,12 @@ export const TW_DERIVE_TIMEOUT_MESSAGE =
 // existing extractTwError unit tests) still resolve, so both shapes are honoured.
 export const twErrorPayload = (err) => err?.response?.data || err?.data || null;
 
+// TASK-1658: extract a human-readable message from a Hydrata/DRF error response.
+// The BE returns {success:false, errors:[...], code} for validation failures, so
+// reading only detail/error/message collapses a 400 to the generic fallback (the
+// silent-failure UAT finding 12). errors entries may be plain strings OR objects
+// ({message}/{detail}/{field,error}). Falls back to detail -> error -> message ->
+// the caller's default.
 export const extractTwError = (err, fallback) => {
     const data = twErrorPayload(err);
     const errors = data?.errors;
