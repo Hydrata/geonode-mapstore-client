@@ -53,6 +53,7 @@ import {
     twSetDesignInputsError,
     twDeriveSuccess,
     twDeriveError,
+    twDeriveCoarserAck,
     twDeriveComplete,
     twDeriveCompleteError,
     // TASK-2582 (W2a) — Merge extent draw lifecycle.
@@ -82,6 +83,16 @@ const TW_DERIVE_POLL_MAX = 3600;
 export const TW_DERIVE_TIMEOUT_MESSAGE =
     'Check the task monitor.';
 
+// TASK-2970 (W3.7): the rejected value's payload, whichever shape it arrives in.
+// MapStore2's ajax lib REJECTS with `{...error.response, originalError}` — a plain
+// object carrying `data`/`status`, NOT an axios Error carrying `.response`
+// (MapStore2/web/client/libs/ajax.js, response interceptor). Reading only
+// `err.response.data` therefore sees NOTHING at runtime, which is why every
+// server-side derive message used to collapse to the generic fallback even though
+// the BE sent an actionable `detail`. Hand-built `{response:{data}}` errors (the
+// existing extractTwError unit tests) still resolve, so both shapes are honoured.
+export const twErrorPayload = (err) => err?.response?.data || err?.data || null;
+
 // TASK-1658: extract a human-readable message from a Hydrata/DRF error response.
 // The BE returns {success:false, errors:[...], code} for validation failures, so
 // reading only detail/error/message collapses a 400 to the generic fallback (the
@@ -89,7 +100,7 @@ export const TW_DERIVE_TIMEOUT_MESSAGE =
 // ({message}/{detail}/{field,error}). Falls back to detail -> error -> message ->
 // the caller's default.
 export const extractTwError = (err, fallback) => {
-    const data = err?.response?.data;
+    const data = twErrorPayload(err);
     const errors = data?.errors;
     if (Array.isArray(errors) && errors.length) {
         const parts = errors
@@ -305,6 +316,18 @@ export const twDeriveEpic = (action$, store) =>
                     .catch(err => {
                         // TASK-1804: fire ERROR when the derive POST fails.
                         trackEvent('process', 'error', 'terrain-merge-error');
+                        // TASK-2970 (W3.7): the coarser-above-finer refusal is a
+                        // RE-ACK prompt, not a failure. The client mirrors the rule
+                        // but its terrain list can be stale, so the server sees an
+                        // inversion the client did not — seed the confirm dialog
+                        // with the SERVER's pairs so "Derive anyway" re-sends with
+                        // acknowledge_coarser_above_finer:true. Any other error
+                        // keeps the existing red-strip path untouched.
+                        const data = twErrorPayload(err);
+                        if (data?.error_code === 'COARSER_ABOVE_FINER'
+                            && Array.isArray(data.pairs) && data.pairs.length) {
+                            return Rx.Observable.of(twDeriveCoarserAck(data.pairs));
+                        }
                         return Rx.Observable.of(twDeriveError(extractTwError(err, 'Derive failed')));
                     });
 

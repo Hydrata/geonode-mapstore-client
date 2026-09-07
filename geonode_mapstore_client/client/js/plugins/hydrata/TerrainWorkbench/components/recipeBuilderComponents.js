@@ -130,6 +130,71 @@ function formatEstimateSize(sizeEstimate) {
         : `~${sizeEstimate.estimatedGB.toFixed(1)} GB`;
 }
 
+// ── TASK-2970 (W3.7): DEM resolution display + the coarser-above-finer rule ──
+//
+// Origin: prod map 6629. `addTerrain` appended every new DEM at the BOTTOM, so a
+// modeller who picked the regional GLO-30 first and their 0.5 m lidar second ended
+// up with the COARSE DEM on TOP. The merge core pastes higher-priority tiles over
+// the base wherever they are valid, and GLO-30 was valid on 100 % of the grid — so
+// the survey contributed ZERO pixels to a nominally 1 m output. Nothing on screen
+// said which DEM was coarse.
+
+// Format a native resolution for a picker row: one decimal with a trailing ".0"
+// dropped (30.7039 -> "30.7 m", 0.5 -> "0.5 m", 1 -> "1 m"), "?" when the terrain
+// carries no native_resolution_m. Same 1-decimal shape as the server's
+// `format_resolution_m` (gn_anuga/services_terrain_merge.py) so the 400's `detail`
+// sentence and these rows read alike.
+function formatResolutionM(resolutionM) {
+    if (typeof resolutionM !== 'number' || !isFinite(resolutionM)) return '?';
+    const oneDp = resolutionM.toFixed(1);
+    return `${oneDp.endsWith('.0') ? oneDp.slice(0, -2) : oneDp} m`;
+}
+
+function describeTerrainResolution(terrain, resolutionM) {
+    return {
+        terrain_id: terrain.id,
+        title: terrain.title || terrain.name,
+        native_resolution_m: resolutionM
+    };
+}
+
+// Client mirror of the BE's `find_coarser_above_finer` (services_terrain_merge.py):
+// every (above, below) pair where a COARSER DEM sits above a FINER one. `inputs` is
+// the FE recipe shape [{terrain_id, priority}] (priority 0 = TOP); `terrains` is the
+// project terrain list. An entry whose terrain is unknown, or which carries no
+// numeric native_resolution_m, never participates — the rule can only speak about
+// resolutions it actually knows. Returns [] when the stack is fine.
+//
+// The SERVER is the enforcement; this is convenience, and it is deliberately blind
+// when the terrain list is stale — which is exactly why the 400 carries its own
+// `pairs` (see twDeriveEpic / coarserPairsFromServer).
+function findCoarserAboveFiner(inputs, terrains) {
+    const list = terrains || [];
+    const resolved = (inputs || [])
+        .map(inp => {
+            const terrain = list.find(t => t.id === inp.terrain_id);
+            const resolutionM = terrain ? terrain.native_resolution_m : null;
+            if (!terrain || typeof resolutionM !== 'number' || !isFinite(resolutionM)) return null;
+            const priority = parseInt(inp.priority, 10);
+            return { priority: isNaN(priority) ? 0 : priority, terrain, resolutionM };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.priority - b.priority);
+
+    const pairs = [];
+    for (let i = 0; i < resolved.length; i++) {
+        for (let j = i + 1; j < resolved.length; j++) {
+            if (resolved[i].resolutionM > resolved[j].resolutionM) {
+                pairs.push({
+                    above: describeTerrainResolution(resolved[i].terrain, resolved[i].resolutionM),
+                    below: describeTerrainResolution(resolved[j].terrain, resolved[j].resolutionM)
+                });
+            }
+        }
+    }
+    return pairs;
+}
+
 // TASK-2582: rough WGS84 extent dimensions in km, for the "~W x H km" Merge
 // extent summary row. Same lat/lon-to-metres constants as estimateOutputSize
 // above (not exported — a small display-only helper local to this module).
@@ -191,16 +256,39 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
         return stack.map((d, i) => i === lastIdx ? { ...d, unmodified: false } : d);
     };
 
+    // TASK-2970 (W3.7): where a newly-added DEM belongs in the stack.
+    // Finest-on-top: the new entry goes ABOVE the first existing entry it should
+    // outrank — one that is either coarser (strictly greater native_resolution_m)
+    // or of UNKNOWN resolution (known resolutions sort before unknown ones). A new
+    // entry whose OWN resolution is unknown appends at the bottom, exactly as
+    // before. Only the new entry is placed: existing entries are never re-sorted,
+    // so a deliberate inversion the modeller built with the ↑ button (the
+    // design-over-survey case) survives the next add.
+    const insertIndexFor = (terrainId) => {
+        const added = terrains.find(t => t.id === terrainId);
+        const addedRes = added ? added.native_resolution_m : null;
+        if (typeof addedRes !== 'number' || !isFinite(addedRes)) return inputs.length;
+        const idx = inputs.findIndex(d => {
+            const t = terrains.find(x => x.id === d.terrain_id);
+            const res = t ? t.native_resolution_m : null;
+            if (typeof res !== 'number' || !isFinite(res)) return true;
+            return res > addedRes;
+        });
+        return idx === -1 ? inputs.length : idx;
+    };
+
     const addTerrain = (terrainId) => {
         const id = parseInt(terrainId, 10);
         if (!id || inputs.find(d => d.terrain_id === id)) return;
-        // New entry appended at the bottom (new base) — always unmodified:false.
-        // Existing entries keep their flags; only re-index priority.
+        // New entry inserted by resolution (TASK-2970; it used to always append at
+        // the bottom) — always unmodified:false. Existing entries keep their flags;
+        // only re-index priority.
         // Default-seamless (top=unmodified, rest=false) applies ONLY when the
         // stack was empty before this add (i.e. this is the first entry).
         const wasEmpty = inputs.length === 0;
-        const newEntry = { terrain_id: id, priority: inputs.length, unmodified: false };
-        const combined = [...inputs, newEntry];
+        const at = insertIndexFor(id);
+        const newEntry = { terrain_id: id, priority: at, unmodified: false };
+        const combined = [...inputs.slice(0, at), newEntry, ...inputs.slice(at)];
         const reindexed = combined.map((d, i) => {
             if (wasEmpty) {
                 // Single-entry stack: only entry is the base → always modifiable.
@@ -258,6 +346,11 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
                             {badgeLabel}
                         </span>
                         <span className="sv-tw-input-title">{t ? (t.title || t.name) : `Terrain #${inp.terrain_id}`}</span>
+                        {/* TASK-2970 (W3.7): the native resolution, so "which of these
+                            is the coarse one" is answerable without leaving the panel. */}
+                        <span className="sv-tw-input-res" title="Native resolution">
+                            {formatResolutionM(t ? t.native_resolution_m : null)}
+                        </span>
                         <OverlayTrigger
                             placement="top"
                             overlay={
@@ -304,8 +397,16 @@ TWDemStackPicker.defaultProps = { disabled: false };
 
 // TASK-1671: Size-confirm dialog shown before derive.
 // sizeEstimate = { estimatedGB, tooLarge } | null
-function TWDeriveConfirmDialog({ sizeEstimate, onConfirm, onCancel }) {
+// TASK-2970 (W3.7): coarserPairs = [{above, below}] — every coarser-above-finer
+// inversion in the stack, from the client mirror OR (when the client's terrain
+// list was stale) from the server's own 400. When present the dialog names each
+// pair with both resolutions, names design-over-survey as the legitimate case, and
+// the confirm button becomes "Derive anyway" — a deliberate acknowledgement, never
+// a hard block.
+function TWDeriveConfirmDialog({ sizeEstimate, coarserPairs, onConfirm, onCancel }) {
     const tooLarge = sizeEstimate && sizeEstimate.tooLarge;
+    const pairs = coarserPairs || [];
+    const hasCoarserPairs = pairs.length > 0;
     // TASK-2582: shared with the live estimate row (formatEstimateSize) so the
     // confirm-dialog number and the live number are computed identically.
     const gbStr = formatEstimateSize(sizeEstimate);
@@ -333,9 +434,33 @@ function TWDeriveConfirmDialog({ sizeEstimate, onConfirm, onCancel }) {
                                 ? <React.Fragment>Estimated output size: <strong>{gbStr}</strong>. Proceed?</React.Fragment>
                                 : 'Proceed with derive?'}
                         </div>
+                        {hasCoarserPairs && (
+                            <div className="sv-tw-derive-confirm-warning" data-testid="derive-confirm-coarser-warning">
+                                <div className="sv-tw-derive-confirm-warning-title">
+                                    <Message msgId="hydrata.anuga.terrainMergeCoarserWarningTitle" />
+                                </div>
+                                <ul className="sv-tw-derive-confirm-warning-pairs">
+                                    {pairs.map((pair, i) => (
+                                        <li key={`${pair.above.terrain_id}-${pair.below.terrain_id}-${i}`} data-testid={`coarser-pair-${i}`}>
+                                            <strong>{pair.above.title}</strong>
+                                            {` (${formatResolutionM(pair.above.native_resolution_m)}) `}
+                                            <Message msgId="hydrata.anuga.terrainMergeCoarserPairSitsAbove" />
+                                            {' '}
+                                            <strong>{pair.below.title}</strong>
+                                            {` (${formatResolutionM(pair.below.native_resolution_m)})`}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="sv-tw-derive-confirm-warning-body">
+                                    <Message msgId="hydrata.anuga.terrainMergeCoarserWarningBody" />
+                                </div>
+                            </div>
+                        )}
                         <div className="sv-tw-derive-confirm-actions">
                             <Button bsStyle="primary" bsSize="small" className="sv-tw-derive-btn" onClick={onConfirm} data-testid="derive-confirm-ok">
-                                Derive
+                                {hasCoarserPairs
+                                    ? <Message msgId="hydrata.anuga.terrainMergeDeriveAnywayButton" />
+                                    : 'Derive'}
                             </Button>
                             <button type="button" className="sv-tw-save-btn" onClick={onCancel} data-testid="derive-confirm-cancel">Cancel</button>
                         </div>
@@ -347,10 +472,12 @@ function TWDeriveConfirmDialog({ sizeEstimate, onConfirm, onCancel }) {
 }
 TWDeriveConfirmDialog.propTypes = {
     sizeEstimate: PropTypes.shape({ estimatedGB: PropTypes.number, tooLarge: PropTypes.bool }),
+    // TASK-2970 (W3.7) — [{above:{terrain_id,title,native_resolution_m}, below:{…}}]
+    coarserPairs: PropTypes.array,
     onConfirm: PropTypes.func.isRequired,
     onCancel: PropTypes.func.isRequired
 };
-TWDeriveConfirmDialog.defaultProps = { sizeEstimate: null };
+TWDeriveConfirmDialog.defaultProps = { sizeEstimate: null, coarserPairs: [] };
 
 // TASK-1671: Recipe builder — single DEM stack, no Save buttons, atomic derive,
 // size-confirm dialog. Save buttons REMOVED per AC#2.
@@ -376,7 +503,12 @@ class TWRecipeBuilder extends React.Component {
         // dialog opens/closes, so the hosting MergeTerrainsPanel can toggle a
         // growth modifier class on the MovablePanel (CSS-only — see
         // terrainWorkbench.css's --confirm-open rule).
-        onConfirmOpenChange: PropTypes.func
+        onConfirmOpenChange: PropTypes.func,
+        // TASK-2970 (W3.7): the SERVER's coarser-above-finer pairs from a refused
+        // derive (state.terrainWorkbench.deriveCoarserPairs). Arriving non-empty
+        // RE-OPENS the confirm dialog seeded with them, so the user can
+        // acknowledge an inversion the (stale-terrains) client mirror missed.
+        coarserPairsFromServer: PropTypes.array
     };
     static defaultProps = {
         deriving: false,
@@ -388,7 +520,8 @@ class TWRecipeBuilder extends React.Component {
         onStartMergeExtentDraw: () => {},
         onCancelMergeExtentDraw: () => {},
         onClearMergeExtent: () => {},
-        onConfirmOpenChange: () => {}
+        onConfirmOpenChange: () => {},
+        coarserPairsFromServer: null
     };
 
     // Build default-seamless inputs from the new BE shape `inputs_ordered`.
@@ -417,7 +550,13 @@ class TWRecipeBuilder extends React.Component {
             inputs: TWRecipeBuilder._inputsFromSurface(s),
             // Confirm dialog state
             confirmOpen: false,
-            sizeEstimate: null // { estimatedGB, tooLarge } | null
+            sizeEstimate: null, // { estimatedGB, tooLarge } | null
+            // TASK-2970 (W3.7): the pairs THIS dialog was opened with — client
+            // mirror at Create-click, or the server's own on a refused derive.
+            // handleConfirmDerive reads THIS, never a fresh recompute: on the
+            // server path the client is blind (stale terrains), so recomputing
+            // would drop the flag, earn another 400, and re-open forever.
+            coarserPairs: []
         };
     }
 
@@ -432,7 +571,8 @@ class TWRecipeBuilder extends React.Component {
                 target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
                 inputs: TWRecipeBuilder._inputsFromSurface(s),
                 confirmOpen: false,
-                sizeEstimate: null
+                sizeEstimate: null,
+                coarserPairs: []
             });
         } else if (prevProps.surface.inputs_ordered !== this.props.surface.inputs_ordered) {
             // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
@@ -444,6 +584,25 @@ class TWRecipeBuilder extends React.Component {
             // the server has already superseded.
             // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
             this.setState({ title: this.props.surface.title ?? '' });
+        }
+        // TASK-2970 (W3.7): the server refused the derive because a coarser DEM
+        // sits above a finer one and the body carried no acknowledgement. Re-open
+        // the confirm dialog seeded with the SERVER's pairs (the client mirror saw
+        // nothing — its terrain list was stale) so "Derive anyway" re-sends with
+        // the flag. Guarded on a non-empty arrival, so the reducer clearing the
+        // field back to null on the next TW_DERIVE never re-triggers.
+        const seededPairs = this.props.coarserPairsFromServer;
+        if (prevProps.coarserPairsFromServer !== seededPairs
+            && Array.isArray(seededPairs) && seededPairs.length) {
+            // eslint-disable-next-line react/no-did-update-set-state -- guarded prop-sync
+            this.setState({
+                confirmOpen: true,
+                coarserPairs: seededPairs,
+                sizeEstimate: estimateOutputSize(
+                    this.state.inputs, this.props.terrains,
+                    this._targetResolutionM(), this.props.mergeExtent
+                )
+            });
         }
         // TASK-2580 (W2-reaim change 2): confirm-dialog open/close transition —
         // tell the parent panel (className toggle -> CSS growth) and, as the
@@ -497,12 +656,18 @@ class TWRecipeBuilder extends React.Component {
         // TASK-2582: the confirm-dialog estimate is authoritative at Create-click —
         // same function + same mergeExtent as the live row, so they can't disagree.
         const sizeEstimate = estimateOutputSize(inputs, terrains, this._targetResolutionM(), mergeExtent);
-        this.setState({ confirmOpen: true, sizeEstimate });
+        // TASK-2970 (W3.7): the client mirror of the BE guard. Pairs here turn the
+        // confirm dialog into the design-over-survey acknowledgement.
+        this.setState({
+            confirmOpen: true,
+            sizeEstimate,
+            coarserPairs: findCoarserAboveFiner(inputs, terrains)
+        });
     };
 
     handleConfirmDerive = () => {
         const { surface, onDerive, mergeExtent } = this.props;
-        const { inputs, feather_width_m, target_resolution_m } = this.state;
+        const { inputs, feather_width_m, target_resolution_m, coarserPairs } = this.state;
         this.setState({ confirmOpen: false });
         // TASK-1671: dispatch atomic derive — body carries inputs + merge params.
         // TASK-2582: merge_extent_wgs84 rides the same body as a sibling key,
@@ -517,11 +682,18 @@ class TWRecipeBuilder extends React.Component {
             target_resolution_m: parseFloat(target_resolution_m),
             merge_extent_wgs84: mergeExtent || null
         };
+        // TASK-2970 (W3.7): the acknowledgement rides ONLY when this dialog was
+        // opened over an inversion — a sane stack must not send the key at all
+        // (an always-true flag would silently disarm the server guard). Read from
+        // state, NOT a recompute: on the server-seeded path the client is blind.
+        if ((coarserPairs || []).length) {
+            body.acknowledge_coarser_above_finer = true;
+        }
         onDerive(surface.id, body);
     };
 
     handleCancelDerive = () => {
-        this.setState({ confirmOpen: false, sizeEstimate: null });
+        this.setState({ confirmOpen: false, sizeEstimate: null, coarserPairs: [] });
     };
 
     _canDerive() {
@@ -594,7 +766,7 @@ class TWRecipeBuilder extends React.Component {
 
     render() {
         const { surface, terrains, deriving, deriveError, saving, saveError } = this.props;
-        const { title, feather_width_m, target_resolution_m, inputs, confirmOpen, sizeEstimate } = this.state;
+        const { title, feather_width_m, target_resolution_m, inputs, confirmOpen, sizeEstimate, coarserPairs } = this.state;
         const canDerive = this._canDerive();
         const allUnmodified = inputs.length > 0 && inputs.every(d => d.unmodified);
         return (
@@ -692,6 +864,7 @@ class TWRecipeBuilder extends React.Component {
                     <div ref={(el) => { this._confirmBoxEl = el; }}>
                         <TWDeriveConfirmDialog
                             sizeEstimate={sizeEstimate}
+                            coarserPairs={coarserPairs}
                             onConfirm={this.handleConfirmDerive}
                             onCancel={this.handleCancelDerive}
                         />
@@ -715,6 +888,9 @@ class TWRecipeBuilder extends React.Component {
 export {
     TW_PARAM_DEFAULTS,
     estimateOutputSize,
+    // TASK-2970 (W3.7): DEM resolution display + the coarser-above-finer mirror.
+    formatResolutionM,
+    findCoarserAboveFiner,
     // TASK-2582 (W2a): Merge extent — live output estimate + summary formatting.
     formatEstimateSize,
     mergeExtentDimsKm,

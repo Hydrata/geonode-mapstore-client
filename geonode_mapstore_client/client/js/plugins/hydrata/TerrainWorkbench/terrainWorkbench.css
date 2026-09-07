@@ -294,6 +294,16 @@
     white-space: nowrap;
 }
 
+/* TASK-2970 (W3.7): native resolution per DEM-stack row. The row is a flex line
+ * with .sv-tw-input-title on flex:1, so a muted, tabular-numeral chip is all the
+ * layout this needs — it sits between the title and the pencil toggle. */
+.sv-tw-input-res {
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.62);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 /* Reorder / remove icon buttons */
 .sv-tw-icon-btn {
     display: inline-flex;
@@ -627,6 +637,38 @@
     display: flex;
     gap: 8px;
     align-items: center;
+}
+
+/* TASK-2970 (W3.7): the coarser-above-finer acknowledgement block inside the
+ * confirm dialog. Amber (a warning the modeller can deliberately click through),
+ * never the danger red of --confirm-title--error, which means "cannot derive". */
+.sv-tw-derive-confirm-warning {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: rgba(255, 193, 7, 0.10);
+    border: 1px solid rgba(255, 193, 7, 0.42);
+    border-radius: 3px;
+    line-height: 1.45;
+}
+
+.sv-tw-derive-confirm-warning-title {
+    font-weight: 600;
+    color: var(--sv-text-warning, rgb(255, 209, 102));
+    margin-bottom: 6px;
+}
+
+.sv-tw-derive-confirm-warning-pairs {
+    margin: 0 0 6px;
+    padding-left: 18px;
+}
+
+.sv-tw-derive-confirm-warning-pairs li {
+    margin-bottom: 2px;
+    font-variant-numeric: tabular-nums;
+}
+
+.sv-tw-derive-confirm-warning-body {
+    color: rgba(255, 255, 255, 0.75);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────

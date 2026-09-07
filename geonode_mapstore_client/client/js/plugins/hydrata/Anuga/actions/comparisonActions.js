@@ -121,25 +121,33 @@ function buildScenarioError(scenarioId, error) {
         // interceptor, which is why it's listed first only as a defensive
         // no-op fallback (?? short-circuits past it to error?.status).
         const status = error?.response?.status ?? error?.status;
+        // The response body, read the same defensive way as `status` above and
+        // shared by both branches below (TASK-2961 simplify pass: it used to be
+        // read twice, once per branch).
+        const data = error?.response?.data ?? error?.data;
         if (status === 409) {
-            const data = error?.response?.data ?? error?.data ?? {};
             dispatch({
                 type: BUILD_SCENARIO_ERROR,
                 scenarioId,
                 error,
                 conflict: true,
-                runId: data.run_id,
-                runStatus: data.status,
-                detail: data.detail
+                runId: data?.run_id,
+                runStatus: data?.status,
+                detail: data?.detail
             });
             return;
         }
+        // TASK-2961: the BE pre-build admission gate refuses an over-ceiling
+        // mesh with 422 {error_code: 'MESH_TOO_LARGE', estimate, ceiling,
+        // detail} — `detail` is already a full user-facing sentence, so render
+        // it verbatim (no prefix); anything without a `detail` keeps the
+        // prefixed fallback.
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Build failed',
             autoDismiss: 12,
             position: 'tc',
-            message: `Error starting build: ${JSON.stringify(error?.data ?? error?.message)}`,
+            message: data?.detail ?? `Error starting build: ${JSON.stringify(data ?? error?.message)}`,
             uid: uuidv1(),
             level: 'error'
         });

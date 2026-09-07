@@ -118,6 +118,7 @@ export function twSetDesignInputsError(error) { return { type: TW_SET_DESIGN_INP
 export const TW_DERIVE = 'TW_DERIVE';
 export const TW_DERIVE_SUCCESS = 'TW_DERIVE_SUCCESS';
 export const TW_DERIVE_ERROR = 'TW_DERIVE_ERROR';
+export const TW_DERIVE_COARSER_ACK = 'TW_DERIVE_COARSER_ACK';
 export const TW_DERIVE_COMPLETE = 'TW_DERIVE_COMPLETE';
 export const TW_DERIVE_COMPLETE_ERROR = 'TW_DERIVE_COMPLETE_ERROR';
 
@@ -128,6 +129,14 @@ export function twDeriveSuccess(surfaceId, processId) {
     return { type: TW_DERIVE_SUCCESS, surfaceId, processId };
 }
 export function twDeriveError(error) { return { type: TW_DERIVE_ERROR, error }; }
+// TASK-2970 (W3.7): derive was REFUSED because a coarser DEM sits above a finer
+// one and the body carried no acknowledgement (api_v2.py derive(), 400
+// {error_code:'COARSER_ABOVE_FINER', detail, pairs}). This is NOT a failure the
+// user should read as a red banner — the client mirror simply missed the
+// inversion (state.terrainWorkbench.terrains was stale), so we seed the confirm
+// dialog with the SERVER's pairs and let the user press "Derive anyway", which
+// re-sends with acknowledge_coarser_above_finer:true.
+export function twDeriveCoarserAck(pairs) { return { type: TW_DERIVE_COARSER_ACK, pairs }; }
 export function twDeriveComplete(surface) { return { type: TW_DERIVE_COMPLETE, surface }; }
 export function twDeriveCompleteError(error) { return { type: TW_DERIVE_COMPLETE_ERROR, error }; }
 
