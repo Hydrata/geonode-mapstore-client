@@ -624,8 +624,11 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
                 const scenarioId = scenario.id;
                 return Rx.Observable.from(
                     _patchScenario(projectId, scenarioId, scenario)
+                        // TASK-2972 — quiet: a per-field auto-save PATCH
+                        // raises no toast (the lazy CREATE below keeps the
+                        // one confirmation the user is owed).
                         .then(({response, patchBody}) => saveAnugaScenarioSuccess(
-                            {...response.data, id: scenarioId}, {sentPayload: patchBody}
+                            {...response.data, id: scenarioId}, {sentPayload: patchBody, quiet: true}
                         ))
                         // Review fix (adversarial pass, TASK-2953/2890,
                         // data-loss/major finding 3) — do NOT pass
@@ -658,8 +661,12 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
                 return Rx.Observable.from(
                     _inFlightScenarioCreates[tempId]
                         .then((created) => _patchScenario(projectId, created.id, scenario)
+                            // TASK-2972 — quiet for the same reason as the
+                            // has-id branch: the create this one waited on
+                            // already toasted, so a second notice for the
+                            // same user gesture is pure noise.
                             .then(({response, patchBody}) => saveAnugaScenarioSuccess(
-                                {...response.data, id: created.id}, {sentPayload: patchBody, tempId}
+                                {...response.data, id: created.id}, {sentPayload: patchBody, tempId, quiet: true}
                             )))
                         .catch(error => saveAnugaScenarioError(error, {}))
                 );

@@ -78,9 +78,19 @@ function saveAnugaScenario(scenario, opts = {}) {
 // meta.sentPayload (Layer 2) / meta.tempId (set only on a CREATE response)
 // are forwarded verbatim onto the plain action for
 // scenariosReducer.js's SAVE_ANUGA_SCENARIO_SUCCESS no-clobber merge.
+// TASK-2972 (epic 2815 W3 restart) — meta.quiet ALSO suppresses the toast:
+// it marks a per-field auto-save PATCH (commitAnugaScenarioFieldEpic's two
+// PATCH branches). Since TASK-2953 every discrete-field commit in the
+// scenario pane auto-saves, so an unconditional toast stacked ~10 identical
+// top-centre notices while one scenario was being configured. The
+// confirmation is owed ONCE — on the lazy CREATE, which is the moment the
+// draft first exists on the server — so that branch deliberately does NOT
+// pass quiet. Failures are never quiet: saveAnugaScenarioError still toasts
+// unconditionally, because a silently failed auto-save is the one thing the
+// user must see.
 function saveAnugaScenarioSuccess(scenario, meta = {}) {
     return (dispatch) => {
-        if (!meta.buildAfterSave) {
+        if (!meta.buildAfterSave && !meta.quiet) {
             dispatch({
                 type: SHOW_NOTIFICATION,
                 title: 'Success',
