@@ -278,15 +278,21 @@ describe('playbackMemoryPolicy — TASK-2708 PROOF 1 (memory budget)', () => {
         // RE-BASED BY TASK-2984 (W1.1, epic 2981), 2026-09-08. This asserted
         // MAX_CHUNKS_PER_QUANTITY (3) and is one of the three specs the
         // deepening rule deliberately inverts. At the shipped constants this
-        // shape now plans 14: fixed 24.1 MiB, per-chunk-across-quantities
-        // 14.5 MiB, window budget min(800 - 566, 440) = 234.0 MiB, so
-        // floor((234.0 - 24.1) / 14.5) = 14, clamped by totalChunks 40.
+        // shape now plans 6: fixed 24.1 MiB, per-chunk-across-quantities
+        // 14.5 MiB, window budget min(800 - 680, 440) = 120.0 MiB, so
+        // floor((120.0 - 24.1) / 14.5) = 6, well inside totalChunks 40.
+        //
+        // RE-BASED AGAIN 2026-09-08 by the operator's E ruling (decision
+        // `2026-09-08-w1-e-overrun`, PLAN_TRANSIENT_EXCESS_BYTES 566 -> 680
+        // MiB): 14 -> 6. This is a SYNTHETIC shape, not a row of the AC2 scale
+        // table — every AC2 cell is unchanged at 680 — so it is free to move,
+        // and it moves in the conservative direction.
         //
         // *** DO NOT restore a clamp to FLOOR_WINDOW_CHUNKS_PER_QUANTITY to
         // make this pass. That is clause 14's INERT TRAP and it silently
         // no-ops this whole task while every other test stays green. ***
         const small = computePlaybackMemoryPlan({ nNode: 253000, chunkLengthT: 10, totalChunks: 40 });
-        expect(small.chunksPerQuantity).toBe(14);
+        expect(small.chunksPerQuantity).toBe(6);
         expect(small.chunksPerQuantity > FLOOR_WINDOW_CHUNKS_PER_QUANTITY).toBe(true);
         expect(small.peakResidentBytes < PLAYBACK_HEAP_BUDGET_BYTES).toBe(true);
         // and it is the CEILING, not the slot count, that bounds it.
@@ -713,9 +719,18 @@ describe('TASK-2743 UAT-08 / TASK-2984 W1.1 — the heap budget is sized to the 
  *                                 the budget (that would charge the idle tab
  *                                 twice, since the offer already nets live
  *                                 usage and E is frozen net of baseline).
- *   PLAN_TRANSIENT_EXCESS_BYTES = 566 MiB, NET of the idle baseline.
+ *   PLAN_TRANSIENT_EXCESS_BYTES = 680 MiB, NET of the idle baseline. RAISED
+ *                                 from 566 on 2026-09-08 by the operator's
+ *                                 ruling on decision `2026-09-08-w1-e-overrun`,
+ *                                 after AC15's live calibration measured 589.3
+ *                                 and 597.4 MiB net on 741_410_1328_chunk2 and
+ *                                 a HEAD control on the SAME leg burned 664.1.
+ *                                 EVERY CELL OF THE AC2 SCALE TABLE BELOW IS
+ *                                 UNCHANGED by that raise; the three sweep
+ *                                 literals that move are named where they sit.
  *   PLAN_UNCAP_MAX_PEAK_BYTES   = 440 MiB — the only plan 741_410_1328_chunk2
- *                                 has ever survived (W0.4 @cap3072).
+ *                                 has ever survived (W0.4 @cap3072). NOT
+ *                                 implicated by the E raise: no leg died.
  *
  * The store shapes are real: 813_417_1412 and the three re-chunkings of
  * 741_410_1328 that exist on disk at /home/david/hydrata/playback-fixtures/.
@@ -824,8 +839,15 @@ describe('playbackMemoryPolicy — TASK-2984 (W1.1, epic 2981) the deepening rul
             }
             return [first, max];
         };
-        expect(sweep(SHAPE_1412)).toEqual([614, 11]);
-        expect(sweep(SHAPE_CHUNK1)).toEqual([968, 6]);
+        // RE-BASED 2026-09-08 by the operator's E ruling (decision
+        // `2026-09-08-w1-e-overrun`, PLAN_TRANSIENT_EXCESS_BYTES 566 -> 680
+        // MiB). TWO of the ruling's THREE moving literals live here:
+        //   1412   first deepening 614 -> 728 MiB   (727 gives 3, 728 gives 4)
+        //   chunk1 first deepening 968 -> 1082 MiB  (1081 gives 3, 1082 gives 4)
+        // Every max-n is UNCHANGED (1412 11, chunk1 6, PROD/chunk2/L2x51 3),
+        // and so is every cell of the AC2 scale table above.
+        expect(sweep(SHAPE_1412)).toEqual([728, 11]);
+        expect(sweep(SHAPE_CHUNK1)).toEqual([1082, 6]);
         expect(sweep(SHAPE_PROD)).toEqual([null, 3]);
         expect(sweep(SHAPE_CHUNK2)).toEqual([null, 3]);
         expect(sweep(SHAPE_L2_51)).toEqual([null, 3]);
@@ -842,12 +864,19 @@ describe('playbackMemoryPolicy — TASK-2984 (W1.1, epic 2981) the deepening rul
         expect(max).toBe(3);
         // ...and it is the ceiling that does it. Lift the ceiling out of the
         // way (RULE C's own seam, in band) and the sweep reaches 4 at a
-        // 1667 MiB budget with a plan peak of 1,100.1 MiB.
-        const unbounded = newPlan(SHAPE_PROD, 1667 * MIB, { uncapMaxPeakBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES });
+        // 1781 MiB budget with a plan peak of 1,100.1 MiB.
+        //
+        // RE-BASED 2026-09-08 by the operator's E ruling (566 -> 680 MiB):
+        // this threshold is `fixed + 4 * perChunk + E`, so it slides by
+        // exactly the 114 MiB E moved, 1667 -> 1781. THE CLAIM ABOVE DID NOT
+        // MOVE: at the SHIPPED 440 MiB ceiling the sweep's max is still 3, so
+        // AC3's actual property is unchanged and only this mutation witness
+        // re-bases.
+        const unbounded = newPlan(SHAPE_PROD, 1781 * MIB, { uncapMaxPeakBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES });
         expect(unbounded.chunksPerQuantity).toBe(4);
         expect(Math.round(unbounded.peakResidentBytes / MIB)).toBe(1100);
-        // 1666 MiB is still 3 — 1667 is the exact threshold.
-        expect(newPlan(SHAPE_PROD, 1666 * MIB, { uncapMaxPeakBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES }).chunksPerQuantity).toBe(3);
+        // 1780 MiB is still 3 — 1781 is the exact threshold.
+        expect(newPlan(SHAPE_PROD, 1780 * MIB, { uncapMaxPeakBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES }).chunksPerQuantity).toBe(3);
     });
 
     it('AC4 — BOTH bounds in the window budget are load-bearing, one mutation each', () => {
@@ -1021,7 +1050,12 @@ describe('playbackMemoryPolicy — TASK-2984 (W1.1, epic 2981) the deepening rul
         const chunk2 = newPlan(SHAPE_CHUNK2, PLAYBACK_HEAP_BUDGET_BYTES);
         expect(chunk2.verdict).toBe('ok');
         expect(chunk2.floorWindowPlanPeakBytes + chunk2.planTransientExcessBytes > chunk2.budgetBytes).toBe(true);
-        expect(Math.round((chunk2.floorWindowPlanPeakBytes + chunk2.planTransientExcessBytes) / MIB * 10) / 10).toBe(967.1);
+        // 401.1 + 680.0 = 1081.1 MiB against an 800 MiB budget. RE-BASED
+        // 2026-09-08 by the operator's E ruling (566 -> 680): the pessimistic
+        // total moves with E by construction, and the INEQUALITY above — the
+        // thing this AC actually pins — was true at 566 and is more true at
+        // 680.
+        expect(Math.round((chunk2.floorWindowPlanPeakBytes + chunk2.planTransientExcessBytes) / MIB * 10) / 10).toBe(1081.1);
     });
 
     it('AC10 — saveData holds the plan at the floor window, and is not a no-op', () => {
@@ -1096,9 +1130,16 @@ describe('playbackMemoryPolicy — TASK-2984 (W1.1, epic 2981) the deepening rul
 
     it('AC17 — the big-device path is ARITHMETICALLY REACHABLE with the constants actually shipped', () => {
         // (a) THERE EXISTS a budget <= PLAYBACK_HEAP_BUDGET_MAX_BYTES at which
-        // 813_417_1412 plans its whole store. The minimum is 672 MiB
-        // (566 E + 13.9 fixed + 91.8 for 11 chunks); the shipped 800 MiB
-        // default clears it with 128 MiB to spare, and it is the witness.
+        // 813_417_1412 plans its whole store. The minimum is 786 MiB
+        // (680 E + 13.9 fixed + 91.8 for 11 chunks); the shipped 800 MiB
+        // default clears it with 14.3 MiB to spare, and it is the witness.
+        //
+        // RE-BASED 2026-09-08 by the operator's E ruling (566 -> 680 MiB).
+        // The other TWO of the ruling's three moving literals are here:
+        // 672 -> 786 (785 gives 10, 786 gives 11) and 614 -> 728. Breakeven
+        // is 694.3 MiB — the largest E at which the shipped 800 MiB default
+        // still buys all 11 — so 680 keeps the epic's headline with 14.3 MiB
+        // of margin, and an E past 694 fails THIS spec loudly.
         let firstWhole = null;
         let firstDeeper = null;
         for (let mib = 128; mib <= 2048; mib++) {
@@ -1110,11 +1151,11 @@ describe('playbackMemoryPolicy — TASK-2984 (W1.1, epic 2981) the deepening rul
                 firstWhole = mib;
             }
         }
-        expect(firstWhole).toBe(672);
-        // reported separately so the two are never confused: 614 MiB is where
+        expect(firstWhole).toBe(786);
+        // reported separately so the two are never confused: 728 MiB is where
         // it first deepens beyond HEAD at all, where it plans 4.
-        expect(firstDeeper).toBe(614);
-        expect(newPlan(SHAPE_1412, 614 * MIB).chunksPerQuantity).toBe(4);
+        expect(firstDeeper).toBe(728);
+        expect(newPlan(SHAPE_1412, 728 * MIB).chunksPerQuantity).toBe(4);
         expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES).chunksPerQuantity).toBe(11);
 
         // (b) THERE EXISTS a real store that plans a PARTIAL window, strictly
@@ -1142,10 +1183,18 @@ describe('playbackMemoryPolicy — TASK-2984 (W1.1, epic 2981) the deepening rul
             expect(Math.round(tighter.peakResidentBytes / MIB)).toBe(39);
             expect(tighter.overrideSource).toBe('override');
             // uncapMaxPeakBytes, in the OTHER direction: chunk1 at 1371 MiB
-            // moves 6 -> 24, peak 440.0 -> 789.5 MiB.
+            // moves 6 -> 18, peak 440.0 -> 673.0 MiB.
+            //
+            // RE-BASED 2026-09-08 by the operator's E ruling (566 -> 680 MiB).
+            // With the ceiling lifted to 1024 MiB it is E that binds here, so
+            // the override's REACH shrinks by exactly the 114 MiB E moved:
+            // window budget min(1371 - 680, 1024) = 691 MiB, and
+            // floor((691 - 323.5) / 19.4) = 18. What this AC pins — that the
+            // named input MOVES the cell, in the OTHER direction from the
+            // first — is untouched: 18 is still well above the shipped 6.
             const looser = newPlan(SHAPE_CHUNK1, 1371 * MIB, { uncapMaxPeakBytes: 1024 * MIB });
-            expect(looser.chunksPerQuantity).toBe(24);
-            expect(Math.round(looser.peakResidentBytes / MIB * 10) / 10).toBe(789.5);
+            expect(looser.chunksPerQuantity).toBe(18);
+            expect(Math.round(looser.peakResidentBytes / MIB * 10) / 10).toBe(673.0);
             expect(looser.overrideSource).toBe('override');
         });
 

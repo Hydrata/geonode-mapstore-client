@@ -131,7 +131,7 @@
  *      storedChunkBytes 6,786,150 B; the affordable count (24) is clamped by
  *      MAX_CHUNKS_PER_QUANTITY to 3 -> cacheMaxBytes 61,075,350 B (58.2 MiB);
  *      (post-TASK-2984 at a 400 MiB budget this store still plans 3: the
- *      window budget is min(400 - 566, 440) MiB, i.e. negative, so deepN
+ *      window budget is min(400 - 680, 440) MiB, i.e. negative, so deepN
  *      clamps to the structural floor and the monotone max() returns 3.)
  *      radius 1, ahead 1
  *      -> peak 400,275,362 B = 381.7 MiB   <= 400 MiB budget.
@@ -216,21 +216,49 @@ export const APP_BASELINE_FLOOR_BYTES = 280 * 1024 * 1024;
 /**
  * The ADDITIVE allowance for everything the plan does not price: decode
  * transients, the reprojection worker's copies, GPU driver allocations and
- * MapStore's own retained state. Operator ruling Q2=B, on the NET-OF-BASELINE
- * basis: the maximum over the W0.4 legs that reached ready and survived of
- * (peak heap − idle baseline − plan.peakResidentBytes) = 566.0 MiB on
- * 741_410_1328_chunk2 @cap3072 (1221.1 − 215.1 − 440.0), then 381.8 on
- * chunk-2 @far uncapped, then 180.1 on 1412 @cap3072.
+ * MapStore's own retained state. Measured NET OF THE IDLE BASELINE, i.e.
+ * (peak heap − idle baseline − plan.peakResidentBytes).
  *
- * TWO WARNINGS:
- *  (i) IT IS A LOWER BOUND. Every leg that produced it ran HEAD's 3-chunk
- *      window, so no measurement of a DEEPER window has fed it yet.
+ * OPERATOR RULING 2026-09-08, decision `2026-09-08-w1-e-overrun`: 680 MiB,
+ * flat. It SUPERSEDES the 566.0 MiB of ruling Q2=B, which was the maximum of
+ * the W0.4 sample (741_410_1328_chunk2 @cap3072, 1221.1 − 215.1 − 440.0).
+ *
+ * WHY IT ROSE, and this is the part that settles attribution: TASK-2984's
+ * AC15 re-measured that same leg on the shipped rule and got 589.3 and
+ * 597.4 MiB net — over 566 on BOTH required runs. A third run of the SAME
+ * leg with playbackMemoryPolicy.js and playbackEpics.js REVERTED to HEAD
+ * (gmc 126b4ab28) burned 664.1 MiB net — the WORST of the three, on a
+ * bit-identical 440.0 MiB plan. So the over-run is a property of the shipped
+ * client on the chunk-2 store, NOT of the deepening rule this module adds.
+ * 680 covers every observation on record, the HEAD control included.
+ *
+ * WHY NOT HIGHER. Breakeven is 694.3 MiB: 11 of 11 chunks of 813_417_1412
+ * need a 105.673 MiB window budget, so 800 − 105.673 = 694.3 is the largest E
+ * at which the epic's headline (the whole 11-chunk store at the shipped
+ * 800 MiB default) survives. 680 keeps it with 14.3 MiB of margin, and if a
+ * future measurement pushes E past 694 the AC2 scale table fails loudly
+ * rather than degrading silently.
+ *
+ * NO OTHER CONSTANT MOVED. No leg died (capVerdict PASS on the 1412 leg,
+ * INCONCLUSIVE and never DEAD on every chunk-2 leg, peak cgroup 2231.9 MiB
+ * under a 3072 MiB cap), so PLAN_UNCAP_MAX_PEAK_BYTES stays at 440 MiB and
+ * APP_BASELINE_FLOOR_BYTES stays at 280 MiB.
+ *
+ * THREE WARNINGS:
+ *  (i) IT IS A LOWER BOUND. Every W0.4 leg that fed the original fit ran
+ *      HEAD's 3-chunk window, so no measurement of a DEEPER window has fed it.
  *  (ii) DO NOT MIX THE BASES. The `excess` column of the W0.4 report prints
  *      the RAW excess (baseline included), 781.1 MiB for the same leg. This
  *      constant is net; a raw number compared against it reads as an over-run
  *      on legs that have already passed.
+ *  (iii) IT IS FITTED TO THE MAXIMUM OF A NOISY SAMPLE, so it can only ever
+ *      rise. The measured spread on ONE configuration is 381.8–664.1 MiB,
+ *      i.e. 282 MiB. Re-shaping E as `base + fixedResidencyBytes` was
+ *      considered and NOT taken (it does not reduce the variance and is
+ *      fitted to 8 points across 2 shapes); revisit it when TASK-3025's
+ *      runtime override yields prod telemetry across more shapes.
  */
-export const PLAN_TRANSIENT_EXCESS_BYTES = 566 * 1024 * 1024;
+export const PLAN_TRANSIENT_EXCESS_BYTES = 680 * 1024 * 1024;
 
 /**
  * A hard ceiling on the PLANNED peak — the second, independent bound in
