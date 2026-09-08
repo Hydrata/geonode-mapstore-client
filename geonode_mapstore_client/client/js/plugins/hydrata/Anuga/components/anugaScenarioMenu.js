@@ -108,6 +108,15 @@ export const ANUGA_RESULTS_PLAYBACK_LAYER_ID = 'anuga-results-playback';
  * `deferredBuildMaxWaitMs` prop — there is no fake-timer library in this
  * client's test rig, so the bound has to be injectable for its spec to be
  * anything but a real multi-second wait.
+ *
+ * ONE BOUND PER HELD SCENARIO (re-verifier, blocking). Each entry in
+ * `pendingDeferredBuilds` owns its own timer, and nothing that happens to
+ * another scenario clears or re-aims it. The bound also runs from the FIRST
+ * held click on that scenario and is NOT restarted by a second one, so the
+ * guarantee it buys is exactly: a held Build click is honoured within
+ * DEFERRED_BUILD_MAX_WAIT_MS of being made. (When this was a single shared
+ * timer, arming a deferral for a second scenario clearTimeout()'d the first
+ * one's bound along with its intent, and that first click was lost outright.)
  */
 export const DEFERRED_BUILD_MAX_WAIT_MS = 10000;
 
@@ -555,16 +564,26 @@ class AnugaScenarioMenuClass extends React.Component {
       this.pendingOptionalInputsFocusFieldId = null;
       // TASK-2268 — the Required analog, read by handleRequiredExpanded.
       this.pendingRequiredFocusFieldId = null;
-      // TASK-2826 (epic 2815 W5, ruling d92) — the deferred-build intent:
-      // {scenarioId, runAfterBuild} while a Build click is being held for an
-      // in-flight field commit, else null. Deliberately NOT React state (same
-      // rationale as the three pending*FocusFieldId fields above): nothing
-      // renders off it, it must be readable and clearable SYNCHRONOUSLY from
+      // TASK-2826 (epic 2815 W5, ruling d92) — the deferred-build intents,
+      // ONE PER SCENARIO: Map<scenarioId, {scenarioId, runAfterBuild, timer}>,
+      // an entry per Build click currently being HELD for that scenario's
+      // in-flight field commit. Deliberately NOT React state (same rationale
+      // as the three pending*FocusFieldId fields above): nothing renders off
+      // it, it must be readable and clearable SYNCHRONOUSLY from
       // componentWillUnmount — where setState is illegal — and its resolution
       // is driven by a PROP change (the in-flight signal flipping false), which
       // already re-renders and runs componentDidUpdate on its own.
-      this.pendingDeferredBuild = null;
-      this.deferredBuildTimer = null;
+      //
+      // A MAP, not the single slot this started as (re-verifier, blocking):
+      // once the note-2 fix made a held build legitimately survive a selection
+      // move, the slot could still be OCCUPIED when a second Build landed on a
+      // DIFFERENT scenario — and arming the second overwrote the first's intent
+      // AND clearTimeout()'d its bound, so the first click was discarded with no
+      // build, no toast and no timeout. That is the silently-swallowed click
+      // ruling d92's bounded wait exists to prevent. Each entry now owns its own
+      // bound and its own runAfterBuild intent, and each is released only by
+      // ITS OWN scenario's settle, ITS OWN bound, or the unmount flush.
+      this.pendingDeferredBuilds = new Map();
   }
 
   componentDidMount() {
@@ -606,45 +625,77 @@ class AnugaScenarioMenuClass extends React.Component {
   // handed to Redux WITHOUT localOwned, so runAfterBuildEpic (pollingEpics.js)
   // resolves it — exactly the split dispatchBuild's save branch already uses
   // for an intent that outlives this component (TASK-2890).
+  //
+  // EVERY held entry is flushed, not just one (re-verifier, blocking): with a
+  // map there can legitimately be more than one, and each is a click the user
+  // made. The Redux runAfterBuild mirror is itself keyed per scenario
+  // (scenariosReducer.js ARM_RUN_AFTER_BUILD, :471-491), so two flushed
+  // Build-and-Runs produce two independent arms rather than one overwriting
+  // the other.
   componentWillUnmount() {
-      this.fireDeferredBuild('unmount', false);
-      if (this.deferredBuildTimer) {
-          clearTimeout(this.deferredBuildTimer);
-          this.deferredBuildTimer = null;
-      }
+      this.flushDeferredBuilds('unmount');
   }
 
-  // TASK-2826 — arm the deferral. A second Build click while one is already
-  // held replaces it rather than stacking a second build; runAfterBuild is
-  // OR-ed so a plain Build following a Build-and-Run cannot downgrade the
-  // pending run intent.
+  // TASK-2826 — release EVERY held deferral, oldest first (Map preserves
+  // insertion order). fireDeferredBuild clears each entry's own timer, so no
+  // separate timer sweep is needed. The key list is SNAPSHOT first because
+  // fireDeferredBuild mutates the map as it goes.
+  flushDeferredBuilds = (reason) => {
+      const ids = Array.from(this.pendingDeferredBuilds.keys());
+      ids.forEach((scenarioId) => this.fireDeferredBuild(scenarioId, reason, false));
+  };
+
+  // TASK-2826 — arm a deferral for ONE scenario. Entries for other scenarios
+  // are never touched: that cross-scenario overwrite was the re-verifier's
+  // blocking defect (a build held for A was discarded, unbounded and
+  // unsurfaced, the moment a deferral was armed for B).
+  //
+  // A SECOND Build click on a scenario that ALREADY has one held is NOT a
+  // second entry and NOT a second build. It is folded into the existing entry:
+  //   - exactly one build still fires when that entry releases;
+  //   - `runAfterBuild` is OR-ed in, so a plain Build following a Build-and-Run
+  //     cannot downgrade the pending run intent (and a Build-and-Run following
+  //     a plain Build upgrades it);
+  //   - the BOUND IS NOT RESTARTED. It is measured from the FIRST held click,
+  //     so the guarantee is "a held click is honoured within
+  //     DEFERRED_BUILD_MAX_WAIT_MS of being made". Restarting it (which the
+  //     single-slot version did) would let an impatient user who re-clicks
+  //     every few seconds extend their own wait without limit — the dead-button
+  //     symptom the bound exists to rule out.
   armDeferredBuild = (scenarioId, runAfterBuild) => {
-      const existing = this.pendingDeferredBuild;
-      const keepRun = !!(existing && existing.scenarioId === scenarioId && existing.runAfterBuild);
-      this.pendingDeferredBuild = {scenarioId, runAfterBuild: runAfterBuild || keepRun};
-      if (this.deferredBuildTimer) clearTimeout(this.deferredBuildTimer);
+      const existing = this.pendingDeferredBuilds.get(scenarioId);
+      if (existing) {
+          existing.runAfterBuild = existing.runAfterBuild || !!runAfterBuild;
+          trackEvent('button', 'click', 'anuga-scenario-menu-build-deferred-again');
+          return;
+      }
       const bound = typeof this.props.deferredBuildMaxWaitMs === 'number'
           ? this.props.deferredBuildMaxWaitMs
           : DEFERRED_BUILD_MAX_WAIT_MS;
-      this.deferredBuildTimer = setTimeout(() => {
-          this.deferredBuildTimer = null;
-          this.fireDeferredBuild('bound-elapsed');
+      const entry = {scenarioId, runAfterBuild: !!runAfterBuild, timer: null};
+      this.pendingDeferredBuilds.set(scenarioId, entry);
+      entry.timer = setTimeout(() => {
+          entry.timer = null;
+          this.fireDeferredBuild(scenarioId, 'bound-elapsed');
       }, bound);
       trackEvent('button', 'click', 'anuga-scenario-menu-build-deferred');
   };
 
-  // TASK-2826 — release the held build. `localResolver` is false only from
-  // componentWillUnmount, where this component cannot resolve the deferred run
-  // itself (see componentWillUnmount above).
-  fireDeferredBuild = (reason, localResolver = true) => {
-      const pending = this.pendingDeferredBuild;
+  // TASK-2826 — release ONE held build, identified by the scenario it is held
+  // for. `localResolver` is false only from the unmount flush, where this
+  // component cannot resolve the deferred run itself (see componentWillUnmount
+  // above). The entry is removed BEFORE anything is dispatched, so the
+  // re-entrant componentDidUpdate that a dispatch/setState can provoke finds
+  // nothing left to fire and this can never double-dispatch.
+  fireDeferredBuild = (scenarioId, reason, localResolver = true) => {
+      const pending = this.pendingDeferredBuilds.get(scenarioId);
       if (!pending) return;
-      this.pendingDeferredBuild = null;
-      if (this.deferredBuildTimer) {
-          clearTimeout(this.deferredBuildTimer);
-          this.deferredBuildTimer = null;
+      this.pendingDeferredBuilds.delete(scenarioId);
+      if (pending.timer) {
+          clearTimeout(pending.timer);
+          pending.timer = null;
       }
-      const {scenarioId, runAfterBuild} = pending;
+      const {runAfterBuild} = pending;
       if (this.props.buildScenarioExplicit) {
           this.props.buildScenarioExplicit(scenarioId);
       }
@@ -676,33 +727,53 @@ class AnugaScenarioMenuClass extends React.Component {
 
   // TASK-2826 — the componentDidUpdate half of the deferral. The in-flight
   // signal flipping false IS a prop change, so this is reached on the same
-  // tick COMMIT_ANUGA_SCENARIO_FIELD_SETTLED lands.
+  // tick COMMIT_ANUGA_SCENARIO_FIELD_SETTLED lands. EVERY held entry is
+  // re-examined on every update, each against ITS OWN scenario's state — one
+  // scenario's settle can neither release nor retain another's.
   maybeDispatchDeferredBuild = () => {
-      const pending = this.pendingDeferredBuild;
-      if (!pending) return;
+      if (this.pendingDeferredBuilds.size === 0) return;
       const {selectedScenario} = this.props;
-      const stillSelected = !!selectedScenario && selectedScenario.id === pending.scenarioId;
-      if (stillSelected) {
-          if (this.props.selectedScenarioCommitInFlight) return;
-          this.fireDeferredBuild('commit-settled');
-          return;
-      }
-      // The SELECTION HAS MOVED (the user clicked another scenario in the rail
-      // while this build was being held). selectedScenarioCommitInFlight now
-      // answers for a DIFFERENT scenario, so it cannot be consulted — but the
-      // deferred scenario's own commit may very well still be on the wire.
-      //
-      // Verifier note 2: this used to fire the held build unconditionally at
-      // this point. That released it mid-PATCH, so the build POST could be
-      // composed server-side from pre-PATCH inputs — the stale-input race the
-      // deferral exists to avoid (no data loss, since no save is dispatched,
-      // but the wrong build). AC1(b) says defer until THAT commit settles, so
-      // ask the raw map about THAT scenario. commitsInFlight is a mapped prop,
-      // so the settle that empties its bucket is itself the prop change that
-      // re-enters this method; and armDeferredBuild's bound is already ticking,
-      // so a selection move can never strand the build either way.
-      if (this.deferredScenarioCommitInFlight(pending.scenarioId)) return;
-      this.fireDeferredBuild('selection-moved');
+      const selectedId = selectedScenario ? selectedScenario.id : null;
+      // SNAPSHOT: fireDeferredBuild mutates the map (and its setState can
+      // re-enter this method), so iterate a copy. An entry released by that
+      // re-entrant pass is already gone from the map, and fireDeferredBuild's
+      // lookup then no-ops — so nothing here can fire twice.
+      Array.from(this.pendingDeferredBuilds.values()).forEach((pending) => {
+          const {scenarioId} = pending;
+          if (selectedId === scenarioId) {
+              if (this.props.selectedScenarioCommitInFlight) return;
+              this.fireDeferredBuild(scenarioId, 'commit-settled');
+              return;
+          }
+          // The SELECTION HAS MOVED off this entry (the user clicked another
+          // scenario in the rail while this build was being held, or this
+          // build was armed for a scenario that is not the selected one).
+          // selectedScenarioCommitInFlight now answers for a DIFFERENT
+          // scenario, so it cannot be consulted — but the deferred scenario's
+          // own commit may very well still be on the wire.
+          //
+          // Verifier note 2: this used to fire the held build unconditionally
+          // at this point. That released it mid-PATCH, so the build POST could
+          // be composed server-side from pre-PATCH inputs — the stale-input
+          // race the deferral exists to avoid (no data loss, since no save is
+          // dispatched, but the wrong build). AC1(b) says defer until THAT
+          // commit settles, so ask the raw map about THAT scenario.
+          // commitsInFlight is a mapped prop, so the settle that empties its
+          // bucket is itself the prop change that re-enters this method.
+          //
+          // WHAT IS TRUE ABOUT STRANDING (re-verifier, blocking — the earlier
+          // claim here, "a selection move can never strand the build either
+          // way", was FALSIFIED and is corrected): the entry keeps its OWN
+          // bound, which is still ticking and is never cleared or re-aimed by
+          // anything happening to another scenario, and it is released only by
+          // its own settle, its own bound, or the unmount flush. When these
+          // were a single slot, arming a deferral for a second scenario
+          // overwrote this entry AND clearTimeout()'d exactly that bound, so
+          // the held build really could be — and was — stranded, dropped with
+          // no build, no bound and no toast.
+          if (this.deferredScenarioCommitInFlight(scenarioId)) return;
+          this.fireDeferredBuild(scenarioId, 'selection-moved');
+      });
   };
 
   // UAT #8 fix — resolve the freshest copy of a scenario by id from the live

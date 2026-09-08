@@ -2950,4 +2950,340 @@ describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)'
         expect(h.saveCalls[0]._tempId).toBe('new_1');
         expect(h.buildCalls).toEqual([]);
     });
+
+    // ---- The CROSS-SCENARIO STRAND (re-verifier, blocking) and the rest of
+    // the deferral's release contract ---------------------------------------
+    //
+    // f4d32f1b9 correctly stopped a selection move from releasing a held build
+    // early. That made it possible, for the first time, for the deferral slot
+    // to still be OCCUPIED when a second Build click landed — and the slot was
+    // SINGULAR: arming for B overwrote A's intent and clearTimeout()'d A's
+    // bound, so A's click was discarded with no build, no bound, no toast and
+    // no trace, taking its Build-and-Run run intent with it. Exactly the
+    // silently-swallowed click ruling d92's bounded wait exists to prevent.
+    //
+    // The deferrals are now a Map keyed by scenarioId, each entry owning its
+    // own timer and its own runAfterBuild intent. The four release paths below
+    // are the ones a map refactor has to get right, and until now every one of
+    // them was proven only by throwaway verifier specs.
+    //
+    // The `moved` overrides are the "user clicks another scenario in the rail"
+    // gesture: both scenarios in `scenarios`, 999 selected.
+    const movedTo999 = () => ({
+        scenarios: [savedScenario(), otherScenario()],
+        selectedScenario: otherScenario()
+    });
+
+    // TWO-CLICK SPECS MUST USE THE OTHER BUTTON, or they grade nothing.
+    // ScenarioHeaderActions debounces each action button for ACTION_DEBOUNCE_MS
+    // (2000 ms, scenarioHeaderActions.js:132/:205-211/:239-240) and renders it
+    // `disabled` for that window — and the debounce lives in the strip's own
+    // useState with NO `key` on the element (anugaScenarioMenu.js:1558), so
+    // SELECTING ANOTHER SCENARIO DOES NOT RESET IT. Clicking the same button
+    // twice inside 2 s is therefore a no-op that would make a two-click spec
+    // silently vacuous. The keys are independent, so Build-and-Run then Build
+    // (the gesture used below) lands immediately — and that is also how the
+    // cross-scenario strand is reachable in the product without waiting 2 s.
+    // clickLive asserts the button really is live before clicking it, so the
+    // vacuum cannot come back unnoticed.
+    const clickLive = (selector) => {
+        const el = container.querySelector(selector);
+        expect(el).toExist();
+        expect(el.disabled).toBe(false);
+        el.click();
+    };
+
+    // An expect() that throws inside a setTimeout never reaches done(), so the
+    // spec reports a bare "Timeout of 2000ms exceeded" instead of the actual
+    // mismatch — useless to whoever is reading a future regression. Route the
+    // failure to done(err) so the real diff is what gets printed.
+    const settle = (done, assertions) => {
+        try {
+            assertions();
+            done();
+        } catch (err) {
+            done(err);
+        }
+    };
+
+    // The same for an INTERMEDIATE timed step: surface a throw through done(),
+    // but do not finish the spec.
+    const step = (done, actions) => {
+        try {
+            actions();
+        } catch (err) {
+            done(err);
+        }
+    };
+
+    it('(strand) a build held for scenario A still fires exactly once when A own commit settles, even though a deferral was armed for scenario B in between — and B fires too [RED AT f4d32f1b9: arming B overwrote A pending intent, observed buildCalls [999]]', () => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        // A = 417, Build-and-Run clicked while 417's field commit is on the wire.
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.buildCalls).toEqual([]);
+
+        // The user clicks scenario 999 in the rail. 417's PATCH is still on the
+        // wire, so its build stays held (that is f4d32f1b9's note-2 fix).
+        const moved = movedTo999();
+        h.render(savedScenario(), {
+            ...moved,
+            selectedScenarioCommitInFlight: false,
+            commitsInFlight: {417: 1}
+        });
+        expect(h.buildCalls).toEqual([]);
+
+        // B = 999. The user edits a field on it (999's commit opens) and clicks
+        // Build there too, so a SECOND deferral is armed while A's is held.
+        h.render(savedScenario(), {
+            ...moved,
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1, 999: 1}
+        });
+        clickLive('.sv-scenario-action-build');
+        expect(h.buildCalls).toEqual([]);
+        expect(h.saveCalls.length).toBe(0);
+
+        // 417's PATCH lands. A's build must fire — arming B may not have
+        // discarded it.
+        h.render(savedScenario(), {
+            ...moved,
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {999: 1}
+        });
+        expect(h.buildCalls).toEqual([417]);
+        // …and A's Build-and-Run run intent went with it, not with B.
+        expect(h.armCalls.length).toBe(1);
+        expect(h.armCalls[0].sid).toBe(417);
+        expect(h.armCalls[0].opts).toEqual({localOwned: true});
+
+        // 999's PATCH lands: B fires too, exactly once, and A is not
+        // re-dispatched. B was a plain Build, so it arms no run.
+        h.render(savedScenario(), {
+            ...moved,
+            selectedScenarioCommitInFlight: false,
+            commitsInFlight: {}
+        });
+        expect(h.buildCalls).toEqual([417, 999]);
+        expect(h.armCalls.length).toBe(1);
+        expect(h.saveCalls.length).toBe(0);
+
+        // A further unrelated re-render adds neither.
+        h.render(savedScenario(), {...moved, selectedScenarioCommitInFlight: false, commitsInFlight: {}});
+        expect(h.buildCalls).toEqual([417, 999]);
+    });
+
+    it('(strand) each held deferral keeps its OWN bound: A bound elapses and releases A even though a deferral for B was armed after it [RED AT f4d32f1b9: arming B clearTimeout()d A bound, so A never fired at all]', (done) => {
+        // Both entries take the same injected bound, so arming B ~60 ms after A
+        // staggers the two timers and the order of buildCalls is deterministic:
+        // A's bound started first, so A fires first. The final assertion waits
+        // well past both (400 ms vs bounds at ~100 ms and ~160 ms).
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 100
+        });
+        h.render(savedScenario());
+        clickLive('.sv-scenario-action-build-run');
+        expect(h.buildCalls).toEqual([]);
+
+        const moved = movedTo999();
+        setTimeout(() => step(done, () => {
+            // Selection moves to 999, whose own commit is now on the wire, and
+            // a second Build is clicked there (the OTHER button — see clickLive
+            // above). Neither PATCH ever settles: the bounds are the only thing
+            // that can release these two builds.
+            h.render(savedScenario(), {
+                ...moved,
+                selectedScenarioCommitInFlight: true,
+                commitsInFlight: {417: 1, 999: 1}
+            });
+            clickLive('.sv-scenario-action-build');
+        }), 60);
+
+        setTimeout(() => settle(done, () => {
+            expect(h.buildCalls).toEqual([417, 999]);
+            expect(h.saveCalls.length).toBe(0);
+            // A's bound carried A's run intent; B was a plain Build.
+            expect(h.armCalls.length).toBe(1);
+            expect(h.armCalls[0].sid).toBe(417);
+        }), 400);
+    });
+
+    it('(strand) componentWillUnmount FLUSHES EVERY held deferral, not just the most recent one [RED AT f4d32f1b9: only the last-armed survived to be flushed]', () => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        clickLive('.sv-scenario-action-build-run');
+
+        const moved = movedTo999();
+        h.render(savedScenario(), {
+            ...moved,
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1, 999: 1}
+        });
+        clickLive('.sv-scenario-action-build');
+        expect(h.buildCalls).toEqual([]);
+
+        // One Hydraulics-tab click (anugaContainer.js:283-290, :417-418).
+        ReactDOM.unmountComponentAtNode(container);
+
+        expect(h.buildCalls).toEqual([417, 999]);
+        // 417's run is handed to runAfterBuildEpic WITHOUT localOwned — no
+        // local machine survives the unmount to resolve it. (The Redux mirror
+        // is itself keyed per scenario, scenariosReducer.js
+        // ARM_RUN_AFTER_BUILD :471-491, so concurrent flushed runs would not
+        // overwrite one another.) 999 was a plain Build and arms nothing.
+        expect(h.armCalls.length).toBe(1);
+        expect(h.armCalls[0].sid).toBe(417);
+        expect(h.armCalls[0].opts).toBe(undefined);
+        expect(h.saveCalls.length).toBe(0);
+    });
+
+    it('(strand) a SECOND Build click on a scenario that ALREADY has a deferral held folds into that entry: one build on release, and a plain Build cannot downgrade a pending run [NO-REGRESSION: green at f4d32f1b9 by design — the single slot already OR-ed the run for the same scenario; it guards the fold the map has to keep]', () => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        clickLive('.sv-scenario-action-build-run');
+        // An impatient second click, on the plain Build — the other debounce
+        // key, so it lands immediately (see clickLive above).
+        clickLive('.sv-scenario-action-build');
+        expect(h.buildCalls).toEqual([]);
+
+        h.render(savedScenario(), {selectedScenarioCommitInFlight: false, commitsInFlight: {}});
+
+        // ONE build, not two…
+        expect(h.buildCalls).toEqual([417]);
+        // …and the run intent from the FIRST click survived the plain Build.
+        expect(h.armCalls.length).toBe(1);
+        expect(h.armCalls[0].sid).toBe(417);
+        expect(h.armCalls[0].opts).toEqual({localOwned: true});
+        expect(h.saveCalls.length).toBe(0);
+    });
+
+    it('(strand) …and that second click does NOT restart the entry bound: the bound is measured from the FIRST held click, so re-clicking cannot extend the wait [RED AT f4d32f1b9: the bound was re-armed from the second click]', (done) => {
+        // Deliberately generous margins for a timing spec: the bound is 400 ms
+        // and the second click lands at ~250 ms, so the correct behaviour fires
+        // at ~400 ms and the f4d32f1b9 behaviour at ~650 ms. The assertion at
+        // 560 ms sits 160 ms after the first and 90 ms before the second.
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 400
+        });
+        h.render(savedScenario());
+        clickLive('.sv-scenario-action-build-run');
+        expect(h.buildCalls).toEqual([]);
+
+        setTimeout(() => step(done, () => {
+            // The plain Build — the other debounce key, so it lands (250 ms is
+            // well inside ACTION_DEBOUNCE_MS; see clickLive above).
+            clickLive('.sv-scenario-action-build');
+            expect(h.buildCalls).toEqual([]);
+        }), 250);
+
+        setTimeout(() => settle(done, () => {
+            expect(h.buildCalls).toEqual([417]);
+            expect(h.armCalls.length).toBe(1);
+            expect(h.armCalls[0].sid).toBe(417);
+            expect(h.saveCalls.length).toBe(0);
+        }), 560);
+    });
+
+    it('(release) the BOUND still fires AFTER the selection has moved off the deferred scenario, whose PATCH never settles [NO-REGRESSION: green at f4d32f1b9 by design — a no-regression guard cannot be made red without faking it]', (done) => {
+        // The combination f4d32f1b9's note-2 fix created and never specced:
+        // held across a selection move AND released by nothing but the bound.
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 40
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+
+        h.render(savedScenario(), {
+            ...movedTo999(),
+            selectedScenarioCommitInFlight: false,
+            // 417's PATCH is hung: its bucket is never emptied.
+            commitsInFlight: {417: 1}
+        });
+        expect(h.buildCalls).toEqual([]);
+
+        setTimeout(() => settle(done, () => {
+            expect(h.buildCalls).toEqual([417]);
+            expect(h.armCalls.length).toBe(1);
+            expect(h.armCalls[0].sid).toBe(417);
+            expect(h.saveCalls.length).toBe(0);
+        }), 200);
+    });
+
+    it('(release) an UNMOUNT while holding a build for a scenario that is no longer the selected one still flushes it [NO-REGRESSION: green at f4d32f1b9 by design]', () => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        h.render(savedScenario(), {
+            ...movedTo999(),
+            selectedScenarioCommitInFlight: false,
+            commitsInFlight: {417: 1}
+        });
+        expect(h.buildCalls).toEqual([]);
+
+        ReactDOM.unmountComponentAtNode(container);
+
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.armCalls.length).toBe(1);
+        expect(h.armCalls[0].sid).toBe(417);
+        expect(h.armCalls[0].opts).toBe(undefined);
+        expect(h.saveCalls.length).toBe(0);
+    });
+
+    it('(release) the DEFERRED scenario being DELETED from the store mid-deferral still releases its build exactly once — the click is not silently swallowed [NO-REGRESSION: green at f4d32f1b9 by design]', () => {
+        // deleteAnugaScenarioEpic (crudEpics.js:188) has no reducer case; the
+        // scenario simply stops appearing in `scenarios` on the next refresh
+        // and the selection moves off it, while its own settle empties its
+        // commitsInFlight bucket. DECISION (unchanged by the map): the held
+        // build is RELEASED, not dropped. A POST for a scenario the server no
+        // longer has fails visibly through the normal build-error path, which
+        // is the outcome AC5 asks for — never a swallowed click.
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(h.buildCalls).toEqual([]);
+
+        // 417 is gone from the list entirely and 999 is selected.
+        const deleted = {
+            scenarios: [otherScenario()],
+            selectedScenario: otherScenario(),
+            selectedScenarioCommitInFlight: false,
+            commitsInFlight: {}
+        };
+        h.render(savedScenario(), deleted);
+
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.saveCalls.length).toBe(0);
+        // A plain Build arms no run, and the vanished scenario arms none either.
+        expect(h.armCalls.length).toBe(0);
+
+        // Later ticks cannot re-dispatch it.
+        h.render(savedScenario(), deleted);
+        expect(h.buildCalls).toEqual([417]);
+    });
 });
