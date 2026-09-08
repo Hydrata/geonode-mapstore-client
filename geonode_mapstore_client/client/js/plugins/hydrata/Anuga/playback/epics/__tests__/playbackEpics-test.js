@@ -925,6 +925,122 @@ describe('playbackEpics', () => {
             subject.next(playbackManifestLoaded({ runId: 1 })); // any trigger type in the ofType list
         });
 
+        /*
+         * TASK-2985 (W1.2, epic 2981) — ONE WINDOW, TWO USES, and the whole
+         * plan actually gets asked for.
+         *
+         * These two drive the epic against a SYNTHETIC 11-chunk store with a
+         * counting fetchImpl, because the shared FIXTURE_MANIFEST store has
+         * only two chunks and a 2-chunk store cannot tell planWindow from
+         * getPrefetchWindow.
+         */
+        function synthChunkUrls(totalChunks) {
+            const chunkUrls = {};
+            ['depth', 'x_velocity', 'y_velocity'].forEach((q) => {
+                for (let t = 0; t < totalChunks; t++) {
+                    chunkUrls[`${q}/c/${t}/0`] = `${q}/c/${t}/0`;
+                }
+            });
+            return chunkUrls;
+        }
+
+        function countingFetcher(totalChunks, calls, memoryPlan) {
+            return new PlaybackChunkFetcher({
+                manifest: { chunk_urls: synthChunkUrls(totalChunks), quantization: FIXTURE_MANIFEST.quantization },
+                memoryPlan,
+                fetchImpl: (url) => {
+                    calls.push(url);
+                    return Promise.resolve(new Response(new ArrayBuffer(8), { status: 200 }));
+                },
+                decodeImpl: () => Promise.resolve(new Uint16Array(8))
+            });
+        }
+
+        function stateFor({ totalChunks, chunksPerQuantity, bufferWindowRadius }) {
+            const loaded = playbackControllerReducer(
+                playbackControllerReducer(createInitialPlaybackState(), playbackInit(1, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 1, manifest: FIXTURE_MANIFEST, mesh: { nodeX: new Float32Array(FIXTURE_MESH.nNode) },
+                    time: FIXTURE_PHYSICAL.time, nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode,
+                    chunkLengthT: 10, totalChunks, quantization: FIXTURE_MANIFEST.quantization
+                })
+            );
+            // bufferWindowAhead is chunksPerQuantity - 1 - radius by
+            // construction in playbackMemoryPolicy, which is exactly how the
+            // epic derives the slot count back out of the reducer's state.
+            return {
+                ...loaded,
+                bufferWindowRadius,
+                bufferWindowAhead: chunksPerQuantity - 1 - bufferWindowRadius
+            };
+        }
+
+        it('AC1 — after MANIFEST_LOADED and no PLAY, the requested set is the WHOLE plan: 11 of 11', (done) => {
+            // The REAL post-2984 plan for the 1412 store at the module's own
+            // default 800 MiB budget: 11 slots, radius 1, ahead 9.
+            const plan = computePlaybackMemoryPlan({
+                nNode: 145824, nFace: 290407, chunkLengthT: 10, totalChunks: 11
+            });
+            expect(plan.chunksPerQuantity).toBe(11);
+            expect(plan.bufferWindowRadius).toBe(1);
+
+            const calls = [];
+            const fetcher = countingFetcher(11, calls, plan);
+            fetcherRegistry.set(1, fetcher);
+            const store = makeStore(stateFor({
+                totalChunks: 11, chunksPerQuantity: 11, bufferWindowRadius: 1
+            }));
+            const { subject, action$ } = makeActionsSubject();
+            const sub = playbackBufferEpic(action$, store).subscribe(() => {});
+            subject.next(playbackManifestLoaded({ runId: 1 }));
+            setTimeout(() => {
+                sub.unsubscribe();
+                try {
+                    const chunks = Array.from(new Set(calls.map((u) => Number(u.split('/')[2]))))
+                        .sort((a, b) => a - b);
+                    // THE RED, verified against the real module before this
+                    // task: getPrefetchWindow(0, 11, 1, {ahead: 9}) CLIPS to
+                    // [0..9] — 10 of 11, one chunk short, because the
+                    // behind-slot at centre 0 is spent on nothing.
+                    expect(chunks).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+                    expect(chunks.length).toBe(11);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 400);
+        });
+
+        it('AC3 — with a 3-slot plan the pre-play window is [0,1,2]; the GUARD sees the same array the fill does', (done) => {
+            // ONE WINDOW, TWO USES. If the already-buffered guard were left on
+            // getPrefetchWindow it would return [0,1], see both resident and
+            // emit Observable.empty() — so this AC would pass in the unit test
+            // and fail in the product. Feeding the guard [0,1,2] while the
+            // cache holds [0,1] is exactly that discrimination.
+            const plan = { chunksPerQuantity: 3, bufferWindowRadius: 1, cacheMaxBytes: 4096 };
+            const calls = [];
+            const fetcher = countingFetcher(11, calls, plan);
+            fetcherRegistry.set(1, fetcher);
+            const store = makeStore({
+                ...stateFor({ totalChunks: 11, chunksPerQuantity: 3, bufferWindowRadius: 1 }),
+                bufferedChunks: [0, 1]
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const sub = playbackBufferEpic(action$, store).subscribe(() => {});
+            subject.next(playbackManifestLoaded({ runId: 1 }));
+            setTimeout(() => {
+                sub.unsubscribe();
+                try {
+                    const chunks = Array.from(new Set(calls.map((u) => Number(u.split('/')[2]))))
+                        .sort((a, b) => a - b);
+                    expect(chunks).toEqual([0, 1, 2]);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 400);
+        });
+
         it('is a no-op once the required window is already buffered', (done) => {
             const store = makeStore({ ...loadedPlaybackState(), bufferedChunks: [0, 1] });
             const { subject, action$ } = makeActionsSubject();

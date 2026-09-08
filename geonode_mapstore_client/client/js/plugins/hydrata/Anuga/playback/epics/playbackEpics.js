@@ -65,7 +65,7 @@ import { CLICK_ON_MAP } from '@mapstore/framework/actions/map';
 import { changeMapInfoState } from '@mapstore/framework/actions/mapInfo';
 import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 
-import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
+import { fetchPlaybackManifest, PlaybackChunkFetcher, planWindow } from '../playbackChunkFetcher';
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame, loadPlaybackEnvelope } from '../loadPlaybackLayerOptions';
 import {
     QUANTITY_ARRAYS,
@@ -674,7 +674,22 @@ export function playbackBufferEpic(action$, store) {
         // for a window it then refuses to recognise as complete.
         const windowRadius = pb.bufferWindowRadius;
         const windowAhead = pb.bufferWindowAhead;
-        const window = fetcher.getPrefetchWindow(centerChunk, pb.totalChunks, windowRadius, { ahead: windowAhead });
+        // TASK-2985 (W1.2, epic 2981) — ONE WINDOW, TWO USES, and it is now
+        // planWindow rather than getPrefetchWindow.
+        //
+        // getPrefetchWindow CLIPS at both ends, so at centre 0 it spends the
+        // behind-slot on nothing: an 11-slot plan asked for [0..9], one chunk
+        // short of the store the budget had just paid for. planWindow ROLLS
+        // the window instead, so the plan's depth is what actually gets
+        // fetched. `chunksPerQuantity` is not on the reducer, but it is
+        // exactly radius + ahead + 1 by construction
+        // (playbackMemoryPolicy: bufferWindowAhead = chunksPerQuantity - 1 -
+        // bufferWindowRadius), so the epic derives it rather than reaching
+        // into the plan for it.
+        const window = planWindow(centerChunk, pb.totalChunks, {
+            chunksPerQuantity: windowRadius + windowAhead + 1,
+            bufferWindowRadius: windowRadius
+        });
         const alreadyBuffered = new Set(pb.bufferedChunks);
         if (window.every((c) => alreadyBuffered.has(c))) {
             return Rx.Observable.empty();
@@ -690,12 +705,24 @@ export function playbackBufferEpic(action$, store) {
         //
         // `merge` (not `forkJoin`) is the whole point — one emission per chunk,
         // in arrival order.
-        const chunkGroups = fetcher.prefetchWindowByChunk(
-            arrayConfigs, centerChunk, pb.totalChunks, { windowRadius, windowAhead }
-        );
-        return Rx.Observable.merge(
-            ...chunkGroups.map((group) => Rx.Observable.fromPromise(group.promise))
-        ).mergeMap((results) => {
+        //
+        // TASK-2985 — the fan-out is replaced by the fetcher's own fill queue:
+        // the SAME `window` array that fed the already-buffered guard above,
+        // filled forward from the playhead, at most two chunks (six requests)
+        // in flight, with playhead-distance eviction. The per-chunk promise
+        // shape is unchanged, so `merge` and the per-chunk announcement below
+        // are untouched.
+        const chunkGroups = fetcher.fillTowards(window, centerChunk, arrayConfigs, {
+            totalChunks: pb.totalChunks
+        });
+        // An EMPTY group list means nothing was missing — but the guard above
+        // only cleared us because `pb.bufferedChunks` disagreed with the cache,
+        // so we still have to reconcile the announced set or the state stays
+        // wrong for ever and this epic re-runs on every tick doing nothing.
+        const settled$ = chunkGroups.length
+            ? Rx.Observable.merge(...chunkGroups.map((group) => Rx.Observable.fromPromise(group.promise)))
+            : Rx.Observable.of([]);
+        return settled$.mergeMap((results) => {
             const errors = results.filter((r) => r.error);
             const actions = [];
             // TASK-2744 AC20 — report what the fetcher ACTUALLY holds, not the

@@ -51,6 +51,138 @@ import { QUANTITY_ARRAYS } from './playbackChunkShape';
 const defaultFetch = (...args) => fetch(...args);
 
 /**
+ * TASK-2985 (W1.2, epic 2981) — how many CHUNKS the fill queue runs at once.
+ * Three quantity arrays per chunk, so two chunks is six concurrent requests.
+ *
+ * THE BOUND IS ON QUEUE-ISSUED REQUESTS ONLY, never on the shared `_inflight`.
+ * playbackInitEpic's mesh load (a Promise.all of six static-array fetches),
+ * playbackEnvelopeFetchEpic and playbackSyncLayerEpic's per-frame
+ * loadPlaybackFrame all call fetchAndDecodeChunk OUTSIDE the queue and must
+ * not be throttled by it: the frame path is the one the user is waiting on.
+ */
+export const MAX_CONCURRENT_FILL_CHUNKS = 2;
+
+/** The single stable rejection every cancelled fill deferred carries. */
+export const FILL_CANCELLED_MESSAGE = 'playbackChunkFetcher: fill cancelled (run disposed)';
+
+/**
+ * The window the MEMORY PLAN buys, defined ONCE — TASK-2985 (W1.2, epic 2981).
+ *
+ * `plan.chunksPerQuantity` CONSECUTIVE indices starting at
+ *   start = clamp(centreChunk - plan.bufferWindowRadius,
+ *                 0, max(0, totalChunks - plan.chunksPerQuantity))
+ * and the whole store when it has fewer chunks than the plan has slots.
+ *
+ * IT REPLACES getPrefetchWindow AS THE PRODUCTION WINDOW. getPrefetchWindow
+ * spends `windowRadius` slots behind the playhead and CLIPS at both ends, so
+ * at centre 0 with an 11-slot plan it returns only 10 of the 11 chunks the
+ * budget just paid for — the behind-slot is spent on nothing. planWindow
+ * ROLLS the window instead of clipping it, so a plan that can hold the whole
+ * store holds the whole store.
+ *
+ * The behind-slot TASK-2984 computes (`bufferWindowRadius = min(1, floor(
+ * (chunksPerQuantity - 1) / 2))`) is still honoured wherever one exists — it
+ * is what makes a short scrub back a cache hit — it just cannot cost a slot
+ * at the start of the timeline any more.
+ *
+ * NOTE WHAT "WRAP" MEANS HERE, because it is easy to over-read (AC10):
+ * playback does NOT loop. PLAYBACK_TICK goes to PAUSED at end-of-timeline and
+ * nextTimestep is min(currentTimestep + 1, nTime - 1). The window ROLLS
+ * BACKWARD near the end of the timeline (centre 15 of 16 with 3 slots gives
+ * [13,14,15]); the playhead never wraps.
+ *
+ * @param {number} centreChunk the chunk the playhead is in
+ * @param {number} totalChunks
+ * @param {{chunksPerQuantity?: number, bufferWindowRadius?: number}} plan
+ * @returns {number[]} ascending, contiguous
+ */
+export function planWindow(centreChunk, totalChunks, plan) {
+    const total = totalChunks > 0 ? Math.floor(totalChunks) : 0;
+    if (total <= 0) {
+        return [];
+    }
+    const requested = plan && plan.chunksPerQuantity > 0 ? Math.floor(plan.chunksPerQuantity) : 1;
+    const slots = Math.min(total, Math.max(1, requested));
+    const radius = plan && plan.bufferWindowRadius > 0 ? Math.floor(plan.bufferWindowRadius) : 0;
+    const centre = centreChunk > 0 ? Math.floor(centreChunk) : 0;
+    const start = Math.min(Math.max(0, centre - radius), total - slots);
+    const indices = [];
+    for (let i = 0; i < slots; i++) {
+        indices.push(start + i);
+    }
+    return indices;
+}
+
+/**
+ * planWindow's MIRROR: which resident chunk to give up — TASK-2985.
+ *
+ * Maximises `(t - playheadChunk + totalChunks) % totalChunks`, i.e. the
+ * FORWARD distance from the playhead. A chunk one step behind the playhead is
+ * `totalChunks - 1` away by that measure and is therefore the first to go; the
+ * chunk the playhead is IN scores 0 and is the last thing standing.
+ *
+ * WHY THIS AND NOT THE BYTE LRU. Once the fill queue stops touching resident
+ * chunks, the cache's insertion order IS the fill order, and the fill starts
+ * at the playhead — so oldest-first evicts the chunk being played. That
+ * inversion is unreachable at HEAD only because prefetchWindowByChunk maps
+ * over the WHOLE window and fetchAndDecodeChunk opens with `store.get(key)`,
+ * which re-PROMOTES every resident window chunk on every pass. This function
+ * ships WITH the queue for exactly that reason.
+ *
+ * Ties resolve to the lowest index, so the choice is deterministic.
+ *
+ * @param {number[]} residentChunkIndices
+ * @param {number} playheadChunk
+ * @param {number} totalChunks
+ * @returns {number|null} null when there is nothing to evict
+ */
+export function farthestBehind(residentChunkIndices, playheadChunk, totalChunks) {
+    const total = totalChunks > 0 ? Math.floor(totalChunks) : 0;
+    if (!residentChunkIndices || !residentChunkIndices.length || total <= 0) {
+        return null;
+    }
+    let victim = null;
+    let best = -1;
+    residentChunkIndices.forEach((t) => {
+        const distance = ((t - playheadChunk) % total + total) % total;
+        if (distance > best) {
+            best = distance;
+            victim = t;
+        }
+    });
+    return victim;
+}
+
+function deferred() {
+    const box = {};
+    box.promise = new Promise((resolve, reject) => {
+        box.resolve = resolve;
+        box.reject = reject;
+    });
+    return box;
+}
+
+/**
+ * Rotate a plan window so it begins at the playhead — TASK-2985.
+ *
+ * The playhead's own chunk first, then forward through the plan, then the
+ * plan's tail (the behind-slot, and everything the window rolled backward over
+ * near the end of the timeline) last. A playhead that is not in the plan at
+ * all starts at the first plan index at or after it, and at the plan's head if
+ * it is past the end.
+ */
+function orderFromPlayhead(planChunkIndices, playheadChunk) {
+    let pivot = planChunkIndices.indexOf(playheadChunk);
+    if (pivot === -1) {
+        pivot = planChunkIndices.findIndex((t) => t >= playheadChunk);
+    }
+    if (pivot <= 0) {
+        return planChunkIndices.slice();
+    }
+    return planChunkIndices.slice(pivot).concat(planChunkIndices.slice(0, pivot));
+}
+
+/**
  * Fetch and parse the playback manifest (TASK-2623's `GET
  * .../runs/<id>/playback-manifest/` action, or an equivalent same-origin/dev
  * URL — this module never assumes an S3 origin, it only ever follows
@@ -137,6 +269,21 @@ export class PlaybackChunkFetcher {
         // TASK-2728 (W5, epic 2706) — the static (non-time-chunked) mesh
         // arrays live HERE, not in the LRU above. See _storeFor().
         this._staticArrays = new Map();
+        // TASK-2985 (W1.2, epic 2981) — THE FILL QUEUE.
+        // `_fillPending` is the not-yet-started entries in fill order (it is
+        // REBUILT on every fillTowards, which is how a SEEK re-prioritises);
+        // `_fillRunning` is the entries currently issuing requests, bounded by
+        // MAX_CONCURRENT_FILL_CHUNKS; `_fillByChunk` makes a re-enqueue of the
+        // same chunk return the SAME promise, so the buffer epic's per-tick
+        // switchMap re-issue is idempotent rather than a new fan-out.
+        this._fillPending = [];
+        this._fillRunning = new Set();
+        this._fillByChunk = new Map();
+        this._fillPlayhead = 0;
+        this._fillTotalChunks = 0;
+        // Set by releaseCaches(). A decode that was already in flight when the
+        // run was disposed must NOT repopulate the cache it just cleared.
+        this._disposed = false;
     }
 
     /**
@@ -185,6 +332,36 @@ export class PlaybackChunkFetcher {
      * would otherwise pin the whole mesh after the run was disposed.
      */
     releaseCaches() {
+        // TASK-2985 (W1.2, epic 2981) — TEARDOWN IS EXPLICIT, and it happens
+        // BEFORE the cache is cleared.
+        //
+        // Every key the queue registered in `_inflight` at ENQUEUE time is a
+        // promise somebody may be awaiting: fetchAndDecodeChunk hands that same
+        // promise to the urgent frame path (loadPlaybackLayerOptions'
+        // loadPlaybackFrame). An enqueue-time deferred that is dropped without
+        // settling reproduces TASK-2754's unrecoverable-promise failure exactly
+        // — a tab stuck in `buffering` for ever. So: stop the queue, drop every
+        // not-yet-started entry, reject every deferred with ONE stable error,
+        // and clear `_inflight` of the keys the queue owns.
+        //
+        // Already-started requests are not cancellable (there is no
+        // AbortController in this class, and unsubscribing an Rx fromPromise
+        // does not cancel a fetch), so they are left to land — but `_disposed`
+        // makes their `store.set` a no-op, so a disposed run cannot repopulate
+        // the cache it just cleared.
+        this._disposed = true;
+        const cancelled = this._fillPending.concat(Array.from(this._fillRunning));
+        this._fillPending = [];
+        this._fillRunning.clear();
+        this._fillByChunk.clear();
+        cancelled.forEach((entry) => {
+            entry.arrays.forEach((slot) => {
+                if (slot.owned) {
+                    this._inflight.delete(slot.key);
+                    slot.deferred.reject(new Error(FILL_CANCELLED_MESSAGE));
+                }
+            });
+        });
         if (this.cache && typeof this.cache.clear === 'function') {
             this.cache.clear();
         }
@@ -341,21 +518,61 @@ export class PlaybackChunkFetcher {
             return cached;
         }
         if (this._inflight.has(key)) {
+            // TASK-2985 — THE URGENT PATH MUST NEVER WAIT FOR A FILL SLOT.
+            // If this key belongs to a queue entry that is enqueued but NOT
+            // YET STARTED, start it now, bypassing MAX_CONCURRENT_FILL_CHUNKS.
+            // The caller here is playbackSyncLayerEpic -> loadPlaybackFrame,
+            // i.e. a frame the user is looking at; making it queue behind a
+            // speculative pre-roll is the stall this epic exists to remove.
+            this._startQueuedKeyNow(key);
             return this._inflight.get(key);
         }
-        const { dtype, byteorder = 'little' } = decodeOpts || {};
         const task = (async() => {
             try {
-                const compressed = await this._fetchRawBytes(key);
-                const decoded = await this.decodeImpl(compressed, { dtype, byteorder });
-                store.set(key, decoded);
-                return decoded;
+                return await this._runChunkArray(arrayName, chunkIndices, decodeOpts);
             } finally {
                 this._inflight.delete(key);
             }
         })();
         this._inflight.set(key, task);
         return task;
+    }
+
+    /**
+     * fetch -> decode -> cache for ONE array of ONE chunk, with NO `_inflight`
+     * bookkeeping of its own — TASK-2985 (W1.2, epic 2981).
+     *
+     * Lifted verbatim out of fetchAndDecodeChunk's task IIFE so the fill queue
+     * can settle the deferred IT registered at enqueue time instead of going
+     * back through fetchAndDecodeChunk, which would find the queue's own
+     * `_inflight` entry and return it — a promise waiting on itself.
+     *
+     * Both callers own their `_inflight` entry and both must remove it; this
+     * function deliberately owns neither.
+     */
+    async _runChunkArray(arrayName, chunkIndices, decodeOpts, fillChunkIndex) {
+        const key = chunkKey(arrayName, chunkIndices);
+        const store = this._storeFor(arrayName);
+        const { dtype, byteorder = 'little' } = decodeOpts || {};
+        const compressed = await this._fetchRawBytes(key);
+        const decoded = await this.decodeImpl(compressed, { dtype, byteorder });
+        // A decode that outlived releaseCaches() must not repopulate the cache
+        // the disposed run just cleared (AC9's teardown clause). The value is
+        // still RETURNED, so an awaiting frame path gets its data rather than a
+        // hang; it is only the RESIDENCY that is refused.
+        if (!this._disposed) {
+            // ROOM IS MADE AT INSERT TIME, NOT AT CHUNK START. Making it at
+            // start is a real bug and it was measured: with two chunks in
+            // flight the decode lands long after the decision, so the resident
+            // count the chooser saw is stale by then and the byte LRU gets
+            // there first — evicting the chunk the playhead is IN, which is
+            // precisely the inversion this task exists to remove.
+            if (fillChunkIndex !== undefined) {
+                this._makeRoomFor(fillChunkIndex, chunkIndices[1] || 0);
+            }
+            store.set(key, decoded);
+        }
+        return decoded;
     }
 
     /**
@@ -444,6 +661,11 @@ export class PlaybackChunkFetcher {
      * `centerChunkIndex`. A single chunk's failure never rejects the whole
      * call — it resolves to `{error}` in that slot so one bad/expired chunk
      * doesn't abort prefetching its neighbours.
+     *
+     * NOT a production path since TASK-2985 — playbackBufferEpic fills through
+     * fillTowards, which bounds concurrency and owns eviction. Calling this
+     * bypasses both.
+     *
      * @param {Record<string, {dtype: string, byteorder?: string, quantization?: object}>} arrayConfigs
      *   e.g. {depth: {dtype:'uint16', quantization:{...}}, node_x: {dtype:'float32'}}
      * @param {number} centerChunkIndex
@@ -479,12 +701,243 @@ export class PlaybackChunkFetcher {
      * playhead, so a caller that acts on the first resolution acts on the most
      * urgent chunk.
      *
+     * NOT a production path since TASK-2985 — playbackBufferEpic fills through
+     * fillTowards, which bounds concurrency and owns eviction. Calling this
+     * bypasses both. The `[{chunkIndex, promise}]` shape documented below is
+     * still the reference fillTowards reproduces, which is why it stays.
+     *
      * @param {Record<string, {dtype: string, byteorder?: string, quantization?: object}>} arrayConfigs
      * @param {number} centerChunkIndex
      * @param {number} totalChunks
      * @param {{windowRadius?: number, windowAhead?: number, nodeChunkIndex?: number}} [options]
      * @returns {Array<{chunkIndex: number, promise: Promise<Array<{arrayName: string, chunkIndex: number, value?: object, error?: Error}>>}>}
      */
+    /**
+     * THE FILL QUEUE — TASK-2985 (W1.2, epic 2981).
+     *
+     * Enqueue every chunk of `planChunkIndices` that is not already resident,
+     * in FORWARD ORDER FROM THE PLAYHEAD WITH WRAP (playhead first, then
+     * forward through the plan, then the plan's tail behind the playhead), and
+     * run at most MAX_CONCURRENT_FILL_CHUNKS of them at a time.
+     *
+     * WHAT IT REPLACES AND WHY. prefetchWindowByChunk fires every array of
+     * every window chunk at once — measured maxInflight 33 on an 11-slot
+     * window. That is not a pacing choice, it is the absence of one: on a slow
+     * link 33 racing requests all finish late together, so the chunk the
+     * playhead is about to enter arrives no sooner than the chunk ten steps
+     * ahead of it. TASK-2984 made deep windows reachable, which made the
+     * fan-out 11 chunks wide instead of 3 and turned a latent problem into the
+     * shipped one.
+     *
+     * FOUR THINGS IT OWNS, none of which the old fan-out did:
+     *  1. ORDER — the playhead's own chunk is the first request issued.
+     *  2. A BOUND — two chunks, six requests, at any instant. On queue-issued
+     *     requests ONLY; the mesh load, the envelope fetch and the per-frame
+     *     loadPlaybackFrame all bypass it (see MAX_CONCURRENT_FILL_CHUNKS).
+     *  3. RE-PRIORITISATION — a new playhead rebuilds the pending order, so a
+     *     SEEK makes the seeked chunk the next request rather than the
+     *     eleventh. In-flight requests are neither cancelled nor counted:
+     *     unsubscribing an Rx fromPromise does not cancel a fetch and this
+     *     class has no AbortController, so pretending otherwise would be a lie
+     *     about the network.
+     *  4. EVICTION — before a chunk's arrays go in, room is made by dropping
+     *     the resident chunk farthest BEHIND the playhead (farthestBehind),
+     *     not the oldest.
+     *
+     * `_inflight` IS REGISTERED AT ENQUEUE TIME, so the buffer epic's per-tick
+     * switchMap re-issue and fetchAndDecodeChunk's own dedup both collapse onto
+     * this queue instead of racing it. That is also why the queue settles its
+     * own deferreds through _runChunkArray rather than calling
+     * fetchAndDecodeChunk, which would find those entries and await itself.
+     *
+     * @param {number[]} planChunkIndices the window the plan bought (planWindow)
+     * @param {number} playheadChunk the chunk the playhead is in
+     * @param {Record<string, {dtype: string, byteorder?: string, quantization?: object}>} arrayConfigs
+     * @param {{nodeChunkIndex?: number, totalChunks?: number}} [options]
+     *   `totalChunks` is the modulus farthestBehind needs; it defaults to the
+     *   plan's own extent, which is right whenever the plan reaches the end of
+     *   the timeline and conservative otherwise.
+     * @returns {Array<{chunkIndex: number, promise: Promise<Array<{arrayName: string, chunkIndex: number, value?: object, error?: Error}>>}>}
+     *   in FILL ORDER, one entry per plan chunk that was not already resident,
+     *   each promise resolving to the same shape prefetchWindowByChunk produces.
+     */
+    fillTowards(planChunkIndices, playheadChunk, arrayConfigs, { nodeChunkIndex = 0, totalChunks } = {}) {
+        // AC11 — a run the device cannot hold does not get filled at all. This
+        // is the fetcher's half of TASK-2986's zero: the fallback verdict must
+        // stop the bytes BEFORE they move, not explain them afterwards.
+        if (this.memoryPlan && this.memoryPlan.verdict === 'fallback') {
+            return [];
+        }
+        const plan = (planChunkIndices || []).filter((t) => t >= 0);
+        const arrayNames = Object.keys(arrayConfigs || {});
+        if (!plan.length || !arrayNames.length) {
+            return [];
+        }
+        const total = totalChunks > 0 ? Math.floor(totalChunks) : Math.max.apply(null, plan) + 1;
+        // The chooser reads the LIVE playhead, not the one an entry was
+        // enqueued under: a chunk whose decode lands after a SEEK must be
+        // judged against where the playhead is NOW.
+        this._fillPlayhead = playheadChunk;
+        this._fillTotalChunks = total;
+        const ordered = orderFromPlayhead(plan, playheadChunk);
+        const groups = [];
+        const claimed = [];
+        ordered.forEach((chunkIndex) => {
+            const existing = this._fillByChunk.get(chunkIndex);
+            if (existing) {
+                groups.push({ chunkIndex, promise: existing.promise });
+                if (!existing.started) {
+                    claimed.push(existing);
+                }
+                return;
+            }
+            const entry = this._enqueueChunk(chunkIndex, arrayNames, arrayConfigs, nodeChunkIndex);
+            if (!entry) {
+                return; // already fully resident — nothing to fetch
+            }
+            groups.push({ chunkIndex, promise: entry.promise });
+            claimed.push(entry);
+        });
+        // REBUILD the pending order: this call's chunks first, in fill order,
+        // then anything still pending from an earlier plan (its promises were
+        // handed out and must still settle — AC9).
+        const stale = this._fillPending.filter((e) => claimed.indexOf(e) === -1);
+        this._fillPending = claimed.concat(stale);
+        this._pumpFill();
+        return groups;
+    }
+
+    /**
+     * Build one chunk's queue entry, registering `_inflight` at ENQUEUE time.
+     * Returns null when every array of the chunk is already resident.
+     */
+    _enqueueChunk(chunkIndex, arrayNames, arrayConfigs, nodeChunkIndex) {
+        const arrays = arrayNames.map((arrayName) => {
+            const key = chunkKey(arrayName, [chunkIndex, nodeChunkIndex]);
+            const store = this._storeFor(arrayName);
+            // NOT store.get(): that PROMOTES to MRU, and a queue that promotes
+            // what it walks past re-creates the very LRU ordering this task
+            // replaces. has() observes without reordering.
+            if (store.has && store.has(key)) {
+                return { arrayName, key, resident: true, owned: false, deferred: null };
+            }
+            if (this._inflight.has(key)) {
+                // somebody else (the frame path, the mesh load) already owns it
+                return { arrayName, key, resident: false, owned: false, deferred: null,
+                    borrowed: this._inflight.get(key) };
+            }
+            const box = deferred();
+            this._inflight.set(key, box.promise);
+            return { arrayName, key, resident: false, owned: true, deferred: box };
+        });
+        if (arrays.every((slot) => slot.resident)) {
+            return null;
+        }
+        const entry = { chunkIndex, arrays, arrayConfigs, nodeChunkIndex, started: false };
+        entry.promise = Promise.all(arrays.map((slot) => {
+            const source = slot.resident
+                ? Promise.resolve(this._storeFor(slot.arrayName).get(slot.key))
+                : (slot.owned ? slot.deferred.promise : slot.borrowed);
+            return source
+                .then((value) => ({ arrayName: slot.arrayName, chunkIndex, value }))
+                .catch((error) => ({ arrayName: slot.arrayName, chunkIndex, error }));
+        })).then((results) => {
+            this._fillByChunk.delete(chunkIndex);
+            return results;
+        });
+        this._fillByChunk.set(chunkIndex, entry);
+        return entry;
+    }
+
+    /** Start pending entries until the concurrency bound is reached. */
+    _pumpFill() {
+        while (this._fillRunning.size < MAX_CONCURRENT_FILL_CHUNKS && this._fillPending.length) {
+            this._startFillEntry(this._fillPending.shift());
+        }
+    }
+
+    /**
+     * A direct fetchAndDecodeChunk for a key the queue has enqueued but not
+     * started: promote it and start it NOW, past the bound. See the call site
+     * in fetchAndDecodeChunk for why the frame path may not wait.
+     */
+    _startQueuedKeyNow(key) {
+        const pendingIndex = this._fillPending.findIndex(
+            (entry) => entry.arrays.some((slot) => slot.key === key)
+        );
+        if (pendingIndex === -1) {
+            return;
+        }
+        const entry = this._fillPending.splice(pendingIndex, 1)[0];
+        this._startFillEntry(entry);
+    }
+
+    _startFillEntry(entry) {
+        if (!entry || entry.started || this._disposed) {
+            return;
+        }
+        entry.started = true;
+        this._fillRunning.add(entry);
+        const owned = entry.arrays.filter((slot) => slot.owned);
+        const settled = owned.map((slot) => this
+            ._runChunkArray(slot.arrayName, [entry.chunkIndex, entry.nodeChunkIndex],
+                entry.arrayConfigs[slot.arrayName], entry.chunkIndex)
+            .then(
+                (value) => {
+                    this._inflight.delete(slot.key);
+                    slot.deferred.resolve(value);
+                },
+                (error) => {
+                    this._inflight.delete(slot.key);
+                    slot.deferred.reject(error);
+                }
+            ));
+        Promise.all(settled).then(() => {
+            this._fillRunning.delete(entry);
+            this._pumpFill();
+        });
+    }
+
+    /**
+     * Make room for one chunk by evicting the resident chunk FARTHEST BEHIND
+     * the playhead — TASK-2985's half of the LRU-inversion fix.
+     *
+     * Sized in slots rather than bytes on purpose: the plan's own ceiling IS
+     * `quantityCount * chunksPerQuantity * storedChunkBytes`, so "the cache
+     * holds chunksPerQuantity chunks" and "the cache holds cacheMaxBytes" are
+     * the same statement, and the slot form is the one that can act BEFORE the
+     * bytes arrive rather than after the byte LRU has already picked the wrong
+     * victim. `_evictToFit` still runs underneath as the safety net.
+     *
+     * Never evicts a partially-resident chunk (residentChunkIndices requires
+     * every array), and never evicts the chunk the playhead is in.
+     */
+    _makeRoomFor(incomingChunkIndex, nodeChunkIndex) {
+        const slots = this.memoryPlan && this.memoryPlan.chunksPerQuantity > 0
+            ? Math.floor(this.memoryPlan.chunksPerQuantity)
+            : 0;
+        const playhead = this._fillPlayhead;
+        const total = this._fillTotalChunks;
+        if (!(slots > 0) || !(total > 0)) {
+            return;
+        }
+        let guard = 0;
+        while (guard++ <= slots) {
+            const resident = this.residentChunkIndices(QUANTITY_ARRAYS, nodeChunkIndex)
+                .filter((t) => t !== incomingChunkIndex);
+            if (resident.length + 1 <= slots) {
+                return;
+            }
+            const victim = farthestBehind(resident, playhead, total);
+            if (victim === null || victim === playhead) {
+                return;
+            }
+            QUANTITY_ARRAYS.forEach((arrayName) => {
+                this.cache.evict(chunkKey(arrayName, [victim, nodeChunkIndex]));
+            });
+        }
+    }
+
     prefetchWindowByChunk(arrayConfigs, centerChunkIndex, totalChunks, { windowRadius = 2, windowAhead, nodeChunkIndex = 0 } = {}) {
         const window = this.getPrefetchWindow(centerChunkIndex, totalChunks, windowRadius, { ahead: windowAhead });
         const arrayNames = Object.keys(arrayConfigs || {});
