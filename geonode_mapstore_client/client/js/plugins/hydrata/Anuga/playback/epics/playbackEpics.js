@@ -81,6 +81,16 @@ import {
     // in response to available memory". Read ONCE per manifest load and
     // threaded into both plans below, so the initial and the exact-nFace plan
     // can never be costed against different budgets.
+    //
+    // TASK-2984 (W1.1, epic 2981) EXTENDS THAT DISCIPLINE TO THE POLICY
+    // OVERRIDES. `policyOverrides` is built ONCE in runLoad and spread into
+    // ALL THREE sites — the budget resolve, the initial plan and the
+    // exact-nFace re-plan whose result goes into the LIVE cache via
+    // fetcher.applyMemoryPlan. Threading an override into one plan and missing
+    // the other yields a fetcher whose cache ceiling disagrees with its own
+    // window depth, and it is SILENT: warnIfOverBudget has a once-per-run
+    // guard (`budgetWarnedRuns`), so the second plan can never announce the
+    // disagreement.
     resolvePlaybackHeapBudgetFromEnvironment,
     PLAYBACK_BUDGET_WARN_PREFIX
 } from '../playbackMemoryPolicy';
@@ -475,11 +485,25 @@ export function playbackInitEpic(action$, store) {
             // once face_node_connectivity has landed.
             const nNode0 = readNodeCount(manifest);
             const totalChunks0 = nTime0 && chunkLengthT ? Math.ceil(nTime0 / chunkLengthT) : undefined;
-            const heapBudget = resolvePlaybackHeapBudgetFromEnvironment();
+            // TASK-2984 RULE C clause 19 — ONE override object, built once,
+            // spread into all three policy call sites. In THIS task it is a
+            // literal empty object: the W4.5 runtime-tunable task (TASK-3025)
+            // is what resolves these from the per-tester URL param and the
+            // per-site admin row. It exists NOW because the retrofit that
+            // threads one call site and misses another is silent — see the
+            // import-site comment above.
+            const policyOverrides = {};
+            const heapBudget = resolvePlaybackHeapBudgetFromEnvironment(policyOverrides);
             const initialPlan = nNode0
                 ? computePlaybackMemoryPlan({
+                    ...policyOverrides,
                     nNode: nNode0, chunkLengthT, totalChunks: totalChunks0,
-                    budgetBytes: heapBudget.budgetBytes
+                    budgetBytes: heapBudget.budgetBytes,
+                    // TASK-2984 clause 11 — the user's own Save-Data
+                    // preference, read off navigator.connection by the
+                    // environment resolver. It holds the plan at the floor
+                    // window and does nothing else.
+                    saveData: heapBudget.saveData
                 })
                 : null;
             // TASK-2732 (W3, epic 2706) — THE seam. This plan already knows
@@ -555,11 +579,13 @@ export function playbackInitEpic(action$, store) {
             // mesh is here (the manifest-time plan had to estimate it), and
             // push the corrected ceiling into the cache that is already live.
             const memoryPlan = computePlaybackMemoryPlan({
+                ...policyOverrides,
                 nNode,
                 nFace: mesh.faceNodeConnectivity ? mesh.faceNodeConnectivity.length / 3 : undefined,
                 chunkLengthT,
                 totalChunks,
-                budgetBytes: heapBudget.budgetBytes
+                budgetBytes: heapBudget.budgetBytes,
+                saveData: heapBudget.saveData
             });
             fetcher.applyMemoryPlan(memoryPlan);
             // TASK-2744 AC20 — SCORE THE FORECAST. `withinBudget` had zero

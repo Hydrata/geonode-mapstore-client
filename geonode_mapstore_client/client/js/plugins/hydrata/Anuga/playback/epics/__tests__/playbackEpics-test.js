@@ -36,7 +36,11 @@ import {
 import {
     computePlaybackMemoryPlan,
     describePlan,
-    PLAYBACK_BUDGET_WARN_PREFIX
+    PLAYBACK_BUDGET_WARN_PREFIX,
+    // TASK-2984 (W1.1, epic 2981) — RULE C's seam, threaded from runLoad.
+    PLAN_TRANSIENT_EXCESS_BYTES,
+    PLAN_UNCAP_MAX_PEAK_BYTES,
+    APP_BASELINE_FLOOR_BYTES
 } from '../../playbackMemoryPolicy';
 import { reprojectMeshVertices } from '../../playbackReproject';
 // TASK-2744 AC19 — the playback layer moved off layers.flat onto
@@ -277,6 +281,72 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next(playbackInit(42, 'layer-1', MANIFEST_URL));
+        });
+
+        /*
+         * TASK-2984 (W1.1, epic 2981) AC18(e) — RULE C clause 19.
+         *
+         * ONE `policyOverrides` object is built in runLoad and spread into ALL
+         * THREE policy call sites: the budget resolve, the initial
+         * manifest-time plan, and the exact-nFace re-plan whose result is
+         * pushed into the LIVE cache by fetcher.applyMemoryPlan.
+         *
+         * WHY THIS IS A BUG GUARD AND NOT JUST FUTURE WORK. Those two plan
+         * calls are hand-written sibling literals. A later retrofit (TASK-3025,
+         * the runtime-tunable task) that threads an override into one and
+         * misses the other yields a fetcher whose cache ceiling disagrees with
+         * its own window depth — and it is SILENT, because warnIfOverBudget has
+         * a once-per-run guard (`budgetWarnedRuns`, module state, unexported
+         * and never reset) so the second plan can never announce the
+         * disagreement. The file already applies exactly this discipline to the
+         * budget itself; this extends it to the overrides.
+         */
+        it('threads ONE policyOverrides object into all three policy call sites (TASK-2984 AC18e)', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    // --- HALF 1, BEHAVIOURAL. The exact-nFace re-plan reaches
+                    // MANIFEST_LOADED and the live fetcher, and BOTH carry the
+                    // effective policy values. A retrofit that threaded only
+                    // the initial plan would leave these two disagreeing.
+                    const rePlan = a.memoryPlan;
+                    const live = fetcherRegistry.get(4242).memoryPlan;
+                    [rePlan, live].forEach((plan) => {
+                        expect(plan.planTransientExcessBytes).toBe(PLAN_TRANSIENT_EXCESS_BYTES);
+                        expect(plan.uncapMaxPeakBytes).toBe(PLAN_UNCAP_MAX_PEAK_BYTES);
+                        expect(plan.appBaselineFloorBytes).toBe(APP_BASELINE_FLOOR_BYTES);
+                        expect(plan.overrideSource).toBe('shipped');
+                    });
+                    expect(live.planTransientExcessBytes).toBe(rePlan.planTransientExcessBytes);
+                    expect(live.uncapMaxPeakBytes).toBe(rePlan.uncapMaxPeakBytes);
+                    // saveData reaches the plan from the environment resolver
+                    // (clause 11) — the fixture browser reports none.
+                    expect(typeof rePlan.saveData).toBe('boolean');
+
+                    // --- HALF 2, STRUCTURAL, and it is the half that can
+                    // actually FAIL when a retrofit misses a site. While this
+                    // task is the only writer `policyOverrides` is a literal
+                    // `{}`, so every effective value above is the shipped one
+                    // whether or not the object was threaded — half 1 alone
+                    // could not tell. Count the occurrences in the epic's own
+                    // source instead: ONE declaration plus THREE call sites.
+                    // karma bundles unminified, so the identifier survives.
+                    const source = playbackInitEpic.toString();
+                    const uses = source.split('policyOverrides').length - 1;
+                    expect(uses >= 4).toBe(true);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(4242, 'layer-4242', MANIFEST_URL));
         });
 
         it('dispatches MANIFEST_FAILED when the manifest fetch errors', (done) => {
@@ -593,7 +663,9 @@ describe('playbackEpics', () => {
         // and NO totalChunks (the on-box fixture declares no
         // schema_metadata.n_time, so playbackInitEpic computes
         // totalChunks0 === undefined and hardMax falls to
-        // MAX_CHUNKS_PER_QUANTITY). fixed 600,000,000 B + cache 720,000,000 B
+        // FLOOR_WINDOW_CHUNKS_PER_QUANTITY — renamed from
+        // MAX_CHUNKS_PER_QUANTITY by TASK-2984). fixed 600,000,000 B + cache
+        // 720,000,000 B
         // = peak 1,320,000,000 B -> describePlan renders 'peak=1258.9 MiB'.
         const overBudgetPlan = () => computePlaybackMemoryPlan({ nNode: 6000000, chunkLengthT: 10 });
 

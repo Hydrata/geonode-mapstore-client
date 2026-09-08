@@ -39,13 +39,27 @@ import {
     STORED_BYTES_PER_ELEMENT,
     PHYSICAL_BYTES_PER_ELEMENT,
     MIN_CHUNKS_PER_QUANTITY,
-    MAX_CHUNKS_PER_QUANTITY,
+    // TASK-2984 (W1.1, epic 2981) renamed MAX_CHUNKS_PER_QUANTITY: 3 is no
+    // longer a cap, it is the FLOOR window.
+    FLOOR_WINDOW_CHUNKS_PER_QUANTITY,
     // TASK-2743 UAT-08 (W6, epic 2706) — size the budget to the machine.
     resolvePlaybackHeapBudget,
     resolvePlaybackHeapBudgetFromEnvironment,
     PLAYBACK_HEAP_BUDGET_MAX_BYTES,
     HEAP_HEADROOM_BUDGET_FRACTION,
-    DEVICE_MEMORY_BUDGET_FRACTION
+    DEVICE_MEMORY_BUDGET_FRACTION,
+    // TASK-2984 (W1.1, epic 2981) — the deepening rule, the downward device
+    // path and the runtime-tunable seam.
+    isCoarsePhoneClass,
+    APP_BASELINE_FLOOR_BYTES,
+    PLAN_TRANSIENT_EXCESS_BYTES,
+    PLAN_UNCAP_MAX_PEAK_BYTES,
+    SMALL_DEVICE_MEMORY_GIB,
+    SMALL_DEVICE_MIN_BUDGET_BYTES,
+    PHONE_CLASS_BUDGET_BYTES,
+    PLAN_TRANSIENT_EXCESS_BAND_BYTES,
+    PLAN_UNCAP_MAX_PEAK_BAND_BYTES,
+    APP_BASELINE_FLOOR_BAND_BYTES
 } from '../playbackMemoryPolicy';
 import { PlaybackChunkFetcher } from '../playbackChunkFetcher';
 import { PlaybackChunkCache, DEFAULT_MAX_BYTES } from '../playbackChunkCache';
@@ -259,10 +273,24 @@ describe('playbackMemoryPolicy — TASK-2708 PROOF 1 (memory budget)', () => {
         expect(oneChunk.chunksPerQuantity).toBe(1);
         expect(oneChunk.bufferWindowRadius).toBe(0);
         expect(oneChunk.bufferWindowAhead).toBe(0);
-        // A tiny mesh gets the deeper window, capped by the policy.
+        // A tiny mesh gets the deeper window.
+        //
+        // RE-BASED BY TASK-2984 (W1.1, epic 2981), 2026-09-08. This asserted
+        // MAX_CHUNKS_PER_QUANTITY (3) and is one of the three specs the
+        // deepening rule deliberately inverts. At the shipped constants this
+        // shape now plans 14: fixed 24.1 MiB, per-chunk-across-quantities
+        // 14.5 MiB, window budget min(800 - 566, 440) = 234.0 MiB, so
+        // floor((234.0 - 24.1) / 14.5) = 14, clamped by totalChunks 40.
+        //
+        // *** DO NOT restore a clamp to FLOOR_WINDOW_CHUNKS_PER_QUANTITY to
+        // make this pass. That is clause 14's INERT TRAP and it silently
+        // no-ops this whole task while every other test stays green. ***
         const small = computePlaybackMemoryPlan({ nNode: 253000, chunkLengthT: 10, totalChunks: 40 });
-        expect(small.chunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
+        expect(small.chunksPerQuantity).toBe(14);
+        expect(small.chunksPerQuantity > FLOOR_WINDOW_CHUNKS_PER_QUANTITY).toBe(true);
         expect(small.peakResidentBytes < PLAYBACK_HEAP_BUDGET_BYTES).toBe(true);
+        // and it is the CEILING, not the slot count, that bounds it.
+        expect(small.peakResidentBytes <= PLAN_UNCAP_MAX_PEAK_BYTES).toBe(true);
     });
 
     STORES.forEach(({ label, chunkLengthT, manifest, files }) => {
@@ -461,7 +489,21 @@ describe('playbackMemoryPolicy — TASK-2708 PROOF 3 (correctness of the moved d
  * arithmetic — that the floor of 2 chunks per quantity is what makes the
  * cache ceiling large enough to hold face_node_connectivity at all — and
  * nothing else in the suite would notice if a future edit to
- * MIN_CHUNKS_PER_QUANTITY / MAX_CHUNKS_PER_QUANTITY silently took that away.
+ * MIN_CHUNKS_PER_QUANTITY / FLOOR_WINDOW_CHUNKS_PER_QUANTITY silently took
+ * that away.
+ *
+ * RE-BASED BY TASK-2984 (W1.1, epic 2981), 2026-09-08 — WHAT NOW GUARANTEES
+ * IT. The numbers below are unchanged, because both calls omit `totalChunks`
+ * and the deepening rule only runs when the store declares one. But the
+ * guarantee is now STRONGER than "the floor of 2 produced it", and it is
+ * worth stating because a reader meeting the deepening rule will ask:
+ * `chunksPerQuantity = max(todaysN, deepN)` is MONOTONE and `deepN` is itself
+ * clamped below by MIN_CHUNKS_PER_QUANTITY, so no budget and no in-band
+ * runtime override can ever plan FEWER than 2 chunks per quantity on a store
+ * with 2 or more. `cacheMaxBytes` is linear in that count, so it can only ever
+ * be LARGER than the floor-2 ceiling asserted here — never smaller. The
+ * chunk-2 margin over face_node_connectivity is therefore a floor on the
+ * margin, not a knife-edge that a deeper window could fall off.
  *
  * budgetBytes is spelled out in BOTH calls on purpose. At the 800 MiB default
  * the chunk-2 ceiling is 122,150,700, not 81,433,800 — the numbers below are
@@ -495,7 +537,7 @@ describe('playbackMemoryPolicy — TASK-2728 the floor-2 ceiling is the one that
     });
 });
 
-describe('TASK-2743 UAT-08 — the heap budget is sized to the MACHINE, and can only ever go up', () => {
+describe('TASK-2743 UAT-08 / TASK-2984 W1.1 — the heap budget is sized to the MACHINE, and can now go DOWN as well as up', () => {
     // Run 1328's real shape (the same descriptor PROOF 1 uses, above) plus
     // the store's own time chunking: 31 timesteps at chunk_length_t 10 = 4
     // chunks, read from the manifest on 2026-08-14.
@@ -513,12 +555,39 @@ describe('TASK-2743 UAT-08 — the heap budget is sized to the MACHINE, and can 
         expect(plan.bufferWindowAhead).toBe(1);
     });
 
-    it('a SMALL machine cannot shrink the budget below the shipped floor', () => {
-        // 512 MiB heap ceiling, 2 GiB device: both offers are under 800 MiB.
+    it('a SMALL machine now CAN shrink the budget below the shipped floor — that is the point of the downward path', () => {
+        // INVERTED BY TASK-2984 (W1.1, epic 2981), 2026-09-08. The SAME input
+        // signals as the spec this replaces ('a SMALL machine cannot shrink
+        // the budget below the shipped floor'), so the RED/GREEN pair is
+        // visible in the diff. It used to assert PLAYBACK_HEAP_BUDGET_BYTES.
+        //
+        // WHY THAT WAS THE DEFECT: clamp()'s lo is a FLOOR, so min(offers) was
+        // floored UP to 800 MiB and a 2 GiB Android phone whose own signals
+        // offered 163 MiB was handed 800 — then downloaded 63 MB of geometry
+        // and held 440 MiB of typed arrays.
+        //
+        // 128, NOT 163: usedJSHeapSize is absent here, so the heap offer
+        // charges APP_BASELINE_FLOOR_BYTES instead —
+        // (512 - 280) x 0.45 = 104.4 MiB — which the small-device path floors
+        // at SMALL_DEVICE_MIN_BUDGET_BYTES.
         const r = resolvePlaybackHeapBudget({
             jsHeapSizeLimit: 512 * 1024 * 1024, deviceMemoryGiB: 2
         });
+        expect(r.budgetBytes).toBe(SMALL_DEVICE_MIN_BUDGET_BYTES);
+        expect(r.budgetBytes).toBe(128 * MIB);
+        expect(r.source).toBe('small-device');
+        expect(r.budgetBytes < PLAYBACK_HEAP_BUDGET_BYTES).toBe(true);
+    });
+
+    it('...but the floor still applies to a machine that is NOT small — the guard is narrowed, not removed', () => {
+        // The sibling of the spec above. Same starved heap signals, a device
+        // that says 8 GiB, no phone-class signal: the ordinary floored path.
+        const r = resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 512 * 1024 * 1024, deviceMemoryGiB: 8,
+            uaMobile: false, maxTouchPoints: 0, viewportMinPx: 1500
+        });
         expect(r.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(r.source).toBe('heap+device');
     });
 
     it('a tab that is ALREADY full gets the floor, not a share of a ceiling someone else occupies', () => {
@@ -571,19 +640,28 @@ describe('TASK-2743 UAT-08 — the heap budget is sized to the MACHINE, and can 
         expect(r.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_MAX_BYTES);
     });
 
-    it('NO budget, however large, can buy a window deeper than MAX_CHUNKS_PER_QUANTITY', () => {
-        // The version that froze the tab let a big budget raise this to 4. It
-        // cannot. This is the guard on that regression, not a tautology: the
-        // affordable count here is 24, and only the cap stops it.
+    it('NO budget, however large, buys THIS store a window deeper than 3 — but it is the PEAK CEILING that stops it now, not a slot cap', () => {
+        // RE-BASED BY TASK-2984 (W1.1, epic 2981), 2026-09-08. Every assertion
+        // below still holds, but the REASON changed and the title used to
+        // state a claim that is now false in general: on the 813_417_1412
+        // shape a big budget DOES buy 11 slots (see the TASK-2984 describe
+        // below). What holds run 1328's chunk-10 shape at 3 is
+        // PLAN_UNCAP_MAX_PEAK_BYTES: the window budget can never exceed
+        // 440.0 MiB, and 440.0 - 323.5 MiB of fixed mesh leaves 116.5 MiB
+        // against a 194.2 MiB per-chunk cost, so deepN clamps to the
+        // structural floor and the monotone max() returns HEAD's 3.
         const huge = computePlaybackMemoryPlan({
             ...STORE_1328, budgetBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES, maxChunksPerQuantity: 99
         });
-        expect(huge.affordableChunksPerQuantity > MAX_CHUNKS_PER_QUANTITY).toBe(true);
-        expect(huge.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
-        expect(huge.chunksPerQuantity <= MAX_CHUNKS_PER_QUANTITY).toBe(true);
+        expect(huge.affordableChunksPerQuantity > FLOOR_WINDOW_CHUNKS_PER_QUANTITY).toBe(true);
+        expect(huge.maxChunksPerQuantity).toBe(FLOOR_WINDOW_CHUNKS_PER_QUANTITY);
+        expect(huge.chunksPerQuantity).toBe(FLOOR_WINDOW_CHUNKS_PER_QUANTITY);
+        // and the ceiling is demonstrably the binding term, not the slot count
+        expect(huge.deepChunksPerQuantity).toBe(MIN_CHUNKS_PER_QUANTITY);
+        expect(huge.windowBudgetBytes).toBe(PLAN_UNCAP_MAX_PEAK_BYTES);
         const tiny = computePlaybackMemoryPlan({ ...STORE_1328, maxChunksPerQuantity: 0 });
-        // 0 is not a request for zero slots; it falls back to the default.
-        expect(tiny.maxChunksPerQuantity).toBe(MAX_CHUNKS_PER_QUANTITY);
+        // 0 is not a request for zero slots; it falls back to the floor window.
+        expect(tiny.maxChunksPerQuantity).toBe(FLOOR_WINDOW_CHUNKS_PER_QUANTITY);
     });
 
     it('a caller MAY ask for a shallower window — the clamp is one-directional', () => {
@@ -602,8 +680,584 @@ describe('TASK-2743 UAT-08 — the heap budget is sized to the MACHINE, and can 
     });
 
     it('the environment reader returns a well-formed plan input whatever this browser reports', () => {
+        // RE-BASED BY TASK-2984 (W1.1, epic 2981), 2026-09-08. This asserted
+        // `budgetBytes >= PLAYBACK_HEAP_BUDGET_BYTES` (800 MiB), which the new
+        // 'small-device' and 'phone-class' paths deliberately violate. The
+        // REAL invariant is the one below.
         const r = resolvePlaybackHeapBudgetFromEnvironment();
-        expect(r.budgetBytes >= PLAYBACK_HEAP_BUDGET_BYTES).toBe(true);
+        expect(typeof r.budgetBytes).toBe('number');
+        expect(r.budgetBytes > 0).toBe(true);
+        expect(r.budgetBytes >= SMALL_DEVICE_MIN_BUDGET_BYTES).toBe(true);
         expect(r.budgetBytes <= PLAYBACK_HEAP_BUDGET_MAX_BYTES).toBe(true);
+        // FIVE known sources, not four and not six. 'default', 'heap+device'
+        // and 'partial' exist at HEAD — 'partial' is what a browser exposing
+        // only ONE of the two offers gets, i.e. every non-Chromium browser and
+        // much of the phone class this epic targets — and TASK-2984 adds
+        // 'small-device' and 'phone-class'.
+        expect(['default', 'heap+device', 'partial', 'small-device', 'phone-class'])
+            .toContain(r.source);
+        // saveData rides on the same read (clause 11) and is always a boolean.
+        expect(typeof r.saveData).toBe('boolean');
+    });
+});
+
+/*
+ * ===========================================================================
+ * TASK-2984 (W1.1, epic 2981) — DEEPEN AS FAR AS A MEASURED BUDGET HOLDS.
+ *
+ * Every figure in this block was computed against the REAL module on
+ * 2026-09-08 at the three constants the operator FROZE that day
+ * (ruling "ABA" plus the same-day ceiling ruling):
+ *   APP_BASELINE_FLOOR_BYTES    = 280 MiB — FLOORS the usedJSHeapSize READING
+ *                                 inside the heap offer; NEVER subtracted from
+ *                                 the budget (that would charge the idle tab
+ *                                 twice, since the offer already nets live
+ *                                 usage and E is frozen net of baseline).
+ *   PLAN_TRANSIENT_EXCESS_BYTES = 566 MiB, NET of the idle baseline.
+ *   PLAN_UNCAP_MAX_PEAK_BYTES   = 440 MiB — the only plan 741_410_1328_chunk2
+ *                                 has ever survived (W0.4 @cap3072).
+ *
+ * The store shapes are real: 813_417_1412 and the three re-chunkings of
+ * 741_410_1328 that exist on disk at /home/david/hydrata/playback-fixtures/.
+ * ===========================================================================
+ */
+describe('playbackMemoryPolicy — TASK-2984 (W1.1, epic 2981) the deepening rule', () => {
+    const SHAPE_1412 = { nNode: 145824, nFace: 290407, chunkLengthT: 10, totalChunks: 11 };
+    const SHAPE_PROD = { nNode: 3393075, nFace: 6779432, chunkLengthT: 10, totalChunks: 4 };
+    const SHAPE_CHUNK2 = { nNode: 3393075, nFace: 6779432, chunkLengthT: 2, totalChunks: 16 };
+    const SHAPE_CHUNK1 = { nNode: 3393075, nFace: 6779432, chunkLengthT: 1, totalChunks: 31 };
+    const SHAPE_L2_51 = { nNode: 3393075, nFace: 6779432, chunkLengthT: 2, totalChunks: 51 };
+    const SYNTHETIC = { nNode: 14582400, chunkLengthT: 2 };
+
+    /*
+     * HEAD's plan at the same budget, reproduced through the SHIPPED module
+     * rather than copied out of it — collapsing the window budget (E at its
+     * band maximum, ceiling 0) makes deepN clamp to MIN, so clause 9's max()
+     * returns `todaysN` verbatim. That is the definition of monotonicity's
+     * baseline, and computing it this way means it cannot drift away from the
+     * real todaysN the way a hand-copied formula would.
+     */
+    const headPlan = (shape, budgetBytes) => computePlaybackMemoryPlan({
+        ...shape,
+        budgetBytes,
+        planTransientExcessBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES,
+        uncapMaxPeakBytes: 0
+    });
+    const newPlan = (shape, budgetBytes, extra) => computePlaybackMemoryPlan({
+        ...shape, budgetBytes, ...(extra || {})
+    });
+    const BUDGETS_MIB = [128, 163, 256, 384, 800, 1371, 2048];
+
+    it('AC1 — the SHIPPED DEFAULT 800 MiB budget buys 813_417_1412 its WHOLE store, 11 of 11', () => {
+        // THE HEADLINE. The spec this inverts read "NO budget, however large,
+        // can buy a window deeper than MAX_CHUNKS_PER_QUANTITY"; unmodified
+        // HEAD returns 3 at 800, 1371 AND 2048 MiB.
+        [800, 1371, 2048].forEach((mib) => {
+            expect(headPlan(SHAPE_1412, mib * MIB).chunksPerQuantity).toBe(3);
+            expect(newPlan(SHAPE_1412, mib * MIB).chunksPerQuantity).toBe(11);
+        });
+        const plan = newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(plan.chunksPerQuantity).toBe(plan.wholeStorePeakBytes && 11);
+        expect(Math.round(plan.peakResidentBytes / MIB)).toBe(106);
+        expect(plan.peakResidentBytes).toBe(plan.wholeStorePeakBytes);
+    });
+
+    it('AC2 — THE SCALE TABLE, every cell, from a REAL budget and never from forceChunksPerQuantity', () => {
+        // budget MiB -> [HEAD n, NEW n, rounded plan peak MiB]
+        const TABLE = [
+            ['813_417_1412', SHAPE_1412, {
+                128: [3, 3, 39], 163: [3, 3, 39], 256: [3, 3, 39], 384: [3, 3, 39],
+                800: [3, 11, 106], 1371: [3, 11, 106], 2048: [3, 11, 106]
+            }],
+            // IDENTICAL to HEAD at every budget, by design — the ceiling binds.
+            ['741_410_1328 PROD L10/4', SHAPE_PROD, {
+                128: [2, 2, 712], 163: [2, 2, 712], 256: [2, 2, 712], 384: [2, 2, 712],
+                800: [2, 2, 712], 1371: [3, 3, 906], 2048: [3, 3, 906]
+            }],
+            // HYPOTHETICAL SHAPE — no 51-chunk store exists or can be made (the
+            // source has 31 timesteps, so an L2 rechunk caps at 16). Kept
+            // because at a 440 MiB ceiling it is cell-for-cell identical to the
+            // real chunk-2 row: it is the CEILING, not the chunk count, that
+            // holds a big L2 store at 3. Graded as PLAN ARITHMETIC only.
+            ['741_410_1328 re-export L2/51', SHAPE_L2_51, {
+                128: [2, 2, 401], 163: [2, 2, 401], 256: [2, 2, 401], 384: [2, 2, 401],
+                800: [3, 3, 440], 1371: [3, 3, 440], 2048: [3, 3, 440]
+            }],
+            ['741_410_1328_chunk2 L2/16', SHAPE_CHUNK2, {
+                128: [2, 2, 401], 163: [2, 2, 401], 256: [2, 2, 401], 384: [2, 2, 401],
+                800: [3, 3, 440], 1371: [3, 3, 440], 2048: [3, 3, 440]
+            }],
+            // THE PARTIAL-DEEPENING WITNESS: 6 of 31, neither the floor nor the
+            // whole store, on a fixture that actually exists on disk.
+            ['741_410_1328_chunk1 L1/31', SHAPE_CHUNK1, {
+                128: [2, 2, 362], 163: [2, 2, 362], 256: [2, 2, 362], 384: [3, 3, 382],
+                800: [3, 3, 382], 1371: [3, 6, 440], 2048: [3, 6, 440]
+            }]
+        ];
+        TABLE.forEach(([label, shape, row]) => {
+            BUDGETS_MIB.forEach((mib) => {
+                const [wantHead, wantNew, wantPeak] = row[mib];
+                const head = headPlan(shape, mib * MIB);
+                const now = newPlan(shape, mib * MIB);
+                expect(`${label}@${mib}: ${head.chunksPerQuantity}->${now.chunksPerQuantity} (${Math.round(now.peakResidentBytes / MIB)})`)
+                    .toBe(`${label}@${mib}: ${wantHead}->${wantNew} (${wantPeak})`);
+            });
+        });
+    });
+
+    it('AC2 sweep — the first budget at which each shape deepens, and the deepest window it ever reaches', () => {
+        // 1 MiB steps over the whole resolvable range. Named numbers, so a
+        // change to any constant moves a value here rather than passing
+        // silently.
+        const sweep = (shape) => {
+            let first = null;
+            let max = 0;
+            for (let mib = 128; mib <= 2048; mib++) {
+                const head = headPlan(shape, mib * MIB).chunksPerQuantity;
+                const now = newPlan(shape, mib * MIB).chunksPerQuantity;
+                if (first === null && now > head) {
+                    first = mib;
+                }
+                if (now > max) {
+                    max = now;
+                }
+            }
+            return [first, max];
+        };
+        expect(sweep(SHAPE_1412)).toEqual([614, 11]);
+        expect(sweep(SHAPE_CHUNK1)).toEqual([968, 6]);
+        expect(sweep(SHAPE_PROD)).toEqual([null, 3]);
+        expect(sweep(SHAPE_CHUNK2)).toEqual([null, 3]);
+        expect(sweep(SHAPE_L2_51)).toEqual([null, 3]);
+    });
+
+    it('AC3 — THE FREEZE PLAN IS UNREACHABLE: the prod chunk-10 shape never reaches 4 slots at ANY budget', () => {
+        // A SWEEP, not examples. n = 4 on this shape is the documented freeze
+        // plan: whole-store peak 1,100.1 MiB, the plan that drove a renderer to
+        // 3.4 GB RSS and stopped answering CDP (TASK-2743 UAT-08).
+        let max = 0;
+        for (let b = SMALL_DEVICE_MIN_BUDGET_BYTES; b <= PLAYBACK_HEAP_BUDGET_MAX_BYTES; b += MIB) {
+            max = Math.max(max, newPlan(SHAPE_PROD, b).chunksPerQuantity);
+        }
+        expect(max).toBe(3);
+        // ...and it is the ceiling that does it. Lift the ceiling out of the
+        // way (RULE C's own seam, in band) and the sweep reaches 4 at a
+        // 1667 MiB budget with a plan peak of 1,100.1 MiB.
+        const unbounded = newPlan(SHAPE_PROD, 1667 * MIB, { uncapMaxPeakBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES });
+        expect(unbounded.chunksPerQuantity).toBe(4);
+        expect(Math.round(unbounded.peakResidentBytes / MIB)).toBe(1100);
+        // 1666 MiB is still 3 — 1667 is the exact threshold.
+        expect(newPlan(SHAPE_PROD, 1666 * MIB, { uncapMaxPeakBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES }).chunksPerQuantity).toBe(3);
+    });
+
+    it('AC4 — BOTH bounds in the window budget are load-bearing, one mutation each', () => {
+        // (a) WITHOUT the additive excess E, a PHONE-class budget buys the
+        // whole store: 1412 at 256 MiB goes 3 -> 11 and the plan peak 38.9 ->
+        // 105.7 MiB. That is the safety direction failing.
+        [128, 163, 256, 384].forEach((mib) => {
+            expect(newPlan(SHAPE_1412, mib * MIB).chunksPerQuantity).toBe(3);
+            expect(newPlan(SHAPE_1412, mib * MIB, { planTransientExcessBytes: 0 }).chunksPerQuantity).toBe(11);
+        });
+        expect(Math.round(newPlan(SHAPE_1412, 256 * MIB).peakResidentBytes / MIB)).toBe(39);
+        expect(Math.round(newPlan(SHAPE_1412, 256 * MIB, { planTransientExcessBytes: 0 }).peakResidentBytes / MIB)).toBe(106);
+        // second witness: chunk1 at 800 MiB moves 3 -> 6 without E.
+        expect(newPlan(SHAPE_CHUNK1, 800 * MIB).chunksPerQuantity).toBe(3);
+        expect(newPlan(SHAPE_CHUNK1, 800 * MIB, { planTransientExcessBytes: 0 }).chunksPerQuantity).toBe(6);
+
+        // (b) WITHOUT the ceiling, chunk2 at 2048 MiB goes 3 -> 16 and the plan
+        // peak 440.0 -> 944.8 MiB: precisely the fill the ceiling ruling
+        // forbids. 944.8 MiB of typed arrays is a fill this project has never
+        // observed a browser survive.
+        expect(newPlan(SHAPE_CHUNK2, 2048 * MIB).chunksPerQuantity).toBe(3);
+        const noCeil = newPlan(SHAPE_CHUNK2, 2048 * MIB, { uncapMaxPeakBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES });
+        expect(noCeil.chunksPerQuantity).toBe(16);
+        expect(Math.round(noCeil.peakResidentBytes / MIB)).toBe(945);
+        expect(Math.round(newPlan(SHAPE_CHUNK2, 2048 * MIB).peakResidentBytes / MIB)).toBe(440);
+    });
+
+    it('AC5 — MONOTONE SAFETY: no shape, at any of the table budgets, plans SHALLOWER than HEAD', () => {
+        // Monotonicity is a property of the plan function AT A FIXED BUDGET.
+        // The downward device path changes the BUDGET, not the plan-at-a-
+        // budget, so it cannot violate this and is not evidence about it.
+        [SHAPE_1412, SHAPE_PROD, SHAPE_CHUNK2, SHAPE_CHUNK1, SHAPE_L2_51].forEach((shape) => {
+            BUDGETS_MIB.forEach((mib) => {
+                const head = headPlan(shape, mib * MIB).chunksPerQuantity;
+                const now = newPlan(shape, mib * MIB).chunksPerQuantity;
+                expect(now >= head).toBe(true);
+            });
+        });
+    });
+
+    it('AC6 — THE DOWNWARD PATH: a device that says it is small gets a budget that reflects it', () => {
+        const HEAP = { jsHeapSizeLimit: 512 * MIB, usedJSHeapSize: 150 * MIB };
+        // (a) deviceMemory exactly at the threshold. The raw heap offer is
+        // (512 - 280) x 0.45 = 104.4 MiB — the reading 150 MiB is FLOORED to
+        // 280 MiB — and the small-device path floors THAT at 128 MiB.
+        // HEAD returns exactly 800 MiB, 'heap+device'.
+        const a = resolvePlaybackHeapBudget({ ...HEAP, deviceMemoryGiB: SMALL_DEVICE_MEMORY_GIB });
+        expect(a.budgetBytes).toBe(SMALL_DEVICE_MIN_BUDGET_BYTES);
+        expect(a.source).toBe('small-device');
+        // (b) a 2 GiB device, same heap signals.
+        const b = resolvePlaybackHeapBudget({ ...HEAP, deviceMemoryGiB: 2 });
+        expect(b.budgetBytes).toBe(SMALL_DEVICE_MIN_BUDGET_BYTES);
+        expect(b.source).toBe('small-device');
+        // (c) THE UPWARD PATH MUST NOT MOVE. 700 MiB used is above the floor,
+        // so the floor is inert here — assert that too, by driving the same
+        // signals with the floor overridden to 0.
+        const c = resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 4192 * MIB, usedJSHeapSize: 700 * MIB, deviceMemoryGiB: 16
+        });
+        expect(Math.round(c.budgetBytes / MIB * 10) / 10).toBe(1571.4);
+        expect(c.source).toBe('heap+device');
+        expect(c.budgetBytes).toBe(resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 4192 * MIB, usedJSHeapSize: 700 * MIB, deviceMemoryGiB: 16,
+            appBaselineFloorBytes: 0
+        }).budgetBytes);
+        // (d) near-zero headroom on a small device floors at the structural
+        // minimum, not at zero.
+        const d = resolvePlaybackHeapBudget({
+            jsHeapSizeLimit: 300 * MIB, usedJSHeapSize: 290 * MIB, deviceMemoryGiB: 2
+        });
+        expect(d.budgetBytes).toBe(SMALL_DEVICE_MIN_BUDGET_BYTES);
+        expect(d.source).toBe('small-device');
+        // (e) NO signals at all + the coarse phone class: iOS Safari.
+        const e = resolvePlaybackHeapBudget({ uaMobile: true });
+        expect(e.budgetBytes).toBe(PHONE_CLASS_BUDGET_BYTES);
+        expect(e.source).toBe('phone-class');
+        // (f) no signals, not a phone: desktop Firefox must not regress.
+        const f = resolvePlaybackHeapBudget();
+        expect(f.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(f.source).toBe('default');
+    });
+
+    it('AC7 — THE ANDROID HOLE: a modern phone reports deviceMemory 8, so deviceMemory alone never fires for it', () => {
+        const HEAP = { jsHeapSizeLimit: 512 * MIB, usedJSHeapSize: 150 * MIB };
+        // (a) Chrome on any Android device with >= 6 GB RAM reports 8. HEAD
+        // returns 800 'heap+device' — and so did the earlier draft of this
+        // task, which consulted the phone class ONLY when signals were absent.
+        // Both are wrong, and this is the disjunct that fixes it.
+        const android = resolvePlaybackHeapBudget({ ...HEAP, deviceMemoryGiB: 8, uaMobile: true });
+        expect(android.budgetBytes).toBe(SMALL_DEVICE_MIN_BUDGET_BYTES);
+        expect(android.source).toBe('small-device');
+        // (b) the same signals on a TOUCHSCREEN DESKTOP take the ordinary
+        // floored path, unchanged.
+        const desktop = resolvePlaybackHeapBudget({
+            ...HEAP, deviceMemoryGiB: 8, uaMobile: false, maxTouchPoints: 10, viewportMinPx: 1500
+        });
+        expect(desktop.budgetBytes).toBe(PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(desktop.source).toBe('heap+device');
+        // (c) END TO END — THE CRITERION THAT FAILS IF A PHONE STILL
+        // DOWNLOADS THE STORE. At the phone's 128 MiB budget the 323.5 MiB
+        // fixed mesh alone overflows, so the FIRST term is what refuses it.
+        const plan = newPlan(SHAPE_CHUNK2, android.budgetBytes);
+        expect(plan.verdict).toBe('fallback');
+        expect(plan.fallbackReason).toBe('fixed-mesh-exceeds-budget');
+    });
+
+    it('AC8 — the coarse phone predicate, BOTH clauses, plus a pin on THIS test browser', () => {
+        expect(isCoarsePhoneClass({ uaMobile: true })).toBe(true);
+        // the iOS Safari case: no userAgentData, touch points and a narrow
+        // viewport.
+        expect(isCoarsePhoneClass({ maxTouchPoints: 5, viewportMinPx: 390 })).toBe(true);
+        // a touchscreen LAPTOP — the box this epic was built on. maxTouchPoints
+        // alone must not fire.
+        expect(isCoarsePhoneClass({ maxTouchPoints: 10, viewportMinPx: 1500 })).toBe(false);
+        // a narrow desktop window: viewport alone must not fire either.
+        expect(isCoarsePhoneClass({ maxTouchPoints: 0, viewportMinPx: 390 })).toBe(false);
+        expect(isCoarsePhoneClass({})).toBe(false);
+        expect(isCoarsePhoneClass()).toBe(false);
+
+        // AND PIN THE TEST ENVIRONMENT ITSELF. karma runs ChromeHeadlessCI
+        // with no --window-size, so `viewportMinPx <= 600` is ALREADY TRUE
+        // here and only `maxTouchPoints === 0` keeps the predicate false. If a
+        // future runner change gives the test browser touch points, this is the
+        // ONE named failure you want — not five unrelated budget specs going
+        // red for a reason nobody can see.
+        const live = isCoarsePhoneClass({
+            uaMobile: navigator.userAgentData ? navigator.userAgentData.mobile : undefined,
+            maxTouchPoints: navigator.maxTouchPoints,
+            viewportMinPx: Math.min(window.innerWidth, window.innerHeight)
+        });
+        expect(live).toBe(false);
+    });
+
+    it('AC9 — FALLBACK REACHABILITY, and the verdict/deepening asymmetry that goes with it', () => {
+        // (a) chunk2 on the phone-class budget. ASSERT THE REASON STRING: the
+        // 323.5 MiB fixed mesh alone overflows 256 MiB, so clause 12's FIRST
+        // branch fires — NOT 'floor-window-exceeds-budget'. No budget between
+        // 323.5 and 401.1 MiB is reachable on the phone-class path at all (it
+        // is a constant), so that other reason is only observable on the
+        // small-device path; TASK-2986 AC1 owns that coverage.
+        const phone = newPlan(SHAPE_CHUNK2, PHONE_CLASS_BUDGET_BYTES);
+        expect(phone.verdict).toBe('fallback');
+        expect(phone.fallbackReason).toBe('fixed-mesh-exceeds-budget');
+        // (b) THE SMALL STORE MUST STILL PLAY ON A PHONE. A rule that refuses
+        // everything is not adaptation.
+        const small = newPlan(SHAPE_1412, PHONE_CLASS_BUDGET_BYTES);
+        expect(small.verdict).toBe('ok');
+        expect(small.chunksPerQuantity >= headPlan(SHAPE_1412, PHONE_CLASS_BUDGET_BYTES).chunksPerQuantity).toBe(true);
+        expect(Math.round(small.floorWindowPlanPeakBytes / MIB * 10) / 10).toBe(30.6);
+        // (c) the 14.6 M-node synthetic: 1,390.7 MiB of fixed mesh alone.
+        const synth = newPlan(SYNTHETIC, PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(synth.verdict).toBe('fallback');
+        expect(synth.fallbackReason).toBe('fixed-mesh-exceeds-budget');
+        // (d) THE SAME synthetic at 1,849 MiB is NOT refused — its floor-window
+        // peak of 1,724.5 MiB fits. Epic AC4 and the superseded TASK-2986 AC2
+        // both asserted it IS refused there; an AC asserting refusal fails
+        // against a correct implementation.
+        const synthBig = newPlan(SYNTHETIC, 1849 * MIB);
+        expect(synthBig.verdict).toBe('ok');
+        expect(synthBig.fallbackReason).toBe(null);
+        expect(synthBig.chunksPerQuantity).toBe(2);
+        expect(Math.round(synthBig.floorWindowPlanPeakBytes / MIB * 10) / 10).toBe(1724.5);
+        // (e) THE ASYMMETRY, PINNED so a later reader cannot mistake it for a
+        // bug. The verdict is judged against the GROSS budget; the deepening
+        // against budget - E. W0.4 measured 741_410_1328_chunk2 in EXACTLY
+        // this configuration — 800 MiB budget, verdict 'ok', floor-window peak
+        // 401.1 MiB, HEAD's 3-chunk window at 440.0 MiB — reaching 1078.2 MiB
+        // of heap and DYING inside a 1536 MiB cgroup.
+        //   verdict 'ok' means THE PLAN FITS THE BUDGET.
+        //   It does NOT mean THE TAB WILL SURVIVE.
+        const chunk2 = newPlan(SHAPE_CHUNK2, PLAYBACK_HEAP_BUDGET_BYTES);
+        expect(chunk2.verdict).toBe('ok');
+        expect(chunk2.floorWindowPlanPeakBytes + chunk2.planTransientExcessBytes > chunk2.budgetBytes).toBe(true);
+        expect(Math.round((chunk2.floorWindowPlanPeakBytes + chunk2.planTransientExcessBytes) / MIB * 10) / 10).toBe(967.1);
+    });
+
+    it('AC10 — saveData holds the plan at the floor window, and is not a no-op', () => {
+        // `grep -rn saveData` over the playback tree returned ZERO hits at HEAD
+        // (gmc 126b4ab28, 2026-09-08).
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, { saveData: true }).chunksPerQuantity).toBe(3);
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, { saveData: false }).chunksPerQuantity).toBe(11);
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES).chunksPerQuantity).toBe(11);
+        // it is echoed on the plan, always as a boolean
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, { saveData: true }).saveData).toBe(true);
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES).saveData).toBe(false);
+        // and it is exactly clause 9's guard and nothing else: the deepening
+        // arithmetic still ran and still reports what it WOULD have bought.
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, { saveData: true }).deepChunksPerQuantity).toBe(11);
+    });
+
+    it('AC11 — an undeclared chunk count does NOT deepen, and a 1-chunk store gets 1 slot', () => {
+        // A REAL PRODUCTION PATH, not a defensive branch: playbackEpics's
+        // `totalChunks0` is undefined for every format_version-1 store
+        // (741_410_1328/zarr.json declares n_time null). An unbounded ceiling
+        // here would plan ~2.3 million slots on the karma fixture.
+        const undeclared = computePlaybackMemoryPlan({
+            nNode: 145824, nFace: 290407, chunkLengthT: 10, budgetBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES
+        });
+        expect(undeclared.chunksPerQuantity).toBe(3);
+        expect(undeclared.deepChunksPerQuantity).toBe(null);
+        // Asserted on the VALUE, not on the absence of a throw.
+        expect(undeclared.chunksPerQuantity).toBe(headPlan(
+            { nNode: 145824, nFace: 290407, chunkLengthT: 10 }, PLAYBACK_HEAP_BUDGET_MAX_BYTES
+        ).chunksPerQuantity);
+
+        // A 1-chunk store gets 1, not 2. THIS DEPENDS ON clamp() RESOLVING hi
+        // OVER lo WHEN THE BOUNDS INVERT (`Math.min(hi, Math.max(lo, value))`):
+        // deepN's clamp is clamp(x, MIN = 2, min(totalChunks = 1, ...)), i.e.
+        // lo 2 > hi 1. A future tidy of clamp() to
+        // `Math.max(lo, Math.min(hi, value))` would silently plan 2 slots on a
+        // 1-chunk store, so it is pinned rather than assumed.
+        const one = computePlaybackMemoryPlan({ nNode: 1000, chunkLengthT: 10, totalChunks: 1 });
+        expect(one.chunksPerQuantity).toBe(1);
+        expect(one.deepChunksPerQuantity).toBe(1);
+    });
+
+    it('AC12 — THE INERT TRAP: a plan legitimately exceeds 3 from budget arithmetic alone, with NO argument passed', () => {
+        // TRAP 1 (clause 14): renaming the cap but leaving the old
+        // `clamp(..., MIN, MAX)` in the chunksPerQuantity path holds every plan
+        // at <= 3, silently no-ops this whole task, and leaves every existing
+        // test passing.
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES).chunksPerQuantity > FLOOR_WINDOW_CHUNKS_PER_QUANTITY).toBe(true);
+
+        // TRAP 2 (clause 7b): the DEFAULT-PARAMETER form. Both production call
+        // sites OMIT maxChunksPerQuantity, so a default of
+        // FLOOR_WINDOW_CHUNKS_PER_QUANTITY would make `callerUpperBound` 3 for
+        // every real caller and deepN could never exceed 3. A test that always
+        // passes the argument explicitly CANNOT SEE THIS TRAP — so this call
+        // has no such key at all.
+        const noKey = computePlaybackMemoryPlan({
+            nNode: 145824, nFace: 290407, chunkLengthT: 10, totalChunks: 11,
+            budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES
+        });
+        expect(noKey.chunksPerQuantity).toBe(11);
+    });
+
+    it('AC13 — maxChunksPerQuantity still bounds from ABOVE, on a shape that would otherwise deepen', () => {
+        // TASK-2743's documented shallower-window capability survives, and is
+        // never clamped to the floor window on the deepening path.
+        expect(newPlan(SHAPE_1412, 2048 * MIB, { maxChunksPerQuantity: 2 }).chunksPerQuantity).toBe(2);
+        expect(newPlan(SHAPE_PROD, 2048 * MIB, { maxChunksPerQuantity: 2 }).chunksPerQuantity).toBe(2);
+        // and it can ask for MORE than the floor window on a store the budget
+        // can hold — 5 of 11 rather than 3 or 11.
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, { maxChunksPerQuantity: 5 }).chunksPerQuantity).toBe(5);
+    });
+
+    it('AC17 — the big-device path is ARITHMETICALLY REACHABLE with the constants actually shipped', () => {
+        // (a) THERE EXISTS a budget <= PLAYBACK_HEAP_BUDGET_MAX_BYTES at which
+        // 813_417_1412 plans its whole store. The minimum is 672 MiB
+        // (566 E + 13.9 fixed + 91.8 for 11 chunks); the shipped 800 MiB
+        // default clears it with 128 MiB to spare, and it is the witness.
+        let firstWhole = null;
+        let firstDeeper = null;
+        for (let mib = 128; mib <= 2048; mib++) {
+            const n = newPlan(SHAPE_1412, mib * MIB).chunksPerQuantity;
+            if (firstDeeper === null && n > 3) {
+                firstDeeper = mib;
+            }
+            if (firstWhole === null && n === 11) {
+                firstWhole = mib;
+            }
+        }
+        expect(firstWhole).toBe(672);
+        // reported separately so the two are never confused: 614 MiB is where
+        // it first deepens beyond HEAD at all, where it plans 4.
+        expect(firstDeeper).toBe(614);
+        expect(newPlan(SHAPE_1412, 614 * MIB).chunksPerQuantity).toBe(4);
+        expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES).chunksPerQuantity).toBe(11);
+
+        // (b) THERE EXISTS a real store that plans a PARTIAL window, strictly
+        // between the floor and the whole store. This is what stops a future
+        // edit collapsing the rule back to all-or-nothing.
+        const partial = newPlan(SHAPE_CHUNK1, 1371 * MIB);
+        expect(partial.chunksPerQuantity).toBe(6);
+        expect(partial.chunksPerQuantity > MIN_CHUNKS_PER_QUANTITY).toBe(true);
+        expect(partial.chunksPerQuantity < SHAPE_CHUNK1.totalChunks).toBe(true);
+
+        // (c) restated here so (a) and (b) cannot be satisfied by raising the
+        // ceiling: the prod chunk-10 shape still never reaches 4.
+        expect(newPlan(SHAPE_PROD, PLAYBACK_HEAP_BUDGET_MAX_BYTES).chunksPerQuantity).toBe(3);
+    });
+
+    describe('AC18 — the runtime-tunable seam is LIVE, not ornamental (RULE C)', () => {
+        it('(a) a NON-DEFAULT input MOVES a cell, and BOTH named inputs are shown live', () => {
+            // A seam is trivially buildable dead — clause 7b exists because a
+            // default parameter once made this whole task a silent no-op with
+            // every existing test still green.
+            // planTransientExcessBytes, in the CONSERVATIVE direction: the
+            // AC2(a) headline cell moves 11 -> 3, peak 105.7 -> 38.9 MiB.
+            const tighter = newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, { planTransientExcessBytes: 800 * MIB });
+            expect(tighter.chunksPerQuantity).toBe(3);
+            expect(Math.round(tighter.peakResidentBytes / MIB)).toBe(39);
+            expect(tighter.overrideSource).toBe('override');
+            // uncapMaxPeakBytes, in the OTHER direction: chunk1 at 1371 MiB
+            // moves 6 -> 24, peak 440.0 -> 789.5 MiB.
+            const looser = newPlan(SHAPE_CHUNK1, 1371 * MIB, { uncapMaxPeakBytes: 1024 * MIB });
+            expect(looser.chunksPerQuantity).toBe(24);
+            expect(Math.round(looser.peakResidentBytes / MIB * 10) / 10).toBe(789.5);
+            expect(looser.overrideSource).toBe('override');
+        });
+
+        it('(b) THE CONVERSE, byte-identical: no overrides == the three shipped constants passed explicitly', () => {
+            // This is what makes RULE C's defaults SAFE where clause 7b's was
+            // not: 7b's default sat on a CAP that CLAMPED the result, so an
+            // omitting caller silently killed the rule. RULE C's defaults ARE
+            // the shipped constants, so an omitting caller gets exactly the
+            // intended arithmetic.
+            [SHAPE_1412, SHAPE_CHUNK1, SHAPE_CHUNK2].forEach((shape) => {
+                const bare = newPlan(shape, PLAYBACK_HEAP_BUDGET_BYTES);
+                const explicit = newPlan(shape, PLAYBACK_HEAP_BUDGET_BYTES, {
+                    planTransientExcessBytes: PLAN_TRANSIENT_EXCESS_BYTES,
+                    uncapMaxPeakBytes: PLAN_UNCAP_MAX_PEAK_BYTES,
+                    appBaselineFloorBytes: APP_BASELINE_FLOOR_BYTES
+                });
+                expect(bare).toEqual(explicit);
+                expect(bare.overrideSource).toBe('shipped');
+                expect(explicit.overrideSource).toBe('shipped');
+            });
+        });
+
+        it('(c) SANITISATION: an out-of-band value falls back to the shipped constant, and the echo says so', () => {
+            const JUNK = [-1, NaN, Infinity, -Infinity, '800', null, {}, PLAYBACK_HEAP_BUDGET_MAX_BYTES + 1];
+            JUNK.forEach((junk) => {
+                const p = newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, {
+                    planTransientExcessBytes: junk, uncapMaxPeakBytes: junk, appBaselineFloorBytes: junk
+                });
+                // the ECHOED field reports the SHIPPED value, not the rejected
+                // one — a census that could not tell those apart could not
+                // falsify its own result.
+                expect(p.planTransientExcessBytes).toBe(PLAN_TRANSIENT_EXCESS_BYTES);
+                expect(p.uncapMaxPeakBytes).toBe(PLAN_UNCAP_MAX_PEAK_BYTES);
+                expect(p.appBaselineFloorBytes).toBe(APP_BASELINE_FLOOR_BYTES);
+                expect(p.overrideSource).toBe('shipped');
+                expect(p.chunksPerQuantity).toBe(11);
+            });
+            // the band's hi is honoured, its hi+1 is not
+            expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, {
+                planTransientExcessBytes: PLAN_TRANSIENT_EXCESS_BAND_BYTES[1]
+            }).planTransientExcessBytes).toBe(PLAN_TRANSIENT_EXCESS_BAND_BYTES[1]);
+            expect(PLAN_UNCAP_MAX_PEAK_BAND_BYTES).toEqual([0, PLAYBACK_HEAP_BUDGET_MAX_BYTES]);
+            expect(APP_BASELINE_FLOOR_BAND_BYTES).toEqual([0, PLAYBACK_HEAP_BUDGET_BYTES]);
+            // ZERO IS IN BAND AND IS SAFE, not dangerous: it collapses the
+            // window budget so the monotone max() returns HEAD's own plan.
+            expect(newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, { uncapMaxPeakBytes: 0 }).chunksPerQuantity).toBe(3);
+            // and the same discipline on the budget resolver
+            const junkFloor = resolvePlaybackHeapBudget({
+                jsHeapSizeLimit: 512 * MIB, usedJSHeapSize: 150 * MIB, deviceMemoryGiB: 4,
+                appBaselineFloorBytes: 'not a number'
+            });
+            const noFloor = resolvePlaybackHeapBudget({
+                jsHeapSizeLimit: 512 * MIB, usedJSHeapSize: 150 * MIB, deviceMemoryGiB: 4
+            });
+            expect(junkFloor).toEqual(noFloor);
+            expect(junkFloor.appBaselineFloorBytes).toBe(APP_BASELINE_FLOOR_BYTES);
+        });
+
+        it('(d) THE HARD INVARIANT no in-band override may breach, as a sweep', () => {
+            // This preserves the q-3 ruling verbatim: the ceiling is a SAFETY
+            // control, and a future admin knob must not become a way to
+            // re-create the documented renderer freeze.
+            const SHAPES = [SHAPE_1412, SHAPE_PROD, SHAPE_CHUNK2, SHAPE_CHUNK1, SHAPE_L2_51];
+            const EXCESS = [0, 100 * MIB, PLAN_TRANSIENT_EXCESS_BYTES, PLAYBACK_HEAP_BUDGET_MAX_BYTES];
+            const CEILINGS = [0, PLAN_UNCAP_MAX_PEAK_BYTES, 1024 * MIB, PLAYBACK_HEAP_BUDGET_MAX_BYTES];
+            let deeperSeen = 0;
+            let breaches = 0;
+            SHAPES.forEach((shape) => {
+                [128, 256, 800, 1371, 2048].forEach((mib) => {
+                    EXCESS.forEach((e) => {
+                        CEILINGS.forEach((ceiling) => {
+                            const p = newPlan(shape, mib * MIB, {
+                                planTransientExcessBytes: e, uncapMaxPeakBytes: ceiling
+                            });
+                            if (p.chunksPerQuantity > headPlan(shape, mib * MIB).chunksPerQuantity) {
+                                deeperSeen++;
+                                if (p.peakResidentBytes > ceiling
+                                    || p.peakResidentBytes > PLAYBACK_HEAP_BUDGET_MAX_BYTES
+                                    || p.chunksPerQuantity < MIN_CHUNKS_PER_QUANTITY
+                                    || p.chunksPerQuantity > shape.totalChunks) {
+                                    breaches++;
+                                }
+                            }
+                        });
+                    });
+                });
+            });
+            // the sweep must actually EXERCISE the invariant, not vacuously
+            // satisfy it by never producing a deeper plan.
+            expect(deeperSeen > 0).toBe(true);
+            expect(breaches).toBe(0);
+        });
+
+        it('(e) the module keeps NO settable state — karma runs every playback spec in ONE bundle', () => {
+            // playbackMemoryPolicy-test.js has zero reset hooks under
+            // byte-exact assertions, so a leaked module-level override would
+            // produce order-dependent failures across ~30 specs. The seam is
+            // therefore parameters-only: no getConfigProp, no URLSearchParams,
+            // no localStorage, no window/store read, and no module-level `let`.
+            //
+            // Driven as a PROPERTY rather than a source grep (a grep cannot run
+            // here): the same call, made twice with an override in between,
+            // must return byte-identical plans.
+            const before = newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES);
+            newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES, {
+                planTransientExcessBytes: 0, uncapMaxPeakBytes: PLAYBACK_HEAP_BUDGET_MAX_BYTES,
+                appBaselineFloorBytes: 0
+            });
+            resolvePlaybackHeapBudget({ appBaselineFloorBytes: 0, jsHeapSizeLimit: 512 * MIB, deviceMemoryGiB: 2 });
+            const after = newPlan(SHAPE_1412, PLAYBACK_HEAP_BUDGET_BYTES);
+            expect(after).toEqual(before);
+            expect(after.overrideSource).toBe('shipped');
+        });
     });
 });
