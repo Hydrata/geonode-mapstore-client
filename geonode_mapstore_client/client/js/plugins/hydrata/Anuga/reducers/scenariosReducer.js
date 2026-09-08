@@ -54,7 +54,10 @@ const initialState = {
     // reporting "saved" while the scenario was still mid-write, which is
     // exactly the wrong answer for TASK-2826's dispatchBuild. Read it with
     // isScenarioCommitInFlight (selectorsAnuga.js); keys are deleted at zero,
-    // so the map is empty at rest.
+    // so the map is empty at rest. A draft's count MIGRATES tempId -> real id
+    // with its row when the lazy create resolves (SAVE_ANUGA_SCENARIO_SUCCESS
+    // below) — without that, a follow-up PATCH still on the wire was counted
+    // under a key nothing could name any more.
     commitsInFlight: {}
 };
 
@@ -319,7 +322,34 @@ export default (state = initialState, action) => {
             ? server.id
             : state.selectedId;
 
-        return { ...state, byId: newById, allIds: newAllIds, selectedId: newSelectedId };
+        // TASK-3012 round-2 fix (independent verifier, 2026-09-08) — the
+        // in-flight COMMIT count must FOLLOW the tempId -> real-id migration
+        // for exactly the same reason the selection above does. In the H4
+        // window a draft's first commit POSTs while a second commit, already
+        // counted under the tempId, waits to PATCH the real id. This case
+        // deletes byId[tempId] and strips `_tempId`, so from here on
+        // `scenario.id || scenario._tempId` — the only expression TASK-2826's
+        // dispatchBuild has — can evaluate to nothing BUT the real id. Left
+        // unmigrated, the count sat under a key nothing could name again:
+        // isScenarioCommitInFlight(state, realId) read false while that PATCH
+        // was still on the wire, and dispatchBuild would green-light a build
+        // mid-write — the precise "new scenario, tab through the four
+        // required selects" shape this card was filed from. Added (not
+        // assigned) so a commit already opened under the real id survives,
+        // and gated on the tempId entry existing so a LATER success for the
+        // same dead tempId (the H4 PATCH's own, which arrives after this
+        // migration) is a no-op rather than a double count.
+        // `|| {}` because plenty of pre-existing specs (and any state
+        // persisted before this slice existed) reach this case with a
+        // hand-built scenarios object that has no commitsInFlight at all.
+        let commitsInFlight = state.commitsInFlight || {};
+        if (tempId !== null && Object.prototype.hasOwnProperty.call(commitsInFlight, tempId)) {
+            commitsInFlight = { ...commitsInFlight };
+            commitsInFlight[server.id] = (commitsInFlight[server.id] || 0) + commitsInFlight[tempId];
+            delete commitsInFlight[tempId];
+        }
+
+        return { ...state, byId: newById, allIds: newAllIds, selectedId: newSelectedId, commitsInFlight };
     }
     case DUPLICATE_ANUGA_SCENARIO_SUCCESS: {
         // The BE returns a freshly-INSERTed pk (ScenarioSerializerV2); we

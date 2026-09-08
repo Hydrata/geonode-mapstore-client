@@ -158,6 +158,13 @@ export const getScenarioById = (state, id) => {
  * from the success AND the failure arm of every branch — so a 400 clears it
  * like a 200 does and it can never stick on.
  *
+ * Round-2 fix: asking under the real id is enough EVEN in the lazy-create
+ * window. A draft's commits are counted under its tempId, but
+ * SAVE_ANUGA_SCENARIO_SUCCESS migrates that count onto the real id along with
+ * the row itself (scenariosReducer.js), so a follow-up PATCH still on the
+ * wire when the create lands stays visible under the id the caller now holds
+ * — the tempId is stripped from the row at that moment and is unaskable.
+ *
  * NOT interchangeable with `scenario.unsaved`: that flag means "the pane
  * differs from the last server response" (it is set by purely local writes
  * that never hit the network) and TASK-2826 retires it. This one means the

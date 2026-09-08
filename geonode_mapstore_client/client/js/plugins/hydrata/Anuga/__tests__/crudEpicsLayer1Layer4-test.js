@@ -696,8 +696,18 @@ describe('TASK-3012 AC5 — isScenarioCommitInFlight, the redux signal TASK-2826
             }, done, onComplete(done, () => {
                 expect(mockAxios.history.post.length).toBe(1);
                 expect(settledSeen.length).toBe(1);
-                expect(settledSeen[0].scenarioId).toBe('new_12');
+                // Round-2 fix (verifier finding): the settled action keys on
+                // the REAL id, not the tempId the entry was opened under —
+                // withCommitSettled dispatches the SUCCESS first, and that
+                // success migrates the row AND its commit count
+                // tempId -> 950 (scenariosReducer.js). Asserting 'new_12'
+                // here was pinning the very bug the next spec proves.
+                expect(settledSeen[0].scenarioId).toBe(950);
+                // Both readings must be false: the tempId is dead, and the
+                // real id has nothing outstanding.
                 expect(isScenarioCommitInFlight(stateOf(state), 'new_12')).toBe(false);
+                expect(isScenarioCommitInFlight(stateOf(state), 950)).toBe(false);
+                expect(state.commitsInFlight).toEqual({});
             }));
     });
 
@@ -728,6 +738,115 @@ describe('TASK-3012 AC5 — isScenarioCommitInFlight, the redux signal TASK-2826
                 expect(afterEachSettle[1]).toBe(true);
                 expect(afterEachSettle[2]).toBe(false);
                 expect(state.commitsInFlight[56]).toBe(undefined);
+            }));
+    });
+
+    // TASK-3012 round-2 fix (independent verifier, 2026-09-08) — THE LAZY-
+    // CREATE (H4) WINDOW, where the signal was BLIND. A brand-new scenario's
+    // first commit POSTs; a second commit fired before that POST lands
+    // PATCHes the real id once it resolves (the H4 branch). Both entries were
+    // opened under the tempId, but SAVE_ANUGA_SCENARIO_SUCCESS migrates the
+    // row tempId -> real id AND deletes its `_tempId`, so from that instant
+    // `scenario.id || scenario._tempId` — the one expression TASK-2826 has —
+    // can only evaluate to the real id, under which the still-outstanding
+    // PATCH was invisible. dispatchBuild would have green-lit a build with a
+    // field PATCH on the wire, in exactly the "new scenario, tab through the
+    // four required selects" shape this card was filed from (prod scenario
+    // 419). The WIRE half was never wrong — crudEpics.js already enqueues the
+    // follow-up PATCH on `created.id` — this is the store-visible half only.
+    it('AC5 — after the lazy CREATE resolves, a still-outstanding follow-up PATCH is visible under the REAL id', (done) => {
+        let state = seededWith({new_20: {id: null, _tempId: 'new_20', name: 'D', unsaved: false}});
+        const during = [];
+        mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/').reply(() => new Promise(
+            (resolve) => setTimeout(() => resolve([201, {id: 951, name: 'D', terrain: 586}]), 20)
+        ));
+        // The reading is taken in a MACROTASK inside the PATCH's own reply,
+        // i.e. genuinely while that request is outstanding and after every
+        // microtask of the create's success has been reduced — the same
+        // staging the AC2 wire spec uses, and for the same reason.
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/951/').reply(() => new Promise(
+            (resolve) => setTimeout(() => {
+                during.push({
+                    byRealId: isScenarioCommitInFlight(stateOf(state), 951),
+                    rowExistsAtTempId: !!state.byId.new_20,
+                    rowTempId: state.byId[951] && state.byId[951]._tempId
+                });
+                resolve([200, {terrain: 586, rainfall: 1505}]);
+            }, 30)
+        ));
+
+        const commits = [
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: null, _tempId: 'new_20', name: 'D', terrain: 586}},
+            {
+                type: COMMIT_ANUGA_SCENARIO_FIELD,
+                scenario: {id: null, _tempId: 'new_20', name: 'D', terrain: 586, rainfall: 1505}
+            }
+        ];
+        commits.forEach((c) => { state = scenariosReducer(state, c); });
+        expect(state.commitsInFlight.new_20).toBe(2);
+
+        const settledSeen = [];
+        commitAnugaScenarioFieldEpic(mockActions(commits), storeWithProjectId(7))
+            .subscribe((emittedAction) => {
+                collectDispatched(emittedAction).forEach((a) => {
+                    if (a.type === COMMIT_ANUGA_SCENARIO_FIELD_SETTLED) settledSeen.push(a);
+                    state = scenariosReducer(state, a);
+                });
+            }, done, onComplete(done, () => {
+                // H4 held: ONE create, and the second commit went out as a
+                // PATCH on the real id rather than a second POST.
+                expect(mockAxios.history.post.length).toBe(1);
+                expect(mockAxios.history.patch.length).toBe(1);
+                expect(during.length).toBe(1);
+                // THE RED LEVER — false before this fix.
+                expect(during[0].byRealId).toBe(true);
+                // ...and there is no other key TASK-2826 could have asked
+                // under: the tempId row is gone and `_tempId` is stripped.
+                expect(during[0].rowExistsAtTempId).toBe(false);
+                expect(during[0].rowTempId).toBe(undefined);
+                // Migrating the count must not strand it: both settle, and
+                // neither key is left behind.
+                expect(settledSeen.length).toBe(2);
+                expect(isScenarioCommitInFlight(stateOf(state), 951)).toBe(false);
+                expect(state.commitsInFlight).toEqual({});
+            }));
+    });
+
+    it('AC5 (PIN — the migration must not strand the count) — a follow-up PATCH that FAILS after the create succeeded still clears it', (done) => {
+        // Moving the count onto the real id means the settled action for the
+        // follow-up commit must be keyed on the real id too — on BOTH arms.
+        // A migration that left the failure arm keyed on the dead tempId
+        // would decrement nothing and leave dispatchBuild detouring this
+        // scenario for the rest of the session.
+        let state = seededWith({new_21: {id: null, _tempId: 'new_21', name: 'D', unsaved: false}});
+        mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/').reply(() => new Promise(
+            (resolve) => setTimeout(() => resolve([201, {id: 952, name: 'D', terrain: 586}]), 20)
+        ));
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/952/').reply(400, {detail: 'nope'});
+
+        const commits = [
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: null, _tempId: 'new_21', name: 'D', terrain: 586}},
+            {
+                type: COMMIT_ANUGA_SCENARIO_FIELD,
+                scenario: {id: null, _tempId: 'new_21', name: 'D', terrain: 586, rainfall: 1505}
+            }
+        ];
+        commits.forEach((c) => { state = scenariosReducer(state, c); });
+
+        const dispatchedAll = [];
+        commitAnugaScenarioFieldEpic(mockActions(commits), storeWithProjectId(7))
+            .subscribe((emittedAction) => {
+                collectDispatched(emittedAction).forEach((a) => {
+                    dispatchedAll.push(a);
+                    state = scenariosReducer(state, a);
+                });
+            }, done, onComplete(done, () => {
+                const settled = dispatchedAll.filter(a => a.type === COMMIT_ANUGA_SCENARIO_FIELD_SETTLED);
+                expect(settled.length).toBe(2);
+                expect(dispatchedAll.filter(a => a.type === SAVE_ANUGA_SCENARIO_ERROR).length).toBe(1);
+                expect(isScenarioCommitInFlight(stateOf(state), 952)).toBe(false);
+                expect(isScenarioCommitInFlight(stateOf(state), 'new_21')).toBe(false);
+                expect(state.commitsInFlight).toEqual({});
             }));
     });
 });

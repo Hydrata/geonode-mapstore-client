@@ -693,7 +693,10 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
             // scenariosReducer keys UPDATE_ANUGA_SCENARIO on, so the settled
             // action closes exactly the entry COMMIT_ANUGA_SCENARIO_FIELD
             // opened. TASK-2826 must ask isScenarioCommitInFlight with the
-            // same expression.
+            // same expression. Round-2 fix: on the two tempId branches this
+            // is only the OPENING key — once the create resolves the reducer
+            // migrates the count onto the real id, so those branches settle
+            // on the real id instead (see below).
             const commitKey = scenario.id || scenario._tempId;
 
             if (scenario.id) {
@@ -747,14 +750,34 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
                         // the create's own .then) leaves the mergeMap
                         // projection untouched, so _inFlightScenarioCreates'
                         // H4 guard is unaffected.
-                        .then((created) => _queuePatchScenario(projectId, created.id, scenario)
-                            // TASK-2972 — quiet for the same reason as the
-                            // has-id branch: the create this one waited on
-                            // already toasted, so a second notice for the
-                            // same user gesture is pure noise.
-                            .then(({response, patchBody}) => withCommitSettled(commitKey, saveAnugaScenarioSuccess(
-                                {...response.data, id: created.id}, {sentPayload: patchBody, tempId, quiet: true}
-                            ))))
+                        .then((created) => {
+                            // TASK-3012 round-2 fix — settle under the REAL
+                            // id, not the tempId this commit opened under.
+                            // The create's own success has by now migrated
+                            // the whole row (and the commitsInFlight count
+                            // with it, scenariosReducer.js) tempId -> real
+                            // id, and stripped `_tempId`; keying the settled
+                            // action on the dead tempId would decrement
+                            // nothing and strand the count on forever.
+                            // Falls back to the tempId only if the create
+                            // came back id-less, in which case the reducer
+                            // bailed out of the migration too.
+                            const settleKey = (created && created.id) || commitKey;
+                            return _queuePatchScenario(projectId, created.id, scenario)
+                                // TASK-2972 — quiet for the same reason as
+                                // the has-id branch: the create this one
+                                // waited on already toasted, so a second
+                                // notice for the same user gesture is pure
+                                // noise.
+                                .then(({response, patchBody}) => withCommitSettled(settleKey, saveAnugaScenarioSuccess(
+                                    {...response.data, id: created.id}, {sentPayload: patchBody, tempId, quiet: true}
+                                )))
+                                // Caught HERE, inside the create's `.then`,
+                                // so the outer catch below sees only a
+                                // FAILED CREATE — for which nothing migrated
+                                // and the tempId is still the live key.
+                                .catch(error => withCommitSettled(settleKey, saveAnugaScenarioError(error, {})));
+                        })
                         .catch(error => withCommitSettled(commitKey, saveAnugaScenarioError(error, {})))
                 );
             }
@@ -770,8 +793,14 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
             const lazyCreateSentPayload = scenarioPatchBody(scenario);
             return Rx.Observable.from(
                 _createScenario(projectId, scenario)
+                    // TASK-3012 round-2 fix — same reason as the H4 branch
+                    // above: withCommitSettled dispatches the SUCCESS first,
+                    // which migrates commitsInFlight[tempId] onto the real
+                    // id, so the settled action that follows it must use the
+                    // real id too.
                     .then(data => withCommitSettled(
-                        commitKey, saveAnugaScenarioSuccess(data, {tempId, sentPayload: lazyCreateSentPayload})
+                        (data && data.id) || commitKey,
+                        saveAnugaScenarioSuccess(data, {tempId, sentPayload: lazyCreateSentPayload})
                     ))
                     .catch(error => withCommitSettled(commitKey, saveAnugaScenarioError(error, {})))
             );
