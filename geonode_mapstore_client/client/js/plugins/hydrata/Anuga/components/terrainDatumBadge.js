@@ -29,14 +29,22 @@ export const DATUM_LOW_CONFIDENCE = 0.6;
 
 // Returns 'warn' | 'ok' | null (null = stay silent, non-blocking).
 export function datumBadgeSeverity(verticalDatum) {
-    if (!verticalDatum || !verticalDatum.datum_guess) return null;
+    if (!verticalDatum) return null;
+    // TASK-2971: a tag/measurement conflict (infer_vertical_datum disagreeing
+    // with itself: embedded tag vs the GLO-30 difference-of-DEMs check) is the
+    // LOUDEST state the platform can be in about a terrain's vertical datum.
+    // datum_guess is 'unknown' on a conflict, which the check below would
+    // otherwise render silent — so this check comes first and is independent
+    // of the guess switch.
+    if (verticalDatum.tag_measurement_conflict !== null && verticalDatum.tag_measurement_conflict !== undefined) return 'warn';
+    if (!verticalDatum.datum_guess) return null;
     const guess = verticalDatum.datum_guess;
     const conf = typeof verticalDatum.confidence === 'number' ? verticalDatum.confidence : null;
     if (guess === 'ellipsoid') return 'warn';
     if (guess === 'orthometric_egm2008') {
         return (conf !== null && conf < DATUM_LOW_CONFIDENCE) ? 'warn' : 'ok';
     }
-    return null; // 'unknown' -> we make no claim, so we stay silent
+    return null; // 'unknown' with no conflict -> we make no claim, so we stay silent
 }
 
 class TerrainDatumBadge extends React.Component {
@@ -87,8 +95,14 @@ class TerrainDatumBadge extends React.Component {
         }
 
         // WARN
+        // TASK-2971: a tag_measurement_conflict renders a dedicated conflict
+        // header + evidence (its own msgIds, keyed off tag_guess/dod_median_m/
+        // expected_ellipsoid_dod_m) instead of the ordinary offset-based copy,
+        // since the conflict object carries no dod_vs_glo30_median_m.
+        const conflict = verticalDatum.tag_measurement_conflict;
         const offset = verticalDatum.dod_vs_glo30_median_m;
         const offsetStr = (typeof offset === 'number') ? `${offset > 0 ? '+' : ''}${offset.toFixed(1)}` : '—';
+        const fmtM = (v) => (typeof v === 'number') ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : '—';
         const guess = verticalDatum.datum_guess;
         const {expanded} = this.state;
 
@@ -113,7 +127,7 @@ class TerrainDatumBadge extends React.Component {
                     title="Check this terrain's vertical datum"
                 >
                     <span className="glyphicon glyphicon-warning-sign" aria-hidden="true" style={{marginRight: 4}} />
-                    <Message msgId="hydrata.anuga.terrainDatumBadgeWarn" />
+                    <Message msgId={conflict ? "hydrata.anuga.terrainDatumConflictWarn" : "hydrata.anuga.terrainDatumBadgeWarn"} />
                 </span>
                 {expanded ? (
                     <div className="sv-anuga-terrain-datum-detail" style={{marginTop: 4}}>
@@ -122,10 +136,21 @@ class TerrainDatumBadge extends React.Component {
                             data-testid={`terrain-datum-evidence-${terrainId}`}
                             style={{color: 'rgba(255,255,255,0.75)', marginBottom: 5}}
                         >
-                            <Message
-                                msgId="hydrata.anuga.terrainDatumBadgeEvidence"
-                                msgParams={{guess, offset: offsetStr}}
-                            />
+                            {conflict ? (
+                                <Message
+                                    msgId="hydrata.anuga.terrainDatumConflictEvidence"
+                                    msgParams={{
+                                        tagGuess: conflict.tag_guess,
+                                        dodMedian: fmtM(conflict.dod_median_m),
+                                        expectedDod: fmtM(conflict.expected_ellipsoid_dod_m)
+                                    }}
+                                />
+                            ) : (
+                                <Message
+                                    msgId="hydrata.anuga.terrainDatumBadgeEvidence"
+                                    msgParams={{guess, offset: offsetStr}}
+                                />
+                            )}
                         </div>
                         <div className="sv-anuga-terrain-datum-actions" style={{display: 'flex', flexWrap: 'wrap', gap: 4}}>
                             {/* epic 2323 review fix (TASK-2326): only offer Convert for an
