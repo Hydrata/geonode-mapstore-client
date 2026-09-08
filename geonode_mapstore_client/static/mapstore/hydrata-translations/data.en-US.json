@@ -371,6 +371,8 @@
         "terrainDatumBadgeWarn": "Check vertical datum",
         "terrainDatumConfirmed": "Datum: EGM2008",
         "terrainDatumBadgeEvidence": "Best guess: {guess} · reads {offset} m vs Copernicus GLO-30 (EGM2008).",
+        "terrainDatumConflictWarn": "Datum tag disagrees with measurement",
+        "terrainDatumConflictEvidence": "Terrain tag says {tagGuess}, but the GLO-30 check reads {dodMedian} m (expected ≈{expectedDod} m for that datum). Needs a human look.",
         "terrainDatumConvert": "Convert to EGM2008",
         "terrainDatumKeep": "Keep as-is",
         "terrainDatumCorrect": "It's already correct",

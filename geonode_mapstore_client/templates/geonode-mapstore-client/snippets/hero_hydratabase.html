@@ -24,7 +24,7 @@
         <form action="/anuga/api/project/" method="post">
             {% csrf_token %}
             <label for="name" id="project-create-text">{% trans "Create New Project:" %}</label>
-            <input type="text" id="name" name="name" value="" placeholder="{% trans 'project name' %}" class="project-create-text-input"/>
+            <input type="text" id="name" name="name" value="" placeholder="{% trans 'project name' %}" class="project-create-text-input" required/>
             <input type="submit" value="Create" class="btn btn-success"/>
         </form>
     </div>

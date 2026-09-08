@@ -371,6 +371,8 @@
         "terrainDatumBadgeWarn": "Vérifier la référence verticale",
         "terrainDatumConfirmed": "Référence : EGM2008",
         "terrainDatumBadgeEvidence": "Meilleure estimation : {guess} · écart de {offset} m par rapport à Copernicus GLO-30 (EGM2008).",
+        "terrainDatumConflictWarn": "L'étiquette de référence ne correspond pas à la mesure",
+        "terrainDatumConflictEvidence": "L'étiquette du terrain indique {tagGuess}, mais la vérification GLO-30 donne {dodMedian} m (≈{expectedDod} m attendu pour cette référence). Nécessite une vérification humaine.",
         "terrainDatumConvert": "Convertir vers EGM2008",
         "terrainDatumKeep": "Conserver tel quel",
         "terrainDatumCorrect": "Déjà correct",
