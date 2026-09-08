@@ -450,6 +450,12 @@ class AnugaScenarioMenuClass extends React.Component {
       // dispatching the redundant whole-object save that could clobber that
       // very commit on the server (crudEpics.js:638).
       selectedScenarioCommitInFlight: PropTypes.bool,
+      // TASK-2826 (verifier note 2) — the RAW per-scenario in-flight-commit
+      // counts, {[scenario.id || _tempId]: <count>} (scenariosReducer.js).
+      // maybeDispatchDeferredBuild reads it for the DEFERRED scenario once the
+      // selection has moved off it, which the boolean above can no longer
+      // answer for.
+      commitsInFlight: PropTypes.object,
       // TASK-2826 (AC5) — injectable override of DEFERRED_BUILD_MAX_WAIT_MS,
       // so the bound-elapsed arm is specifiable without a fake-timer library.
       deferredBuildMaxWaitMs: PropTypes.number,
@@ -654,18 +660,49 @@ class AnugaScenarioMenuClass extends React.Component {
       }
   };
 
+  // TASK-2826 (verifier note 2) — "is a field commit for THIS scenario id
+  // still on the wire?", asked of the RAW commitsInFlight map rather than of
+  // selectedScenarioCommitInFlight, which only ever describes the currently
+  // SELECTED scenario.
+  //
+  // dispatchBuild only ever defers a scenario that already has a real id
+  // (case (a) catches the id-less ones first), and the reducer MIGRATES a
+  // draft's count from its _tempId onto that real id when the lazy create
+  // resolves (scenariosReducer.js, SAVE_ANUGA_SCENARIO_SUCCESS), so the key a
+  // deferral holds is always the key its count lives under — a build deferred
+  // under a real id can never look at the wrong bucket.
+  deferredScenarioCommitInFlight = (scenarioId) =>
+      ((this.props.commitsInFlight || {})[scenarioId] || 0) > 0;
+
   // TASK-2826 — the componentDidUpdate half of the deferral. The in-flight
   // signal flipping false IS a prop change, so this is reached on the same
-  // tick COMMIT_ANUGA_SCENARIO_FIELD_SETTLED lands. If the SELECTION has moved
-  // to another scenario the signal no longer describes the deferred one at
-  // all, so fire now rather than wait out a bound we can no longer evaluate.
+  // tick COMMIT_ANUGA_SCENARIO_FIELD_SETTLED lands.
   maybeDispatchDeferredBuild = () => {
       const pending = this.pendingDeferredBuild;
       if (!pending) return;
       const {selectedScenario} = this.props;
       const stillSelected = !!selectedScenario && selectedScenario.id === pending.scenarioId;
-      if (stillSelected && this.props.selectedScenarioCommitInFlight) return;
-      this.fireDeferredBuild(stillSelected ? 'commit-settled' : 'selection-moved');
+      if (stillSelected) {
+          if (this.props.selectedScenarioCommitInFlight) return;
+          this.fireDeferredBuild('commit-settled');
+          return;
+      }
+      // The SELECTION HAS MOVED (the user clicked another scenario in the rail
+      // while this build was being held). selectedScenarioCommitInFlight now
+      // answers for a DIFFERENT scenario, so it cannot be consulted — but the
+      // deferred scenario's own commit may very well still be on the wire.
+      //
+      // Verifier note 2: this used to fire the held build unconditionally at
+      // this point. That released it mid-PATCH, so the build POST could be
+      // composed server-side from pre-PATCH inputs — the stale-input race the
+      // deferral exists to avoid (no data loss, since no save is dispatched,
+      // but the wrong build). AC1(b) says defer until THAT commit settles, so
+      // ask the raw map about THAT scenario. commitsInFlight is a mapped prop,
+      // so the settle that empties its bucket is itself the prop change that
+      // re-enters this method; and armDeferredBuild's bound is already ticking,
+      // so a selection move can never strand the build either way.
+      if (this.deferredScenarioCommitInFlight(pending.scenarioId)) return;
+      this.fireDeferredBuild('selection-moved');
   };
 
   // UAT #8 fix — resolve the freshest copy of a scenario by id from the live
@@ -870,10 +907,24 @@ class AnugaScenarioMenuClass extends React.Component {
 
   // TASK-2194 (review fix) — record the staff compute-target pick on the
   // per-scenario ui slot (state.anuga.ui.sessionComputeTargets). This MUST
-  // NOT go through handleUpdateScenario/UPDATE_ANUGA_SCENARIO: that reducer
-  // unconditionally flips scenario.unsaved, which sends the next
-  // Build-and-Run down dispatchBuild's save-only branch (the deferred run is
-  // never armed) and the follow-up save wholesale-replace wipes the choice.
+  // NOT go through handleUpdateScenario/UPDATE_ANUGA_SCENARIO, because a
+  // compute target written onto the scenario OBJECT cannot survive a save:
+  // the next save wholesale-replaces the row. It PATCHes only the 12-key
+  // SCENARIO_PATCH_FIELDS snapshot (crudEpics.js:467, applied at :527 — the
+  // compute target is not one of the twelve, so it never even goes on the
+  // wire), and SAVE_ANUGA_SCENARIO_SUCCESS then merges the server response
+  // back over the local row (scenariosReducer.js:295), dropping the choice
+  // silently. The ui slot sits outside that blast radius. That is the whole
+  // reason this guard exists.
+  //
+  // TASK-2826 CORRECTION (verifier note 1): this comment used to open with
+  // "that reducer unconditionally flips scenario.unsaved, which sends the
+  // next Build-and-Run down dispatchBuild's save-only branch (the deferred
+  // run is never armed)". That clause is now FALSE — dispatchBuild stopped
+  // reading `scenario.unsaved` (ruling d92) and its save branch is reachable
+  // only from an id-LESS scenario. It was the stated reason for the guard, so
+  // it is corrected rather than left to imply the guard is obsolete. It is
+  // not: the wipe-on-save half above is live and unchanged.
   handleSetSessionComputeTarget = (scenario, target) => {
       const key = scenario?.id || scenario?._tempId;
       if (key === null || key === undefined) return; // eslint-disable-line no-eq-null, eqeqeq
@@ -948,7 +999,19 @@ class AnugaScenarioMenuClass extends React.Component {
       //       reducer merge keeps redux looking correct. This branch was that
       //       clobber's only live trigger; removing the save closes it.
       //   (c) has id, nothing outstanding -> build immediately.
-      if (!scenario.id || !this.props.buildScenarioExplicit) {
+      //
+      // The three cases are tested in that exact order, and case (a) is keyed
+      // on `!scenario.id` ALONE (verifier note 3). It used to read
+      // `!scenario.id || !this.props.buildScenarioExplicit`, which left one
+      // way for a HAS-ID scenario to still reach the save branch — and from
+      // there saveAnugaScenarioEpic's has-id arm and the un-queued
+      // _patchScenario at crudEpics.js:638, i.e. the very clobber d92 closes.
+      // Production could not reach it (mapDispatchToProps wires
+      // buildScenarioExplicit unconditionally), but "improbable" is not
+      // "impossible", and AC6's unreachability claim should hold on the code
+      // rather than on the wiring. A missing dispatcher is now its own dead
+      // end below: it cannot save, cannot defer, and cannot arm a run.
+      if (!scenario.id) {
           // TASK-2953 (epic 2815 W3, mechanisms 1/2) — a save no longer
           // triggers a build server-side (TASK-2820), so "the operator
           // clicked Build" must chain a build onto THIS save's success, not
@@ -961,6 +1024,19 @@ class AnugaScenarioMenuClass extends React.Component {
               this.props.saveAnugaScenario(scenario, {buildAfterSave: true, runAfterBuild: !!opts.runAfterBuild});
           }
           dispatched = 'save';
+      } else if (!this.props.buildScenarioExplicit) {
+          // (d) — MISCONFIGURATION, not a user state: a has-id scenario with
+          // no build dispatcher wired. Unreachable in production
+          // (mapDispatchToProps below always supplies it) and reachable only
+          // from a hand-built unconnected render. It must NOT fall through to
+          // (a): a has-id SAVE_ANUGA_SCENARIO is exactly the un-queued
+          // whole-object PATCH this card removed. It must not defer either —
+          // fireDeferredBuild would have nothing to dispatch and would still
+          // arm a run for a build that never happens. So: no dispatch, no
+          // arm, and a distinct outcome ('unavailable') that
+          // armAndDispatchBuildAndRun's `=== 'build'` test rejects.
+          trackEvent('button', 'click', 'anuga-scenario-menu-build-unavailable');
+          dispatched = 'unavailable';
       } else if (this.props.selectedScenarioCommitInFlight) {
           // (b) — hold the click; maybeDispatchDeferredBuild releases it when
           // the commit settles, and DEFERRED_BUILD_MAX_WAIT_MS bounds the wait.
@@ -1771,6 +1847,15 @@ const mapStateToProps = (state) => {
         scenarios: getScenariosArray(state),
         selectedScenario,
         selectedScenarioCommitInFlight: !!commitKey && isScenarioCommitInFlight(state, commitKey),
+        // TASK-2826 (verifier note 2) — the raw bookkeeping map behind that
+        // boolean, so maybeDispatchDeferredBuild can ask about the scenario it
+        // is HOLDING rather than the one currently selected. This is a read of
+        // state TASK-3012 already publishes; selectorsAnuga.js and crudEpics.js
+        // stay untouched. Its reference changes ONLY when the reducer rebuilds
+        // the map (COMMIT_ANUGA_SCENARIO_FIELD, COMMIT_ANUGA_SCENARIO_FIELD_
+        // SETTLED, and the tempId->id migration), so it costs no extra renders
+        // — and that rebuild IS the wake-up componentDidUpdate needs.
+        commitsInFlight: state?.anuga?.scenarios?.commitsInFlight,
         archiveFilter: state?.anuga?.scenarios?.archiveFilter || 'none',
         terrain: state?.anuga?.resources?.terrain,
         boundaries: state?.anuga?.resources?.boundaries,

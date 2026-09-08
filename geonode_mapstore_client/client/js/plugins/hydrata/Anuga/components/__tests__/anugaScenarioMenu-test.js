@@ -2567,13 +2567,18 @@ describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)'
         };
         // `overrides` re-renders the SAME instance with a changed prop — how a
         // spec flips the in-flight signal the way a settling commit does.
+        // Verifier-note-2 fix: `overrides` is spread LAST so it can also move
+        // `selectedScenario` / `scenarios`, which is the gesture note 2 is
+        // about (clicking another scenario in the rail mid-deferral). No
+        // pre-existing spec overrides either key, so precedence is unchanged
+        // for them.
         const render = (scenario, overrides = {}) => {
             ReactDOM.render(
                 <AnugaScenarioMenuClass
                     {...base}
-                    {...overrides}
                     scenarios={[scenario]}
                     selectedScenario={scenario}
+                    {...overrides}
                 />,
                 container
             );
@@ -2760,5 +2765,189 @@ describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)'
             expect(h.buildCalls).toEqual([417]);
             done();
         }, 120);
+    });
+
+    // ---- AC1(b), verifier note 2 — the SELECTION MOVING AWAY mid-deferral
+    // must not release the build early. Before this fix maybeDispatchDeferred
+    // Build fired the instant `selectedScenario.id !== pending.scenarioId`,
+    // because selectedScenarioCommitInFlight then described a DIFFERENT
+    // scenario and the component had no signal for the one it was holding. It
+    // has one now: `commitsInFlight`, the raw per-scenario count map
+    // (scenariosReducer.js), mapped in this component's own mapStateToProps.
+    // No save is dispatched on that path either way, so this was never the
+    // d92 clobber — it was the stale-INPUT half: a build POST composed
+    // server-side from pre-PATCH inputs.
+    const otherScenario = () => ({
+        id: 999, name: 'Trial 02', status: 'created', computed_status: 'created',
+        terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+        friction: null, structure: null, mesh_region: null, network: null,
+        resolution: 1000, duration: 1800, created_by: 7, unsaved: false
+    });
+
+    it('(b/note-2) the selection moving to another scenario does NOT release a build whose own commit is still on the wire [RED AT 4b5f50ff5: it fired immediately]', () => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.buildCalls).toEqual([]);
+
+        // The user clicks scenario 999 in the rail. 417's PATCH is STILL on
+        // the wire (its count is untouched); only the boolean below has moved
+        // to describe 999, which has nothing outstanding.
+        h.render(savedScenario(), {
+            scenarios: [savedScenario(), otherScenario()],
+            selectedScenario: otherScenario(),
+            selectedScenarioCommitInFlight: false,
+            commitsInFlight: {417: 1}
+        });
+
+        expect(h.buildCalls).toEqual([]);
+        expect(h.saveCalls.length).toBe(0);
+        expect(h.armCalls.length).toBe(0);
+    });
+
+    it('(b/note-2) …and it is released, exactly once and WITH its run, when the DEFERRED scenario own commit settles while another scenario is selected [RED AT 4b5f50ff5]', () => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.buildCalls).toEqual([]);
+
+        const moved = {
+            scenarios: [savedScenario(), otherScenario()],
+            selectedScenario: otherScenario(),
+            selectedScenarioCommitInFlight: false
+        };
+        h.render(savedScenario(), {...moved, commitsInFlight: {417: 1}});
+        expect(h.buildCalls).toEqual([]);
+
+        // COMMIT_ANUGA_SCENARIO_FIELD_SETTLED deletes the key at zero
+        // (scenariosReducer.js), rebuilding the map — which is the very prop
+        // change that re-enters componentDidUpdate.
+        h.render(savedScenario(), {...moved, commitsInFlight: {}});
+
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.saveCalls.length).toBe(0);
+        // AC3 — a Build-and-Run whose build was deferred may NOT lose its run,
+        // and that stays true when the deferral outlived the selection.
+        expect(h.armCalls.length).toBe(1);
+        expect(h.armCalls[0].sid).toBe(417);
+        expect(h.armCalls[0].opts).toEqual({localOwned: true});
+
+        // A further unrelated re-render must not add a second build.
+        h.render(savedScenario(), {...moved, commitsInFlight: {}});
+        expect(h.buildCalls).toEqual([417]);
+    });
+
+    it('(b/note-2) the selection moving away when the deferred scenario has NOTHING in flight still fires immediately [NO-REGRESSION: green at 4b5f50ff5 by design — it asserts the new read does not OVER-block]', () => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.buildCalls).toEqual([]);
+
+        // 417's commit settled in the SAME tick the selection moved (and 999
+        // has one of its own outstanding, which must be ignored — the map is
+        // read per scenario, not "is anything in flight").
+        h.render(savedScenario(), {
+            scenarios: [savedScenario(), otherScenario()],
+            selectedScenario: otherScenario(),
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {999: 1}
+        });
+
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.saveCalls.length).toBe(0);
+        expect(h.armCalls.length).toBe(1);
+        expect(h.armCalls[0].sid).toBe(417);
+    });
+
+    it('(b/note-2) CONNECTED: the same, through the real store — proves mapStateToProps publishes commitsInFlight and that the settle wakes componentDidUpdate [RED AT 4b5f50ff5]', () => {
+        // The three unconnected specs above grade the DECISION. This one
+        // grades the WIRING they depend on: without the new
+        // `commitsInFlight` entry in mapStateToProps the prop is undefined,
+        // the map reads empty, and the held build is released on the
+        // selection move exactly as before — and, worse, nothing would
+        // re-render this component when the deferred scenario's commit
+        // finally settles, because the boolean it used to watch describes
+        // scenario 999 now.
+        const store = makeThunkStore();
+        store.dispatch(setAnugaScenarioData([savedScenario(), otherScenario()]));
+        store.dispatch(selectAnugaScenario(savedScenario()));
+        ReactDOM.render(<Provider store={store}><AnugaScenarioMenu /></Provider>, container);
+
+        Simulate.change(container.querySelector('#terrain'), {target: {value: '11'}});
+        expect(store.getState().anuga.scenarios.commitsInFlight[417]).toBe(1);
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(store.actionsOfType(BUILD_SCENARIO).length).toBe(0);
+        expect(store.actionsOfType(SAVE_ANUGA_SCENARIO).length).toBe(0);
+
+        // The user clicks scenario 999 in the rail while 417's PATCH is still
+        // on the wire.
+        store.dispatch(selectAnugaScenario(otherScenario()));
+        expect(store.getState().anuga.scenarios.selectedId).toBe(999);
+        expect(store.getState().anuga.scenarios.commitsInFlight[417]).toBe(1);
+        expect(store.actionsOfType(BUILD_SCENARIO).length).toBe(0);
+        expect(store.actionsOfType(SAVE_ANUGA_SCENARIO).length).toBe(0);
+
+        // 417's commit settles. Its key is deleted at zero, rebuilding the
+        // map — the prop change that re-enters maybeDispatchDeferredBuild.
+        store.dispatch(commitAnugaScenarioFieldSettled(417));
+        const builds = store.actionsOfType(BUILD_SCENARIO);
+        expect(builds.length).toBe(1);
+        expect(builds[0].scenarioId).toBe(417);
+        expect(store.actionsOfType(SAVE_ANUGA_SCENARIO).length).toBe(0);
+    });
+
+    // ---- AC6, verifier note 3 — a has-id scenario can no longer reach the
+    // save branch by ANY route ---------------------------------------------
+    it('(note-3) a HAS-ID scenario with no buildScenarioExplicit wired dispatches NOTHING — never a has-id SAVE_ANUGA_SCENARIO [RED AT 4b5f50ff5: it saved scenario 417]', () => {
+        // AC6 claims crudEpics.js:638's has-id PATCH is unreachable from
+        // production once the save branch is restricted to id-less scenarios.
+        // At 4b5f50ff5 that held only because mapDispatchToProps always wires
+        // buildScenarioExplicit: the surviving `|| !this.props.build
+        // ScenarioExplicit` disjunct still routed a has-id scenario to the
+        // save branch. The guard is now `!scenario.id` alone, and a missing
+        // dispatcher is its own dead end.
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            buildScenarioExplicit: undefined
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build').click();
+        expect(h.saveCalls.length).toBe(0);
+        expect(h.buildCalls).toEqual([]);
+        expect(h.runCalls.length).toBe(0);
+        expect(h.armCalls.length).toBe(0);
+    });
+
+    it('(note-3) the same with NOTHING in flight, via Build-and-Run: still no save, and no run is armed for a build that never happened [RED AT 4b5f50ff5]', () => {
+        const h = makeUnconnected({buildScenarioExplicit: undefined});
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.saveCalls.length).toBe(0);
+        expect(h.buildCalls).toEqual([]);
+        expect(h.armCalls.length).toBe(0);
+        expect(h.runCalls.length).toBe(0);
+    });
+
+    it('(note-3) AC1(a) is intact: an id-LESS draft with no buildScenarioExplicit wired STILL saves', () => {
+        // The (d) dead end must not swallow the lazy-create path — case (a) is
+        // tested first and is keyed on !scenario.id alone.
+        const h = makeUnconnected({buildScenarioExplicit: undefined});
+        h.render(draftScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.saveCalls.length).toBe(1);
+        expect(h.saveCalls[0]._tempId).toBe('new_1');
+        expect(h.buildCalls).toEqual([]);
     });
 });
