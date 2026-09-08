@@ -15,16 +15,22 @@ import {
     saveAnugaScenarioEpic,
     commitAnugaScenarioFieldEpic,
     SCENARIO_PATCH_FIELDS,
-    __resetInFlightScenarioCreatesForTests
+    __resetInFlightScenarioCreatesForTests,
+    // TASK-3012 (epic 2815 W5) — the PATCH-path queue's test reset, mirroring
+    // __resetInFlightScenarioCreatesForTests.
+    __resetInFlightScenarioCommitsForTests
 } from '../epics/crudEpics';
 import {
     SAVE_ANUGA_SCENARIO,
     COMMIT_ANUGA_SCENARIO_FIELD,
+    COMMIT_ANUGA_SCENARIO_FIELD_SETTLED,
     SAVE_ANUGA_SCENARIO_SUCCESS,
+    SAVE_ANUGA_SCENARIO_ERROR,
     saveAnugaScenarioSuccess,
     saveAnugaScenarioError
 } from '../actions/scenarioActions';
 import scenariosReducer from '../reducers/scenariosReducer';
+import {isScenarioCommitInFlight} from '../selectorsAnuga';
 import {BUILD_SCENARIO} from '../actions/comparisonActions';
 
 const mockActions = (actions) => {
@@ -426,6 +432,302 @@ describe('quiet auto-save toast', () => {
                 const toasts = toastsIn(collectDispatched(emitted[0]));
                 expect(toasts.length).toBe(1);
                 expect(toasts[0].level).toBe('error');
+            }));
+    });
+});
+
+// TASK-3012 (epic 2815 W5) — per-scenario commit SERIALISATION. Found on
+// live production 2026-09-08: four required selects set ~2.5 s apart left
+// the server holding rainfall:null while the UI select read 1505. The
+// client store is NOT the victim (TASK-2953's no-clobber merge already
+// keeps whichever field moved on locally, and is pinned green by
+// scenariosReducerLayer2-test.js:57) — the SERVER is: two overlapping
+// PATCHes each carry a full 12-key snapshot taken when their action was
+// created, so whichever lands LAST writes its older snapshot over the
+// newer one. These specs therefore assert on the WIRE, never on redux.
+describe('TASK-3012 — overlapping field commits for one scenario are serialised on the wire', () => {
+    const MockAdapter = require('axios-mock-adapter');
+    const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+    let mockAxios;
+    beforeEach(() => {
+        mockAxios = new MockAdapter(axios);
+        __resetInFlightScenarioCreatesForTests();
+        __resetInFlightScenarioCommitsForTests();
+    });
+    afterEach(() => { mockAxios.restore(); });
+
+    const onComplete = (done, assertions) => () => {
+        try {
+            assertions();
+            done();
+        } catch (e) {
+            done(e);
+        }
+    };
+
+    it('AC2 (RED-on-HEAD target) — while the FIRST PATCH is outstanding, the second commit for the SAME scenario has not been sent', (done) => {
+        // The reading MUST be taken inside the deferred reply's macrotask,
+        // NOT on its synchronous entry. axios dispatches through a .then
+        // microtask and axios-mock-adapter pushes to `history` inside its
+        // own async handleRequest, so on the first reply fn's SYNCHRONOUS
+        // entry history.patch.length reads 1 even at HEAD — the obvious
+        // assertion point is vacuous. One macrotask later HEAD reads 2
+        // (mergeMap issued both immediately) and a serialised epic reads 1.
+        const seenWhileFirstOutstanding = [];
+        let nth = 0;
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/419/').reply(() => {
+            const mine = ++nth;
+            return new Promise((resolve) => setTimeout(() => {
+                if (mine === 1) seenWhileFirstOutstanding.push(mockAxios.history.patch.length);
+                resolve([200, {}]);
+            }, 40));
+        });
+
+        // The live prod repro: scenario 419, terrain=586 committed, then
+        // rainfall=1505 committed before the first PATCH came back.
+        const action$ = mockActions([
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 419, name: 'W5', terrain: 586, rainfall: null}},
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 419, name: 'W5', terrain: 586, rainfall: 1505}}
+        ]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, onComplete(done, () => {
+                expect(seenWhileFirstOutstanding.length).toBe(1);
+                expect(seenWhileFirstOutstanding[0]).toBe(1);
+                // ...and the queued one IS sent once the first settles,
+                // carrying the NEWER snapshot (never dropped).
+                expect(mockAxios.history.patch.length).toBe(2);
+                const second = JSON.parse(mockAxios.history.patch[1].data);
+                expect(second.terrain).toBe(586);
+                expect(second.rainfall).toBe(1505);
+                expect(emitted.length).toBe(2);
+            }));
+    });
+
+    it('AC6 — three back-to-back commits on one scenario: three PATCHes, strictly one at a time, in dispatch order', (done) => {
+        const observed = [];
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/55/')
+            .reply(() => new Promise((resolve) => setTimeout(() => {
+                observed.push(mockAxios.history.patch.length);
+                resolve([200, {}]);
+            }, 20)));
+        const action$ = mockActions([
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 55, terrain: 1}},
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 55, terrain: 1, boundary: 2}},
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 55, terrain: 1, boundary: 2, inflow: 3}}
+        ]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, onComplete(done, () => {
+                // Staged, so this cannot pass vacuously: as the Nth reply
+                // settles exactly N PATCHes have reached the wire.
+                expect(observed.length).toBe(3);
+                expect(observed[0]).toBe(1);
+                expect(observed[1]).toBe(2);
+                expect(observed[2]).toBe(3);
+                expect(mockAxios.history.patch.length).toBe(3);
+                const bodies = mockAxios.history.patch.map(p => JSON.parse(p.data));
+                expect(bodies[0].terrain).toBe(1);
+                expect(bodies[0].boundary).toBe(undefined);
+                expect(bodies[1].boundary).toBe(2);
+                expect(bodies[1].inflow).toBe(undefined);
+                // Nothing dropped: the last body on the wire carries all three.
+                expect(bodies[2].terrain).toBe(1);
+                expect(bodies[2].boundary).toBe(2);
+                expect(bodies[2].inflow).toBe(3);
+                expect(emitted.length).toBe(3);
+            }));
+    });
+
+    it('AC6 (regression PIN — true at HEAD, must stay true) — commits on DIFFERENT scenarios still overlap freely', (done) => {
+        const inFlightWhen61Settles = [];
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/61/').reply(() => new Promise((resolve) => setTimeout(() => {
+            inFlightWhen61Settles.push(mockAxios.history.patch.length);
+            resolve([200, {}]);
+        }, 40)));
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/62/')
+            .reply(() => new Promise((resolve) => setTimeout(() => resolve([200, {}]), 40)));
+
+        const action$ = mockActions([
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 61, terrain: 1}},
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 62, terrain: 2}}
+        ]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, onComplete(done, () => {
+                // Both were on the wire together — the queue is per-id, not global.
+                expect(inFlightWhen61Settles.length).toBe(1);
+                expect(inFlightWhen61Settles[0]).toBe(2);
+                expect(emitted.length).toBe(2);
+            }));
+    });
+});
+
+// TASK-3012 AC5 (epic 2815 W5) — the STORE-VISIBLE half. TASK-2826's
+// dispatchBuild is a connected component: it cannot read crudEpics.js's
+// module-level _inFlightScenarioCommits map, so the same fact has to exist in
+// redux. The specs below drive COMMIT_ANUGA_SCENARIO_FIELD *alone* — never
+// the UPDATE_ANUGA_SCENARIO that commitAnugaScenarioField pairs with it — so
+// a selector re-badged onto the existing `unsaved` flag (which TASK-2826
+// exists to retire, and which UPDATE_ANUGA_SCENARIO is what sets) cannot pass.
+describe('TASK-3012 AC5 — isScenarioCommitInFlight, the redux signal TASK-2826 reads', () => {
+    const MockAdapter = require('axios-mock-adapter');
+    const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+    let mockAxios;
+    beforeEach(() => {
+        mockAxios = new MockAdapter(axios);
+        __resetInFlightScenarioCreatesForTests();
+        __resetInFlightScenarioCommitsForTests();
+    });
+    afterEach(() => { mockAxios.restore(); });
+
+    const onComplete = (done, assertions) => () => {
+        try {
+            assertions();
+            done();
+        } catch (e) {
+            done(e);
+        }
+    };
+    const stateOf = (scenarios) => ({anuga: {scenarios}});
+    const seededWith = (byId) => ({
+        ...scenariosReducer(undefined, {type: '@@INIT'}),
+        byId,
+        allIds: Object.keys(byId)
+    });
+
+    it('AC5 — false before the commit, TRUE while the PATCH is on the wire, false once it settles', (done) => {
+        // A mini store: every action the epic emits is reduced into `state`,
+        // so the "during" reading is taken against real reducer output while
+        // the request is genuinely outstanding, not against a hand-built object.
+        let state = seededWith({77: {id: 77, name: 'S', terrain: null, unsaved: false}});
+        const duringReadings = [];
+
+        expect(isScenarioCommitInFlight(stateOf(state), 77)).toBe(false);
+
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/77/').reply(() => new Promise((resolve) => {
+            setTimeout(() => {
+                duringReadings.push(isScenarioCommitInFlight(stateOf(state), 77));
+                resolve([200, {terrain: 4}]);
+            }, 30);
+        }));
+
+        const commit = {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 77, name: 'S', terrain: 4}};
+        state = scenariosReducer(state, commit);
+        expect(isScenarioCommitInFlight(stateOf(state), 77)).toBe(true);
+        // Proves it is a NEW signal, not `unsaved` under another name: only
+        // COMMIT_ANUGA_SCENARIO_FIELD was dispatched, so `unsaved` never moved.
+        expect(state.byId[77].unsaved).toBe(false);
+
+        const settledSeen = [];
+        commitAnugaScenarioFieldEpic(mockActions([commit]), storeWithProjectId(7))
+            .subscribe((emittedAction) => {
+                collectDispatched(emittedAction).forEach((a) => {
+                    if (a.type === COMMIT_ANUGA_SCENARIO_FIELD_SETTLED) settledSeen.push(a);
+                    state = scenariosReducer(state, a);
+                });
+            }, done, onComplete(done, () => {
+                expect(duringReadings.length).toBe(1);
+                expect(duringReadings[0]).toBe(true);
+                expect(settledSeen.length).toBe(1);
+                expect(settledSeen[0].scenarioId).toBe(77);
+                expect(isScenarioCommitInFlight(stateOf(state), 77)).toBe(false);
+                // Cleared by deletion, not by a lingering zero.
+                expect(state.commitsInFlight[77]).toBe(undefined);
+            }));
+    });
+
+    it('AC5 — a FAILED commit clears the flag too (a 400 must never strand it on)', (done) => {
+        // Without a settled action of its own this is unfixable: the plain
+        // SAVE_ANUGA_SCENARIO_ERROR carries NO scenario id (deliberately —
+        // review fix TASK-2953/2890 finding 3), so a slice keyed on scenario
+        // id could never clear itself from a failure and TASK-2826's
+        // dispatchBuild would detour that scenario forever.
+        let state = seededWith({78: {id: 78, name: 'S', unsaved: false}});
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/78/').reply(400, {detail: 'nope'});
+
+        const commit = {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 78, terrain: 9}};
+        state = scenariosReducer(state, commit);
+        expect(isScenarioCommitInFlight(stateOf(state), 78)).toBe(true);
+
+        const dispatchedAll = [];
+        commitAnugaScenarioFieldEpic(mockActions([commit]), storeWithProjectId(7))
+            .subscribe((emittedAction) => {
+                collectDispatched(emittedAction).forEach((a) => {
+                    dispatchedAll.push(a);
+                    state = scenariosReducer(state, a);
+                });
+            }, done, onComplete(done, () => {
+                const settled = dispatchedAll.filter(a => a.type === COMMIT_ANUGA_SCENARIO_FIELD_SETTLED);
+                expect(settled.length).toBe(1);
+                expect(settled[0].scenarioId).toBe(78);
+                expect(isScenarioCommitInFlight(stateOf(state), 78)).toBe(false);
+                // PIN — the finding-3 fix is NOT reverted: the error action
+                // still carries no scenarioId (which is why the settled
+                // action had to exist at all).
+                const err = dispatchedAll.find(a => a.type === SAVE_ANUGA_SCENARIO_ERROR);
+                expect(err).toExist();
+                expect(err.scenarioId).toBe(undefined);
+            }));
+    });
+
+    it('AC5 — a still-uncreated draft is answerable under its _tempId, and the lazy CREATE clears it', (done) => {
+        // TASK-2826 asks with `scenario.id || scenario._tempId`; a draft the
+        // user is still filling in has only the tempId, and its first commit
+        // is a POST, not a PATCH — that branch must emit the settled action too.
+        let state = seededWith({new_12: {id: null, _tempId: 'new_12', name: 'D', unsaved: false}});
+        mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/')
+            .reply(() => new Promise((resolve) => setTimeout(() => resolve([201, {id: 950, name: 'D'}]), 20)));
+
+        const commit = {
+            type: COMMIT_ANUGA_SCENARIO_FIELD,
+            scenario: {id: null, _tempId: 'new_12', name: 'D', terrain: 3}
+        };
+        state = scenariosReducer(state, commit);
+        expect(isScenarioCommitInFlight(stateOf(state), 'new_12')).toBe(true);
+
+        const settledSeen = [];
+        commitAnugaScenarioFieldEpic(mockActions([commit]), storeWithProjectId(7))
+            .subscribe((emittedAction) => {
+                collectDispatched(emittedAction).forEach((a) => {
+                    if (a.type === COMMIT_ANUGA_SCENARIO_FIELD_SETTLED) settledSeen.push(a);
+                    state = scenariosReducer(state, a);
+                });
+            }, done, onComplete(done, () => {
+                expect(mockAxios.history.post.length).toBe(1);
+                expect(settledSeen.length).toBe(1);
+                expect(settledSeen[0].scenarioId).toBe('new_12');
+                expect(isScenarioCommitInFlight(stateOf(state), 'new_12')).toBe(false);
+            }));
+    });
+
+    it('AC5 — the count survives overlapping commits: still TRUE after the FIRST of three settles', (done) => {
+        // A boolean flag would read false here while two PATCHes were still
+        // queued behind the first, telling TASK-2826's dispatchBuild the
+        // scenario was safe to build mid-write.
+        let state = seededWith({56: {id: 56, name: 'S', unsaved: false}});
+        const afterEachSettle = [];
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/56/')
+            .reply(() => new Promise((resolve) => setTimeout(() => resolve([200, {}]), 15)));
+
+        const commits = [
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 56, terrain: 1}},
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 56, terrain: 1, boundary: 2}},
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 56, terrain: 1, boundary: 2, inflow: 3}}
+        ];
+        commits.forEach((c) => { state = scenariosReducer(state, c); });
+        expect(state.commitsInFlight[56]).toBe(3);
+
+        commitAnugaScenarioFieldEpic(mockActions(commits), storeWithProjectId(7))
+            .subscribe((emittedAction) => {
+                collectDispatched(emittedAction).forEach((a) => { state = scenariosReducer(state, a); });
+                afterEachSettle.push(isScenarioCommitInFlight(stateOf(state), 56));
+            }, done, onComplete(done, () => {
+                expect(afterEachSettle.length).toBe(3);
+                expect(afterEachSettle[0]).toBe(true);
+                expect(afterEachSettle[1]).toBe(true);
+                expect(afterEachSettle[2]).toBe(false);
+                expect(state.commitsInFlight[56]).toBe(undefined);
             }));
     });
 });

@@ -27,7 +27,13 @@ import {
     // Build-and-Run intent, keyed by scenario id.
     ARM_RUN_AFTER_BUILD,
     ADVANCE_RUN_AFTER_BUILD,
-    CLEAR_RUN_AFTER_BUILD
+    CLEAR_RUN_AFTER_BUILD,
+    // TASK-3012 (epic 2815 W5) — the store-visible half of per-scenario
+    // commit serialisation: COMMIT_ANUGA_SCENARIO_FIELD opens an entry,
+    // COMMIT_ANUGA_SCENARIO_FIELD_SETTLED (crudEpics.js, from BOTH the
+    // success and the failure arm) closes it.
+    COMMIT_ANUGA_SCENARIO_FIELD,
+    COMMIT_ANUGA_SCENARIO_FIELD_SETTLED
 } from "../actionsAnuga";
 
 const initialState = {
@@ -39,7 +45,17 @@ const initialState = {
     archiveFilter: 'none',
     // TASK-2890 (epic 2815 W3, Layer 4) — { [scenarioId]: {phase: 'awaiting-inflight' | 'awaiting-built', localOwned} }.
     // See runAfterBuildEpic (epics/pollingEpics.js).
-    runAfterBuild: {}
+    runAfterBuild: {},
+    // TASK-3012 (epic 2815 W5) — { [scenario.id || scenario._tempId]: <count
+    // of field commits currently in flight for it> }. A COUNT, not a boolean:
+    // a user tabbing through the four required selects fires several commits
+    // before the first response lands, and a boolean would be cleared by the
+    // FIRST settle while two more PATCHes were still queued behind it —
+    // reporting "saved" while the scenario was still mid-write, which is
+    // exactly the wrong answer for TASK-2826's dispatchBuild. Read it with
+    // isScenarioCommitInFlight (selectorsAnuga.js); keys are deleted at zero,
+    // so the map is empty at rest.
+    commitsInFlight: {}
 };
 
 /**
@@ -448,6 +464,38 @@ export default (state = initialState, action) => {
         const runAfterBuild = { ...state.runAfterBuild };
         delete runAfterBuild[action.scenarioId];
         return { ...state, runAfterBuild };
+    }
+    // TASK-3012 (epic 2815 W5) — per-scenario in-flight COMMIT bookkeeping,
+    // the store-visible half of crudEpics.js's _inFlightScenarioCommits queue.
+    // It is deliberately NOT the existing `unsaved` flag: `unsaved` is set by
+    // UPDATE_ANUGA_SCENARIO (the optimistic local echo, which fires for
+    // local-only writes like useAutoPopulateDefaults that never touch the
+    // network) and cleared by any save success, so it answers "does the pane
+    // differ from the last server response?" — not "is a write to this
+    // scenario ON THE WIRE right now?", which is the question TASK-2826's
+    // dispatchBuild has to ask before it POSTs /build/.
+    case COMMIT_ANUGA_SCENARIO_FIELD: {
+        const key = action.scenario && (action.scenario.id || action.scenario._tempId);
+        if (!key) return state;
+        return {
+            ...state,
+            commitsInFlight: {
+                ...state.commitsInFlight,
+                [key]: (state.commitsInFlight[key] || 0) + 1
+            }
+        };
+    }
+    case COMMIT_ANUGA_SCENARIO_FIELD_SETTLED: {
+        const key = action.scenarioId;
+        if (!key || !state.commitsInFlight[key]) return state;
+        const commitsInFlight = { ...state.commitsInFlight };
+        const remaining = commitsInFlight[key] - 1;
+        if (remaining > 0) {
+            commitsInFlight[key] = remaining;
+        } else {
+            delete commitsInFlight[key];
+        }
+        return { ...state, commitsInFlight };
     }
     default:
         return state;
