@@ -507,17 +507,25 @@ export default (state = initialState, action) => {
     case COMMIT_ANUGA_SCENARIO_FIELD: {
         const key = action.scenario && (action.scenario.id || action.scenario._tempId);
         if (!key) return state;
+        // W5 sweep — `|| {}` for the same reason SAVE_ANUGA_SCENARIO_SUCCESS
+        // above already guards it: a hand-built scenarios state (specs, and
+        // TASK-2826's specs next) reaches this case with no commitsInFlight at
+        // all, and the bare `state.commitsInFlight[key]` read below would
+        // TypeError rather than start the count at 1. Guarded on both new
+        // cases so the three readers of this slice agree.
+        const current = state.commitsInFlight || {};
         return {
             ...state,
             commitsInFlight: {
-                ...state.commitsInFlight,
-                [key]: (state.commitsInFlight[key] || 0) + 1
+                ...current,
+                [key]: (current[key] || 0) + 1
             }
         };
     }
     case COMMIT_ANUGA_SCENARIO_FIELD_SETTLED: {
         const key = action.scenarioId;
-        if (!key || !state.commitsInFlight[key]) return state;
+        // W5 sweep — see COMMIT_ANUGA_SCENARIO_FIELD above.
+        if (!key || !(state.commitsInFlight || {})[key]) return state;
         const commitsInFlight = { ...state.commitsInFlight };
         const remaining = commitsInFlight[key] - 1;
         if (remaining > 0) {
