@@ -48,7 +48,10 @@ import {
     TW_SET_MERGE_EXTENT_DRAWING,
     TW_SET_MERGE_EXTENT,
     setMergeExtentDrawing,
-    setMergeExtent
+    setMergeExtent,
+    // TASK-2970 (W3.7) — the coarser-above-finer re-ack.
+    TW_DERIVE_COARSER_ACK,
+    twDeriveCoarserAck
 } from '../actionsTerrainWorkbench';
 
 // ---------------------------------------------------------------------------
@@ -630,6 +633,166 @@ describe('TASK-1800 twDeriveEpic lazy create-then-derive', () => {
                     mockAxios.restore();
                 }
                 done();
+            },
+            projectState
+        );
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-2970 (W3.7) — coarser-above-finer: the 400 re-ack path.
+//
+// derive() refuses a stack whose COARSER DEM sits above a FINER one unless the
+// body carries acknowledge_coarser_above_finer:true (hydrata api_v2.py). The
+// client mirrors the rule, but state.terrainWorkbench.terrains can be STALE —
+// so the server sees an inversion the client did not. That 400 must NOT read as
+// a plain failure: it seeds the confirm dialog with the server's own pairs so
+// the user can press "Derive anyway", which re-sends WITH the flag.
+// ---------------------------------------------------------------------------
+
+const COARSER_PAIRS = [{
+    above: { terrain_id: 584, title: 'Copernicus GLO-30', native_resolution_m: 30.7039 },
+    below: { terrain_id: 585, title: 'Newcastle lidar', native_resolution_m: 0.5 }
+}];
+
+describe('TASK-2970 reducer — deriveCoarserPairs', () => {
+    it('defaults to null', () => {
+        expect(reducer(undefined, {}).deriveCoarserPairs).toBe(null);
+    });
+
+    it('TW_DERIVE_COARSER_ACK seeds the server pairs, stops "deriving", and shows NO error banner', () => {
+        const before = { ...reducer(undefined, {}), deriving: true, deriveError: 'stale text', derivingProcessId: 3 };
+        const state = reducer(before, twDeriveCoarserAck(COARSER_PAIRS));
+        expect(state.deriveCoarserPairs).toEqual(COARSER_PAIRS);
+        expect(state.deriving).toBe(false);
+        expect(state.deriveError).toBe(null, 'a red "failed" banner behind a "Derive anyway" dialog reads as a bug');
+        expect(state.derivingProcessId).toBe(null);
+    });
+
+    it('TW_DERIVE clears a stale seeded pair list (a later, unrelated derive must not re-open the dialog)', () => {
+        const seeded = reducer(undefined, twDeriveCoarserAck(COARSER_PAIRS));
+        expect(seeded.deriveCoarserPairs).toExist();
+        const state = reducer(seeded, twDerive(7, { inputs: [] }));
+        expect(state.deriveCoarserPairs).toBe(null);
+    });
+
+    it('TW_DERIVE_SUCCESS clears a stale seeded pair list', () => {
+        const seeded = reducer(undefined, twDeriveCoarserAck(COARSER_PAIRS));
+        const state = reducer(seeded, twDeriveSuccess(7, 'pid-1'));
+        expect(state.deriveCoarserPairs).toBe(null);
+    });
+});
+
+describe('TASK-2970 extractTwError — the shape MapStore2 actually rejects with', () => {
+    // MapStore2/web/client/libs/ajax.js rejects with `{...error.response,
+    // originalError}` — a plain object carrying `data`/`status`, with NO
+    // `.response` and NO `.message`. Reading only `err.response.data` (the shape
+    // the older unit tests hand-build) sees nothing at runtime, so every
+    // server-side derive message used to collapse to the generic fallback.
+    it('reads `detail` off the interceptor shape (no .response, no .message)', () => {
+        const rejected = { status: 400, data: { detail: 'Merge extent does not overlap the DEM stack' } };
+        expect(extractTwError(rejected, 'Derive failed')).toBe('Merge extent does not overlap the DEM stack');
+    });
+
+    it('still reads the hand-built axios shape (`err.response.data`)', () => {
+        expect(extractTwError({ response: { data: { detail: 'd' } } }, 'fb')).toBe('d');
+    });
+
+    it('an empty rejection still falls back', () => {
+        expect(extractTwError({}, 'Derive failed')).toBe('Derive failed');
+    });
+});
+
+describe('TASK-2970 twDeriveEpic — COARSER_ABOVE_FINER 400', () => {
+    const projectState = { anuga: { projects: { data: { id: 42 } } } };
+    const deriveBody = {
+        inputs: [
+            { terrain_id: 584, priority: 0, unmodified: false },
+            { terrain_id: 585, priority: 1, unmodified: false }
+        ],
+        feather_width_m: 50,
+        target_resolution_m: 1
+    };
+
+    it('turns the COARSER_ABOVE_FINER 400 into TW_DERIVE_COARSER_ACK carrying the server pairs', (done) => {
+        const mockAxios = new MockAdapter(axios);
+        mockAxios.onPost(/analysis-surfaces\/11\/derive\/$/).reply(400, {
+            error_code: 'COARSER_ABOVE_FINER',
+            detail: 'Copernicus GLO-30 (30.7 m) sits above Newcastle lidar (0.5 m). …',
+            pairs: COARSER_PAIRS
+        });
+        testEpic(
+            twDeriveEpic,
+            1,
+            twDerive(11, deriveBody),
+            (actions) => {
+                // try/catch -> done(e): an assertion thrown straight out of the
+                // callback would surface as an opaque mocha timeout instead of
+                // the failing expectation.
+                try {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TW_DERIVE_COARSER_ACK);
+                    expect(actions[0].pairs).toEqual(COARSER_PAIRS);
+                    // NOT a plain derive error — the dialog, not the red strip, owns this.
+                    expect(actions[0].type).toNotBe(TW_DERIVE_ERROR);
+                    done();
+                } catch (e) {
+                    done(e);
+                } finally {
+                    mockAxios.restore();
+                }
+            },
+            projectState
+        );
+    });
+
+    it('the re-ack POSTs acknowledge_coarser_above_finer:true and is accepted (202)', (done) => {
+        const mockAxios = new MockAdapter(axios);
+        let sentFlag = 'never-posted';
+        mockAxios.onPost(/analysis-surfaces\/11\/derive\/$/).reply((config) => {
+            sentFlag = JSON.parse(config.data).acknowledge_coarser_above_finer;
+            return [202, { detail: 'queued', process_id: 'pid-7' }];
+        });
+        testEpic(
+            twDeriveEpic,
+            2,
+            twDerive(11, { ...deriveBody, acknowledge_coarser_above_finer: true }),
+            (actions) => {
+                try {
+                    expect(sentFlag).toBe(true, 'the flag reached the server');
+                    const success = actions.find(a => a.type === TW_DERIVE_SUCCESS);
+                    expect(success).toExist();
+                    expect(success.processId).toBe('pid-7');
+                    done();
+                } catch (e) {
+                    done(e);
+                } finally {
+                    mockAxios.restore();
+                }
+            },
+            projectState
+        );
+    });
+
+    it('a 400 that is NOT the coarser guard still surfaces as a plain TW_DERIVE_ERROR', (done) => {
+        const mockAxios = new MockAdapter(axios);
+        mockAxios.onPost(/analysis-surfaces\/11\/derive\/$/).reply(400, {
+            detail: 'Merge extent does not overlap the DEM stack'
+        });
+        testEpic(
+            twDeriveEpic,
+            1,
+            twDerive(11, deriveBody),
+            (actions) => {
+                try {
+                    expect(actions[0].type).toBe(TW_DERIVE_ERROR);
+                    expect(actions[0].error).toBe('Merge extent does not overlap the DEM stack');
+                    done();
+                } catch (e) {
+                    done(e);
+                } finally {
+                    mockAxios.restore();
+                }
             },
             projectState
         );

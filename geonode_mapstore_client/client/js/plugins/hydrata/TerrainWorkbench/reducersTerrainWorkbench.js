@@ -16,6 +16,7 @@
  *   derivingProcessId: null | number   — TaskMonitor process id while derive in flight
  *   deriving: bool        — derive POST in flight or TaskMonitor not yet complete
  *   deriveError: null | string
+ *   deriveCoarserPairs: null | [{above,below}]  — TASK-2970: server-refused stack
  */
 import {
     TERRAIN_WORKBENCH_SET_SECTION,
@@ -39,6 +40,7 @@ import {
     TW_DERIVE,
     TW_DERIVE_SUCCESS,
     TW_DERIVE_ERROR,
+    TW_DERIVE_COARSER_ACK,
     TW_DERIVE_COMPLETE,
     TW_DERIVE_COMPLETE_ERROR,
     TW_SET_MERGE_EXTENT_DRAWING,
@@ -59,6 +61,12 @@ const defaultState = {
     derivingProcessId: null,
     deriving: false,
     deriveError: null,
+    // TASK-2970 (W3.7) — the SERVER's coarser-above-finer pairs from a refused
+    // derive (400 COARSER_ABOVE_FINER), which re-open the confirm dialog seeded
+    // with them. null = nothing to acknowledge. Cleared the moment a new derive
+    // starts or succeeds, so a later unrelated derive can never re-open the
+    // dialog on a dead pair list.
+    deriveCoarserPairs: null,
     // TASK-2582 (W2a) — Merge extent: client-side-only draw state.
     // mergeExtent: WGS84 [minLon, minLat, maxLon, maxLat] | null (null = full union).
     mergeExtentDrawing: false,
@@ -151,15 +159,38 @@ export default function terrainWorkbench(state = defaultState, action = {}) {
 
     // ── Derive ─────────────────────────────────────────────────────────
     case TW_DERIVE:
-        return { ...state, deriving: true, deriveError: null, derivingProcessId: null };
+        return {
+            ...state,
+            deriving: true,
+            deriveError: null,
+            derivingProcessId: null,
+            deriveCoarserPairs: null
+        };
     case TW_DERIVE_SUCCESS:
         // UAT 2026-07-30: derive accepted (202 + process_id) — the TaskMonitor
         // owns progress from here, so close the Combined-surface panel. The
         // ERROR case deliberately keeps visible untouched: the panel hosts the
         // derive ErrorStrip and must stay open to show a failure.
-        return { ...state, deriving: true, derivingProcessId: action.processId, visible: false };
+        return {
+            ...state,
+            deriving: true,
+            derivingProcessId: action.processId,
+            visible: false,
+            deriveCoarserPairs: null
+        };
     case TW_DERIVE_ERROR:
         return { ...state, deriving: false, deriveError: action.error };
+    // TASK-2970 (W3.7): a REFUSED derive, not a failed one. Deliberately leaves
+    // deriveError null — a red "Derive failed" strip behind a dialog offering
+    // "Derive anyway" reads as a bug. The dialog carries the whole explanation.
+    case TW_DERIVE_COARSER_ACK:
+        return {
+            ...state,
+            deriving: false,
+            deriveError: null,
+            derivingProcessId: null,
+            deriveCoarserPairs: action.pairs || null
+        };
     case TW_DERIVE_COMPLETE:
         return {
             ...state,

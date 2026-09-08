@@ -130,6 +130,9 @@ export class MergeTerrainsPanelClass extends React.Component {
         saveError: PropTypes.string,
         deriving: PropTypes.bool,
         deriveError: PropTypes.string,
+        // TASK-2970 (W3.7) — the server's coarser-above-finer pairs from a refused
+        // derive; hands the recipe builder its "Derive anyway" re-ack.
+        coarserPairsFromServer: PropTypes.array,
         onClose: PropTypes.func,
         onUpdateSurface: PropTypes.func,
         onDerive: PropTypes.func,
@@ -154,6 +157,7 @@ export class MergeTerrainsPanelClass extends React.Component {
         saveError: null,
         deriving: false,
         deriveError: null,
+        coarserPairsFromServer: null,
         mergeExtent: null,
         mergeExtentDrawing: false
     };
@@ -175,6 +179,7 @@ export class MergeTerrainsPanelClass extends React.Component {
         const {
             terrains, surface,
             loading, error, saving, saveError, deriving, deriveError,
+            coarserPairsFromServer,
             onClose, onUpdateSurface, onDerive,
             panelState, onPanelStateChange,
             mergeExtent, mergeExtentDrawing,
@@ -261,6 +266,7 @@ export class MergeTerrainsPanelClass extends React.Component {
                                     onCancelMergeExtentDraw={onCancelMergeExtentDraw}
                                     onClearMergeExtent={onClearMergeExtent}
                                     onConfirmOpenChange={this.handleConfirmOpenChange}
+                                    coarserPairsFromServer={coarserPairsFromServer}
                                 />
                             )}
                         </React.Fragment>
@@ -290,6 +296,9 @@ const mapStateToProps = (state) => {
         saveError: state?.terrainWorkbench?.saveError || null,
         deriving: state?.terrainWorkbench?.deriving || false,
         deriveError: state?.terrainWorkbench?.deriveError || null,
+        // TASK-2970 (W3.7) — a refused derive seeds these; non-empty re-opens the
+        // confirm dialog with the server's own pairs.
+        coarserPairsFromServer: state?.terrainWorkbench?.deriveCoarserPairs || null,
         // TASK-2235 — persisted MovablePanel position/size (anuga ui slice).
         panelState: state?.anuga?.ui?.movablePanels?.[MERGE_TERRAINS_PANEL_ID],
         // TASK-2582 (W2a) — Merge extent (client-side-only draw state).

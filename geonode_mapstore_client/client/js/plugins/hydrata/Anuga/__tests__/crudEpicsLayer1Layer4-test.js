@@ -303,3 +303,129 @@ describe('Review fix (data-loss/major finding 3) — an UNRELATED field-commit f
             });
     });
 });
+
+// TASK-2972 (epic 2815 W3 restart, W3.6) — quiet per-field auto-save. Since
+// TASK-2953 every discrete-field commit in the scenario pane (the terrain/
+// boundary/inflow/rainfall/friction/structure/mesh_region selects, the
+// resolution/duration steppers, the debounced name) PATCHes through
+// commitAnugaScenarioFieldEpic, and EVERY success toasted "'<name>' saved" —
+// ~10 identical top-centre notices while one scenario is configured. The
+// toast is owed ONCE, on the lazy CREATE (the draft now exists on the
+// server); both PATCH branches pass meta.quiet. saveAnugaScenarioError is
+// deliberately untouched and stays loud (a failed auto-save must surface).
+describe('quiet auto-save toast', () => {
+    const MockAdapter = require('axios-mock-adapter');
+    const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+    let mockAxios;
+    beforeEach(() => { mockAxios = new MockAdapter(axios); __resetInFlightScenarioCreatesForTests(); });
+    afterEach(() => { mockAxios.restore(); });
+
+    const toastsIn = (dispatched) => dispatched.filter(a => a.type === 'SHOW_NOTIFICATION');
+    // The epic's completion lands inside a promise chain, so a throwing
+    // expect() there would surface only as a 2 s mocha timeout; route it to
+    // done(err) so a failure names the assertion.
+    const onComplete = (done, assertions) => () => {
+        try {
+            assertions();
+            done();
+        } catch (e) {
+            done(e);
+        }
+    };
+
+    it('AC1 (unit) — saveAnugaScenarioSuccess with meta.quiet dispatches SAVE_ANUGA_SCENARIO_SUCCESS and NO SHOW_NOTIFICATION', () => {
+        const dispatched = collectDispatched(saveAnugaScenarioSuccess({id: 1, name: 'S'}, {quiet: true}));
+        expect(toastsIn(dispatched).length).toBe(0);
+        const success = dispatched.find(a => a.type === SAVE_ANUGA_SCENARIO_SUCCESS);
+        expect(success).toExist();
+        expect(success.scenario.id).toBe(1);
+    });
+
+    it('AC2 (RED-on-HEAD target) — a commit on a scenario WITH an id: one PATCH, and its success thunk dispatches no SHOW_NOTIFICATION', (done) => {
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/77/').reply(200, {terrain: 4});
+        const action$ = mockActions([{
+            type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 77, name: 'S', terrain: 4}
+        }]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, onComplete(done, () => {
+                expect(mockAxios.history.post.length).toBe(0);
+                expect(mockAxios.history.patch.length).toBe(1);
+                expect(emitted.length).toBe(1);
+                const dispatched = collectDispatched(emitted[0]);
+                expect(toastsIn(dispatched).length).toBe(0);
+                // Quiet, not silent: the reducer's no-clobber merge input still lands.
+                const success = dispatched.find(a => a.type === SAVE_ANUGA_SCENARIO_SUCCESS);
+                expect(success).toExist();
+                expect(success.scenario.id).toBe(77);
+                expect(success.sentPayload.terrain).toBe(4);
+            }));
+    });
+
+    it('AC2 (H4) — a second commit for the SAME tempId while the create is in flight: exactly ONE toast overall (the create\'s), none from the follow-up PATCH', (done) => {
+        mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/')
+            .reply(() => new Promise((resolve) => setTimeout(() => resolve([201, {id: 902, name: 'S2'}]), 40)));
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/902/').reply(200, {terrain: 6});
+
+        const tempId = 'new_4';
+        const action$ = mockActions([
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: null, _tempId: tempId, name: 'S2'}},
+            {type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: null, _tempId: tempId, name: 'S2', terrain: 6}}
+        ]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, onComplete(done, () => {
+                expect(mockAxios.history.post.length).toBe(1);
+                expect(mockAxios.history.patch.length).toBe(1);
+                expect(emitted.length).toBe(2);
+                // Order-independent: attribute each success thunk by what it
+                // carried on the wire (the PATCH's sentPayload has terrain 6,
+                // the create's snapshot does not).
+                const perThunk = emitted.map(collectDispatched);
+                const patchThunk = perThunk.find(d => d.some(a =>
+                    a.type === SAVE_ANUGA_SCENARIO_SUCCESS && a.sentPayload && a.sentPayload.terrain === 6));
+                const createThunk = perThunk.find(d => d !== patchThunk);
+                expect(patchThunk).toExist();
+                expect(createThunk).toExist();
+                expect(toastsIn(patchThunk).length).toBe(0);
+                expect(toastsIn(createThunk).length).toBe(1);
+                expect(toastsIn(createThunk)[0].message).toInclude('saved');
+                const allToasts = perThunk.reduce((acc, d) => acc.concat(toastsIn(d)), []);
+                expect(allToasts.length).toBe(1);
+            }));
+    });
+
+    it('AC3 (regression PIN — already true at HEAD) — the FIRST commit on an id-less scenario (lazy create) still dispatches exactly one SHOW_NOTIFICATION whose message includes "saved"', (done) => {
+        mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/').reply(201, {id: 903, name: 'Trial 01', terrain: 3});
+        const action$ = mockActions([{
+            type: COMMIT_ANUGA_SCENARIO_FIELD,
+            scenario: {id: null, _tempId: 'new_5', name: 'Trial 01', terrain: 3}
+        }]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, onComplete(done, () => {
+                expect(mockAxios.history.post.length).toBe(1);
+                expect(emitted.length).toBe(1);
+                const toasts = toastsIn(collectDispatched(emitted[0]));
+                expect(toasts.length).toBe(1);
+                expect(toasts[0].level).toBe('success');
+                expect(toasts[0].message).toInclude('saved');
+                expect(toasts[0].message).toInclude('Trial 01');
+            }));
+    });
+
+    it('errors stay LOUD (pin) — a failed per-field PATCH commit still surfaces a SHOW_NOTIFICATION at level error', (done) => {
+        mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/78/').reply(400, {detail: 'nope'});
+        const action$ = mockActions([{
+            type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: {id: 78, terrain: 9}
+        }]);
+        const emitted = [];
+        commitAnugaScenarioFieldEpic(action$, storeWithProjectId(7))
+            .subscribe(a => emitted.push(a), done, onComplete(done, () => {
+                expect(emitted.length).toBe(1);
+                const toasts = toastsIn(collectDispatched(emitted[0]));
+                expect(toasts.length).toBe(1);
+                expect(toasts[0].level).toBe('error');
+            }));
+    });
+});
