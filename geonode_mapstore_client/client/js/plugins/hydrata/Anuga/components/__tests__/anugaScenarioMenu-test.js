@@ -2303,3 +2303,158 @@ describe('Scenarios surface — window.confirm/alert regression guard', () => {
         expect(headerActionsSrc).toNotInclude('window.alert');
     });
 });
+
+/*
+ * TASK-3011 (epic 2815 W5) — "+ New scenario" must MOVE the selection, and
+ * the selection must then survive the lazy create's tempId -> real-id
+ * migration.
+ *
+ * FOUND ON LIVE PRODUCTION 2026-09-08: with the selection left on the
+ * previous scenario, the first field committed after "+ New scenario"
+ * PATCHed the OLD scenario (scenario 417 was renamed by typing into what
+ * looked like a brand-new scenario's Name field). TASK-2953 made every field
+ * commit hit the server immediately, so there is no undo.
+ *
+ * These specs are CONNECTED on purpose. commitAnugaScenarioFieldEpic
+ * (epics/crudEpics.js) branches on action.scenario.id / _tempId and NEVER
+ * reads state.anuga.scenarios.selectedId, so an epic-level test commits
+ * whatever scenario the test hands it and is green both before and after the
+ * fix — it cannot go RED. Only driving the real store (selection ->
+ * ScenarioPane -> field commit) lets the SELECTION be what chooses the
+ * commit target, which is the actual regression fence.
+ */
+describe('anugaScenarioMenu — + New scenario moves the selection (TASK-3011)', () => {
+    // The sibling makeRealStore() above cannot be reused: commitAnugaScenarioField
+    // is a redux-thunk action creator (scenarioActions.js) and that store has no
+    // middleware. Same local-require pattern as anugaInputMenu-test.js's
+    // TASK-1752 real-store block.
+    const { applyMiddleware } = require('redux');
+    const reduxThunk = require('redux-thunk');
+    const thunkMiddleware = reduxThunk.default || reduxThunk.thunk || reduxThunk;
+    const { ADD_ANUGA_SCENARIO, COMMIT_ANUGA_SCENARIO_FIELD } = require('../../actionsAnuga');
+
+    let container;
+
+    // Real anuga reducer tree + thunk, with a recording middleware BEHIND the
+    // thunk so `dispatched` holds the plain actions the thunks unwrap into.
+    function makeThunkStore() {
+        const dispatched = [];
+        const record = () => (next) => (action) => {
+            dispatched.push(action);
+            return next(action);
+        };
+        const store = createStore(
+            combineReducers({
+                anuga,
+                security: (state = {user: {pk: 7, is_staff: true}}) => state,
+                layers: (state = {flat: []}) => state
+            }),
+            {anuga: {projects: {data: {id: 1, my_role: 'editor'}}}},
+            applyMiddleware(thunkMiddleware, record)
+        );
+        store.actionsOfType = (type) => dispatched.filter((a) => a && a.type === type);
+        return store;
+    }
+
+    // The scenario the user is already on. Its id is LOW on purpose: it is
+    // what getScenariosArray's ascending-id sort puts at scenarios[0], and
+    // therefore what a dangling selection falls back onto.
+    const existingScenario = () => ({
+        id: 417, name: 'Trial 01', status: 'created', computed_status: 'created',
+        terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+        friction: null, structure: null, mesh_region: null, network: null,
+        resolution: 1000, duration: 1800, created_by: 7, unsaved: false
+    });
+
+    function mountOnExisting(store) {
+        store.dispatch(setAnugaScenarioData([existingScenario()]));
+        store.dispatch(selectAnugaScenario(existingScenario()));
+        ReactDOM.render(<Provider store={store}><AnugaScenarioMenu /></Provider>, container);
+    }
+
+    function clickNewScenario() {
+        openKebab(container);
+        kebabMenu().querySelector('.sv-anuga-scenario-overflow-new').click();
+    }
+
+    function newestId(store) {
+        const allIds = store.getState().anuga.scenarios.allIds;
+        return allIds[allIds.length - 1];
+    }
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('AC3 — the Name field shows the seeded "New scenario" default, not the previous scenario name', () => {
+        const store = makeThunkStore();
+        mountOnExisting(store);
+        // Non-vacuous seed: the pane really is showing the OLD name first.
+        expect(container.querySelector('#name').value).toBe('Trial 01');
+        clickNewScenario();
+        expect(store.actionsOfType(ADD_ANUGA_SCENARIO).length).toBe(1);
+        expect(container.querySelector('#name').value).toBe('New scenario');
+    });
+
+    it('AC4 — the first field committed after + New scenario targets the NEW draft, not the previous scenario', () => {
+        const store = makeThunkStore();
+        mountOnExisting(store);
+        clickNewScenario();
+        const tempId = newestId(store);
+        expect(store.getState().anuga.scenarios.selectedId).toBe(tempId);
+
+        Simulate.change(container.querySelector('#terrain'), {target: {value: '11'}});
+
+        const commits = store.actionsOfType(COMMIT_ANUGA_SCENARIO_FIELD);
+        expect(commits.length).toBe(1);
+        expect(commits[0].scenario._tempId).toBe(tempId);
+        expect(commits[0].scenario.id).toBe(null);
+        expect(commits[0].scenario.terrain).toBe(11);
+        // The scenario the user was on is untouched.
+        expect(store.getState().anuga.scenarios.byId[417].terrain).toBe(10);
+    });
+
+    it('AC7 — after the lazy create resolves, the NEXT field commit still targets the new scenario', () => {
+        const store = makeThunkStore();
+        mountOnExisting(store);
+        clickNewScenario();
+        const tempId = newestId(store);
+
+        // First commit for this scenario == the lazy CREATE (crudEpics.js).
+        Simulate.change(container.querySelector('#terrain'), {target: {value: '11'}});
+        expect(store.actionsOfType(COMMIT_ANUGA_SCENARIO_FIELD)[0].scenario._tempId).toBe(tempId);
+
+        // The create resolves. This is verbatim the action crudEpics.js's
+        // lazy-create branch emits — saveAnugaScenarioSuccess(data, {tempId,
+        // sentPayload}) — minus sentPayload, which only steers TASK-2953's
+        // no-clobber merge (covered by its own specs) and not the migration
+        // under test. The server id is HIGHER than 417 because it is a real
+        // autoincrement pk: that is what makes this spec able to fail, since
+        // a dangling selection falls back to scenarios[0] = 417.
+        store.dispatch({
+            type: SAVE_ANUGA_SCENARIO_SUCCESS,
+            scenario: {
+                id: 9001, name: 'New scenario', status: 'new', computed_status: 'created',
+                terrain: 11, boundary: null, inflow: null, rainfall: null,
+                resolution: 100, duration: null, created_by: 7
+            },
+            tempId
+        });
+
+        // Second commit, on a DIFFERENT field, once the row is real.
+        Simulate.change(container.querySelector('#boundary'), {target: {value: '21'}});
+
+        const commits = store.actionsOfType(COMMIT_ANUGA_SCENARIO_FIELD);
+        expect(commits.length).toBe(2);
+        expect(commits[1].scenario.id).toBe(9001);
+        expect(commits[1].scenario.boundary).toBe(21);
+        // …and above all NOT the scenario the user started on.
+        expect(store.getState().anuga.scenarios.byId[417].boundary).toBe(20);
+    });
+});

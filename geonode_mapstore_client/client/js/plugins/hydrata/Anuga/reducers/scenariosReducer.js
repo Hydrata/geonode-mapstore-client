@@ -178,7 +178,20 @@ export default (state = initialState, action) => {
                     selected: false
                 }
             },
-            allIds: [...state.allIds, tempId]
+            allIds: [...state.allIds, tempId],
+            // TASK-3011 (epic 2815 W5) — move the SELECTION onto the new
+            // draft. FOUND ON LIVE PRODUCTION 2026-09-08: without this the
+            // previously-selected scenario stayed selected while the draft
+            // row rendered at the top of the rail, so the first field the
+            // user committed into what looked like the new scenario's pane
+            // PATCHed the OLD one instead (scenario 417 was renamed by
+            // typing its replacement's name). TASK-2953 made every field
+            // commit hit the server the moment it commits, so there is no
+            // undo. `selected` (:178) is a DIFFERENT flag — the compare
+            // checkbox, written only by TOGGLE_SCENARIO_SELECTED — and is
+            // deliberately left false. Same shape as SELECT_ANUGA_SCENARIO
+            // below.
+            selectedId: tempId
         };
     }
     case UPDATE_ANUGA_SCENARIO: {
@@ -274,7 +287,23 @@ export default (state = initialState, action) => {
         }
         newById[server.id] = merged;
 
-        return { ...state, byId: newById, allIds: newAllIds };
+        // TASK-3011 (epic 2815 W5) — the selection must FOLLOW the
+        // tempId -> real-id migration. `delete newById[tempId]` above
+        // otherwise leaves state.selectedId pointing at a key that no longer
+        // exists: getSelectedScenario (selectorsAnuga.js) returns null, and
+        // anugaScenarioMenu's componentDidUpdate then re-selects
+        // scenarios[0] — the LOWEST-id scenario (getScenariosArray sorts by
+        // id ascending), i.e. typically the scenario the user was on before
+        // "+ New scenario". The next field commit would then write to THAT
+        // scenario: TASK-3011's own production defect, resurrected the
+        // instant the lazy create resolves. Only re-point a selection that
+        // was actually sitting on this tempId — a create resolving for some
+        // OTHER draft must never steal the cursor.
+        const newSelectedId = tempId !== null && state.selectedId === tempId
+            ? server.id
+            : state.selectedId;
+
+        return { ...state, byId: newById, allIds: newAllIds, selectedId: newSelectedId };
     }
     case DUPLICATE_ANUGA_SCENARIO_SUCCESS: {
         // The BE returns a freshly-INSERTed pk (ScenarioSerializerV2); we
