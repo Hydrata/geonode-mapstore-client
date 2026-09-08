@@ -83,6 +83,8 @@ export class PlaybackChunkFetcher {
      *   must resolve to a fresh manifest for the SAME run (new chunk_urls,
      *   same relative keys). Required unless the caller never expects 403s
      *   (e.g. same-origin dev fixtures with no expiry).
+     *   TASK-2754 (W0, epic 2981): invoked through the SINGLE-FLIGHT below,
+     *   so concurrent 403s cost one call, not one call each.
      * @param {PlaybackChunkCache} [options.cache]
      * @param {object} [options.memoryPlan] a
      *   playbackMemoryPolicy.computePlaybackMemoryPlan() result. TASK-2708
@@ -119,6 +121,14 @@ export class PlaybackChunkFetcher {
         // for the same chunk (e.g. two overlapping prefetch windows) collapse
         // into one network request instead of racing duplicate fetches.
         this._inflight = new Map();
+        // TASK-2754 (W0, epic 2981) — the manifest-refresh single-flight.
+        // `_inflight` above keys on the CHUNK KEY, so it can only collapse
+        // duplicate requests for the same chunk; it is structurally unable to
+        // collapse a refresh across DISTINCT keys, which is the only shape a
+        // credential rotation ever takes. Deliberately per-INSTANCE and never
+        // module-global: a second fetcher serves a different run, whose urls
+        // one run's re-sign says nothing about.
+        this._refreshInFlight = null;
         // TASK-2728 (W5, epic 2706) — the static (non-time-chunked) mesh
         // arrays live HERE, not in the LRU above. See _storeFor().
         this._staticArrays = new Map();
@@ -200,6 +210,55 @@ export class PlaybackChunkFetcher {
         return this.memoryPlan;
     }
 
+    /**
+     * TASK-2754 (W0, epic 2981) — ONE `?refresh=1` per rotation, not one per
+     * expired url.
+     *
+     * A credential rotation (TASK-2064) does not expire a url; it invalidates
+     * every presigned url in the cached manifest in the same instant. The
+     * fan-out that meets it is already eight requests wide before the first
+     * response lands (playbackInitEpic's
+     * `Promise.all([mesh, time, dt])`, where the mesh load is itself a
+     * `Promise.all` of six static-array fetches), and during playback
+     * prefetchWindow fans quantities x window chunks. Each of those used to
+     * reach `this.manifest = await this.refreshManifest()` independently —
+     * the shared field is only assigned AFTER the await, so no caller could
+     * ever observe another's result — and each therefore issued its own
+     * `GET .../playback-manifest/?refresh=1`. That endpoint bypasses the
+     * server cache by design and runs a full paginated `list_objects_v2` plus
+     * a `generate_presigned_url` per object, so the recovery path stampeded
+     * the most expensive endpoint in the application at exactly the moment
+     * every viewer needed it, on N uwsgi workers at once, per viewer. Under
+     * worker or PG-connection exhaustion any ONE of those N failing rejects
+     * its chunk and fails the whole `Promise.all` with MANIFEST_FAILED,
+     * converting the rotation TASK-2739 made recoverable back into a dead run.
+     *
+     * The memo CLEARS ON SETTLE — resolve and reject alike. A permanent memo
+     * would make the second rotation of a long session unrecoverable, which is
+     * strictly worse than the stampede it replaced; and the retry below is
+     * already bounded by `allowRefresh: false`, so clearing cannot loop.
+     *
+     * @returns {Promise<object>} the refreshed manifest, shared by every
+     *   concurrent 403 in this rotation.
+     */
+    _refreshManifestOnce() {
+        if (this._refreshInFlight) {
+            return this._refreshInFlight;
+        }
+        const inFlight = (async() => {
+            try {
+                return await this.refreshManifest();
+            } finally {
+                // Unconditional: while `_refreshInFlight` is non-null every
+                // caller reuses it, so nothing else can have replaced it
+                // before this settles.
+                this._refreshInFlight = null;
+            }
+        })();
+        this._refreshInFlight = inFlight;
+        return inFlight;
+    }
+
     async _fetchRawBytes(relativeKey, { allowRefresh = true } = {}) {
         const url = urlForRelativeKey(this.manifest, relativeKey);
         const response = await this.fetchImpl(url, { headers: { Range: 'bytes=0-' } });
@@ -207,7 +266,7 @@ export class PlaybackChunkFetcher {
             if (!allowRefresh || !this.refreshManifest) {
                 throw new Error(`playbackChunkFetcher: 403 fetching '${relativeKey}' and no refreshManifest available to retry`);
             }
-            this.manifest = await this.refreshManifest();
+            this.manifest = await this._refreshManifestOnce();
             return this._fetchRawBytes(relativeKey, { allowRefresh: false });
         }
         if (!response.ok && response.status !== 206) {

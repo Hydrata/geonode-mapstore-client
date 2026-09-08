@@ -494,6 +494,15 @@ export function playbackInitEpic(action$, store) {
             // W2's manifest cache would turn one rotation into a dead run for
             // the rest of the bucket. Same run, same relative keys, freshly
             // signed urls.
+            // TASK-2754 (W0, epic 2981) — this closure is deliberately left
+            // BARE. It is not called directly: PlaybackChunkFetcher routes
+            // every 403 through its own per-instance `_refreshManifestOnce()`
+            // single-flight, so the eight concurrent 403s a credential
+            // rotation produces here cost ONE `?refresh=1`, not eight. Do not
+            // add a second memo at this level — the fetcher's is per-run by
+            // construction, and a closure memo here would only duplicate it
+            // for the init path while leaving prefetchWindow's fan-out
+            // (which never passes through this epic) unprotected.
             const fetcher = new PlaybackChunkFetcher({
                 manifest,
                 memoryPlan: initialPlan,

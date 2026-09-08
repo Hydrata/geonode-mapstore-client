@@ -69,7 +69,7 @@ import {
     playbackSetEnvelopeMode
 } from '../../actions/playbackActions';
 import { SHOW_NOTIFICATION } from '@mapstore/framework/actions/notifications';
-import { createInitialPlaybackState, playbackControllerReducer } from '../../playbackController';
+import { createInitialPlaybackState, playbackControllerReducer, PLAYBACK_STATUS } from '../../playbackController';
 import { FIXTURE_STORE_FILES, FIXTURE_MANIFEST, FIXTURE_MESH, FIXTURE_PHYSICAL } from '../../__tests__/fixtures/fixturePlaybackStore';
 
 const MANIFEST_URL = '/api/v2/anuga/runs/1/playback-manifest/';
@@ -168,8 +168,24 @@ function refreshedFixtureManifest() {
  * rotating before the presigned urls' nominal ExpiresIn, killing every url
  * in the cached manifest mid-bucket). `calls` is the non-vacuity ledger:
  * a spec whose 403 branch never fires cannot pass on it.
+ *
+ * TASK-2754 (W0, epic 2981) — `expireEveryUrl` lifts THE HARNESS CEILING.
+ * Answering exactly one 403 bounded `calls.refreshServed` above by the
+ * harness's own choice, so TASK-2739's `expect(calls.refreshServed).toBe(1)`
+ * could not tell one refresh from a stampede of eight. A real credential
+ * rotation does not expire one url: it invalidates EVERY presigned url in
+ * the cached manifest in the same tick, which is what this mode serves —
+ * 403 for every chunk url that does not already carry
+ * REFRESHED_CHUNK_PREFIX. The default is deliberately UNCHANGED so the
+ * existing 2739 assertions keep meaning exactly what they meant.
+ *
+ * The manifest branch stays FIRST: a `?refresh=1` request must never itself
+ * be 403'd, or the mode would be testing a dead backend rather than a
+ * rotation.
+ *
+ * @param {{expireEveryUrl?: boolean}} [options]
  */
-function makeExpiredUrlFetchHandler() {
+function makeExpiredUrlFetchHandler({ expireEveryUrl = false } = {}) {
     const calls = { manifest: [], chunk: [], forbidden: [], refreshServed: 0 };
     const handler = (url) => {
         if (url.indexOf(MANIFEST_URL) === 0) {
@@ -181,7 +197,10 @@ function makeExpiredUrlFetchHandler() {
             return Promise.resolve(new Response(JSON.stringify(FIXTURE_MANIFEST), { status: 200 }));
         }
         calls.chunk.push(url);
-        if (calls.forbidden.length === 0) {
+        const expired = expireEveryUrl
+            ? url.indexOf(REFRESHED_CHUNK_PREFIX) !== 0
+            : calls.forbidden.length === 0;
+        if (expired) {
             calls.forbidden.push(url);
             return Promise.resolve(new Response(null, { status: 403 }));
         }
@@ -332,6 +351,67 @@ describe('playbackEpics', () => {
             }, done);
             subject.next(playbackInit(2739, 'layer-2739', MANIFEST_URL));
         });
+
+        // TASK-2754 (W0, epic 2981) — AC1/AC3/AC4. The spec above proves a
+        // refresh HAPPENS; it cannot prove how many, because the harness only
+        // ever served one 403. With the ceiling lifted (expireEveryUrl), a
+        // real rotation is served: playbackInitEpic fans out
+        // Promise.all([loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt]),
+        // and loadPlaybackMesh is itself a Promise.all of six fetchStaticArray
+        // calls, so EIGHT chunk GETs are in flight before any response lands.
+        // Every one of them 403s in the same tick and — before the
+        // single-flight below existed — every one of them independently
+        // issued `GET .../playback-manifest/?refresh=1`, the single most
+        // expensive endpoint in the application, on eight uwsgi workers at
+        // once, per viewer. MEASURED on unmodified source: refreshServed = 8.
+        it('collapses a whole-manifest rotation into ONE ?refresh=1 and still completes the load', (done) => {
+            const { handler, calls } = makeExpiredUrlFetchHandler({ expireEveryUrl: true });
+            const restore = stubGlobalFetch(handler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackInitEpic(action$, store).subscribe((a) => {
+                seen.push(a);
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                try {
+                    // (a) NON-VACUITY: the stampede pressure really was
+                    // applied. Fewer than six concurrent 403s and this spec
+                    // is not testing the fan-out it claims to test.
+                    expect(calls.forbidden.length >= 6).toBe(true);
+                    // (b) AC1 — N concurrent 403s, exactly ONE re-sign.
+                    expect(calls.refreshServed).toBe(1);
+                    expect(calls.manifest.filter((u) => REFRESH_URL_RE.test(u)).length).toBe(1);
+                    // (c) AC4 — the all-urls-dead case still LOADS. Not just
+                    // "the request count dropped": the mesh arrived, with the
+                    // fixture's real node count, and every retry went to the
+                    // refreshed urls.
+                    const loaded = seen.find((x) => x.type === PLAYBACK_MANIFEST_LOADED);
+                    expect(!!loaded).toBe(true);
+                    expect(!!loaded.mesh).toBe(true);
+                    expect(loaded.mesh.nodeX.length).toBe(FIXTURE_MESH.nNode);
+                    expect(seen.some((x) => x.type === PLAYBACK_MANIFEST_FAILED)).toBe(false);
+                    expect(seen.some((x) => x.type === PLAYBACK_CHUNK_BUFFER_ERROR)).toBe(false);
+                    // (d) AC4 — and the controller accepts it: folding the
+                    // epic's OWN emitted action through the real reducer lands
+                    // the run in BUFFERING (the terminal status of the init
+                    // path — READY is playbackBufferEpic's to assign, from
+                    // CHUNKS_BUFFERED behind isWindowBuffered), never ERROR.
+                    const stateAfter = playbackControllerReducer(
+                        playbackControllerReducer(createInitialPlaybackState(), playbackInit(2754, 'layer-2754', MANIFEST_URL)),
+                        loaded
+                    );
+                    expect(stateAfter.status).toBe(PLAYBACK_STATUS.BUFFERING);
+                    expect(stateAfter.nNode).toBe(FIXTURE_MESH.nNode);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(2754, 'layer-2754', MANIFEST_URL));
+        });
     });
 
     // TASK-2739 (W3, epic 2706) — AC2. buildPlaybackManifestUrl
@@ -346,6 +426,117 @@ describe('playbackEpics', () => {
         it('appends &refresh=1 to a url that already carries a query, keeping the existing params', () => {
             expect(buildManifestRefreshUrl('/fixtures/playback-manifest/?token=abc&v=2'))
                 .toBe('/fixtures/playback-manifest/?token=abc&v=2&refresh=1');
+        });
+    });
+
+    // TASK-2754 (W0, epic 2981) — the single-flight's two remaining
+    // properties, driven at the fetcher rather than through the epic because
+    // both need a SECOND rotation / a SECOND fetcher, which one PLAYBACK:INIT
+    // cannot express.
+    //
+    // The rig below models a rotation the way prod does it: every presigned
+    // url carries the credential GENERATION that signed it, and a rotation
+    // is `liveGeneration += 1` — which kills every url in the cached manifest
+    // in the same instant, not one of them.
+    describe('PlaybackChunkFetcher manifest-refresh single-flight', () => {
+        function makeRotationRig() {
+            const rig = { liveGeneration: 0, refreshCalls: 0, fetched: [], gateRefresh: null };
+            const manifestFor = (generation) => ({
+                chunk_urls: Object.keys(FIXTURE_MANIFEST.chunk_urls).reduce((acc, key) => {
+                    acc[key] = `g${generation}/${key}`;
+                    return acc;
+                }, {})
+            });
+            rig.fetchImpl = (url) => {
+                rig.fetched.push(url);
+                const match = /^g(\d+)\/(.*)$/.exec(url);
+                if (!match || Number(match[1]) !== rig.liveGeneration) {
+                    return Promise.resolve(new Response(null, { status: 403 }));
+                }
+                return Promise.resolve(new Response(base64ToArrayBuffer(FIXTURE_STORE_FILES[match[2]]), { status: 200 }));
+            };
+            rig.refreshManifest = () => {
+                rig.refreshCalls += 1;
+                const answer = () => manifestFor(rig.liveGeneration);
+                return rig.gateRefresh ? rig.gateRefresh.then(answer) : Promise.resolve(answer());
+            };
+            rig.newFetcher = () => new PlaybackChunkFetcher({
+                manifest: manifestFor(rig.liveGeneration),
+                fetchImpl: rig.fetchImpl,
+                refreshManifest: rig.refreshManifest
+            });
+            rig.rotate = () => { rig.liveGeneration += 1; };
+            return rig;
+        }
+
+        const F32 = { dtype: 'float32', byteorder: 'little' };
+
+        // AC1 + AC2. Round one proves the collapse; round two proves the memo
+        // CLEARED on settle — a permanently-memoised refresh would make the
+        // second rotation unrecoverable, which is strictly worse than the
+        // stampede it replaced.
+        it('collapses each rotation round to one refresh, and a SECOND round refreshes again', (done) => {
+            const rig = makeRotationRig();
+            const fetcher = rig.newFetcher();
+            rig.rotate(); // every url the fetcher holds is now dead
+            Promise.all([
+                fetcher.fetchAndDecodeChunk('node_x', [0], F32),
+                fetcher.fetchAndDecodeChunk('node_y', [0], F32),
+                fetcher.fetchAndDecodeChunk('elevation', [0], F32)
+            ]).then((round1) => {
+                expect(rig.refreshCalls).toBe(1);
+                round1.forEach((arr) => expect(arr.length).toBe(FIXTURE_MESH.nNode));
+                rig.rotate(); // second rotation, against the freshly-signed urls
+                return Promise.all([
+                    fetcher.fetchAndDecodeChunk('friction', [0], F32),
+                    fetcher.fetchAndDecodeChunk('inradius', [0], F32)
+                ]);
+            }).then(() => {
+                // NOT 1: the memo must not survive its own settle.
+                expect(rig.refreshCalls).toBe(2);
+                // NON-VACUITY: five distinct keys 403'd across the two rounds,
+                // so both rounds really did enter the refresh branch.
+                expect(rig.fetched.filter((u) => /^g0\//.test(u)).length).toBe(3);
+                expect(rig.fetched.filter((u) => /^g1\//.test(u)).length).toBe(5);
+                done();
+            }).catch(done);
+        });
+
+        // AC5 — NO CROSS-RUN COUPLING. Both fetchers' refreshes are held
+        // open on the same gate, so if the memo were module-global the second
+        // fetcher's 403 would be satisfied by the first's in-flight promise
+        // and `refreshCalls` would come back 1. Per-instance state is the
+        // whole point: run A's re-sign says nothing about run B's urls.
+        it('does not share one run\'s in-flight refresh with another run\'s fetcher', (done) => {
+            const rig = makeRotationRig();
+            let openGate = null;
+            rig.gateRefresh = new Promise((resolve) => { openGate = resolve; });
+            const fetcherA = rig.newFetcher();
+            const fetcherB = rig.newFetcher();
+            rig.rotate();
+            const both = Promise.all([
+                fetcherA.fetchAndDecodeChunk('node_x', [0], F32),
+                fetcherB.fetchAndDecodeChunk('node_y', [0], F32)
+            ]);
+            // Let both 403s land and both refresh branches be entered before
+            // either refresh is allowed to resolve. The count is RECORDED
+            // here and asserted below rather than asserted here, so a throw
+            // cannot strand the gate and turn a clean count mismatch into an
+            // uninformative 2000 ms timeout.
+            let refreshesWhileBothGated = null;
+            setTimeout(() => {
+                refreshesWhileBothGated = rig.refreshCalls;
+                openGate();
+            }, 30);
+            both.then(([a, b]) => {
+                // THE CROSS-RUN ASSERTION: two fetchers, two refreshes, both
+                // in flight at once. Module-global memo state reports 1 here.
+                expect(refreshesWhileBothGated).toBe(2);
+                expect(rig.refreshCalls).toBe(2);
+                expect(a.length).toBe(FIXTURE_MESH.nNode);
+                expect(b.length).toBe(FIXTURE_MESH.nNode);
+                done();
+            }).catch(done);
         });
     });
 
