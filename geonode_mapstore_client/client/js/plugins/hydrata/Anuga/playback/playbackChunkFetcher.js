@@ -245,16 +245,36 @@ export class PlaybackChunkFetcher {
         if (this._refreshInFlight) {
             return this._refreshInFlight;
         }
-        const inFlight = (async() => {
-            try {
-                return await this.refreshManifest();
-            } finally {
-                // Unconditional: while `_refreshInFlight` is non-null every
-                // caller reuses it, so nothing else can have replaced it
-                // before this settles.
-                this._refreshInFlight = null;
-            }
-        })();
+        // TASK-2981 W0 phase-1.7 sweep — the call is DEFERRED to a microtask
+        // (`Promise.resolve().then(...)`) rather than made inside a bare async
+        // IIFE. The body of an async function runs SYNCHRONOUSLY up to its
+        // first await, so a `refreshManifest` that throws synchronously ran
+        // the clear-on-settle handler BEFORE the assignment below had
+        // installed the memo: the clear hit an already-null field, and the
+        // rejected promise was then memoised for the life of the fetcher, so
+        // every later 403 reused that one rejection and the run could never
+        // recover. `refreshManifest` is a caller-supplied option, so a
+        // synchronous throw is a shape this class does not get to rule out.
+        // Deferring makes clear-on-settle hold for resolve, async reject and
+        // sync throw alike — which is what AC2 of TASK-2754 actually claims.
+        const clear = () => {
+            // Unconditional: while `_refreshInFlight` is non-null every caller
+            // reuses it, so nothing else can have replaced it before this
+            // settles.
+            this._refreshInFlight = null;
+        };
+        const inFlight = Promise.resolve()
+            .then(() => this.refreshManifest())
+            .then(
+                (manifest) => {
+                    clear();
+                    return manifest;
+                },
+                (error) => {
+                    clear();
+                    throw error;
+                }
+            );
         this._refreshInFlight = inFlight;
         return inFlight;
     }

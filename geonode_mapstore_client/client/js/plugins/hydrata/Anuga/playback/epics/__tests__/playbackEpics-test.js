@@ -538,6 +538,45 @@ describe('playbackEpics', () => {
                 done();
             }).catch(done);
         });
+
+        // TASK-2981 W0 phase-1.7 sweep — AC2's OTHER half. The spec above
+        // proves the memo clears after a refresh that RESOLVES; this one
+        // proves it clears after one that FAILS, in the harshest shape:
+        // `refreshManifest` is a caller-supplied option, so it may throw
+        // SYNCHRONOUSLY, and the body of an async function runs synchronously
+        // up to its first await. Memoising with a bare async IIFE therefore
+        // ran clear-on-settle BEFORE the memo was installed and left the
+        // rejected promise cached for the life of the fetcher — every later
+        // 403 reused that one rejection and the run could never recover, the
+        // exact failure mode TASK-2754 set out to remove.
+        it('clears the memo when refreshManifest throws SYNCHRONOUSLY, so a later 403 still refreshes', (done) => {
+            const rig = makeRotationRig();
+            const workingRefresh = rig.refreshManifest;
+            let throwNext = true;
+            rig.refreshManifest = () => {
+                if (throwNext) {
+                    throwNext = false;
+                    rig.refreshCalls += 1;
+                    throw new Error('sync boom from refreshManifest');
+                }
+                return workingRefresh();
+            };
+            const fetcher = rig.newFetcher();   // captures the throwing refresh
+            rig.rotate();
+            fetcher.fetchAndDecodeChunk('node_x', [0], F32).then(
+                () => done(new Error('expected the first fetch to reject')),
+                () => {
+                    // The memo must not still be holding the rejection.
+                    expect(fetcher._refreshInFlight).toBe(null);
+                    // And a later 403 must be able to re-sign for real.
+                    return fetcher.fetchAndDecodeChunk('node_y', [0], F32).then((arr) => {
+                        expect(rig.refreshCalls).toBe(2);
+                        expect(arr.length).toBe(FIXTURE_MESH.nNode);
+                        done();
+                    });
+                }
+            ).catch(done);
+        });
     });
 
     // TASK-2732 (W3, epic 2706) — `withinBudget` was computed and then thrown
