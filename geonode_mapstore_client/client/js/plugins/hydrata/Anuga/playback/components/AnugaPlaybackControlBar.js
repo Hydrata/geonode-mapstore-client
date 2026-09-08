@@ -361,8 +361,56 @@ const STATUS_MESSAGE_ID = {
     [PLAYBACK_STATUS.BUFFERING]: 'hydrata.playback.status.buffering',
     [PLAYBACK_STATUS.SEEKING]: 'hydrata.playback.status.seeking',
     [PLAYBACK_STATUS.STALLED]: 'hydrata.playback.status.stalled',
-    [PLAYBACK_STATUS.ERROR]: 'hydrata.playback.status.error'
+    [PLAYBACK_STATUS.ERROR]: 'hydrata.playback.status.error',
+    // TASK-2986 (W1.3, epic 2981)
+    [PLAYBACK_STATUS.FALLBACK]: 'hydrata.playback.status.fallback'
 };
+
+/**
+ * TASK-2986 (W1.3, epic 2981) — how THIS DEVICE's budget was decided, in
+ * words. THE ENUMERATION IS FIVE, NOT FOUR.
+ *
+ * 'default', 'heap+device' and 'partial' all ship from resolvePlaybackHeapBudget
+ * TODAY (no offers -> 'default'; both offers -> 'heap+device'; exactly ONE
+ * offer -> 'partial'); TASK-2984 adds 'small-device' and 'phone-class'.
+ *
+ * 'partial' IS NOT AN EDGE CASE and is the one an earlier draft omitted: it is
+ * what EVERY browser exposing only one of the two offers gets — every
+ * non-Chromium browser (no performance.memory) and much of the phone class
+ * this fallback exists to serve. A message handling only four sources renders
+ * a blank or unlabelled source for precisely those users.
+ */
+const BUDGET_SOURCE_MESSAGE_ID = {
+    'default': 'hydrata.playback.budgetSource.default',
+    'heap+device': 'hydrata.playback.budgetSource.heapDevice',
+    'partial': 'hydrata.playback.budgetSource.partial',
+    'small-device': 'hydrata.playback.budgetSource.smallDevice',
+    'phone-class': 'hydrata.playback.budgetSource.phoneClass'
+};
+
+const BUDGET_SOURCE_FALLBACK_TEXT = {
+    'default': 'a default budget (this browser reports no memory signals)',
+    'heap+device': 'this browser\'s heap headroom and reported device memory',
+    'partial': 'the one memory signal this browser reports',
+    'small-device': 'this device\'s own reported memory',
+    'phone-class': 'a phone-class estimate (this browser reports no memory signals)'
+};
+
+/**
+ * TEXT-presentation play glyph, hoisted so the disabled fallback button and
+ * the live transport button cannot drift apart. U+25B6 (the obvious choice)
+ * defaults to EMOJI presentation, so the browser paints an orange rounded
+ * square and ignores `color` entirely; U+25BA is text-default.
+ */
+const PLAY_GLYPH = '\u25BA';
+
+function formatMiB(bytes) {
+    return bytes > 0 ? `${Math.round(bytes / 1048576)} MiB` : '?';
+}
+
+function formatCount(n) {
+    return n > 0 ? Number(n).toLocaleString() : '?';
+}
 
 export class AnugaPlaybackControlBarComponent extends React.Component {
     static propTypes = {
@@ -1005,10 +1053,95 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      * descendant rule and every existing spec keeps working, so this is a
      * re-nesting rather than a rewrite.
      */
+    /**
+     * TASK-2986 (W1.3, epic 2981) — the fallback message.
+     *
+     * "Playback needs a larger device" on its own is the thing this re-aim
+     * exists to stop shipping. The message names THREE things:
+     *   1. the mesh size, in nodes and triangles;
+     *   2. THIS DEVICE'S budget in MiB together with its SOURCE (five of
+     *      them — see BUDGET_SOURCE_MESSAGE_ID);
+     *   3. WHAT IS SHOWN INSTEAD — the maximum-depth envelope when one was
+     *      put on the map, and different wording when there was none.
+     *
+     * Play is disabled and Unload is enabled in both cases.
+     */
+    renderFallback(playback) {
+        const isFallbackPlayGlyph = PLAY_GLYPH;
+        const shown = playback.fallbackLayerShown;
+        const hasEnvelopeLayer = shown === 'existing' || shown === 'added';
+        const sourceKey = playback.budgetSource;
+        const sourceLabel = this.tr(
+            BUDGET_SOURCE_MESSAGE_ID[sourceKey] || 'hydrata.playback.budgetSource.unknown',
+            BUDGET_SOURCE_FALLBACK_TEXT[sourceKey] || 'an unrecognised memory signal'
+        );
+        const mesh = this.tr(
+            'hydrata.playback.fallback.mesh',
+            'This result has {nodes} nodes and {triangles} triangles.'
+        ).replace('{nodes}', formatCount(playback.nNode)).replace('{triangles}', formatCount(playback.nFace));
+        const budget = this.tr(
+            'hydrata.playback.fallback.budget',
+            'Animated playback needs more memory than this device offers: {budget}, measured from {source}.'
+        ).replace('{budget}', formatMiB(playback.budgetBytes)).replace('{source}', sourceLabel);
+        const instead = hasEnvelopeLayer
+            ? this.tr(
+                'hydrata.playback.fallback.envelopeShown',
+                'Showing the maximum depth envelope for this run instead — the deepest water each point reached.'
+            )
+            : this.tr(
+                'hydrata.playback.fallback.noEnvelope',
+                'No maximum depth envelope is available for this run, so there is nothing to show in its place.'
+            );
+        return (
+            <div
+                className="sv-playback-bar sv-playback-bar--fallback"
+                data-testid="anuga-playback-bar"
+                onKeyDown={this.onCardKeyDown}
+            >
+                <div
+                    className="sv-playback-fallback"
+                    data-testid="anuga-playback-fallback"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <span className="sv-playback-fallback-mesh">{mesh}</span>
+                    <span className="sv-playback-fallback-budget">{budget}</span>
+                    <span className="sv-playback-fallback-instead">{instead}</span>
+                </div>
+                <div className="sv-playback-transport" data-testid="anuga-playback-transport">
+                    <button
+                        className="btn sv-glass-button sv-playback-playpause"
+                        data-testid="anuga-playback-playpause"
+                        disabled
+                        title={this.tr('hydrata.playback.play', 'Play')}
+                        aria-label={this.tr('hydrata.playback.play', 'Play')}
+                    >
+                        {/* The same TEXT-presentation glyph the live play
+                            button uses — U+25B6 defaults to EMOJI presentation
+                            and would paint the orange rounded square. */}
+                        {isFallbackPlayGlyph}
+                    </button>
+                    <button
+                        className="btn sv-glass-button sv-playback-unload"
+                        data-testid="anuga-playback-unload"
+                        onClick={() => this.props.onReset(playback.runId, playback.layerId)}
+                        title={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
+                        aria-label={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
+                    >
+                        <Message msgId="hydrata.playback.unload" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     render() {
         const { playback } = this.props;
         if (!playback || playback.status === PLAYBACK_STATUS.IDLE) {
             return this.renderLoader();
+        }
+        if (playback.status === PLAYBACK_STATUS.FALLBACK) {
+            return this.renderFallback(playback);
         }
         const isPlaying = playback.status === PLAYBACK_STATUS.PLAYING;
         const isBuffering = [PLAYBACK_STATUS.LOADING_MANIFEST, PLAYBACK_STATUS.LOADING_MESH, PLAYBACK_STATUS.BUFFERING, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED].includes(playback.status);

@@ -18,6 +18,18 @@ export const PLAYBACK_MANIFEST_LOADED = 'PLAYBACK:MANIFEST_LOADED';
 export const PLAYBACK_MANIFEST_FAILED = 'PLAYBACK:MANIFEST_FAILED';
 export const PLAYBACK_CHUNKS_BUFFERED = 'PLAYBACK:CHUNKS_BUFFERED';
 export const PLAYBACK_CHUNK_BUFFER_ERROR = 'PLAYBACK:CHUNK_BUFFER_ERROR';
+/**
+ * TASK-2986 (W1.3, epic 2981) — the manifest-time plan says this device
+ * cannot hold this store, so playback stops BEFORE any geometry moves and
+ * the map is handed the maximum-depth envelope instead.
+ *
+ * Emitted from playbackInitEpic's runLoad at the `initialPlan` seam: after
+ * the manifest response, before `new PlaybackChunkFetcher(...)` and before
+ * the mesh/time/dt Promise.all. Nothing has downloaded at that point, which
+ * is the whole reason the decision is made there — after the 63 MB geometry
+ * prefix starts moving the tab is already committed.
+ */
+export const PLAYBACK_FALLBACK = 'PLAYBACK:FALLBACK';
 export const PLAYBACK_PLAY = 'PLAYBACK:PLAY';
 export const PLAYBACK_PAUSE = 'PLAYBACK:PAUSE';
 export const PLAYBACK_SEEK = 'PLAYBACK:SEEK';
@@ -129,6 +141,33 @@ export function playbackManifestFailed(runId, error) {
  */
 export function playbackChunksBuffered(chunkIndices, authoritative = false) {
     return { type: PLAYBACK_CHUNKS_BUFFERED, chunkIndices, authoritative };
+}
+
+/**
+ * TASK-2986 (W1.3, epic 2981).
+ * @param {object} payload
+ * @param {string|number} payload.runId
+ * @param {string} payload.reason the plan's fallbackReason —
+ *   'fixed-mesh-exceeds-budget' | 'floor-window-exceeds-budget'
+ * @param {number} payload.nNode
+ * @param {number} payload.nFace
+ * @param {number} payload.budgetBytes the GROSS resolved budget
+ * @param {string} payload.budgetSource one of FIVE — 'default',
+ *   'heap+device', 'partial' (all three shipped before TASK-2984),
+ *   'small-device', 'phone-class' (added by TASK-2984)
+ * @param {number} payload.floorWindowPlanPeakBytes the peak of the plan at
+ *   the STRUCTURAL floor (MIN_CHUNKS_PER_QUANTITY = 2), which is NOT
+ *   plan.peakResidentBytes whenever the plan chose 3 or more
+ * @param {'existing'|'added'|'none'} payload.fallbackLayerShown which of the
+ *   three envelope outcomes happened, so the census and TASK-2995 can tell
+ *   them apart. NOT an `envelope`-prefixed name: `envelopeQuantities`,
+ *   `envelopeMode` and `envelopeData` already live in the SAME state object
+ *   and are TASK-2752's temporal-max MESH envelope driven by a user toggle.
+ *   This field records which Results.* COG map layer the fallback path put
+ *   on the map; the two concepts never read or derive from each other.
+ */
+export function playbackFallback(payload) {
+    return { type: PLAYBACK_FALLBACK, ...payload };
 }
 
 export function playbackChunkBufferError(chunkIndex, error) {

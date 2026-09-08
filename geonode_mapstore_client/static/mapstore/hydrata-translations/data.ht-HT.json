@@ -610,7 +610,8 @@
           "seeking": "K ap tanpon sib defile a…",
           "stalled": "K ap tanpon — ap tann done…",
           "error": "Depo jwe a echwe pou chaje",
-          "loadingMesh": "Telechaje may la"
+          "loadingMesh": "Telechaje may la",
+          "fallback": "Lekti a pa disponib sou aparèy sa a"
         },
         "legendTitleDepth": "Pwofondè (m)",
         "legendTitleSpeed": "Vitès (m/s)",
@@ -699,7 +700,21 @@
         "zoomToResults": "Zoum sou rezilta yo",
         "zoomToResultsTooltip": "Santre kat la sou rezilta similasyon sa a",
         "envelopeLoadFailedTitle": "Maksimòm simulasyon an pa disponib",
-        "envelopeLoadFailed": "Kouch maksimòm simulasyon an (Max) pa t ka chaje pou varyab sa a. N ap montre lekti nòmal la pito."
+        "envelopeLoadFailed": "Kouch maksimòm simulasyon an (Max) pa t ka chaje pou varyab sa a. N ap montre lekti nòmal la pito.",
+        "fallback": {
+          "mesh": "Rezilta sa a gen {nodes} ne ak {triangles} triyang.",
+          "budget": "Lekti anime a bezwen plis memwa pase sa aparèy sa a ofri: {budget}, mezire apati {source}.",
+          "envelopeShown": "N ap montre anvlòp pwofondè maksimòm ekzekisyon sa a nan plas li — dlo ki pi fon chak pwen te rive.",
+          "noEnvelope": "Pa gen anvlòp pwofondè maksimòm ki disponib pou ekzekisyon sa a, donk pa gen anyen pou montre nan plas li."
+        },
+        "budgetSource": {
+          "default": "yon bidjè default (navigatè sa a pa bay okenn siyal memwa)",
+          "heapDevice": "espas memwa lib navigatè sa a ak memwa aparèy la deklare",
+          "partial": "sèl siyal memwa navigatè sa a bay",
+          "smallDevice": "memwa aparèy sa a deklare",
+          "phoneClass": "yon estimasyon klas telefòn (navigatè sa a pa bay okenn siyal memwa)",
+          "unknown": "yon siyal memwa ki pa rekonèt"
+        }
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",

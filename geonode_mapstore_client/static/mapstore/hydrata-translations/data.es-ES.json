@@ -610,7 +610,8 @@
           "seeking": "Almacenando en búfer el objetivo de desplazamiento…",
           "stalled": "Almacenando en búfer — esperando datos…",
           "error": "Error al cargar el almacén de reproducción",
-          "loadingMesh": "Descargando la malla"
+          "loadingMesh": "Descargando la malla",
+          "fallback": "Reproducción no disponible en este dispositivo"
         },
         "legendTitleDepth": "Profundidad (m)",
         "legendTitleSpeed": "Velocidad (m/s)",
@@ -699,7 +700,21 @@
         "zoomToResults": "Zoom a los resultados",
         "zoomToResultsTooltip": "Centrar el mapa en los resultados de esta simulación",
         "envelopeLoadFailedTitle": "Máximo de la simulación no disponible",
-        "envelopeLoadFailed": "No se pudo cargar la capa del máximo de la simulación (Max) para esta variable. Se muestra la reproducción normal."
+        "envelopeLoadFailed": "No se pudo cargar la capa del máximo de la simulación (Max) para esta variable. Se muestra la reproducción normal.",
+        "fallback": {
+          "mesh": "Este resultado tiene {nodes} nodos y {triangles} triángulos.",
+          "budget": "La reproducción animada necesita más memoria de la que ofrece este dispositivo: {budget}, medida a partir de {source}.",
+          "envelopeShown": "Se muestra en su lugar la envolvente de calado máximo de esta ejecución: el agua más profunda que alcanzó cada punto.",
+          "noEnvelope": "No hay envolvente de calado máximo disponible para esta ejecución, por lo que no hay nada que mostrar en su lugar."
+        },
+        "budgetSource": {
+          "default": "un presupuesto predeterminado (este navegador no informa señales de memoria)",
+          "heapDevice": "el espacio libre del montón de este navegador y la memoria declarada del dispositivo",
+          "partial": "la única señal de memoria que informa este navegador",
+          "smallDevice": "la memoria declarada por este dispositivo",
+          "phoneClass": "una estimación de clase teléfono (este navegador no informa señales de memoria)",
+          "unknown": "una señal de memoria no reconocida"
+        }
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

@@ -63,6 +63,10 @@ import { CLICK_ON_MAP } from '@mapstore/framework/actions/map';
 // precedent). Importing/dispatching a core action is not editing the fork
 // (see AnugaPlaybackLayer.js's header on that distinction).
 import { changeMapInfoState } from '@mapstore/framework/actions/mapInfo';
+// TASK-2986 (W1.3, epic 2981) — the fallback path's ONE map write. Both are
+// plain core actions several other MapStore2 plugins already dispatch; this
+// is not editing the fork.
+import { addLayer, changeLayerProperties } from '@mapstore/framework/actions/layers';
 import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 
 import { fetchPlaybackManifest, PlaybackChunkFetcher, planWindow } from '../playbackChunkFetcher';
@@ -97,6 +101,10 @@ import {
 // TASK-2744 (AC20, epic 2706) — score the plan against a measurement.
 import { scorePlan, isForecastContradicted, describeScore } from '../playbackMemoryAudit';
 import { reprojectMeshVertices, reprojectMeshBounds } from '../playbackReproject';
+// TASK-2986 — the run -> gn_layer_depth_max lookup, and the name test
+// pollAnugaScenarioEpic already uses to recognise a Results.* COG layer.
+import { getRunDepthMaxLayer } from '../../selectorsAnuga';
+import { RESULT_LAYER_NAME_RE } from '../../epics/pollingEpics';
 import { sampleFieldAtPoint } from '../playbackIdentify';
 import {
     timestepToChunkIndex,
@@ -134,7 +142,8 @@ import {
     playbackTick,
     playbackSetIdentifyResult,
     playbackEnvelopeLoaded,
-    playbackSetEnvelopeMode
+    playbackSetEnvelopeMode,
+    playbackFallback
 } from '../actions/playbackActions';
 import { show } from '@mapstore/framework/actions/notifications';
 
@@ -410,6 +419,62 @@ export function buildManifestRefreshUrl(manifestUrl) {
  * whatever manifestUrl the caller passes is followed verbatim, exactly like
  * playbackChunkFetcher's own contract.
  */
+/**
+ * TASK-2986 (W1.3, epic 2981) — SHOW THE FLOOD, NOT AN APOLOGY.
+ *
+ * A stranger arriving at a public flood map on a phone does not want a
+ * message, they want the flood. The product already serves the artefact: the
+ * run's Results.* max-value COG layers, which pollAnugaScenarioEpic adds for
+ * the latest complete run. Showing the max-depth one is the refusal path plus
+ * one addLayer the epic already knows how to write.
+ *
+ * Three outcomes, recorded on the action so the census and TASK-2995 can tell
+ * them apart:
+ *   'existing' — the run's max-depth layer is ALREADY in state.layers.flat;
+ *                make it visible.
+ *   'added'    — not in state but reachable from scenario state; add it.
+ *   'none'     — no envelope available (a synthetic manifest in the rig, or a
+ *                run with no COGs). FAIL CLOSED: still no geometry fetch,
+ *                still status 'fallback', still a responsive tab.
+ *
+ * `visibility: true` ON THE ADD IS LOAD-BEARING, NOT A TIDY-UP.
+ * RunSerializerV2's nested gn_layer_* dicts are built by `_serialize_gn_layer`,
+ * which executes `response['visibility'] = False` and says so in its own
+ * docstring. A bare `addLayer(gn_layer_depth_max)` therefore files an INVISIBLE
+ * layer: the epic records 'added', the census records 'added', a gate greens on
+ * 'added', and the phone user still sees a blank map with an apology — exactly
+ * the failure this Option A re-aim exists to stop.
+ *
+ * `gn_layer_depth_max` needs NO group remap. pollAnugaScenarioEpic's
+ * `remapGroup` applies ONLY to gn_layer_depth_integrated_velocity_max
+ * ('Results.Depth Integrated Velocity' -> 'Results.Momentum').
+ *
+ * NO NEW WMS/COG FETCH PATH. If the layer object is not reachable from state,
+ * take the 'none' branch.
+ *
+ * @returns {'existing'|'added'|'none'}
+ */
+export function showFallbackEnvelope(store, runId, emit) {
+    const state = (store && store.getState && store.getState()) || {};
+    const candidate = getRunDepthMaxLayer(state, runId);
+    const flat = (state.layers && state.layers.flat) || [];
+    const wantedName = candidate && candidate.name;
+    const existing = wantedName
+        ? flat.find((layer) => layer
+            && layer.name === wantedName
+            && RESULT_LAYER_NAME_RE.test(layer.name || ''))
+        : null;
+    if (existing) {
+        emit(changeLayerProperties(existing.id, { visibility: true }));
+        return 'existing';
+    }
+    if (candidate) {
+        emit(addLayer({ ...candidate, visibility: true }));
+        return 'added';
+    }
+    return 'none';
+}
+
 export function playbackInitEpic(action$, store) {
     return action$.ofType(PLAYBACK_INIT).mergeMap((action) => {
         const { runId, layerId, manifestUrl } = action;
@@ -511,6 +576,53 @@ export function playbackInitEpic(action$, store) {
             // on the floor. Announced here, before the mesh download starts,
             // and guarded so the exact-nFace re-plan below cannot repeat it.
             warnIfOverBudget(runId, initialPlan);
+            // ================================================================
+            // TASK-2986 (W1.3, epic 2981) — THE FALLBACK SEAM.
+            //
+            // This is the LAST point at which nothing has downloaded. Below
+            // this line comes `new PlaybackChunkFetcher(...)` and then the
+            // mesh/time/dt `Promise.all`, i.e. the 63 MB geometry prefix. A
+            // phone handed a 3.39 M-node mesh dies AFTER that prefix starts
+            // moving, so the decision has to be made here or not at all.
+            //
+            // READ THE VERDICT DEFENSIVELY. `initialPlan` CAN BE NULL — it is
+            // `nNode0 ? computePlaybackMemoryPlan({...}) : null`, and
+            // readNodeCount returns undefined for a manifest whose chunk_shapes
+            // declare no usable node extent for ANY quantity array. A bare
+            // `initialPlan.verdict` would throw a TypeError into runLoad's own
+            // catch and land status 'error' instead of 'fallback'.
+            //
+            // AND A NULL PLAN IS NOT A FALLBACK. A store whose size cannot be
+            // read cannot be judged, and today it PROCEEDS — that behaviour is
+            // KEPT, and it is recorded here rather than inherited, because the
+            // two natural readings of the old spec text failed in opposite
+            // directions: `initialPlan.verdict` throws, and a bare
+            // `if (plan && ...)` with no recorded decision lets an unsizable
+            // store download the whole geometry prefix on a phone.
+            //
+            // NOTE THE CALL ORDER: warnIfOverBudget runs ABOVE this, so the
+            // OVER BUDGET console.warn still lands ON the fallback plan and the
+            // only console signal on that band is not silently removed by the
+            // early return. At the arithmetic TASK-2984 ships they fire on
+            // exactly the SAME plans — chunksPerQuantity === 2 makes
+            // peakResidentBytes identical to the floor-window peak, so
+            // `withinBudget === false` IS the fallback trigger — so there is no
+            // "over budget but verdict ok" state to protect.
+            if (initialPlan && initialPlan.verdict === 'fallback') {
+                const fallbackLayerShown = showFallbackEnvelope(store, runId, emit);
+                emit(playbackFallback({
+                    runId,
+                    reason: initialPlan.fallbackReason,
+                    nNode: initialPlan.nNode,
+                    nFace: initialPlan.nFace,
+                    budgetBytes: heapBudget.budgetBytes,
+                    budgetSource: heapBudget.source,
+                    floorWindowPlanPeakBytes: initialPlan.floorWindowPlanPeakBytes,
+                    fallbackLayerShown
+                }));
+                return;
+            }
+            // ================================================================
             // TASK-2739 (W3, epic 2706) — the 403 recovery the fetcher has
             // documented since W2.1 and never had a caller for. Without
             // `refreshManifest` a chunk url whose credentials rotated dies at

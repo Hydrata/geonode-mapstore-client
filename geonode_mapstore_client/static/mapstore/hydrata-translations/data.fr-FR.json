@@ -610,7 +610,8 @@
           "seeking": "Mise en mémoire tampon de la cible de défilement…",
           "stalled": "Mise en mémoire tampon — en attente de données…",
           "error": "Échec du chargement du magasin de lecture",
-          "loadingMesh": "Téléchargement du maillage"
+          "loadingMesh": "Téléchargement du maillage",
+          "fallback": "Lecture indisponible sur cet appareil"
         },
         "legendTitleDepth": "Profondeur (m)",
         "legendTitleSpeed": "Vitesse (m/s)",
@@ -699,7 +700,21 @@
         "zoomToResults": "Zoom sur les résultats",
         "zoomToResultsTooltip": "Centrer la carte sur les résultats de cette simulation",
         "envelopeLoadFailedTitle": "Maximum de simulation indisponible",
-        "envelopeLoadFailed": "La couche du maximum de simulation (Max) n'a pas pu être chargée pour cette grandeur. Retour à la lecture normale."
+        "envelopeLoadFailed": "La couche du maximum de simulation (Max) n'a pas pu être chargée pour cette grandeur. Retour à la lecture normale.",
+        "fallback": {
+          "mesh": "Ce résultat comporte {nodes} nœuds et {triangles} triangles.",
+          "budget": "La lecture animée demande plus de mémoire que cet appareil n'en offre : {budget}, mesurée à partir de {source}.",
+          "envelopeShown": "Affichage à la place de l'enveloppe de hauteur d'eau maximale de cette simulation — l'eau la plus profonde atteinte en chaque point.",
+          "noEnvelope": "Aucune enveloppe de hauteur d'eau maximale n'est disponible pour cette simulation, il n'y a donc rien à afficher à la place."
+        },
+        "budgetSource": {
+          "default": "un budget par défaut (ce navigateur ne signale aucune information mémoire)",
+          "heapDevice": "la mémoire disponible du tas de ce navigateur et la mémoire déclarée de l'appareil",
+          "partial": "la seule information mémoire que signale ce navigateur",
+          "smallDevice": "la mémoire déclarée par cet appareil",
+          "phoneClass": "une estimation de classe téléphone (ce navigateur ne signale aucune information mémoire)",
+          "unknown": "une information mémoire non reconnue"
+        }
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

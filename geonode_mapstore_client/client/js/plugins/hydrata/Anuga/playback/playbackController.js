@@ -48,6 +48,7 @@ import {
     PLAYBACK_SET_SPEED,
     PLAYBACK_SET_QUANTITY,
     PLAYBACK_RESET,
+    PLAYBACK_FALLBACK,
     PLAYBACK_SET_IDENTIFY_ARMED,
     PLAYBACK_SET_IDENTIFY_RESULT,
     PLAYBACK_SET_LEGEND_OPEN,
@@ -77,6 +78,13 @@ export const PLAYBACK_STATUS = Object.freeze({
     SEEKING: 'seeking', // scrub target not yet buffered (AC: distinct "scrub buffering" feedback)
     STALLED: 'stalled', // was playing, ran off the buffered edge on a slow link
     PAUSED: 'paused', // reached the end of the timeline
+    // TASK-2986 (W1.3, epic 2981) — the manifest-time plan says THIS DEVICE
+    // cannot hold THIS store, so nothing was downloaded and the map was handed
+    // the run's maximum-depth envelope instead. TERMINAL for that run: a TICK
+    // must not move a playhead and a SEEK must not leave it. Deliberately NOT
+    // 'error' (nothing failed) and not the 'refused' the superseded spec named
+    // (nothing is refused — a degraded artefact is shown).
+    FALLBACK: 'fallback',
     ERROR: 'error'
 });
 
@@ -197,6 +205,36 @@ export function createInitialPlaybackState() {
         // TASK-2744 AC18 — determinate load progress for the mesh phase.
         // null when no load is in flight; never a fake percentage.
         loadProgress: null,
+        // TASK-2986 (W1.3, epic 2981) — everything the fallback message has to
+        // name, written by the PLAYBACK_FALLBACK case FROM THE ACTION.
+        //
+        // They need their own home because on the fallback path
+        // PLAYBACK_MANIFEST_LOADED NEVER FIRES: nNode and nTime stay 0 and
+        // memoryPlan stays null, so the bar would otherwise be connected to a
+        // state that knows none of it. `nFace` does not appear in this state at
+        // all before now, and `budgetSource` had no home anywhere — it is a
+        // LOCAL in playbackInitEpic today, dispatched nowhere.
+        //
+        // PLAYBACK_RESET returns createInitialPlaybackState(), so being HERE is
+        // what clears them.
+        nFace: 0,
+        fallbackReason: null,
+        budgetBytes: null,
+        // One of FIVE: 'default', 'heap+device', 'partial' (all three shipped
+        // before TASK-2984) plus 'small-device' and 'phone-class'. 'partial' is
+        // not an edge case — it is what EVERY browser exposing only one of the
+        // two budget offers gets, i.e. every non-Chromium browser and much of
+        // the phone class this fallback exists to serve.
+        budgetSource: null,
+        // The peak of the plan at the STRUCTURAL floor (2 chunks/quantity), NOT
+        // plan.peakResidentBytes — on the chunk2 shape the two differ by
+        // 38.83 MiB (401.25 vs 440.08).
+        floorWindowPlanPeakBytes: null,
+        // 'existing' | 'added' | 'none' — which of the three envelope outcomes
+        // happened. UNRELATED to envelopeMode/envelopeQuantities/envelopeData
+        // below, which are TASK-2752's temporal-max MESH envelope and a user
+        // toggle; neither may read or be derived from the other.
+        fallbackLayerShown: null,
         lastTickMs: null,
         stalledSinceMs: null,
         // Consecutive stalled ticks WITHIN the current stall episode; reset the
@@ -638,6 +676,27 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         }
         return { ...state, status: PLAYBACK_STATUS.ERROR, error: action.error || 'manifest load failed' };
     }
+    case PLAYBACK_FALLBACK: {
+        // TASK-2986 (W1.3, epic 2981) — PERSIST THE WHOLE PAYLOAD. On this
+        // path PLAYBACK_MANIFEST_LOADED never fires, so every number the
+        // message names has to arrive here or the bar has nothing to render.
+        // pendingPlay false: Play is disabled, Unload stays enabled.
+        return {
+            ...state,
+            status: PLAYBACK_STATUS.FALLBACK,
+            pendingPlay: false,
+            error: null,
+            runId: action.runId !== undefined ? action.runId : state.runId,
+            nNode: action.nNode || 0,
+            nFace: action.nFace || 0,
+            fallbackReason: action.reason || null,
+            budgetBytes: action.budgetBytes !== undefined ? action.budgetBytes : null,
+            budgetSource: action.budgetSource || null,
+            floorWindowPlanPeakBytes: action.floorWindowPlanPeakBytes !== undefined
+                ? action.floorWindowPlanPeakBytes : null,
+            fallbackLayerShown: action.fallbackLayerShown || null
+        };
+    }
     case PLAYBACK_CHUNKS_BUFFERED: {
         // TASK-2744 AC20 — an authoritative report REPLACES the set. Union-only
         // made `bufferedChunks` a record of "was fetched at some point", not
@@ -724,6 +783,13 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         return { ...state, pendingPlay: false };
     }
     case PLAYBACK_SEEK: {
+        // TASK-2986 — 'fallback' is TERMINAL for the run. There is no store in
+        // memory to seek within: nothing was downloaded. (PLAYBACK_TICK needs
+        // no new guard — it already returns early for any status that is
+        // neither PLAYING nor STALLED.)
+        if (state.status === PLAYBACK_STATUS.FALLBACK) {
+            return state;
+        }
         // TASK-2752 AC6 — "the scrubber is disabled" while Max is on.
         if (state.envelopeMode) {
             return state;

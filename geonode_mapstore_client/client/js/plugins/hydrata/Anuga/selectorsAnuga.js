@@ -142,6 +142,47 @@ export const getScenariosArray = createSelector(
     })
 );
 
+/**
+ * TASK-2986 (W1.3, epic 2981) — the run's own max-depth COG layer object, or
+ * null when it is not reachable from scenario state.
+ *
+ * READ `latest_complete_run`, NOT `latest_run`. ScenarioSerializerV2 nests
+ * exactly TWO SINGLE runs — `latest_run` and `latest_complete_run`, each a
+ * RunSerializerV2(read_only=True) OBJECT, never an array — and
+ * pollingEpics.js reads `latest_complete_run.gn_layer_depth_max` with its own
+ * comment saying "FE result consumers read this, NOT latest_run", because
+ * latest_run may be an in-flight or errored newer run with no COGs at all.
+ * `latest_run` is consulted here ONLY when it IS the same run.
+ *
+ * A run that is NEITHER of those two — an older run, or a newer in-flight one
+ * — is simply NOT REACHABLE from scenario state, and the caller must fall
+ * through to its no-envelope branch. THAT IS BY DESIGN: do NOT add a fetch, a
+ * list endpoint or a run-by-id lookup to go hunting for it.
+ *
+ * @param {object} state
+ * @param {string|number} runId
+ * @returns {object|null} the nested gn_layer_depth_max dict
+ */
+export const getRunDepthMaxLayer = (state, runId) => {
+    if (runId === undefined || runId === null) {
+        return null;
+    }
+    const wanted = String(runId);
+    const scenarios = getScenariosArray(state) || [];
+    for (let i = 0; i < scenarios.length; i++) {
+        const scenario = scenarios[i] || {};
+        const complete = scenario.latest_complete_run;
+        if (complete && String(complete.id) === wanted && complete.gn_layer_depth_max) {
+            return complete.gn_layer_depth_max;
+        }
+        const latest = scenario.latest_run;
+        if (latest && String(latest.id) === wanted && latest.gn_layer_depth_max) {
+            return latest.gn_layer_depth_max;
+        }
+    }
+    return null;
+};
+
 export const getScenarioById = (state, id) => {
     return state?.anuga?.scenarios?.byId?.[id] || null;
 };
