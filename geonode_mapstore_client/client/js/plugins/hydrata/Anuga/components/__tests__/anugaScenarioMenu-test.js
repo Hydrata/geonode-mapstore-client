@@ -979,15 +979,25 @@ describe('anugaScenarioMenu — Build and Run awaits build (UAT #8)', () => {
 
     it('(f) leak guard: a save with no in-flight episode never arms — a later unrelated building→built does NOT run', () => {
         const {buildCalls, runCalls, saveCalls, render} = makeHarness();
-        // Unsaved scenario → handleBuildClick dispatches a SAVE, not a build, so
-        // no deferred run is armed.
-        render(validScenario(41, 'created', {unsaved: true}));
+        // TASK-2826 (AC3) — RE-FIXTURED onto the id-LESS lazy-create path.
+        // This spec previously rendered validScenario(41, 'created',
+        // {unsaved: true}): a has-id scenario that reached dispatchBuild's save
+        // branch only via the `scenario.unsaved` read TASK-2826 retires from
+        // that decision. After d92 the save branch is guarded on
+        // `!scenario.id`, so the id-LESS draft is the only dispatch that still
+        // saves — which is where the "a save never arms a deferred run" guard
+        // now has to live. The assertion is unchanged, and saveCalls stays
+        // asserted here (the only place in this file that asserts it).
+        // An id-less scenario → handleBuildAndRunClick dispatches a SAVE, not a
+        // build, so no deferred run is armed.
+        render(validScenario(null, 'created', {_tempId: 'new_41', unsaved: true}));
         container.querySelector('.sv-scenario-action-build-run').click();
         expect(saveCalls.length).toBe(1);
         expect(buildCalls.length).toBe(0);
         expect(runCalls.length).toBe(0);
-        // Later the (now-saved) scenario undergoes an unrelated build→built. With
-        // nothing armed, that transition must NOT surprise-fire a run.
+        // The lazy create resolves as id 41, and that scenario later undergoes an
+        // unrelated build→built. With nothing armed locally, that transition must
+        // NOT surprise-fire a run.
         render(validScenario(41, 'building'));
         render(validScenario(41, 'built'));
         expect(runCalls.length).toBe(0);
@@ -2456,5 +2466,299 @@ describe('anugaScenarioMenu — + New scenario moves the selection (TASK-3011)',
         expect(commits[1].scenario.boundary).toBe(21);
         // …and above all NOT the scenario the user started on.
         expect(store.getState().anuga.scenarios.byId[417].boundary).toBe(20);
+    });
+});
+
+/*
+ * TASK-2826 (epic 2815 W5, operator rulings d92 + d93) — dispatchBuild reads
+ * the REAL per-scenario in-flight-commit signal (isScenarioCommitInFlight,
+ * selectorsAnuga.js:174) instead of the cosmetic `scenario.unsaved` flag, and a
+ * Build clicked while a field commit is still ON THE WIRE is DEFERRED rather
+ * than detoured through a redundant whole-object save.
+ *
+ * Why the save had to go (ruling d92): saveAnugaScenarioEpic's has-id branch
+ * PATCHes through the UN-QUEUED _patchScenario (crudEpics.js:638) while
+ * TASK-3012's serialisation queue covers only COMMIT_ANUGA_SCENARIO_FIELD. Both
+ * ship the whole 12-key SCENARIO_PATCH_FIELDS snapshot taken at action-creation
+ * time, so the two overlap and the one the server commits LAST wins — a silent
+ * stale write that TASK-2953's no-clobber reducer merge hides from redux.
+ * dispatchBuild's save branch was the only live trigger.
+ *
+ * The red-at-HEAD condition DIFFERS per case and is named on each spec: a
+ * SUCCESSFUL field commit clears `unsaved` (crudEpics.js:707-712 ->
+ * scenariosReducer.js:295), so a "commit a field, let it settle, click Build"
+ * fixture is green at HEAD and grades nothing.
+ */
+describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)', () => {
+    // Same local-require pattern as the TASK-3011 block above:
+    // commitAnugaScenarioField is a redux-thunk action creator, so the
+    // connected specs need a store with thunk middleware.
+    const { applyMiddleware } = require('redux');
+    const reduxThunk = require('redux-thunk');
+    const thunkMiddleware = reduxThunk.default || reduxThunk.thunk || reduxThunk;
+    const {
+        COMMIT_ANUGA_SCENARIO_FIELD,
+        commitAnugaScenarioFieldSettled
+    } = require('../../actionsAnuga');
+
+    let container;
+
+    function makeThunkStore() {
+        const dispatched = [];
+        const record = () => (next) => (action) => {
+            dispatched.push(action);
+            return next(action);
+        };
+        const store = createStore(
+            combineReducers({
+                anuga,
+                security: (state = {user: {pk: 7, is_staff: true}}) => state,
+                layers: (state = {flat: []}) => state
+            }),
+            {anuga: {projects: {data: {id: 1, my_role: 'editor'}}}},
+            applyMiddleware(thunkMiddleware, record)
+        );
+        store.actionsOfType = (type) => dispatched.filter((a) => a && a.type === type);
+        return store;
+    }
+
+    // A saved, server-shaped scenario that PASSES validateScenario.
+    const savedScenario = (extras = {}) => ({
+        id: 417, name: 'Trial 01', status: 'created', computed_status: 'created',
+        terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+        friction: null, structure: null, mesh_region: null, network: null,
+        resolution: 1000, duration: 1800, created_by: 7, unsaved: false, ...extras
+    });
+
+    function mountConnected(store) {
+        store.dispatch(setAnugaScenarioData([savedScenario()]));
+        store.dispatch(selectAnugaScenario(savedScenario()));
+        ReactDOM.render(<Provider store={store}><AnugaScenarioMenu /></Provider>, container);
+    }
+
+    // Unconnected harness for the id-LESS case (a) and the AC5 bound arms —
+    // the in-flight signal is an explicit prop here, so a spec can pin it
+    // true and hold it there (a commit that never settles), which no real
+    // store can express without an epic.
+    function makeUnconnected(extraProps = {}) {
+        const buildCalls = [];
+        const saveCalls = [];
+        const runCalls = [];
+        const armCalls = [];
+        const base = {
+            archiveFilter: 'none',
+            terrain: [], boundaries: [], inflows: [], rainfalls: [],
+            frictions: [], structures: [], meshRegions: [], networks: [],
+            canCreateScenario: true,
+            canRunScenario: true,
+            myRole: 'editor',
+            currentUserId: 9999,
+            selectedScenarios: [],
+            readyToCompare: false,
+            flatLayers: [],
+            selectAnugaScenario: () => {},
+            setOpenMenuGroupId: () => {},
+            saveAnugaScenario: (s) => saveCalls.push(s),
+            buildScenarioExplicit: (sid) => buildCalls.push(sid),
+            runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t}),
+            armRunAfterBuildRedux: (sid, opts) => armCalls.push({sid, opts}),
+            clearRunAfterBuildRedux: () => {},
+            ...extraProps
+        };
+        // `overrides` re-renders the SAME instance with a changed prop — how a
+        // spec flips the in-flight signal the way a settling commit does.
+        const render = (scenario, overrides = {}) => {
+            ReactDOM.render(
+                <AnugaScenarioMenuClass
+                    {...base}
+                    {...overrides}
+                    scenarios={[scenario]}
+                    selectedScenario={scenario}
+                />,
+                container
+            );
+        };
+        return {buildCalls, saveCalls, runCalls, armCalls, render};
+    }
+
+    // An id-LESS draft (the lazy-create path) that otherwise passes
+    // validateScenario, so the Build buttons render and the click reaches
+    // dispatchBuild rather than the missing-field dialog.
+    const draftScenario = (extras = {}) => ({
+        id: null, _tempId: 'new_1', name: 'Draft', status: 'created',
+        computed_status: 'created',
+        terrain: 10, boundary: 20, inflow: 30, rainfall: null,
+        friction: null, structure: null, mesh_region: null, network: null,
+        resolution: 1000, duration: 1800, created_by: 9999, unsaved: true, ...extras
+    });
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    // ---- AC1 case (b) — the load-bearing new behaviour --------------------
+    it('(b) a Build clicked while a field commit is ON THE WIRE dispatches NO save and NO build; the build fires exactly once when that commit settles [RED AT HEAD: HEAD dispatches SAVE_ANUGA_SCENARIO]', () => {
+        const store = makeThunkStore();
+        mountConnected(store);
+
+        // The gesture from the card: pick a required field, then hit Build
+        // before its PATCH has landed.
+        Simulate.change(container.querySelector('#terrain'), {target: {value: '11'}});
+        expect(store.actionsOfType(COMMIT_ANUGA_SCENARIO_FIELD).length).toBe(1);
+        // Non-vacuous seed, both halves: the commit really is outstanding in
+        // the store slice the new selector reads…
+        expect(store.getState().anuga.scenarios.commitsInFlight[417]).toBe(1);
+        // …and the retired cosmetic flag really is true, so a HEAD-shaped
+        // `scenario.unsaved` read would take the save branch here.
+        expect(store.getState().anuga.scenarios.byId[417].unsaved).toBe(true);
+
+        container.querySelector('.sv-scenario-action-build-run').click();
+
+        // d92: no redundant whole-object save (that is the PATCH that reaches
+        // crudEpics.js:638 and can clobber the field commit on the server)…
+        expect(store.actionsOfType(SAVE_ANUGA_SCENARIO).length).toBe(0);
+        // …and no build yet either — the click is held, not dropped.
+        expect(store.actionsOfType(BUILD_SCENARIO).length).toBe(0);
+
+        // The commit settles (crudEpics.js's withCommitSettled closes the
+        // slice from BOTH the success and the failure arm).
+        store.dispatch(commitAnugaScenarioFieldSettled(417));
+        const builds = store.actionsOfType(BUILD_SCENARIO);
+        expect(builds.length).toBe(1);
+        expect(builds[0].scenarioId).toBe(417);
+        expect(store.actionsOfType(SAVE_ANUGA_SCENARIO).length).toBe(0);
+
+        // AC3 — a DEFERRED build may not lose its run: the arm survives the
+        // deferral and resolves on the build's own building→built transition.
+        store.dispatch(setAnugaPollingData([{id: 417, status: 'building', computed_status: 'building'}]));
+        expect(store.actionsOfType(RUN_ANUGA_SCENARIO).length).toBe(0);
+        store.dispatch(setAnugaPollingData([{id: 417, status: 'built', computed_status: 'built'}]));
+        expect(store.actionsOfType(RUN_ANUGA_SCENARIO).length).toBe(1);
+        // …and exactly once: the build is not re-dispatched by later ticks.
+        expect(store.actionsOfType(BUILD_SCENARIO).length).toBe(1);
+    });
+
+    // ---- AC1 case (c) — the state where the old flag and the new signal
+    // genuinely disagree. Fixture named per AC2: a FAILED field commit.
+    // scenariosReducer has NO SAVE_ANUGA_SCENARIO_ERROR case, so `unsaved`
+    // stays TRUE, while commitAnugaScenarioFieldEpic closes its catch arm
+    // through withCommitSettled — commitsInFlight goes back to 0.
+    it('(c) after a FAILED field commit (unsaved:true, nothing in flight) Build builds IMMEDIATELY and never saves [RED AT HEAD: HEAD reads scenario.unsaved and dispatches SAVE_ANUGA_SCENARIO]', () => {
+        const store = makeThunkStore();
+        mountConnected(store);
+        Simulate.change(container.querySelector('#terrain'), {target: {value: '11'}});
+        // The failure arm: settled, with NO SAVE_ANUGA_SCENARIO_SUCCESS —
+        // exactly what withCommitSettled(commitKey, saveAnugaScenarioError(...))
+        // leaves behind.
+        store.dispatch(commitAnugaScenarioFieldSettled(417));
+        expect(store.getState().anuga.scenarios.commitsInFlight[417]).toBe(undefined);
+        expect(store.getState().anuga.scenarios.byId[417].unsaved).toBe(true);
+
+        container.querySelector('.sv-scenario-action-build-run').click();
+
+        const builds = store.actionsOfType(BUILD_SCENARIO);
+        expect(builds.length).toBe(1);
+        expect(builds[0].scenarioId).toBe(417);
+        expect(store.actionsOfType(SAVE_ANUGA_SCENARIO).length).toBe(0);
+    });
+
+    // ---- AC1 case (a) — no-regression, plus the explicit !scenario.id guard
+    it('(a) an id-LESS draft still SAVES and never builds — the lazy-create path is unchanged', () => {
+        const h = makeUnconnected();
+        h.render(draftScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.saveCalls.length).toBe(1);
+        expect(h.saveCalls[0]._tempId).toBe('new_1');
+        expect(h.buildCalls).toEqual([]);
+        expect(h.runCalls.length).toBe(0);
+    });
+
+    it('(a) an id-LESS draft with unsaved:FALSE still SAVES — it must never reach buildScenarioExplicit(null) [RED AT HEAD: HEAD builds null]', () => {
+        // AC1(a): merely deleting the `scenario.unsaved` read would leave
+        // `!this.props.buildScenarioExplicit`, sending an id-less scenario to
+        // buildScenarioExplicit(null) and POSTing .../scenarios/null/build/.
+        // ADD_ANUGA_SCENARIO seeds a draft with exactly this shape
+        // (scenariosReducer.js: id null, unsaved false).
+        const h = makeUnconnected();
+        h.render(draftScenario({unsaved: false}));
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.buildCalls).toEqual([]);
+        expect(h.saveCalls.length).toBe(1);
+    });
+
+    // ---- AC5 — the bounded wait (ruling d92) -----------------------------
+    it('AC5 — a commit that NEVER settles: the injected bound elapses and the build fires anyway, so the click is never silently swallowed and the button is never dead', (done) => {
+        // The bound exists for a promise that never settles at all (there is
+        // no client-side axios timeout on the scenario API). A 4xx CANNOT
+        // strand the deferral — isScenarioCommitInFlight clears on the catch
+        // arm too (crudEpics.js:731/:787/:806), which case (c) above covers.
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            deferredBuildMaxWaitMs: 20
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        // Held, not dispatched…
+        expect(h.buildCalls).toEqual([]);
+        expect(h.saveCalls.length).toBe(0);
+        setTimeout(() => {
+            // …and released by the bound even though the commit never settled.
+            expect(h.buildCalls).toEqual([417]);
+            expect(h.saveCalls.length).toBe(0);
+            // The Build-and-Run intent survives the bound.
+            expect(h.armCalls.length).toBe(1);
+            expect(h.armCalls[0].sid).toBe(417);
+            done();
+        }, 120);
+    });
+
+    it('AC5 — a mid-deferral UNMOUNT flushes the pending build and hands the run arm to runAfterBuildEpic (localOwned NOT set)', () => {
+        // anugaScenarioMenu has no componentWillUnmount at HEAD and one
+        // Hydraulics-tab click unmounts the menu (anugaContainer.js:283-290,
+        // :417-418). DECISION: the deferral FIRES on unmount rather than being
+        // dropped — the user clicked Build, and the mirrored arm is the
+        // existing machinery (TASK-2890) for an intent that outlives this
+        // component, so runAfterBuildEpic resolves it.
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.buildCalls).toEqual([]);
+
+        ReactDOM.unmountComponentAtNode(container);
+
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.armCalls.length).toBe(1);
+        expect(h.armCalls[0].sid).toBe(417);
+        // localOwned is NOT set: no local machine survives to resolve it.
+        expect(h.armCalls[0].opts).toBe(undefined);
+    });
+
+    it('AC5 — the commit settles INSIDE the bound: the build fires once on the settle, and the elapsed bound never adds a second', (done) => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            deferredBuildMaxWaitMs: 20
+        });
+        h.render(savedScenario());
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.buildCalls).toEqual([]);
+        // The commit settles — the in-flight prop flips false, exactly as
+        // COMMIT_ANUGA_SCENARIO_FIELD_SETTLED makes it flip in the real store.
+        h.render(savedScenario(), {selectedScenarioCommitInFlight: false});
+        expect(h.buildCalls).toEqual([417]);
+        setTimeout(() => {
+            // The bound has long elapsed by now: its timer must have been
+            // cleared on the settle, or this is two builds.
+            expect(h.buildCalls).toEqual([417]);
+            done();
+        }, 120);
     });
 });
