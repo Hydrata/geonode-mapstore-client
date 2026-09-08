@@ -762,6 +762,15 @@ export class PlaybackChunkFetcher {
      *   each promise resolving to the same shape prefetchWindowByChunk produces.
      */
     fillTowards(planChunkIndices, playheadChunk, arrayConfigs, { nodeChunkIndex = 0, totalChunks } = {}) {
+        // A DISPOSED RUN ENQUEUES NOTHING — found by this wave's phase-1.7
+        // review. Without this, a fillTowards after releaseCaches() registers
+        // fresh `_inflight` deferreds that _startFillEntry then refuses to
+        // start (it returns early on `_disposed`), so every promise it handed
+        // back is unsettleable — the precise TASK-2754 shape AC9's teardown
+        // exists to prevent, re-created on the other side of the same door.
+        if (this._disposed) {
+            return [];
+        }
         // AC11 — a run the device cannot hold does not get filled at all. This
         // is the fetcher's half of TASK-2986's zero: the fallback verdict must
         // stop the bytes BEFORE they move, not explain them afterwards.
@@ -815,9 +824,17 @@ export class PlaybackChunkFetcher {
         const arrays = arrayNames.map((arrayName) => {
             const key = chunkKey(arrayName, [chunkIndex, nodeChunkIndex]);
             const store = this._storeFor(arrayName);
-            // NOT store.get(): that PROMOTES to MRU, and a queue that promotes
-            // what it walks past re-creates the very LRU ordering this task
-            // replaces. has() observes without reordering.
+            // NOT store.get() FOR THE RESIDENCY TEST: get() PROMOTES to MRU,
+            // and a queue that promotes every chunk it walks past re-creates
+            // the very LRU ordering this task replaces. has() observes without
+            // reordering.
+            //
+            // (The already-resident branch below DOES call get(), once, to
+            // resolve the value the return contract owes its caller. That
+            // promotes exactly the arrays of a PARTIALLY resident chunk the
+            // queue is about to complete, and it moves them AWAY from the byte
+            // LRU's chopping block — the safe direction, and the only
+            // promotion left in this path.)
             if (store.has && store.has(key)) {
                 return { arrayName, key, resident: true, owned: false, deferred: null };
             }

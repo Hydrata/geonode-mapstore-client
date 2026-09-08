@@ -1031,6 +1031,30 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
         }).catch(done);
     });
 
+    it('phase 1.7 — a DISPOSED fetcher enqueues NOTHING, so it cannot hand out an unsettleable promise', (done) => {
+        // FOUND BY THIS WAVE'S CUMULATIVE REVIEW, not by an AC. releaseCaches()
+        // sets `_disposed`, and _startFillEntry returns early on it — so a
+        // fillTowards AFTER teardown used to register fresh `_inflight`
+        // deferreds that nothing would ever start OR settle. That is the exact
+        // TASK-2754 unrecoverable-promise shape (a tab stuck in `buffering`
+        // for ever) re-created on the other side of the door AC9's teardown
+        // clause closes.
+        const plan = { chunksPerQuantity: 8, bufferWindowRadius: 1, cacheMaxBytes: 8 * 3 * CHUNK_BYTES };
+        const rig = gatedFetch();
+        const fetcher = makeFetcher(rig, { totalChunks: 16, memoryPlan: plan });
+        fetcher.releaseCaches();
+        const callsAfterTeardown = rig.calls.length;
+        const groups = fetcher.fillTowards([0, 1, 2, 3], 0, configs(), { totalChunks: 16 });
+        expect(groups).toEqual([]);
+        expect(rig.calls.length).toBe(callsAfterTeardown);
+        // nothing was registered, so nothing is waiting on a promise that
+        // cannot resolve
+        expect(fetcher._inflight.size).toBe(0);
+        expect(fetcher._fillPending.length).toBe(0);
+        expect(fetcher._fillByChunk.size).toBe(0);
+        done();
+    });
+
     it('a chunk already enqueued returns the SAME promise, so the per-tick re-issue is idempotent', () => {
         const plan = { chunksPerQuantity: 3, bufferWindowRadius: 1, cacheMaxBytes: 3 * 3 * CHUNK_BYTES };
         const rig = gatedFetch();

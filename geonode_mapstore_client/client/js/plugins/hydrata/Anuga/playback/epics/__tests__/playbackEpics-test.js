@@ -2024,6 +2024,38 @@ describe('playbackEpics', () => {
             expect(emittedD.length).toBe(0);
         });
 
+        it('phase 1.7 — a STALE run\'s fallback cannot clobber the run that replaced it', () => {
+            // FOUND BY THIS WAVE'S CUMULATIVE REVIEW, not by an AC.
+            // playbackInitEpic is a mergeMap, NOT a switchMap, so a second
+            // PLAYBACK_INIT does not tear down the first run's still-running
+            // load — run A's verdict can land after run B has started. Without
+            // the guard a LIVE loading run is forced into a TERMINAL
+            // 'fallback' carrying ANOTHER run's mesh size and budget, and
+            // nothing short of a reload gets it out.
+            //
+            // The four sibling cases (MANIFEST_FETCHED, LOAD_PROGRESS,
+            // MANIFEST_LOADED, MANIFEST_FAILED) all carry this guard already.
+            const runB = playbackControllerReducer(
+                createInitialPlaybackState(), playbackInit(88, 'layer-88'));
+            expect(runB.runId).toBe(88);
+            const payload = {
+                reason: 'fixed-mesh-exceeds-budget',
+                nNode: 14582400, nFace: 29164800,
+                budgetBytes: 128 * 1024 * 1024, budgetSource: 'phone-class',
+                floorWindowPlanPeakBytes: 1808793600, fallbackLayerShown: 'none'
+            };
+            const after = playbackControllerReducer(
+                runB, playbackFallback({ ...payload, runId: 77 }));
+            expect(after).toBe(runB);
+            expect(after.status).toNotBe(PLAYBACK_STATUS.FALLBACK);
+            // ...and the SAME payload for the CURRENT run IS honoured, so the
+            // guard cannot be satisfied by ignoring everything.
+            const own = playbackControllerReducer(
+                runB, playbackFallback({ ...payload, runId: 88 }));
+            expect(own.status).toBe(PLAYBACK_STATUS.FALLBACK);
+            expect(own.nNode).toBe(14582400);
+        });
+
         it('AC5/AC6 — the reducer keeps every number the message names, and fallback is TERMINAL', () => {
             const action = playbackFallback({
                 runId: 77, reason: 'floor-window-exceeds-budget',

@@ -677,6 +677,27 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         return { ...state, status: PLAYBACK_STATUS.ERROR, error: action.error || 'manifest load failed' };
     }
     case PLAYBACK_FALLBACK: {
+        // STALE-RUN GUARD, and it is not defensive decoration — found by this
+        // wave's phase-1.7 review. playbackInitEpic is a mergeMap, NOT a
+        // switchMap, so a second PLAYBACK_INIT does not tear down the first
+        // run's still-running load: run A's verdict can land after run B has
+        // started. Without this, a live loading run gets forced into a
+        // TERMINAL 'fallback' carrying ANOTHER run's mesh size and budget.
+        // The four sibling cases — MANIFEST_FETCHED, LOAD_PROGRESS,
+        // MANIFEST_LOADED, MANIFEST_FAILED — all carry exactly this guard for
+        // exactly this reason.
+        // NARROWER THAN ITS SIBLINGS, DELIBERATELY: it fires only when this
+        // state is ALREADY BOUND TO A DIFFERENT RUN. A pristine state
+        // (runId null) is not a stale run, it is a fresh one — and AC5
+        // requires a PLAYBACK_FALLBACK dispatched straight against
+        // createInitialPlaybackState() to populate everything the message
+        // names. In the real flow PLAYBACK_INIT always sets runId first, so
+        // the extra clause never fires in production; it only keeps the guard
+        // from refusing the very case the AC pins.
+        if (state.runId !== null && state.runId !== undefined
+            && action.runId !== undefined && action.runId !== state.runId) {
+            return state;
+        }
         // TASK-2986 (W1.3, epic 2981) — PERSIST THE WHOLE PAYLOAD. On this
         // path PLAYBACK_MANIFEST_LOADED never fires, so every number the
         // message names has to arrive here or the bar has nothing to render.

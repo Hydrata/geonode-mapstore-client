@@ -380,21 +380,23 @@ const STATUS_MESSAGE_ID = {
  * this fallback exists to serve. A message handling only four sources renders
  * a blank or unlabelled source for precisely those users.
  */
-const BUDGET_SOURCE_MESSAGE_ID = {
-    'default': 'hydrata.playback.budgetSource.default',
-    'heap+device': 'hydrata.playback.budgetSource.heapDevice',
-    'partial': 'hydrata.playback.budgetSource.partial',
-    'small-device': 'hydrata.playback.budgetSource.smallDevice',
-    'phone-class': 'hydrata.playback.budgetSource.phoneClass'
+const BUDGET_SOURCE_LABEL = {
+    'default': ['hydrata.playback.budgetSource.default',
+        'a default budget (this browser reports no memory signals)'],
+    'heap+device': ['hydrata.playback.budgetSource.heapDevice',
+        'this browser\'s heap headroom and reported device memory'],
+    'partial': ['hydrata.playback.budgetSource.partial',
+        'the one memory signal this browser reports'],
+    'small-device': ['hydrata.playback.budgetSource.smallDevice',
+        'this device\'s own reported memory'],
+    'phone-class': ['hydrata.playback.budgetSource.phoneClass',
+        'a phone-class estimate (this browser reports no memory signals)']
 };
-
-const BUDGET_SOURCE_FALLBACK_TEXT = {
-    'default': 'a default budget (this browser reports no memory signals)',
-    'heap+device': 'this browser\'s heap headroom and reported device memory',
-    'partial': 'the one memory signal this browser reports',
-    'small-device': 'this device\'s own reported memory',
-    'phone-class': 'a phone-class estimate (this browser reports no memory signals)'
-};
+// The two halves are ONE entry on purpose: as two parallel objects keyed
+// identically, a sixth source added to one and forgotten in the other renders
+// the unhandled label — silently, and for whichever devices report it.
+const UNKNOWN_BUDGET_SOURCE = ['hydrata.playback.budgetSource.unknown',
+    'an unrecognised memory signal'];
 
 /**
  * TEXT-presentation play glyph, hoisted so the disabled fallback button and
@@ -403,6 +405,8 @@ const BUDGET_SOURCE_FALLBACK_TEXT = {
  * square and ignores `color` entirely; U+25BA is text-default.
  */
 const PLAY_GLYPH = '\u25BA';
+/** Its pair, for the same reason — U+275A is text-default. */
+const PAUSE_GLYPH = '\u275A\u275A';
 
 function formatMiB(bytes) {
     return bytes > 0 ? `${Math.round(bytes / 1048576)} MiB` : '?';
@@ -1067,14 +1071,10 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      * Play is disabled and Unload is enabled in both cases.
      */
     renderFallback(playback) {
-        const isFallbackPlayGlyph = PLAY_GLYPH;
         const shown = playback.fallbackLayerShown;
         const hasEnvelopeLayer = shown === 'existing' || shown === 'added';
-        const sourceKey = playback.budgetSource;
-        const sourceLabel = this.tr(
-            BUDGET_SOURCE_MESSAGE_ID[sourceKey] || 'hydrata.playback.budgetSource.unknown',
-            BUDGET_SOURCE_FALLBACK_TEXT[sourceKey] || 'an unrecognised memory signal'
-        );
+        const [sourceMsgId, sourceText] = BUDGET_SOURCE_LABEL[playback.budgetSource] || UNKNOWN_BUDGET_SOURCE;
+        const sourceLabel = this.tr(sourceMsgId, sourceText);
         const mesh = this.tr(
             'hydrata.playback.fallback.mesh',
             'This result has {nodes} nodes and {triangles} triangles.'
@@ -1119,7 +1119,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         {/* The same TEXT-presentation glyph the live play
                             button uses — U+25B6 defaults to EMOJI presentation
                             and would paint the orange rounded square. */}
-                        {isFallbackPlayGlyph}
+                        {PLAY_GLYPH}
                     </button>
                     <button
                         className="btn sv-glass-button sv-playback-unload"
@@ -1179,7 +1179,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             the button was orange on a blue bar with nothing in
                             the stylesheet saying so. U+25BA/U+275A are
                             text-default and take the CSS colour. */}
-                        {isPlaying ? '❚❚' : '►'}
+                        {isPlaying ? PAUSE_GLYPH : PLAY_GLYPH}
                     </button>
 
                     {/* TASK-2744 AC9 — the scrubber must show what is BUFFERED.
