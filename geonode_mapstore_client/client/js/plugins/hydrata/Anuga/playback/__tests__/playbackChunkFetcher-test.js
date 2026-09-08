@@ -8,9 +8,11 @@
 
 /*
  * TASK-2625 (W2.1, epic 2618) — PlaybackChunkFetcher tests: manifest fetch,
- * ranged GET -> gzip decode -> dequantize via the real fixture store, LRU
- * cache integration, 403 -> manifest-refresh, and the prefetch-window API
- * consumed by a stub playback controller.
+ * whole-object GET -> gzip decode -> dequantize via the real fixture store,
+ * LRU cache integration, 403 -> manifest-refresh, and the prefetch-window API
+ * consumed by a stub playback controller. (TASK-2625 fetched every chunk with
+ * `Range: bytes=0-`; TASK-2983 dropped that header — see the fetcher's module
+ * docstring and the whole-object-GET spec below.)
  *
  * fetchImpl is always injected (constructor dependency) rather than
  * stubbing the global `fetch` — no sinon in this repo's karma deps, and DI
@@ -106,10 +108,40 @@ describe('PlaybackChunkFetcher', () => {
                 const row = dequantizeRow(stored, 1 * nNode, nNode, quantization);
                 expect(Math.abs(row[0] - FIXTURE_PHYSICAL.depth[1][0]) <= quantization.scale + 1e-6).toBe(true);
                 expect(row[0] > 0).toBe(true);
-                // The chunk was requested as a Range GET (TASK-2625 AC: "ranged GETs").
+                // TASK-2983 DELIBERATELY REWROTE the next assertion. It read
+                // `expect(spy[0].headers.Range).toBe('bytes=0-')` under the
+                // comment 'TASK-2625 AC: "ranged GETs"'. Dropping the header
+                // makes that pin false, so this end-to-end spec now pins the
+                // URL it fetched and leaves the header shape to the dedicated
+                // whole-object-GET spec below.
                 expect(spy.length).toBe(1);
                 expect(spy[0].url).toBe('depth/c/0/0');
-                expect(spy[0].headers.Range).toBe('bytes=0-');
+                done();
+            }).catch(done);
+    });
+
+    // TASK-2983 (epic 2981, W1) — subject: a whole-object fetch carries NO
+    // `Range` header. The fetcher used to send `Range: 'bytes=0-'` on every
+    // chunk GET; that range asks for the whole object anyway, so the only
+    // thing it changed was the response status (206 instead of 200) and the
+    // shape a network/cache audit of the playback data plane sees. This is an
+    // INSTRUMENT-FIDELITY spec — it makes no user-facing claim; the measured
+    // reload/cache differential was withdrawn, see report
+    // 2026-09-08-q-2-task-2983-range-cache-premise-false.
+    it('requests a whole-object chunk as a plain GET carrying no Range header', (done) => {
+        const spy = [];
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST,
+            fetchImpl: makeFixtureFetch({ spy })
+        });
+        fetcher.fetchAndDecodeChunk('node_x', [0], { dtype: 'float32', byteorder: 'little' })
+            .then(() => {
+                expect(spy.length).toBe(1);
+                expect(spy[0].url).toBe('node_x/c/0');
+                // `(spy[0].headers || {})` and not a bare dereference: the
+                // fetcher passes NO options object at all now, so the spy
+                // records `headers: undefined` rather than an empty object.
+                expect((spy[0].headers || {}).Range).toBe(undefined);
                 done();
             }).catch(done);
     });

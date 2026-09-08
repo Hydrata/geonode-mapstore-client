@@ -8,20 +8,25 @@
 
 /**
  * playbackChunkFetcher — the browser data plane for the TASK-2622/2623
- * playback store (epic 2618, W2.1/TASK-2625): manifest fetch -> ranged GET
- * -> gzip decode -> typed array -> dequantize, with an LRU cache and a
+ * playback store (epic 2618, W2.1/TASK-2625): manifest fetch -> whole-object
+ * GET -> gzip decode -> typed array -> dequantize, with an LRU cache and a
  * 403-triggered manifest refresh (presigned S3 URLs expire — TASK-2623's
  * Run.build_playback_manifest docstring: "the FE refreshes the manifest on
  * a 403 from a chunk URL rather than trusting expires_at alone").
  *
- * Every chunk object is fetched with an explicit Range request (rather than
- * a plain GET) — S3 presigned GET URLs honour Range on any object, and
- * issuing every chunk fetch through the same Range-request code path (a) is
- * what lets a future partial-chunk read reuse this exact function without a
- * second code path, and (b) makes the request trivially distinguishable
- * from a same-origin dev-store GET in a network-log/cache audit. An unbounded
- * `bytes=0-` range simply asks for "everything from the start" — S3 answers
- * with 206 Partial Content and the whole object.
+ * Every chunk object is fetched as a plain whole-object GET and the server
+ * answers 200. TASK-2625 originally sent an unbounded `Range: bytes=0-` on
+ * every chunk fetch; that range asks for "everything from the start", so S3
+ * returned the whole object anyway and the only thing the header changed was
+ * the response status (206 rather than 200) and therefore the shape a
+ * network/cache audit of this data plane sees. TASK-2983 (epic 2981) dropped
+ * it for INSTRUMENT FIDELITY ONLY — no user-facing benefit is claimed: the
+ * reload/cache differential that originally motivated the change was measured
+ * and withdrawn (with `public, max-age=31536000, immutable` on the store
+ * objects a persistent profile re-downloads nothing on reload either way).
+ * See report 2026-09-08-q-2-task-2983-range-cache-premise-false.
+ * `_fetchRawBytes` still accepts a 206 (see its status guard) so a server or
+ * proxy that answers partial anyway does not break the read path.
  */
 
 import { chunkKey } from './playbackDecode';
@@ -281,7 +286,7 @@ export class PlaybackChunkFetcher {
 
     async _fetchRawBytes(relativeKey, { allowRefresh = true } = {}) {
         const url = urlForRelativeKey(this.manifest, relativeKey);
-        const response = await this.fetchImpl(url, { headers: { Range: 'bytes=0-' } });
+        const response = await this.fetchImpl(url);
         if (response.status === 403) {
             if (!allowRefresh || !this.refreshManifest) {
                 throw new Error(`playbackChunkFetcher: 403 fetching '${relativeKey}' and no refreshManifest available to retry`);
