@@ -437,11 +437,13 @@ export const vectorDrawSaveEpic = (action$, store) =>
                     // has_feature_data, so a blanket refetch on every WFS-T
                     // write would cost a request that can never change
                     // anything. Trade-off stated explicitly (AC4).
-                    const isRainfallLayer = getAnugaPrefix(config.layerName) === 'rai_';
-                    const projectId = store.getState()?.anuga?.projects?.data?.id;
-                    const rainfallRefetch$ = (isRainfallLayer && projectId)
-                        ? fetchResourceEndpoint('rainfall', projectId).map(setAnugaRainfallData)
-                        : Rx.Observable.empty();
+                    // Same decision as the delete and cancel-after-error
+                    // paths, so it goes through the one shared helper
+                    // (W6 sweep, lens 3 + lens 1): rainfallRefetchFor was
+                    // added FOR this call site and two others, and an inline
+                    // copy here would be the fourth place the 'rai_' prefix
+                    // rule has to be kept in sync.
+                    const rainfallRefetch$ = rainfallRefetchFor(store, config);
 
                     // Common post-save side-effects fire regardless of which
                     // tail we take (picker-return vs idle).
