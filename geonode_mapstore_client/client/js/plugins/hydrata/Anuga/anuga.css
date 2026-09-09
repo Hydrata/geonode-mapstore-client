@@ -3551,6 +3551,45 @@ span.sv-scenario-run-price--short {
     font-variant-numeric: tabular-nums;
     opacity: 0.85;
 }
+/* TASK-2988 (W2.2, epic 2981) — the PACED readout beside the speed picker.
+   Both badges below are always mounted and `hidden` when they have nothing to
+   say, because the transport row's AC6 is "status must not move a control" and
+   the only way to hold that by construction is to never change the row's child
+   list. `display: none` on [hidden] is the browser default; it is restated here
+   because .sv-playback-bar's flex context would otherwise re-show it. */
+.sv-playback-paced[hidden],
+.sv-playback-preroll[hidden] {
+    display: none;
+}
+.sv-playback-paced {
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 3px 6px;
+    border-radius: 3px;
+    /* The same amber the degraded badge uses: this is the calmer member of the
+       same family — "the link is behind" rather than "the link has stopped". */
+    color: #f0a830;
+    background: rgba(240, 168, 48, 0.12);
+}
+/* The pre-roll percentage rides ON the play button rather than beside it, so a
+   longer wait can never widen the transport's first control. */
+.sv-playback-bar .sv-playback-playpause {
+    position: relative;
+}
+.sv-playback-preroll {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 100%;
+    margin-top: 2px;
+    font-size: 9px;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--sv-accent-green, rgba(39, 202, 59, 1));
+    pointer-events: none;
+}
+
 .sv-playback-speed,
 .sv-playback-quantity {
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));

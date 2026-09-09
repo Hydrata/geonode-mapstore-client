@@ -20,8 +20,12 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import TestUtils from 'react-dom/test-utils';
 
-import { AnugaPlaybackControlBarComponent, formatClock, bufferedTrackSegments, PLAYBACK_ZOOM_MAX } from '../AnugaPlaybackControlBar';
+import { AnugaPlaybackControlBarComponent, formatClock, bufferedTrackSegments, formatPaceRatio, PLAYBACK_ZOOM_MAX } from '../AnugaPlaybackControlBar';
 import { PLAYBACK_STATUS, createInitialPlaybackState } from '../../playbackController';
+import enUS from '../../../../../../../../static/mapstore/hydrata-translations/data.en-US.json';
+import esES from '../../../../../../../../static/mapstore/hydrata-translations/data.es-ES.json';
+import frFR from '../../../../../../../../static/mapstore/hydrata-translations/data.fr-FR.json';
+import htHT from '../../../../../../../../static/mapstore/hydrata-translations/data.ht-HT.json';
 
 describe('AnugaPlaybackControlBar — TASK-2627', () => {
     let container;
@@ -111,6 +115,152 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         expect(container.querySelector('[data-testid="anuga-playback-degraded"]')).toBe(null);
         render({ playback: { ...base, degraded: true } });
         expect(container.querySelector('[data-testid="anuga-playback-degraded"]')).toBeTruthy();
+    });
+
+    /*
+     * ======================================================================
+     * TASK-2988 (W2.2, epic 2981) — what the viewer is told about the runway.
+     *
+     * NOTE ON `hidden` RATHER THAN ABSENT. Both badges are always mounted and
+     * hidden when they have nothing to say. That is not laziness: the transport
+     * row's own AC6 (PlaybackBarLayout-test, "the child list is identical
+     * whether buffering or ready") requires that status NEVER changes the row's
+     * children, and a chip that mounts and unmounts shoves every control to its
+     * right — which is what put the scrubber on its 150px floor once already.
+     * So these specs assert on `.hidden`, which is what "renders" means here.
+     * ======================================================================
+     */
+    describe('TASK-2988 — the paced readout and pre-roll progress', () => {
+        const playing = (overrides) => ({
+            ...createInitialPlaybackState(),
+            status: PLAYBACK_STATUS.PLAYING,
+            nTime: 101,
+            totalChunks: 11,
+            chunkLengthT: 10,
+            speed: 100,
+            ...overrides
+        });
+
+        it('AC1: the paced indicator renders IFF effectiveSpeed < speed, and shows the ratio', () => {
+            render({ playback: playing({ effectiveSpeed: 40 }) });
+            const paced = container.querySelector('[data-testid="anuga-playback-paced"]');
+            expect(paced).toBeTruthy();
+            expect(paced.hidden).toBe(false);
+            expect(paced.textContent).toContain('0.4');
+            // The ratio, never the absolute speed: "paced 40x" would be a lie
+            // about a run the viewer asked to watch at 100x.
+            expect(paced.textContent).toNotContain('40x');
+
+            // At the selected speed — nothing to say.
+            render({ playback: playing({ effectiveSpeed: 100 }) });
+            expect(container.querySelector('[data-testid="anuga-playback-paced"]').hidden).toBe(true);
+            // Above it (impossible by construction, asserted anyway).
+            render({ playback: playing({ effectiveSpeed: 140 }) });
+            expect(container.querySelector('[data-testid="anuga-playback-paced"]').hidden).toBe(true);
+            // Nothing playing at all: TASK-2987 leaves effectiveSpeed null.
+            render({ playback: playing({ status: PLAYBACK_STATUS.READY, effectiveSpeed: null }) });
+            expect(container.querySelector('[data-testid="anuga-playback-paced"]').hidden).toBe(true);
+        });
+
+        it('AC1: the paced badge carries a tooltip that explains it, and it is translated', () => {
+            render({ playback: playing({ effectiveSpeed: 40 }) });
+            const paced = container.querySelector('[data-testid="anuga-playback-paced"]');
+            expect(paced.getAttribute('title')).toBeTruthy();
+            expect(paced.getAttribute('title')).toContain('0.4');
+            expect(paced.getAttribute('title')).toNotContain('{r}'); // the placeholder was substituted
+        });
+
+        it('AC2: the Play button shows the pre-roll percentage while buffering, and hides it at ready', () => {
+            // Two of the three floor-window chunks resident -> 67%.
+            render({ playback: playing({
+                status: PLAYBACK_STATUS.BUFFERING, bufferedChunks: [0, 1], currentTimestep: 0
+            }) });
+            const badge = container.querySelector('[data-testid="anuga-playback-preroll"]');
+            expect(badge.hidden).toBe(false);
+            expect(badge.textContent).toBe('67%');
+            // ...and the accessible name carries it too.
+            expect(container.querySelector('[data-testid="anuga-playback-playpause"]')
+                .getAttribute('aria-label')).toContain('67');
+
+            render({ playback: playing({
+                status: PLAYBACK_STATUS.BUFFERING, bufferedChunks: [0, 1, 2], currentTimestep: 0
+            }) });
+            expect(container.querySelector('[data-testid="anuga-playback-preroll"]').textContent).toBe('100%');
+
+            [PLAYBACK_STATUS.READY, PLAYBACK_STATUS.PLAYING, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED]
+                .forEach((status) => {
+                    render({ playback: playing({ status, bufferedChunks: [0, 1] }) });
+                    expect(container.querySelector('[data-testid="anuga-playback-preroll"]').hidden).toBe(true);
+                });
+        });
+
+        it('AC2: neither badge changes the transport row\'s children — status cannot move a control', () => {
+            const kids = () => Array.from(
+                container.querySelector('[data-testid="anuga-playback-transport"]').children)
+                .map((el) => el.getAttribute('data-testid'));
+            render({ playback: playing({ effectiveSpeed: 100 }) });
+            const atRest = kids();
+            render({ playback: playing({ effectiveSpeed: 40 }) });
+            expect(kids()).toEqual(atRest);
+            render({ playback: playing({ status: PLAYBACK_STATUS.BUFFERING, bufferedChunks: [0] }) });
+            expect(kids()).toEqual(atRest);
+        });
+
+        /*
+         * AC3 — THE SLOWER-SPEED ADVICE IS GONE, asserted on the VALUES that
+         * ship and never on a testid. Two of its three homes are here; the
+         * third (the inline English fallback in the bar's own source) is
+         * unreachable from a browser and belongs to
+         * no-slower-speed-advice-guard.js, which this task adds.
+         */
+        describe('AC3 — the retired advice', () => {
+            const LOCALES = [
+                ['en-US', enUS, /\bslow(?:er)?\s+speed\b/i],
+                ['es-ES', esES, /velocidad\s+m[áa]s\s+lenta/i],
+                ['fr-FR', frFR, /vitesse\s+plus\s+lente/i],
+                ['ht-HT', htHT, /vit[èe]s\s+pi\s+dousman/i]
+            ];
+            LOCALES.forEach(([name, json, advice]) => {
+                it(`${name}: neither degraded nor degradedTooltip advises a slower speed`, () => {
+                    const pb = json.messages.hydrata.playback;
+                    expect(typeof pb.degraded).toBe('string');
+                    expect(typeof pb.degradedTooltip).toBe('string');
+                    expect(advice.test(pb.degraded)).toBe(false);
+                    expect(advice.test(pb.degradedTooltip)).toBe(false);
+                    // ...and they still SAY something: an empty string would
+                    // pass the line above and tell the viewer nothing.
+                    expect(pb.degraded.length > 20).toBe(true);
+                    expect(pb.degradedTooltip.length > 40).toBe(true);
+                });
+                it(`${name}: the new paced and pre-roll copy exists and carries its placeholder`, () => {
+                    const pb = json.messages.hydrata.playback;
+                    expect(pb.paced.indexOf('{r}')).toNotBe(-1);
+                    expect(pb.pacedTooltip.indexOf('{r}')).toNotBe(-1);
+                    expect(pb.preRoll.indexOf('{p}')).toNotBe(-1);
+                    expect(pb.preRollTooltip.indexOf('{p}')).toNotBe(-1);
+                    // And none of the new copy re-introduces the advice.
+                    [pb.paced, pb.pacedTooltip, pb.preRoll, pb.preRollTooltip]
+                        .forEach((text) => expect(advice.test(text)).toBe(false));
+                });
+            });
+            it('TASK-2986\'s fallback copy is untouched — this task must not disturb it', () => {
+                LOCALES.forEach(([, json]) => {
+                    expect(typeof json.messages.hydrata.playback.status.fallback).toBe('string');
+                });
+            });
+        });
+
+        it('formatPaceRatio reads as a FRACTION and never rounds to 0 or 1', () => {
+            expect(formatPaceRatio(0.4)).toBe('0.4');
+            expect(formatPaceRatio(0.3738)).toBe('0.37');
+            // A ratio that rounds to 1.00 would render "paced 1x" on a badge
+            // that only shows when the pace is BELOW the selected speed.
+            expect(formatPaceRatio(0.999)).toBe('0.99');
+            // ...and one that rounds to 0.00 would read as "stopped".
+            expect(formatPaceRatio(0.001)).toBe('0.01');
+            expect(formatPaceRatio(NaN)).toBe('—');
+            expect(formatPaceRatio(0)).toBe('—');
+        });
     });
 
     it('quantity picker reflects state and calls onSetQuantity on change', () => {

@@ -56,7 +56,11 @@ import {
     simulatedSpanSeconds,
     // TASK-2752 (AC6) — the one predicate the reducer, the epic and this bar
     // all share for "does the active quantity have a Max envelope here".
-    hasEnvelopeForQuantity
+    hasEnvelopeForQuantity,
+    // TASK-2987 (W2.1, epic 2981) — how much of the PRE-ROLL window is resident.
+    // Derived in the controller, beside the rule that decides readiness, so the
+    // bar's percentage and the moment Play unlocks can never disagree.
+    preRollProgress
 } from '../playbackController';
 import { availableQuantityIds, QUANTITY_META } from '../playbackDerivedQuantities';
 import { rampGradientCss } from '../playbackColormap';
@@ -163,6 +167,24 @@ export function formatMultiplier(speed) {
         return '—';
     }
     return `${n >= 10 ? Math.round(n) : Number(n.toFixed(2))}x`;
+}
+
+/**
+ * TASK-2988 (W2.2, epic 2981) — the paced FRACTION, as the badge shows it.
+ *
+ * Two decimals, and never rounded to a flat "0.0x" or up to "1x": a viewer
+ * reading "paced 1x" on a bar that only mounts when effectiveSpeed < speed
+ * would rightly conclude the badge is lying. Separate from formatMultiplier,
+ * which formats an ABSOLUTE speed (10x and up are whole numbers there, which is
+ * exactly wrong for a fraction of 1).
+ * @param {number} ratio effectiveSpeed / speed, in (0, 1)
+ */
+export function formatPaceRatio(ratio) {
+    const n = Number(ratio);
+    if (!isFinite(n) || n <= 0) {
+        return '—';
+    }
+    return String(Math.max(0.01, Math.min(0.99, Number(n.toFixed(2)))));
 }
 
 /**
@@ -634,6 +656,44 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
             .replace('{d}', formatWallDuration(span));
     }
 
+    /**
+     * TASK-2988 (W2.2, epic 2981) AC1 — THE PACED READOUT.
+     *
+     * `speed` is what the viewer asked for; `effectiveSpeed` is what the
+     * playhead is actually advancing at while the buffered runway is short
+     * (TASK-2987). Showing the ratio is the whole point of the epic's "tell the
+     * truth by slowing": before this, a link that could not keep up produced a
+     * player that froze and a hint telling the viewer to fix it by hand.
+     *
+     * @returns {number|null} the ratio, or null when nothing is being paced —
+     *   which is every state except PLAYING/STALLED on a short runway.
+     */
+    /**
+     * TASK-2988 AC2 — the transport button's accessible name. While the initial
+     * buffer fills it carries the pre-roll percentage, so a screen-reader user
+     * gets the same "how far along is this" the sighted badge shows; at every
+     * other moment it is the plain Play/Pause it has always been.
+     */
+    playPauseLabel(isPlaying, preRoll) {
+        if (isPlaying) {
+            return this.tr('hydrata.playback.pause', 'Pause');
+        }
+        if (preRoll === null) {
+            return this.tr('hydrata.playback.play', 'Play');
+        }
+        return this.tr('hydrata.playback.preRollTooltip',
+            'Buffering the first frames — {p}% of the way there. Play starts on its own.')
+            .replace('{p}', String(preRoll));
+    }
+
+    pacedRatio(playback) {
+        const { effectiveSpeed, speed } = playback;
+        if (effectiveSpeed === null || effectiveSpeed === undefined || !(speed > 0)) {
+            return null;
+        }
+        return effectiveSpeed < speed ? effectiveSpeed / speed : null;
+    }
+
     speedOptions(playback) {
         const span = simulatedSpanSeconds(playback.time);
         const options = [];
@@ -839,7 +899,15 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     <span
                         className="sv-playback-degraded"
                         data-testid="anuga-playback-degraded"
-                        title={this.tr('hydrata.playback.degradedTooltip', 'Playback has been waiting several seconds for the next frames. A slower speed gives the buffer time to keep up.')}
+                        /* TASK-2988 (W2.2, epic 2981) — THE ADVICE IS GONE FROM
+                           THIS FALLBACK TOO, and this is the copy no karma spec
+                           can reach: it is a string literal in the source, and a
+                           karma spec runs in a browser with no filesystem. The
+                           fallback itself STAYS — getMessageById returns the
+                           msgId on a miss, so without one the badge's title
+                           would read "hydrata.playback.degradedTooltip".
+                           no-slower-speed-advice-guard.js is what asserts it. */
+                        title={this.tr('hydrata.playback.degradedTooltip', 'Playback has been waiting several seconds for the next frames. The connection is not keeping up with this run; playback resumes on its own as soon as they arrive.')}
                     >
                         <Message msgId="hydrata.playback.degraded" />
                         {/* The toast itself is pointer-events:none so it can
@@ -1150,6 +1218,19 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         const canScrub = playback.nTime > 0 && !playback.envelopeMode;
         const hasEnvelope = hasEnvelopeForQuantity(playback.envelopeQuantities, playback.quantity);
         const statusMsgId = STATUS_MESSAGE_ID[playback.status];
+        // TASK-2988 AC2 — the pre-roll percentage, ONLY while the initial buffer
+        // is filling. `null` at ready and in every other status, which is what
+        // "hides it at ready" means. SEEKING and STALLED are deliberately not
+        // pre-roll: they are re-buffers of an already-started run, and the
+        // toast already names them.
+        const preRollWindow = playback.status === PLAYBACK_STATUS.BUFFERING
+            ? preRollProgress(playback)
+            : { resident: 0, required: 0 };
+        const preRoll = preRollWindow.required > 0
+            ? Math.round(100 * preRollWindow.resident / preRollWindow.required)
+            : null;
+        // TASK-2988 AC1 — the paced ratio, or null when nothing is paced.
+        const paced = this.pacedRatio(playback);
         const quantityLabel = this.tr('hydrata.playback.resultQuantity', 'Result quantity');
         const ticks = scrubberTicks(playback.time, playback.nTime, tickBudgetForWidth(this.state.trackWidth));
         return (
@@ -1166,12 +1247,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         className="btn sv-glass-button sv-playback-playpause"
                         data-testid="anuga-playback-playpause"
                         onClick={() => (isPlaying ? this.props.onPause() : this.props.onPlay())}
-                        title={isPlaying
-                            ? this.tr('hydrata.playback.pause', 'Pause')
-                            : this.tr('hydrata.playback.play', 'Play')}
-                        aria-label={isPlaying
-                            ? this.tr('hydrata.playback.pause', 'Pause')
-                            : this.tr('hydrata.playback.play', 'Play')}
+                        title={this.playPauseLabel(isPlaying, preRoll)}
+                        aria-label={this.playPauseLabel(isPlaying, preRoll)}
                     >
                         {/* TEXT-presentation codepoints. U+25B6 (▶) defaults to
                             EMOJI presentation, so the browser painted the orange
@@ -1180,6 +1257,24 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             the stylesheet saying so. U+25BA/U+275A are
                             text-default and take the CSS colour. */}
                         {isPlaying ? PAUSE_GLYPH : PLAY_GLYPH}
+                        {/* TASK-2988 AC2 — PRE-ROLL PROGRESS, ON THE BUTTON THE
+                            VIEWER IS WAITING TO PRESS. TASK-2987 made Play wait
+                            for a three-chunk floor window instead of one, which
+                            is a longer wait with nothing to look at unless it is
+                            reported. ALWAYS MOUNTED and `hidden` when there is
+                            nothing to say: the transport row's child list must
+                            be identical buffering and ready (PlaybackBarLayout's
+                            own AC6 — status must never move a control), and it
+                            is absolutely positioned so it cannot widen the
+                            button either. */}
+                        <span
+                            className="sv-playback-preroll"
+                            data-testid="anuga-playback-preroll"
+                            hidden={preRoll === null}
+                            aria-hidden={preRoll === null}
+                        >
+                            {preRoll === null ? null : `${preRoll}%`}
+                        </span>
                     </button>
 
                     {/* TASK-2744 AC9 — the scrubber must show what is BUFFERED.
@@ -1241,6 +1336,29 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
 
                     <span className="sv-playback-readout" data-testid="anuga-playback-readout">
                         {playback.currentTimestep + 1}/{playback.nTime || '—'} · {formatClock(playback.playheadSeconds)}
+                    </span>
+
+                    {/* TASK-2988 AC1 — THE PACED READOUT, beside the control it
+                        qualifies. The picker keeps showing what the viewer
+                        CHOSE; this says what the playhead is actually doing
+                        while the link catches up, and disappears the instant it
+                        stops being true.
+                        ALWAYS MOUNTED and `hidden` when not paced, for the same
+                        reason as the pre-roll badge: a chip that mounts and
+                        unmounts on the transport row shoves every control right
+                        of it, which is exactly what PlaybackBarLayout's AC6
+                        forbids and what put the scrubber on its 150px floor. */}
+                    <span
+                        className="sv-playback-paced"
+                        data-testid="anuga-playback-paced"
+                        hidden={paced === null}
+                        aria-hidden={paced === null}
+                        title={paced === null ? undefined : this.tr('hydrata.playback.pacedTooltip',
+                            'The connection is not keeping up with this run, so playback is running at {r}x of the speed you selected. Your selected speed returns on its own once the buffer catches up.')
+                            .replace('{r}', formatPaceRatio(paced))}
+                    >
+                        {paced === null ? null : this.tr('hydrata.playback.paced', 'paced {r}x')
+                            .replace('{r}', formatPaceRatio(paced))}
                     </span>
 
                     <select
