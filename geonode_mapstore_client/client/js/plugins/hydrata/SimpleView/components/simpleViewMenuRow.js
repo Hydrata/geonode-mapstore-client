@@ -110,9 +110,13 @@ const _GROUP_TO_DELETE_TYPE = {
     'Input Data.Mesh Regions': 'mesh_region',
     'Input Data.Catchments': 'catchment',
     'Input Data.Nodes': 'nodes',
-    'Input Data.Links': 'links',
-    // TASK-1271 W4.3 — Breaklines (BE INPUT_DATA_GROUP_MAP maps 'brk_' to 'Breaklines').
-    'Input Data.Breaklines': 'breakline'
+    'Input Data.Links': 'links'
+    // TASK-3040 AC6 (2026-09-09) — 'Input Data.Breaklines': 'breakline' REMOVED.
+    // Breakline is being retired, not built (operator ruling d94): there is no
+    // BreaklineSerializerV2, no BreaklineViewSetV2 and no V2/V1 route, so the
+    // trash glyph this entry wired up was a guaranteed silent unlink at any row
+    // count. The Breakline model, Scenario.breakline FK and the consumption
+    // half (make_breaklines(), _breakline_ring_terms()) all stay, dormant.
 };
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
 
@@ -562,7 +566,14 @@ class MenuRowClass extends React.Component {
         super(props);
         this.state = {
             newTitle: props.layer?.title,
-            deleteConfirmVisible: false
+            deleteConfirmVisible: false,
+            // TASK-3040 AC5 — set true when performDelete took the honest
+            // "removed from map, not deleted" fallback for a control that
+            // cannot actually cascade-delete (friction_raster, or a typed
+            // group whose resolver genuinely found no matching row). Reset
+            // on every new delete attempt so a stale message from a prior
+            // click never lingers.
+            honestRemovalFeedback: false
         };
     }
 
@@ -585,6 +596,11 @@ class MenuRowClass extends React.Component {
         const canEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
         const canDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
         const canDownload = this.props.canEditMap && this.canExportLayer(this.props.layer);
+        // TASK-3040 AC5 — decide, before the click, whether this control can
+        // actually cascade-delete a BE resource or can only remove the layer
+        // from the map. Computed here (not just inside performDelete) so the
+        // confirm-bar copy is honest BEFORE the user commits to the click.
+        const honestRemoveOnly = canDelete && this.isHonestRemoveOnly(this.props.layer);
         const deleting = !!this.props.deleteRow?.deleting;
         const onDownload = () => {
             this.props.svDownloadLayer(this.props.layer);
@@ -621,7 +637,9 @@ class MenuRowClass extends React.Component {
                     >
                         <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
                         <span className="sv-menu-row-delete-confirm-text">
-                            <Message msgId="hydrata.simpleView.confirmDelete"/>
+                            <Message msgId={honestRemoveOnly
+                                ? "hydrata.simpleView.confirmRemoveFromMap"
+                                : "hydrata.simpleView.confirmDelete"}/>
                             {' "'}{this.props.layer?.title}{'"?'}
                         </span>
                         <button
@@ -629,7 +647,9 @@ class MenuRowClass extends React.Component {
                             className="sv-save-confirm-btn danger"
                             onClick={this.performDelete}
                         >
-                            <Message msgId="hydrata.simpleView.delete"/>
+                            <Message msgId={honestRemoveOnly
+                                ? "hydrata.simpleView.removeFromMap"
+                                : "hydrata.simpleView.delete"}/>
                         </button>
                         <button
                             type="button"
@@ -875,7 +895,7 @@ class MenuRowClass extends React.Component {
     // overlay) instead of the blocking `window.confirm()` we used previously.
     handleDeleteClick = () => {
         if (!this.props.layer) return;
-        this.setState({deleteConfirmVisible: true});
+        this.setState({deleteConfirmVisible: true, honestRemovalFeedback: false});
     };
 
     // V2P-714 + TASK-723 — dispatch the right cascade-delete action based on
@@ -887,9 +907,17 @@ class MenuRowClass extends React.Component {
     performDelete = () => {
         const layer = this.props.layer;
         if (!layer) return;
-        this.setState({deleteConfirmVisible: false});
         const datasetType = getDeleteDatasetType(layer);
         const datasetId = this.getDatasetIdForLayer(layer);
+        // TASK-3040 AC5 — recorded so renderDeleteFeedback can show the
+        // honest "removed from map" copy when this delete is about to land
+        // on the legacy fallback for a reason AC5 covers (friction_raster,
+        // or a typed group whose resolver found no matching row) rather
+        // than for an out-of-scope non-typed group (Network/Full Mesh).
+        this.setState({
+            deleteConfirmVisible: false,
+            honestRemovalFeedback: this.isHonestRemoveOnly(layer)
+        });
         trackEvent('button', `click`, `simpleview-menu-row-delete-${layer.title}`);
         if (datasetType && datasetId !== null && this.props.projectId) {
             const dispatcher = {
@@ -996,12 +1024,12 @@ class MenuRowClass extends React.Component {
             catchment: 'catchments',
             nodes: 'nodes',
             links: 'links',
-            // TASK-829 (W4.2b) — FrictionRaster slot. BE follow-up ships
-            // state.anuga.resources.frictionRasters via setAnugaResources
-            // payload from ProjectViewSetV2.retrieve; until then this key
-            // resolves to undefined which the rows.length===1 fallback
-            // below handles cleanly (no row to find → return null →
-            // legacy redux-only removal path).
+            // TASK-829 (W4.2b) — FrictionRaster slot. state.anuga.resources.
+            // frictionRasters is never populated (no BE resourceEndpoints
+            // entry ships it), so this key always resolves to an empty
+            // slice: the loop below never finds a row and this always
+            // returns null — the legacy redux-only removal path. See
+            // isHonestRemoveOnly, below, for the AC5 copy consequence.
             friction_raster: 'frictionRasters'
         }[datasetType];
         const rows = this.props.deleteSliceRows || [];
@@ -1026,10 +1054,17 @@ class MenuRowClass extends React.Component {
             if (layer?.name && row.gn_layer_name && layer.name.endsWith(row.gn_layer_name)) return row.id;
             if (layer?.name && row.gn_layer_hillshade_name && layer.name.endsWith(row.gn_layer_hillshade_name)) return row.id;
         }
-        // Last resort: if there's only one row in the slice and the type
-        // matched, return that row's id. This protects against schema drift
-        // where neither gn_layer nor gn_layer_name made it onto the row.
-        if (rows.length === 1 && rows[0]?.id !== undefined) return rows[0].id;
+        // TASK-3040 AC4 — the blind "only one row in the slice" last resort
+        // that used to live here is REMOVED. It did not verify the clicked
+        // layer belonged to that row: clicking the trash on an orphan layer
+        // (backing resource already gone) in a project holding exactly one
+        // surviving row of that type cascaded the delete against that
+        // survivor — the wrong resource, irreversibly. If nothing above
+        // matched, resolution has genuinely failed; fail honestly (AC5)
+        // rather than guess. The genuine-orphan cleanup path this used to
+        // "protect" is unaffected: performDelete's legacy fallback still
+        // removes + persists the ghost layer when datasetId is null.
+        //
         // Eslint avoidance — sliceKey is read for symbolic completeness; the
         // resolution above already used the correct slice via
         // mapStateToProps. Return null when nothing matched.
@@ -1037,7 +1072,36 @@ class MenuRowClass extends React.Component {
         return null;
     };
 
+    // TASK-3040 AC5 — true when this control's action can only ever be a
+    // legacy redux-only removal from the map, never a BE cascade delete, so
+    // its copy must say "removed from the map", not "deleted":
+    //  - friction_raster is structurally unwired on the BE (no
+    //    cascade_dataset_type, no resourceEndpoints entry) and
+    //    state.anuga.resources.frictionRasters is never populated, so its
+    //    trash glyph is a guaranteed silent unlink at any row count.
+    //  - any other typed group whose resolver (getDatasetIdForLayer, above)
+    //    genuinely found no matching row.
+    // False for non-typed groups (Network/Full Mesh, datasetType === null)
+    // — their generic "Delete" copy is unchanged; out of AC5's scope.
+    isHonestRemoveOnly = (layer) => {
+        const datasetType = getDeleteDatasetType(layer);
+        if (!datasetType) return false;
+        if (datasetType === 'friction_raster') return true;
+        return this.getDatasetIdForLayer(layer) === null;
+    };
+
     renderDeleteFeedback = () => {
+        // TASK-3040 AC5 — success-path copy for the honest fallback: this
+        // control never claimed a BE delete, and the map removal already
+        // happened synchronously in performDelete, so say so rather than
+        // saying nothing (silence is how the original bug hid itself).
+        if (this.state.honestRemovalFeedback) {
+            return (
+                <div className="sv-menu-row-delete-feedback" role="status">
+                    <Message msgId="hydrata.simpleView.removedFromMap"/>
+                </div>
+            );
+        }
         const row = this.props.deleteRow;
         if (!row) return null;
         if (row.blockingError) {
@@ -1189,7 +1253,9 @@ const mapStateToProps = (state, ownProps) => {
                 break;
             }
         }
-        if (!deleteRow && sliceRows.length === 1) deleteRow = sliceRows[0];
+        // TASK-3040 AC4 — the blind "only one row in the slice" guess that
+        // used to sit here is REMOVED (same bug as the one in
+        // getDatasetIdForLayer, in a second place — see the comment there).
     }
     return {
         canEditMap: !isExcludedSite && state?.gnresource?.initialResource?.perms?.includes('change_resourcebase'),

@@ -39,6 +39,9 @@ const {
     RESET
 } = require('../actionsVectorDraw');
 
+// TASK-3041 — the rainfall-collection refetch dispatches this action type.
+const { SET_ANUGA_RAINFALL_DATA } = require('../../Anuga/actions/dataActions');
+
 const mockActions = (actions) => {
     const subject = new Rx.Subject();
     const action$ = subject.asObservable();
@@ -913,6 +916,204 @@ describe('VectorDraw Epics', () => {
         });
     });
 
+    // ---------------------------------------------------------------------
+    // TASK-3041 — a WFS-T write to a rainfall layer can flip
+    // RainfallSerializerV2.get_has_feature_data server-side (setting/clearing
+    // data_timeseries_id or data_constant), but state.anuga.resources.rainfalls
+    // — the ONLY place has_feature_data lives on the FE (scenarioPane.js's
+    // rainfallAttachedButEmpty / rainfallIsUnattached, and transitively
+    // anugaScenarioMenu.js's build-gate via rainfallNeedsWarning) — was never
+    // re-fetched here. Mirrors TASK-2214's attachDesignStormEpic fix
+    // (Hydrology/epicsHydrology.js:816-831) for the OTHER write path that can
+    // change the same flag.
+    //
+    // Covers BOTH cameFromPicker branches deliberately: the cameFromPicker=true
+    // branch already re-ran loadAllFeatures at :432, but the cameFromPicker=false
+    // (idle) branch issued NO refetch of any kind before this fix — and idle is
+    // the ONLY path a map-click EDIT-on-existing-feature save takes
+    // (anugaClickTargets.js, allowPick:false, no cameFromPicker threaded), so a
+    // fix that only touched the picker branch would leave the reported bug alive
+    // for that entry point.
+    //
+    // Scoped to rainfall layers only (getAnugaPrefix(config.layerName) === 'rai_')
+    // — a pure geometry move, or a save on a non-rainfall layer, can never change
+    // has_feature_data, so a blanket refetch on every WFS-T write would cost a
+    // request that can never change anything (AC4 trade-off, asserted explicitly
+    // by the third test below).
+    // ---------------------------------------------------------------------
+    describe('vectorDrawSaveEpic — TASK-3041 rainfall-collection refetch after a WFS-T write', () => {
+        const projectId = 813;
+        const RAINFALL_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'rai_813_rainfall_01',
+                properties: [
+                    { name: 'the_geom', type: 'gml:Polygon', localType: 'Polygon', minOccurs: 0, nillable: true },
+                    { name: 'data_timeseries_id', type: 'xsd:int', localType: 'int', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+        const rainfallsUrlRe = new RegExp(`/api/v2/anuga/projects/${projectId}/rainfalls/`);
+
+        const installRainfallMock = (rainfallsResponse) => {
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, RAINFALL_DESCRIBE_STUB];
+                }
+                return [200, { type: 'FeatureCollection', features: [] }];
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse fid="geonode.rai_813_rainfall_01.5"/>');
+            m.onGet(rainfallsUrlRe).reply(200, rainfallsResponse);
+            return m;
+        };
+
+        const rainfallStore = (vectorDrawState) => ({
+            getState: () => ({
+                gnsettings: { geoserverUrl: 'http://localhost:8080/geoserver/' },
+                layers: { flat: [] },
+                anuga: { projects: { data: { id: projectId } } },
+                vectorDraw: vectorDrawState
+            })
+        });
+
+        it('cameFromPicker=true, WFS-T Insert on a rainfall layer → refetches rainfalls and dispatches SET_ANUGA_RAINFALL_DATA with server-true has_feature_data', (done) => {
+            mock = installRainfallMock([{ id: 1505, title: 'Rainfall 01', has_feature_data: true }]);
+            const store = rainfallStore({
+                phase: 'saving',
+                cameFromPicker: true,
+                config: {
+                    layerName: 'geonode:rai_813_rainfall_01',
+                    geomType: 'Polygon',
+                    onComplete: 'TEST:COMPLETE'
+                },
+                geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+                formValues: { data_timeseries_id: 44 }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(5)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        // Assertions are wrapped: a throw here happens inside an
+                        // internal Promise .then() (Rx.Observable.from(promise)),
+                        // so an uncaught assert becomes an unhandled rejection
+                        // instead of reaching mocha's done(err) — surfacing only
+                        // as an opaque "Timeout exceeded", which is a vacuous RED
+                        // (see box-facts.md evidence discipline). Catch + done(e).
+                        try {
+                            const rainfallGet = mock.history.get.find(r => rainfallsUrlRe.test(r.url));
+                            expect(rainfallGet).toExist();
+                            const setRainfall = emitted.filter(a => a.type === SET_ANUGA_RAINFALL_DATA);
+                            expect(setRainfall.length).toBe(1);
+                            expect(setRainfall[0].data).toEqual([{ id: 1505, title: 'Rainfall 01', has_feature_data: true }]);
+                            if (sub) sub.unsubscribe();
+                            done();
+                        } catch (e) {
+                            if (sub) sub.unsubscribe();
+                            done(e);
+                        }
+                    }
+                );
+        });
+
+        it('AC2 fixed direction — cameFromPicker=false (idle path) on a rainfall layer ALSO refetches rainfalls (this path issued zero refetch of any kind before the fix)', (done) => {
+            mock = installRainfallMock([{ id: 1505, title: 'Rainfall 01', has_feature_data: true }]);
+            const store = rainfallStore({
+                phase: 'saving',
+                cameFromPicker: false,
+                config: {
+                    layerName: 'geonode:rai_813_rainfall_01',
+                    geomType: 'Polygon',
+                    onComplete: 'TEST:COMPLETE'
+                },
+                geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+                formValues: { data_timeseries_id: 44 }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(5)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        try {
+                            const rainfallGet = mock.history.get.find(r => rainfallsUrlRe.test(r.url));
+                            expect(rainfallGet).toExist();
+                            const setRainfall = emitted.filter(a => a.type === SET_ANUGA_RAINFALL_DATA);
+                            expect(setRainfall.length).toBe(1);
+                            // Idle path still emits SAVE_SUCCESS as before (no regression).
+                            expect(emitted.find(a => a.type === SAVE_SUCCESS)).toExist();
+                            if (sub) sub.unsubscribe();
+                            done();
+                        } catch (e) {
+                            if (sub) sub.unsubscribe();
+                            done(e);
+                        }
+                    }
+                );
+        });
+
+        it('AC4 — a non-rainfall layer save does NOT trigger a rainfalls refetch (scoped, not blanket)', (done) => {
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, DESCRIBE_STUB];
+                }
+                return [200, { type: 'FeatureCollection', features: [] }];
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse fid="test.99"/>');
+            m.onGet(rainfallsUrlRe).reply(200, []);
+            mock = m;
+
+            const store = rainfallStore({
+                phase: 'saving',
+                cameFromPicker: false,
+                config: {
+                    layerName: 'geonode:bdy_4_test',
+                    geomType: 'LineString',
+                    onComplete: 'TEST:COMPLETE'
+                },
+                geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+                formValues: { description: 'X' }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(4)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        try {
+                            const rainfallGet = mock.history.get.find(r => rainfallsUrlRe.test(r.url));
+                            expect(rainfallGet).toBe(undefined);
+                            expect(emitted.find(a => a.type === SET_ANUGA_RAINFALL_DATA)).toBe(undefined);
+                            expect(emitted.find(a => a.type === SAVE_SUCCESS)).toExist();
+                            if (sub) sub.unsubscribe();
+                            done();
+                        } catch (e) {
+                            if (sub) sub.unsubscribe();
+                            done(e);
+                        }
+                    }
+                );
+        });
+    });
+
     // TASK-795 review I1 (TASK-797) — save-error path used to dispatch
     // cfg.onCancel preemptively. The user then closing the error toast
     // dispatched CANCEL_VECTOR_DRAW which the cancel epic re-routed to
@@ -1196,6 +1397,69 @@ describe('VectorDraw Epics', () => {
                         expect(httpHits).toBe(0);
                         if (sub) sub.unsubscribe();
                         done();
+                    }
+                );
+        });
+
+        // TASK-3041 fix round (D2) — this branch's own comment says a save
+        // here "usually failed end-to-end, but occasionally the BE commits
+        // and then the response times out". If that occasional commit hit a
+        // rainfall layer, has_feature_data can have changed server-side even
+        // though the FE saw an error, so the rainfalls collection must be
+        // refetched alongside the feature-list refetch this branch already
+        // does — same scoping (rai_ layers only) as vectorDrawSaveEpic's
+        // TASK-3041 fix.
+        it('TASK-3041 fix round (D2) — rainfall layer, cancel-after-error → ALSO refetches rainfalls', (done) => {
+            const projectId = 813;
+            const rainfallsUrlRe = new RegExp(`/api/v2/anuga/projects/${projectId}/rainfalls/`);
+            const fresh = [{ id: 'rai_813_rainfall_01.5', properties: { name: 'A' } }];
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) return [200, PKR_DESCRIBE_STUB];
+                return [200, { type: 'FeatureCollection', features: fresh }];
+            });
+            m.onGet(rainfallsUrlRe).reply(200, [{ id: 1505, title: 'Rainfall 01', has_feature_data: false }]);
+            mock = m;
+
+            const cached = [{ id: 'rai_813_rainfall_01.5', properties: { name: 'A' } }];
+            const store = {
+                getState: () => ({
+                    gnsettings: { geoserverUrl: 'http://localhost:8080/geoserver/' },
+                    layers: { flat: [] },
+                    anuga: { projects: { data: { id: projectId } } },
+                    vectorDraw: {
+                        phase: 'cancelling',
+                        previousPhase: 'error',
+                        cameFromPicker: true,
+                        featureList: cached,
+                        config: { layerName: 'geonode:rai_813_rainfall_01', onCancel: 'TEST:CANCEL' }
+                    }
+                })
+            };
+            const action$ = mockActions([{ type: CANCEL_VECTOR_DRAW }]);
+
+            const emitted = [];
+            const sub = vectorDrawCancelEpic(action$, store)
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        try {
+                            const rainfallGet = mock.history.get.find(r => rainfallsUrlRe.test(r.url));
+                            expect(rainfallGet).toExist();
+                            const setRainfall = emitted.filter(a => a.type === SET_ANUGA_RAINFALL_DATA);
+                            expect(setRainfall.length).toBe(1);
+                            expect(setRainfall[0].data).toEqual([{ id: 1505, title: 'Rainfall 01', has_feature_data: false }]);
+                            expect(emitted.find(a => a.type === RETURN_TO_PICKER)).toExist();
+                            if (sub) sub.unsubscribe();
+                            done();
+                        } catch (e) {
+                            if (sub) sub.unsubscribe();
+                            done(e);
+                        }
                     }
                 );
         });
@@ -1546,6 +1810,134 @@ describe('VectorDraw Epics', () => {
                         expect(httpHits).toBe(0);
                         if (sub) sub.unsubscribe();
                         done();
+                    }
+                );
+        });
+    });
+
+    // TASK-3041 fix round (D1) — the delete epic's own loadAllFeatures call
+    // issues a WFS-T DELETE and never dispatched a rainfalls refetch.
+    // Deleting the one rainfall feature that carried data_timeseries_id /
+    // data_constant flips has_feature_data server-side from true to false;
+    // state.anuga.resources.rainfalls stays stale at true, so
+    // rainfallAttachedButEmpty / rainfallIsUnattached (and the build-gate
+    // that delegates to the latter via anugaScenarioMenu.js) keep reporting
+    // "attached, has data" and the rainfallWarning confirm dialog does not
+    // re-fire. Same scoping as vectorDrawSaveEpic's TASK-3041 fix (rai_
+    // layers only) — a delete on a non-rainfall layer costs no extra request.
+    describe('vectorDrawDeleteEpic — TASK-3041 fix round (D1) rainfall-collection refetch after a WFS-T delete', () => {
+        const projectId = 813;
+        const RAINFALL_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'rai_813_rainfall_01',
+                properties: [
+                    { name: 'the_geom', type: 'gml:Polygon', localType: 'Polygon', minOccurs: 0, nillable: true },
+                    { name: 'data_timeseries_id', type: 'xsd:int', localType: 'int', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+        const rainfallsUrlRe = new RegExp(`/api/v2/anuga/projects/${projectId}/rainfalls/`);
+
+        const installRainfallDeleteMock = (rainfallsResponse) => {
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, RAINFALL_DESCRIBE_STUB];
+                }
+                return [200, { type: 'FeatureCollection', features: [] }];
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse/>');
+            m.onGet(rainfallsUrlRe).reply(200, rainfallsResponse);
+            return m;
+        };
+
+        const rainfallStore = (vectorDrawState) => ({
+            getState: () => ({
+                gnsettings: { geoserverUrl: 'http://localhost:8080/geoserver/' },
+                layers: { flat: [] },
+                anuga: { projects: { data: { id: projectId } } },
+                vectorDraw: vectorDrawState
+            })
+        });
+
+        it('deleting a feature on a rainfall layer refetches rainfalls and dispatches SET_ANUGA_RAINFALL_DATA with server-true has_feature_data:false', (done) => {
+            mock = installRainfallDeleteMock([{ id: 1505, title: 'Rainfall 01', has_feature_data: false }]);
+            const store = rainfallStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: [{ id: 'rai_813_rainfall_01.5' }],
+                config: { layerName: 'geonode:rai_813_rainfall_01' }
+            });
+            const action$ = mockActions([{ type: DELETE_FEATURE, featureId: 'rai_813_rainfall_01.5' }]);
+
+            const emitted = [];
+            const sub = vectorDrawDeleteEpic(action$, store)
+                .take(4)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        try {
+                            const rainfallGet = mock.history.get.find(r => rainfallsUrlRe.test(r.url));
+                            expect(rainfallGet).toExist();
+                            const setRainfall = emitted.filter(a => a.type === SET_ANUGA_RAINFALL_DATA);
+                            expect(setRainfall.length).toBe(1);
+                            expect(setRainfall[0].data).toEqual([{ id: 1505, title: 'Rainfall 01', has_feature_data: false }]);
+                            expect(emitted.find(a => a.type === RETURN_TO_PICKER)).toExist();
+                            if (sub) sub.unsubscribe();
+                            done();
+                        } catch (e) {
+                            if (sub) sub.unsubscribe();
+                            done(e);
+                        }
+                    }
+                );
+        });
+
+        it('deleting a feature on a non-rainfall layer does NOT trigger a rainfalls refetch (scoped, not blanket)', (done) => {
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, DESCRIBE_STUB];
+                }
+                return [200, { type: 'FeatureCollection', features: [] }];
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse/>');
+            m.onGet(rainfallsUrlRe).reply(200, []);
+            mock = m;
+
+            const store = rainfallStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: [{ id: 'bdy_4_test.9' }],
+                config: { layerName: 'geonode:bdy_4_test' }
+            });
+            const action$ = mockActions([{ type: DELETE_FEATURE, featureId: 'bdy_4_test.9' }]);
+
+            const emitted = [];
+            const sub = vectorDrawDeleteEpic(action$, store)
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        try {
+                            const rainfallGet = mock.history.get.find(r => rainfallsUrlRe.test(r.url));
+                            expect(rainfallGet).toBe(undefined);
+                            expect(emitted.find(a => a.type === SET_ANUGA_RAINFALL_DATA)).toBe(undefined);
+                            expect(emitted.find(a => a.type === RETURN_TO_PICKER)).toExist();
+                            if (sub) sub.unsubscribe();
+                            done();
+                        } catch (e) {
+                            if (sub) sub.unsubscribe();
+                            done(e);
+                        }
                     }
                 );
         });

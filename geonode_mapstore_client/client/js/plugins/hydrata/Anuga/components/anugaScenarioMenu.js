@@ -519,7 +519,21 @@ class AnugaScenarioMenuClass extends React.Component {
           // gate means a bare 'built' never preceded by an observed in-flight
           // episode (e.g. a save that did not rebuild, or the stale pre-rebuild
           // 'built' of an already-built scenario) can never trigger a run.
-          runAfterBuild: null,
+          // TASK-3038 — was a SINGLE {scenarioId, phase} | null slot: a
+          // second Build-and-Run on a DIFFERENT scenario overwrote the
+          // first's entry here while the first's Redux mirror still said
+          // localOwned:true, stranding the first run forever (see
+          // runAfterBuildEpic's `if (menuMounted && localOwned) return;`,
+          // pollingEpics.js). Now a Map<scenarioId, {scenarioId, phase}>,
+          // mirroring the shape this.pendingDeferredBuilds already uses
+          // (:586) — a DIFFERENT map (that one holds builds deferred for an
+          // in-flight commit; this one holds runs awaiting a build's
+          // completion). setRunAfterBuildEntry/clearRunAfterBuildEntry below
+          // always build a NEW Map from the functional-updater's own
+          // prevState, never from `this.state` directly, so multiple entries
+          // resolved in the same synchronous pass (maybeRunAfterBuild's
+          // snapshot-and-forEach) can never clobber each other.
+          runAfterBuild: new Map(),
           // TASK-2211 (W3.2, epic 2204, od-4) — {scenario} | null. Set by
           // maybeRunAfterBuild INSTEAD OF firing the run when the build's
           // actual mesh diverged beyond threshold; cleared by
@@ -700,15 +714,49 @@ class AnugaScenarioMenuClass extends React.Component {
           this.props.buildScenarioExplicit(scenarioId);
       }
       trackEvent('button', 'click', `anuga-scenario-menu-build-deferred-${reason}`);
+      // TASK-3038 (folded TASK-3039, AC7) — mirror dispatchBuild's own branch
+      // (d) (MISCONFIGURATION, :1098-1110): a fire with buildScenarioExplicit
+      // absent must not arm a run for a build that never happens. The pending
+      // entry is already removed and its timer already cleared above, so this
+      // can never leak or repeat. Deliberately does NOT suppress the generic
+      // deferred trackEvent just above (amendment A3) — only the arm itself
+      // is guarded, exactly as branch (d)'s own comment describes.
+      if (!this.props.buildScenarioExplicit) {
+          trackEvent('button', 'click', 'anuga-scenario-menu-build-unavailable');
+          return;
+      }
       if (!runAfterBuild) return;
       if (localResolver) {
           // Same arm armAndDispatchBuildAndRun makes for an immediate build:
           // local two-phase machine + a localOwned Redux mirror.
-          this.setState({runAfterBuild: {scenarioId, phase: 'awaiting-inflight'}});
+          this.setRunAfterBuildEntry(scenarioId, 'awaiting-inflight');
           if (this.props.armRunAfterBuildRedux) this.props.armRunAfterBuildRedux(scenarioId, {localOwned: true});
       } else if (this.props.armRunAfterBuildRedux) {
           this.props.armRunAfterBuildRedux(scenarioId);
       }
+  };
+
+  // TASK-3038 — set/clear ONE entry of the per-scenario runAfterBuild Map.
+  // Both use the FUNCTIONAL setState form (reading prevState, not
+  // this.state) so that resolving several entries in the same synchronous
+  // pass — maybeRunAfterBuild snapshots and forEachs the Map — composes
+  // correctly instead of each call clobbering the others' writes with a
+  // stale base Map (a real risk once more than one entry can exist at once).
+  setRunAfterBuildEntry = (scenarioId, phase) => {
+      this.setState((prevState) => {
+          const runAfterBuild = new Map(prevState.runAfterBuild);
+          runAfterBuild.set(scenarioId, {scenarioId, phase});
+          return {runAfterBuild};
+      });
+  };
+
+  clearRunAfterBuildEntry = (scenarioId) => {
+      this.setState((prevState) => {
+          if (!prevState.runAfterBuild.has(scenarioId)) return null;
+          const runAfterBuild = new Map(prevState.runAfterBuild);
+          runAfterBuild.delete(scenarioId);
+          return {runAfterBuild};
+      });
   };
 
   // TASK-2826 (verifier note 2) — "is a field commit for THIS scenario id
@@ -826,9 +874,25 @@ class AnugaScenarioMenuClass extends React.Component {
   // (missing mesh_provenance — a legacy pre-W2 scenario, or a failed
   // build's empty {} — getMeshDivergence.exceedsThreshold is ALWAYS false):
   // byte-identical auto-fire, unchanged from before this task (AC#2).
+  // TASK-3038 — was a single `if (!pending) return;` early-out over the
+  // one-slot state. Now snapshots the Map's values (mirroring
+  // maybeDispatchDeferredBuild's own snapshot-then-forEach pattern just
+  // above, for the SAME reason: resolving one entry can setState/re-render
+  // and re-enter this component's update cycle, so a live iterator over a
+  // Map being mutated mid-loop would be unsafe) and resolves each entry
+  // independently via resolveRunAfterBuildEntry — one scenario's settle can
+  // neither release nor retain another's.
   maybeRunAfterBuild = (prevProps) => {
-      const pending = this.state.runAfterBuild;
-      if (!pending) return;
+      if (this.state.runAfterBuild.size === 0) return;
+      Array.from(this.state.runAfterBuild.values()).forEach((pending) => {
+          this.resolveRunAfterBuildEntry(pending, prevProps);
+      });
+  };
+
+  // TASK-3038 — the per-entry body maybeRunAfterBuild used to run inline
+  // against the single slot; unchanged logic, just parameterised on ONE
+  // entry so it can be applied to every entry in the Map.
+  resolveRunAfterBuildEntry = (pending, prevProps) => {
       const {scenarioId, phase} = pending;
       const fresh = this.findFreshScenario(scenarioId, this.props);
       if (!fresh) {
@@ -836,7 +900,7 @@ class AnugaScenarioMenuClass extends React.Component {
           // it can never leak. Act only on the transition (present last tick, gone
           // now) to avoid churn.
           if (this.findFreshScenario(scenarioId, prevProps)) {
-              this.setState({runAfterBuild: null});
+              this.clearRunAfterBuildEntry(scenarioId);
               // TASK-2890 (Layer 4) — keep the Redux mirror in lockstep so a
               // stale arm can never survive to be resolved by runAfterBuildEpic.
               if (this.props.clearRunAfterBuildRedux) this.props.clearRunAfterBuildRedux(scenarioId);
@@ -846,14 +910,14 @@ class AnugaScenarioMenuClass extends React.Component {
       const status = findScenarioStatus(fresh);
       if (RUN_FAILURE_STATES.includes(status)) {
           // Build reached a terminal failure — drop the intent, never run nothing.
-          this.setState({runAfterBuild: null});
+          this.clearRunAfterBuildEntry(scenarioId);
           if (this.props.clearRunAfterBuildRedux) this.props.clearRunAfterBuildRedux(scenarioId);
           return;
       }
       if (phase === 'awaiting-inflight') {
           if (IN_FLIGHT_STATUSES.includes(status)) {
               // The dispatched build has actually started — now await its 'built'.
-              this.setState({runAfterBuild: {scenarioId, phase: 'awaiting-built'}});
+              this.setRunAfterBuildEntry(scenarioId, 'awaiting-built');
           }
           // Otherwise keep waiting; we never fire on a 'built' seen in this phase.
           return;
@@ -862,7 +926,7 @@ class AnugaScenarioMenuClass extends React.Component {
       // the transition into 'built'. Clear runAfterBuild BEFORE dispatching (or
       // pausing) so a re-entrant prop update can't double-run or double-pause.
       if (status === 'built') {
-          this.setState({runAfterBuild: null});
+          this.clearRunAfterBuildEntry(scenarioId);
           // TASK-2890 (Layer 4) — clear the Redux mirror THE INSTANT this
           // component takes resolution into its own hands (whether it goes
           // on to fire immediately or pause for divergence confirm below) —
@@ -1238,7 +1302,7 @@ class AnugaScenarioMenuClass extends React.Component {
   armAndDispatchBuildAndRun = (scenario) => {
       const dispatched = this.dispatchBuild(scenario, {runAfterBuild: true});
       if (dispatched === 'build' && scenario && scenario.id != null) { // eslint-disable-line no-eq-null, eqeqeq
-          this.setState({runAfterBuild: {scenarioId: scenario.id, phase: 'awaiting-inflight'}});
+          this.setRunAfterBuildEntry(scenario.id, 'awaiting-inflight');
           // TASK-2890 (epic 2815 W3, Layer 4) — mirror the arm into Redux so
           // it survives an unmount before this build reaches 'built' (see
           // runAfterBuildEpic, pollingEpics.js). maybeRunAfterBuild clears

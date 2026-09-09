@@ -2545,6 +2545,19 @@ describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)'
         const saveCalls = [];
         const runCalls = [];
         const armCalls = [];
+        // TASK-3038 — tracks clearRunAfterBuildRedux calls. Previously a
+        // silent no-op: no spec in this describe block asserted on it, so
+        // the mirror-clearing half of AC3's "resolves its own arms while
+        // mounted" was unproven for the armAndDispatchBuildAndRun (immediate)
+        // path. Additive only — every pre-existing spec ignores this field.
+        const clearCalls = [];
+        // TASK-3038 (AC2/AC3/AC4) — captures the mounted CLASS INSTANCE so a
+        // spec can invoke a handler directly (e.g. handleBuildAndRunClick),
+        // sidestepping ScenarioHeaderActions' unrelated 2s post-click
+        // debounce the same way the P0-A harness above (line ~1341) already
+        // does. Additive only — render()'s return value was previously
+        // ignored by every existing spec in this block.
+        let instance = null;
         const base = {
             archiveFilter: 'none',
             terrain: [], boundaries: [], inflows: [], rainfalls: [],
@@ -2562,7 +2575,7 @@ describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)'
             buildScenarioExplicit: (sid) => buildCalls.push(sid),
             runAnugaScenario: (s, t) => runCalls.push({scenario: s, target: t}),
             armRunAfterBuildRedux: (sid, opts) => armCalls.push({sid, opts}),
-            clearRunAfterBuildRedux: () => {},
+            clearRunAfterBuildRedux: (sid) => clearCalls.push(sid),
             ...extraProps
         };
         // `overrides` re-renders the SAME instance with a changed prop — how a
@@ -2573,7 +2586,7 @@ describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)'
         // pre-existing spec overrides either key, so precedence is unchanged
         // for them.
         const render = (scenario, overrides = {}) => {
-            ReactDOM.render(
+            instance = ReactDOM.render(
                 <AnugaScenarioMenuClass
                     {...base}
                     scenarios={[scenario]}
@@ -2582,8 +2595,9 @@ describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)'
                 />,
                 container
             );
+            return instance;
         };
-        return {buildCalls, saveCalls, runCalls, armCalls, render};
+        return {buildCalls, saveCalls, runCalls, armCalls, clearCalls, render, getInstance: () => instance};
     }
 
     // An id-LESS draft (the lazy-create path) that otherwise passes
@@ -3285,5 +3299,188 @@ describe('anugaScenarioMenu — Build defers to an in-flight commit (TASK-2826)'
         // Later ticks cannot re-dispatch it.
         h.render(savedScenario(), deleted);
         expect(h.buildCalls).toEqual([417]);
+    });
+
+    // ---- TASK-3038 — this.state.runAfterBuild is a SINGLE slot -------------
+    //
+    // armAndDispatchBuildAndRun (:1241) does `this.setState({runAfterBuild:
+    // {scenarioId, phase}})` with no guard on an existing slot — there is ONE
+    // slot for the whole component. The Redux mirror (scenariosReducer.js
+    // ARM_RUN_AFTER_BUILD :471-491) is already per-scenario, so arming a
+    // second Build-and-Run on a DIFFERENT scenario overwrites the first's
+    // local machine while its Redux mirror still says localOwned:true —
+    // runAfterBuildEpic (pollingEpics.js) then defers to a local resolver
+    // that no longer describes that scenario, and the first run never fires.
+    // Converted to a Map keyed by scenarioId, mirroring the shape
+    // this.pendingDeferredBuilds already uses (:586) — a DIFFERENT map (that
+    // one holds builds deferred for an in-flight commit; this one holds runs
+    // awaiting a build's completion).
+    const withStatus = (scenario, status) => ({...scenario, status, computed_status: status});
+
+    it('(3038/AC2) two Build-and-Runs on DIFFERENT scenarios: BOTH runs fire exactly once [RED AT HEAD: the first run never fires — the single slot is overwritten by the second arm]', () => {
+        const h = makeUnconnected();
+        const a0 = savedScenario();
+        const b0 = otherScenario();
+        // A armed first, via a REAL click — the production gesture.
+        h.render(a0, {scenarios: [a0, b0], selectedScenario: a0});
+        clickLive('.sv-scenario-action-build-run');
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.armCalls.length).toBe(1);
+        expect(h.armCalls[0]).toEqual({sid: 417, opts: {localOwned: true}});
+
+        // B armed second, on a DIFFERENT scenario, driven through the SAME
+        // handler the real button dispatches to (handleBuildAndRunClick) via
+        // the mounted instance — sidesteps ScenarioHeaderActions' unrelated
+        // 2s ACTION_DEBOUNCE_MS on the SAME button (clicking it a second
+        // time this soon would be silently swallowed and prove nothing —
+        // T4/H4). The assertions immediately below prove this second click
+        // actually landed (a real second buildCalls entry, a real second
+        // armCalls entry) rather than having silently no-op'd.
+        h.render(a0, {scenarios: [a0, b0], selectedScenario: b0});
+        h.getInstance().handleBuildAndRunClick(b0);
+        expect(h.buildCalls).toEqual([417, 999]);
+        expect(h.armCalls.length).toBe(2);
+        expect(h.armCalls[1]).toEqual({sid: 999, opts: {localOwned: true}});
+
+        // Both builds go in flight, then A alone reaches 'built'. With a
+        // single slot, arming B above would have already discarded A's
+        // intent — THIS is where AT HEAD A's run never fires.
+        h.render(a0, {
+            scenarios: [withStatus(a0, 'building'), withStatus(b0, 'building')],
+            selectedScenario: b0
+        });
+        h.render(a0, {
+            scenarios: [withStatus(a0, 'built'), withStatus(b0, 'building')],
+            selectedScenario: b0
+        });
+        expect(h.runCalls.length).toBe(1);
+        expect(h.runCalls[0].scenario.id).toBe(417);
+        // AC3 (mounted direction) — the component resolved A's arm itself
+        // and cleared A's OWN Redux mirror; B's arm is untouched.
+        expect(h.clearCalls).toEqual([417]);
+
+        // B then reaches 'built' too — its run fires as well, exactly once,
+        // and A is not re-dispatched.
+        h.render(a0, {
+            scenarios: [withStatus(a0, 'built'), withStatus(b0, 'built')],
+            selectedScenario: b0
+        });
+        expect(h.runCalls.length).toBe(2);
+        expect(h.runCalls.map((c) => c.scenario.id).sort()).toEqual([417, 999]);
+        expect(h.clearCalls).toEqual([417, 999]);
+    });
+
+    it('(3038/AC4) a scenario armed twice (Build-and-Run re-dispatched before the first resolves) still fires exactly ONE run', () => {
+        const h = makeUnconnected();
+        const a0 = savedScenario();
+        h.render(a0, {scenarios: [a0], selectedScenario: a0});
+        clickLive('.sv-scenario-action-build-run');
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.armCalls.length).toBe(1);
+
+        // A second Build-and-Run on the SAME scenario before the first build
+        // is even observed in flight — driven via the instance to sidestep
+        // the unrelated 2s button debounce (T4), which is not what this spec
+        // targets. Both are real dispatches: "always build" semantics are
+        // unchanged by this fix (the RUN half is what AC1 makes per-scenario,
+        // not the build half).
+        h.getInstance().handleBuildAndRunClick(a0);
+        expect(h.buildCalls).toEqual([417, 417]);
+        // The Map has ONE entry keyed on scenarioId 417 either way —
+        // re-arming overwrites that entry, it does not accumulate a second.
+        expect(h.armCalls.length).toBe(2);
+
+        h.render(a0, {scenarios: [withStatus(a0, 'building')], selectedScenario: a0});
+        h.render(a0, {scenarios: [withStatus(a0, 'built')], selectedScenario: a0});
+        expect(h.runCalls.length).toBe(1);
+        expect(h.runCalls[0].scenario.id).toBe(417);
+
+        // A further unrelated update must not re-fire.
+        h.render(a0, {scenarios: [withStatus(a0, 'built')], selectedScenario: a0});
+        expect(h.runCalls.length).toBe(1);
+    });
+
+    it('(3038/AC3) unmount still hands a HELD deferral to Redux WITHOUT localOwned, even while a DIFFERENT scenario already has an immediate (mounted-owned, localOwned:true) run armed — the two maps do not interfere', () => {
+        const h = makeUnconnected({deferredBuildMaxWaitMs: 60000});
+        const a0 = savedScenario();
+        const b0 = otherScenario();
+        // A: NO commit of its own in flight, so its Build-and-Run dispatches
+        // immediately and is armed locally (localOwned:true) — the mounted
+        // component resolves it itself.
+        h.render(a0, {
+            scenarios: [a0, b0], selectedScenario: a0,
+            selectedScenarioCommitInFlight: false, commitsInFlight: {}
+        });
+        clickLive('.sv-scenario-action-build-run');
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.armCalls[0]).toEqual({sid: 417, opts: {localOwned: true}});
+
+        // B: its OWN field commit is on the wire (selectedScenarioCommitInFlight
+        // describes whichever scenario is currently selected), so its
+        // Build-and-Run is HELD (pendingDeferredBuilds), not armed yet.
+        // Driven via the instance (not a real second DOM click) to sidestep
+        // ScenarioHeaderActions' unrelated 2s ACTION_DEBOUNCE_MS on the SAME
+        // button, left over from A's click above (T4) — orthogonal to what
+        // this spec targets.
+        h.render(a0, {
+            scenarios: [a0, b0], selectedScenario: b0,
+            selectedScenarioCommitInFlight: true, commitsInFlight: {999: 1}
+        });
+        h.getInstance().handleBuildAndRunClick(b0);
+        expect(h.buildCalls).toEqual([417]);
+        expect(h.armCalls.length).toBe(1);
+
+        // Unmount: componentWillUnmount flushes EVERY held deferral (B) —
+        // handing its run off to Redux WITHOUT localOwned, since there is no
+        // longer a mounted component to resolve it locally — while A's
+        // ALREADY-ARMED entry in the (separate) runAfterBuild map is left
+        // untouched (pre-existing behaviour, unrelated to this Map
+        // conversion — H6).
+        ReactDOM.unmountComponentAtNode(container);
+        expect(h.buildCalls).toEqual([417, 999]);
+        expect(h.armCalls.length).toBe(2);
+        expect(h.armCalls[1].sid).toBe(999);
+        expect(h.armCalls[1].opts).toBe(undefined);
+    });
+
+    // ---- TASK-3038 (folded TASK-3039) — AC7/AC8: fireDeferredBuild must not
+    // arm a run it cannot build -----------------------------------------
+    //
+    // Today the dispatch at :699-701 is guarded on this.props.
+    // buildScenarioExplicit, but the arming block at :704-711 sits OUTSIDE
+    // that guard and runs regardless — contradicting dispatchBuild's own
+    // branch (d) comment (:1098-1110), which this spec matches exactly: no
+    // dispatch, no arm, the SAME 'anuga-scenario-menu-build-unavailable'
+    // trackEvent. AC7 is unreachable in production today (mapDispatchToProps
+    // always wires buildScenarioExplicit, ~:1984) — a latent-footgun fix,
+    // kept to one guard and one spec (T2).
+    it('(3038/AC7,AC8) fireDeferredBuild dispatches no build and arms no run when buildScenarioExplicit is absent at fire time [RED AT HEAD: the run IS armed even though nothing is dispatched]', () => {
+        const h = makeUnconnected({
+            selectedScenarioCommitInFlight: true,
+            commitsInFlight: {417: 1},
+            deferredBuildMaxWaitMs: 60000
+        });
+        h.render(savedScenario());
+        // Arm a deferral for Build-and-Run WHILE buildScenarioExplicit is
+        // still present — a real arm, holding a real runAfterBuild intent.
+        container.querySelector('.sv-scenario-action-build-run').click();
+        expect(h.buildCalls).toEqual([]);
+
+        // The prop is ABSENT by the time the deferral releases (the commit
+        // settles on a re-render that also drops buildScenarioExplicit).
+        // buildScenarioExplicit is PropTypes.func, optional (:455), so an
+        // unconnected render can express this legally; mapDispatchToProps
+        // wires it unconditionally in production (T2), so this path is
+        // reachable only from a hand-built unconnected render — exactly this
+        // harness.
+        h.render(savedScenario(), {
+            buildScenarioExplicit: undefined,
+            selectedScenarioCommitInFlight: false,
+            commitsInFlight: {}
+        });
+
+        expect(h.buildCalls).toEqual([]);
+        expect(h.armCalls.length).toBe(0);
+        expect(h.runCalls.length).toBe(0);
     });
 });
