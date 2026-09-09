@@ -249,16 +249,44 @@ describe('PlaybackChunkFetcher', () => {
         });
 
         it('does not loop forever if the refreshed manifest ALSO 403s (retries exactly once)', (done) => {
-            const fetchImpl = () => Promise.resolve(new Response(null, { status: 403 }));
+            // TASK-3010 — ASSERT THE BOUND, DO NOT INSPECT IT. This spec used
+            // to assert only that the promise rejects, which it does whatever
+            // stops the loop; and since TASK-2754 the refresh is memoised in
+            // `_refreshInFlight` with a memo that CLEARS ON SETTLE, so
+            // `allowRefresh: false` on the recursive _fetchRawBytes call is
+            // the ONLY thing standing between a permanently-403ing store and
+            // an unbounded re-sign loop. One boolean argument, and nothing was
+            // watching it. Counting both sides pins it: exactly one refresh,
+            // exactly two chunk fetches (the original and the single retry).
+            let fetchCalls = 0;
+            let refreshCalls = 0;
+            const fetchImpl = () => {
+                fetchCalls++;
+                return Promise.resolve(new Response(null, { status: 403 }));
+            };
             const fetcher = new PlaybackChunkFetcher({
                 manifest: { chunk_urls: { 'node_x/c/0': 'always-expired' } },
                 fetchImpl,
-                refreshManifest: () => Promise.resolve({ chunk_urls: { 'node_x/c/0': 'always-expired' } })
+                refreshManifest: () => {
+                    refreshCalls++;
+                    // THE RECURSION BOUND LIVES HERE, IN THE FAKE, not in the
+                    // module: flipping the module's retry to
+                    // `allowRefresh: true` must make this spec FAIL, not hang
+                    // the runner (TASK-3010 AC2's reversible mutation).
+                    if (refreshCalls > 3) {
+                        return Promise.reject(new Error(`refresh bound tripped at ${refreshCalls}`));
+                    }
+                    return Promise.resolve({ chunk_urls: { 'node_x/c/0': 'always-expired' } });
+                }
             });
             fetcher.fetchAndDecodeChunk('node_x', [0], { dtype: 'float32' }).then(
                 () => done(new Error('expected rejection')),
-                () => done()
-            );
+                () => {
+                    expect(refreshCalls).toBe(1);
+                    expect(fetchCalls).toBe(2);
+                    done();
+                }
+            ).catch(done);
         });
 
         it('rejects immediately on 403 when no refreshManifest is configured', (done) => {
