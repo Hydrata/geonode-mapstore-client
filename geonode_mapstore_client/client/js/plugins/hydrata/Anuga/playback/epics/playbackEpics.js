@@ -100,6 +100,17 @@ import {
     PLAYBACK_BUDGET_WARN_PREFIX
 } from '../playbackMemoryPolicy';
 // TASK-2744 (AC20, epic 2706) — score the plan against a measurement.
+// TASK-3025 (W4.5, epic 2981) — the RESOLUTION half of RULE C's seam. The
+// url and the site config are read HERE, in the epic, and passed down as
+// plain numbers: playbackMemoryPolicy.js must gain no getConfigProp, no
+// URLSearchParams, no window read and no module-level `let` (clause 21).
+import {
+    resolvePlaybackPolicyOverrides,
+    describePolicyOverrides,
+    isPlaybackPolicyTester,
+    PLAYBACK_POLICY_OVERRIDE_PREFIX
+} from '../playbackPolicyOverrides';
+import { getConfigProp } from '@mapstore/framework/utils/ConfigUtils';
 import { scorePlan, isForecastContradicted, describeScore } from '../playbackMemoryAudit';
 import { reprojectMeshVertices, reprojectMeshBounds } from '../playbackReproject';
 // TASK-2986 — the run -> gn_layer_depth_max lookup, and the name test
@@ -572,14 +583,35 @@ export function playbackInitEpic(action$, store) {
             // once face_node_connectivity has landed.
             const nNode0 = readNodeCount(manifest);
             const totalChunks0 = nTime0 && chunkLengthT ? Math.ceil(nTime0 / chunkLengthT) : undefined;
-            // TASK-2984 RULE C clause 19 — ONE override object, built once,
-            // spread into all three policy call sites. In THIS task it is a
-            // literal empty object: the W4.5 runtime-tunable task (TASK-3025)
-            // is what resolves these from the per-tester URL param and the
-            // per-site admin row. It exists NOW because the retrofit that
-            // threads one call site and misses another is silent — see the
-            // import-site comment above.
-            const policyOverrides = {};
+            // TASK-2984 RULE C clause 19 / TASK-3025 — ONE override object,
+            // built once, spread into all three policy call sites. TASK-2984
+            // shipped it as a literal `{}` with the note that a later task
+            // would resolve it; this is that task.
+            //
+            // RUNG 1 is the url, honoured only for a tester and only in this
+            // tab. RUNG 2 is the per-site admin row, honoured only in the
+            // conservative direction — it reaches every visitor of the site
+            // including anonymous ones, because context_processors.py's
+            // site_plugin_config(request) never reads `request`, it keys on
+            // settings.JOB_NAME alone.
+            //
+            // `state` is the read taken at PLAYBACK_INIT (above), NOT a fresh
+            // store.getState(): canSelectComputeTarget hydrates from an async
+            // fetch and the earlier read is the one that FAILS CLOSED.
+            const policyResolution = resolvePlaybackPolicyOverrides({
+                location: (typeof window !== 'undefined' && window.location) || null,
+                siteConfig: getConfigProp('hydrataConfig'),
+                isTester: isPlaybackPolicyTester(state)
+            });
+            const policyOverrides = policyResolution.overrides;
+            // ONE LINE, and only when a transport actually said something.
+            // Silence means neither rung supplied a value — which the runbook
+            // states, so "no line" is itself a reading. An override that was
+            // REJECTED still logs: a rejection the operator cannot see is
+            // indistinguishable from a transport that never arrived.
+            if (policyResolution.supplied) {
+                console.warn(`${PLAYBACK_POLICY_OVERRIDE_PREFIX} ${describePolicyOverrides(policyResolution)}`);
+            }
             const heapBudget = resolvePlaybackHeapBudgetFromEnvironment(policyOverrides);
             const initialPlan = nNode0
                 ? computePlaybackMemoryPlan({

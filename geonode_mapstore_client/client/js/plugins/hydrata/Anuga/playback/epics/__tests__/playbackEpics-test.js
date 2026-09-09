@@ -47,6 +47,9 @@ import {
     PHONE_CLASS_BUDGET_BYTES
 } from '../../playbackMemoryPolicy';
 import { reprojectMeshVertices } from '../../playbackReproject';
+// TASK-3025 (W4.5, epic 2981) — the runtime-tunable rungs the epic resolves.
+import { PLAYBACK_POLICY_OVERRIDE_PREFIX } from '../../playbackPolicyOverrides';
+import { setConfigProp } from '@mapstore/framework/utils/ConfigUtils';
 // TASK-2744 AC19 — the playback layer moved off layers.flat onto
 // `additionallayers` as an `overlay`, so ADD_LAYER/CHANGE_LAYER_PROPERTIES are
 // no longer the actions under test.
@@ -358,6 +361,155 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next(playbackInit(4242, 'layer-4242', MANIFEST_URL));
+        });
+
+        /*
+         * TASK-3025 (W4.5, epic 2981) AC6 — the RESOLVED overrides reach ALL
+         * THREE call sites, not just the one a retrofit remembered.
+         *
+         * The per-site rung is the one drivable here: it arrives through
+         * getConfigProp('hydrataConfig').playbackMemory, which is exactly the
+         * SitePluginConfig.override_local_config path the admin row travels.
+         * (The per-tester url rung reads window.location and is proven in
+         * playbackPolicyOverrides-test.js, where the location is an argument.)
+         *
+         * THE INITIAL PLAN IS CAPTURED FROM INSIDE THE MESH FETCH. Between
+         * `new PlaybackChunkFetcher({ memoryPlan: initialPlan })` and
+         * `fetcher.applyMemoryPlan(rePlan)` the registry holds the
+         * manifest-time plan, and the mesh's first chunk request is issued in
+         * that window — so the stub fetch is where a spec can see it. Without
+         * that capture, a retrofit that threaded only the re-plan would look
+         * identical: both plans carry the same overrides when it is done
+         * right, so only the initial plan itself can prove it was.
+         */
+        it('resolves the per-site rung ONCE and spreads it into all three policy call sites (TASK-3025 AC6)', (done) => {
+            const MIB = 1024 * 1024;
+            setConfigProp('hydrataConfig', {
+                defaultTerrain: 'GLO-30',
+                playbackMemory: { uncapMaxPeakMiB: 300, appBaselineFloorMiB: 420 }
+            });
+            let initialPlan = null;
+            const restore = stubGlobalFetch((url) => {
+                const fetcher = fetcherRegistry.get(4343);
+                if (!initialPlan && fetcher) {
+                    initialPlan = fetcher.memoryPlan;
+                }
+                return fixtureFetchHandler(url);
+            });
+            const cleanup = () => {
+                restore();
+                setConfigProp('hydrataConfig', undefined);
+            };
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                cleanup();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    const rePlan = a.memoryPlan;
+                    const live = fetcherRegistry.get(4343).memoryPlan;
+                    // the exact-nFace re-plan is what reached the LIVE cache
+                    expect(live).toBe(rePlan);
+                    expect(initialPlan).toBeTruthy();
+                    expect(initialPlan).toNotBe(rePlan);
+                    // ALL THREE call sites saw the same effective values: the
+                    // budget resolve (appBaselineFloorBytes), the initial plan
+                    // and the re-plan.
+                    [initialPlan, rePlan].forEach((plan) => {
+                        expect(plan.uncapMaxPeakBytes).toBe(300 * MIB);
+                        expect(plan.appBaselineFloorBytes).toBe(420 * MIB);
+                        expect(plan.planTransientExcessBytes).toBe(PLAN_TRANSIENT_EXCESS_BYTES);
+                        expect(plan.overrideSource).toBe('override');
+                        expect(plan.overrideSources).toEqual({
+                            planTransientExcessBytes: 'shipped',
+                            uncapMaxPeakBytes: 'site',
+                            appBaselineFloorBytes: 'site'
+                        });
+                    });
+                    expect(rePlan.windowBudgetBytes).toBe(300 * MIB);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, (e) => {
+                cleanup();
+                done(e);
+            });
+            subject.next(playbackInit(4343, 'layer-4343', MANIFEST_URL));
+        });
+
+        it('logs ONE resolution line naming each effective value and its rung (TASK-3025 AC7iii)', (done) => {
+            setConfigProp('hydrataConfig', { playbackMemory: { uncapMaxPeakMiB: 900 } });
+            const lines = [];
+            const originalWarn = console.warn;
+            console.warn = (...args) => {
+                lines.push(String(args[0]));
+                originalWarn.apply(console, args);
+            };
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const cleanup = () => {
+                restore();
+                console.warn = originalWarn;
+                setConfigProp('hydrataConfig', undefined);
+            };
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                cleanup();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    const resolution = lines.filter((l) => l.indexOf(PLAYBACK_POLICY_OVERRIDE_PREFIX) === 0);
+                    // ONE line per run, and it says the value was refused
+                    // rather than leaving 'my override was clamped away'
+                    // indistinguishable from 'my override never arrived'.
+                    expect(resolution.length).toBe(1);
+                    expect(resolution[0].indexOf('REJECTED') > -1).toBe(true);
+                    expect(a.memoryPlan.uncapMaxPeakBytes).toBe(PLAN_UNCAP_MAX_PEAK_BYTES);
+                    expect(a.memoryPlan.overrideSources.uncapMaxPeakBytes).toBe('shipped');
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, (e) => {
+                cleanup();
+                done(e);
+            });
+            subject.next(playbackInit(4344, 'layer-4344', MANIFEST_URL));
+        });
+
+        it('AC3 — an un-hydrated tester flag honours NOTHING from the url', (done) => {
+            // The epic reads the state captured at PLAYBACK_INIT, and
+            // canSelectComputeTarget hydrates from an async fetch, so the
+            // early read is false. Whatever the tab's url says, the plan must
+            // be the shipped one.
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const store = makeStore(createInitialPlaybackState(), { anuga: { ui: {} } });
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    expect(a.memoryPlan.overrideSource).toBe('shipped');
+                    expect(a.memoryPlan.overrideSources).toEqual({
+                        planTransientExcessBytes: 'shipped',
+                        uncapMaxPeakBytes: 'shipped',
+                        appBaselineFloorBytes: 'shipped'
+                    });
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(4345, 'layer-4345', MANIFEST_URL));
         });
 
         it('dispatches MANIFEST_FAILED when the manifest fetch errors', (done) => {

@@ -446,6 +446,42 @@ function sanitiseOverride(value, band, shipped) {
 }
 
 /**
+ * TASK-3025 — the three tunable constants BY NAME, so a transport (the
+ * per-tester url rung, the per-site admin rung) can say "what would this have
+ * been?" without re-listing them and drifting. A plain const map: RULE C clause
+ * 21's ban on module-level `let` is not weakened by it.
+ */
+export const SHIPPED_POLICY_CONSTANTS = {
+    planTransientExcessBytes: PLAN_TRANSIENT_EXCESS_BYTES,
+    uncapMaxPeakBytes: PLAN_UNCAP_MAX_PEAK_BYTES,
+    appBaselineFloorBytes: APP_BASELINE_FLOOR_BYTES
+};
+
+/**
+ * TASK-3025 AC7(iii) — WHICH RUNG SUPPLIED EACH EFFECTIVE VALUE.
+ *
+ * `overrideSource` (TASK-3032) answers "did anything move?" for the plan as a
+ * whole. It cannot answer "which of the three moved, and from where?", and a
+ * prod census that cannot tell 'url' from 'site' from 'clamped away' cannot
+ * falsify its own result. This computes the answer FROM THE EFFECTIVE VALUES,
+ * never from the caller's intent: a value the band clamp rejected resolves to
+ * the shipped constant and is reported 'shipped', which is exactly the case
+ * that would otherwise read as a successful override.
+ *
+ * @param {object} effective the sanitised values, by key
+ * @param {object} [requested] the rung each key was proposed by, by key
+ * @returns {object} `{key: 'shipped'|'url'|'site'|'override'}`
+ */
+function describeOverrideSources(effective, requested) {
+    return Object.keys(effective).reduce((acc, key) => {
+        acc[key] = effective[key] === SHIPPED_POLICY_CONSTANTS[key]
+            ? 'shipped'
+            : ((requested && requested[key]) || 'override');
+        return acc;
+    }, {});
+}
+
+/**
  * TASK-2984 RULE A clause 5 — the coarse phone class, as a PURE predicate.
  *
  * BOTH CLAUSES ARE LOAD-BEARING. `maxTouchPoints > 0` alone misfires on
@@ -531,11 +567,15 @@ export function resolvePlaybackHeapBudget({
     uaMobile,
     maxTouchPoints,
     viewportMinPx,
-    appBaselineFloorBytes: appBaselineFloorBytesIn = APP_BASELINE_FLOOR_BYTES
+    appBaselineFloorBytes: appBaselineFloorBytesIn = APP_BASELINE_FLOOR_BYTES,
+    // TASK-3025 — which RUNG proposed the value above, for the echo below.
+    // Purely descriptive: it can never change what is resolved.
+    overrideSources: overrideSourcesIn = {}
 } = {}) {
     const appBaselineFloorBytes = sanitiseOverride(
         appBaselineFloorBytesIn, APP_BASELINE_FLOOR_BAND_BYTES, APP_BASELINE_FLOOR_BYTES
     );
+    const overrideSources = describeOverrideSources({ appBaselineFloorBytes }, overrideSourcesIn);
     // TASK-3032 (W4.x, epic 2981) — WHERE the effective floor came from.
     // `appBaselineFloorBytes` above already reports the value that was USED,
     // which is enough right up until the case that matters most: an override
@@ -566,8 +606,8 @@ export function resolvePlaybackHeapBudget({
         // RULE A clause 4 — iOS Safari and Firefox expose NEITHER signal, so
         // this branch is a large fraction of real traffic, not an edge case.
         return phoneClass
-            ? { budgetBytes: PHONE_CLASS_BUDGET_BYTES, source: 'phone-class', appBaselineFloorBytes, overrideSource }
-            : { budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES, source: 'default', appBaselineFloorBytes, overrideSource };
+            ? { budgetBytes: PHONE_CLASS_BUDGET_BYTES, source: 'phone-class', appBaselineFloorBytes, overrideSource, overrideSources }
+            : { budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES, source: 'default', appBaselineFloorBytes, overrideSource, overrideSources };
     }
     const smallDevice = phoneClass
         || (typeof deviceMemoryGiB === 'number'
@@ -585,7 +625,8 @@ export function resolvePlaybackHeapBudget({
             ),
             source: 'small-device',
             appBaselineFloorBytes,
-            overrideSource
+            overrideSource,
+            overrideSources
         };
     }
     // RULE A clause 3 — unchanged from TASK-2743.
@@ -598,7 +639,8 @@ export function resolvePlaybackHeapBudget({
         budgetBytes,
         source: offers.length === 2 ? 'heap+device' : 'partial',
         appBaselineFloorBytes,
-        overrideSource
+        overrideSource,
+        overrideSources
     };
 }
 
@@ -823,7 +865,9 @@ export function computePlaybackMemoryPlan({
     // where they are destructured so no transport can ever bypass the bands.
     planTransientExcessBytes: planTransientExcessBytesIn = PLAN_TRANSIENT_EXCESS_BYTES,
     uncapMaxPeakBytes: uncapMaxPeakBytesIn = PLAN_UNCAP_MAX_PEAK_BYTES,
-    appBaselineFloorBytes: appBaselineFloorBytesIn = APP_BASELINE_FLOOR_BYTES
+    appBaselineFloorBytes: appBaselineFloorBytesIn = APP_BASELINE_FLOOR_BYTES,
+    // TASK-3025 — which RUNG proposed each value above. Descriptive only.
+    overrideSources: overrideSourcesIn = {}
 } = {}) {
     if (!(nNode > 0) || !(chunkLengthT > 0)) {
         throw new Error(
@@ -849,6 +893,11 @@ export function computePlaybackMemoryPlan({
         && uncapMaxPeakBytes === PLAN_UNCAP_MAX_PEAK_BYTES
         && appBaselineFloorBytes === APP_BASELINE_FLOOR_BYTES
     ) ? 'shipped' : 'override';
+    // TASK-3025 AC7(iii) — the same verdict, PER KEY and naming the rung.
+    const overrideSources = describeOverrideSources(
+        { planTransientExcessBytes, uncapMaxPeakBytes, appBaselineFloorBytes },
+        overrideSourcesIn
+    );
 
     const fixed = fixedResidencyBytes({ nNode, nFace });
     const storedChunkBytes = chunkLengthT * nNode * bytesPerResidentElement;
@@ -969,6 +1018,7 @@ export function computePlaybackMemoryPlan({
         uncapMaxPeakBytes,
         appBaselineFloorBytes,
         overrideSource,
+        overrideSources,
         verdict,
         fallbackReason,
         saveData: !!saveData
