@@ -32,7 +32,7 @@
 import { chunkKey } from './playbackDecode';
 import { decodeChunkOffThread } from './playbackDecodeWorker';
 import { PlaybackChunkCache } from './playbackChunkCache';
-import { QUANTITY_ARRAYS } from './playbackChunkShape';
+import { QUANTITY_ARRAYS, codecChainFor } from './playbackChunkShape';
 
 /**
  * TASK-2627 (W3.1) live-verify fix: a bare `fetchImpl = fetch` default
@@ -486,6 +486,39 @@ export class PlaybackChunkFetcher {
     }
 
     /**
+     * The store's declared codec chain and chunk row length for one array —
+     * TASK-2991 (W3.3, epic 2981).
+     *
+     * READ FROM `this.manifest`, NEVER FROM THE CALL SITE, and that is the
+     * whole design. Four places call fetchAndDecodeChunk for a time-series
+     * array — loadPlaybackFrame (the urgent path), loadPlaybackMesh,
+     * loadPlaybackEnvelope and the fill queue's arrayConfigs — and they all
+     * write into the SAME cache. If the chain had to be threaded from each
+     * one, a single call site forgetting it would leave a delta-coded chunk
+     * cached under a normal key, and every later reader of that chunk —
+     * including the three that did remember — would slice running differences
+     * out of it and render them as depth. Nothing would throw. Resolving it
+     * here makes that class unreachable rather than merely unlikely, and the
+     * spec 'fetchAndDecodeChunk decodes a v3 chunk correctly when the CALLER
+     * passes no codecs' is what pins it.
+     *
+     * An array the manifest says nothing about yields `{}`, i.e. bytes+gzip —
+     * every store written before format_version 3.
+     *
+     * @param {string} arrayName
+     * @returns {{codecs?: object[], nodeExtent?: number}}
+     */
+    _codecOptsFor(arrayName) {
+        const codecs = codecChainFor(this.manifest, arrayName);
+        if (!codecs) {
+            return {};
+        }
+        const shape = ((this.manifest && this.manifest.chunk_shapes) || {})[arrayName];
+        const nodeExtent = Array.isArray(shape) ? shape[1] : undefined;
+        return { codecs, nodeExtent };
+    }
+
+    /**
      * Fetch + decode + cache one chunk, in the store's OWN dtype. Concurrent
      * calls for the same key share one in-flight fetch.
      *
@@ -555,7 +588,9 @@ export class PlaybackChunkFetcher {
         const store = this._storeFor(arrayName);
         const { dtype, byteorder = 'little' } = decodeOpts || {};
         const compressed = await this._fetchRawBytes(key);
-        const decoded = await this.decodeImpl(compressed, { dtype, byteorder });
+        const decoded = await this.decodeImpl(compressed, {
+            dtype, byteorder, ...this._codecOptsFor(arrayName)
+        });
         // A decode that outlived releaseCaches() must not repopulate the cache
         // the disposed run just cleared (AC9's teardown clause). The value is
         // still RETURNED, so an awaiting frame path gets its data rather than a

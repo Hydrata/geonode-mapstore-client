@@ -75,7 +75,9 @@ import {
     QUANTITY_ARRAYS,
     resolveChunkLengthT,
     assertNodeExtentMatchesMesh,
-    assertDeclaredNodeCountAgrees
+    assertDeclaredNodeCountAgrees,
+    assertCodecsAreSupported,
+    codecChainFor
 } from '../playbackChunkShape';
 import {
     computePlaybackMemoryPlan,
@@ -260,12 +262,28 @@ function renderedTimestep(pb) {
     return synced === undefined ? pb.currentTimestep : synced;
 }
 
-function arrayConfigsFor(quantization) {
-    const q = quantization || {};
+function arrayConfigsFor(manifest) {
+    const m = manifest || {};
+    const q = m.quantization || {};
+    const shapes = m.chunk_shapes || {};
     const configs = {};
     QUANTITY_ARRAYS.forEach((name) => {
         const meta = q[name] || {};
-        configs[name] = { dtype: 'uint16', byteorder: meta.byteorder || 'little', quantization: meta.scale !== undefined ? meta : undefined };
+        const shape = shapes[name];
+        // TASK-2991 — the store's own codec chain and chunk row length ride
+        // along. The FETCHER resolves both from its manifest as well
+        // (_codecOptsFor), because loadPlaybackFrame / loadPlaybackMesh /
+        // loadPlaybackEnvelope share its cache and pass no chain of their own;
+        // these are the SAME two values read from the SAME manifest, so the
+        // two readings cannot disagree, and having them here keeps the config
+        // an honest description of what will actually be decoded.
+        configs[name] = {
+            dtype: 'uint16',
+            byteorder: meta.byteorder || 'little',
+            quantization: meta.scale !== undefined ? meta : undefined,
+            codecs: codecChainFor(m, name),
+            nodeExtent: Array.isArray(shape) ? shape[1] : undefined
+        };
     });
     return configs;
 }
@@ -535,6 +553,15 @@ export function playbackInitEpic(action$, store) {
             // or whose quantity arrays disagree; there is deliberately no
             // fallback, because guessing renders the wrong timestep silently.
             const chunkLengthT = resolveChunkLengthT(manifest);
+            // TASK-2991 (W3.3, epic 2981) — refuse a codec chain this client
+            // cannot invert, HERE, beside the chunk-length guard and before a
+            // single chunk is fetched. What it prevents is not a crash: an
+            // un-inverted array->array filter decodes to a full-length,
+            // in-range, entirely plausible flood surface that is not the one
+            // the model produced. Absence is not disagreement — a manifest
+            // with no `codecs` block (every store signed before TASK-2990)
+            // passes untouched.
+            assertCodecsAreSupported(manifest);
             // TASK-2729 arm 2 — the dim-1 twin, at manifest time. Presence-
             // gated: schema_metadata.n_node is absent on every store written
             // so far, and refusing on absence would refuse the whole product.
@@ -806,7 +833,7 @@ export function playbackBufferEpic(action$, store) {
         if (window.every((c) => alreadyBuffered.has(c))) {
             return Rx.Observable.empty();
         }
-        const arrayConfigs = arrayConfigsFor(pb.quantization);
+        const arrayConfigs = arrayConfigsFor(pb.manifest);
         // TASK-2743 UAT-09 (W6, epic 2706) — report EACH chunk the moment its
         // own arrays land, rather than holding the whole window behind its
         // slowest member. The controller only needs the chunk(s) frame0/frame1

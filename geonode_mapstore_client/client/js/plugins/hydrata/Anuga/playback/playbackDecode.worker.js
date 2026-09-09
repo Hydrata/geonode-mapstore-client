@@ -29,7 +29,9 @@
  * Message contract:
  *   in:  {requestId, ping: true}                                 (liveness handshake)
  *   out: {requestId, pong: true}
- *   in:  {requestId, compressed: ArrayBuffer, dtype, byteorder}  (compressed transferred)
+ *   in:  {requestId, compressed: ArrayBuffer, dtype, byteorder, codecs, nodeExtent}
+ *        (compressed transferred; codecs/nodeExtent are the store's own
+ *        declared chain and row length — TASK-2991)
  *   out: {requestId, result: TypedArray}   (success, result.buffer transferred)
  *     or {requestId, error: string}        (failure)
  *
@@ -42,12 +44,12 @@
 import { decodeCompressedChunk } from './playbackDecode';
 
 self.onmessage = function onPlaybackDecodeMessage(event) {
-    const { requestId, ping, compressed, dtype, byteorder } = event.data || {};
+    const { requestId, ping, compressed, dtype, byteorder, codecs, nodeExtent } = event.data || {};
     if (ping) {
         self.postMessage({ requestId, pong: true });
         return;
     }
-    decodeCompressedChunk(compressed, { dtype, byteorder })
+    decodeCompressedChunk(compressed, { dtype, byteorder, codecs, nodeExtent })
         .then((result) => {
             self.postMessage({ requestId, result }, [result.buffer]);
         })

@@ -45,6 +45,93 @@
 export const QUANTITY_ARRAYS = ['depth', 'x_velocity', 'y_velocity'];
 
 /**
+ * TASK-2991 (W3.3, epic 2981) — every zarr codec this client can actually
+ * invert.
+ *
+ * `bytes` and `gzip` are the chain every store written before format_version 3
+ * carries; `temporal_delta` (TASK-2989) is the array->array filter a v3 store
+ * puts in front of them on depth / x_velocity / y_velocity.
+ *
+ * THIS LIST IS A CAPABILITY CLAIM, not a wish list. Adding a name here without
+ * teaching playbackDecode to invert it produces exactly the defect the guard
+ * exists to stop: the store is accepted, the chunk decodes to something of the
+ * right length, and the map renders it.
+ */
+export const SUPPORTED_CODEC_NAMES = ['bytes', 'gzip', 'temporal_delta'];
+
+/**
+ * The codec chain the STORE declares for one array, in pipeline order, or
+ * undefined where it declares none.
+ *
+ * Undefined is the normal answer for every store already on S3: TASK-2990
+ * added the manifest's `codecs` block, and nothing re-signs an old manifest.
+ * The decoder treats "undefined" as bytes+gzip, which is what those stores
+ * are — see decodeCompressedChunk.
+ *
+ * @param {object} manifest as returned by fetchPlaybackManifest
+ * @param {string} arrayName
+ * @returns {object[]|undefined}
+ */
+export function codecChainFor(manifest, arrayName) {
+    const chain = ((manifest && manifest.codecs) || {})[arrayName];
+    return Array.isArray(chain) ? chain : undefined;
+}
+
+/**
+ * True if this array's declared chain names `temporal_delta`.
+ * @param {object[]|undefined} chain
+ * @returns {boolean}
+ */
+export function chainHasTemporalDelta(chain) {
+    return Array.isArray(chain) && chain.some((codec) => codec && codec.name === 'temporal_delta');
+}
+
+/**
+ * Refuse a store that declares a codec this client cannot invert —
+ * TASK-2991, and the same posture as resolveChunkLengthT above.
+ *
+ * WHY REFUSING IS THE ONLY HONEST OPTION. An unknown array->array filter does
+ * not make a chunk unreadable; it makes it read WRONG. The gunzip still
+ * succeeds, the buffer is still exactly nTime x nNode uint16s, every value is
+ * still in range — and the surface drawn from it is a transformed field the
+ * modeller has no way to recognise as wrong. There is no partial credit here
+ * and no safe fallback, so the store is refused with a reason the UI shows.
+ *
+ * ABSENCE IS NOT DISAGREEMENT. A manifest with no `codecs` block at all — every
+ * store on S3 before TASK-2990 — is passed, exactly as an undeclared node
+ * extent is. Only a DECLARED-and-unknown codec stops playback.
+ *
+ * @param {object} manifest
+ * @returns {boolean} true, so a caller can use it inline
+ * @throws {Error} naming every array and the codec names it could not invert
+ */
+export function assertCodecsAreSupported(manifest) {
+    const declared = (manifest && manifest.codecs) || {};
+    const offenders = [];
+    Object.keys(declared).sort().forEach((arrayName) => {
+        const chain = declared[arrayName];
+        if (!Array.isArray(chain)) {
+            return;
+        }
+        const unknown = chain
+            .map((codec) => codec && codec.name)
+            .filter((name) => typeof name === 'string' && SUPPORTED_CODEC_NAMES.indexOf(name) === -1);
+        if (unknown.length) {
+            offenders.push(`${arrayName}=${unknown.join('+')}`);
+        }
+    });
+    if (offenders.length) {
+        throw new Error(
+            `Playback store declares codecs this client cannot invert (${offenders.join(', ')}); ` +
+            `it understands ${SUPPORTED_CODEC_NAMES.join(', ')}. Refusing to play it: an ` +
+            'un-inverted filter does not fail, it decodes to a full-length, in-range, entirely ' +
+            'plausible flood surface that is not the one the model produced (TASK-2991).'
+        );
+    }
+    return true;
+}
+
+/**
  * The one definition of "a chunk length we can index with": a finite positive
  * integer. Shared by every guard in the playback chain (loadPlaybackFrame's
  * argument check, playbackController.timestepToChunkIndex's pre-manifest

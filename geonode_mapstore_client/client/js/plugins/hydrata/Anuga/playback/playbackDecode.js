@@ -236,23 +236,93 @@ export function dequantizeRow(storedArray, start, length, quantization) {
 }
 
 /**
- * gunzip -> typed array, with NO dequantization — the exact work TASK-2708
- * moves off the main thread (playbackDecode.worker.js calls THIS function, so
- * the worker and the same-thread fallback can never drift apart).
+ * Invert `temporal_delta` (run_anuga.playback_codecs, TASK-2989) IN PLACE:
+ * a per-node running sum down the time axis, modulo 2**16.
+ *
+ * The exporter stored row 0 raw and every later row as `row i - row (i-1)`
+ * with unsigned wraparound; this is exactly that inverse. Uint16Array element
+ * assignment truncates to 16 bits, so the wraparound is the language's, not a
+ * mask we could get wrong — but the array MUST be uint16 for that to be true,
+ * hence the dtype guard in the caller.
+ *
+ * IN PLACE, DELIBERATELY. decodeTypedArray's fast path returns a zero-copy
+ * view aliasing the freshly-gunzipped buffer, which this call owns (see that
+ * function's ownership contract); a copy here would double the peak footprint
+ * of a decode at exactly the moment the epic is trying to reduce it — one
+ * run-1328 chunk is 67 MB. The one caller is decodeCompressedChunk below,
+ * which gunzips in the same call and never reads the buffer again.
+ *
+ * @param {Uint16Array} typed a whole decoded chunk, [nTimeInChunk, nodeExtent] flattened
+ * @param {number} nodeExtent the chunk's node axis length (chunk_shapes[<array>][1])
+ * @returns {Uint16Array} the same array, now holding absolute values
+ */
+export function invertTemporalDelta(typed, nodeExtent) {
+    if (!(typeof nodeExtent === 'number' && isFinite(nodeExtent) && nodeExtent > 0
+          && Math.floor(nodeExtent) === nodeExtent)) {
+        throw new Error(
+            `playbackDecode.invertTemporalDelta: node extent must be a positive integer, got ` +
+            `${nodeExtent}. It is the chunk's row length and there is no safe default — the ` +
+            'buffer alone cannot say where one timestep ends (TASK-2991).'
+        );
+    }
+    if (typed.length % nodeExtent !== 0) {
+        throw new Error(
+            `playbackDecode.invertTemporalDelta: a ${typed.length}-element chunk is not a whole ` +
+            `number of ${nodeExtent}-node rows. Refusing to sum across a row boundary: it would ` +
+            'produce a full-length, in-range, entirely wrong surface (TASK-2991).'
+        );
+    }
+    for (let start = nodeExtent; start < typed.length; start += nodeExtent) {
+        const previous = start - nodeExtent;
+        for (let i = 0; i < nodeExtent; i++) {
+            typed[start + i] = typed[start + i] + typed[previous + i];
+        }
+    }
+    return typed;
+}
+
+/**
+ * gunzip -> typed array -> invert any array->array filter the store declared,
+ * with NO dequantization — the exact work TASK-2708 moves off the main thread
+ * (playbackDecode.worker.js calls THIS function, so the worker and the
+ * same-thread fallback can never drift apart).
  *
  * Quantized arrays deliberately come back in their stored uint16 form: the
  * cache holds stored bytes and dequantizeRow() converts one frame's row at
  * slice time. Doing it here would (a) double the cache's footprint and (b)
  * make a second call on an already-decoded chunk apply `scale` twice.
  *
+ * TASK-2991 (W3.3, epic 2981) — `codecs` is the chain the STORE declares for
+ * this array (manifest.codecs[<array>], TASK-2990), in pipeline order. Only
+ * the array->array half is this function's business: `bytes` is
+ * decodeTypedArray and `gzip` is the gunzip above, both already unconditional.
+ * An ABSENT chain means bytes+gzip — that is what every store written before
+ * format_version 3 is, and refusing them here would refuse the product. An
+ * UNKNOWN chain never reaches this function: playbackChunkShape's
+ * assertCodecsAreSupported refuses the whole store at manifest time, before a
+ * byte is fetched.
+ *
  * @param {ArrayBuffer} compressedBuffer
- * @param {{dtype: string, byteorder?: string}} opts
+ * @param {{dtype: string, byteorder?: string, codecs?: object[], nodeExtent?: number}} opts
  * @returns {Promise<Uint16Array|Int32Array|Float32Array|Float64Array>}
  */
 export async function decodeCompressedChunk(compressedBuffer, opts) {
-    const { dtype, byteorder = 'little' } = opts || {};
+    const { dtype, byteorder = 'little', codecs, nodeExtent } = opts || {};
     const raw = await gunzip(compressedBuffer);
-    return decodeTypedArray(raw, dtype, byteorder);
+    const typed = decodeTypedArray(raw, dtype, byteorder);
+    const hasDelta = Array.isArray(codecs)
+        && codecs.some((codec) => codec && codec.name === 'temporal_delta');
+    if (!hasDelta) {
+        return typed;
+    }
+    if (dtype !== 'uint16') {
+        throw new Error(
+            `playbackDecode.decodeCompressedChunk: temporal_delta is declared on a '${dtype}' ` +
+            'array, but the codec is only exactly invertible where unsigned wraparound is ' +
+            "defined — run_anuga's own encoder refuses anything but uint16 (TASK-2989)."
+        );
+    }
+    return invertTemporalDelta(typed, nodeExtent);
 }
 
 /**

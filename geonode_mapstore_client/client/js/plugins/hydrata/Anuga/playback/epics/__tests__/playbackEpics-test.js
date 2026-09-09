@@ -374,6 +374,74 @@ describe('playbackEpics', () => {
             subject.next(playbackInit(9, 'layer-9', MANIFEST_URL));
         });
 
+        /*
+         * TASK-2991 (W3.3, epic 2981) AC2 — a codec this client cannot invert
+         * must stop the store BEFORE any of it is downloaded.
+         *
+         * "No chunk fetch is issued" is the half that matters. Refusing after
+         * the mesh has been pulled would still be wrong-water-free, but it
+         * would spend the 63 MB blocking prefix this whole epic exists to
+         * shorten on a store that can never play. The guard therefore sits
+         * beside resolveChunkLengthT, above `new PlaybackChunkFetcher`.
+         */
+        it('refuses a store declaring an unknown codec, with NO chunk fetch issued', (done) => {
+            const requested = [];
+            const manifest = {
+                ...FIXTURE_MANIFEST,
+                codecs: { depth: [{ name: 'brotli' }, { name: 'bytes', configuration: { endian: 'little' } }] }
+            };
+            const restore = stubGlobalFetch((url) => {
+                requested.push(url);
+                if (url === MANIFEST_URL) {
+                    return Promise.resolve(new Response(JSON.stringify(manifest), { status: 200 }));
+                }
+                return fixtureFetchHandler(url);
+            });
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type === PLAYBACK_MANIFEST_FAILED) {
+                    restore();
+                    try {
+                        expect(a.runId).toBe(77);
+                        expect(a.error.indexOf('brotli') > -1).toBe(true);
+                        expect(a.error.indexOf('depth') > -1).toBe(true);
+                        // The ONLY request made was the manifest itself.
+                        expect(requested).toEqual([MANIFEST_URL]);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }
+            }, done);
+            subject.next(playbackInit(77, 'layer-77', MANIFEST_URL));
+        });
+
+        it('a manifest that declares NO codecs block loads exactly as before', (done) => {
+            // Absence is not disagreement: every store signed before
+            // TASK-2990 has no `codecs` key at all, and refusing those would
+            // refuse the entire product.
+            expect(FIXTURE_MANIFEST.codecs).toBe(undefined);
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type === PLAYBACK_MANIFEST_LOADED) {
+                    restore();
+                    try {
+                        expect(a.nNode).toBe(FIXTURE_MESH.nNode);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                } else if (a.type === PLAYBACK_MANIFEST_FAILED) {
+                    restore();
+                    done(new Error(`refused a codec-less manifest: ${a.error}`));
+                }
+            }, done);
+            subject.next(playbackInit(78, 'layer-78', MANIFEST_URL));
+        });
+
         it('skips UPDATE_ADDITIONAL_LAYER when the target overlay already exists on the map', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const store = makeStore(createInitialPlaybackState());
