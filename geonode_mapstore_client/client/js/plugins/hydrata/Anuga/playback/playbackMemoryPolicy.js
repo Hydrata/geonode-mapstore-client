@@ -515,9 +515,14 @@ export function isCoarsePhoneClass({ uaMobile, maxTouchPoints, viewportMinPx } =
  * @param {number} [signals.maxTouchPoints] navigator.maxTouchPoints
  * @param {number} [signals.viewportMinPx] Math.min(innerWidth, innerHeight)
  * @param {number} [signals.appBaselineFloorBytes=APP_BASELINE_FLOOR_BYTES] RULE C
- * @returns {{budgetBytes: number, source: string, appBaselineFloorBytes: number}}
+ * @returns {{budgetBytes: number, source: string, appBaselineFloorBytes: number,
+ *   overrideSource: string}}
  *   `source` is one of FIVE values: 'default', 'heap+device', 'partial',
- *   'small-device', 'phone-class'.
+ *   'small-device', 'phone-class'. `overrideSource` (TASK-3032) is a SEPARATE
+ *   field — 'shipped' | 'override' — saying whether the EFFECTIVE
+ *   appBaselineFloorBytes came from the caller or from the shipped constant.
+ *   It is not a sixth `source` value: a consumer switching on `source` is
+ *   unaffected.
  */
 export function resolvePlaybackHeapBudget({
     jsHeapSizeLimit,
@@ -531,6 +536,19 @@ export function resolvePlaybackHeapBudget({
     const appBaselineFloorBytes = sanitiseOverride(
         appBaselineFloorBytesIn, APP_BASELINE_FLOOR_BAND_BYTES, APP_BASELINE_FLOOR_BYTES
     );
+    // TASK-3032 (W4.x, epic 2981) — WHERE the effective floor came from.
+    // `appBaselineFloorBytes` above already reports the value that was USED,
+    // which is enough right up until the case that matters most: an override
+    // REJECTED by the band clamp resolves to exactly APP_BASELINE_FLOOR_BYTES
+    // and is byte-identical to no override at all. For the W4.5 tester rung
+    // (TASK-3025) that makes three different bugs — the transport failed, the
+    // parameter name was wrong, the clamp rejected the value — indistinguishable
+    // in the census. Computed EXACTLY as computePlaybackMemoryPlan computes it
+    // (clause 20), so the two halves of the seam answer in the same vocabulary.
+    // It reports the EFFECTIVE value, not the caller's intent: an override that
+    // equals the shipped constant reads 'shipped', because nothing moved.
+    const overrideSource =
+        appBaselineFloorBytes === APP_BASELINE_FLOOR_BYTES ? 'shipped' : 'override';
     const offers = [];
     if (jsHeapSizeLimit > 0) {
         // RULE A clause 1 — the baseline FLOORS THE READING. It is never
@@ -548,8 +566,8 @@ export function resolvePlaybackHeapBudget({
         // RULE A clause 4 — iOS Safari and Firefox expose NEITHER signal, so
         // this branch is a large fraction of real traffic, not an edge case.
         return phoneClass
-            ? { budgetBytes: PHONE_CLASS_BUDGET_BYTES, source: 'phone-class', appBaselineFloorBytes }
-            : { budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES, source: 'default', appBaselineFloorBytes };
+            ? { budgetBytes: PHONE_CLASS_BUDGET_BYTES, source: 'phone-class', appBaselineFloorBytes, overrideSource }
+            : { budgetBytes: PLAYBACK_HEAP_BUDGET_BYTES, source: 'default', appBaselineFloorBytes, overrideSource };
     }
     const smallDevice = phoneClass
         || (typeof deviceMemoryGiB === 'number'
@@ -566,7 +584,8 @@ export function resolvePlaybackHeapBudget({
                 PLAYBACK_HEAP_BUDGET_MAX_BYTES
             ),
             source: 'small-device',
-            appBaselineFloorBytes
+            appBaselineFloorBytes,
+            overrideSource
         };
     }
     // RULE A clause 3 — unchanged from TASK-2743.
@@ -578,7 +597,8 @@ export function resolvePlaybackHeapBudget({
     return {
         budgetBytes,
         source: offers.length === 2 ? 'heap+device' : 'partial',
-        appBaselineFloorBytes
+        appBaselineFloorBytes,
+        overrideSource
     };
 }
 
@@ -597,7 +617,10 @@ export function resolvePlaybackHeapBudget({
  * @param {object} [overrides] RULE C — passed straight through to
  *   resolvePlaybackHeapBudget; in TASK-2984 the only writer builds `{}`.
  * @returns {{budgetBytes: number, source: string, saveData: boolean,
- *   appBaselineFloorBytes: number}}
+ *   appBaselineFloorBytes: number, overrideSource: string}}
+ *   TASK-3032 — `overrideSource` rides through on the `...resolved` spread
+ *   below, so the environment reader and the pure resolver report the same
+ *   answer and a prod census taken through either can falsify itself.
  */
 export function resolvePlaybackHeapBudgetFromEnvironment(overrides = {}) {
     const perf = typeof performance !== 'undefined' ? performance : null;

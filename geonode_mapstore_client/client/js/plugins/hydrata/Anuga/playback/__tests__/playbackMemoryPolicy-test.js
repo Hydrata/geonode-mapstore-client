@@ -1310,3 +1310,132 @@ describe('playbackMemoryPolicy — TASK-2984 (W1.1, epic 2981) the deepening rul
         });
     });
 });
+
+/*
+ * ===========================================================================
+ * TASK-3032 (W4.x, epic 2981) — resolvePlaybackHeapBudget must say WHERE its
+ * appBaselineFloorBytes came from.
+ *
+ * The budget resolver already echoes the EFFECTIVE appBaselineFloorBytes, so a
+ * census can see the value that was used. It could not see whether that value
+ * came from the caller or from the shipped constant — and the one case where
+ * that matters most is the case where they are byte-identical: an override
+ * REJECTED by the band clamp resolves to exactly APP_BASELINE_FLOOR_BYTES,
+ * which reads the same as no override at all.
+ *
+ * That is three different bugs with one symptom for the W4.5 tester rung
+ * (TASK-3025): the transport failed, the parameter name was wrong, or the
+ * clamp rejected the value. computePlaybackMemoryPlan has answered this since
+ * TASK-2984 clause 20; this is the same answer on the other half of the seam.
+ * ===========================================================================
+ */
+describe('playbackMemoryPolicy — TASK-3032 (W4.x, epic 2981) the budget resolver reports its override source', () => {
+    const MIB_3032 = 1024 * 1024;
+    // Signals that force the 'heap+device' branch, so AC3's independence
+    // assertion has a non-'default' source to sit beside.
+    const HEAP_DEVICE_SIGNALS = { jsHeapSizeLimit: 4096 * MIB_3032, deviceMemoryGiB: 8 };
+
+    it('AC1(a) no override supplied -> overrideSource "shipped"', () => {
+        const r = resolvePlaybackHeapBudget({});
+        expect(r.appBaselineFloorBytes).toBe(APP_BASELINE_FLOOR_BYTES);
+        expect(r.overrideSource).toBe('shipped');
+    });
+
+    it('AC1(b) an OUT-OF-BAND override -> "shipped", because the clamp rejected it', () => {
+        // THIS IS THE CASE THE FIELD EXISTS FOR. The band is
+        // APP_BASELINE_FLOOR_BAND_BYTES = [0, PLAYBACK_HEAP_BUDGET_BYTES], so
+        // a value above 800 MiB is discarded and the resolver falls back to
+        // the shipped constant. Without overrideSource the census reads the
+        // shipped number and cannot tell a rejected override from no override.
+        const tooBig = resolvePlaybackHeapBudget({
+            appBaselineFloorBytes: PLAYBACK_HEAP_BUDGET_BYTES + 1
+        });
+        expect(tooBig.appBaselineFloorBytes).toBe(APP_BASELINE_FLOOR_BYTES);
+        expect(tooBig.overrideSource).toBe('shipped');
+        // A non-numeric value takes the same path.
+        const nonsense = resolvePlaybackHeapBudget({ appBaselineFloorBytes: 'lots' });
+        expect(nonsense.appBaselineFloorBytes).toBe(APP_BASELINE_FLOOR_BYTES);
+        expect(nonsense.overrideSource).toBe('shipped');
+    });
+
+    it('AC1(c) an IN-BAND, non-default override -> "override"', () => {
+        const honoured = resolvePlaybackHeapBudget({ appBaselineFloorBytes: 120 * MIB_3032 });
+        expect(honoured.appBaselineFloorBytes).toBe(120 * MIB_3032);
+        expect(honoured.overrideSource).toBe('override');
+    });
+
+    it('AC1(d) an in-band override EQUAL to the shipped constant reads "shipped"', () => {
+        // Deliberate and documented: the field reports whether the EFFECTIVE
+        // value differs from the shipped one, exactly as
+        // computePlaybackMemoryPlan computes it. Setting the floor to the
+        // number it already had changes nothing, so there is nothing for a
+        // census to distinguish.
+        const same = resolvePlaybackHeapBudget({
+            appBaselineFloorBytes: APP_BASELINE_FLOOR_BYTES
+        });
+        expect(same.overrideSource).toBe('shipped');
+    });
+
+    it('AC1(e) it is reported on EVERY branch, not just the one with no signals', () => {
+        const branches = [
+            ['default', resolvePlaybackHeapBudget({ appBaselineFloorBytes: 120 * MIB_3032 })],
+            ['heap+device', resolvePlaybackHeapBudget({
+                ...HEAP_DEVICE_SIGNALS, appBaselineFloorBytes: 120 * MIB_3032
+            })],
+            ['partial', resolvePlaybackHeapBudget({
+                jsHeapSizeLimit: 4096 * MIB_3032, appBaselineFloorBytes: 120 * MIB_3032
+            })],
+            ['small-device', resolvePlaybackHeapBudget({
+                jsHeapSizeLimit: 4096 * MIB_3032, deviceMemoryGiB: 2,
+                appBaselineFloorBytes: 120 * MIB_3032
+            })],
+            ['phone-class', resolvePlaybackHeapBudget({
+                uaMobile: true, maxTouchPoints: 5, viewportMinPx: 400,
+                appBaselineFloorBytes: 120 * MIB_3032
+            })]
+        ];
+        branches.forEach(([expectedSource, resolved]) => {
+            expect(resolved.source).toBe(expectedSource);
+            expect(resolved.overrideSource).toBe('override');
+        });
+    });
+
+    it('AC2 resolvePlaybackHeapBudgetFromEnvironment carries it through', () => {
+        const shipped = resolvePlaybackHeapBudgetFromEnvironment();
+        expect(shipped.overrideSource).toBe('shipped');
+        const overridden = resolvePlaybackHeapBudgetFromEnvironment({
+            appBaselineFloorBytes: 120 * MIB_3032
+        });
+        expect(overridden.overrideSource).toBe('override');
+        // And a rejected one still reads 'shipped' through the environment
+        // reader — the whole point of the seam being falsifiable end to end.
+        const rejected = resolvePlaybackHeapBudgetFromEnvironment({
+            appBaselineFloorBytes: -1
+        });
+        expect(rejected.overrideSource).toBe('shipped');
+    });
+
+    it('AC3 overrideSource is a SEPARATE field: `source` keeps its five values', () => {
+        const r = resolvePlaybackHeapBudget({
+            ...HEAP_DEVICE_SIGNALS, appBaselineFloorBytes: 120 * MIB_3032
+        });
+        // Both fields asserted independently on ONE call — a sixth `source`
+        // value would break every consumer that switches on it.
+        expect(r.source).toBe('heap+device');
+        expect(r.overrideSource).toBe('override');
+        expect(['default', 'heap+device', 'partial', 'small-device', 'phone-class'])
+            .toContain(r.source);
+        expect(['shipped', 'override']).toContain(r.overrideSource);
+    });
+
+    it('AC4 no module-level state: an override leaks nothing into the next call', () => {
+        // RULE C clause 21 — the specs share ONE webpack bundle with no reset
+        // hooks, so this is driven as a property: the same call before and
+        // after an overridden one must be byte-identical.
+        const before = resolvePlaybackHeapBudget(HEAP_DEVICE_SIGNALS);
+        resolvePlaybackHeapBudget({ ...HEAP_DEVICE_SIGNALS, appBaselineFloorBytes: 1 });
+        const after = resolvePlaybackHeapBudget(HEAP_DEVICE_SIGNALS);
+        expect(after).toEqual(before);
+        expect(after.overrideSource).toBe('shipped');
+    });
+});
