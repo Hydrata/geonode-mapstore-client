@@ -32,6 +32,15 @@ import {
     defaultSpeedForTime,
     simulatedSpanSeconds,
     hasEnvelopeForQuantity,
+    // TASK-2987 (W2.1, epic 2981)
+    FLOOR_WINDOW_CHUNKS,
+    PACE_TARGET_WALL_SECONDS,
+    PACE_FLOOR,
+    PACE_TICK_SAFETY,
+    floorWindowFor,
+    preRollProgress,
+    lastResidentTimestep,
+    targetRunwaySeconds,
     playbackControllerReducer as reduce
 } from '../playbackController';
 import {
@@ -51,6 +60,7 @@ import {
     playbackSetWireframe,
     playbackSetEnvelopeMode,
     playbackEnvelopeLoaded,
+    playbackFallback,
     playbackReset
 } from '../actions/playbackActions';
 
@@ -68,6 +78,26 @@ function loadedState(overrides = {}, mesh = null) {
 function bufferedState(overrides = {}) {
     const s = loadedState(overrides);
     return reduce(s, playbackChunksBuffered([0, 1]));
+}
+
+/*
+ * TASK-2987 (W2.1, epic 2981) — "playing with only SOME of the store resident".
+ *
+ * Before this task a single chunk cleared readiness, so these specs built the
+ * state by buffering [0] and pressing Play. Readiness is now the PRE-ROLL
+ * window (three chunks, or — on this two-chunk fixture — both of them), so that
+ * route no longer reaches PLAYING. The state under test is unchanged; only the
+ * way it is constructed is. Starting from a ready store and dropping chunks
+ * back out is also closer to what the fill queue's own eviction does.
+ */
+function playingWithChunks(chunks, overrides = {}) {
+    return {
+        ...reduce(bufferedState(), playbackPlay()),
+        bufferedChunks: chunks,
+        lastTickMs: 0,
+        lastPaceMs: null,
+        ...overrides
+    };
 }
 
 describe('playbackController', () => {
@@ -296,10 +326,20 @@ describe('playbackController', () => {
     });
 
     describe('buffer-then-play (LOCKED, W0 memo F4)', () => {
-        it('CHUNKS_BUFFERED moves buffering -> ready once the required window completes', () => {
-            const s = reduce(loadedState(), playbackChunksBuffered([0]));
+        // TASK-2987 (W2.1, epic 2981) RE-BASED THIS SPEC, and the change is the
+        // point of the task, not collateral: readiness is now the PRE-ROLL
+        // window (FLOOR_WINDOW_CHUNKS = 3, or the whole store if smaller), not
+        // the one or two chunks frame0/frame1 need. This fixture store has two
+        // chunks, so its pre-roll window IS both of them, and one chunk no
+        // longer clears the gate. The old assertion is kept, inverted, in the
+        // line below so the re-base is visible rather than silent.
+        it('CHUNKS_BUFFERED moves buffering -> ready once the PRE-ROLL window completes (not the frame window)', () => {
+            const half = reduce(loadedState(), playbackChunksBuffered([0]));
+            expect(half.status).toBe(PLAYBACK_STATUS.BUFFERING); // was READY before TASK-2987
+            expect(half.bufferedChunks).toEqual([0]);
+            const s = reduce(half, playbackChunksBuffered([1]));
             expect(s.status).toBe(PLAYBACK_STATUS.READY);
-            expect(s.bufferedChunks).toEqual([0]);
+            expect(s.bufferedChunks).toEqual([0, 1]);
         });
         it('a partial buffer (window still incomplete) stays in buffering', () => {
             // timestep 9's window is [chunk0, chunk1] (requiredChunkIndices
@@ -319,7 +359,8 @@ describe('playbackController', () => {
             const s1 = reduce(loadedState(), playbackPlay());
             expect(s1.status).toBe(PLAYBACK_STATUS.BUFFERING);
             expect(s1.pendingPlay).toBe(true);
-            const s2 = reduce(s1, playbackChunksBuffered([0]));
+            // TASK-2987 — the auto-start waits for the PRE-ROLL window.
+            const s2 = reduce(s1, playbackChunksBuffered([0, 1]));
             expect(s2.status).toBe(PLAYBACK_STATUS.PLAYING);
             expect(s2.pendingPlay).toBe(false);
         });
@@ -327,7 +368,7 @@ describe('playbackController', () => {
             const s1 = reduce(loadedState(), playbackPlay());
             const s2 = reduce(s1, playbackPause());
             expect(s2.pendingPlay).toBe(false);
-            const s3 = reduce(s2, playbackChunksBuffered([0]));
+            const s3 = reduce(s2, playbackChunksBuffered([0, 1]));
             expect(s3.status).toBe(PLAYBACK_STATUS.READY);
         });
         it('PAUSE while playing returns to ready', () => {
@@ -355,7 +396,10 @@ describe('playbackController', () => {
         it('a scrub while playing resumes playing once the new window buffers', () => {
             // Only chunk 0 buffered (unlike bufferedState(), which has both) —
             // seeking to timestep 12 needs chunk 1, genuinely unbuffered here.
-            const onlyChunk0Playing = reduce(reduce(loadedState(), playbackChunksBuffered([0])), playbackPlay());
+            // TASK-2987 — one chunk no longer clears the PRE-ROLL gate, so the
+            // playing-with-a-shallow-buffer state this spec needs is built by
+            // starting from a ready store and dropping chunk 1 back out.
+            const onlyChunk0Playing = playingWithChunks([0]);
             const seeked = reduce(onlyChunk0Playing, playbackSeek(12));
             expect(seeked.status).toBe(PLAYBACK_STATUS.SEEKING);
             expect(seeked.pendingPlay).toBe(true);
@@ -388,12 +432,30 @@ describe('playbackController', () => {
             const ticked = reduce(playing, playbackTick(5000)); // 5s real * 4x = 20s sim
             expect(ticked.playheadSeconds).toBe(20);
         });
-        it('crossing into an unbuffered chunk freezes the playhead and reports stalled', () => {
-            // Only chunk 0 buffered (timesteps 0-9, t<=270); ticking far enough
-            // to need timestep>=10 (chunk 1, t>=300) must NOT advance past the
-            // buffered edge.
-            const playing = { ...reduce(reduce(loadedState(), playbackChunksBuffered([0])), playbackPlay()), lastTickMs: 0 };
-            const ticked = reduce(playing, playbackTick(350000)); // 350s sim time -> timestep 10+ (chunk 1)
+        // TASK-2987 (W2.1, epic 2981) RE-BASED THIS SPEC. It used to assert that
+        // a tick which would cross into an unbuffered chunk FREEZES the playhead
+        // where it stood and reports `stalled` — the exact behaviour the epic
+        // exists to remove. The playhead is now BOUNDED by the last resident
+        // timestep instead: it plays out the data it has and keeps `playing`
+        // while any runway remains. The old assertions survive one branch down,
+        // where they belong: at ZERO runway.
+        it('AC1/AC(c): a tick that would cross into an unbuffered chunk is BOUNDED at the last resident timestep and keeps playing', () => {
+            // Only chunk 0 resident -> timesteps 0..9, i.e. t <= 270.
+            const playing = playingWithChunks([0]);
+            const ticked = reduce(playing, playbackTick(350000)); // enough for t=360 at any sane pace
+            expect(ticked.status).toBe(PLAYBACK_STATUS.PLAYING);
+            // Never past the buffered edge...
+            expect(ticked.playheadSeconds <= TIME[9]).toBe(true);
+            // ...and it genuinely MOVED, which is the whole change.
+            expect(ticked.playheadSeconds > playing.playheadSeconds).toBe(true);
+            // The frame pair it now needs is still resident — the bound is what
+            // guarantees the renderer is never asked for a chunk that is absent.
+            expect(requiredChunkIndices(ticked.currentTimestep, ticked.nTime, ticked.chunkLengthT)
+                .every((c) => ticked.bufferedChunks.indexOf(c) !== -1)).toBe(true);
+        });
+        it('AC4: ZERO runway — the playhead\'s own chunk is not resident — freezes the playhead and reports stalled', () => {
+            const playing = playingWithChunks([]);
+            const ticked = reduce(playing, playbackTick(350000));
             expect(ticked.status).toBe(PLAYBACK_STATUS.STALLED);
             expect(ticked.pendingPlay).toBe(true);
             // Frozen: currentTimestep/mixT/playheadSeconds unchanged from before this tick.
@@ -402,10 +464,10 @@ describe('playbackController', () => {
             expect(ticked.playheadSeconds).toBe(playing.playheadSeconds);
         });
         it('resumes playing automatically once the stalled-on chunk buffers', () => {
-            const playing = { ...reduce(reduce(loadedState(), playbackChunksBuffered([0])), playbackPlay()), lastTickMs: 0 };
+            const playing = playingWithChunks([]);
             const stalled = reduce(playing, playbackTick(350000));
             expect(stalled.status).toBe(PLAYBACK_STATUS.STALLED);
-            const resumed = reduce(stalled, playbackChunksBuffered([1]));
+            const resumed = reduce(stalled, playbackChunksBuffered([0]));
             expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
         });
         it('sets degraded once a stall has LASTED, not once it has been counted', () => {
@@ -420,7 +482,10 @@ describe('playbackController', () => {
             // store can do, so a healthy run raised it. The rule is now elapsed
             // stall time, and these ticks are 350 SECONDS apart: one gap is
             // already a hundred times over the bar.
-            let s = { ...reduce(reduce(loadedState(), playbackChunksBuffered([0])), playbackPlay()), lastTickMs: 0 };
+            // TASK-2987 — a stall is now reachable only at ZERO runway, so the
+            // state this spec needs is "playing with nothing resident" rather
+            // than "playing one chunk short".
+            let s = playingWithChunks([]);
             s = reduce(s, playbackTick(350000));
             expect(s.status).toBe(PLAYBACK_STATUS.STALLED);
             expect(s.stallCount).toBe(1);
@@ -491,7 +556,8 @@ describe('playbackController', () => {
             expect(replayed.pendingPlay).toBe(true);
             expect(replayed.currentTimestep).toBe(0); // rewound even though it must wait to buffer
 
-            const resumed = reduce(replayed, playbackChunksBuffered([0]));
+            // TASK-2987 — the pre-roll window, not the frame window.
+            const resumed = reduce(replayed, playbackChunksBuffered([0, 1]));
             expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
             expect(resumed.currentTimestep).toBe(0);
         });
@@ -504,6 +570,258 @@ describe('playbackController', () => {
             const resumed = reduce(paused, playbackPlay());
             expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
             expect(resumed.currentTimestep).toBe(5); // unchanged — no rewind
+        });
+    });
+
+    /*
+     * ======================================================================
+     * TASK-2987 (W2.1, epic 2981) — runway-governed paced playback.
+     *
+     * The store here is the SHAPE of the rig's 813_417_1412 mirror — 101
+     * timesteps, chunkLengthT 10, 11 chunks, the plan's own 1-behind/9-ahead
+     * window — because every number in the epic's acceptance criteria was
+     * measured on it. `speed` seeds to 3000/15 = 200 (defaultSpeedForTime).
+     * ======================================================================
+     */
+    describe('TASK-2987 pre-roll readiness and runway pacing', () => {
+        const BIG_TIME = Array.from({ length: 101 }, (unused, i) => i * 30); // 0..3000 s
+        const ALL_CHUNKS = Array.from({ length: 11 }, (unused, i) => i);
+
+        function bigStore(overrides = {}) {
+            const base = reduce(reduce(createInitialPlaybackState(), playbackInit(9, 'layer-9')),
+                playbackManifestLoaded({
+                    runId: 9, manifest: { id: 'm' }, mesh: null, time: BIG_TIME, nTime: 101, nNode: 6,
+                    chunkLengthT: 10, totalChunks: 11, quantization: { depth: { valid_max: 1 } },
+                    memoryPlan: { bufferWindowRadius: 1, bufferWindowAhead: 9 }
+                }));
+            return { ...base, ...overrides };
+        }
+        /** Playing on the big store with exactly `chunks` resident. */
+        function bigPlaying(chunks, overrides = {}) {
+            const ready = reduce(bigStore(), playbackChunksBuffered(chunks, true));
+            const playing = reduce(ready, playbackPlay());
+            return { ...playing, lastTickMs: 0, lastPaceMs: null, ...overrides };
+        }
+
+        describe('the pre-roll window (AC(a))', () => {
+            it('is three chunks from the playhead, clipped to the store', () => {
+                expect(floorWindowFor(bigStore(), 0)).toEqual([0, 1, 2]);
+                expect(floorWindowFor(bigStore(), 35)).toEqual([3, 4, 5]);
+                // Clipped at the end, never past the last chunk.
+                expect(floorWindowFor(bigStore(), 100)).toEqual([10]);
+                expect(FLOOR_WINDOW_CHUNKS).toBe(3);
+            });
+            it('is the WHOLE STORE when the store has fewer chunks than that', () => {
+                expect(floorWindowFor(loadedState(), 0)).toEqual([0, 1]); // totalChunks 2
+            });
+            it('gates BUFFERING -> READY: two of three chunks is not ready, three is', () => {
+                const two = reduce(bigStore(), playbackChunksBuffered([0, 1], true));
+                expect(two.status).toBe(PLAYBACK_STATUS.BUFFERING);
+                expect(preRollProgress(two)).toEqual({ resident: 2, required: 3 });
+                const three = reduce(two, playbackChunksBuffered([0, 1, 2], true));
+                expect(three.status).toBe(PLAYBACK_STATUS.READY);
+                expect(preRollProgress(three)).toEqual({ resident: 3, required: 3 });
+            });
+            it('gates PLAY the same way — a shallower buffer defers through pendingPlay', () => {
+                const two = reduce(bigStore(), playbackChunksBuffered([0, 1], true));
+                const pressed = reduce(two, playbackPlay());
+                expect(pressed.status).toBe(PLAYBACK_STATUS.BUFFERING);
+                expect(pressed.pendingPlay).toBe(true);
+                expect(pressed.effectiveSpeed).toBe(null);
+                const rolled = reduce(pressed, playbackChunksBuffered([0, 1, 2], true));
+                expect(rolled.status).toBe(PLAYBACK_STATUS.PLAYING);
+            });
+        });
+
+        describe('the runway (AC(b)/AC(c))', () => {
+            it('reaches the end of the last CONTIGUOUSLY resident chunk, not the highest one held', () => {
+                const state = bigStore();
+                // 0,1,2 contiguous; 9 is held but unreachable across the hole.
+                expect(lastResidentTimestep(state, [0, 1, 2, 9], 0)).toBe(29);
+                // The playhead's own chunk missing IS zero runway.
+                expect(lastResidentTimestep(state, [1, 2, 3], 0)).toBe(0);
+                // Never past the store.
+                expect(lastResidentTimestep(state, ALL_CHUNKS, 0)).toBe(100);
+            });
+            it('the target is the plan\'s own lookahead, capped at PACE_TARGET_WALL_SECONDS of playback', () => {
+                const state = bigStore();
+                // speed 200 x 8 s = 1600 sim-seconds; the plan holds 9 x 10 x 30 = 2700.
+                expect(state.speed).toBe(200);
+                expect(targetRunwaySeconds(state)).toBe(PACE_TARGET_WALL_SECONDS * 200);
+                // A store whose plan holds LESS than that is capped by the plan —
+                // otherwise a shallow window would pace a healthy link for ever.
+                const shallow = { ...state, bufferWindowAhead: 1 };
+                expect(targetRunwaySeconds(shallow)).toBe(1 * 10 * 30);
+            });
+        });
+
+        it('AC1: while chunks keep landing, a long tick sequence NEVER leaves playing', () => {
+            // The cadence is the one MEASURED on the 1412 mirror at the 5 Mbit/s
+            // "far" profile: a chunk every 2.9-4.5 s (derived from the census's
+            // own residentChunks arrivals), so 60 ticks x 50 ms = 3 s.
+            let s = bigPlaying([0, 1, 2]);
+            let resident = 3;
+            for (let i = 1; i <= 600; i++) {
+                if (i % 60 === 0 && resident < 11) {
+                    resident += 1;
+                    s = reduce(s, playbackChunksBuffered(
+                        Array.from({ length: resident }, (unused, k) => k), true, i * 50));
+                }
+                s = reduce(s, playbackTick(i * 50));
+                // THE CLAUSE THIS TASK EXISTS FOR. At HEAD this same sequence
+                // spends most of its ticks in `stalled`.
+                expect(s.status !== PLAYBACK_STATUS.STALLED).toBe(true);
+            }
+            // It got there by pacing, not by luck: the run completed.
+            expect(s.status).toBe(PLAYBACK_STATUS.PAUSED);
+            expect(s.currentTimestep).toBe(100);
+        });
+
+        it('AC1: with NO further data the playhead plays the runway OUT first, and only then stalls', () => {
+            // HEAD froze on the very first tick with the playhead still at
+            // timestep 0 — everything already downloaded went unwatched. The
+            // bound is the last resident timestep, so all 29 of them are played
+            // before `stalled` becomes the truth.
+            let s = bigPlaying([0, 1, 2]);
+            let stalledAt = null;
+            for (let i = 1; i <= 4000 && stalledAt === null; i++) {
+                s = reduce(s, playbackTick(i * 50));
+                expect(s.playheadSeconds <= BIG_TIME[29]).toBe(true); // AC(c)
+                if (s.status === PLAYBACK_STATUS.STALLED) {
+                    stalledAt = i;
+                } else {
+                    expect(s.status).toBe(PLAYBACK_STATUS.PLAYING);
+                }
+            }
+            expect(stalledAt !== null).toBe(true);
+            // It stalls FROZEN AT THE LAST RENDERABLE POSITION, which is
+            // timestep 28, not 29: drawing timestep 29 needs frame1 = 30, and
+            // that is in chunk 3. So the seam is never crossed and the renderer
+            // is never asked for a chunk that is absent — while everything that
+            // WAS downloaded has been watched.
+            expect(s.currentTimestep).toBe(28);
+            expect(s.playheadSeconds > BIG_TIME[28]).toBe(true);
+            expect(s.playheadSeconds <= BIG_TIME[29]).toBe(true);
+            // ...and it took a real playthrough to get there, not one tick.
+            expect(stalledAt > 100).toBe(true);
+        });
+
+        it('AC2: a shrinking runway lowers effectiveSpeed MONOTONICALLY, never above speed, and full residency restores it exactly', () => {
+            let s = bigPlaying([0, 1, 2, 3, 4]);
+            let previous = s.speed;
+            for (let i = 1; i <= 200; i++) {
+                s = reduce(s, playbackTick(i * 50));
+                expect(s.effectiveSpeed <= s.speed).toBe(true);
+                expect(s.effectiveSpeed <= previous).toBe(true); // monotone decrease
+                previous = s.effectiveSpeed;
+            }
+            expect(s.effectiveSpeed < s.speed).toBe(true);
+            // AC(d) — the landing carries its own clock, so the recovery is
+            // measured at the landing rather than up to a tick later.
+            const recovered = reduce(s, playbackChunksBuffered(ALL_CHUNKS, true, 200 * 50 + 25));
+            expect(recovered.effectiveSpeed).toBe(recovered.speed);
+            // ...and it stays there over the following ticks (no EMA drift back down).
+            const after = reduce(recovered, playbackTick(200 * 50 + 50));
+            expect(after.effectiveSpeed).toBe(after.speed);
+        });
+
+        it('AC3: a fully resident 11-chunk / 101-step store plays to timestep 100 and PAUSES — the final chunk is not withheld', () => {
+            let s = bigPlaying(ALL_CHUNKS);
+            let ticks = 0;
+            while (s.status === PLAYBACK_STATUS.PLAYING && ticks < 1000) {
+                ticks++;
+                s = reduce(s, playbackTick(ticks * 50));
+                expect(s.status !== PLAYBACK_STATUS.STALLED).toBe(true);
+            }
+            expect(s.status).toBe(PLAYBACK_STATUS.PAUSED);
+            expect(s.currentTimestep).toBe(100);
+            // ~15 s of wall clock at 50 ms a tick, i.e. the store's own default.
+            expect(ticks).toBe(300);
+            expect(s.effectiveSpeed).toBe(null); // nothing is advancing any more
+        });
+
+        it('AC4: zero runway stalls, counts and degrades; recovery clears stalledSinceMs', () => {
+            const playing = { ...bigPlaying(ALL_CHUNKS), bufferedChunks: [], lastTickMs: 0 };
+            const first = reduce(playing, playbackTick(1000));
+            expect(first.status).toBe(PLAYBACK_STATUS.STALLED);
+            expect(first.stallCount).toBe(1);
+            expect(first.stalledSinceMs).toBe(1000);
+            expect(first.degraded).toBe(false);
+            const later = reduce(first, playbackTick(1000 + 2500));
+            expect(later.stallCount).toBe(2);
+            expect(later.degraded).toBe(true);
+            const recovered = reduce(later, playbackChunksBuffered(ALL_CHUNKS, true, 4000));
+            expect(recovered.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(recovered.stalledSinceMs).toBe(null);
+            expect(recovered.stallCount).toBe(0);
+            expect(recovered.degraded).toBe(false);
+        });
+
+        it('AC5: SEEK keeps its semantics — unbuffered target seeks, resident target resumes at the SELECTED speed', () => {
+            const playing = bigPlaying([0, 1, 2]);
+            const paced = reduce(playing, playbackTick(2000));
+            expect(paced.effectiveSpeed < paced.speed).toBe(true);
+            const far = reduce(paced, playbackSeek(80)); // chunk 8, not resident
+            expect(far.status).toBe(PLAYBACK_STATUS.SEEKING);
+            expect(far.effectiveSpeed).toBe(null);
+            const near = reduce(paced, playbackSeek(15)); // chunk 1, resident
+            expect(near.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(near.effectiveSpeed).toBe(near.speed); // the ceiling, not a stale ratio
+        });
+
+        it('AC9: a runway that never shrinks holds effectiveSpeed at EXACTLY state.speed — no EMA drift, no permanent paced badge', () => {
+            // NOT the fully-resident shortcut: chunk 10 is deliberately absent,
+            // so this runs the PACED branch and still has to land on 1.0 exactly.
+            let s = bigPlaying([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+            for (let i = 1; i <= 40; i++) {
+                s = reduce(s, playbackTick(i * 50));
+                expect(s.effectiveSpeed).toBe(s.speed);
+            }
+            // And the same for a store resident to its end.
+            let full = bigPlaying(ALL_CHUNKS);
+            for (let i = 1; i <= 40; i++) {
+                full = reduce(full, playbackTick(i * 50));
+                expect(full.effectiveSpeed).toBe(full.speed);
+            }
+        });
+
+        it('AC(e): effectiveSpeed is null whenever nothing is playing — idle, ready, paused, seeking and fallback', () => {
+            expect(createInitialPlaybackState().effectiveSpeed).toBe(null);
+            const ready = reduce(bigStore(), playbackChunksBuffered([0, 1, 2], true));
+            expect(ready.effectiveSpeed).toBe(null);
+            const playing = reduce(ready, playbackPlay());
+            expect(playing.effectiveSpeed).toBe(playing.speed);
+            expect(reduce(playing, playbackPause()).effectiveSpeed).toBe(null);
+            // TASK-2986's terminal fallback: null exactly as when idle.
+            const fell = reduce(playing, playbackFallback({
+                runId: 9, reason: 'fixed-mesh-exceeds-budget', nNode: 1, nFace: 1
+            }));
+            expect(fell.status).toBe(PLAYBACK_STATUS.FALLBACK);
+            expect(fell.effectiveSpeed).toBe(null);
+            // ...and a TICK cannot resurrect it: 'fallback' is terminal.
+            expect(reduce(fell, playbackTick(9999))).toBe(fell);
+        });
+
+        it('one tick spends at most PACE_TICK_SAFETY of the runway, and SET_SPEED re-scales the pacing rather than resetting it', () => {
+            // A ONE-CHUNK runway (timesteps 0..9, t <= 270) and a tick TEN
+            // SECONDS long — the shape a main-thread block produces on the
+            // 3.39M-node chunk-2 store, where at the selected speed one tick
+            // would otherwise advance past everything the plan can hold.
+            const playing = { ...bigPlaying([0, 1, 2]), bufferedChunks: [0] };
+            const ticked = reduce(playing, playbackTick(10000));
+            expect(ticked.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(ticked.effectiveSpeed > 0).toBe(true);
+            expect(ticked.effectiveSpeed < ticked.speed).toBe(true);
+            // At most half of the 270 sim-seconds that were resident.
+            expect(ticked.playheadSeconds <= PACE_TICK_SAFETY * BIG_TIME[9] + 1e-9).toBe(true);
+            expect(ticked.playheadSeconds > 0).toBe(true);
+            // The floor is a floor on the RATIO, never on the advance: even at
+            // the floor the safety term still bounds the tick.
+            expect(PACE_FLOOR > 0 && PACE_FLOOR < 1).toBe(true);
+            const faster = reduce(ticked, playbackSetSpeed(ticked.speed * 2));
+            expect(faster.speed).toBe(ticked.speed * 2);
+            // The FRACTION is a property of the link, not of the user's choice.
+            expect(Math.abs(faster.effectiveSpeed / faster.speed - ticked.effectiveSpeed / ticked.speed) < 1e-12).toBe(true);
         });
     });
 

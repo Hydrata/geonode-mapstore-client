@@ -139,8 +139,18 @@ export function playbackManifestFailed(runId, error) {
  *   an index when the LRU evicted it. Left false for hand-built test actions
  *   and any caller that only knows about an addition.
  */
-export function playbackChunksBuffered(chunkIndices, authoritative = false) {
-    return { type: PLAYBACK_CHUNKS_BUFFERED, chunkIndices, authoritative };
+/**
+ * @param {number[]} chunkIndices
+ * @param {boolean} [authoritative] TASK-2744 AC20 — true REPLACES the resident
+ *   set instead of unioning into it.
+ * @param {number} [nowMs] TASK-2987 (W2.1, epic 2981) — the wall clock at the
+ *   landing, stamped by playbackBufferEpic. A chunk landing MOVES THE RUNWAY,
+ *   so the reducer re-paces here rather than waiting for the next tick, and an
+ *   EMA stepped without a dt is a different filter at every tick rate. Left
+ *   undefined by hand-built test actions, which simply leaves the EMA alone.
+ */
+export function playbackChunksBuffered(chunkIndices, authoritative = false, nowMs = undefined) {
+    return { type: PLAYBACK_CHUNKS_BUFFERED, chunkIndices, authoritative, nowMs };
 }
 
 /**

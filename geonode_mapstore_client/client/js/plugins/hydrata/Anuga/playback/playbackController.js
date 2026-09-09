@@ -154,6 +154,83 @@ const DEFAULT_WINDOW_RADIUS = 2;
  */
 const STALL_DEGRADED_MS = 2500;
 
+/*
+ * ---------------------------------------------------------------------------
+ * TASK-2987 (W2.1, epic 2981) — PRE-ROLL READINESS AND RUNWAY-GOVERNED PACING
+ * ---------------------------------------------------------------------------
+ *
+ * The rule in one sentence, which is also what the control bar says:
+ *   PLAY AT THE SELECTED SPEED WHILE THE BUFFERED RUNWAY AHEAD IS AS DEEP AS
+ *   THE PLAN CAN HOLD; WHEN IT FALLS SHORT, SLOW IN PROPORTION TO THE RUNWAY
+ *   THAT REMAINS — AND NEVER FREEZE WHILE ANY RUNWAY EXISTS.
+ *
+ * `speed` stays the user's CEILING. `effectiveSpeed` is what the playhead is
+ * actually advancing at, and it is restored to `speed` exactly the moment every
+ * chunk from the playhead to the end is resident.
+ */
+
+/**
+ * Pre-roll: the chunks that must be resident before Play is offered — today's
+ * `requiredWindowFor` (frame0/frame1) PLUS ONE, i.e. three chunks from the
+ * playhead's own, clipped to the store. A store with fewer chunks than that
+ * needs all of them.
+ */
+export const FLOOR_WINDOW_CHUNKS = 3;
+
+/**
+ * The runway the pacer AIMS to keep ahead of the playhead, in WALL seconds at
+ * the selected speed — capped by what the store's memory plan can actually hold
+ * (see :func:`targetRunwaySeconds`). Wall seconds, not sim seconds, so the same
+ * number means the same thing on a 30-minute flash-flood store and a 7-day
+ * riverine one.
+ *
+ * WHY 8. Two bounds, both measured on the 813_417_1412 mirror at the 5 Mbit/s
+ * "far" profile (epic AC1's own profile):
+ *   - The pre-roll floor window is 3 chunks = ~4.3 s of playback, so the FIRST
+ *     paced sample reads runway/target. A target much above 8 s starts the
+ *     playthrough below epic AC1's `min(effectiveSpeed/speed) >= 0.4` bar.
+ *   - The steady-state trough is (link rate / speed) x g(chunkPeriod/target),
+ *     which rises towards the link rate as the target grows. At 8 s the far
+ *     leg's trough sits just above 0.4; much below 8 s it does not.
+ * So the window is roughly [8, 10] and 8 is its lower, safer end.
+ */
+export const PACE_TARGET_WALL_SECONDS = 9;
+
+/**
+ * The floor of the pacing fraction: playback never drops below 5% of the
+ * selected speed on a runway that still exists. Deliberately far below every
+ * link this epic grades (the 2 Mbit/s "slow" profile sustains ~0.20 of the
+ * default speed on the 1412 store, the memory-capped chunk-2 store ~0.40 at
+ * 5 Mbit/s) — a floor ABOVE the link's sustainable rate is a floor that
+ * guarantees the stall it exists to prevent.
+ */
+export const PACE_FLOOR = 0.05;
+
+/**
+ * The EMA time constant, as a fraction of the runway target (in wall seconds).
+ * Self-scaling on purpose: a store whose plan holds 8 s of runway can afford to
+ * smooth over 1.6 s, and one whose plan holds 1 s cannot. Chunks land one at a
+ * time (and, with two chunks in flight, sometimes in pairs), so the raw ratio
+ * is a sawtooth; without this the speed picker's readout would flicker on every
+ * landing.
+ */
+export const PACE_EMA_FRACTION = 0.7;
+
+/**
+ * THE CLAUSE THAT MAKES "NEVER FREEZE WHILE ANY RUNWAY EXISTS" TRUE RATHER THAN
+ * HOPEFUL: one tick may consume at most this fraction of the runway. It bounds
+ * the advance by what is actually resident instead of by a rate, so the playhead
+ * approaches the buffered edge and never reaches it.
+ *
+ * It is inert on a healthy main thread (a 50 ms tick against a multi-second
+ * runway) and load-bearing on a blocked one. MEASURED on the 741_410_1328_chunk2
+ * store (3.39M nodes): 204 main-thread blocks over 500 ms, worst 3.6 s, i.e. a
+ * TICK every ~1.8 s. At the selected speed one such tick advances ~2 chunks —
+ * more than the whole 3-chunk plan holds — so a rate-only pacer overshoots the
+ * buffered edge on EVERY tick however small the ratio it computes.
+ */
+export const PACE_TICK_SAFETY = 0.5;
+
 export function createInitialPlaybackState() {
     return {
         layerId: null,
@@ -247,6 +324,19 @@ export function createInitialPlaybackState() {
         // have to be repeated every time a slow link stalls again.
         degradedDismissed: false,
         pendingPlay: false,
+        // TASK-2987 (W2.1, epic 2981) — the speed the PLAYHEAD is advancing at,
+        // in sim-seconds per wall-second, i.e. `speed` scaled by the runway
+        // pacing. NULL WHEN NOTHING IS PLAYING (idle, buffering, ready, paused,
+        // seeking, fallback, error) — never 0, which would be a real speed, and
+        // never `speed`, which would make the bar's "paced" indicator render on
+        // a store that has not started. Equal to `speed` exactly whenever every
+        // chunk from the playhead to the end of the store is resident.
+        effectiveSpeed: null,
+        // The EMA's own clock. Written by PLAYBACK_TICK and by
+        // PLAYBACK_CHUNKS_BUFFERED (which is why that action gained `nowMs`):
+        // a chunk landing changes the runway between two ticks, and an EMA
+        // stepped without a dt is a different filter at every tick rate.
+        lastPaceMs: null,
         identifyArmed: false,
         identifyResult: null,
         legendOpen: false,
@@ -560,6 +650,178 @@ function isCurrentWindowBuffered(state) {
 }
 
 /**
+ * TASK-2987 AC(a) — the PRE-ROLL window: `requiredChunkIndices` plus one more
+ * chunk ahead, i.e. :data:`FLOOR_WINDOW_CHUNKS` chunks starting at the
+ * playhead's own, clipped to the store. A store with fewer chunks than that
+ * yields all of them ("or the whole store if smaller").
+ *
+ * It is a SUPERSET of `requiredWindowFor` by construction, so nothing that was
+ * ready under the old rule stops being ready for a reason other than depth.
+ * @returns {number[]} ascending chunk indices
+ */
+export function floorWindowFor(state, currentTimestep) {
+    const required = requiredChunkIndices(currentTimestep, state.nTime, state.chunkLengthT);
+    if (!(state.totalChunks > 0)) {
+        return required;
+    }
+    const first = required[0];
+    const last = Math.min(first + FLOOR_WINDOW_CHUNKS - 1, state.totalChunks - 1);
+    const window = [];
+    for (let c = first; c <= last; c++) {
+        window.push(c);
+    }
+    // Belt and braces: requiredChunkIndices is [c] or [c, c+1] and
+    // FLOOR_WINDOW_CHUNKS is 3, so this can only matter for a store whose
+    // totalChunks disagrees with its own nTime/chunkLengthT.
+    required.forEach((c) => {
+        if (window.indexOf(c) === -1) {
+            window.push(c);
+        }
+    });
+    return window.sort((a, b) => a - b);
+}
+
+/** Is the pre-roll window resident? The gate on BUFFERING -> READY/PLAYING. */
+function isFloorWindowResident(state, bufferedChunks = state.bufferedChunks, currentTimestep = state.currentTimestep) {
+    return isWindowBuffered(bufferedChunks, floorWindowFor(state, currentTimestep));
+}
+
+/**
+ * TASK-2987 AC2 (W2.2's Play button) — how much of the pre-roll window is in.
+ * @returns {{resident: number, required: number}} `required` is 0 when the
+ *   store's chunk grid is not known yet, which the caller must read as "no
+ *   percentage to show" rather than as 0%.
+ */
+export function preRollProgress(state) {
+    if (!(state.totalChunks > 0) || !isUsableChunkLength(state.chunkLengthT)) {
+        return { resident: 0, required: 0 };
+    }
+    const window = floorWindowFor(state, state.currentTimestep);
+    const have = new Set(state.bufferedChunks || []);
+    return { resident: window.filter((c) => have.has(c)).length, required: window.length };
+}
+
+/**
+ * TASK-2987 AC(c) — the last timestep the playhead may legally reach: the final
+ * timestep of the last CONTIGUOUSLY resident chunk at or after the playhead's
+ * own.
+ *
+ * Contiguity is the whole point. `bufferedChunks` is a set, and a fill queue
+ * that wrapped (TASK-2985) can hold chunk 9 while chunk 4 is still in flight;
+ * counting 9 as runway would let the playhead advance into the hole.
+ *
+ * Returns `currentTimestep` itself — i.e. ZERO runway — when the playhead's own
+ * chunk is not resident, which is exactly the state `stalled` names.
+ */
+export function lastResidentTimestep(state, bufferedChunks, currentTimestep) {
+    const nTime = state.nTime;
+    const length = state.chunkLengthT;
+    if (!isUsableChunkLength(length) || !(nTime > 0) || !(state.totalChunks > 0)) {
+        return currentTimestep;
+    }
+    const resident = new Set(bufferedChunks || []);
+    let chunk = timestepToChunkIndex(currentTimestep, length);
+    if (!resident.has(chunk)) {
+        return currentTimestep;
+    }
+    while (chunk + 1 <= state.totalChunks - 1 && resident.has(chunk + 1)) {
+        chunk += 1;
+    }
+    return Math.min((chunk + 1) * length - 1, nTime - 1);
+}
+
+/** The mean simulated seconds per timestep, or 0 when the store declares none. */
+function meanStepSeconds(state) {
+    const span = simulatedSpanSeconds(state.time);
+    if (!span || !(state.nTime > 1)) {
+        return 0;
+    }
+    return span / (state.nTime - 1);
+}
+
+/**
+ * TASK-2987 AC(b) — the target runway, in SIM seconds.
+ *
+ * `speed x PACE_TARGET_WALL_SECONDS` is the ideal; the store's own memory plan
+ * is the ceiling. `bufferWindowAhead` chunks is what the plan GUARANTEES it can
+ * hold ahead of the playhead mid-store, so a target above it would pace a
+ * perfectly healthy link down to a permanent fraction of the selected speed on
+ * any store whose budget affords only a shallow window — a lie of exactly the
+ * kind AC9 exists to prevent.
+ * @returns {number} 0 when the store's grid or duration is unknown, which the
+ *   caller must read as "cannot pace" (i.e. run at the selected speed).
+ */
+export function targetRunwaySeconds(state) {
+    const step = meanStepSeconds(state);
+    const length = state.chunkLengthT;
+    if (!step || !isUsableChunkLength(length)) {
+        return 0;
+    }
+    // At least one chunk: a plan with zero lookahead still has to compare the
+    // runway against SOMETHING, and one chunk is the smallest unit that can
+    // ever land.
+    const aheadChunks = Math.max(1, state.bufferWindowAhead || 0);
+    const holdable = aheadChunks * length * step;
+    const ideal = clampSpeed(state.speed) * PACE_TARGET_WALL_SECONDS;
+    return Math.min(ideal, holdable);
+}
+
+/**
+ * The whole pacing decision, as one pure function over (state, playhead, clock).
+ * Shared by PLAYBACK_TICK and PLAYBACK_CHUNKS_BUFFERED so the number the bar
+ * renders and the number the playhead advances at can never diverge.
+ *
+ * @param {object} state the reducer state (reads speed, time, nTime,
+ *   chunkLengthT, totalChunks, bufferWindowAhead, effectiveSpeed, lastPaceMs)
+ * @param {number[]} bufferedChunks residency to grade against — passed in
+ *   because PLAYBACK_CHUNKS_BUFFERED knows the NEW set before it is in state
+ * @param {number} currentTimestep
+ * @param {number} playheadSeconds
+ * @param {number} elapsedWallSeconds wall seconds this advance covers; 0
+ *   disables the per-tick safety term (nothing is being advanced)
+ * @param {number} nowMs the EMA's clock
+ * @returns {{effectiveSpeed: number, runwaySeconds: number,
+ *   frontierSeconds: number, residentToEnd: boolean}}
+ */
+function resolvePacing(state, bufferedChunks, currentTimestep, playheadSeconds, elapsedWallSeconds, nowMs) {
+    const speed = state.speed;
+    const frontierStep = lastResidentTimestep(state, bufferedChunks, currentTimestep);
+    const frontierSeconds = state.time ? state.time[Math.min(Math.max(frontierStep, 0), state.time.length - 1)] : playheadSeconds;
+    const residentToEnd = !(state.nTime > 0) || frontierStep >= state.nTime - 1;
+    if (residentToEnd) {
+        // AC9 / AC3 — EXACTLY the selected speed, not 0.999x of it. Everything
+        // from here to the end is in memory: there is nothing to pace against,
+        // and the EMA is reseeded so a later shortfall starts from the truth.
+        return { effectiveSpeed: speed, runwaySeconds: Infinity, frontierSeconds, residentToEnd: true };
+    }
+    const runwaySeconds = Math.max(0, frontierSeconds - playheadSeconds);
+    const target = targetRunwaySeconds(state);
+    let ratio = target > 0 ? Math.min(1, Math.max(PACE_FLOOR, runwaySeconds / target)) : 1;
+    // The EMA, over the RATIO rather than the absolute speed, so a SET_SPEED
+    // mid-playback does not read as a link that suddenly changed.
+    const previousRatio = (state.effectiveSpeed === null || state.effectiveSpeed === undefined || !(speed > 0))
+        ? null
+        : state.effectiveSpeed / speed;
+    const dtMs = (state.lastPaceMs === null || state.lastPaceMs === undefined) ? 0 : Math.max(0, nowMs - state.lastPaceMs);
+    const tauMs = 1000 * PACE_EMA_FRACTION * (speed > 0 ? target / speed : 0);
+    if (previousRatio !== null && ratio < 1 && dtMs > 0 && tauMs > 0) {
+        const alpha = 1 - Math.exp(-dtMs / tauMs);
+        ratio = previousRatio + alpha * (ratio - previousRatio);
+    }
+    // A FULL runway snaps to the ceiling instead of converging on it. An EMA
+    // that only ever approaches 1.0 would leave a permanent "paced 0.99x" badge
+    // on a link that has completely recovered (AC9).
+    ratio = Math.min(1, Math.max(PACE_FLOOR, ratio));
+    let effectiveSpeed = speed * ratio;
+    // AC(c)'s guarantee, and the reason `stalled` now means only "zero runway":
+    // never spend more than PACE_TICK_SAFETY of what is resident in one tick.
+    if (elapsedWallSeconds > 0) {
+        effectiveSpeed = Math.min(effectiveSpeed, PACE_TICK_SAFETY * runwaySeconds / elapsedWallSeconds);
+    }
+    return { effectiveSpeed, runwaySeconds, frontierSeconds, residentToEnd: false };
+}
+
+/**
  * The pure playback reducer. Registered as the `playback` slice
  * (reducers/playbackReducer.js just re-exports this) and driven by
  * epics/playbackEpics.js's real fetch/timer/click glue.
@@ -665,6 +927,11 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             status: PLAYBACK_STATUS.BUFFERING,
             // TASK-2744 AC18 — the mesh phase is over; stop reporting it.
             loadProgress: null,
+            // TASK-2987 — a new store paces from scratch; carrying the previous
+            // run's number over would render a "paced" badge for a link that
+            // has not been asked for anything yet.
+            effectiveSpeed: null,
+            lastPaceMs: null,
             currentTimestep: 0,
             playheadSeconds: action.time ? action.time[0] : 0,
             mixT: 0
@@ -706,6 +973,10 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             ...state,
             status: PLAYBACK_STATUS.FALLBACK,
             pendingPlay: false,
+            // TASK-2987 AC5 — 'fallback' is TERMINAL and nothing was downloaded,
+            // so there is no playhead to pace: null, exactly as when idle.
+            effectiveSpeed: null,
+            lastPaceMs: null,
             error: null,
             runId: action.runId !== undefined ? action.runId : state.runId,
             nNode: action.nNode || 0,
@@ -739,7 +1010,19 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // — not recovering, not pausing, not finishing the run cleanly.
         let stallCount = state.stallCount;
         let degraded = state.degraded;
-        const windowReady = isWindowBuffered(bufferedChunks, requiredWindowFor(state, state.currentTimestep));
+        // TASK-2987 AC(a) — PRE-ROLL. The initial buffer now clears at the FLOOR
+        // WINDOW (3 chunks), not at the one or two frame0/frame1 needs: starting
+        // on the minimum is what left the playhead one chunk from the buffered
+        // edge with nothing but the link between it and a stall.
+        //
+        // SEEKING and STALLED deliberately keep the frame window. The spec pins
+        // "SEEK ... keeps its semantics", and a stall recovery that waited for
+        // three chunks would hold the player frozen for two more chunk fetches
+        // on exactly the link that is already struggling — pacing, not a deeper
+        // re-buffer, is this task's answer to a shallow runway.
+        const windowReady = status === PLAYBACK_STATUS.BUFFERING
+            ? isFloorWindowResident(state, bufferedChunks, state.currentTimestep)
+            : isWindowBuffered(bufferedChunks, requiredWindowFor(state, state.currentTimestep));
         if (windowReady && (
             status === PLAYBACK_STATUS.BUFFERING ||
             status === PLAYBACK_STATUS.SEEKING ||
@@ -751,7 +1034,25 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             stallCount = 0;
             degraded = false;
         }
-        return { ...state, bufferedChunks, status, pendingPlay, stalledSinceMs, stallCount, degraded };
+        // TASK-2987 AC(d) — the landing itself moves the runway, so the pacing
+        // is recomputed here rather than waiting up to TICK_INTERVAL_MS for the
+        // next tick. `nowMs` is stamped by playbackBufferEpic; a hand-built test
+        // action without it simply leaves the EMA where it was.
+        const playing = status === PLAYBACK_STATUS.PLAYING || status === PLAYBACK_STATUS.STALLED;
+        let effectiveSpeed = playing ? state.effectiveSpeed : null;
+        let lastPaceMs = playing ? state.lastPaceMs : null;
+        if (playing && action.nowMs !== undefined && action.nowMs !== null) {
+            effectiveSpeed = resolvePacing(
+                state, bufferedChunks, state.currentTimestep, state.playheadSeconds, 0, action.nowMs
+            ).effectiveSpeed;
+            lastPaceMs = action.nowMs;
+        } else if (playing && effectiveSpeed === null) {
+            // Entered PLAYING on this landing with no clock to seed an EMA from:
+            // start at the ceiling, which the next tick corrects.
+            effectiveSpeed = state.speed;
+        }
+        return { ...state, bufferedChunks, status, pendingPlay, stalledSinceMs, stallCount, degraded,
+            effectiveSpeed, lastPaceMs };
     }
     case PLAYBACK_CHUNK_BUFFER_ERROR: {
         // Recorded for visibility only — a single chunk error among a
@@ -787,18 +1088,27 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         const base = state.status === PLAYBACK_STATUS.PAUSED
             ? { ...state, currentTimestep: 0, playheadSeconds: state.time ? state.time[0] : 0, mixT: 0 }
             : state;
-        if (isCurrentWindowBuffered(base)) {
-            return { ...base, status: PLAYBACK_STATUS.PLAYING, pendingPlay: false, lastTickMs: null };
+        // TASK-2987 AC(a) — Play is offered on the PRE-ROLL window, so pressing
+        // it on a shallower buffer defers through the same pendingPlay path a
+        // cold start uses (the bar shows the pre-roll percentage meanwhile).
+        if (isFloorWindowResident(base)) {
+            return { ...base, status: PLAYBACK_STATUS.PLAYING, pendingPlay: false, lastTickMs: null,
+                // The ceiling until the first tick measures a runway. Never
+                // null while PLAYING: the bar reads `effectiveSpeed < speed`.
+                effectiveSpeed: base.speed, lastPaceMs: null };
         }
         return {
             ...base,
             status: base.status === PLAYBACK_STATUS.SEEKING ? base.status : PLAYBACK_STATUS.BUFFERING,
-            pendingPlay: true
+            pendingPlay: true,
+            effectiveSpeed: null,
+            lastPaceMs: null
         };
     }
     case PLAYBACK_PAUSE: {
         if (state.status === PLAYBACK_STATUS.PLAYING) {
-            return { ...state, status: PLAYBACK_STATUS.READY, pendingPlay: false, lastTickMs: null };
+            return { ...state, status: PLAYBACK_STATUS.READY, pendingPlay: false, lastTickMs: null,
+                effectiveSpeed: null, lastPaceMs: null };
         }
         // Cancels a pending auto-play (e.g. paused while still buffering).
         return { ...state, pendingPlay: false };
@@ -819,9 +1129,14 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         const currentTimestep = Math.min(Math.max(0, action.timestepIndex | 0), Math.max(0, nTime - 1));
         const playheadSeconds = state.time ? state.time[currentTimestep] : currentTimestep;
         const wasPlaying = state.status === PLAYBACK_STATUS.PLAYING;
-        const seeked = { ...state, currentTimestep, playheadSeconds, mixT: 0, lastTickMs: null };
+        // TASK-2987 — the pacing EMA is a measurement of the runway AT THE OLD
+        // playhead; a scrub invalidates it, so both arms reseed rather than
+        // carry a stale ratio across the jump.
+        const seeked = { ...state, currentTimestep, playheadSeconds, mixT: 0, lastTickMs: null,
+            effectiveSpeed: null, lastPaceMs: null };
         if (isCurrentWindowBuffered(seeked)) {
-            return { ...seeked, status: wasPlaying ? PLAYBACK_STATUS.PLAYING : PLAYBACK_STATUS.READY, pendingPlay: false };
+            return { ...seeked, status: wasPlaying ? PLAYBACK_STATUS.PLAYING : PLAYBACK_STATUS.READY, pendingPlay: false,
+                effectiveSpeed: wasPlaying ? state.speed : null };
         }
         // AC: "scrub shows buffering feedback" — a DISTINCT status from the
         // generic initial 'buffering' so the UI can label it "buffering
@@ -847,10 +1162,27 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         }
         const nowMs = action.nowMs;
         const lastTickMs = (state.lastTickMs === null || state.lastTickMs === undefined) ? nowMs : state.lastTickMs;
-        const elapsedSeconds = Math.max(0, (nowMs - lastTickMs) / 1000) * state.speed;
-        const playheadSeconds = state.playheadSeconds + elapsedSeconds;
+        // KEEP THE Math.max(0, ...) CLAMP: a backwards clock must not rewind
+        // the playhead. (It is now applied once, to the wall delta, and the
+        // pacing multiplies it — the pacer needs the same wall seconds the
+        // advance does, or the per-tick safety term grades a different tick.)
+        const elapsedWallSeconds = Math.max(0, (nowMs - lastTickMs) / 1000);
+        // TASK-2987 AC(b) — the advance is `elapsed x effectiveSpeed`, not
+        // `elapsed x speed`. `state.speed` is the CEILING, and resolvePacing
+        // returns exactly it whenever the store is resident to the end.
+        const pacing = resolvePacing(
+            state, state.bufferedChunks, state.currentTimestep, state.playheadSeconds, elapsedWallSeconds, nowMs
+        );
+        const effectiveSpeed = pacing.effectiveSpeed;
+        const elapsedSeconds = elapsedWallSeconds * effectiveSpeed;
+        // TASK-2987 AC(c) — bounded by the last resident timestep. `residentToEnd`
+        // is the FINAL-CHUNK EXEMPTION: a fully resident store has no frontier to
+        // bound against, so the playhead runs on to `atEnd` below.
+        const playheadSeconds = pacing.residentToEnd
+            ? state.playheadSeconds + elapsedSeconds
+            : Math.min(state.playheadSeconds + elapsedSeconds, pacing.frontierSeconds);
         const { currentTimestep, mixT } = findTimestepBracket(state.time, playheadSeconds);
-        const candidate = { ...state, lastTickMs: nowMs, playheadSeconds, currentTimestep, mixT };
+        const candidate = { ...state, lastTickMs: nowMs, lastPaceMs: nowMs, effectiveSpeed, playheadSeconds, currentTimestep, mixT };
         if (!isCurrentWindowBuffered(candidate)) {
             // FREEZE at the last confirmed-playable instant (never advance
             // past data we don't have) — the un-advanced `state` fields
@@ -864,6 +1196,12 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             return {
                 ...state,
                 lastTickMs: nowMs,
+                lastPaceMs: nowMs,
+                // TASK-2987 — reachable ONLY at zero runway now (resolvePacing
+                // returns 0 there, so the playhead did not move and this branch
+                // is the same frozen state HEAD produced). `degraded` therefore
+                // measures time at zero runway, which is what it always claimed.
+                effectiveSpeed,
                 status: PLAYBACK_STATUS.STALLED,
                 pendingPlay: true,
                 stalledSinceMs,
@@ -877,12 +1215,23 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         }
         const atEnd = state.time && playheadSeconds >= state.time[state.time.length - 1];
         if (atEnd) {
-            return { ...candidate, status: PLAYBACK_STATUS.PAUSED, pendingPlay: false };
+            // Nothing is advancing any more, so there is no effective speed to
+            // report (the same "null when not playing" rule PAUSE follows).
+            return { ...candidate, status: PLAYBACK_STATUS.PAUSED, pendingPlay: false,
+                effectiveSpeed: null, lastPaceMs: null };
         }
         return candidate;
     }
     case PLAYBACK_SET_SPEED: {
-        return { ...state, speed: clampSpeed(action.speed) };
+        const speed = clampSpeed(action.speed);
+        // TASK-2987 — the PACING FRACTION is a property of the link, not of the
+        // user's choice, so raising the ceiling mid-playback re-scales the
+        // effective speed rather than resetting it to the new ceiling (which
+        // would hide a struggling link for a whole EMA time constant).
+        const ratio = (state.effectiveSpeed === null || state.effectiveSpeed === undefined || !(state.speed > 0))
+            ? null
+            : state.effectiveSpeed / state.speed;
+        return { ...state, speed, effectiveSpeed: ratio === null ? state.effectiveSpeed : speed * ratio };
     }
     case PLAYBACK_SET_QUANTITY: {
         // AC: "controller state survives quantity switching" — depth and

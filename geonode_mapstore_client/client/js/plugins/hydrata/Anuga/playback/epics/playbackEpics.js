@@ -865,7 +865,11 @@ export function playbackBufferEpic(action$, store) {
             const changed = resident.length !== previous.length
                 || resident.some((c, i) => c !== previous[i]);
             if (changed) {
-                actions.push(playbackChunksBuffered(resident, true));
+                // TASK-2987 (W2.1, epic 2981) — stamp the landing's wall clock:
+                // the reducer re-paces on it (a landing moves the runway) and
+                // its EMA needs a dt. Date.now() is what playbackTickEpic
+                // already uses, so the two share one clock.
+                actions.push(playbackChunksBuffered(resident, true, Date.now()));
             }
             errors.forEach((r) => actions.push(playbackChunkBufferError(r.chunkIndex, String((r.error && r.error.message) || r.error))));
             return actions.length ? Rx.Observable.of(...actions) : Rx.Observable.empty();
