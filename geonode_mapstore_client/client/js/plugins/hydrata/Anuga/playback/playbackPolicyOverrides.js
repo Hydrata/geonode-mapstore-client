@@ -62,12 +62,7 @@
  * @module plugins/hydrata/Anuga/playback/playbackPolicyOverrides
  */
 
-import {
-    APP_BASELINE_FLOOR_BYTES,
-    PLAN_TRANSIENT_EXCESS_BYTES,
-    PLAN_UNCAP_MAX_PEAK_BYTES,
-    SHIPPED_POLICY_CONSTANTS
-} from './playbackMemoryPolicy';
+import { SHIPPED_POLICY_CONSTANTS } from './playbackMemoryPolicy';
 
 /** The console prefix every resolution line carries, so it is greppable. */
 export const PLAYBACK_POLICY_OVERRIDE_PREFIX = '[playback] memory policy —';
@@ -295,6 +290,3 @@ export function isPlaybackPolicyTester(state) {
     return !!(state && state.anuga && state.anuga.ui
         && state.anuga.ui.canSelectComputeTarget === true);
 }
-
-// Re-exported so a consumer needs one import for "what would it have been?".
-export { APP_BASELINE_FLOOR_BYTES, PLAN_TRANSIENT_EXCESS_BYTES, PLAN_UNCAP_MAX_PEAK_BYTES };
