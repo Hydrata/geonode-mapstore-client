@@ -343,15 +343,23 @@ export function chunkKey(arrayName, chunkIndices) {
 
 /**
  * Full decode pipeline for one already-fetched (still-compressed) chunk:
- * gunzip -> typed array -> (optional) dequantize. Kept as one entry point so
- * the fetcher (playbackChunkFetcher.js) has a single seam to call per chunk.
+ * decodeCompressedChunk -> (optional) dequantize.
+ *
+ * DELEGATES rather than repeating the pipeline (TASK-2991). It used to inline
+ * its own `gunzip` + `decodeTypedArray`, which was harmless while every store
+ * carried the same chain and became a landmine the moment one did not: this is
+ * an EXPORTED decoder, so a caller reaching for it against a v3 store would
+ * have got a Float32Array of running differences, correctly scaled, correctly
+ * sized, and completely wrong — the exact defect the rest of this task exists
+ * to close. There is one seam now, and it inverts the chain.
+ *
  * @param {ArrayBuffer} compressedBuffer
- * @param {{dtype: string, byteorder?: string, quantization?: {scale:number, offset:number}}} opts
+ * @param {{dtype: string, byteorder?: string, codecs?: object[], nodeExtent?: number,
+ *          quantization?: {scale:number, offset:number}}} opts
  * @returns {Promise<Uint16Array|Int32Array|Float32Array|Float64Array>}
  */
 export async function decodeChunk(compressedBuffer, opts) {
-    const { dtype, byteorder = 'little', quantization } = opts || {};
-    const raw = await gunzip(compressedBuffer);
-    const typed = decodeTypedArray(raw, dtype, byteorder);
+    const { quantization } = opts || {};
+    const typed = await decodeCompressedChunk(compressedBuffer, opts);
     return quantization ? dequantize(typed, quantization) : typed;
 }

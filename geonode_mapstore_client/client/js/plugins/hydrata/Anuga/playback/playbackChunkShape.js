@@ -78,15 +78,6 @@ export function codecChainFor(manifest, arrayName) {
 }
 
 /**
- * True if this array's declared chain names `temporal_delta`.
- * @param {object[]|undefined} chain
- * @returns {boolean}
- */
-export function chainHasTemporalDelta(chain) {
-    return Array.isArray(chain) && chain.some((codec) => codec && codec.name === 'temporal_delta');
-}
-
-/**
  * Refuse a store that declares a codec this client cannot invert —
  * TASK-2991, and the same posture as resolveChunkLengthT above.
  *

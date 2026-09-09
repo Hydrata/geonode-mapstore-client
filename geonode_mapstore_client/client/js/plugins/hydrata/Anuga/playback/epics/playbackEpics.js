@@ -76,8 +76,7 @@ import {
     resolveChunkLengthT,
     assertNodeExtentMatchesMesh,
     assertDeclaredNodeCountAgrees,
-    assertCodecsAreSupported,
-    codecChainFor
+    assertCodecsAreSupported
 } from '../playbackChunkShape';
 import {
     computePlaybackMemoryPlan,
@@ -263,32 +262,28 @@ function renderedTimestep(pb) {
 }
 
 function arrayConfigsFor(manifest) {
-    const m = manifest || {};
-    const q = m.quantization || {};
-    const shapes = m.chunk_shapes || {};
+    const q = (manifest || {}).quantization || {};
     const configs = {};
     QUANTITY_ARRAYS.forEach((name) => {
         const meta = q[name] || {};
-        const shape = shapes[name];
-        // TASK-2991 — the store's own codec chain and chunk row length ride
-        // along. The FETCHER resolves both from its manifest as well
-        // (_codecOptsFor), because loadPlaybackFrame / loadPlaybackMesh /
-        // loadPlaybackEnvelope share its cache and pass no chain of their own;
-        // these are the SAME two values read from the SAME manifest, so the
-        // two readings cannot disagree, and having them here keeps the config
-        // an honest description of what will actually be decoded.
-        configs[name] = {
-            dtype: 'uint16',
-            byteorder: meta.byteorder || 'little',
-            quantization: meta.scale !== undefined ? meta : undefined,
-            codecs: codecChainFor(m, name),
-            nodeExtent: Array.isArray(shape) ? shape[1] : undefined
-        };
+        configs[name] = { dtype: 'uint16', byteorder: meta.byteorder || 'little', quantization: meta.scale !== undefined ? meta : undefined };
     });
     return configs;
 }
 
 /**
+ * TASK-2991 (W3.3, epic 2981) — NOTE WHAT IS DELIBERATELY NOT HERE. The codec
+ * chain and the chunk's node extent do NOT ride in this object, even though
+ * this is the epic that reads the manifest. PlaybackChunkFetcher resolves both
+ * from its OWN manifest, per array, in `_codecOptsFor`. That is not a stylistic
+ * choice: loadPlaybackFrame (the urgent frame path), loadPlaybackMesh and
+ * loadPlaybackEnvelope also call fetchAndDecodeChunk, they pass only
+ * {dtype, byteorder, quantization}, and all four paths write into the SAME
+ * chunk cache. Carrying the chain here as well would put a second copy of it in
+ * the codebase whose only possible behaviours are "identical to the fetcher's"
+ * or "a bug", and would make it look as though a call site could be responsible
+ * for it — which is exactly how one of the four ends up not being.
+ *
  * usedJSHeapSize, or null where the browser does not expose it (TASK-2744
  * AC20). Never faked — a null observation scores as "unmeasured", which is
  * honest, rather than as "within budget", which is the defect.
