@@ -38,6 +38,26 @@ import {
 
 export const VECTOR_DRAW_OWNER = 'vectorDraw';
 
+// TASK-3041 fix round (D1/D2) — shared with vectorDrawDeleteEpic (a WFS-T
+// DELETE on a rainfall layer's data-carrying feature can flip
+// RainfallSerializerV2.get_has_feature_data server-side from true to false,
+// just as an Insert/Update can) and vectorDrawCancelEpic's
+// cancellingAfterError branch (that branch's own TASK-799 comment: a save
+// here "usually failed end-to-end, but occasionally the BE commits and then
+// the response times out" — so has_feature_data can have changed
+// server-side even though the FE saw an error). Same scoping as
+// vectorDrawSaveEpic's TASK-3041 fix below (rai_ layers only, via
+// getAnugaPrefix) — factored out because it is now needed at three call
+// sites instead of one; a delete or cancel-after-error on a non-rainfall
+// layer costs no extra request.
+const rainfallRefetchFor = (store, config) => {
+    const isRainfallLayer = getAnugaPrefix(config?.layerName) === 'rai_';
+    const projectId = store.getState()?.anuga?.projects?.data?.id;
+    return (isRainfallLayer && projectId)
+        ? fetchResourceEndpoint('rainfall', projectId).map(setAnugaRainfallData)
+        : Rx.Observable.empty();
+};
+
 /**
  * Normalise an END_DRAWING payload to a bare GeoJSON geometry. DrawSupport's
  * onEndDrawing has multiple call sites (DrawSupport.jsx:610 a FeatureCollection
@@ -552,7 +572,13 @@ export const vectorDrawCancelEpic = (action$, store) =>
             if (cameFromPicker && !cancellingPicker) {
                 if (cancellingAfterError && config?.layerName) {
                     const wfsUrl = getWfsUrl(store);
+                    // TASK-3041 fix round (D2) — the occasional "BE
+                    // committed, FE saw a timeout" case this branch exists
+                    // for can equally have changed has_feature_data on a
+                    // rainfall layer; refetch the collection alongside the
+                    // feature-list refetch this branch already does.
                     return Rx.Observable.of(drawSupportReset(VECTOR_DRAW_OWNER))
+                        .concat(rainfallRefetchFor(store, config))
                         .concat(
                             Rx.Observable.from(loadAllFeatures(wfsUrl, config.layerName))
                                 .map((features) => returnToPicker(features))
@@ -636,7 +662,15 @@ export const vectorDrawDeleteEpic = (action$, store) =>
                     if (layer?.id) {
                         baseActions.push(refreshLayerVersion(layer.id));
                     }
+                    // TASK-3041 fix round (D1) — a WFS-T DELETE of the one
+                    // rainfall feature carrying data_timeseries_id/
+                    // data_constant flips has_feature_data server-side from
+                    // true to false; state.anuga.resources.rainfalls must be
+                    // refetched here too, or the "attached, has data" notice
+                    // and the build-gate confirm dialog stay stale exactly
+                    // like the save path this card was filed against.
                     return Rx.Observable.from(baseActions)
+                        .concat(rainfallRefetchFor(store, config))
                         .concat(
                             Rx.Observable.from(loadAllFeatures(wfsUrl, config.layerName))
                                 .map((features) => returnToPicker(features))
