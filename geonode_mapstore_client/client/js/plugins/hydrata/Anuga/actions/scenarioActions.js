@@ -39,6 +39,19 @@ const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 // commitAnugaScenarioFieldEpic (crudEpics.js): lazy CREATE on the first
 // commit for an id-less scenario, PATCH on every commit after.
 const COMMIT_ANUGA_SCENARIO_FIELD = 'COMMIT_ANUGA_SCENARIO_FIELD';
+// TASK-3012 (epic 2815 W5) — the closing bracket of a field commit's
+// round-trip, dispatched by commitAnugaScenarioFieldEpic from BOTH the
+// success and the failure arm of every branch (PATCH, in-flight-create
+// follow-up PATCH, lazy CREATE). It exists because nothing else can close
+// the bookkeeping: SAVE_ANUGA_SCENARIO_SUCCESS is not commit-specific, and
+// SAVE_ANUGA_SCENARIO_ERROR deliberately carries NO scenario id (review fix,
+// TASK-2953/2890 finding 3 — see saveAnugaScenarioError below), so a slice
+// keyed on scenario id could never clear itself from a failure and the flag
+// would stick on forever after one 400.
+// `scenarioId` is the commit KEY, i.e. `scenario.id || scenario._tempId` —
+// the same expression scenariosReducer already keys UPDATE_ANUGA_SCENARIO on,
+// and the one TASK-2826's dispatchBuild must ask with.
+const COMMIT_ANUGA_SCENARIO_FIELD_SETTLED = 'COMMIT_ANUGA_SCENARIO_FIELD_SETTLED';
 // TASK-2890 (epic 2815 W3, Layer 4) — Redux-held mirror of a Build-and-Run
 // deferred-run intent, keyed by scenario id, so it survives the Scenarios
 // menu unmounting (see runAfterBuildEpic, pollingEpics.js).
@@ -151,6 +164,12 @@ function commitAnugaScenarioField(scenario, kv) {
         dispatch({ type: UPDATE_ANUGA_SCENARIO, scenario: merged });
         dispatch({ type: COMMIT_ANUGA_SCENARIO_FIELD, scenario: merged });
     };
+}
+
+// TASK-3012 (epic 2815 W5) — see COMMIT_ANUGA_SCENARIO_FIELD_SETTLED above.
+// Dispatched only by commitAnugaScenarioFieldEpic, never by a component.
+function commitAnugaScenarioFieldSettled(scenarioId) {
+    return { type: COMMIT_ANUGA_SCENARIO_FIELD_SETTLED, scenarioId };
 }
 
 // TASK-2890 (epic 2815 W3, Layer 4) — arm/advance/clear the Redux mirror of
@@ -416,6 +435,7 @@ module.exports = {
     SAVE_NETWORK, saveNetwork,
     SELECT_ANUGA_SCENARIO, selectAnugaScenario,
     COMMIT_ANUGA_SCENARIO_FIELD, commitAnugaScenarioField,
+    COMMIT_ANUGA_SCENARIO_FIELD_SETTLED, commitAnugaScenarioFieldSettled,
     ARM_RUN_AFTER_BUILD, armRunAfterBuild,
     ADVANCE_RUN_AFTER_BUILD, advanceRunAfterBuild,
     CLEAR_RUN_AFTER_BUILD, clearRunAfterBuild

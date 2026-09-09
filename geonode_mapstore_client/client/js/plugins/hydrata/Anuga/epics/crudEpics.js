@@ -51,6 +51,8 @@ import {
     saveAnugaScenarioSuccess,
     // TASK-2953 (epic 2815 W3, Layer 1) — per-field commit (lazy create / PATCH).
     COMMIT_ANUGA_SCENARIO_FIELD,
+    // TASK-3012 (epic 2815 W5) — closes a commit's round-trip in the store.
+    commitAnugaScenarioFieldSettled,
     // TASK-2890 (epic 2815 W3, Layer 4) — Redux arm for a deferred run.
     armRunAfterBuild,
     BUILD_SCENARIO,
@@ -533,6 +535,74 @@ const _patchScenario = (projectId, scenarioId, scenario) => {
         .then(response => ({response, patchBody}));
 };
 
+// TASK-3012 (epic 2815 W5) — the PATCH-path sibling of
+// _inFlightScenarioCreates above. FOUND ON LIVE PRODUCTION 2026-09-08:
+// setting terrain/boundary/inflow/rainfall ~2.5 s apart on scenario 419 left
+// the SERVER holding rainfall:null while the UI select read 1505.
+//
+// Why the client store was not the victim, and why this is a wire fix: every
+// PATCH ships the WHOLE 12-key SCENARIO_PATCH_FIELDS snapshot taken when its
+// action was created (scenarioPatchBody), so two overlapping PATCHes are two
+// full-row writes and the one the BE commits LAST wins — even though it was
+// composed FIRST. Redux is already protected (TASK-2953's no-clobber merge,
+// scenariosReducer.js SAVE_ANUGA_SCENARIO_SUCCESS, keeps whatever moved on
+// locally), which is exactly what makes the loss silent: the pane shows the
+// value the server does not have, and TASK-2972 made per-field saves quiet so
+// there is no toast to look wrong either.
+//
+// Remedy chosen: SERIALISE per scenario id — at most one PATCH in flight per
+// scenario, the queued one sent only once its predecessor has landed, so it
+// carries a snapshot the server has already accepted the earlier half of.
+// The alternative (PATCH only the changed field) is not buildable from here:
+// commitAnugaScenarioField (actions/scenarioActions.js) computes
+// `{...scenario, ...kv}` and dispatches only the merged object — `kv` never
+// reaches the action, so the epic cannot know which field moved.
+//
+// Keyed on scenario.id ONLY (the has-id branch). The two tempId branches stay
+// on mergeMap: their ordering is already governed by _inFlightScenarioCreates,
+// and blanket-serialising the whole epic breaks that guard — the second
+// commit's projection would be deferred until the first inner observable
+// completed, by which point _createScenario's settle handler has deleted
+// _inFlightScenarioCreates[tempId], so the second commit falls through to the
+// lazy-CREATE branch and fires a SECOND POST (H4's spec goes red).
+//
+// Each entry is a TAIL promise that always RESOLVES (never rejects), so one
+// failed PATCH cannot poison the commits queued behind it, and it is deleted
+// on settle when it is still the current tail — the map is empty at rest, so
+// it cannot grow with the session the way a groupBy subject per id would.
+const _inFlightScenarioCommits = {}; // scenarioId -> Promise<void> (tail of the serialised PATCH chain)
+export const __resetInFlightScenarioCommitsForTests = () => {
+    Object.keys(_inFlightScenarioCommits).forEach((k) => delete _inFlightScenarioCommits[k]);
+};
+
+const _queuePatchScenario = (projectId, scenarioId, scenario) => {
+    const runPatch = () => _patchScenario(projectId, scenarioId, scenario);
+    const previousTail = _inFlightScenarioCommits[scenarioId];
+    const result = previousTail ? previousTail.then(runPatch, runPatch) : runPatch();
+    const tail = result.then(() => {}, () => {});
+    _inFlightScenarioCommits[scenarioId] = tail;
+    tail.then(() => {
+        // Only the CURRENT tail clears the slot — a later commit may already
+        // have chained itself on and replaced it.
+        if (_inFlightScenarioCommits[scenarioId] === tail) {
+            delete _inFlightScenarioCommits[scenarioId];
+        }
+    });
+    return result;
+};
+
+// TASK-3012 (epic 2815 W5) — every commit round-trip closes with
+// COMMIT_ANUGA_SCENARIO_FIELD_SETTLED so the store-visible in-flight slice
+// (scenariosReducer's commitsInFlight) can never stick on. Emitted as a thunk
+// wrapping the existing terminal action rather than as a second emission from
+// the epic, so the number of actions the epic emits per commit is unchanged
+// (TASK-2953/2972's specs assert on it) and every existing consumer of the
+// success/error thunk keeps working untouched.
+const withCommitSettled = (commitKey, terminalAction) => (dispatch) => {
+    dispatch(terminalAction);
+    dispatch(commitAnugaScenarioFieldSettled(commitKey));
+};
+
 // TASK-2953 (epic 2815 W3, Layer 1) — switchMap -> mergeMap: a second SAVE
 // (e.g. a same-tick double dispatch) must not silently drop the first save's
 // success/error the way switchMap would — mergeMap lets both round-trips
@@ -619,17 +689,28 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
         .mergeMap((action) => {
             const projectId = getProjectId(store.getState());
             const scenario = action.scenario;
+            // TASK-3012 — the commit key: the same `id || _tempId` expression
+            // scenariosReducer keys UPDATE_ANUGA_SCENARIO on, so the settled
+            // action closes exactly the entry COMMIT_ANUGA_SCENARIO_FIELD
+            // opened. TASK-2826 must ask isScenarioCommitInFlight with the
+            // same expression. Round-2 fix: on the two tempId branches this
+            // is only the OPENING key — once the create resolves the reducer
+            // migrates the count onto the real id, so those branches settle
+            // on the real id instead (see below).
+            const commitKey = scenario.id || scenario._tempId;
 
             if (scenario.id) {
                 const scenarioId = scenario.id;
                 return Rx.Observable.from(
-                    _patchScenario(projectId, scenarioId, scenario)
+                    // TASK-3012 — _queuePatchScenario, not _patchScenario:
+                    // at most one PATCH in flight per scenario id.
+                    _queuePatchScenario(projectId, scenarioId, scenario)
                         // TASK-2972 — quiet: a per-field auto-save PATCH
                         // raises no toast (the lazy CREATE below keeps the
                         // one confirmation the user is owed).
-                        .then(({response, patchBody}) => saveAnugaScenarioSuccess(
+                        .then(({response, patchBody}) => withCommitSettled(commitKey, saveAnugaScenarioSuccess(
                             {...response.data, id: scenarioId}, {sentPayload: patchBody, quiet: true}
-                        ))
+                        )))
                         // Review fix (adversarial pass, TASK-2953/2890,
                         // data-loss/major finding 3) — do NOT pass
                         // scenarioId here. saveAnugaScenarioError's only use
@@ -648,7 +729,7 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
                         // on BUILD_SCENARIO_ERROR's real-failure path
                         // (comparisonActions.js buildScenarioError,
                         // conflict: false), not here.
-                        .catch(error => saveAnugaScenarioError(error, {}))
+                        .catch(error => withCommitSettled(commitKey, saveAnugaScenarioError(error, {})))
                 );
             }
 
@@ -660,15 +741,44 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
                 // against the real id instead of firing a second create.
                 return Rx.Observable.from(
                     _inFlightScenarioCreates[tempId]
-                        .then((created) => _patchScenario(projectId, created.id, scenario)
-                            // TASK-2972 — quiet for the same reason as the
-                            // has-id branch: the create this one waited on
-                            // already toasted, so a second notice for the
-                            // same user gesture is pure noise.
-                            .then(({response, patchBody}) => saveAnugaScenarioSuccess(
-                                {...response.data, id: created.id}, {sentPayload: patchBody, tempId, quiet: true}
-                            )))
-                        .catch(error => saveAnugaScenarioError(error, {}))
+                        // TASK-3012 — enqueued on the REAL id the create just
+                        // returned. Once the create resolves the redux row
+                        // migrates tempId -> real id, so the user's very next
+                        // select takes the has-id branch above and would
+                        // otherwise overlap THIS still-outstanding PATCH.
+                        // Deferring only the promise (this call runs inside
+                        // the create's own .then) leaves the mergeMap
+                        // projection untouched, so _inFlightScenarioCreates'
+                        // H4 guard is unaffected.
+                        .then((created) => {
+                            // TASK-3012 round-2 fix — settle under the REAL
+                            // id, not the tempId this commit opened under.
+                            // The create's own success has by now migrated
+                            // the whole row (and the commitsInFlight count
+                            // with it, scenariosReducer.js) tempId -> real
+                            // id, and stripped `_tempId`; keying the settled
+                            // action on the dead tempId would decrement
+                            // nothing and strand the count on forever.
+                            // Falls back to the tempId only if the create
+                            // came back id-less, in which case the reducer
+                            // bailed out of the migration too.
+                            const settleKey = (created && created.id) || commitKey;
+                            return _queuePatchScenario(projectId, created.id, scenario)
+                                // TASK-2972 — quiet for the same reason as
+                                // the has-id branch: the create this one
+                                // waited on already toasted, so a second
+                                // notice for the same user gesture is pure
+                                // noise.
+                                .then(({response, patchBody}) => withCommitSettled(settleKey, saveAnugaScenarioSuccess(
+                                    {...response.data, id: created.id}, {sentPayload: patchBody, tempId, quiet: true}
+                                )))
+                                // Caught HERE, inside the create's `.then`,
+                                // so the outer catch below sees only a
+                                // FAILED CREATE — for which nothing migrated
+                                // and the tempId is still the live key.
+                                .catch(error => withCommitSettled(settleKey, saveAnugaScenarioError(error, {})));
+                        })
+                        .catch(error => withCommitSettled(commitKey, saveAnugaScenarioError(error, {})))
                 );
             }
             // First commit for this scenario — lazy create with the FULL
@@ -683,8 +793,16 @@ export const commitAnugaScenarioFieldEpic = (action$, store) =>
             const lazyCreateSentPayload = scenarioPatchBody(scenario);
             return Rx.Observable.from(
                 _createScenario(projectId, scenario)
-                    .then(data => saveAnugaScenarioSuccess(data, {tempId, sentPayload: lazyCreateSentPayload}))
-                    .catch(error => saveAnugaScenarioError(error, {}))
+                    // TASK-3012 round-2 fix — same reason as the H4 branch
+                    // above: withCommitSettled dispatches the SUCCESS first,
+                    // which migrates commitsInFlight[tempId] onto the real
+                    // id, so the settled action that follows it must use the
+                    // real id too.
+                    .then(data => withCommitSettled(
+                        (data && data.id) || commitKey,
+                        saveAnugaScenarioSuccess(data, {tempId, sentPayload: lazyCreateSentPayload})
+                    ))
+                    .catch(error => withCommitSettled(commitKey, saveAnugaScenarioError(error, {})))
             );
         });
 
