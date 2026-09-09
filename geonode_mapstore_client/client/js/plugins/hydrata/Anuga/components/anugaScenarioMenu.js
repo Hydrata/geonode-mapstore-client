@@ -49,6 +49,12 @@ import {
     getScenariosArray,
     getSelectedScenario,
     canEditScenarioByRole,
+    // TASK-2826 (epic 2815 W5, ruling d92) — the REAL "a write to this
+    // scenario is on the wire right now" signal (TASK-3012). Deliberately NOT
+    // `scenario.unsaved`, which only means "the pane differs from the last
+    // server response" and is set by purely local writes that never touch the
+    // network — see the selector's own docstring.
+    isScenarioCommitInFlight,
     selectedScenarios as selectedScenariosSelector
 } from "../selectorsAnuga";
 import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
@@ -81,6 +87,38 @@ import {SectionHeader} from "../../SimpleView/components/primitives";
 // ever having two playback layers/runs live at once (AC: "never two active
 // at once").
 export const ANUGA_RESULTS_PLAYBACK_LAYER_ID = 'anuga-results-playback';
+
+/**
+ * TASK-2826 (epic 2815 W5, operator ruling d92) — the BOUND on dispatchBuild's
+ * deferral, in ms.
+ *
+ * dispatchBuild holds a Build clicked while a field commit is still on the
+ * wire (AC1(b)) and releases it when that commit settles. The wait must not be
+ * open-ended: there is NO client-side axios timeout on the scenario API, so a
+ * hung or lost PATCH would leave the Build button silently dead — trading a
+ * silent stale write for a silently dead control. A 4xx cannot strand the
+ * deferral (isScenarioCommitInFlight clears on the catch arm of all three
+ * branches, crudEpics.js:731/:787/:806); this bound exists purely for a
+ * promise that never settles AT ALL.
+ *
+ * On elapse the build is DISPATCHED ANYWAY rather than dropped: the user's
+ * click is honoured, and the worst case is the pre-TASK-2826 behaviour (a
+ * build composed while a write is outstanding) minus the redundant save that
+ * made it a server-side clobber. Overridable per-instance via the
+ * `deferredBuildMaxWaitMs` prop — there is no fake-timer library in this
+ * client's test rig, so the bound has to be injectable for its spec to be
+ * anything but a real multi-second wait.
+ *
+ * ONE BOUND PER HELD SCENARIO (re-verifier, blocking). Each entry in
+ * `pendingDeferredBuilds` owns its own timer, and nothing that happens to
+ * another scenario clears or re-aims it. The bound also runs from the FIRST
+ * held click on that scenario and is NOT restarted by a second one, so the
+ * guarantee it buys is exactly: a held Build click is honoured within
+ * DEFERRED_BUILD_MAX_WAIT_MS of being made. (When this was a single shared
+ * timer, arming a deferral for a second scenario clearTimeout()'d the first
+ * one's bound along with its intent, and that first click was lost outright.)
+ */
+export const DEFERRED_BUILD_MAX_WAIT_MS = 10000;
 
 /**
  * The presigned-manifest endpoint for a run's TASK-2622 playback store
@@ -415,6 +453,21 @@ class AnugaScenarioMenuClass extends React.Component {
       commitAnugaScenarioField: PropTypes.func,
       saveAnugaScenario: PropTypes.func,
       buildScenarioExplicit: PropTypes.func,
+      // TASK-2826 (epic 2815 W5, ruling d92) — true while a field commit for
+      // the SELECTED scenario is still on the wire (isScenarioCommitInFlight,
+      // fed by mapStateToProps). dispatchBuild defers on it instead of
+      // dispatching the redundant whole-object save that could clobber that
+      // very commit on the server (crudEpics.js:638).
+      selectedScenarioCommitInFlight: PropTypes.bool,
+      // TASK-2826 (verifier note 2) — the RAW per-scenario in-flight-commit
+      // counts, {[scenario.id || _tempId]: <count>} (scenariosReducer.js).
+      // maybeDispatchDeferredBuild reads it for the DEFERRED scenario once the
+      // selection has moved off it, which the boolean above can no longer
+      // answer for.
+      commitsInFlight: PropTypes.object,
+      // TASK-2826 (AC5) — injectable override of DEFERRED_BUILD_MAX_WAIT_MS,
+      // so the bound-elapsed arm is specifiable without a fake-timer library.
+      deferredBuildMaxWaitMs: PropTypes.number,
       // TASK-2890 (epic 2815 W3, Layer 4) — Redux mirror of a deferred run.
       armRunAfterBuildRedux: PropTypes.func,
       clearRunAfterBuildRedux: PropTypes.func,
@@ -466,7 +519,21 @@ class AnugaScenarioMenuClass extends React.Component {
           // gate means a bare 'built' never preceded by an observed in-flight
           // episode (e.g. a save that did not rebuild, or the stale pre-rebuild
           // 'built' of an already-built scenario) can never trigger a run.
-          runAfterBuild: null,
+          // TASK-3038 — was a SINGLE {scenarioId, phase} | null slot: a
+          // second Build-and-Run on a DIFFERENT scenario overwrote the
+          // first's entry here while the first's Redux mirror still said
+          // localOwned:true, stranding the first run forever (see
+          // runAfterBuildEpic's `if (menuMounted && localOwned) return;`,
+          // pollingEpics.js). Now a Map<scenarioId, {scenarioId, phase}>,
+          // mirroring the shape this.pendingDeferredBuilds already uses
+          // (:586) — a DIFFERENT map (that one holds builds deferred for an
+          // in-flight commit; this one holds runs awaiting a build's
+          // completion). setRunAfterBuildEntry/clearRunAfterBuildEntry below
+          // always build a NEW Map from the functional-updater's own
+          // prevState, never from `this.state` directly, so multiple entries
+          // resolved in the same synchronous pass (maybeRunAfterBuild's
+          // snapshot-and-forEach) can never clobber each other.
+          runAfterBuild: new Map(),
           // TASK-2211 (W3.2, epic 2204, od-4) — {scenario} | null. Set by
           // maybeRunAfterBuild INSTEAD OF firing the run when the build's
           // actual mesh diverged beyond threshold; cleared by
@@ -511,6 +578,26 @@ class AnugaScenarioMenuClass extends React.Component {
       this.pendingOptionalInputsFocusFieldId = null;
       // TASK-2268 — the Required analog, read by handleRequiredExpanded.
       this.pendingRequiredFocusFieldId = null;
+      // TASK-2826 (epic 2815 W5, ruling d92) — the deferred-build intents,
+      // ONE PER SCENARIO: Map<scenarioId, {scenarioId, runAfterBuild, timer}>,
+      // an entry per Build click currently being HELD for that scenario's
+      // in-flight field commit. Deliberately NOT React state (same rationale
+      // as the three pending*FocusFieldId fields above): nothing renders off
+      // it, it must be readable and clearable SYNCHRONOUSLY from
+      // componentWillUnmount — where setState is illegal — and its resolution
+      // is driven by a PROP change (the in-flight signal flipping false), which
+      // already re-renders and runs componentDidUpdate on its own.
+      //
+      // A MAP, not the single slot this started as (re-verifier, blocking):
+      // once the note-2 fix made a held build legitimately survive a selection
+      // move, the slot could still be OCCUPIED when a second Build landed on a
+      // DIFFERENT scenario — and arming the second overwrote the first's intent
+      // AND clearTimeout()'d its bound, so the first click was discarded with no
+      // build, no toast and no timeout. That is the silently-swallowed click
+      // ruling d92's bounded wait exists to prevent. Each entry now owns its own
+      // bound and its own runAfterBuild intent, and each is released only by
+      // ITS OWN scenario's settle, ITS OWN bound, or the unmount flush.
+      this.pendingDeferredBuilds = new Map();
   }
 
   componentDidMount() {
@@ -533,9 +620,209 @@ class AnugaScenarioMenuClass extends React.Component {
               }
           }
       }
+      // TASK-2826 (epic 2815 W5, ruling d92) — release a Build that was held
+      // for an in-flight field commit, now that the commit has settled. Runs
+      // BEFORE maybeRunAfterBuild: the build it dispatches arms this same
+      // component's runAfterBuild machine, and that arm is resolved by the
+      // NEXT update (the polled building→built transition), never this one.
+      this.maybeDispatchDeferredBuild();
       // UAT #8 fix — fire any "Build and Run" run that is now eligible.
       this.maybeRunAfterBuild(prevProps);
   }
+
+  // TASK-2826 (epic 2815 W5, ruling d92, AC5) — the menu is conditionally
+  // rendered (anugaContainer.js:417-418) and one Hydraulics-tab click unmounts
+  // it (anugaContainer.js:283-290). DECISION: a deferral in flight at that
+  // moment is FLUSHED, not dropped — the user clicked Build and is owed the
+  // build; dropping it would swallow the click as silently as the dead-button
+  // case AC5's bound exists to prevent. The run half of a Build-and-Run is
+  // handed to Redux WITHOUT localOwned, so runAfterBuildEpic (pollingEpics.js)
+  // resolves it — exactly the split dispatchBuild's save branch already uses
+  // for an intent that outlives this component (TASK-2890).
+  //
+  // EVERY held entry is flushed, not just one (re-verifier, blocking): with a
+  // map there can legitimately be more than one, and each is a click the user
+  // made. The Redux runAfterBuild mirror is itself keyed per scenario
+  // (scenariosReducer.js ARM_RUN_AFTER_BUILD, :471-491), so two flushed
+  // Build-and-Runs produce two independent arms rather than one overwriting
+  // the other.
+  componentWillUnmount() {
+      this.flushDeferredBuilds('unmount');
+  }
+
+  // TASK-2826 — release EVERY held deferral, oldest first (Map preserves
+  // insertion order). fireDeferredBuild clears each entry's own timer, so no
+  // separate timer sweep is needed. The key list is SNAPSHOT first because
+  // fireDeferredBuild mutates the map as it goes.
+  flushDeferredBuilds = (reason) => {
+      const ids = Array.from(this.pendingDeferredBuilds.keys());
+      ids.forEach((scenarioId) => this.fireDeferredBuild(scenarioId, reason, false));
+  };
+
+  // TASK-2826 — arm a deferral for ONE scenario. Entries for other scenarios
+  // are never touched: that cross-scenario overwrite was the re-verifier's
+  // blocking defect (a build held for A was discarded, unbounded and
+  // unsurfaced, the moment a deferral was armed for B).
+  //
+  // A SECOND Build click on a scenario that ALREADY has one held is NOT a
+  // second entry and NOT a second build. It is folded into the existing entry:
+  //   - exactly one build still fires when that entry releases;
+  //   - `runAfterBuild` is OR-ed in, so a plain Build following a Build-and-Run
+  //     cannot downgrade the pending run intent (and a Build-and-Run following
+  //     a plain Build upgrades it);
+  //   - the BOUND IS NOT RESTARTED. It is measured from the FIRST held click,
+  //     so the guarantee is "a held click is honoured within
+  //     DEFERRED_BUILD_MAX_WAIT_MS of being made". Restarting it (which the
+  //     single-slot version did) would let an impatient user who re-clicks
+  //     every few seconds extend their own wait without limit — the dead-button
+  //     symptom the bound exists to rule out.
+  armDeferredBuild = (scenarioId, runAfterBuild) => {
+      const existing = this.pendingDeferredBuilds.get(scenarioId);
+      if (existing) {
+          existing.runAfterBuild = existing.runAfterBuild || !!runAfterBuild;
+          trackEvent('button', 'click', 'anuga-scenario-menu-build-deferred-again');
+          return;
+      }
+      const bound = typeof this.props.deferredBuildMaxWaitMs === 'number'
+          ? this.props.deferredBuildMaxWaitMs
+          : DEFERRED_BUILD_MAX_WAIT_MS;
+      const entry = {scenarioId, runAfterBuild: !!runAfterBuild, timer: null};
+      this.pendingDeferredBuilds.set(scenarioId, entry);
+      entry.timer = setTimeout(() => {
+          entry.timer = null;
+          this.fireDeferredBuild(scenarioId, 'bound-elapsed');
+      }, bound);
+      trackEvent('button', 'click', 'anuga-scenario-menu-build-deferred');
+  };
+
+  // TASK-2826 — release ONE held build, identified by the scenario it is held
+  // for. `localResolver` is false only from the unmount flush, where this
+  // component cannot resolve the deferred run itself (see componentWillUnmount
+  // above). The entry is removed BEFORE anything is dispatched, so the
+  // re-entrant componentDidUpdate that a dispatch/setState can provoke finds
+  // nothing left to fire and this can never double-dispatch.
+  fireDeferredBuild = (scenarioId, reason, localResolver = true) => {
+      const pending = this.pendingDeferredBuilds.get(scenarioId);
+      if (!pending) return;
+      this.pendingDeferredBuilds.delete(scenarioId);
+      if (pending.timer) {
+          clearTimeout(pending.timer);
+          pending.timer = null;
+      }
+      const {runAfterBuild} = pending;
+      if (this.props.buildScenarioExplicit) {
+          this.props.buildScenarioExplicit(scenarioId);
+      }
+      trackEvent('button', 'click', `anuga-scenario-menu-build-deferred-${reason}`);
+      // TASK-3038 (folded TASK-3039, AC7) — mirror dispatchBuild's own branch
+      // (d) (MISCONFIGURATION, :1098-1110): a fire with buildScenarioExplicit
+      // absent must not arm a run for a build that never happens. The pending
+      // entry is already removed and its timer already cleared above, so this
+      // can never leak or repeat. Deliberately does NOT suppress the generic
+      // deferred trackEvent just above (amendment A3) — only the arm itself
+      // is guarded, exactly as branch (d)'s own comment describes.
+      if (!this.props.buildScenarioExplicit) {
+          trackEvent('button', 'click', 'anuga-scenario-menu-build-unavailable');
+          return;
+      }
+      if (!runAfterBuild) return;
+      if (localResolver) {
+          // Same arm armAndDispatchBuildAndRun makes for an immediate build:
+          // local two-phase machine + a localOwned Redux mirror.
+          this.setRunAfterBuildEntry(scenarioId, 'awaiting-inflight');
+          if (this.props.armRunAfterBuildRedux) this.props.armRunAfterBuildRedux(scenarioId, {localOwned: true});
+      } else if (this.props.armRunAfterBuildRedux) {
+          this.props.armRunAfterBuildRedux(scenarioId);
+      }
+  };
+
+  // TASK-3038 — set/clear ONE entry of the per-scenario runAfterBuild Map.
+  // Both use the FUNCTIONAL setState form (reading prevState, not
+  // this.state) so that resolving several entries in the same synchronous
+  // pass — maybeRunAfterBuild snapshots and forEachs the Map — composes
+  // correctly instead of each call clobbering the others' writes with a
+  // stale base Map (a real risk once more than one entry can exist at once).
+  setRunAfterBuildEntry = (scenarioId, phase) => {
+      this.setState((prevState) => {
+          const runAfterBuild = new Map(prevState.runAfterBuild);
+          runAfterBuild.set(scenarioId, {scenarioId, phase});
+          return {runAfterBuild};
+      });
+  };
+
+  clearRunAfterBuildEntry = (scenarioId) => {
+      this.setState((prevState) => {
+          if (!prevState.runAfterBuild.has(scenarioId)) return null;
+          const runAfterBuild = new Map(prevState.runAfterBuild);
+          runAfterBuild.delete(scenarioId);
+          return {runAfterBuild};
+      });
+  };
+
+  // TASK-2826 (verifier note 2) — "is a field commit for THIS scenario id
+  // still on the wire?", asked of the RAW commitsInFlight map rather than of
+  // selectedScenarioCommitInFlight, which only ever describes the currently
+  // SELECTED scenario.
+  //
+  // dispatchBuild only ever defers a scenario that already has a real id
+  // (case (a) catches the id-less ones first), and the reducer MIGRATES a
+  // draft's count from its _tempId onto that real id when the lazy create
+  // resolves (scenariosReducer.js, SAVE_ANUGA_SCENARIO_SUCCESS), so the key a
+  // deferral holds is always the key its count lives under — a build deferred
+  // under a real id can never look at the wrong bucket.
+  deferredScenarioCommitInFlight = (scenarioId) =>
+      ((this.props.commitsInFlight || {})[scenarioId] || 0) > 0;
+
+  // TASK-2826 — the componentDidUpdate half of the deferral. The in-flight
+  // signal flipping false IS a prop change, so this is reached on the same
+  // tick COMMIT_ANUGA_SCENARIO_FIELD_SETTLED lands. EVERY held entry is
+  // re-examined on every update, each against ITS OWN scenario's state — one
+  // scenario's settle can neither release nor retain another's.
+  maybeDispatchDeferredBuild = () => {
+      if (this.pendingDeferredBuilds.size === 0) return;
+      const {selectedScenario} = this.props;
+      const selectedId = selectedScenario ? selectedScenario.id : null;
+      // SNAPSHOT: fireDeferredBuild mutates the map (and its setState can
+      // re-enter this method), so iterate a copy. An entry released by that
+      // re-entrant pass is already gone from the map, and fireDeferredBuild's
+      // lookup then no-ops — so nothing here can fire twice.
+      Array.from(this.pendingDeferredBuilds.values()).forEach((pending) => {
+          const {scenarioId} = pending;
+          if (selectedId === scenarioId) {
+              if (this.props.selectedScenarioCommitInFlight) return;
+              this.fireDeferredBuild(scenarioId, 'commit-settled');
+              return;
+          }
+          // The SELECTION HAS MOVED off this entry (the user clicked another
+          // scenario in the rail while this build was being held, or this
+          // build was armed for a scenario that is not the selected one).
+          // selectedScenarioCommitInFlight now answers for a DIFFERENT
+          // scenario, so it cannot be consulted — but the deferred scenario's
+          // own commit may very well still be on the wire.
+          //
+          // Verifier note 2: this used to fire the held build unconditionally
+          // at this point. That released it mid-PATCH, so the build POST could
+          // be composed server-side from pre-PATCH inputs — the stale-input
+          // race the deferral exists to avoid (no data loss, since no save is
+          // dispatched, but the wrong build). AC1(b) says defer until THAT
+          // commit settles, so ask the raw map about THAT scenario.
+          // commitsInFlight is a mapped prop, so the settle that empties its
+          // bucket is itself the prop change that re-enters this method.
+          //
+          // WHAT IS TRUE ABOUT STRANDING (re-verifier, blocking — the earlier
+          // claim here, "a selection move can never strand the build either
+          // way", was FALSIFIED and is corrected): the entry keeps its OWN
+          // bound, which is still ticking and is never cleared or re-aimed by
+          // anything happening to another scenario, and it is released only by
+          // its own settle, its own bound, or the unmount flush. When these
+          // were a single slot, arming a deferral for a second scenario
+          // overwrote this entry AND clearTimeout()'d exactly that bound, so
+          // the held build really could be — and was — stranded, dropped with
+          // no build, no bound and no toast.
+          if (this.deferredScenarioCommitInFlight(scenarioId)) return;
+          this.fireDeferredBuild(scenarioId, 'selection-moved');
+      });
+  };
 
   // UAT #8 fix — resolve the freshest copy of a scenario by id from the live
   // props (the scenario poller writes new status into state.anuga.scenarios →
@@ -587,9 +874,25 @@ class AnugaScenarioMenuClass extends React.Component {
   // (missing mesh_provenance — a legacy pre-W2 scenario, or a failed
   // build's empty {} — getMeshDivergence.exceedsThreshold is ALWAYS false):
   // byte-identical auto-fire, unchanged from before this task (AC#2).
+  // TASK-3038 — was a single `if (!pending) return;` early-out over the
+  // one-slot state. Now snapshots the Map's values (mirroring
+  // maybeDispatchDeferredBuild's own snapshot-then-forEach pattern just
+  // above, for the SAME reason: resolving one entry can setState/re-render
+  // and re-enter this component's update cycle, so a live iterator over a
+  // Map being mutated mid-loop would be unsafe) and resolves each entry
+  // independently via resolveRunAfterBuildEntry — one scenario's settle can
+  // neither release nor retain another's.
   maybeRunAfterBuild = (prevProps) => {
-      const pending = this.state.runAfterBuild;
-      if (!pending) return;
+      if (this.state.runAfterBuild.size === 0) return;
+      Array.from(this.state.runAfterBuild.values()).forEach((pending) => {
+          this.resolveRunAfterBuildEntry(pending, prevProps);
+      });
+  };
+
+  // TASK-3038 — the per-entry body maybeRunAfterBuild used to run inline
+  // against the single slot; unchanged logic, just parameterised on ONE
+  // entry so it can be applied to every entry in the Map.
+  resolveRunAfterBuildEntry = (pending, prevProps) => {
       const {scenarioId, phase} = pending;
       const fresh = this.findFreshScenario(scenarioId, this.props);
       if (!fresh) {
@@ -597,7 +900,7 @@ class AnugaScenarioMenuClass extends React.Component {
           // it can never leak. Act only on the transition (present last tick, gone
           // now) to avoid churn.
           if (this.findFreshScenario(scenarioId, prevProps)) {
-              this.setState({runAfterBuild: null});
+              this.clearRunAfterBuildEntry(scenarioId);
               // TASK-2890 (Layer 4) — keep the Redux mirror in lockstep so a
               // stale arm can never survive to be resolved by runAfterBuildEpic.
               if (this.props.clearRunAfterBuildRedux) this.props.clearRunAfterBuildRedux(scenarioId);
@@ -607,14 +910,14 @@ class AnugaScenarioMenuClass extends React.Component {
       const status = findScenarioStatus(fresh);
       if (RUN_FAILURE_STATES.includes(status)) {
           // Build reached a terminal failure — drop the intent, never run nothing.
-          this.setState({runAfterBuild: null});
+          this.clearRunAfterBuildEntry(scenarioId);
           if (this.props.clearRunAfterBuildRedux) this.props.clearRunAfterBuildRedux(scenarioId);
           return;
       }
       if (phase === 'awaiting-inflight') {
           if (IN_FLIGHT_STATUSES.includes(status)) {
               // The dispatched build has actually started — now await its 'built'.
-              this.setState({runAfterBuild: {scenarioId, phase: 'awaiting-built'}});
+              this.setRunAfterBuildEntry(scenarioId, 'awaiting-built');
           }
           // Otherwise keep waiting; we never fire on a 'built' seen in this phase.
           return;
@@ -623,7 +926,7 @@ class AnugaScenarioMenuClass extends React.Component {
       // the transition into 'built'. Clear runAfterBuild BEFORE dispatching (or
       // pausing) so a re-entrant prop update can't double-run or double-pause.
       if (status === 'built') {
-          this.setState({runAfterBuild: null});
+          this.clearRunAfterBuildEntry(scenarioId);
           // TASK-2890 (Layer 4) — clear the Redux mirror THE INSTANT this
           // component takes resolution into its own hands (whether it goes
           // on to fire immediately or pause for divergence confirm below) —
@@ -739,10 +1042,24 @@ class AnugaScenarioMenuClass extends React.Component {
 
   // TASK-2194 (review fix) — record the staff compute-target pick on the
   // per-scenario ui slot (state.anuga.ui.sessionComputeTargets). This MUST
-  // NOT go through handleUpdateScenario/UPDATE_ANUGA_SCENARIO: that reducer
-  // unconditionally flips scenario.unsaved, which sends the next
-  // Build-and-Run down dispatchBuild's save-only branch (the deferred run is
-  // never armed) and the follow-up save wholesale-replace wipes the choice.
+  // NOT go through handleUpdateScenario/UPDATE_ANUGA_SCENARIO, because a
+  // compute target written onto the scenario OBJECT cannot survive a save:
+  // the next save wholesale-replaces the row. It PATCHes only the 12-key
+  // SCENARIO_PATCH_FIELDS snapshot (crudEpics.js:467, applied at :527 — the
+  // compute target is not one of the twelve, so it never even goes on the
+  // wire), and SAVE_ANUGA_SCENARIO_SUCCESS then merges the server response
+  // back over the local row (scenariosReducer.js:295), dropping the choice
+  // silently. The ui slot sits outside that blast radius. That is the whole
+  // reason this guard exists.
+  //
+  // TASK-2826 CORRECTION (verifier note 1): this comment used to open with
+  // "that reducer unconditionally flips scenario.unsaved, which sends the
+  // next Build-and-Run down dispatchBuild's save-only branch (the deferred
+  // run is never armed)". That clause is now FALSE — dispatchBuild stopped
+  // reading `scenario.unsaved` (ruling d92) and its save branch is reachable
+  // only from an id-LESS scenario. It was the stated reason for the guard, so
+  // it is corrected rather than left to imply the guard is obsolete. It is
+  // not: the wipe-on-save half above is live and unchanged.
   handleSetSessionComputeTarget = (scenario, target) => {
       const key = scenario?.id || scenario?._tempId;
       if (key === null || key === undefined) return; // eslint-disable-line no-eq-null, eqeqeq
@@ -760,8 +1077,12 @@ class AnugaScenarioMenuClass extends React.Component {
   };
 
   // Dispatch the build/save for an already-validated scenario. Returns 'build'
-  // when an explicit server rebuild was dispatched (buildScenarioExplicit), or
-  // 'save' when the scenario was unsaved and sent to save instead. Shared by
+  // when an explicit server rebuild was dispatched (buildScenarioExplicit),
+  // 'save' when the scenario has no id yet and was sent to save/lazy-create
+  // instead, or — TASK-2826 — 'deferred' when the build is being HELD for an
+  // in-flight field commit (it fires from maybeDispatchDeferredBuild, which
+  // arms the deferred run itself, so armAndDispatchBuildAndRun below must NOT
+  // arm on this outcome). Shared by
   // handleBuildClick (validate → dispatch) and handleBuildAndRunClick (validate →
   // dispatch → arm) so the validation runs exactly once per click; the returned
   // signal lets the combined action arm its deferred run ONLY for a real build —
@@ -791,7 +1112,41 @@ class AnugaScenarioMenuClass extends React.Component {
           this.setState({divergenceConfirm: null});
       }
       let dispatched;
-      if (scenario.unsaved || !this.props.buildScenarioExplicit) {
+      // TASK-2826 (epic 2815 W5, operator rulings d92 + d93) — this condition
+      // used to read `scenario.unsaved || !this.props.buildScenarioExplicit`.
+      // `unsaved` answers "does the pane differ from the last server
+      // response?" — it is set by purely LOCAL writes that never touch the
+      // network, and it is NOT cleared on a failed commit — so it was neither
+      // necessary nor sufficient for the question this choke-point actually
+      // has to ask, which is "is a write to this scenario ON THE WIRE right
+      // now?". Three cases now, in order:
+      //   (a) NO id           -> save / lazy-create, unchanged. Guarded
+      //       EXPLICITLY on !scenario.id: without that, an id-less draft
+      //       (ADD_ANUGA_SCENARIO seeds unsaved:false) would fall through to
+      //       buildScenarioExplicit(null) and POST .../scenarios/null/build/.
+      //   (b) has id + a commit outstanding -> DEFER (ruling d92). NO save:
+      //       saveAnugaScenarioEpic's has-id branch PATCHes through the
+      //       UN-QUEUED _patchScenario (crudEpics.js:638) while TASK-3012's
+      //       serialisation queue covers only COMMIT_ANUGA_SCENARIO_FIELD, and
+      //       both ship the whole 12-key SCENARIO_PATCH_FIELDS snapshot taken
+      //       at action-creation time — so the two overlap and the one the
+      //       server commits LAST wins, silently, while TASK-2953's no-clobber
+      //       reducer merge keeps redux looking correct. This branch was that
+      //       clobber's only live trigger; removing the save closes it.
+      //   (c) has id, nothing outstanding -> build immediately.
+      //
+      // The three cases are tested in that exact order, and case (a) is keyed
+      // on `!scenario.id` ALONE (verifier note 3). It used to read
+      // `!scenario.id || !this.props.buildScenarioExplicit`, which left one
+      // way for a HAS-ID scenario to still reach the save branch — and from
+      // there saveAnugaScenarioEpic's has-id arm and the un-queued
+      // _patchScenario at crudEpics.js:638, i.e. the very clobber d92 closes.
+      // Production could not reach it (mapDispatchToProps wires
+      // buildScenarioExplicit unconditionally), but "improbable" is not
+      // "impossible", and AC6's unreachability claim should hold on the code
+      // rather than on the wiring. A missing dispatcher is now its own dead
+      // end below: it cannot save, cannot defer, and cannot arm a run.
+      if (!scenario.id) {
           // TASK-2953 (epic 2815 W3, mechanisms 1/2) — a save no longer
           // triggers a build server-side (TASK-2820), so "the operator
           // clicked Build" must chain a build onto THIS save's success, not
@@ -804,6 +1159,24 @@ class AnugaScenarioMenuClass extends React.Component {
               this.props.saveAnugaScenario(scenario, {buildAfterSave: true, runAfterBuild: !!opts.runAfterBuild});
           }
           dispatched = 'save';
+      } else if (!this.props.buildScenarioExplicit) {
+          // (d) — MISCONFIGURATION, not a user state: a has-id scenario with
+          // no build dispatcher wired. Unreachable in production
+          // (mapDispatchToProps below always supplies it) and reachable only
+          // from a hand-built unconnected render. It must NOT fall through to
+          // (a): a has-id SAVE_ANUGA_SCENARIO is exactly the un-queued
+          // whole-object PATCH this card removed. It must not defer either —
+          // fireDeferredBuild would have nothing to dispatch and would still
+          // arm a run for a build that never happens. So: no dispatch, no
+          // arm, and a distinct outcome ('unavailable') that
+          // armAndDispatchBuildAndRun's `=== 'build'` test rejects.
+          trackEvent('button', 'click', 'anuga-scenario-menu-build-unavailable');
+          dispatched = 'unavailable';
+      } else if (this.props.selectedScenarioCommitInFlight) {
+          // (b) — hold the click; maybeDispatchDeferredBuild releases it when
+          // the commit settles, and DEFERRED_BUILD_MAX_WAIT_MS bounds the wait.
+          this.armDeferredBuild(scenario.id, !!opts.runAfterBuild);
+          dispatched = 'deferred';
       } else {
           this.props.buildScenarioExplicit(scenario.id);
           dispatched = 'build';
@@ -911,11 +1284,17 @@ class AnugaScenarioMenuClass extends React.Component {
   // comment for the full rationale and the below-threshold byte-identical
   // guarantee (AC#2).
   //
-  // We arm ONLY when dispatchBuild reports a real 'build'. An unsaved scenario
+  // We arm ONLY when dispatchBuild reports a real 'build'. An id-less scenario
   // goes to save instead, and a save only rebuilds if a build-affecting field
   // changed — arming on a save that does not rebuild would leave the flag
   // dangling for a later unrelated build to surprise-fire. The id guard keys the
   // build→built transition; a scenario with no id can't be tracked anyway.
+  //
+  // TASK-2826 — 'deferred' is the third outcome and is likewise NOT armed here:
+  // the build has not been dispatched yet, so there is no build→built episode
+  // to await. fireDeferredBuild makes the identical arm (local machine +
+  // localOwned Redux mirror) at the moment it actually dispatches the build,
+  // so a Build-and-Run whose build was deferred never loses its run.
   //
   // Extracted from handleBuildAndRunClick so TASK-2116's "Build anyway" path
   // (after the mesh-region warning is dismissed) can dispatch through the
@@ -923,7 +1302,7 @@ class AnugaScenarioMenuClass extends React.Component {
   armAndDispatchBuildAndRun = (scenario) => {
       const dispatched = this.dispatchBuild(scenario, {runAfterBuild: true});
       if (dispatched === 'build' && scenario && scenario.id != null) { // eslint-disable-line no-eq-null, eqeqeq
-          this.setState({runAfterBuild: {scenarioId: scenario.id, phase: 'awaiting-inflight'}});
+          this.setRunAfterBuildEntry(scenario.id, 'awaiting-inflight');
           // TASK-2890 (epic 2815 W3, Layer 4) — mirror the arm into Redux so
           // it survives an unmount before this build reaches 'built' (see
           // runAfterBuildEpic, pollingEpics.js). maybeRunAfterBuild clears
@@ -1583,9 +1962,35 @@ AnugaScenarioMenuClass.contextTypes = {
 
 const mapStateToProps = (state) => {
     const selected = selectedScenariosSelector(state);
+    const selectedScenario = getSelectedScenario(state);
+    // TASK-2826 (epic 2815 W5, ruling d92) — the in-flight-commit key is the
+    // SAME `id || _tempId` expression scenariosReducer keys
+    // COMMIT_ANUGA_SCENARIO_FIELD on (and crudEpics.js settles under), so this
+    // asks about exactly the entry a commit opened.
+    //
+    // Keyed on the SELECTED scenario, and a plain boolean rather than a
+    // per-scenario lookup function, on purpose: ScenarioHeaderActions is
+    // rendered with scenario={selectedScenario} and calls onBuildClick /
+    // onBuildAndRunClick with that same object, so the selected scenario is the
+    // only one dispatchBuild is ever handed — while a function prop would be a
+    // fresh identity on every store change and defeat connect's shallow-equal
+    // re-render gate on a component this size. maybeDispatchDeferredBuild
+    // re-checks that the deferred scenario is still the selected one before it
+    // trusts this flag.
+    const commitKey = selectedScenario && (selectedScenario.id || selectedScenario._tempId);
     return {
         scenarios: getScenariosArray(state),
-        selectedScenario: getSelectedScenario(state),
+        selectedScenario,
+        selectedScenarioCommitInFlight: !!commitKey && isScenarioCommitInFlight(state, commitKey),
+        // TASK-2826 (verifier note 2) — the raw bookkeeping map behind that
+        // boolean, so maybeDispatchDeferredBuild can ask about the scenario it
+        // is HOLDING rather than the one currently selected. This is a read of
+        // state TASK-3012 already publishes; selectorsAnuga.js and crudEpics.js
+        // stay untouched. Its reference changes ONLY when the reducer rebuilds
+        // the map (COMMIT_ANUGA_SCENARIO_FIELD, COMMIT_ANUGA_SCENARIO_FIELD_
+        // SETTLED, and the tempId->id migration), so it costs no extra renders
+        // — and that rebuild IS the wake-up componentDidUpdate needs.
+        commitsInFlight: state?.anuga?.scenarios?.commitsInFlight,
         archiveFilter: state?.anuga?.scenarios?.archiveFilter || 'none',
         terrain: state?.anuga?.resources?.terrain,
         boundaries: state?.anuga?.resources?.boundaries,

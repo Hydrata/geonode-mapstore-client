@@ -27,7 +27,13 @@ import {
     // Build-and-Run intent, keyed by scenario id.
     ARM_RUN_AFTER_BUILD,
     ADVANCE_RUN_AFTER_BUILD,
-    CLEAR_RUN_AFTER_BUILD
+    CLEAR_RUN_AFTER_BUILD,
+    // TASK-3012 (epic 2815 W5) — the store-visible half of per-scenario
+    // commit serialisation: COMMIT_ANUGA_SCENARIO_FIELD opens an entry,
+    // COMMIT_ANUGA_SCENARIO_FIELD_SETTLED (crudEpics.js, from BOTH the
+    // success and the failure arm) closes it.
+    COMMIT_ANUGA_SCENARIO_FIELD,
+    COMMIT_ANUGA_SCENARIO_FIELD_SETTLED
 } from "../actionsAnuga";
 
 const initialState = {
@@ -39,7 +45,20 @@ const initialState = {
     archiveFilter: 'none',
     // TASK-2890 (epic 2815 W3, Layer 4) — { [scenarioId]: {phase: 'awaiting-inflight' | 'awaiting-built', localOwned} }.
     // See runAfterBuildEpic (epics/pollingEpics.js).
-    runAfterBuild: {}
+    runAfterBuild: {},
+    // TASK-3012 (epic 2815 W5) — { [scenario.id || scenario._tempId]: <count
+    // of field commits currently in flight for it> }. A COUNT, not a boolean:
+    // a user tabbing through the four required selects fires several commits
+    // before the first response lands, and a boolean would be cleared by the
+    // FIRST settle while two more PATCHes were still queued behind it —
+    // reporting "saved" while the scenario was still mid-write, which is
+    // exactly the wrong answer for TASK-2826's dispatchBuild. Read it with
+    // isScenarioCommitInFlight (selectorsAnuga.js); keys are deleted at zero,
+    // so the map is empty at rest. A draft's count MIGRATES tempId -> real id
+    // with its row when the lazy create resolves (SAVE_ANUGA_SCENARIO_SUCCESS
+    // below) — without that, a follow-up PATCH still on the wire was counted
+    // under a key nothing could name any more.
+    commitsInFlight: {}
 };
 
 /**
@@ -178,7 +197,20 @@ export default (state = initialState, action) => {
                     selected: false
                 }
             },
-            allIds: [...state.allIds, tempId]
+            allIds: [...state.allIds, tempId],
+            // TASK-3011 (epic 2815 W5) — move the SELECTION onto the new
+            // draft. FOUND ON LIVE PRODUCTION 2026-09-08: without this the
+            // previously-selected scenario stayed selected while the draft
+            // row rendered at the top of the rail, so the first field the
+            // user committed into what looked like the new scenario's pane
+            // PATCHed the OLD one instead (scenario 417 was renamed by
+            // typing its replacement's name). TASK-2953 made every field
+            // commit hit the server the moment it commits, so there is no
+            // undo. `selected` (:178) is a DIFFERENT flag — the compare
+            // checkbox, written only by TOGGLE_SCENARIO_SELECTED — and is
+            // deliberately left false. Same shape as SELECT_ANUGA_SCENARIO
+            // below.
+            selectedId: tempId
         };
     }
     case UPDATE_ANUGA_SCENARIO: {
@@ -274,7 +306,50 @@ export default (state = initialState, action) => {
         }
         newById[server.id] = merged;
 
-        return { ...state, byId: newById, allIds: newAllIds };
+        // TASK-3011 (epic 2815 W5) — the selection must FOLLOW the
+        // tempId -> real-id migration. `delete newById[tempId]` above
+        // otherwise leaves state.selectedId pointing at a key that no longer
+        // exists: getSelectedScenario (selectorsAnuga.js) returns null, and
+        // anugaScenarioMenu's componentDidUpdate then re-selects
+        // scenarios[0] — the LOWEST-id scenario (getScenariosArray sorts by
+        // id ascending), i.e. typically the scenario the user was on before
+        // "+ New scenario". The next field commit would then write to THAT
+        // scenario: TASK-3011's own production defect, resurrected the
+        // instant the lazy create resolves. Only re-point a selection that
+        // was actually sitting on this tempId — a create resolving for some
+        // OTHER draft must never steal the cursor.
+        const newSelectedId = tempId !== null && state.selectedId === tempId
+            ? server.id
+            : state.selectedId;
+
+        // TASK-3012 round-2 fix (independent verifier, 2026-09-08) — the
+        // in-flight COMMIT count must FOLLOW the tempId -> real-id migration
+        // for exactly the same reason the selection above does. In the H4
+        // window a draft's first commit POSTs while a second commit, already
+        // counted under the tempId, waits to PATCH the real id. This case
+        // deletes byId[tempId] and strips `_tempId`, so from here on
+        // `scenario.id || scenario._tempId` — the only expression TASK-2826's
+        // dispatchBuild has — can evaluate to nothing BUT the real id. Left
+        // unmigrated, the count sat under a key nothing could name again:
+        // isScenarioCommitInFlight(state, realId) read false while that PATCH
+        // was still on the wire, and dispatchBuild would green-light a build
+        // mid-write — the precise "new scenario, tab through the four
+        // required selects" shape this card was filed from. Added (not
+        // assigned) so a commit already opened under the real id survives,
+        // and gated on the tempId entry existing so a LATER success for the
+        // same dead tempId (the H4 PATCH's own, which arrives after this
+        // migration) is a no-op rather than a double count.
+        // `|| {}` because plenty of pre-existing specs (and any state
+        // persisted before this slice existed) reach this case with a
+        // hand-built scenarios object that has no commitsInFlight at all.
+        let commitsInFlight = state.commitsInFlight || {};
+        if (tempId !== null && Object.prototype.hasOwnProperty.call(commitsInFlight, tempId)) {
+            commitsInFlight = { ...commitsInFlight };
+            commitsInFlight[server.id] = (commitsInFlight[server.id] || 0) + commitsInFlight[tempId];
+            delete commitsInFlight[tempId];
+        }
+
+        return { ...state, byId: newById, allIds: newAllIds, selectedId: newSelectedId, commitsInFlight };
     }
     case DUPLICATE_ANUGA_SCENARIO_SUCCESS: {
         // The BE returns a freshly-INSERTed pk (ScenarioSerializerV2); we
@@ -419,6 +494,46 @@ export default (state = initialState, action) => {
         const runAfterBuild = { ...state.runAfterBuild };
         delete runAfterBuild[action.scenarioId];
         return { ...state, runAfterBuild };
+    }
+    // TASK-3012 (epic 2815 W5) — per-scenario in-flight COMMIT bookkeeping,
+    // the store-visible half of crudEpics.js's _inFlightScenarioCommits queue.
+    // It is deliberately NOT the existing `unsaved` flag: `unsaved` is set by
+    // UPDATE_ANUGA_SCENARIO (the optimistic local echo, which fires for
+    // local-only writes like useAutoPopulateDefaults that never touch the
+    // network) and cleared by any save success, so it answers "does the pane
+    // differ from the last server response?" — not "is a write to this
+    // scenario ON THE WIRE right now?", which is the question TASK-2826's
+    // dispatchBuild has to ask before it POSTs /build/.
+    case COMMIT_ANUGA_SCENARIO_FIELD: {
+        const key = action.scenario && (action.scenario.id || action.scenario._tempId);
+        if (!key) return state;
+        // W5 sweep — `|| {}` for the same reason SAVE_ANUGA_SCENARIO_SUCCESS
+        // above already guards it: a hand-built scenarios state (specs, and
+        // TASK-2826's specs next) reaches this case with no commitsInFlight at
+        // all, and the bare `state.commitsInFlight[key]` read below would
+        // TypeError rather than start the count at 1. Guarded on both new
+        // cases so the three readers of this slice agree.
+        const current = state.commitsInFlight || {};
+        return {
+            ...state,
+            commitsInFlight: {
+                ...current,
+                [key]: (current[key] || 0) + 1
+            }
+        };
+    }
+    case COMMIT_ANUGA_SCENARIO_FIELD_SETTLED: {
+        const key = action.scenarioId;
+        // W5 sweep — see COMMIT_ANUGA_SCENARIO_FIELD above.
+        if (!key || !(state.commitsInFlight || {})[key]) return state;
+        const commitsInFlight = { ...state.commitsInFlight };
+        const remaining = commitsInFlight[key] - 1;
+        if (remaining > 0) {
+            commitsInFlight[key] = remaining;
+        } else {
+            delete commitsInFlight[key];
+        }
+        return { ...state, commitsInFlight };
     }
     default:
         return state;

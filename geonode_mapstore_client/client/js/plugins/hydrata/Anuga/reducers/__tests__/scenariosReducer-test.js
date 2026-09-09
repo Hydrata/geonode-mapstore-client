@@ -12,8 +12,13 @@ import {
     ARCHIVE_ANUGA_SCENARIO,
     ARCHIVE_ANUGA_SCENARIO_ERROR,
     ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+    SAVE_ANUGA_SCENARIO_SUCCESS,
     archiveAnugaScenarioError
 } from '../../actions/scenarioActions';
+// TASK-3011 — the selection ACs assert through the real selector, not by
+// reading state.selectedId alone: a selectedId pointing at a deleted key is
+// exactly the failure mode, and only getSelectedScenario surfaces it.
+import {getSelectedScenario} from '../../selectorsAnuga';
 import {
     BUILD_SCENARIO,
     BUILD_SCENARIO_SUCCESS,
@@ -333,5 +338,80 @@ describe('TASK-2264 scenariosReducer ARCHIVE_ANUGA_SCENARIO_ERROR / archiveError
             type: ARCHIVE_ANUGA_SCENARIO_ERROR, scenarioId: 999, detail: 'x'
         });
         expect(state).toEqual(baseState());
+    });
+});
+
+/*
+ * TASK-3011 (epic 2815 W5) — the selection cursor must move onto a brand-new
+ * scenario, and must then FOLLOW it through the lazy create's
+ * tempId -> real-id migration.
+ *
+ * FOUND ON LIVE PRODUCTION 2026-09-08: "+ New scenario" left selectedId on
+ * the PREVIOUS scenario, so the first thing typed into what looked like the
+ * new scenario's Name field renamed scenario 417 instead. Since TASK-2953
+ * every field commit hits the server the moment it commits, so there is
+ * nothing to undo.
+ *
+ * The second spec is the one the W5 red-team added: fixing ADD alone
+ * recreates the identical defect ~800 ms later, because
+ * SAVE_ANUGA_SCENARIO_SUCCESS deletes byId[tempId] and used to leave
+ * selectedId pointing at the deleted key — getSelectedScenario then returns
+ * null and anugaScenarioMenu's componentDidUpdate re-selects scenarios[0],
+ * the LOWEST-id scenario (getScenariosArray sorts by id ascending), i.e.
+ * typically the very scenario the user was on before.
+ */
+describe('TASK-3011 scenariosReducer — the selection follows a new scenario', () => {
+    // A project with one existing scenario, which is the one the user is on.
+    const seededState = () => ({
+        byId: {417: {id: 417, name: 'Trial 01', selected: false}},
+        allIds: [417],
+        selectedId: 417,
+        archiveFilter: 'none',
+        runAfterBuild: {}
+    });
+
+    it('AC1/AC2 — ADD_ANUGA_SCENARIO moves selectedId onto the new draft', () => {
+        const state = scenariosReducer(seededState(), {type: ADD_ANUGA_SCENARIO});
+        const tempId = state.allIds[state.allIds.length - 1];
+        expect(tempId).toNotBe(417);
+        expect(state.selectedId).toBe(tempId);
+        // …and therefore no longer on the scenario the user was already on.
+        expect(state.selectedId).toNotBe(417);
+        // getSelectedScenario is a FULL-state selector, hence the wrapper.
+        const selected = getSelectedScenario({anuga: {scenarios: state}});
+        expect(selected).toExist();
+        expect(selected.name).toBe('New scenario');
+        expect(selected._tempId).toBe(tempId);
+    });
+
+    it('AC6 — SAVE_ANUGA_SCENARIO_SUCCESS carries the selection through the tempId -> real-id migration', () => {
+        const added = scenariosReducer(seededState(), {type: ADD_ANUGA_SCENARIO});
+        const tempId = added.allIds[added.allIds.length - 1];
+        // Assert the migration independently of AC1: pin the selection onto
+        // the temp key explicitly so this spec still means something if the
+        // ADD case is ever changed again.
+        const onTheDraft = {...added, selectedId: tempId};
+        // Verbatim the shape crudEpics.js's lazy-create branch emits:
+        // saveAnugaScenarioSuccess(data, {tempId, sentPayload}). The server
+        // id is HIGHER than 417 because it is a real autoincrement pk.
+        const state = scenariosReducer(onTheDraft, {
+            type: SAVE_ANUGA_SCENARIO_SUCCESS,
+            scenario: {id: 9001, name: 'New scenario', resolution: 100},
+            tempId
+        });
+        expect(state.byId[tempId]).toNotExist();
+        expect(state.selectedId).toBe(9001);
+        const selected = getSelectedScenario({anuga: {scenarios: state}});
+        expect(selected).toExist();
+        expect(selected.id).toBe(9001);
+    });
+
+    it('AC6 — a save success for a scenario the user is NOT on leaves the selection alone', () => {
+        const state = scenariosReducer(seededState(), {
+            type: SAVE_ANUGA_SCENARIO_SUCCESS,
+            scenario: {id: 9002, name: 'Someone else\'s draft'},
+            tempId: 'new_9999'
+        });
+        expect(state.selectedId).toBe(417);
     });
 });

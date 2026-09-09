@@ -42,7 +42,12 @@ function createMockStore(overrides = {}) {
                 meshRegions: [],
                 catchments: [],
                 nodes: [],
-                links: []
+                links: [],
+                // TASK-3040 AC5 — never populated in production either (no
+                // BE resourceEndpoints entry ships it); declared here so the
+                // friction_raster honest-copy test doesn't rely on the `|| []`
+                // fallback in mapStateToProps to make that explicit.
+                frictionRasters: []
             }
         },
         security: { user: { pk: 1 } }
@@ -162,6 +167,11 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             expect(getDeleteDatasetType({ group: 'Input Data.Full Mesh' })).toBe(null);
             expect(getDeleteDatasetType({ group: 'Default' })).toBe(null);
             expect(getDeleteDatasetType({ group: 'Results.Depth' })).toBe(null);
+            // TASK-3040 AC6 — Breakline is being RETIRED, not built (operator
+            // ruling d94). Its _GROUP_TO_DELETE_TYPE entry is removed: there
+            // is no BreaklineSerializerV2, no BreaklineViewSetV2 and no V2/V1
+            // route, so this trash glyph was a guaranteed silent unlink.
+            expect(getDeleteDatasetType({ group: 'Input Data.Breaklines' })).toBe(null);
         });
         it('returns null when layer or group is missing', () => {
             expect(getDeleteDatasetType(null)).toBe(null);
@@ -298,14 +308,24 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         );
     });
 
-    it('trash click dispatches DELETE_BOUNDARY for Boundaries group', (done) => {
+    // TASK-3040 AC3(b) — real BaseGnLayerWrapperSerializer shape:
+    // {id, title, project, gn_layer, gn_layer_name, perms}. gn_layer_name is
+    // the BE leg's new SerializerMethodField (post-fix); the fixture holds
+    // TWO rows so a correct match cannot be luck from the (now-removed)
+    // rows.length===1 fallback — this is T2's ruling case (b): already
+    // green at HEAD via matcher 5 (name match), reported as a CONTRACT
+    // GUARD proving the cascade actually dispatches, not as an observed RED.
+    it('trash click dispatches DELETE_BOUNDARY for Boundaries group (real shape, 2 rows, resolves the right row)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_BOUNDARY } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    boundaries: [{ id: 5, gn_layer_name: 'bdy_yyy' }]
+                    boundaries: [
+                        { id: 50, title: 'Boundary 0 (decoy)', project: 42, gn_layer: 5000, gn_layer_name: 'bdy_decoy', perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 5, title: 'Boundary 1', project: 42, gn_layer: 5005, gn_layer_name: 'bdy_yyy', perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
                 }
             }
         });
@@ -320,20 +340,25 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_BOUNDARY);
                 expect(a).toExist();
-                expect(a.id).toBe(5);
+                expect(a.id).toBe(5);  // not 50, the decoy
                 done();
             }
         );
     });
 
-    it('trash click dispatches DELETE_FRICTION for Friction group', (done) => {
+    // TASK-3040 AC3(b) — real shape, 2 rows; see boundary test above for the
+    // full rationale (T2's contract-guard case, already green at HEAD).
+    it('trash click dispatches DELETE_FRICTION for Friction group (real shape, 2 rows, resolves the right row)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_FRICTION } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    frictions: [{ id: 7, gn_layer_name: 'fri_zzz' }]
+                    frictions: [
+                        { id: 70, title: 'Friction 0 (decoy)', project: 42, gn_layer: 7000, gn_layer_name: 'fri_decoy', perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 7, title: 'Friction 1', project: 42, gn_layer: 7007, gn_layer_name: 'fri_zzz', perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
                 }
             }
         });
@@ -348,20 +373,28 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_FRICTION);
                 expect(a).toExist();
-                expect(a.id).toBe(7);
+                expect(a.id).toBe(7);  // not 70, the decoy
                 done();
             }
         );
     });
 
-    it('trash click dispatches DELETE_INFLOW for Inflows group', (done) => {
+    // TASK-3040 AC3(b) — real shape, 2 rows; see boundary test above for the
+    // full rationale (T2's contract-guard case, already green at HEAD).
+    // This case ALSO reflects the exact prod repro (TASK-2834 CP5, project
+    // 813): a 2nd-or-later inflow row is what the rows.length===1 fallback
+    // never covered.
+    it('trash click dispatches DELETE_INFLOW for Inflows group (real shape, 2 rows, resolves the right row)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_INFLOW } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    inflows: [{ id: 11, gn_layer_name: 'inf_aaa' }]
+                    inflows: [
+                        { id: 110, title: 'Inflow 0 (decoy)', project: 42, gn_layer: 11000, gn_layer_name: 'inf_decoy', perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 11, title: 'Inflow 1', project: 42, gn_layer: 11011, gn_layer_name: 'inf_aaa', perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
                 }
             }
         });
@@ -376,7 +409,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_INFLOW);
                 expect(a).toExist();
-                expect(a.id).toBe(11);
+                expect(a.id).toBe(11);  // not 110, the decoy
                 done();
             }
         );
@@ -386,14 +419,19 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
     // the matching ANUGA:DELETE_* action when the corresponding layer.group
     // trash button is clicked. Mirrors the boundary/friction/inflow shape.
 
-    it('trash click dispatches DELETE_STRUCTURE for Structures group', (done) => {
+    // TASK-3040 AC3(b) — real shape, 2 rows; see boundary test above for the
+    // full rationale (T2's contract-guard case, already green at HEAD).
+    it('trash click dispatches DELETE_STRUCTURE for Structures group (real shape, 2 rows, resolves the right row)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_STRUCTURE } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    structures: [{ id: 13, gn_layer_name: 'str_qqq' }]
+                    structures: [
+                        { id: 130, title: 'Structure 0 (decoy)', project: 42, gn_layer: 13000, gn_layer_name: 'str_decoy', perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 13, title: 'Structure 1', project: 42, gn_layer: 13013, gn_layer_name: 'str_qqq', perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
                 }
             }
         });
@@ -409,21 +447,26 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 const a = dispatched.find(x => x?.type === DELETE_STRUCTURE);
                 expect(a).toExist();
                 expect(a.projectId).toBe(42);
-                expect(a.id).toBe(13);
+                expect(a.id).toBe(13);  // not 130, the decoy
                 expect(a.layerIds).toEqual(['l1']);
                 done();
             }
         );
     });
 
-    it('trash click dispatches DELETE_MESH_REGION for Mesh Regions group', (done) => {
+    // TASK-3040 AC3(b) — real shape, 2 rows; see boundary test above for the
+    // full rationale (T2's contract-guard case, already green at HEAD).
+    it('trash click dispatches DELETE_MESH_REGION for Mesh Regions group (real shape, 2 rows, resolves the right row)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_MESH_REGION } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    meshRegions: [{ id: 17, gn_layer_name: 'mes_rrr' }]
+                    meshRegions: [
+                        { id: 170, title: 'Mesh Region 0 (decoy)', project: 42, gn_layer: 17000, gn_layer_name: 'mes_decoy', perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 17, title: 'Mesh Region 1', project: 42, gn_layer: 17017, gn_layer_name: 'mes_rrr', perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
                 }
             }
         });
@@ -438,20 +481,25 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_MESH_REGION);
                 expect(a).toExist();
-                expect(a.id).toBe(17);
+                expect(a.id).toBe(17);  // not 170, the decoy
                 done();
             }
         );
     });
 
-    it('trash click dispatches DELETE_CATCHMENT for Catchments group', (done) => {
+    // TASK-3040 AC3(b) — real shape, 2 rows; see boundary test above for the
+    // full rationale (T2's contract-guard case, already green at HEAD).
+    it('trash click dispatches DELETE_CATCHMENT for Catchments group (real shape, 2 rows, resolves the right row)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_CATCHMENT } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    catchments: [{ id: 23, gn_layer_name: 'cat_sss' }]
+                    catchments: [
+                        { id: 230, title: 'Catchment 0 (decoy)', project: 42, gn_layer: 23000, gn_layer_name: 'cat_decoy', perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 23, title: 'Catchment 1', project: 42, gn_layer: 23023, gn_layer_name: 'cat_sss', perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
                 }
             }
         });
@@ -466,20 +514,25 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_CATCHMENT);
                 expect(a).toExist();
-                expect(a.id).toBe(23);
+                expect(a.id).toBe(23);  // not 230, the decoy
                 done();
             }
         );
     });
 
-    it('trash click dispatches DELETE_NODES for Nodes group', (done) => {
+    // TASK-3040 AC3(b) — real shape, 2 rows; see boundary test above for the
+    // full rationale (T2's contract-guard case, already green at HEAD).
+    it('trash click dispatches DELETE_NODES for Nodes group (real shape, 2 rows, resolves the right row)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_NODES } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    nodes: [{ id: 29, gn_layer_name: 'nod_ttt' }]
+                    nodes: [
+                        { id: 290, title: 'Nodes 0 (decoy)', project: 42, gn_layer: 29000, gn_layer_name: 'nod_decoy', perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 29, title: 'Nodes 1', project: 42, gn_layer: 29029, gn_layer_name: 'nod_ttt', perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
                 }
             }
         });
@@ -494,20 +547,25 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_NODES);
                 expect(a).toExist();
-                expect(a.id).toBe(29);
+                expect(a.id).toBe(29);  // not 290, the decoy
                 done();
             }
         );
     });
 
-    it('trash click dispatches DELETE_LINKS for Links group', (done) => {
+    // TASK-3040 AC3(b) — real shape, 2 rows; see boundary test above for the
+    // full rationale (T2's contract-guard case, already green at HEAD).
+    it('trash click dispatches DELETE_LINKS for Links group (real shape, 2 rows, resolves the right row)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_LINKS } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    links: [{ id: 31, gn_layer_name: 'lin_uuu' }]
+                    links: [
+                        { id: 310, title: 'Links 0 (decoy)', project: 42, gn_layer: 31000, gn_layer_name: 'lin_decoy', perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 31, title: 'Links 1', project: 42, gn_layer: 31031, gn_layer_name: 'lin_uuu', perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
                 }
             }
         });
@@ -522,7 +580,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_LINKS);
                 expect(a).toExist();
-                expect(a.id).toBe(31);
+                expect(a.id).toBe(31);  // not 310, the decoy
                 done();
             }
         );
@@ -538,7 +596,9 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
-                resources: { structures: [{ id: 13, gn_layer_name: 'str_qqq' }] }
+                // TASK-3040 AC3 — real shape (no gn_layer_name required for
+                // this test: cancel never reaches getDatasetIdForLayer).
+                resources: { structures: [{ id: 13, title: 'Structure 1', project: 42, gn_layer: 13013, gn_layer_name: 'str_qqq', perms: ['view_resourcebase', 'delete_resourcebase'] }] }
             }
         });
         ReactDOM.render(
@@ -687,6 +747,169 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         );
     });
 
+    // TASK-3040 AC3(a) + AC5 — RED-FIRST: the HEAD/real "no gn_layer_name"
+    // shape (T2's ruling case (a)). Two boundary rows, both missing
+    // gn_layer_name (a real state — a row whose gn_layer FK the BE could not
+    // resolve to a name), clicked layer carries no extendedParams and no
+    // dataset key (the real saved-blob shape). getDatasetIdForLayer must
+    // find no match; with the rows.length===1 blind fallback GONE (AC4) and
+    // 2 rows present, nothing rescues it. That alone is not what is RED
+    // here (2-row non-resolution was already correct at HEAD) — what is RED
+    // is the CONFIRM-BAR COPY: at HEAD it always said "Delete "X"?" even
+    // though this exact gesture silently unlinks. Assert the HONEST
+    // "remove from map" copy (AC5) instead.
+    it('AC3(a)/AC5 RED-FIRST: no gn_layer_name (2 rows) -> confirm bar is HONEST, no cascade dispatched, legacy fallback fires', (done) => {
+        const { MenuRow } = require('../simpleViewMenuRow');
+        const { DELETE_BOUNDARY } = require('../../../Anuga/actionsAnuga');
+        const store = createMockStore({
+            anuga: {
+                projects: { data: { id: 42, my_role: 'editor' } },
+                resources: {
+                    boundaries: [
+                        { id: 5, title: 'Boundary 1', project: 42, gn_layer: 5005, perms: ['view_resourcebase', 'delete_resourcebase'] },
+                        { id: 6, title: 'Boundary 2', project: 42, gn_layer: 5006, perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
+                }
+            }
+        });
+        ReactDOM.render(
+            <Provider store={store}>
+                <MenuRow layer={baseLayer({
+                    group: 'Input Data.Boundaries', name: 'geonode:bdy_yyy', title: 'Boundary 1'
+                })} />
+            </Provider>,
+            container,
+            () => {
+                // RED at HEAD: Message renders the bare msgId (no intl
+                // context is wired into these tests), so the two branches
+                // are distinguishable by which literal msgId string appears.
+                const confirmText = container.querySelector('.sv-menu-row-delete-confirm-text');
+                expect(confirmText).toExist();
+                expect(confirmText.textContent).toInclude('hydrata.simpleView.confirmRemoveFromMap');
+                expect(confirmText.textContent).toNotInclude('hydrata.simpleView.confirmDelete');
+                confirmDelete(container);
+                // No cascade dispatched — resolution genuinely failed.
+                expect(dispatched.find(a => a?.type === DELETE_BOUNDARY)).toBe(undefined);
+                // Legacy fallback fires and persists (same mechanism as the
+                // documented genuine-orphan path — T4 requires this to keep
+                // working while the wrong-resource hazard is closed).
+                expect(dispatched.find(a => a?.type === 'REMOVE_NODE')).toExist();
+                expect(dispatched.find(a => a?.type === 'REMOVE_LAYER')).toExist();
+                expect(dispatched.find(a => a?.type === 'GEONODE:SAVE_DIRECT_CONTENT')).toExist();
+                // The resulting feedback is honest too (AC5's success-path
+                // branch in renderDeleteFeedback), not silence. A tick is
+                // needed here: the setState -> re-render flush after a
+                // Simulate.click is not synchronous under this repo's
+                // react@16.14 / react-dom@16.10 combination (see the
+                // confirmDelete/cancelDelete helper comment above) — the
+                // established pattern elsewhere in these tests is a
+                // setTimeout(…, 0) before asserting a post-click render.
+                setTimeout(() => {
+                    const feedback = container.querySelector('.sv-menu-row-delete-feedback');
+                    expect(feedback).toExist();
+                    expect(feedback.textContent).toInclude('hydrata.simpleView.removedFromMap');
+                    done();
+                }, 0);
+            }
+        );
+    });
+
+    // TASK-3040 AC4 — RED-FIRST: the wrong-resource data-loss hazard. A
+    // project holds exactly ONE boundary row; the clicked layer is an
+    // ORPHAN of a *different* resource (its name matches no row and it
+    // carries no pk — the documented genuine-orphan case at :~923-936). At
+    // HEAD the blind `rows.length === 1` last resort in getDatasetIdForLayer
+    // returns that one surviving row's id regardless of whether the clicked
+    // layer has anything to do with it, so performDelete cascades a REAL
+    // DELETE against a resource the user never clicked — the BE then
+    // destroys its GeoServer layer and PostGIS table irreversibly. Assert
+    // it does NOT.
+    it('AC4 RED-FIRST: single surviving row + orphan click does NOT cascade-delete the wrong resource', (done) => {
+        const { MenuRow } = require('../simpleViewMenuRow');
+        const { DELETE_BOUNDARY } = require('../../../Anuga/actionsAnuga');
+        const store = createMockStore({
+            anuga: {
+                projects: { data: { id: 42, my_role: 'editor' } },
+                resources: {
+                    boundaries: [
+                        { id: 5, title: 'Boundary 1', project: 42, gn_layer: 500, perms: ['view_resourcebase', 'delete_resourcebase'] }
+                    ]
+                }
+            }
+        });
+        ReactDOM.render(
+            <Provider store={store}>
+                <MenuRow layer={baseLayer({
+                    group: 'Input Data.Boundaries',
+                    name: 'geonode:bdy_orphan_no_match',
+                    title: 'Orphan boundary'
+                })} />
+            </Provider>,
+            container,
+            () => {
+                confirmDelete(container);
+                // Must NOT cascade-delete the one surviving row — that would
+                // be the data-loss hazard: a click on an orphan layer
+                // destroying a real, unrelated resource.
+                const wrongDelete = dispatched.find(a => a?.type === DELETE_BOUNDARY);
+                expect(wrongDelete).toBe(undefined);
+                // The genuine-orphan cleanup path must still work: remove
+                // from the map and persist (T4 — do not trade one bug for
+                // another while closing this one).
+                expect(dispatched.find(a => a?.type === 'REMOVE_NODE')).toExist();
+                expect(dispatched.find(a => a?.type === 'REMOVE_LAYER')).toExist();
+                expect(dispatched.find(a => a?.type === 'GEONODE:SAVE_DIRECT_CONTENT')).toExist();
+                done();
+            }
+        );
+    });
+
+    // TASK-3040 AC5 — friction_raster is structurally unwired on the BE (no
+    // cascade_dataset_type, no resourceEndpoints entry) and
+    // state.anuga.resources.frictionRasters is never populated, so its
+    // trash glyph is a guaranteed silent unlink AT ANY ROW COUNT. The
+    // confirm copy and the resulting feedback must say "removed from the
+    // map", never "deleted".
+    it('AC5 RED-FIRST: Friction Rasters group confirm bar + feedback are honest, never claim a delete', (done) => {
+        const { MenuRow } = require('../simpleViewMenuRow');
+        const store = createMockStore();
+        ReactDOM.render(
+            <Provider store={store}>
+                <MenuRow layer={baseLayer({
+                    group: 'Input Data.Friction Rasters',
+                    name: 'geonode:fri_raster_xxx',
+                    title: 'Friction Raster 1'
+                })} />
+            </Provider>,
+            container,
+            () => {
+                const confirmText = container.querySelector('.sv-menu-row-delete-confirm-text');
+                expect(confirmText).toExist();
+                expect(confirmText.textContent).toInclude('hydrata.simpleView.confirmRemoveFromMap');
+                expect(confirmText.textContent).toNotInclude('hydrata.simpleView.confirmDelete');
+                const btn = container.querySelector('.sv-menu-row-delete-confirm .sv-save-confirm-btn.danger');
+                expect(btn).toExist();
+                expect(btn.textContent).toInclude('hydrata.simpleView.removeFromMap');
+                expect(btn.textContent).toNotInclude('hydrata.simpleView.delete');
+                confirmDelete(container);
+                // No cascade action of any kind for this group.
+                const cascadeAction = dispatched.find(a => typeof a?.type === 'string' && a.type.startsWith('ANUGA:DELETE_'));
+                expect(cascadeAction).toBe(undefined);
+                expect(dispatched.find(a => a?.type === 'REMOVE_NODE')).toExist();
+                expect(dispatched.find(a => a?.type === 'REMOVE_LAYER')).toExist();
+                expect(dispatched.find(a => a?.type === 'GEONODE:SAVE_DIRECT_CONTENT')).toExist();
+                // A tick is needed before asserting a post-click render — see
+                // the comment on the AC3(a) test above.
+                setTimeout(() => {
+                    const feedback = container.querySelector('.sv-menu-row-delete-feedback');
+                    expect(feedback).toExist();
+                    expect(feedback.textContent).toInclude('hydrata.simpleView.removedFromMap');
+                    done();
+                }, 0);
+            }
+        );
+    });
+
     it('renders blocking-error message + scenario list inline', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const store = createMockStore({
@@ -785,7 +1008,14 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 resources: {
                     inflows: [{
                         id: 1440,
+                        // TASK-3040 AC3 — real shape (gn_layer_name is the
+                        // BE leg's new field; kept here since this test is
+                        // about the blockingError render, not resolution).
+                        title: 'C2Ubungo',
+                        project: 42,
+                        gn_layer: 1441,
                         gn_layer_name: 'inf_770_c2ubungo_1c3f',
+                        perms: ['view_resourcebase', 'delete_resourcebase'],
                         blockingError: {
                             blocking: [{ type: 'scenario', id: 77, name: '', state: 'idle' }]
                         }
