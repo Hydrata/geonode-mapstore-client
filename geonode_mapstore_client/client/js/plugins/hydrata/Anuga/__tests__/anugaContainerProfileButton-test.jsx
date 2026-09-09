@@ -42,6 +42,11 @@ const baseProps = (over = {}) => ({
     isAnugaProject: 42,
     canViewAnugaMap: true,
     canEditAnugaMap: true,
+    // TASK-2993 (W4.2, epic 2981) — the Results panel (and therefore this
+    // button's portal target) moved from canViewAnugaMap to canViewAnugaResults.
+    // A member has both; the split is what lets a stranger keep Results without
+    // getting Hydraulics.
+    canViewAnugaResults: true,
     hasEPSGset: true,
     initAnuga: noop,
     setAnugaInputMenu: noop,

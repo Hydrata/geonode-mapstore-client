@@ -1,6 +1,8 @@
 import expect from 'expect';
 import {
     canViewAnugaMap,
+    // TASK-2993 (W4.2, epic 2981) — the RESULTS gate: role OR public.
+    canViewAnugaResults,
     canEditAnugaMap,
     canManageAnugaMap,
     isOwnerAnugaMap,
@@ -699,3 +701,58 @@ describe('Anuga Selectors', () => {
         });
     });
 });
+
+/*
+ * ===========================================================================
+ * TASK-2993 (W4.2, epic 2981) — canViewAnugaResults.
+ *
+ * canViewAnugaMap answers "do you hold a role", which is right for the model
+ * BUILDER and wrong for the model's OUTPUT: a public project is published so
+ * that people with no role can look at it. This is a SEPARATE selector rather
+ * than a widening of canViewAnugaMap because fourteen call sites read the
+ * latter and most of them gate things a stranger must never get.
+ * ===========================================================================
+ */
+describe('canViewAnugaResults (TASK-2993, W4.2 epic 2981)', () => {
+    const state = (my_role, visibility) => ({
+        anuga: { projects: { data: { id: 1, my_role, visibility } } }
+    });
+
+    it('no role + public -> true (the whole point of the task)', () => {
+        expect(canViewAnugaResults(state(null, 'public'))).toBe(true);
+        // ...and the builder gate is NOT widened with it.
+        expect(canViewAnugaMap(state(null, 'public'))).toBe(false);
+    });
+
+    it('no role + private -> false', () => {
+        expect(canViewAnugaResults(state(null, 'private'))).toBe(false);
+    });
+
+    it('no role + organization -> false (organization is not public)', () => {
+        expect(canViewAnugaResults(state(null, 'organization'))).toBe(false);
+    });
+
+    it('a viewer role -> true, whatever the visibility', () => {
+        expect(canViewAnugaResults(state('viewer', 'private'))).toBe(true);
+        expect(canViewAnugaResults(state('viewer', 'public'))).toBe(true);
+    });
+
+    it('an owner -> true', () => {
+        expect(canViewAnugaResults(state('owner', 'private'))).toBe(true);
+    });
+
+    it('matches the BE spelling exactly — the string is lowercase "public"', () => {
+        // Project.Visibility.PUBLIC is 'public' (gn_anuga/models/project.py).
+        // A capitalised or title-cased value must NOT open the gate, because
+        // it would mean the FE and BE disagree about the enum.
+        expect(canViewAnugaResults(state(null, 'Public'))).toBe(false);
+        expect(canViewAnugaResults(state(null, 'PUBLIC'))).toBe(false);
+    });
+
+    it('is safe on the anonymous empty state (no project loaded yet)', () => {
+        expect(canViewAnugaResults({})).toBe(false);
+        expect(canViewAnugaResults({ anuga: {} })).toBe(false);
+        expect(canViewAnugaResults({ anuga: { projects: { data: null } } })).toBe(false);
+    });
+});
+

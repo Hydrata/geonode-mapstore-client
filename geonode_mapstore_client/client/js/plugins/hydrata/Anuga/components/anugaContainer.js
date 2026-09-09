@@ -15,7 +15,7 @@ import {
     // TASK-1861 (W4.4) — depth/result line-profile tool toggle.
     setProfilePanelVisible
 } from '../actionsAnuga';
-import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {canEditAnugaMap, canViewAnugaMap, canViewAnugaResults, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {AnugaInputMenu} from './anugaInputMenu';
 // BUG (UAT, TASK-1648 regression): the GLO-30 bbox panel must be mounted at the
@@ -109,6 +109,9 @@ export class AnugaContainer extends React.Component {
         gnResourceLoaded: PropTypes.string,
         canEditAnugaMap: PropTypes.bool,
         canViewAnugaMap: PropTypes.bool,
+        // TASK-2993 (W4.2, epic 2981) — role OR public visibility. Gates the
+        // RESULTS surface only; canViewAnugaMap still gates the builder.
+        canViewAnugaResults: PropTypes.bool,
         canCreateScenario: PropTypes.bool,
         showMembershipPanel: PropTypes.bool,
         setMembershipPanel: PropTypes.func,
@@ -239,6 +242,7 @@ export class AnugaContainer extends React.Component {
             <React.Fragment>
                 <button
                     key="anuga-input-button"
+                    data-testid="anuga-inputs-button"
                     className={`simple-view-menu-button ${this.props.showAnugaInputMenu ? 'active' : ''}`}
                     onClick={() => {
                         this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
@@ -252,10 +256,18 @@ export class AnugaContainer extends React.Component {
                 {/* TASK-1657: the standalone TerrainWorkbench toolbar button was
                     removed — the recipe builder lives inline in Inputs → Terrain
                     (TASK-1645). The reducer/epics/api remain, used by that pane. */}
-                {this.props.hydrologyPluginPresent ?
+                {/* TASK-2993 (W4.2) — `&& canViewAnugaMap`. Hydrology had NO
+                    role gate at all: it rendered on plugin presence alone,
+                    which was invisible while every ANUGA read was
+                    IsAuthenticated and the container never mounted for a
+                    stranger. TASK-2992 makes the container mount for
+                    strangers, so without this conjunct the design-storm and
+                    IDF builder tabs would appear to anonymous visitors. */}
+                {this.props.hydrologyPluginPresent && this.props.canViewAnugaMap ?
                     <button
                         id="hydrology-main-menu-button"
                         key="hydrology-main-menu-button"
+                        data-testid="hydrology-main-menu-button"
                         className={`simple-view-menu-button ${this.props.showHydrologyMainMenu ? 'active' : ''}`}
                         onClick={() => {
                             const opening = !this.props.showHydrologyMainMenu;
@@ -280,6 +292,7 @@ export class AnugaContainer extends React.Component {
                 {this.props.canViewAnugaMap && this.props.hasEPSGset ?
                     <button
                         key="anuga-scenario-button"
+                        data-testid="anuga-hydraulics-button"
                         className={`simple-view-menu-button ${this.props.showAnugaScenarioMenu ? 'active' : ''}`}
                         onClick={() => {
                             this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
@@ -293,9 +306,11 @@ export class AnugaContainer extends React.Component {
                     </button>
                     : null
                 }
-                {this.props.canViewAnugaMap && this.props.hasEPSGset ?
+                {/* TASK-2993 (W4.2) — RESULTS, not the builder: canViewAnugaResults. */}
+                {this.props.canViewAnugaResults && this.props.hasEPSGset ?
                     <button
                         key="anuga-results-button"
+                        data-testid="anuga-results-button"
                         className={`simple-view-menu-button ${this.props.openMenuGroupId === 'Results' ? 'active' : ''}`}
                         onClick={() => {
                             this.props.setOpenMenuGroupId('Results');
@@ -393,9 +408,11 @@ export class AnugaContainer extends React.Component {
         // this container reacts to openMenuGroupId, so the target resolves on the
         // re-render after the tab opens (same portal-by-query pattern as the
         // toolbar/footer targets above).
+        // TASK-2993 (W4.2) — the cross-section button portals into this
+        // target, so gating it here gates the cross-section entry point too.
         const resultsPanelTarget = (typeof document !== 'undefined'
             && this.props.openMenuGroupId === 'Results'
-            && this.props.canViewAnugaMap && this.props.hasEPSGset)
+            && this.props.canViewAnugaResults && this.props.hasEPSGset)
             ? document.querySelector('.simple-view-panel--miller')
             : null;
         return this.props.isAnugaProject ?
@@ -452,7 +469,9 @@ export class AnugaContainer extends React.Component {
                         TASK-2631 (W6.2) — ALSO gated on resultsPlaybackEnabled
                         (dark ship, see the propTypes comment above): the
                         primary entry point into the whole playback surface. */}
-                    {this.props.resultsPlaybackEnabled && this.props.openMenuGroupId === 'Results' && this.props.canViewAnugaMap && this.props.hasEPSGset ?
+                    {/* TASK-2993 (W4.2) — the playback bar IS the results
+                        surface this epic exists to show a stranger. */}
+                    {this.props.resultsPlaybackEnabled && this.props.openMenuGroupId === 'Results' && this.props.canViewAnugaResults && this.props.hasEPSGset ?
                         <AnugaPlaybackControlBar/> : null
                     }
                     {/* TASK-2628 — legend + identify readout. Mounted
@@ -552,6 +571,7 @@ export const mapStateToProps = (state) => {
         visibleNetworkMenu: state?.anuga?.ui?.visibleNetworkMenu,
         canEditAnugaMap: canEditAnugaMap(state),
         canViewAnugaMap: canViewAnugaMap(state),
+        canViewAnugaResults: canViewAnugaResults(state),
         canCreateScenario: canCreateScenario(state),
         showMembershipPanel: state?.anuga?.ui?.showMembershipPanel,
         hydrologyPluginPresent: !!mapViewerPlugins.find(x => x.name === "Hydrology"),

@@ -62,6 +62,28 @@ export const getProjectVisibilityPending = (state) => {
 export const canViewAnugaMap = (state) =>
     getProjectMyRole(state) !== null;
 
+/**
+ * TASK-2993 (W4.2, epic 2981) — may this viewer see the RESULTS surface?
+ *
+ * ``canViewAnugaMap`` answers "do you hold a role", which is the right
+ * question for the model BUILDER (Inputs' edit affordances, Hydraulics,
+ * Hydrology) and the wrong one for the model's OUTPUT. A public project is
+ * published precisely so people who hold no role can look at it, so the
+ * results gate is role OR public visibility.
+ *
+ * ⚠ IT IS A SEPARATE SELECTOR, not a widening of canViewAnugaMap. Fourteen
+ * call sites read canViewAnugaMap and most of them gate things a stranger
+ * must never get (the Build button, the run dispatch, the Permissions
+ * padlock). Widening the shared selector would open all of them at once —
+ * which is why the new capability gets its own name.
+ *
+ * The visibility string is the BE's ``Project.Visibility.PUBLIC``, lowercase
+ * 'public' (gn_anuga/models/project.py), served on the project retrieve that
+ * TASK-2992 opened to strangers.
+ */
+export const canViewAnugaResults = (state) =>
+    canViewAnugaMap(state) || getProjectVisibility(state) === 'public';
+
 export const canEditAnugaMap = (state) =>
     ["owner", "manager", "editor"].includes(getProjectMyRole(state));
 

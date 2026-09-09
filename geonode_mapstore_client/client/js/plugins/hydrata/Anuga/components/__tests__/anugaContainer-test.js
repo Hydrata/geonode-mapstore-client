@@ -24,6 +24,9 @@
  * defaulting assertions are replaced by an assertion that the prop is GONE, so
  * a future re-introduction of an always-on default has to argue with a test.
  */
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { Provider } from 'react-redux';
 import expect from 'expect';
 import { mapStateToProps, AnugaContainer } from '../anugaContainer';
 
@@ -68,3 +71,155 @@ describe('anugaContainer no longer maps visibleIntroduction (TASK-2777)', () => 
         expect(AnugaContainer.propTypes.visibleIntroduction).toBe(undefined);
     });
 });
+
+/*
+ * ===========================================================================
+ * TASK-2993 (W4.2, epic 2981) — WHAT A STRANGER SEES IN THE TOOLBAR.
+ *
+ * The 2026-09-07 anonymous drive found 0 of 4 tabs and no container at all,
+ * because every ANUGA read was IsAuthenticated and initAnugaEpic dropped
+ * anonymous visitors before its first network call. W4.1 opened the reads and
+ * W4.2 branches the epic, so this container now MOUNTS for a stranger — and
+ * the question becomes which of its four toolbar entries they get.
+ *
+ * Inputs and Results: yes — that is the shared model.
+ * Hydraulics and Hydrology: no — those are the BUILDER. Hydrology in
+ * particular had NO role gate at all before this task (it rendered on plugin
+ * presence alone), which was invisible only because the container never
+ * mounted for a stranger.
+ * ===========================================================================
+ */
+describe('AnugaContainer — TASK-2993 (W4.2, epic 2981) the stranger toolbar', () => {
+    const noop = () => {};
+    const makeStore = () => ({
+        getState: () => ({
+            anuga: { ui: {}, projects: {}, resources: {} },
+            layers: { flat: [], groups: [] },
+            simpleView: {},
+            controls: {},
+            localConfig: { plugins: {} }
+        }),
+        subscribe: () => () => {},
+        dispatch: () => {}
+    });
+
+    // A STRANGER: no role, so canViewAnugaMap/canEditAnugaMap are false, but
+    // the project is public so canViewAnugaResults is true. hasEPSGset comes
+    // from the project retrieve TASK-2992 opened (projects.data.projection).
+    const strangerProps = (over = {}) => ({
+        isAnugaProject: 42,
+        canViewAnugaMap: false,
+        canEditAnugaMap: false,
+        canViewAnugaResults: true,
+        hasEPSGset: true,
+        hydrologyPluginPresent: true,
+        openMenuGroupId: null,
+        initAnuga: noop,
+        setAnugaInputMenu: noop,
+        setAnugaScenarioMenu: noop,
+        setAnugaResultMenu: noop,
+        setPublicationPanel: noop,
+        setOpenMenuGroupId: noop,
+        startAnugaScenarioPolling: noop,
+        stopAnugaScenarioPolling: noop,
+        setMembershipPanel: noop,
+        setHydrologyMainMenu: noop,
+        setProfilePanelVisible: noop,
+        showProfilePanel: false,
+        ...over
+    });
+
+    const memberProps = (over = {}) => strangerProps({
+        canViewAnugaMap: true,
+        canEditAnugaMap: true,
+        canViewAnugaResults: true,
+        ...over
+    });
+
+    let host;
+    let toolbar;
+    let resultsPanel;
+    const render = (props) => {
+        ReactDOM.render(
+            <Provider store={makeStore()}>
+                <AnugaContainer {...props} />
+            </Provider>,
+            host
+        );
+    };
+    beforeEach(() => {
+        host = document.createElement('div');
+        document.body.appendChild(host);
+        toolbar = document.createElement('div');
+        toolbar.className = 'simple-view-left-toolbar';
+        document.body.appendChild(toolbar);
+        resultsPanel = document.createElement('div');
+        resultsPanel.className = 'simple-view-panel simple-view-panel--miller';
+        document.body.appendChild(resultsPanel);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(host);
+        [host, toolbar, resultsPanel].forEach(n => n && n.parentNode && n.parentNode.removeChild(n));
+    });
+
+    const present = (testid) => !!toolbar.querySelector(`[data-testid="${testid}"]`);
+
+    it('AC2 a stranger on a PUBLIC project gets Inputs and Results, and NOT Hydraulics or Hydrology', () => {
+        render(strangerProps());
+        expect(present('anuga-inputs-button')).toBe(true);
+        expect(present('anuga-results-button')).toBe(true);
+        expect(present('anuga-hydraulics-button')).toBe(false);
+        expect(present('hydrology-main-menu-button')).toBe(false);
+    });
+
+    it('AC2 a MEMBER still gets all four — the gate is role-scoped, not a global trim', () => {
+        render(memberProps());
+        expect(present('anuga-inputs-button')).toBe(true);
+        expect(present('anuga-results-button')).toBe(true);
+        expect(present('anuga-hydraulics-button')).toBe(true);
+        expect(present('hydrology-main-menu-button')).toBe(true);
+    });
+
+    it('a stranger on a PRIVATE project gets neither Results nor Hydraulics', () => {
+        // canViewAnugaResults is false here — the selector's private answer.
+        // (Reaching this state at all needs a project the BE refused to serve,
+        // so it is a belt-and-braces gate, not the primary defence: TASK-2992
+        // answers 404 long before the FE renders anything.)
+        render(strangerProps({ canViewAnugaResults: false }));
+        expect(present('anuga-results-button')).toBe(false);
+        expect(present('anuga-hydraulics-button')).toBe(false);
+        expect(present('hydrology-main-menu-button')).toBe(false);
+        // Inputs is unconditional — its edit affordances self-gate on
+        // canEditAnugaMap, which is false for a stranger.
+        expect(present('anuga-inputs-button')).toBe(true);
+    });
+
+    it('the cross-section button rides canViewAnugaResults, not canViewAnugaMap', () => {
+        render(strangerProps({ openMenuGroupId: 'Results' }));
+        expect(resultsPanel.querySelector('[data-testid="anuga-profile-button"]')).toExist();
+    });
+
+    it('and it is absent when the viewer may not see results', () => {
+        render(strangerProps({ openMenuGroupId: 'Results', canViewAnugaResults: false }));
+        expect(resultsPanel.querySelector('[data-testid="anuga-profile-button"]')).toBe(null);
+    });
+
+    it('mapStateToProps derives canViewAnugaResults from role OR public visibility', () => {
+        const publicStranger = mapStateToProps({
+            anuga: { projects: { data: { id: 1, my_role: null, visibility: 'public' } }, ui: {} }
+        });
+        expect(publicStranger.canViewAnugaMap).toBe(false);
+        expect(publicStranger.canViewAnugaResults).toBe(true);
+
+        const privateStranger = mapStateToProps({
+            anuga: { projects: { data: { id: 1, my_role: null, visibility: 'private' } }, ui: {} }
+        });
+        expect(privateStranger.canViewAnugaResults).toBe(false);
+
+        const viewer = mapStateToProps({
+            anuga: { projects: { data: { id: 1, my_role: 'viewer', visibility: 'private' } }, ui: {} }
+        });
+        expect(viewer.canViewAnugaResults).toBe(true);
+    });
+});
+
