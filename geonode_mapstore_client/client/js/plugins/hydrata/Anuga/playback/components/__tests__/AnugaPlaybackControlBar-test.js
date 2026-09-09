@@ -162,6 +162,26 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(container.querySelector('[data-testid="anuga-playback-paced"]').hidden).toBe(true);
         });
 
+        /*
+         * PHASE 1.7, CUMULATIVE REVIEW — a defect this wave INTRODUCED, found
+         * by reading the two halves together rather than either alone.
+         *
+         * TASK-2987's stalled branch writes the effectiveSpeed it computed, and
+         * at zero runway that is exactly 0. A badge keyed only on
+         * `effectiveSpeed < speed` therefore mounted during a stall, and
+         * formatPaceRatio(0) is '—', so the bar read "paced —x" over a playhead
+         * that was not moving at all. Nothing is being paced when nothing is
+         * advancing: the toast's stalled message is the truth there.
+         */
+        it('AC1: the paced badge does NOT render while stalled — a stopped playhead is not a paced one', () => {
+            render({ playback: playing({ status: PLAYBACK_STATUS.STALLED, effectiveSpeed: 0 }) });
+            const paced = container.querySelector('[data-testid="anuga-playback-paced"]');
+            expect(paced.hidden).toBe(true);
+            expect(paced.textContent).toBe('');
+            // The stalled toast is what speaks instead.
+            expect(container.querySelector('[data-testid="anuga-playback-buffering"]')).toBeTruthy();
+        });
+
         it('AC1: the paced badge carries a tooltip that explains it, and it is translated', () => {
             render({ playback: playing({ effectiveSpeed: 40 }) });
             const paced = container.querySelector('[data-testid="anuga-playback-paced"]');

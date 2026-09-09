@@ -184,15 +184,24 @@ export const FLOOR_WINDOW_CHUNKS = 3;
  * number means the same thing on a 30-minute flash-flood store and a 7-day
  * riverine one.
  *
- * WHY 8. Two bounds, both measured on the 813_417_1412 mirror at the 5 Mbit/s
- * "far" profile (epic AC1's own profile):
- *   - The pre-roll floor window is 3 chunks = ~4.3 s of playback, so the FIRST
- *     paced sample reads runway/target. A target much above 8 s starts the
- *     playthrough below epic AC1's `min(effectiveSpeed/speed) >= 0.4` bar.
- *   - The steady-state trough is (link rate / speed) x g(chunkPeriod/target),
- *     which rises towards the link rate as the target grows. At 8 s the far
- *     leg's trough sits just above 0.4; much below 8 s it does not.
- * So the window is roughly [8, 10] and 8 is its lower, safer end.
+ * WHY 9 — TWO BOUNDS THAT PULL IN OPPOSITE DIRECTIONS, both measured on the
+ * 813_417_1412 mirror at the 5 Mbit/s "far" profile (epic AC1's own profile):
+ *
+ *   - TOO LARGE and the playthrough STARTS slow. At the Play press the runway is
+ *     whatever the 3-chunk pre-roll holds — 29 of 101 timesteps, ~4.3 s of
+ *     playback — so the first paced sample reads runway/target. At 9 s that is
+ *     0.48; at 20 s it would be 0.22.
+ *   - TOO SMALL and every chunk landing swings it. The steady-state trough is
+ *     (link rate / speed) x g(chunkPeriod / target), where g rises towards 1 as
+ *     the target grows, so a small target amplifies the sawtooth.
+ *
+ * DO NOT TUNE THIS TO CLEAR EPIC AC1's `min(effectiveSpeed/speed) >= 0.4` BAR.
+ * MEASURED on that leg: the LINK's own per-chunk delivered ratio has a minimum
+ * of 0.337 (median 0.483) — at HEAD as well as after this change — and a
+ * truthful pacer's effectiveSpeed IS the delivered rate. The bar is therefore
+ * reachable only by smoothing until the number lags the truth, which is why it
+ * is ESCALATED (TASK-2987 comment #2087) rather than tuned around. The gate
+ * prints that link measurement beside the clause so the next reader sees it.
  */
 export const PACE_TARGET_WALL_SECONDS = 9;
 
@@ -208,11 +217,21 @@ export const PACE_FLOOR = 0.05;
 
 /**
  * The EMA time constant, as a fraction of the runway target (in wall seconds).
- * Self-scaling on purpose: a store whose plan holds 8 s of runway can afford to
- * smooth over 1.6 s, and one whose plan holds 1 s cannot. Chunks land one at a
- * time (and, with two chunks in flight, sometimes in pairs), so the raw ratio
- * is a sawtooth; without this the speed picker's readout would flicker on every
- * landing.
+ * Self-scaling on purpose: a store whose plan holds 9 s of runway can afford to
+ * smooth over 6, and one whose plan holds 1 s cannot.
+ *
+ * WHY 0.7. The spec asks for smoothing "so PAIRED chunk landings do not
+ * oscillate it", and two landings is the unit that sets the number: the
+ * MEASURED chunk cadence on the 1412 mirror at the far profile is 2.9-4.5 s
+ * (derived from the census's own residentChunks arrivals), so two of them is
+ * ~6.2 s — and 0.7 x 9 s = 6.3 s. The value is derived from the landing
+ * cadence, NOT from a bar: measured on the same leg, the reported minimum moves
+ * only 0.3744 -> 0.3767 between fractions 0.6 and 0.7, so lengthening it does
+ * not rescue epic AC1's 0.4 clause and was not attempted for that.
+ *
+ * A long time constant is SAFE here only because PACE_TICK_SAFETY bounds the
+ * advance by what is actually resident. Without that term, smoothing this hard
+ * would let the playhead overshoot the buffered edge while the filter caught up.
  */
 export const PACE_EMA_FRACTION = 0.7;
 
@@ -785,6 +804,14 @@ export function targetRunwaySeconds(state) {
  */
 function resolvePacing(state, bufferedChunks, currentTimestep, playheadSeconds, elapsedWallSeconds, nowMs) {
     const speed = state.speed;
+    // NO USABLE TIME ARRAY MEANS NOTHING TO PACE AGAINST. Without this the
+    // runway would read 0 for such a store (frontierSeconds falls back to the
+    // playhead), the ratio would pin at PACE_FLOOR and the bar would show a
+    // permanent "paced 0.05x" on a store whose only real problem is that it
+    // declared no timestamps. Found by the phase-1.7 review.
+    if (!state.time || !(state.time.length > 1)) {
+        return { effectiveSpeed: speed, runwaySeconds: Infinity, frontierSeconds: playheadSeconds, residentToEnd: true };
+    }
     const frontierStep = lastResidentTimestep(state, bufferedChunks, currentTimestep);
     const frontierSeconds = state.time ? state.time[Math.min(Math.max(frontierStep, 0), state.time.length - 1)] : playheadSeconds;
     const residentToEnd = !(state.nTime > 0) || frontierStep >= state.nTime - 1;

@@ -691,7 +691,14 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         if (effectiveSpeed === null || effectiveSpeed === undefined || !(speed > 0)) {
             return null;
         }
-        return effectiveSpeed < speed ? effectiveSpeed / speed : null;
+        // `effectiveSpeed > 0` IS LOAD-BEARING, not defensive decoration — found
+        // by this wave's phase-1.7 review. TASK-2987's stalled branch writes the
+        // effectiveSpeed it computed, and at zero runway that is exactly 0. A
+        // badge keyed only on `effectiveSpeed < speed` therefore mounted during
+        // a stall and read "paced —x" over a playhead that was not moving at
+        // all. NOTHING IS BEING PACED WHEN NOTHING IS ADVANCING: the toast's
+        // stalled message is what belongs there.
+        return effectiveSpeed > 0 && effectiveSpeed < speed ? effectiveSpeed / speed : null;
     }
 
     speedOptions(playback) {

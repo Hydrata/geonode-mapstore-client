@@ -3422,6 +3422,9 @@ span.sv-scenario-run-price--short {
 .sv-playback-bar .sv-playback-playpause {
     min-width: 32px;
     text-align: center;
+    /* TASK-2988 — the positioned ancestor .sv-playback-preroll hangs off, so the
+       pre-roll percentage cannot widen this control however long the wait. */
+    position: relative;
     /* The transport's one coloured control, in the shared site green. Only
        reachable because the glyphs are text-presentation codepoints — an
        emoji-presentation ▶ paints its own orange and ignores `color`. */
@@ -3572,11 +3575,9 @@ span.sv-scenario-run-price--short {
     color: #f0a830;
     background: rgba(240, 168, 48, 0.12);
 }
-/* The pre-roll percentage rides ON the play button rather than beside it, so a
-   longer wait can never widen the transport's first control. */
-.sv-playback-bar .sv-playback-playpause {
-    position: relative;
-}
+/* The pre-roll percentage rides ON the play button (which the block above makes
+   a positioned ancestor) rather than beside it, so a longer wait can never widen
+   the transport's first control. */
 .sv-playback-preroll {
     position: absolute;
     left: 50%;
