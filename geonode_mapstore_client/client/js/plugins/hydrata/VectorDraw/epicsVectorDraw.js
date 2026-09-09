@@ -10,6 +10,13 @@ import {
     wfstInsert, wfstUpdate, wfstDelete, loadFeature, loadAllFeatures
 } from './wfstApi';
 import { getTranslate, deriveTranslateKey } from './translateRegistry';
+// TASK-3041 — mirrors TASK-2214's attachDesignStormEpic fix (Hydrology/
+// epicsHydrology.js:816-831) for the OTHER write path that can flip
+// RainfallSerializerV2.get_has_feature_data server-side: a WFS-T write
+// through this VectorDraw popup.
+import { fetchResourceEndpoint } from '../Anuga/epics/pollingEpics';
+import { setAnugaRainfallData } from '../Anuga/actions/dataActions';
+import { getAnugaPrefix } from '../SimpleView/components/simpleViewMenuRow';
 import {
     START_VECTOR_DRAW,
     CANCEL_VECTOR_DRAW,
@@ -391,6 +398,31 @@ export const vectorDrawSaveEpic = (action$, store) =>
                     const layer = layers.find(l => l?.name === config.layerName);
                     const cameFromPicker = state.cameFromPicker === true;
 
+                    // TASK-3041 — a WFS-T write to a rainfall layer can flip
+                    // RainfallSerializerV2.get_has_feature_data server-side
+                    // (data_timeseries_id / data_constant), but
+                    // state.anuga.resources.rainfalls — the ONLY place
+                    // has_feature_data lives on the FE (scenarioPane.js's
+                    // rainfallAttachedButEmpty / rainfallIsUnattached, and
+                    // transitively anugaScenarioMenu.js's build-gate via
+                    // rainfallNeedsWarning) — was never re-fetched on this
+                    // save path, so the "carries no rainfall data" notice
+                    // (and the build-gate confirm dialog) kept reading stale
+                    // state until a full page reload. Mirrors TASK-2214's
+                    // attachDesignStormEpic fix for the OTHER write path.
+                    //
+                    // Scoped to rainfall layers only (getAnugaPrefix ===
+                    // 'rai_'): a pure geometry move, or a save on a
+                    // non-rainfall layer, can never change
+                    // has_feature_data, so a blanket refetch on every WFS-T
+                    // write would cost a request that can never change
+                    // anything. Trade-off stated explicitly (AC4).
+                    const isRainfallLayer = getAnugaPrefix(config.layerName) === 'rai_';
+                    const projectId = store.getState()?.anuga?.projects?.data?.id;
+                    const rainfallRefetch$ = (isRainfallLayer && projectId)
+                        ? fetchResourceEndpoint('rainfall', projectId).map(setAnugaRainfallData)
+                        : Rx.Observable.empty();
+
                     // Common post-save side-effects fire regardless of which
                     // tail we take (picker-return vs idle).
                     const baseActions = [
@@ -428,6 +460,7 @@ export const vectorDrawSaveEpic = (action$, store) =>
                         // cases (the picker just doesn't highlight anything).
                         const lastSavedFid = fid || config.featureId || null;
                         return Rx.Observable.from(baseActions)
+                            .concat(rainfallRefetch$)
                             .concat(
                                 Rx.Observable.from(loadAllFeatures(wfsUrl, config.layerName))
                                     .map((features) => returnToPicker(features, lastSavedFid))
@@ -446,7 +479,14 @@ export const vectorDrawSaveEpic = (action$, store) =>
                             );
                     }
 
-                    return Rx.Observable.from([...baseActions, saveSuccess(fid)]);
+                    // TASK-3041 (AC2/E1) — this idle branch is the ONLY path
+                    // a map-click EDIT-on-existing-feature save takes
+                    // (anugaClickTargets.js, allowPick:false, no
+                    // cameFromPicker threaded), and issued ZERO refetch of
+                    // any kind before this fix — leaving the reported bug
+                    // alive for that entry point if only the picker branch
+                    // above were fixed.
+                    return Rx.Observable.from([...baseActions, saveSuccess(fid)]).concat(rainfallRefetch$);
                 })
                 .catch((err) => {
                     console.error('VectorDraw save error:', err);
