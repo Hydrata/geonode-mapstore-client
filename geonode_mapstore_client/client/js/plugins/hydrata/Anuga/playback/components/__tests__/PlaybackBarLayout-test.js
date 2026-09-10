@@ -31,6 +31,15 @@ import TestUtils from 'react-dom/test-utils';
 
 import { AnugaPlaybackControlBarComponent } from '../AnugaPlaybackControlBar';
 import { PLAYBACK_STATUS, createInitialPlaybackState } from '../../playbackController';
+// TASK-2986 (W1.3, epic 2981) — AC5 asserts on the i18n VALUES, so the real
+// locale files are imported rather than trusting the English fallbacks the
+// component passes to this.tr(). These four are the ONLY files of the
+// seventeen under hydrata-translations/ that carry the hydrata.playback.*
+// namespace; gn-translations/ and ms-translations/ are upstream.
+import enUS from '../../../../../../../../static/mapstore/hydrata-translations/data.en-US.json';
+import esES from '../../../../../../../../static/mapstore/hydrata-translations/data.es-ES.json';
+import frFR from '../../../../../../../../static/mapstore/hydrata-translations/data.fr-FR.json';
+import htHT from '../../../../../../../../static/mapstore/hydrata-translations/data.ht-HT.json';
 
 /* Controls that BELONG IN THE DRAWER after this card — every conditional
    slider group is in here, because those are what made the bar reflow. */
@@ -388,6 +397,149 @@ describe('Playback bar layout — TASK-2751', () => {
             expect(onSetBackgroundOpacity.calls.length).toBe(1);
             expect(onSetBackgroundOpacity.calls[0].arguments[0]).toBe(0.4);
             expect(onSetOpacity.calls.length).toBe(0, 'the two sliders must not be crosswired');
+        });
+    });
+});
+
+/*
+ * ===========================================================================
+ * TASK-2986 (W1.3, epic 2981) — THE FALLBACK MESSAGE.
+ *
+ * "Playback needs a larger device" on its own is the thing this re-aim exists
+ * to stop shipping. A stranger arriving at a public flood map on a phone does
+ * not want a message, they want the flood — so the message names THREE things
+ * and the map gets the maximum-depth envelope.
+ *
+ * Asserted on RENDERED TEXT and on the i18n VALUES, never on a data-testid:
+ * a testid proves an element exists, not that it says anything.
+ * ===========================================================================
+ */
+describe('Playback fallback message — TASK-2986', () => {
+    let container;
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function fallbackState(over) {
+        return {
+            ...createInitialPlaybackState(),
+            status: PLAYBACK_STATUS.FALLBACK,
+            runId: 77,
+            layerId: 'layer-77',
+            nNode: 3393075,
+            nFace: 6786150,
+            budgetBytes: 399 * 1024 * 1024,
+            budgetSource: 'small-device',
+            fallbackReason: 'floor-window-exceeds-budget',
+            floorWindowPlanPeakBytes: 420741300,
+            fallbackLayerShown: 'added',
+            ...over
+        };
+    }
+    function renderBar(playback) {
+        ReactDOM.render(<AnugaPlaybackControlBarComponent playback={playback} onReset={() => {}} />, container);
+        return container.textContent;
+    }
+    const q = (sel) => container.querySelector(`[data-testid="${sel}"]`);
+
+    it('AC5 — names the MESH SIZE, THIS DEVICE\'S BUDGET with its SOURCE, and WHAT IS SHOWN INSTEAD', () => {
+        const text = renderBar(fallbackState());
+        // 1. the mesh, in nodes AND triangles — the substituted counts, not the
+        //    placeholder tokens.
+        expect(text).toContain('3,393,075');
+        expect(text).toContain('6,786,150');
+        expect(text).toNotContain('{nodes}');
+        expect(text).toNotContain('{triangles}');
+        // 2. THIS DEVICE'S budget in MiB, together with its source.
+        expect(text).toContain('399 MiB');
+        expect(text).toNotContain('{budget}');
+        expect(text).toNotContain('{source}');
+        expect(text.toLowerCase()).toContain('memory');
+        // 3. WHAT IS SHOWN INSTEAD.
+        expect(text.toLowerCase()).toContain('maximum depth envelope');
+    });
+
+    it('AC5 — the NO-ENVELOPE case says something DIFFERENT, and both disable Play', () => {
+        const withEnvelope = renderBar(fallbackState({ fallbackLayerShown: 'added' }));
+        expect(q('anuga-playback-playpause').disabled).toBe(true);
+        // Unload stays enabled — the run has to be dismissible.
+        expect(q('anuga-playback-unload').disabled).toBe(false);
+        const without = renderBar(fallbackState({ fallbackLayerShown: 'none' }));
+        expect(without).toNotBe(withEnvelope);
+        expect(without.toLowerCase()).toContain('no maximum depth envelope');
+        expect(q('anuga-playback-playpause').disabled).toBe(true);
+        expect(q('anuga-playback-unload').disabled).toBe(false);
+        // 'existing' reads the same as 'added' — both put a layer on the map.
+        expect(renderBar(fallbackState({ fallbackLayerShown: 'existing' }))).toBe(withEnvelope);
+    });
+
+    it('AC5 — a DISTINCT, NON-EMPTY source label for ALL FIVE sources', () => {
+        // THE ENUMERATION IS FIVE, NOT FOUR. 'default', 'heap+device' and
+        // 'partial' all ship from resolvePlaybackHeapBudget TODAY; TASK-2984
+        // adds 'small-device' and 'phone-class'.
+        //
+        // 'partial' is the one an earlier draft omitted and the one that
+        // matters most here: it is what EVERY browser exposing only ONE of the
+        // two budget offers gets — every non-Chromium browser (no
+        // performance.memory) and much of the phone class this fallback exists
+        // to serve. An unhandled 'partial' blanks the source for exactly those
+        // users.
+        const sources = ['default', 'heap+device', 'partial', 'small-device', 'phone-class'];
+        const rendered = sources.map((source) => renderBar(fallbackState({ budgetSource: source })));
+        // The unhandled path, as the negative control: this is what a source
+        // the map does NOT cover renders as, and no known source may match it.
+        const unhandled = renderBar(fallbackState({ budgetSource: 'something-new' }));
+        expect(unhandled).toContain('unrecognised');
+        rendered.forEach((text, i) => {
+            expect(`${sources[i]} nonEmpty=${text.length > 0}`).toBe(`${sources[i]} nonEmpty=true`);
+            // NOT the unhandled fallback — that is the shape a missing entry
+            // takes, and 'partial' took it in an earlier draft of this map.
+            expect(`${sources[i]} handled=${text.indexOf('unrecognised') === -1}`)
+                .toBe(`${sources[i]} handled=true`);
+        });
+        // and every one of the five is DISTINCT from every other
+        expect(new Set(rendered).size).toBe(5);
+    });
+
+    it('AC5 — every key resolves in ALL FOUR locale files that carry the playback namespace', () => {
+        // Asserted on the i18n VALUES, not on the English fallbacks the
+        // component passes to this.tr(). Only these four of the seventeen
+        // files under hydrata-translations/ carry hydrata.playback.*; the
+        // sibling gn-translations/ and ms-translations/ are upstream.
+        const LOCALES = { 'en-US': enUS, 'es-ES': esES, 'fr-FR': frFR, 'ht-HT': htHT };
+        const REQUIRED = [
+            ['status', 'fallback'],
+            ['fallback', 'mesh'], ['fallback', 'budget'],
+            ['fallback', 'envelopeShown'], ['fallback', 'noEnvelope'],
+            ['budgetSource', 'default'], ['budgetSource', 'heapDevice'],
+            ['budgetSource', 'partial'], ['budgetSource', 'smallDevice'],
+            ['budgetSource', 'phoneClass'], ['budgetSource', 'unknown']
+        ];
+        Object.keys(LOCALES).forEach((locale) => {
+            const messages = LOCALES[locale].messages || LOCALES[locale];
+            const playback = messages.hydrata.playback;
+            REQUIRED.forEach(([group, key]) => {
+                const value = playback[group] && playback[group][key];
+                expect(`${locale}.${group}.${key}=${typeof value}`).toBe(`${locale}.${group}.${key}=string`);
+                expect(`${locale}.${group}.${key} nonEmpty=${!!(value && value.trim())}`)
+                    .toBe(`${locale}.${group}.${key} nonEmpty=true`);
+            });
+            // the two substituted messages must keep their placeholders in
+            // EVERY language, or the translated string renders a bare sentence
+            // with the numbers silently dropped.
+            expect(`${locale} mesh has {nodes}=${playback.fallback.mesh.indexOf('{nodes}') !== -1}`)
+                .toBe(`${locale} mesh has {nodes}=true`);
+            expect(`${locale} mesh has {triangles}=${playback.fallback.mesh.indexOf('{triangles}') !== -1}`)
+                .toBe(`${locale} mesh has {triangles}=true`);
+            expect(`${locale} budget has {budget}=${playback.fallback.budget.indexOf('{budget}') !== -1}`)
+                .toBe(`${locale} budget has {budget}=true`);
+            expect(`${locale} budget has {source}=${playback.fallback.budget.indexOf('{source}') !== -1}`)
+                .toBe(`${locale} budget has {source}=true`);
         });
     });
 });

@@ -608,14 +608,15 @@
         "legend": "Légende",
         "flowViz": "Débit",
         "particles": "Traînées",
-        "degraded": "La lecture attend des données — essayez une vitesse plus lente",
+        "degraded": "La lecture n'a plus d'images en mémoire tampon — en attente de la connexion",
         "status": {
           "loadingManifest": "Chargement…",
           "buffering": "Mise en mémoire tampon…",
           "seeking": "Mise en mémoire tampon de la cible de défilement…",
           "stalled": "Mise en mémoire tampon — en attente de données…",
           "error": "Échec du chargement du magasin de lecture",
-          "loadingMesh": "Téléchargement du maillage"
+          "loadingMesh": "Téléchargement du maillage",
+          "fallback": "Lecture indisponible sur cet appareil"
         },
         "legendTitleDepth": "Profondeur (m)",
         "legendTitleSpeed": "Vitesse (m/s)",
@@ -650,7 +651,11 @@
         "legendTooltip": "Afficher la légende des couleurs",
         "flowVizTooltip": "Superposition de flèches de vitesse",
         "particlesTooltip": "Traînées de particules",
-        "degradedTooltip": "La lecture attend les images suivantes depuis plusieurs secondes. Une vitesse plus lente laisse au tampon le temps de suivre.",
+        "degradedTooltip": "La lecture attend les images suivantes depuis plusieurs secondes. La connexion ne suit pas le rythme de cette simulation ; la lecture reprend d'elle-même dès leur arrivée.",
+        "paced": "ajustée à {r}x",
+        "pacedTooltip": "La connexion ne suit pas le rythme de cette simulation, la lecture se fait donc à {r}x de la valeur choisie. Elle revient d'elle-même à votre choix dès que le tampon a rattrapé son retard.",
+        "preRoll": "Mise en tampon {p}%",
+        "preRollTooltip": "Mise en tampon des premières images — {p}% effectué. La lecture démarre d'elle-même.",
         "arrowDensity": "Densité des flèches (espacement en px)",
         "arrowScale": "Échelle des flèches",
         "particleDensity": "Densité des particules (côté de la grille)",
@@ -704,7 +709,21 @@
         "zoomToResults": "Zoom sur les résultats",
         "zoomToResultsTooltip": "Centrer la carte sur les résultats de cette simulation",
         "envelopeLoadFailedTitle": "Maximum de simulation indisponible",
-        "envelopeLoadFailed": "La couche du maximum de simulation (Max) n'a pas pu être chargée pour cette grandeur. Retour à la lecture normale."
+        "envelopeLoadFailed": "La couche du maximum de simulation (Max) n'a pas pu être chargée pour cette grandeur. Retour à la lecture normale.",
+        "fallback": {
+          "mesh": "Ce résultat comporte {nodes} nœuds et {triangles} triangles.",
+          "budget": "La lecture animée demande plus de mémoire que cet appareil n'en offre : {budget}, mesurée à partir de {source}.",
+          "envelopeShown": "Affichage à la place de l'enveloppe de hauteur d'eau maximale de cette simulation — l'eau la plus profonde atteinte en chaque point.",
+          "noEnvelope": "Aucune enveloppe de hauteur d'eau maximale n'est disponible pour cette simulation, il n'y a donc rien à afficher à la place."
+        },
+        "budgetSource": {
+          "default": "un budget par défaut (ce navigateur ne signale aucune information mémoire)",
+          "heapDevice": "la mémoire disponible du tas de ce navigateur et la mémoire déclarée de l'appareil",
+          "partial": "la seule information mémoire que signale ce navigateur",
+          "smallDevice": "la mémoire déclarée par cet appareil",
+          "phoneClass": "une estimation de classe téléphone (ce navigateur ne signale aucune information mémoire)",
+          "unknown": "une information mémoire non reconnue"
+        }
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

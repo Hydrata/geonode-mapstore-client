@@ -204,15 +204,67 @@ export const fetchResourceEndpoint = (endpoint, projectId) => Rx.Observable
     .catch(() => Rx.Observable.of({data: []}))
     .switchMap(response => Rx.Observable.of(response.data));
 
+// ISSUE 32 (TASK-1429): the BE names the momentum group
+// "Results.Depth Integrated Velocity"; the FE renamed it "Results.Momentum".
+// Hoisted to module scope by TASK-2993 (W4.2, epic 2981) so the stranger
+// branch and pollAnugaScenarioEpic remap identically — it was an inline
+// closure inside the poll epic, which is how two copies of a rename start.
+export const remapResultGroup = (layer) => {
+    if (!layer) return layer;
+    if (layer.group === 'Results.Depth Integrated Velocity') {
+        return Object.assign({}, layer, {group: 'Results.Momentum'});
+    }
+    return layer;
+};
+
+// TASK-2993 (W4.2, epic 2981) — the three max-value result layers a scenario's
+// latest_complete_run can put on the map, in the order they must be added
+// (momentum, depth, velocity), or [] when it cannot supply all three.
+//
+// EXTRACTED, NOT REWRITTEN. The predicate is pollAnugaScenarioEpic's, verbatim:
+// all three layers must carry a catalogURL (a run whose COGs are still
+// publishing has the FK but no URL, and adding that layer puts a broken tile
+// source on the map), and NONE of them may already be on the map (the add is
+// idempotent by run-unique layer name). The stranger branch fires it ONCE at
+// init instead of on every poll tick, so the two callers must agree about what
+// "addable" means or a stranger and a member see different maps.
+//
+// TASK-2078: the source is latest_complete_run, NEVER latest_run — a newer
+// in-flight or errored run must not hide an older complete run's results.
+export const selectMaxResultLayers = (scenario, currentLayerNames = []) => {
+    const run = scenario?.latest_complete_run;
+    const momentum = run?.gn_layer_depth_integrated_velocity_max;
+    const depth = run?.gn_layer_depth_max;
+    const velocity = run?.gn_layer_velocity_max;
+    if (!momentum?.catalogURL || !depth?.catalogURL || !velocity?.catalogURL) {
+        return [];
+    }
+    if ([momentum, depth, velocity].some(layer => (currentLayerNames || []).includes(layer?.name))) {
+        return [];
+    }
+    return [remapResultGroup(momentum), depth, velocity];
+};
+
 export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA, UPDATE_DATASET_TITLE_SUCCESS)
         .filter(() => store.getState().gnresource.id)
-        // TASK-1637 — hoist the auth filter ABOVE the from-map POST. Previously
-        // this lived after the from-map switchMap, so an anonymous visitor fired
-        // a wasted POST /from-map/ that then died at the auth gate. Anon users
-        // now drop here, before any network call.
-        .filter(() => !!store.getState()?.security?.user)
+        // TASK-2993 (W4.2, epic 2981) — THE AUTH FILTER IS GONE, and what
+        // replaces it is a BRANCH, not an absence.
+        //
+        // TASK-1637 hoisted `.filter(() => !!security.user)` to here because an
+        // anonymous visitor's from-map POST was WASTED WORK: every downstream
+        // read was IsAuthenticated, so the whole waterfall died at the auth
+        // gate. TASK-2992 (W4.1) changed that premise — from-map, the project
+        // retrieve, the scenario list and all fourteen input lists now answer a
+        // stranger 200 on a PUBLIC project — so the same fan-out that was waste
+        // is now the entire feature: a visitor handed a link sees the model.
+        //
+        // A stranger takes the ONE-SHOT branch below: the same waterfall, plus
+        // the max-value result layers, and then it STOPS. No scenario poll and
+        // no model-creation poll — a viewer with no ability to build or run has
+        // nothing to poll FOR, and an 8-second timer per anonymous tab is a
+        // cost with no reader. The signed-in path is byte-for-byte unchanged.
         // TASK-603: drop init catalogue project-poll when tab is hidden.
         // Use withLatestFrom rather than switchMap-on-visibility$ here because
         // initAnugaEpic is action-driven (one-shot per action), not timer-driven.
@@ -282,21 +334,72 @@ export const initAnugaEpic = (action$, store) =>
                                         _seenProjectInitIds.add(projectId);
                                         trackEvent('process', 'complete', 'anuga-project-init-complete');
                                     }
+                                    // TASK-2993 (W4.2, epic 2981) — THE STRANGER
+                                    // FLAG IS READ ONCE, HERE, AND ONLY ONE
+                                    // SCENARIO FETCH IS EVER BUILT.
+                                    //
+                                    // ⚠ `Rx.Observable.from(promise)` does NOT
+                                    // defer the promise: `getScenariosByArchive`
+                                    // fires the moment the observable is
+                                    // constructed, subscribed or not. An earlier
+                                    // draft built BOTH the signed-in and the
+                                    // stranger stream and picked between them
+                                    // below — which issued the scenarios GET
+                                    // TWICE on every init, for every caller, and
+                                    // made the stranger fan-out 18 requests
+                                    // instead of 17 against a throttle sized on
+                                    // that number. Caught by the AC3 spec's
+                                    // exactly-once count.
+                                    const isStranger = !store.getState()?.security?.user;
                                     // Respect the persisted archiveFilter so a
                                     // panel reopen after switching to 'Archived'
                                     // restores the same view.
-                                    const scenariosFetch = Rx.Observable.from(
+                                    const scenariosResponse = Rx.Observable.from(
                                         anugaApi.getScenariosByArchive(projectId, getArchiveFilter(store.getState()))
-                                    )
-                                        .catch(() => Rx.Observable.of({data: []}))
-                                        .map(resp => setAnugaScenarioData(resp.data));
+                                    ).catch(() => Rx.Observable.of({data: []}));
+                                    // The stranger's fetch does the SAME call and
+                                    // ALSO puts the result layers on the map,
+                                    // because nothing else will: the max-value
+                                    // addLayer block lives inside
+                                    // pollAnugaScenarioEpic, which only runs on
+                                    // START_ANUGA_SCENARIO_POLLING, which the
+                                    // stranger branch deliberately never
+                                    // dispatches. Without this a stranger reaches
+                                    // a Results tab with no result layers in it —
+                                    // exactly the empty shell this task exists to
+                                    // fix.
+                                    const scenariosFetch = isStranger
+                                        ? scenariosResponse.switchMap(resp => {
+                                            const rows = resp.data || [];
+                                            const currentLayerNames = (store.getState()?.layers?.flat || [])
+                                                .map(layer => layer?.name);
+                                            // FIRST scenario that can supply all
+                                            // three layers — the same "one
+                                            // scenario's results at a time" rule
+                                            // the poll epic applies with its
+                                            // `[0]`, not a merge of every
+                                            // scenario's layers onto one map.
+                                            const target = rows.reduce((found, row) => (
+                                                found || (selectMaxResultLayers(row, currentLayerNames).length
+                                                    ? row : null)
+                                            ), null);
+                                            const layers = selectMaxResultLayers(target, currentLayerNames);
+                                            return Rx.Observable.of(
+                                                setAnugaScenarioData(rows),
+                                                ...layers.map(layer => addLayer(layer)),
+                                                ...(layers.length
+                                                    ? [setAnugaScenarioResultsLoaded(target?.id, true)]
+                                                    : [])
+                                            );
+                                        })
+                                        : scenariosResponse.map(resp => setAnugaScenarioData(resp.data));
 
                                     // V2P-79: resource fetches now go through V2 plural routes.
                                     const resourceObservables = resourceEndpoints.map(
                                         ({endpoint, action}) => fetchResourceEndpoint(endpoint, projectId).map(action)
                                     );
 
-                                    return Rx.Observable.of(
+                                    const bootstrap = Rx.Observable.of(
                                         // TASK-2548 — stamp the map this
                                         // project was fetched FOR. `mapId` is
                                         // the gnresource.id captured at the top
@@ -307,7 +410,20 @@ export const initAnugaEpic = (action$, store) =>
                                         setAnugaProjectData(response2.data, mapId),
                                         fixAnugaGroups(),
                                         setSvConfig(response2.data.simple_view_config)
-                                    ).concat(
+                                    );
+                                    // TASK-2993 (W4.2) — the stranger branch
+                                    // STOPS after the one-shot fan-out: a viewer
+                                    // with no ability to build or run has nothing
+                                    // to poll for, and an 8-second timer per
+                                    // anonymous tab is a cost with no reader.
+                                    if (isStranger) {
+                                        return bootstrap.concat(
+                                            Rx.Observable.merge(
+                                                scenariosFetch, ...resourceObservables
+                                            )
+                                        );
+                                    }
+                                    return bootstrap.concat(
                                         Rx.Observable.merge(scenariosFetch, ...resourceObservables),
                                         Rx.Observable.of(startAnugaScenarioPolling()),
                                         Rx.Observable.of(startAnugaModelCreationPolling())
@@ -316,11 +432,25 @@ export const initAnugaEpic = (action$, store) =>
                         })
                         // TASK-2117 (F1, dogfood 2026-07-04) — surface this
                         // chain's failure instead of a total silent swallow.
-                        // The :173 auth filter (ABOVE the switchMap this catch
-                        // lives inside) already drops anonymous visitors
-                        // before any network call fires — this catch is
-                        // therefore ONLY ever reached for a logged-in user,
-                        // so no anon-spam risk. The realistic failure here is
+                        //
+                        // ⚠ TASK-2993 (W4.2, epic 2981) INVALIDATED THIS
+                        // PARAGRAPH'S PREMISE and the notification below is
+                        // now conditional because of it. The old text read:
+                        // "the auth filter ABOVE the switchMap already drops
+                        // anonymous visitors before any network call fires —
+                        // this catch is therefore ONLY ever reached for a
+                        // logged-in user, so no anon-spam risk". That filter
+                        // is gone. Every anonymous visitor to ANY ordinary
+                        // GeoNode map now reaches this catch with the
+                        // from-map 404 that means "this map has no ANUGA
+                        // project", and toasting "the model builder failed to
+                        // load" at a visitor who has no model builder — on a
+                        // map that was never an ANUGA map — is noise about a
+                        // feature they cannot use. The TERMINAL state and the
+                        // guard clear below still fire on every path for
+                        // everyone (they are what stops the re-dispatch
+                        // storm); only the toast is withheld from a stranger.
+                        // The realistic failure here is
                         // a stale/expired session (the cookie lapses sometime
                         // after the page loaded, well after the auth filter
                         // already passed): the from-map POST then 401/403s,
@@ -345,9 +475,12 @@ export const initAnugaEpic = (action$, store) =>
                             // error instead.
                             const httpStatus = err?.status ?? err?.originalError?.status;
                             const isAuthError = httpStatus === 401 || httpStatus === 403;
-                            const notification = isAuthError
-                                ? show({message: 'hydrata.anuga.initSessionExpiredError'}, 'error')
-                                : show({message: 'hydrata.anuga.initGenericError'}, 'error');
+                            const isStranger = !store.getState()?.security?.user;
+                            const notifications = isStranger ? [] : [
+                                isAuthError
+                                    ? show({message: 'hydrata.anuga.initSessionExpiredError'}, 'error')
+                                    : show({message: 'hydrata.anuga.initGenericError'}, 'error')
+                            ];
                             // TASK-2850 (epic 2839 W2.3) — a 404 here means
                             // "no ANUGA project resolves for this map": the
                             // from-map lookup's OWN documented contract is
@@ -376,7 +509,8 @@ export const initAnugaEpic = (action$, store) =>
                             const terminalAction = httpStatus === 404
                                 ? [setAnugaNoProjectForMap(mapId)]
                                 : [];
-                            return Rx.Observable.of(notification, setAnugaInitInFlight(false), ...terminalAction);
+                            return Rx.Observable.of(
+                                ...notifications, setAnugaInitInFlight(false), ...terminalAction);
                         })
                 );
         });
@@ -582,27 +716,15 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     store.getState()?.layers?.flat,
                                     scenarioToLoadResults?.latest_complete_run
                                 );
-                                if (scenarioToLoadResults &&
-                                    scenarioToLoadResults?.latest_complete_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
-                                    scenarioToLoadResults?.latest_complete_run?.gn_layer_depth_max?.catalogURL &&
-                                    scenarioToLoadResults?.latest_complete_run?.gn_layer_velocity_max?.catalogURL &&
-                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_complete_run?.gn_layer_depth_integrated_velocity_max?.name) &&
-                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_complete_run?.gn_layer_depth_max?.name) &&
-                                    !currentLayerNames.includes(scenarioToLoadResults?.latest_complete_run?.gn_layer_velocity_max?.name)
-                                ) {
-                                    // ISSUE 32 (TASK-1429): remap BE group name
-                                    // "Results.Depth Integrated Velocity" → "Results.Momentum"
-                                    // so the layer lands in the renamed FE group.
-                                    const remapGroup = (layer) => {
-                                        if (!layer) return layer;
-                                        if (layer.group === 'Results.Depth Integrated Velocity') {
-                                            return Object.assign({}, layer, {group: 'Results.Momentum'});
-                                        }
-                                        return layer;
-                                    };
-                                    const depthVelocityLayer = remapGroup(scenarioToLoadResults.latest_complete_run.gn_layer_depth_integrated_velocity_max);
-                                    const depthLayer = scenarioToLoadResults.latest_complete_run.gn_layer_depth_max;
-                                    const velocityLayer = scenarioToLoadResults.latest_complete_run.gn_layer_velocity_max;
+                                // TASK-2993 (W4.2) — the addable-layer predicate
+                                // now lives in selectMaxResultLayers, shared with
+                                // initAnugaEpic's stranger branch. Same three
+                                // layers, same order, same catalogURL + not-
+                                // already-present conditions as before.
+                                const maxResultLayers = selectMaxResultLayers(
+                                    scenarioToLoadResults, currentLayerNames);
+                                if (scenarioToLoadResults && maxResultLayers.length) {
+                                    const [depthVelocityLayer, depthLayer, velocityLayer] = maxResultLayers;
                                     // Remove every superseded stale result layer
                                     // (variable count; never dispatch
                                     // removeLayer(undefined)) before re-adding.

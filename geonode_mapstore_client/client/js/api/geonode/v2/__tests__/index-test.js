@@ -103,6 +103,66 @@ describe('GeoNode v2 api', () => {
                 }
             });
     });
+    /*
+     * TASK-3025 (W4.5, epic 2981) AC1(d) — THE UNEXECUTED LINK.
+     *
+     * `SitePluginConfig.override_local_config` is `{}` on every production
+     * site and, before this spec, had ZERO test coverage anywhere in the
+     * fleet: a grep for `overrideLocalConfig` across the whole client/js tree
+     * returned exactly ONE file, the implementation below. The W4.5
+     * runtime-tunable playback policy rests on this branch, so it is proven
+     * here rather than assumed.
+     *
+     * The `overrideLocalConfig` function is installed by
+     * templates/geonode-mapstore-client/_geonode_config.html and is
+     * reproduced VERBATIM here, mergeWith customizer included (arrays and
+     * supportedLocales are replaced wholesale, everything else deep-merges) —
+     * a spec that invented a simpler function would prove nothing about what
+     * an admin edit actually does.
+     */
+    it('applies window.__GEONODE_CONFIG__.overrideLocalConfig LAST, deep-merging a sibling key (getConfiguration)', (done) => {
+        const siteOverrideLocalConfig = {
+            hydrataConfig: { playbackMemory: { uncapMaxPeakMiB: 300 } }
+        };
+        window.__GEONODE_CONFIG__ = {
+            overrideLocalConfig: (localConfig, _) => {
+                return _.mergeWith(localConfig, siteOverrideLocalConfig, function(objValue, srcValue, key) {
+                    if (_.isArray(objValue)) {
+                        return srcValue;
+                    }
+                    if (key === 'supportedLocales') {
+                        return srcValue;
+                    }
+                    return undefined; // eslint-disable-line consistent-return
+                });
+            }
+        };
+        mockAxios.onGet(/localConfig\.json/)
+            .reply(200, {
+                hydrataConfig: { defaultTerrain: 'GLO-30' },
+                supportedLocales: { en: { code: 'en-US' } },
+                plugins: { map_viewer: [{ name: 'Anuga' }] }
+            });
+        getConfiguration('/static/mapstore/configs/localConfig.json')
+            .then((localConfig) => {
+                try {
+                    // the admin row's key arrived ...
+                    expect(localConfig.hydrataConfig.playbackMemory).toEqual({ uncapMaxPeakMiB: 300 });
+                    // ... and the SIBLING key it shares hydrataConfig with
+                    // survived the merge. This is the half that makes the
+                    // whole vehicle usable: a shallow assign here would
+                    // silently delete defaultTerrain for every visitor.
+                    expect(localConfig.hydrataConfig.defaultTerrain).toBe('GLO-30');
+                    expect(localConfig.plugins.map_viewer.length).toBe(1);
+                    delete window.__GEONODE_CONFIG__;
+                    done();
+                } catch (e) {
+                    delete window.__GEONODE_CONFIG__;
+                    done(e);
+                }
+            });
+    });
+
     it('should create cfg via mergeCfg when the entry ships without one (getConfiguration)', (done) => {
         window.__GEONODE_CONFIG__ = {
             pluginsConfigPatchRules: [

@@ -125,6 +125,37 @@ export class PlaybackChunkCache {
         return value;
     }
 
+    /**
+     * Drop ONE named key — TASK-2985 (W1.2, epic 2981).
+     *
+     * The byte LRU below (`_evictToFit`) is oldest-first, and oldest-first is
+     * the WRONG order once something fills forward from the playhead: the
+     * oldest entry is the chunk the playhead is standing in, because that is
+     * the one the fill started with. The fill queue therefore chooses its own
+     * victim — the resident chunk farthest BEHIND the playhead — and removes
+     * it through here, for all three quantity arrays at once.
+     *
+     * `_evictToFit` REMAINS, as a safety net: if the chooser cannot find a
+     * victim (nothing is fully resident, or the only candidate is the chunk
+     * the playhead is in) the byte ceiling is still enforced, just crudely.
+     *
+     * Deliberately NOT a promoting read: it must not reorder the LRU it is
+     * bypassing. A miss is a no-op, not an error — the caller is removing
+     * something it believes is there, and a race that removed it first is
+     * exactly as good an outcome.
+     *
+     * @param {string} key
+     * @returns {boolean} true if a value was removed
+     */
+    evict(key) {
+        if (!this._map.has(key)) {
+            return false;
+        }
+        this._totalBytes -= byteLengthOf(this._map.get(key));
+        this._map.delete(key);
+        return true;
+    }
+
     _evictToFit() {
         const evicted = [];
         while (this._totalBytes > this.maxBytes && this._map.size > 1) {

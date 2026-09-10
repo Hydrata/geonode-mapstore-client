@@ -63,15 +63,20 @@ import { CLICK_ON_MAP } from '@mapstore/framework/actions/map';
 // precedent). Importing/dispatching a core action is not editing the fork
 // (see AnugaPlaybackLayer.js's header on that distinction).
 import { changeMapInfoState } from '@mapstore/framework/actions/mapInfo';
+// TASK-2986 (W1.3, epic 2981) — the fallback path's ONE map write. Both are
+// plain core actions several other MapStore2 plugins already dispatch; this
+// is not editing the fork.
+import { addLayer, changeLayerProperties } from '@mapstore/framework/actions/layers';
 import { mapInfoEnabledSelector } from '@mapstore/framework/selectors/mapInfo';
 
-import { fetchPlaybackManifest, PlaybackChunkFetcher } from '../playbackChunkFetcher';
+import { fetchPlaybackManifest, PlaybackChunkFetcher, planWindow } from '../playbackChunkFetcher';
 import { loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt, loadPlaybackFrame, loadPlaybackEnvelope } from '../loadPlaybackLayerOptions';
 import {
     QUANTITY_ARRAYS,
     resolveChunkLengthT,
     assertNodeExtentMatchesMesh,
-    assertDeclaredNodeCountAgrees
+    assertDeclaredNodeCountAgrees,
+    assertCodecsAreSupported
 } from '../playbackChunkShape';
 import {
     computePlaybackMemoryPlan,
@@ -81,12 +86,37 @@ import {
     // in response to available memory". Read ONCE per manifest load and
     // threaded into both plans below, so the initial and the exact-nFace plan
     // can never be costed against different budgets.
+    //
+    // TASK-2984 (W1.1, epic 2981) EXTENDS THAT DISCIPLINE TO THE POLICY
+    // OVERRIDES. `policyOverrides` is built ONCE in runLoad and spread into
+    // ALL THREE sites — the budget resolve, the initial plan and the
+    // exact-nFace re-plan whose result goes into the LIVE cache via
+    // fetcher.applyMemoryPlan. Threading an override into one plan and missing
+    // the other yields a fetcher whose cache ceiling disagrees with its own
+    // window depth, and it is SILENT: warnIfOverBudget has a once-per-run
+    // guard (`budgetWarnedRuns`), so the second plan can never announce the
+    // disagreement.
     resolvePlaybackHeapBudgetFromEnvironment,
     PLAYBACK_BUDGET_WARN_PREFIX
 } from '../playbackMemoryPolicy';
 // TASK-2744 (AC20, epic 2706) — score the plan against a measurement.
+// TASK-3025 (W4.5, epic 2981) — the RESOLUTION half of RULE C's seam. The
+// url and the site config are read HERE, in the epic, and passed down as
+// plain numbers: playbackMemoryPolicy.js must gain no getConfigProp, no
+// URLSearchParams, no window read and no module-level `let` (clause 21).
+import {
+    resolvePlaybackPolicyOverrides,
+    describePolicyOverrides,
+    isPlaybackPolicyTester,
+    PLAYBACK_POLICY_OVERRIDE_PREFIX
+} from '../playbackPolicyOverrides';
+import { getConfigProp } from '@mapstore/framework/utils/ConfigUtils';
 import { scorePlan, isForecastContradicted, describeScore } from '../playbackMemoryAudit';
 import { reprojectMeshVertices, reprojectMeshBounds } from '../playbackReproject';
+// TASK-2986 — the run -> gn_layer_depth_max lookup, and the name test
+// pollAnugaScenarioEpic already uses to recognise a Results.* COG layer.
+import { getRunDepthMaxLayer } from '../../selectorsAnuga';
+import { RESULT_LAYER_NAME_RE } from '../../epics/pollingEpics';
 import { sampleFieldAtPoint } from '../playbackIdentify';
 import {
     timestepToChunkIndex,
@@ -124,7 +154,8 @@ import {
     playbackTick,
     playbackSetIdentifyResult,
     playbackEnvelopeLoaded,
-    playbackSetEnvelopeMode
+    playbackSetEnvelopeMode,
+    playbackFallback
 } from '../actions/playbackActions';
 import { show } from '@mapstore/framework/actions/notifications';
 
@@ -241,8 +272,8 @@ function renderedTimestep(pb) {
     return synced === undefined ? pb.currentTimestep : synced;
 }
 
-function arrayConfigsFor(quantization) {
-    const q = quantization || {};
+function arrayConfigsFor(manifest) {
+    const q = (manifest || {}).quantization || {};
     const configs = {};
     QUANTITY_ARRAYS.forEach((name) => {
         const meta = q[name] || {};
@@ -252,6 +283,18 @@ function arrayConfigsFor(quantization) {
 }
 
 /**
+ * TASK-2991 (W3.3, epic 2981) — NOTE WHAT IS DELIBERATELY NOT HERE. The codec
+ * chain and the chunk's node extent do NOT ride in this object, even though
+ * this is the epic that reads the manifest. PlaybackChunkFetcher resolves both
+ * from its OWN manifest, per array, in `_codecOptsFor`. That is not a stylistic
+ * choice: loadPlaybackFrame (the urgent frame path), loadPlaybackMesh and
+ * loadPlaybackEnvelope also call fetchAndDecodeChunk, they pass only
+ * {dtype, byteorder, quantization}, and all four paths write into the SAME
+ * chunk cache. Carrying the chain here as well would put a second copy of it in
+ * the codebase whose only possible behaviours are "identical to the fetcher's"
+ * or "a bug", and would make it look as though a call site could be responsible
+ * for it — which is exactly how one of the four ends up not being.
+ *
  * usedJSHeapSize, or null where the browser does not expose it (TASK-2744
  * AC20). Never faked — a null observation scores as "unmeasured", which is
  * honest, rather than as "within budget", which is the defect.
@@ -400,6 +443,62 @@ export function buildManifestRefreshUrl(manifestUrl) {
  * whatever manifestUrl the caller passes is followed verbatim, exactly like
  * playbackChunkFetcher's own contract.
  */
+/**
+ * TASK-2986 (W1.3, epic 2981) — SHOW THE FLOOD, NOT AN APOLOGY.
+ *
+ * A stranger arriving at a public flood map on a phone does not want a
+ * message, they want the flood. The product already serves the artefact: the
+ * run's Results.* max-value COG layers, which pollAnugaScenarioEpic adds for
+ * the latest complete run. Showing the max-depth one is the refusal path plus
+ * one addLayer the epic already knows how to write.
+ *
+ * Three outcomes, recorded on the action so the census and TASK-2995 can tell
+ * them apart:
+ *   'existing' — the run's max-depth layer is ALREADY in state.layers.flat;
+ *                make it visible.
+ *   'added'    — not in state but reachable from scenario state; add it.
+ *   'none'     — no envelope available (a synthetic manifest in the rig, or a
+ *                run with no COGs). FAIL CLOSED: still no geometry fetch,
+ *                still status 'fallback', still a responsive tab.
+ *
+ * `visibility: true` ON THE ADD IS LOAD-BEARING, NOT A TIDY-UP.
+ * RunSerializerV2's nested gn_layer_* dicts are built by `_serialize_gn_layer`,
+ * which executes `response['visibility'] = False` and says so in its own
+ * docstring. A bare `addLayer(gn_layer_depth_max)` therefore files an INVISIBLE
+ * layer: the epic records 'added', the census records 'added', a gate greens on
+ * 'added', and the phone user still sees a blank map with an apology — exactly
+ * the failure this Option A re-aim exists to stop.
+ *
+ * `gn_layer_depth_max` needs NO group remap. pollAnugaScenarioEpic's
+ * `remapGroup` applies ONLY to gn_layer_depth_integrated_velocity_max
+ * ('Results.Depth Integrated Velocity' -> 'Results.Momentum').
+ *
+ * NO NEW WMS/COG FETCH PATH. If the layer object is not reachable from state,
+ * take the 'none' branch.
+ *
+ * @returns {'existing'|'added'|'none'}
+ */
+export function showFallbackEnvelope(store, runId, emit) {
+    const state = (store && store.getState && store.getState()) || {};
+    const candidate = getRunDepthMaxLayer(state, runId);
+    const flat = (state.layers && state.layers.flat) || [];
+    const wantedName = candidate && candidate.name;
+    const existing = wantedName
+        ? flat.find((layer) => layer
+            && layer.name === wantedName
+            && RESULT_LAYER_NAME_RE.test(layer.name || ''))
+        : null;
+    if (existing) {
+        emit(changeLayerProperties(existing.id, { visibility: true }));
+        return 'existing';
+    }
+    if (candidate) {
+        emit(addLayer({ ...candidate, visibility: true }));
+        return 'added';
+    }
+    return 'none';
+}
+
 export function playbackInitEpic(action$, store) {
     return action$.ofType(PLAYBACK_INIT).mergeMap((action) => {
         const { runId, layerId, manifestUrl } = action;
@@ -460,6 +559,15 @@ export function playbackInitEpic(action$, store) {
             // or whose quantity arrays disagree; there is deliberately no
             // fallback, because guessing renders the wrong timestep silently.
             const chunkLengthT = resolveChunkLengthT(manifest);
+            // TASK-2991 (W3.3, epic 2981) — refuse a codec chain this client
+            // cannot invert, HERE, beside the chunk-length guard and before a
+            // single chunk is fetched. What it prevents is not a crash: an
+            // un-inverted array->array filter decodes to a full-length,
+            // in-range, entirely plausible flood surface that is not the one
+            // the model produced. Absence is not disagreement — a manifest
+            // with no `codecs` block (every store signed before TASK-2990)
+            // passes untouched.
+            assertCodecsAreSupported(manifest);
             // TASK-2729 arm 2 — the dim-1 twin, at manifest time. Presence-
             // gated: schema_metadata.n_node is absent on every store written
             // so far, and refusing on absence would refuse the whole product.
@@ -475,11 +583,46 @@ export function playbackInitEpic(action$, store) {
             // once face_node_connectivity has landed.
             const nNode0 = readNodeCount(manifest);
             const totalChunks0 = nTime0 && chunkLengthT ? Math.ceil(nTime0 / chunkLengthT) : undefined;
-            const heapBudget = resolvePlaybackHeapBudgetFromEnvironment();
+            // TASK-2984 RULE C clause 19 / TASK-3025 — ONE override object,
+            // built once, spread into all three policy call sites. TASK-2984
+            // shipped it as a literal `{}` with the note that a later task
+            // would resolve it; this is that task.
+            //
+            // RUNG 1 is the url, honoured only for a tester and only in this
+            // tab. RUNG 2 is the per-site admin row, honoured only in the
+            // conservative direction — it reaches every visitor of the site
+            // including anonymous ones, because context_processors.py's
+            // site_plugin_config(request) never reads `request`, it keys on
+            // settings.JOB_NAME alone.
+            //
+            // `state` is the read taken at PLAYBACK_INIT (above), NOT a fresh
+            // store.getState(): canSelectComputeTarget hydrates from an async
+            // fetch and the earlier read is the one that FAILS CLOSED.
+            const policyResolution = resolvePlaybackPolicyOverrides({
+                location: (typeof window !== 'undefined' && window.location) || null,
+                siteConfig: getConfigProp('hydrataConfig'),
+                isTester: isPlaybackPolicyTester(state)
+            });
+            const policyOverrides = policyResolution.overrides;
+            // ONE LINE, and only when a transport actually said something.
+            // Silence means neither rung supplied a value — which the runbook
+            // states, so "no line" is itself a reading. An override that was
+            // REJECTED still logs: a rejection the operator cannot see is
+            // indistinguishable from a transport that never arrived.
+            if (policyResolution.supplied) {
+                console.warn(`${PLAYBACK_POLICY_OVERRIDE_PREFIX} ${describePolicyOverrides(policyResolution)}`);
+            }
+            const heapBudget = resolvePlaybackHeapBudgetFromEnvironment(policyOverrides);
             const initialPlan = nNode0
                 ? computePlaybackMemoryPlan({
+                    ...policyOverrides,
                     nNode: nNode0, chunkLengthT, totalChunks: totalChunks0,
-                    budgetBytes: heapBudget.budgetBytes
+                    budgetBytes: heapBudget.budgetBytes,
+                    // TASK-2984 clause 11 — the user's own Save-Data
+                    // preference, read off navigator.connection by the
+                    // environment resolver. It holds the plan at the floor
+                    // window and does nothing else.
+                    saveData: heapBudget.saveData
                 })
                 : null;
             // TASK-2732 (W3, epic 2706) — THE seam. This plan already knows
@@ -487,6 +630,53 @@ export function playbackInitEpic(action$, store) {
             // on the floor. Announced here, before the mesh download starts,
             // and guarded so the exact-nFace re-plan below cannot repeat it.
             warnIfOverBudget(runId, initialPlan);
+            // ================================================================
+            // TASK-2986 (W1.3, epic 2981) — THE FALLBACK SEAM.
+            //
+            // This is the LAST point at which nothing has downloaded. Below
+            // this line comes `new PlaybackChunkFetcher(...)` and then the
+            // mesh/time/dt `Promise.all`, i.e. the 63 MB geometry prefix. A
+            // phone handed a 3.39 M-node mesh dies AFTER that prefix starts
+            // moving, so the decision has to be made here or not at all.
+            //
+            // READ THE VERDICT DEFENSIVELY. `initialPlan` CAN BE NULL — it is
+            // `nNode0 ? computePlaybackMemoryPlan({...}) : null`, and
+            // readNodeCount returns undefined for a manifest whose chunk_shapes
+            // declare no usable node extent for ANY quantity array. A bare
+            // `initialPlan.verdict` would throw a TypeError into runLoad's own
+            // catch and land status 'error' instead of 'fallback'.
+            //
+            // AND A NULL PLAN IS NOT A FALLBACK. A store whose size cannot be
+            // read cannot be judged, and today it PROCEEDS — that behaviour is
+            // KEPT, and it is recorded here rather than inherited, because the
+            // two natural readings of the old spec text failed in opposite
+            // directions: `initialPlan.verdict` throws, and a bare
+            // `if (plan && ...)` with no recorded decision lets an unsizable
+            // store download the whole geometry prefix on a phone.
+            //
+            // NOTE THE CALL ORDER: warnIfOverBudget runs ABOVE this, so the
+            // OVER BUDGET console.warn still lands ON the fallback plan and the
+            // only console signal on that band is not silently removed by the
+            // early return. At the arithmetic TASK-2984 ships they fire on
+            // exactly the SAME plans — chunksPerQuantity === 2 makes
+            // peakResidentBytes identical to the floor-window peak, so
+            // `withinBudget === false` IS the fallback trigger — so there is no
+            // "over budget but verdict ok" state to protect.
+            if (initialPlan && initialPlan.verdict === 'fallback') {
+                const fallbackLayerShown = showFallbackEnvelope(store, runId, emit);
+                emit(playbackFallback({
+                    runId,
+                    reason: initialPlan.fallbackReason,
+                    nNode: initialPlan.nNode,
+                    nFace: initialPlan.nFace,
+                    budgetBytes: heapBudget.budgetBytes,
+                    budgetSource: heapBudget.source,
+                    floorWindowPlanPeakBytes: initialPlan.floorWindowPlanPeakBytes,
+                    fallbackLayerShown
+                }));
+                return;
+            }
+            // ================================================================
             // TASK-2739 (W3, epic 2706) — the 403 recovery the fetcher has
             // documented since W2.1 and never had a caller for. Without
             // `refreshManifest` a chunk url whose credentials rotated dies at
@@ -494,6 +684,15 @@ export function playbackInitEpic(action$, store) {
             // W2's manifest cache would turn one rotation into a dead run for
             // the rest of the bucket. Same run, same relative keys, freshly
             // signed urls.
+            // TASK-2754 (W0, epic 2981) — this closure is deliberately left
+            // BARE. It is not called directly: PlaybackChunkFetcher routes
+            // every 403 through its own per-instance `_refreshManifestOnce()`
+            // single-flight, so the eight concurrent 403s a credential
+            // rotation produces here cost ONE `?refresh=1`, not eight. Do not
+            // add a second memo at this level — the fetcher's is per-run by
+            // construction, and a closure memo here would only duplicate it
+            // for the init path while leaving prefetchWindow's fan-out
+            // (which never passes through this epic) unprotected.
             const fetcher = new PlaybackChunkFetcher({
                 manifest,
                 memoryPlan: initialPlan,
@@ -546,11 +745,13 @@ export function playbackInitEpic(action$, store) {
             // mesh is here (the manifest-time plan had to estimate it), and
             // push the corrected ceiling into the cache that is already live.
             const memoryPlan = computePlaybackMemoryPlan({
+                ...policyOverrides,
                 nNode,
                 nFace: mesh.faceNodeConnectivity ? mesh.faceNodeConnectivity.length / 3 : undefined,
                 chunkLengthT,
                 totalChunks,
-                budgetBytes: heapBudget.budgetBytes
+                budgetBytes: heapBudget.budgetBytes,
+                saveData: heapBudget.saveData
             });
             fetcher.applyMemoryPlan(memoryPlan);
             // TASK-2744 AC20 — SCORE THE FORECAST. `withinBudget` had zero
@@ -639,12 +840,27 @@ export function playbackBufferEpic(action$, store) {
         // for a window it then refuses to recognise as complete.
         const windowRadius = pb.bufferWindowRadius;
         const windowAhead = pb.bufferWindowAhead;
-        const window = fetcher.getPrefetchWindow(centerChunk, pb.totalChunks, windowRadius, { ahead: windowAhead });
+        // TASK-2985 (W1.2, epic 2981) — ONE WINDOW, TWO USES, and it is now
+        // planWindow rather than getPrefetchWindow.
+        //
+        // getPrefetchWindow CLIPS at both ends, so at centre 0 it spends the
+        // behind-slot on nothing: an 11-slot plan asked for [0..9], one chunk
+        // short of the store the budget had just paid for. planWindow ROLLS
+        // the window instead, so the plan's depth is what actually gets
+        // fetched. `chunksPerQuantity` is not on the reducer, but it is
+        // exactly radius + ahead + 1 by construction
+        // (playbackMemoryPolicy: bufferWindowAhead = chunksPerQuantity - 1 -
+        // bufferWindowRadius), so the epic derives it rather than reaching
+        // into the plan for it.
+        const window = planWindow(centerChunk, pb.totalChunks, {
+            chunksPerQuantity: windowRadius + windowAhead + 1,
+            bufferWindowRadius: windowRadius
+        });
         const alreadyBuffered = new Set(pb.bufferedChunks);
         if (window.every((c) => alreadyBuffered.has(c))) {
             return Rx.Observable.empty();
         }
-        const arrayConfigs = arrayConfigsFor(pb.quantization);
+        const arrayConfigs = arrayConfigsFor(pb.manifest);
         // TASK-2743 UAT-09 (W6, epic 2706) — report EACH chunk the moment its
         // own arrays land, rather than holding the whole window behind its
         // slowest member. The controller only needs the chunk(s) frame0/frame1
@@ -655,12 +871,24 @@ export function playbackBufferEpic(action$, store) {
         //
         // `merge` (not `forkJoin`) is the whole point — one emission per chunk,
         // in arrival order.
-        const chunkGroups = fetcher.prefetchWindowByChunk(
-            arrayConfigs, centerChunk, pb.totalChunks, { windowRadius, windowAhead }
-        );
-        return Rx.Observable.merge(
-            ...chunkGroups.map((group) => Rx.Observable.fromPromise(group.promise))
-        ).mergeMap((results) => {
+        //
+        // TASK-2985 — the fan-out is replaced by the fetcher's own fill queue:
+        // the SAME `window` array that fed the already-buffered guard above,
+        // filled forward from the playhead, at most two chunks (six requests)
+        // in flight, with playhead-distance eviction. The per-chunk promise
+        // shape is unchanged, so `merge` and the per-chunk announcement below
+        // are untouched.
+        const chunkGroups = fetcher.fillTowards(window, centerChunk, arrayConfigs, {
+            totalChunks: pb.totalChunks
+        });
+        // An EMPTY group list means nothing was missing — but the guard above
+        // only cleared us because `pb.bufferedChunks` disagreed with the cache,
+        // so we still have to reconcile the announced set or the state stays
+        // wrong for ever and this epic re-runs on every tick doing nothing.
+        const settled$ = chunkGroups.length
+            ? Rx.Observable.merge(...chunkGroups.map((group) => Rx.Observable.fromPromise(group.promise)))
+            : Rx.Observable.of([]);
+        return settled$.mergeMap((results) => {
             const errors = results.filter((r) => r.error);
             const actions = [];
             // TASK-2744 AC20 — report what the fetcher ACTUALLY holds, not the
@@ -691,7 +919,11 @@ export function playbackBufferEpic(action$, store) {
             const changed = resident.length !== previous.length
                 || resident.some((c, i) => c !== previous[i]);
             if (changed) {
-                actions.push(playbackChunksBuffered(resident, true));
+                // TASK-2987 (W2.1, epic 2981) — stamp the landing's wall clock:
+                // the reducer re-paces on it (a landing moves the runway) and
+                // its EMA needs a dt. Date.now() is what playbackTickEpic
+                // already uses, so the two share one clock.
+                actions.push(playbackChunksBuffered(resident, true, Date.now()));
             }
             errors.forEach((r) => actions.push(playbackChunkBufferError(r.chunkIndex, String((r.error && r.error.message) || r.error))));
             return actions.length ? Rx.Observable.of(...actions) : Rx.Observable.empty();

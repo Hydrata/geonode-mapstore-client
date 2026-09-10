@@ -82,8 +82,13 @@ let workerReadyPromise = null;
 let nextRequestId = 1;
 const pending = new Map();
 
-function decodeInline(compressed, dtype, byteorder) {
-    return decodeCompressedChunk(compressed, { dtype, byteorder });
+// TASK-2991 — `opts` is the WHOLE decode option bag ({dtype, byteorder,
+// codecs, nodeExtent}), passed through untouched. Taking the fields apart here
+// is how a new one gets silently dropped on the fallback path only, which
+// would make the inline decode differ from the worker's for exactly the
+// stores that carry a codec chain.
+function decodeInline(compressed, opts) {
+    return decodeCompressedChunk(compressed, opts);
 }
 
 function rejectAllPending(reason) {
@@ -203,19 +208,24 @@ function readyWorker() {
  *      is also there.
  *
  * @param {ArrayBuffer} compressed transferred to the worker — do not reuse it
- * @param {{dtype: string, byteorder?: string, timeoutMs?: number}} opts
+ * @param {{dtype: string, byteorder?: string, codecs?: object[], nodeExtent?: number,
+ *          timeoutMs?: number}} opts
+ *   `codecs`/`nodeExtent` are the store's own declared codec chain for this
+ *   array and its chunk row length (TASK-2991); they ride the worker message
+ *   so the off-thread and inline paths invert the identical filter.
  *   `timeoutMs` overrides WORKER_REQUEST_TIMEOUT_MS for this request only
  *   (an injection seam: the bundle is webpack ESM-harmony, so the exported
  *   constant is a getter-only binding no test can reassign).
  * @returns {Promise<Uint16Array|Int32Array|Float32Array|Float64Array>}
  */
-export function decodeChunkOffThread(compressed, { dtype, byteorder = 'little', timeoutMs } = {}) {
+export function decodeChunkOffThread(compressed, { dtype, byteorder = 'little', codecs, nodeExtent, timeoutMs } = {}) {
+    const decodeOpts = { dtype, byteorder, codecs, nodeExtent };
     const requestTimeoutMs = typeof timeoutMs === 'number' && isFinite(timeoutMs) && timeoutMs > 0
         ? timeoutMs
         : WORKER_REQUEST_TIMEOUT_MS;
     return readyWorker().then((active) => {
         if (!active) {
-            return decodeInline(compressed, dtype, byteorder);
+            return decodeInline(compressed, decodeOpts);
         }
         return new Promise((resolve, reject) => {
             const requestId = nextRequestId++;
@@ -258,10 +268,11 @@ export function decodeChunkOffThread(compressed, { dtype, byteorder = 'little', 
                     // worker itself runs — is an exact answer.
                     pending.delete(requestId);
                     settled = true;
-                    decodeInline(compressed, dtype, byteorder).then(resolve, reject);
+                    decodeInline(compressed, decodeOpts).then(resolve, reject);
                     return;
                 }
-                active.postMessage({ requestId, compressed, dtype, byteorder }, [compressed]);
+                active.postMessage(
+                    { requestId, compressed, dtype, byteorder, codecs, nodeExtent }, [compressed]);
                 if (!settled) {
                     // (2) The bytes are gone now, so there is no falling back:
                     // the only honest outcome for a worker that never answers
@@ -284,7 +295,7 @@ export function decodeChunkOffThread(compressed, { dtype, byteorder = 'little', 
                 pending.delete(requestId);
                 settled = true;
                 clearRequestTimer();
-                decodeInline(compressed, dtype, byteorder).then(resolve, reject);
+                decodeInline(compressed, decodeOpts).then(resolve, reject);
             }
         });
     });

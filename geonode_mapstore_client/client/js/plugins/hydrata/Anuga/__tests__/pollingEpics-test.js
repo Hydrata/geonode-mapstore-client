@@ -12,7 +12,9 @@ import {
     anugaMapLayerGroupEpic,
     HANDLED_IDS_TTL_MS,
     getPollingCap,
-    __setVisibilityForTests
+    __setVisibilityForTests,
+    // TASK-2993 (W4.2, epic 2981) — the stranger branch's shared layer picker.
+    selectMaxResultLayers
 } from '../epics/pollingEpics';
 import {
     START_ANUGA_SCENARIO_POLLING,
@@ -25,8 +27,13 @@ import {
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_TERRAIN_DATA,
     SET_ANUGA_INIT_IN_FLIGHT,
-    SET_ANUGA_NO_PROJECT_FOR_MAP
+    SET_ANUGA_NO_PROJECT_FOR_MAP,
+    // TASK-2993 (W4.2, epic 2981)
+    SET_ANUGA_SCENARIO_DATA,
+    START_ANUGA_MODEL_CREATION_POLLING
 } from '../actionsAnuga';
+// TASK-2993 — SET_SV_CONFIG lives in the SimpleView barrel, not the Anuga one.
+import { SET_SV_CONFIG } from '../../SimpleView/actionsSimpleView';
 import {
     START_ACTIVE_RUN_POLLING,
     STOP_ACTIVE_RUN_POLLING,
@@ -2735,8 +2742,22 @@ describe('Polling Epics', () => {
             }, 30);
         });
 
-        it('fires ZERO from-map POSTs for an anonymous (logged-out) visitor', (done) => {
+        it('an anonymous visitor now fires EXACTLY ONE from-map POST, and the dedupe still holds', (done) => {
+            // REPLACES 'fires ZERO from-map POSTs for an anonymous (logged-out)
+            // visitor' — TASK-2993 (W4.2, epic 2981) deleted the auth filter
+            // that assertion pinned. ZERO was correct while every downstream
+            // read was IsAuthenticated (the POST was pure waste); TASK-2992
+            // opened those reads, so the stranger's fan-out is now the feature.
+            //
+            // WHAT THIS TEST STILL GUARDS is the half of TASK-1637 that did not
+            // change and that now matters MORE, not less: anugaContainer's
+            // componentDidUpdate re-dispatches INIT_ANUGA on every re-render
+            // while !isAnugaProject, and there is no login to slow a stranger
+            // down. ONE, not two, not a storm.
             mock.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: 999 });
+            mock.onGet('/api/v2/anuga/projects/999/').reply(200, { id: 999, simple_view_config: {} });
+            mock.onGet(/\/api\/v2\/anuga\/projects\/999\/scenarios\//).reply(200, []);
+            mock.onGet(/\/api\/v2\/anuga\/projects\/999\//).reply(200, []);
 
             const { subject, action$ } = liveActions();
             const guard = makeGuardStore(5486, { authed: false });
@@ -2748,16 +2769,16 @@ describe('Polling Epics', () => {
                 );
 
             subject.next({ type: INIT_ANUGA });
+            subject.next({ type: INIT_ANUGA });
             setTimeout(() => {
                 try {
-                    // Auth filter hoisted ABOVE the POST → no network call, no
-                    // guard set.
-                    expect(countFromMapPosts()).toBe(0);
-                    expect(emitted.filter(a => a.type === SET_ANUGA_INIT_IN_FLIGHT).length).toBe(0);
+                    expect(countFromMapPosts()).toBe(1);
+                    expect(emitted.filter(a => a.type === SET_ANUGA_INIT_IN_FLIGHT
+                        && a.mapId === 5486).length).toBe(1);
                     sub.unsubscribe();
                     done();
                 } catch (e) { sub.unsubscribe(); done(e); }
-            }, 0);
+            }, 60);
         });
 
         it('clears the guard on a from-map chain error so future re-inits are not blocked', (done) => {
@@ -2933,10 +2954,19 @@ describe('Polling Epics', () => {
             }, 30);
         });
 
-        // AC3 — anonymous public-map load must stay silently filtered: the
-        // pre-existing :173 auth gate (untouched) drops INIT_ANUGA before any
-        // network call fires, so no notification (and no POST) may appear.
-        it('regression guard: fires ZERO notifications for an anonymous (logged-out) visitor even on failure', (done) => {
+        // AC3 — an anonymous visitor must never be TOASTED, even when the
+        // chain fails.
+        //
+        // REBASED BY TASK-2993 (W4.2, epic 2981). This used to get the zero
+        // notifications for free: the auth filter dropped INIT_ANUGA before
+        // any network call, so `countFromMapPosts() === 0` and "no toast"
+        // were the same fact. W4.2 deleted that filter, and the POST now
+        // fires — which is exactly when the assertion starts being worth
+        // something. An anonymous visitor to ANY ordinary GeoNode map now
+        // reaches initAnugaEpic's catch, and "the model builder failed to
+        // load" is noise about a feature they cannot use. The suppression is
+        // in the catch (isStranger); this is its pin.
+        it('fires ZERO notifications for an anonymous (logged-out) visitor even on failure', (done) => {
             mock.onPost('/api/v2/anuga/projects/from-map/').reply(401, { detail: 'Invalid token.' });
 
             const { subject, action$ } = liveActions();
@@ -2951,12 +2981,38 @@ describe('Polling Epics', () => {
             subject.next({ type: INIT_ANUGA });
             setTimeout(() => {
                 try {
-                    expect(countFromMapPosts()).toBe(0);
+                    expect(countFromMapPosts()).toBe(1);
                     expect(emitted.filter(a => a.type === SHOW_NOTIFICATION).length).toBe(0);
+                    // The guard still clears on every path — no stuck spinner.
+                    expect(emitted.some(a => a.type === SET_ANUGA_INIT_IN_FLIGHT
+                        && a.mapId === false)).toBe(true);
                     sub.unsubscribe();
                     done();
                 } catch (e) { sub.unsubscribe(); done(e); }
-            }, 0);
+            }, 30);
+        });
+
+        it('a SIGNED-IN user still gets the failure toast (the suppression is stranger-only)', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(401, { detail: 'Invalid token.' });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    const notifications = emitted.filter(a => a.type === SHOW_NOTIFICATION);
+                    expect(notifications.length).toBe(1);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 30);
         });
 
         // AC4 — setAnugaInitInFlight(false) still dispatched in every failure path.
@@ -3179,14 +3235,19 @@ describe('Polling Epics', () => {
             });
         });
 
-        // AC5 (spec) — neither pollingEpics.js's auth gate nor
-        // projectsReducer.js's map-stamp refusal is weakened. Both already
-        // have dedicated coverage (the TASK-1637 "fires ZERO from-map POSTs
-        // for an anonymous visitor" test above; anuga-test.js's "a late
-        // answer for a map the user has since left is REFUSED" test for the
-        // new action) — this is a single end-to-end regression pin that a
-        // logged-out visitor still fires zero POSTs even after this change.
-        it('regression: an anonymous visitor on a non-ANUGA map still fires ZERO from-map POSTs', (done) => {
+        // AC5 (spec) — an anonymous visitor on a NON-ANUGA map must not storm.
+        //
+        // REBASED BY TASK-2993 (W4.2, epic 2981). It used to assert ZERO
+        // POSTs, which the deleted auth filter guaranteed. W4.2 removed the
+        // filter, so this map's from-map lookup now fires — ONCE — and the
+        // thing that has to hold is the one TASK-2850 built: the 404 answer
+        // ("no ANUGA project resolves for this map") is recorded as a
+        // TERMINAL state, so anugaContainer's componentDidUpdate gate stops
+        // re-arming. Without that, every re-render would re-fire INIT_ANUGA
+        // the instant the catch cleared initInFlight — the ~8.8
+        // dispatches/sec storm, now with no login in front of it. THIS is
+        // the assertion the old one was standing in for.
+        it('an anonymous visitor on a non-ANUGA map fires ONE from-map POST and then stops', (done) => {
             mock.onPost('/api/v2/anuga/projects/from-map/').reply(404, { projectId: null });
 
             const { subject, action$ } = liveActions();
@@ -3202,12 +3263,15 @@ describe('Polling Epics', () => {
             subject.next({ type: INIT_ANUGA });
             setTimeout(() => {
                 try {
-                    expect(countFromMapPosts()).toBe(0);
-                    expect(emitted.length).toBe(0);
+                    expect(countFromMapPosts()).toBe(1);
+                    // The terminal answer that shuts the container's gate.
+                    expect(emitted.filter(a => a.type === SET_ANUGA_NO_PROJECT_FOR_MAP).length).toBe(1);
+                    // ...and not one toast at a visitor with no model builder.
+                    expect(emitted.filter(a => a.type === SHOW_NOTIFICATION).length).toBe(0);
                     sub.unsubscribe();
                     done();
                 } catch (e) { sub.unsubscribe(); done(e); }
-            }, 0);
+            }, 40);
         });
     });
 
@@ -3334,4 +3398,214 @@ describe('Polling Epics', () => {
             );
         });
     });
+
+    /*
+     * =======================================================================
+     * TASK-2993 (W4.2, epic 2981) — THE STRANGER BRANCH.
+     *
+     * A visitor with no security.user on a PUBLIC project runs the SAME
+     * waterfall a member runs — from-map, project, scenarios, the fourteen
+     * resource endpoints — exactly ONCE each, plus the three max-value result
+     * layers, and then stops. No scenario poll, no model-creation poll.
+     *
+     * The counts are the point. TASK-2992's AC6 sizes the anon_project_read
+     * throttle (120/minute) against this fan-out, so a spec that let it drift
+     * would silently change how many stranger page-loads fit in a minute.
+     * =======================================================================
+     */
+    describe('TASK-2993 — initAnugaEpic stranger branch', () => {
+        let mock;
+        beforeEach(() => {
+            mock = mockAxios();
+            __setVisibilityForTests(new Rx.BehaviorSubject(true));
+        });
+        afterEach(() => __setVisibilityForTests(null));
+
+        const PID = 4242;
+        // The FOURTEEN list routes resourceEndpoints fans out to, as URL
+        // segments. Counted, not sampled: TASK-2992's precheck (finding F19)
+        // caught a spec asserting TWELVE, which would either fail against a
+        // correct implementation or pass for the wrong reason.
+        const RESOURCE_SEGMENTS = [
+            'boundaries', 'terrain', 'inflows', 'rainfalls', 'structures', 'frictions',
+            'full-meshes', 'mesh-regions', 'networks', 'catchments', 'nodes', 'links',
+            'comparisons', 'publications'
+        ];
+
+        const layer = (name, group) => ({
+            name, title: name, group, catalogURL: `http://gs/${name}`, type: 'wms'
+        });
+        const SCENARIO_WITH_RESULTS = {
+            id: 77,
+            name: 'Stranger scenario',
+            latest_complete_run: {
+                id: 501,
+                status: 'complete',
+                has_playback_store: true,
+                gn_layer_depth_integrated_velocity_max:
+                    layer('geonode:run501_depthintegratedvelocity_max_cog', 'Results.Depth Integrated Velocity'),
+                gn_layer_depth_max: layer('geonode:run501_depth_max_cog', 'Results.Depth'),
+                gn_layer_velocity_max: layer('geonode:run501_velocity_max_cog', 'Results.Velocity')
+            }
+        };
+
+        const wireRoutes = () => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: PID });
+            mock.onGet(`/api/v2/anuga/projects/${PID}/`).reply(
+                200, { id: PID, projection: 'EPSG:28355', visibility: 'public', my_role: null,
+                    simple_view_config: { menus: [] } });
+            mock.onGet(new RegExp(`/api/v2/anuga/projects/${PID}/scenarios/`))
+                .reply(200, [SCENARIO_WITH_RESULTS]);
+            // Everything else nested under the project is a resource list.
+            mock.onGet(new RegExp(`/api/v2/anuga/projects/${PID}/`)).reply(200, []);
+        };
+
+        const makeStore = (authed) => {
+            const state = {
+                gnresource: { id: 5486 },
+                security: authed ? { user: { name: 'tester' } } : {},
+                layers: { flat: [], groups: [] },
+                anuga: {
+                    projects: { data: null, initInFlight: false },
+                    scenarios: { archiveFilter: 'none', byId: {} }
+                }
+            };
+            const applyGuardReducer = (action) => {
+                if (action.type === SET_ANUGA_INIT_IN_FLIGHT) {
+                    state.anuga.projects.initInFlight = action.mapId || false;
+                } else if (action.type === SET_ANUGA_PROJECT_DATA) {
+                    state.anuga.projects.initInFlight = false;
+                    state.anuga.projects.data = action.data;
+                }
+            };
+            return { getState: () => state, applyGuardReducer, state };
+        };
+
+        const drive = (authed, assertions, done) => {
+            wireRoutes();
+            const { subject, action$ } = liveActions();
+            const store = makeStore(authed);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, store).subscribe(
+                action => { emitted.push(action); store.applyGuardReducer(action); },
+                err => done(err)
+            );
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    assertions(emitted, mock);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 120);
+        };
+
+        // ⚠ SPLIT THE QUERY STRING OFF. getScenariosByArchive appends
+        // `?archived=<mode>`, so an exact-url match silently counts ZERO
+        // scenario fetches — a matcher bug that reads exactly like "the
+        // fan-out did not fire".
+        const getsFor = (segment) => mock.history.get.filter(
+            r => r.url.split('?')[0] === `/api/v2/anuga/projects/${PID}/${segment}/`).length;
+
+        it('AC3 fetches from-map, the project, scenarios and all FOURTEEN resource endpoints exactly once', (done) => {
+            drive(false, (emitted) => {
+                expect(mock.history.post.filter(
+                    r => r.url === '/api/v2/anuga/projects/from-map/').length).toBe(1);
+                expect(mock.history.get.filter(
+                    r => r.url === `/api/v2/anuga/projects/${PID}/`).length).toBe(1);
+                expect(getsFor('scenarios')).toBe(1);
+                const counts = RESOURCE_SEGMENTS.map(seg => [seg, getsFor(seg)]);
+                expect(counts.filter(([, n]) => n !== 1)).toEqual([]);
+                expect(RESOURCE_SEGMENTS.length).toBe(14);
+                // The bootstrap trio the FE needs before any menu can mount.
+                expect(emitted.filter(a => a.type === SET_ANUGA_PROJECT_DATA).length).toBe(1);
+                expect(emitted.filter(a => a.type === FIX_ANUGA_GROUPS).length).toBe(1);
+                expect(emitted.filter(a => a.type === SET_SV_CONFIG).length).toBe(1);
+                expect(emitted.filter(a => a.type === SET_ANUGA_SCENARIO_DATA).length).toBe(1);
+                // ...and the resource setters actually land (two samples of the
+                // fourteen; the request counts above cover the rest).
+                expect(emitted.filter(a => a.type === SET_ANUGA_TERRAIN_DATA).length).toBe(1);
+                expect(emitted.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(1);
+            }, done);
+        });
+
+        it('AC3 adds the three max-value result layers ONCE, with the momentum group remapped', (done) => {
+            drive(false, (emitted) => {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(3);
+                expect(adds.map(a => a.layer.name)).toEqual([
+                    'geonode:run501_depthintegratedvelocity_max_cog',
+                    'geonode:run501_depth_max_cog',
+                    'geonode:run501_velocity_max_cog'
+                ]);
+                // ISSUE 32 (TASK-1429) — the BE group name is renamed on the way in.
+                expect(adds[0].layer.group).toBe('Results.Momentum');
+                expect(adds[1].layer.group).toBe('Results.Depth');
+            }, done);
+        });
+
+        it('AC3 never dispatches START_ANUGA_SCENARIO_POLLING or the model-creation poll', (done) => {
+            drive(false, (emitted) => {
+                expect(emitted.filter(a => a.type === START_ANUGA_SCENARIO_POLLING).length).toBe(0);
+                expect(emitted.filter(a => a.type === START_ANUGA_MODEL_CREATION_POLLING).length).toBe(0);
+            }, done);
+        });
+
+        it('AC3 the SIGNED-IN path is unchanged: both polls start and init adds no layers', (done) => {
+            drive(true, (emitted) => {
+                expect(emitted.filter(a => a.type === START_ANUGA_SCENARIO_POLLING).length).toBe(1);
+                expect(emitted.filter(a => a.type === START_ANUGA_MODEL_CREATION_POLLING).length).toBe(1);
+                // A member's result layers are added by pollAnugaScenarioEpic,
+                // not by init — the one-shot add is the stranger's substitute
+                // for the poll they never start.
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                // ...and the fan-out is identical either way.
+                expect(getsFor('scenarios')).toBe(1);
+                expect(RESOURCE_SEGMENTS.map(seg => getsFor(seg)).filter(n => n !== 1)).toEqual([]);
+            }, done);
+        });
+    });
+
+    describe('TASK-2993 — selectMaxResultLayers (the shared addable-layer predicate)', () => {
+        const layer = (name, group) => ({ name, group, catalogURL: `http://gs/${name}` });
+        const scenario = (over = {}) => ({
+            id: 9,
+            latest_complete_run: {
+                gn_layer_depth_integrated_velocity_max:
+                    layer('run9_depthintegratedvelocity_max_cog', 'Results.Depth Integrated Velocity'),
+                gn_layer_depth_max: layer('run9_depth_max_cog', 'Results.Depth'),
+                gn_layer_velocity_max: layer('run9_velocity_max_cog', 'Results.Velocity'),
+                ...over
+            }
+        });
+
+        it('returns the three layers, momentum first and remapped', () => {
+            const layers = selectMaxResultLayers(scenario(), []);
+            expect(layers.length).toBe(3);
+            expect(layers[0].group).toBe('Results.Momentum');
+            expect(layers[0].name).toBe('run9_depthintegratedvelocity_max_cog');
+        });
+
+        it('returns [] when ANY of the three has no catalogURL (a run still publishing)', () => {
+            const half = scenario({ gn_layer_velocity_max: { name: 'run9_velocity_max_cog' } });
+            expect(selectMaxResultLayers(half, [])).toEqual([]);
+        });
+
+        it('returns [] when the layers are already on the map (idempotent re-add)', () => {
+            expect(selectMaxResultLayers(scenario(), ['run9_depth_max_cog'])).toEqual([]);
+        });
+
+        it('returns [] for a scenario with no complete run, and for undefined', () => {
+            expect(selectMaxResultLayers({ id: 1, latest_complete_run: null }, [])).toEqual([]);
+            expect(selectMaxResultLayers(undefined, [])).toEqual([]);
+        });
+
+        it('does not MUTATE the layer it remaps (the reducer keeps the BE payload)', () => {
+            const sc = scenario();
+            selectMaxResultLayers(sc, []);
+            expect(sc.latest_complete_run.gn_layer_depth_integrated_velocity_max.group)
+                .toBe('Results.Depth Integrated Velocity');
+        });
+    });
+
 });

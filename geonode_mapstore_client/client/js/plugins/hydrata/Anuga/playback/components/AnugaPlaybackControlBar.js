@@ -56,7 +56,11 @@ import {
     simulatedSpanSeconds,
     // TASK-2752 (AC6) — the one predicate the reducer, the epic and this bar
     // all share for "does the active quantity have a Max envelope here".
-    hasEnvelopeForQuantity
+    hasEnvelopeForQuantity,
+    // TASK-2987 (W2.1, epic 2981) — how much of the PRE-ROLL window is resident.
+    // Derived in the controller, beside the rule that decides readiness, so the
+    // bar's percentage and the moment Play unlocks can never disagree.
+    preRollProgress
 } from '../playbackController';
 import { availableQuantityIds, QUANTITY_META } from '../playbackDerivedQuantities';
 import { rampGradientCss } from '../playbackColormap';
@@ -163,6 +167,24 @@ export function formatMultiplier(speed) {
         return '—';
     }
     return `${n >= 10 ? Math.round(n) : Number(n.toFixed(2))}x`;
+}
+
+/**
+ * TASK-2988 (W2.2, epic 2981) — the paced FRACTION, as the badge shows it.
+ *
+ * Two decimals, and never rounded to a flat "0.0x" or up to "1x": a viewer
+ * reading "paced 1x" on a bar that only mounts when effectiveSpeed < speed
+ * would rightly conclude the badge is lying. Separate from formatMultiplier,
+ * which formats an ABSOLUTE speed (10x and up are whole numbers there, which is
+ * exactly wrong for a fraction of 1).
+ * @param {number} ratio effectiveSpeed / speed, in (0, 1)
+ */
+export function formatPaceRatio(ratio) {
+    const n = Number(ratio);
+    if (!isFinite(n) || n <= 0) {
+        return '—';
+    }
+    return String(Math.max(0.01, Math.min(0.99, Number(n.toFixed(2)))));
 }
 
 /**
@@ -361,8 +383,60 @@ const STATUS_MESSAGE_ID = {
     [PLAYBACK_STATUS.BUFFERING]: 'hydrata.playback.status.buffering',
     [PLAYBACK_STATUS.SEEKING]: 'hydrata.playback.status.seeking',
     [PLAYBACK_STATUS.STALLED]: 'hydrata.playback.status.stalled',
-    [PLAYBACK_STATUS.ERROR]: 'hydrata.playback.status.error'
+    [PLAYBACK_STATUS.ERROR]: 'hydrata.playback.status.error',
+    // TASK-2986 (W1.3, epic 2981)
+    [PLAYBACK_STATUS.FALLBACK]: 'hydrata.playback.status.fallback'
 };
+
+/**
+ * TASK-2986 (W1.3, epic 2981) — how THIS DEVICE's budget was decided, in
+ * words. THE ENUMERATION IS FIVE, NOT FOUR.
+ *
+ * 'default', 'heap+device' and 'partial' all ship from resolvePlaybackHeapBudget
+ * TODAY (no offers -> 'default'; both offers -> 'heap+device'; exactly ONE
+ * offer -> 'partial'); TASK-2984 adds 'small-device' and 'phone-class'.
+ *
+ * 'partial' IS NOT AN EDGE CASE and is the one an earlier draft omitted: it is
+ * what EVERY browser exposing only one of the two offers gets — every
+ * non-Chromium browser (no performance.memory) and much of the phone class
+ * this fallback exists to serve. A message handling only four sources renders
+ * a blank or unlabelled source for precisely those users.
+ */
+const BUDGET_SOURCE_LABEL = {
+    'default': ['hydrata.playback.budgetSource.default',
+        'a default budget (this browser reports no memory signals)'],
+    'heap+device': ['hydrata.playback.budgetSource.heapDevice',
+        'this browser\'s heap headroom and reported device memory'],
+    'partial': ['hydrata.playback.budgetSource.partial',
+        'the one memory signal this browser reports'],
+    'small-device': ['hydrata.playback.budgetSource.smallDevice',
+        'this device\'s own reported memory'],
+    'phone-class': ['hydrata.playback.budgetSource.phoneClass',
+        'a phone-class estimate (this browser reports no memory signals)']
+};
+// The two halves are ONE entry on purpose: as two parallel objects keyed
+// identically, a sixth source added to one and forgotten in the other renders
+// the unhandled label — silently, and for whichever devices report it.
+const UNKNOWN_BUDGET_SOURCE = ['hydrata.playback.budgetSource.unknown',
+    'an unrecognised memory signal'];
+
+/**
+ * TEXT-presentation play glyph, hoisted so the disabled fallback button and
+ * the live transport button cannot drift apart. U+25B6 (the obvious choice)
+ * defaults to EMOJI presentation, so the browser paints an orange rounded
+ * square and ignores `color` entirely; U+25BA is text-default.
+ */
+const PLAY_GLYPH = '\u25BA';
+/** Its pair, for the same reason — U+275A is text-default. */
+const PAUSE_GLYPH = '\u275A\u275A';
+
+function formatMiB(bytes) {
+    return bytes > 0 ? `${Math.round(bytes / 1048576)} MiB` : '?';
+}
+
+function formatCount(n) {
+    return n > 0 ? Number(n).toLocaleString() : '?';
+}
 
 export class AnugaPlaybackControlBarComponent extends React.Component {
     static propTypes = {
@@ -582,6 +656,51 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
             .replace('{d}', formatWallDuration(span));
     }
 
+    /**
+     * TASK-2988 (W2.2, epic 2981) AC1 — THE PACED READOUT.
+     *
+     * `speed` is what the viewer asked for; `effectiveSpeed` is what the
+     * playhead is actually advancing at while the buffered runway is short
+     * (TASK-2987). Showing the ratio is the whole point of the epic's "tell the
+     * truth by slowing": before this, a link that could not keep up produced a
+     * player that froze and a hint telling the viewer to fix it by hand.
+     *
+     * @returns {number|null} the ratio, or null when nothing is being paced —
+     *   which is every state except PLAYING/STALLED on a short runway.
+     */
+    /**
+     * TASK-2988 AC2 — the transport button's accessible name. While the initial
+     * buffer fills it carries the pre-roll percentage, so a screen-reader user
+     * gets the same "how far along is this" the sighted badge shows; at every
+     * other moment it is the plain Play/Pause it has always been.
+     */
+    playPauseLabel(isPlaying, preRoll) {
+        if (isPlaying) {
+            return this.tr('hydrata.playback.pause', 'Pause');
+        }
+        if (preRoll === null) {
+            return this.tr('hydrata.playback.play', 'Play');
+        }
+        return this.tr('hydrata.playback.preRollTooltip',
+            'Buffering the first frames — {p}% of the way there. Play starts on its own.')
+            .replace('{p}', String(preRoll));
+    }
+
+    pacedRatio(playback) {
+        const { effectiveSpeed, speed } = playback;
+        if (effectiveSpeed === null || effectiveSpeed === undefined || !(speed > 0)) {
+            return null;
+        }
+        // `effectiveSpeed > 0` IS LOAD-BEARING, not defensive decoration — found
+        // by this wave's phase-1.7 review. TASK-2987's stalled branch writes the
+        // effectiveSpeed it computed, and at zero runway that is exactly 0. A
+        // badge keyed only on `effectiveSpeed < speed` therefore mounted during
+        // a stall and read "paced —x" over a playhead that was not moving at
+        // all. NOTHING IS BEING PACED WHEN NOTHING IS ADVANCING: the toast's
+        // stalled message is what belongs there.
+        return effectiveSpeed > 0 && effectiveSpeed < speed ? effectiveSpeed / speed : null;
+    }
+
     speedOptions(playback) {
         const span = simulatedSpanSeconds(playback.time);
         const options = [];
@@ -787,7 +906,15 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     <span
                         className="sv-playback-degraded"
                         data-testid="anuga-playback-degraded"
-                        title={this.tr('hydrata.playback.degradedTooltip', 'Playback has been waiting several seconds for the next frames. A slower speed gives the buffer time to keep up.')}
+                        /* TASK-2988 (W2.2, epic 2981) — THE ADVICE IS GONE FROM
+                           THIS FALLBACK TOO, and this is the copy no karma spec
+                           can reach: it is a string literal in the source, and a
+                           karma spec runs in a browser with no filesystem. The
+                           fallback itself STAYS — getMessageById returns the
+                           msgId on a miss, so without one the badge's title
+                           would read "hydrata.playback.degradedTooltip".
+                           no-slower-speed-advice-guard.js is what asserts it. */
+                        title={this.tr('hydrata.playback.degradedTooltip', 'Playback has been waiting several seconds for the next frames. The connection is not keeping up with this run; playback resumes on its own as soon as they arrive.')}
                     >
                         <Message msgId="hydrata.playback.degraded" />
                         {/* The toast itself is pointer-events:none so it can
@@ -1005,10 +1132,91 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      * descendant rule and every existing spec keeps working, so this is a
      * re-nesting rather than a rewrite.
      */
+    /**
+     * TASK-2986 (W1.3, epic 2981) — the fallback message.
+     *
+     * "Playback needs a larger device" on its own is the thing this re-aim
+     * exists to stop shipping. The message names THREE things:
+     *   1. the mesh size, in nodes and triangles;
+     *   2. THIS DEVICE'S budget in MiB together with its SOURCE (five of
+     *      them — see BUDGET_SOURCE_MESSAGE_ID);
+     *   3. WHAT IS SHOWN INSTEAD — the maximum-depth envelope when one was
+     *      put on the map, and different wording when there was none.
+     *
+     * Play is disabled and Unload is enabled in both cases.
+     */
+    renderFallback(playback) {
+        const shown = playback.fallbackLayerShown;
+        const hasEnvelopeLayer = shown === 'existing' || shown === 'added';
+        const [sourceMsgId, sourceText] = BUDGET_SOURCE_LABEL[playback.budgetSource] || UNKNOWN_BUDGET_SOURCE;
+        const sourceLabel = this.tr(sourceMsgId, sourceText);
+        const mesh = this.tr(
+            'hydrata.playback.fallback.mesh',
+            'This result has {nodes} nodes and {triangles} triangles.'
+        ).replace('{nodes}', formatCount(playback.nNode)).replace('{triangles}', formatCount(playback.nFace));
+        const budget = this.tr(
+            'hydrata.playback.fallback.budget',
+            'Animated playback needs more memory than this device offers: {budget}, measured from {source}.'
+        ).replace('{budget}', formatMiB(playback.budgetBytes)).replace('{source}', sourceLabel);
+        const instead = hasEnvelopeLayer
+            ? this.tr(
+                'hydrata.playback.fallback.envelopeShown',
+                'Showing the maximum depth envelope for this run instead — the deepest water each point reached.'
+            )
+            : this.tr(
+                'hydrata.playback.fallback.noEnvelope',
+                'No maximum depth envelope is available for this run, so there is nothing to show in its place.'
+            );
+        return (
+            <div
+                className="sv-playback-bar sv-playback-bar--fallback"
+                data-testid="anuga-playback-bar"
+                onKeyDown={this.onCardKeyDown}
+            >
+                <div
+                    className="sv-playback-fallback"
+                    data-testid="anuga-playback-fallback"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <span className="sv-playback-fallback-mesh">{mesh}</span>
+                    <span className="sv-playback-fallback-budget">{budget}</span>
+                    <span className="sv-playback-fallback-instead">{instead}</span>
+                </div>
+                <div className="sv-playback-transport" data-testid="anuga-playback-transport">
+                    <button
+                        className="btn sv-glass-button sv-playback-playpause"
+                        data-testid="anuga-playback-playpause"
+                        disabled
+                        title={this.tr('hydrata.playback.play', 'Play')}
+                        aria-label={this.tr('hydrata.playback.play', 'Play')}
+                    >
+                        {/* The same TEXT-presentation glyph the live play
+                            button uses — U+25B6 defaults to EMOJI presentation
+                            and would paint the orange rounded square. */}
+                        {PLAY_GLYPH}
+                    </button>
+                    <button
+                        className="btn sv-glass-button sv-playback-unload"
+                        data-testid="anuga-playback-unload"
+                        onClick={() => this.props.onReset(playback.runId, playback.layerId)}
+                        title={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
+                        aria-label={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
+                    >
+                        <Message msgId="hydrata.playback.unload" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     render() {
         const { playback } = this.props;
         if (!playback || playback.status === PLAYBACK_STATUS.IDLE) {
             return this.renderLoader();
+        }
+        if (playback.status === PLAYBACK_STATUS.FALLBACK) {
+            return this.renderFallback(playback);
         }
         const isPlaying = playback.status === PLAYBACK_STATUS.PLAYING;
         const isBuffering = [PLAYBACK_STATUS.LOADING_MANIFEST, PLAYBACK_STATUS.LOADING_MESH, PLAYBACK_STATUS.BUFFERING, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED].includes(playback.status);
@@ -1017,6 +1225,19 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         const canScrub = playback.nTime > 0 && !playback.envelopeMode;
         const hasEnvelope = hasEnvelopeForQuantity(playback.envelopeQuantities, playback.quantity);
         const statusMsgId = STATUS_MESSAGE_ID[playback.status];
+        // TASK-2988 AC2 — the pre-roll percentage, ONLY while the initial buffer
+        // is filling. `null` at ready and in every other status, which is what
+        // "hides it at ready" means. SEEKING and STALLED are deliberately not
+        // pre-roll: they are re-buffers of an already-started run, and the
+        // toast already names them.
+        const preRollWindow = playback.status === PLAYBACK_STATUS.BUFFERING
+            ? preRollProgress(playback)
+            : { resident: 0, required: 0 };
+        const preRoll = preRollWindow.required > 0
+            ? Math.round(100 * preRollWindow.resident / preRollWindow.required)
+            : null;
+        // TASK-2988 AC1 — the paced ratio, or null when nothing is paced.
+        const paced = this.pacedRatio(playback);
         const quantityLabel = this.tr('hydrata.playback.resultQuantity', 'Result quantity');
         const ticks = scrubberTicks(playback.time, playback.nTime, tickBudgetForWidth(this.state.trackWidth));
         return (
@@ -1033,12 +1254,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         className="btn sv-glass-button sv-playback-playpause"
                         data-testid="anuga-playback-playpause"
                         onClick={() => (isPlaying ? this.props.onPause() : this.props.onPlay())}
-                        title={isPlaying
-                            ? this.tr('hydrata.playback.pause', 'Pause')
-                            : this.tr('hydrata.playback.play', 'Play')}
-                        aria-label={isPlaying
-                            ? this.tr('hydrata.playback.pause', 'Pause')
-                            : this.tr('hydrata.playback.play', 'Play')}
+                        title={this.playPauseLabel(isPlaying, preRoll)}
+                        aria-label={this.playPauseLabel(isPlaying, preRoll)}
                     >
                         {/* TEXT-presentation codepoints. U+25B6 (▶) defaults to
                             EMOJI presentation, so the browser painted the orange
@@ -1046,7 +1263,25 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             the button was orange on a blue bar with nothing in
                             the stylesheet saying so. U+25BA/U+275A are
                             text-default and take the CSS colour. */}
-                        {isPlaying ? '❚❚' : '►'}
+                        {isPlaying ? PAUSE_GLYPH : PLAY_GLYPH}
+                        {/* TASK-2988 AC2 — PRE-ROLL PROGRESS, ON THE BUTTON THE
+                            VIEWER IS WAITING TO PRESS. TASK-2987 made Play wait
+                            for a three-chunk floor window instead of one, which
+                            is a longer wait with nothing to look at unless it is
+                            reported. ALWAYS MOUNTED and `hidden` when there is
+                            nothing to say: the transport row's child list must
+                            be identical buffering and ready (PlaybackBarLayout's
+                            own AC6 — status must never move a control), and it
+                            is absolutely positioned so it cannot widen the
+                            button either. */}
+                        <span
+                            className="sv-playback-preroll"
+                            data-testid="anuga-playback-preroll"
+                            hidden={preRoll === null}
+                            aria-hidden={preRoll === null}
+                        >
+                            {preRoll === null ? null : `${preRoll}%`}
+                        </span>
                     </button>
 
                     {/* TASK-2744 AC9 — the scrubber must show what is BUFFERED.
@@ -1108,6 +1343,29 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
 
                     <span className="sv-playback-readout" data-testid="anuga-playback-readout">
                         {playback.currentTimestep + 1}/{playback.nTime || '—'} · {formatClock(playback.playheadSeconds)}
+                    </span>
+
+                    {/* TASK-2988 AC1 — THE PACED READOUT, beside the control it
+                        qualifies. The picker keeps showing what the viewer
+                        CHOSE; this says what the playhead is actually doing
+                        while the link catches up, and disappears the instant it
+                        stops being true.
+                        ALWAYS MOUNTED and `hidden` when not paced, for the same
+                        reason as the pre-roll badge: a chip that mounts and
+                        unmounts on the transport row shoves every control right
+                        of it, which is exactly what PlaybackBarLayout's AC6
+                        forbids and what put the scrubber on its 150px floor. */}
+                    <span
+                        className="sv-playback-paced"
+                        data-testid="anuga-playback-paced"
+                        hidden={paced === null}
+                        aria-hidden={paced === null}
+                        title={paced === null ? undefined : this.tr('hydrata.playback.pacedTooltip',
+                            'The connection is not keeping up with this run, so playback is running at {r}x of the speed you selected. Your selected speed returns on its own once the buffer catches up.')
+                            .replace('{r}', formatPaceRatio(paced))}
+                    >
+                        {paced === null ? null : this.tr('hydrata.playback.paced', 'paced {r}x')
+                            .replace('{r}', formatPaceRatio(paced))}
                     </span>
 
                     <select

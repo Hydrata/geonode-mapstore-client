@@ -98,6 +98,47 @@ describe('PlaybackChunkCache', () => {
         expect(cache.size).toBe(1);
     });
 
+    /*
+     * TASK-2985 (W1.2, epic 2981) — evict(key), the named removal the fill
+     * queue needs. At HEAD the cache exposed resize/keys/has/get/set/
+     * lastEvictedKeys/clear and NO delete or evict at all, so a caller that
+     * knew WHICH chunk should go had no way to say so.
+     */
+    describe('evict(key) — TASK-2985', () => {
+        it('removes exactly the named key and decrements totalBytes', () => {
+            const cache = new PlaybackChunkCache({ maxBytes: 1000 });
+            cache.set('depth/c/0/0', chunkOf(100));
+            cache.set('depth/c/1/0', chunkOf(200));
+            expect(cache.totalBytes).toBe(300);
+            expect(cache.evict('depth/c/0/0')).toBe(true);
+            expect(cache.has('depth/c/0/0')).toBe(false);
+            expect(cache.has('depth/c/1/0')).toBe(true);
+            expect(cache.totalBytes).toBe(200);
+            expect(cache.size).toBe(1);
+        });
+
+        it('is a NO-OP on a miss, not an error', () => {
+            // The caller is removing something it believes is there; a race
+            // that removed it first is exactly as good an outcome.
+            const cache = new PlaybackChunkCache({ maxBytes: 1000 });
+            cache.set('depth/c/0/0', chunkOf(100));
+            expect(cache.evict('depth/c/9/0')).toBe(false);
+            expect(cache.totalBytes).toBe(100);
+            expect(cache.size).toBe(1);
+        });
+
+        it('does NOT promote what it walks past — the LRU order it bypasses stays put', () => {
+            // get() promotes (delete + re-set). If evict() did too, a queue
+            // that evicts would reorder the very LRU it is overriding.
+            const cache = new PlaybackChunkCache({ maxBytes: 1000 });
+            cache.set('a', chunkOf(100));
+            cache.set('b', chunkOf(100));
+            cache.set('c', chunkOf(100));
+            cache.evict('b');
+            expect(cache.keys()).toEqual(['a', 'c']);
+        });
+    });
+
     it('clear() empties the cache and resets totalBytes', () => {
         const cache = new PlaybackChunkCache({ maxBytes: 1000 });
         cache.set('a', chunkOf(100));

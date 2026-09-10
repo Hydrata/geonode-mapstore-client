@@ -30,15 +30,26 @@ import {
     countMeshObjects,
     warnIfOverBudget,
     fetcherRegistry,
+    // TASK-2986 (W1.3, epic 2981) — the fallback path's envelope chooser.
+    showFallbackEnvelope,
     PLAYBACK_LAYER_OWNER,
     TICK_INTERVAL_MS
 } from '../playbackEpics';
 import {
     computePlaybackMemoryPlan,
     describePlan,
-    PLAYBACK_BUDGET_WARN_PREFIX
+    PLAYBACK_BUDGET_WARN_PREFIX,
+    // TASK-2984 (W1.1, epic 2981) — RULE C's seam, threaded from runLoad.
+    PLAN_TRANSIENT_EXCESS_BYTES,
+    PLAN_UNCAP_MAX_PEAK_BYTES,
+    APP_BASELINE_FLOOR_BYTES,
+    // TASK-2986 AC2(b) — assert against the SYMBOL, not the literal.
+    PHONE_CLASS_BUDGET_BYTES
 } from '../../playbackMemoryPolicy';
 import { reprojectMeshVertices } from '../../playbackReproject';
+// TASK-3025 (W4.5, epic 2981) — the runtime-tunable rungs the epic resolves.
+import { PLAYBACK_POLICY_OVERRIDE_PREFIX } from '../../playbackPolicyOverrides';
+import { setConfigProp } from '@mapstore/framework/utils/ConfigUtils';
 // TASK-2744 AC19 — the playback layer moved off layers.flat onto
 // `additionallayers` as an `overlay`, so ADD_LAYER/CHANGE_LAYER_PROPERTIES are
 // no longer the actions under test.
@@ -48,6 +59,9 @@ import {
     REMOVE_ADDITIONAL_LAYER
 } from '@mapstore/framework/actions/additionallayers';
 import { CHANGE_MAPINFO_STATE } from '@mapstore/framework/actions/mapInfo';
+// TASK-2986 — the fallback path DOES write to layers.flat: it is the one
+// place this plugin puts a real map layer on the map rather than an overlay.
+import { ADD_LAYER, CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
 import { PlaybackChunkFetcher } from '../../playbackChunkFetcher';
 import {
     PLAYBACK_SET_IDENTIFY_RESULT,
@@ -66,10 +80,14 @@ import {
     PLAYBACK_CHUNK_BUFFER_ERROR,
     PLAYBACK_SET_ENVELOPE_MODE,
     PLAYBACK_ENVELOPE_LOADED,
-    playbackSetEnvelopeMode
+    playbackSetEnvelopeMode,
+    PLAYBACK_FALLBACK,
+    playbackFallback,
+    playbackSeek,
+    playbackReset
 } from '../../actions/playbackActions';
 import { SHOW_NOTIFICATION } from '@mapstore/framework/actions/notifications';
-import { createInitialPlaybackState, playbackControllerReducer } from '../../playbackController';
+import { createInitialPlaybackState, playbackControllerReducer, PLAYBACK_STATUS } from '../../playbackController';
 import { FIXTURE_STORE_FILES, FIXTURE_MANIFEST, FIXTURE_MESH, FIXTURE_PHYSICAL } from '../../__tests__/fixtures/fixturePlaybackStore';
 
 const MANIFEST_URL = '/api/v2/anuga/runs/1/playback-manifest/';
@@ -168,8 +186,24 @@ function refreshedFixtureManifest() {
  * rotating before the presigned urls' nominal ExpiresIn, killing every url
  * in the cached manifest mid-bucket). `calls` is the non-vacuity ledger:
  * a spec whose 403 branch never fires cannot pass on it.
+ *
+ * TASK-2754 (W0, epic 2981) — `expireEveryUrl` lifts THE HARNESS CEILING.
+ * Answering exactly one 403 bounded `calls.refreshServed` above by the
+ * harness's own choice, so TASK-2739's `expect(calls.refreshServed).toBe(1)`
+ * could not tell one refresh from a stampede of eight. A real credential
+ * rotation does not expire one url: it invalidates EVERY presigned url in
+ * the cached manifest in the same tick, which is what this mode serves —
+ * 403 for every chunk url that does not already carry
+ * REFRESHED_CHUNK_PREFIX. The default is deliberately UNCHANGED so the
+ * existing 2739 assertions keep meaning exactly what they meant.
+ *
+ * The manifest branch stays FIRST: a `?refresh=1` request must never itself
+ * be 403'd, or the mode would be testing a dead backend rather than a
+ * rotation.
+ *
+ * @param {{expireEveryUrl?: boolean}} [options]
  */
-function makeExpiredUrlFetchHandler() {
+function makeExpiredUrlFetchHandler({ expireEveryUrl = false } = {}) {
     const calls = { manifest: [], chunk: [], forbidden: [], refreshServed: 0 };
     const handler = (url) => {
         if (url.indexOf(MANIFEST_URL) === 0) {
@@ -181,7 +215,10 @@ function makeExpiredUrlFetchHandler() {
             return Promise.resolve(new Response(JSON.stringify(FIXTURE_MANIFEST), { status: 200 }));
         }
         calls.chunk.push(url);
-        if (calls.forbidden.length === 0) {
+        const expired = expireEveryUrl
+            ? url.indexOf(REFRESHED_CHUNK_PREFIX) !== 0
+            : calls.forbidden.length === 0;
+        if (expired) {
             calls.forbidden.push(url);
             return Promise.resolve(new Response(null, { status: 403 }));
         }
@@ -260,6 +297,221 @@ describe('playbackEpics', () => {
             subject.next(playbackInit(42, 'layer-1', MANIFEST_URL));
         });
 
+        /*
+         * TASK-2984 (W1.1, epic 2981) AC18(e) — RULE C clause 19.
+         *
+         * ONE `policyOverrides` object is built in runLoad and spread into ALL
+         * THREE policy call sites: the budget resolve, the initial
+         * manifest-time plan, and the exact-nFace re-plan whose result is
+         * pushed into the LIVE cache by fetcher.applyMemoryPlan.
+         *
+         * WHY THIS IS A BUG GUARD AND NOT JUST FUTURE WORK. Those two plan
+         * calls are hand-written sibling literals. A later retrofit (TASK-3025,
+         * the runtime-tunable task) that threads an override into one and
+         * misses the other yields a fetcher whose cache ceiling disagrees with
+         * its own window depth — and it is SILENT, because warnIfOverBudget has
+         * a once-per-run guard (`budgetWarnedRuns`, module state, unexported
+         * and never reset) so the second plan can never announce the
+         * disagreement. The file already applies exactly this discipline to the
+         * budget itself; this extends it to the overrides.
+         */
+        it('threads ONE policyOverrides object into all three policy call sites (TASK-2984 AC18e)', (done) => {
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    // --- HALF 1, BEHAVIOURAL. The exact-nFace re-plan reaches
+                    // MANIFEST_LOADED and the live fetcher, and BOTH carry the
+                    // effective policy values. A retrofit that threaded only
+                    // the initial plan would leave these two disagreeing.
+                    const rePlan = a.memoryPlan;
+                    const live = fetcherRegistry.get(4242).memoryPlan;
+                    [rePlan, live].forEach((plan) => {
+                        expect(plan.planTransientExcessBytes).toBe(PLAN_TRANSIENT_EXCESS_BYTES);
+                        expect(plan.uncapMaxPeakBytes).toBe(PLAN_UNCAP_MAX_PEAK_BYTES);
+                        expect(plan.appBaselineFloorBytes).toBe(APP_BASELINE_FLOOR_BYTES);
+                        expect(plan.overrideSource).toBe('shipped');
+                    });
+                    expect(live.planTransientExcessBytes).toBe(rePlan.planTransientExcessBytes);
+                    expect(live.uncapMaxPeakBytes).toBe(rePlan.uncapMaxPeakBytes);
+                    // saveData reaches the plan from the environment resolver
+                    // (clause 11) — the fixture browser reports none.
+                    expect(typeof rePlan.saveData).toBe('boolean');
+
+                    // --- HALF 2, STRUCTURAL, and it is the half that can
+                    // actually FAIL when a retrofit misses a site. While this
+                    // task is the only writer `policyOverrides` is a literal
+                    // `{}`, so every effective value above is the shipped one
+                    // whether or not the object was threaded — half 1 alone
+                    // could not tell. Count the occurrences in the epic's own
+                    // source instead: ONE declaration plus THREE call sites.
+                    // karma bundles unminified, so the identifier survives.
+                    const source = playbackInitEpic.toString();
+                    const uses = source.split('policyOverrides').length - 1;
+                    expect(uses >= 4).toBe(true);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(4242, 'layer-4242', MANIFEST_URL));
+        });
+
+        /*
+         * TASK-3025 (W4.5, epic 2981) AC6 — the RESOLVED overrides reach ALL
+         * THREE call sites, not just the one a retrofit remembered.
+         *
+         * The per-site rung is the one drivable here: it arrives through
+         * getConfigProp('hydrataConfig').playbackMemory, which is exactly the
+         * SitePluginConfig.override_local_config path the admin row travels.
+         * (The per-tester url rung reads window.location and is proven in
+         * playbackPolicyOverrides-test.js, where the location is an argument.)
+         *
+         * THE INITIAL PLAN IS CAPTURED FROM INSIDE THE MESH FETCH. Between
+         * `new PlaybackChunkFetcher({ memoryPlan: initialPlan })` and
+         * `fetcher.applyMemoryPlan(rePlan)` the registry holds the
+         * manifest-time plan, and the mesh's first chunk request is issued in
+         * that window — so the stub fetch is where a spec can see it. Without
+         * that capture, a retrofit that threaded only the re-plan would look
+         * identical: both plans carry the same overrides when it is done
+         * right, so only the initial plan itself can prove it was.
+         */
+        it('resolves the per-site rung ONCE and spreads it into all three policy call sites (TASK-3025 AC6)', (done) => {
+            const MIB = 1024 * 1024;
+            setConfigProp('hydrataConfig', {
+                defaultTerrain: 'GLO-30',
+                playbackMemory: { uncapMaxPeakMiB: 300, appBaselineFloorMiB: 420 }
+            });
+            let initialPlan = null;
+            const restore = stubGlobalFetch((url) => {
+                const fetcher = fetcherRegistry.get(4343);
+                if (!initialPlan && fetcher) {
+                    initialPlan = fetcher.memoryPlan;
+                }
+                return fixtureFetchHandler(url);
+            });
+            const cleanup = () => {
+                restore();
+                setConfigProp('hydrataConfig', undefined);
+            };
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                cleanup();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    const rePlan = a.memoryPlan;
+                    const live = fetcherRegistry.get(4343).memoryPlan;
+                    // the exact-nFace re-plan is what reached the LIVE cache
+                    expect(live).toBe(rePlan);
+                    expect(initialPlan).toBeTruthy();
+                    expect(initialPlan).toNotBe(rePlan);
+                    // ALL THREE call sites saw the same effective values: the
+                    // budget resolve (appBaselineFloorBytes), the initial plan
+                    // and the re-plan.
+                    [initialPlan, rePlan].forEach((plan) => {
+                        expect(plan.uncapMaxPeakBytes).toBe(300 * MIB);
+                        expect(plan.appBaselineFloorBytes).toBe(420 * MIB);
+                        expect(plan.planTransientExcessBytes).toBe(PLAN_TRANSIENT_EXCESS_BYTES);
+                        expect(plan.overrideSource).toBe('override');
+                        expect(plan.overrideSources).toEqual({
+                            planTransientExcessBytes: 'shipped',
+                            uncapMaxPeakBytes: 'site',
+                            appBaselineFloorBytes: 'site'
+                        });
+                    });
+                    expect(rePlan.windowBudgetBytes).toBe(300 * MIB);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, (e) => {
+                cleanup();
+                done(e);
+            });
+            subject.next(playbackInit(4343, 'layer-4343', MANIFEST_URL));
+        });
+
+        it('logs ONE resolution line naming each effective value and its rung (TASK-3025 AC7iii)', (done) => {
+            setConfigProp('hydrataConfig', { playbackMemory: { uncapMaxPeakMiB: 900 } });
+            const lines = [];
+            const originalWarn = console.warn;
+            console.warn = (...args) => {
+                lines.push(String(args[0]));
+                originalWarn.apply(console, args);
+            };
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const cleanup = () => {
+                restore();
+                console.warn = originalWarn;
+                setConfigProp('hydrataConfig', undefined);
+            };
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                cleanup();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    const resolution = lines.filter((l) => l.indexOf(PLAYBACK_POLICY_OVERRIDE_PREFIX) === 0);
+                    // ONE line per run, and it says the value was refused
+                    // rather than leaving 'my override was clamped away'
+                    // indistinguishable from 'my override never arrived'.
+                    expect(resolution.length).toBe(1);
+                    expect(resolution[0].indexOf('REJECTED') > -1).toBe(true);
+                    expect(a.memoryPlan.uncapMaxPeakBytes).toBe(PLAN_UNCAP_MAX_PEAK_BYTES);
+                    expect(a.memoryPlan.overrideSources.uncapMaxPeakBytes).toBe('shipped');
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, (e) => {
+                cleanup();
+                done(e);
+            });
+            subject.next(playbackInit(4344, 'layer-4344', MANIFEST_URL));
+        });
+
+        it('AC3 — an un-hydrated tester flag honours NOTHING from the url', (done) => {
+            // The epic reads the state captured at PLAYBACK_INIT, and
+            // canSelectComputeTarget hydrates from an async fetch, so the
+            // early read is false. Whatever the tab's url says, the plan must
+            // be the shipped one.
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const store = makeStore(createInitialPlaybackState(), { anuga: { ui: {} } });
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                try {
+                    expect(a.type).toBe(PLAYBACK_MANIFEST_LOADED);
+                    expect(a.memoryPlan.overrideSource).toBe('shipped');
+                    expect(a.memoryPlan.overrideSources).toEqual({
+                        planTransientExcessBytes: 'shipped',
+                        uncapMaxPeakBytes: 'shipped',
+                        appBaselineFloorBytes: 'shipped'
+                    });
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(4345, 'layer-4345', MANIFEST_URL));
+        });
+
         it('dispatches MANIFEST_FAILED when the manifest fetch errors', (done) => {
             const restore = stubGlobalFetch(() => Promise.resolve(new Response(null, { status: 500 })));
             const store = makeStore(createInitialPlaybackState());
@@ -272,6 +524,74 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next(playbackInit(9, 'layer-9', MANIFEST_URL));
+        });
+
+        /*
+         * TASK-2991 (W3.3, epic 2981) AC2 — a codec this client cannot invert
+         * must stop the store BEFORE any of it is downloaded.
+         *
+         * "No chunk fetch is issued" is the half that matters. Refusing after
+         * the mesh has been pulled would still be wrong-water-free, but it
+         * would spend the 63 MB blocking prefix this whole epic exists to
+         * shorten on a store that can never play. The guard therefore sits
+         * beside resolveChunkLengthT, above `new PlaybackChunkFetcher`.
+         */
+        it('refuses a store declaring an unknown codec, with NO chunk fetch issued', (done) => {
+            const requested = [];
+            const manifest = {
+                ...FIXTURE_MANIFEST,
+                codecs: { depth: [{ name: 'brotli' }, { name: 'bytes', configuration: { endian: 'little' } }] }
+            };
+            const restore = stubGlobalFetch((url) => {
+                requested.push(url);
+                if (url === MANIFEST_URL) {
+                    return Promise.resolve(new Response(JSON.stringify(manifest), { status: 200 }));
+                }
+                return fixtureFetchHandler(url);
+            });
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type === PLAYBACK_MANIFEST_FAILED) {
+                    restore();
+                    try {
+                        expect(a.runId).toBe(77);
+                        expect(a.error.indexOf('brotli') > -1).toBe(true);
+                        expect(a.error.indexOf('depth') > -1).toBe(true);
+                        // The ONLY request made was the manifest itself.
+                        expect(requested).toEqual([MANIFEST_URL]);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }
+            }, done);
+            subject.next(playbackInit(77, 'layer-77', MANIFEST_URL));
+        });
+
+        it('a manifest that declares NO codecs block loads exactly as before', (done) => {
+            // Absence is not disagreement: every store signed before
+            // TASK-2990 has no `codecs` key at all, and refusing those would
+            // refuse the entire product.
+            expect(FIXTURE_MANIFEST.codecs).toBe(undefined);
+            const restore = stubGlobalFetch(fixtureFetchHandler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type === PLAYBACK_MANIFEST_LOADED) {
+                    restore();
+                    try {
+                        expect(a.nNode).toBe(FIXTURE_MESH.nNode);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                } else if (a.type === PLAYBACK_MANIFEST_FAILED) {
+                    restore();
+                    done(new Error(`refused a codec-less manifest: ${a.error}`));
+                }
+            }, done);
+            subject.next(playbackInit(78, 'layer-78', MANIFEST_URL));
         });
 
         it('skips UPDATE_ADDITIONAL_LAYER when the target overlay already exists on the map', (done) => {
@@ -332,6 +652,67 @@ describe('playbackEpics', () => {
             }, done);
             subject.next(playbackInit(2739, 'layer-2739', MANIFEST_URL));
         });
+
+        // TASK-2754 (W0, epic 2981) — AC1/AC3/AC4. The spec above proves a
+        // refresh HAPPENS; it cannot prove how many, because the harness only
+        // ever served one 403. With the ceiling lifted (expireEveryUrl), a
+        // real rotation is served: playbackInitEpic fans out
+        // Promise.all([loadPlaybackMesh, loadPlaybackTime, loadPlaybackDt]),
+        // and loadPlaybackMesh is itself a Promise.all of six fetchStaticArray
+        // calls, so EIGHT chunk GETs are in flight before any response lands.
+        // Every one of them 403s in the same tick and — before the
+        // single-flight below existed — every one of them independently
+        // issued `GET .../playback-manifest/?refresh=1`, the single most
+        // expensive endpoint in the application, on eight uwsgi workers at
+        // once, per viewer. MEASURED on unmodified source: refreshServed = 8.
+        it('collapses a whole-manifest rotation into ONE ?refresh=1 and still completes the load', (done) => {
+            const { handler, calls } = makeExpiredUrlFetchHandler({ expireEveryUrl: true });
+            const restore = stubGlobalFetch(handler);
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackInitEpic(action$, store).subscribe((a) => {
+                seen.push(a);
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                    return;
+                }
+                restore();
+                try {
+                    // (a) NON-VACUITY: the stampede pressure really was
+                    // applied. Fewer than six concurrent 403s and this spec
+                    // is not testing the fan-out it claims to test.
+                    expect(calls.forbidden.length >= 6).toBe(true);
+                    // (b) AC1 — N concurrent 403s, exactly ONE re-sign.
+                    expect(calls.refreshServed).toBe(1);
+                    expect(calls.manifest.filter((u) => REFRESH_URL_RE.test(u)).length).toBe(1);
+                    // (c) AC4 — the all-urls-dead case still LOADS. Not just
+                    // "the request count dropped": the mesh arrived, with the
+                    // fixture's real node count, and every retry went to the
+                    // refreshed urls.
+                    const loaded = seen.find((x) => x.type === PLAYBACK_MANIFEST_LOADED);
+                    expect(!!loaded).toBe(true);
+                    expect(!!loaded.mesh).toBe(true);
+                    expect(loaded.mesh.nodeX.length).toBe(FIXTURE_MESH.nNode);
+                    expect(seen.some((x) => x.type === PLAYBACK_MANIFEST_FAILED)).toBe(false);
+                    expect(seen.some((x) => x.type === PLAYBACK_CHUNK_BUFFER_ERROR)).toBe(false);
+                    // (d) AC4 — and the controller accepts it: folding the
+                    // epic's OWN emitted action through the real reducer lands
+                    // the run in BUFFERING (the terminal status of the init
+                    // path — READY is playbackBufferEpic's to assign, from
+                    // CHUNKS_BUFFERED behind isWindowBuffered), never ERROR.
+                    const stateAfter = playbackControllerReducer(
+                        playbackControllerReducer(createInitialPlaybackState(), playbackInit(2754, 'layer-2754', MANIFEST_URL)),
+                        loaded
+                    );
+                    expect(stateAfter.status).toBe(PLAYBACK_STATUS.BUFFERING);
+                    expect(stateAfter.nNode).toBe(FIXTURE_MESH.nNode);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(2754, 'layer-2754', MANIFEST_URL));
+        });
     });
 
     // TASK-2739 (W3, epic 2706) — AC2. buildPlaybackManifestUrl
@@ -349,6 +730,156 @@ describe('playbackEpics', () => {
         });
     });
 
+    // TASK-2754 (W0, epic 2981) — the single-flight's two remaining
+    // properties, driven at the fetcher rather than through the epic because
+    // both need a SECOND rotation / a SECOND fetcher, which one PLAYBACK:INIT
+    // cannot express.
+    //
+    // The rig below models a rotation the way prod does it: every presigned
+    // url carries the credential GENERATION that signed it, and a rotation
+    // is `liveGeneration += 1` — which kills every url in the cached manifest
+    // in the same instant, not one of them.
+    describe('PlaybackChunkFetcher manifest-refresh single-flight', () => {
+        function makeRotationRig() {
+            const rig = { liveGeneration: 0, refreshCalls: 0, fetched: [], gateRefresh: null };
+            const manifestFor = (generation) => ({
+                chunk_urls: Object.keys(FIXTURE_MANIFEST.chunk_urls).reduce((acc, key) => {
+                    acc[key] = `g${generation}/${key}`;
+                    return acc;
+                }, {})
+            });
+            rig.fetchImpl = (url) => {
+                rig.fetched.push(url);
+                const match = /^g(\d+)\/(.*)$/.exec(url);
+                if (!match || Number(match[1]) !== rig.liveGeneration) {
+                    return Promise.resolve(new Response(null, { status: 403 }));
+                }
+                return Promise.resolve(new Response(base64ToArrayBuffer(FIXTURE_STORE_FILES[match[2]]), { status: 200 }));
+            };
+            rig.refreshManifest = () => {
+                rig.refreshCalls += 1;
+                const answer = () => manifestFor(rig.liveGeneration);
+                return rig.gateRefresh ? rig.gateRefresh.then(answer) : Promise.resolve(answer());
+            };
+            rig.newFetcher = () => new PlaybackChunkFetcher({
+                manifest: manifestFor(rig.liveGeneration),
+                fetchImpl: rig.fetchImpl,
+                refreshManifest: rig.refreshManifest
+            });
+            rig.rotate = () => { rig.liveGeneration += 1; };
+            return rig;
+        }
+
+        const F32 = { dtype: 'float32', byteorder: 'little' };
+
+        // AC1 + AC2. Round one proves the collapse; round two proves the memo
+        // CLEARED on settle — a permanently-memoised refresh would make the
+        // second rotation unrecoverable, which is strictly worse than the
+        // stampede it replaced.
+        it('collapses each rotation round to one refresh, and a SECOND round refreshes again', (done) => {
+            const rig = makeRotationRig();
+            const fetcher = rig.newFetcher();
+            rig.rotate(); // every url the fetcher holds is now dead
+            Promise.all([
+                fetcher.fetchAndDecodeChunk('node_x', [0], F32),
+                fetcher.fetchAndDecodeChunk('node_y', [0], F32),
+                fetcher.fetchAndDecodeChunk('elevation', [0], F32)
+            ]).then((round1) => {
+                expect(rig.refreshCalls).toBe(1);
+                round1.forEach((arr) => expect(arr.length).toBe(FIXTURE_MESH.nNode));
+                rig.rotate(); // second rotation, against the freshly-signed urls
+                return Promise.all([
+                    fetcher.fetchAndDecodeChunk('friction', [0], F32),
+                    fetcher.fetchAndDecodeChunk('inradius', [0], F32)
+                ]);
+            }).then(() => {
+                // NOT 1: the memo must not survive its own settle.
+                expect(rig.refreshCalls).toBe(2);
+                // NON-VACUITY: five distinct keys 403'd across the two rounds,
+                // so both rounds really did enter the refresh branch.
+                expect(rig.fetched.filter((u) => /^g0\//.test(u)).length).toBe(3);
+                expect(rig.fetched.filter((u) => /^g1\//.test(u)).length).toBe(5);
+                done();
+            }).catch(done);
+        });
+
+        // AC5 — NO CROSS-RUN COUPLING. Both fetchers' refreshes are held
+        // open on the same gate, so if the memo were module-global the second
+        // fetcher's 403 would be satisfied by the first's in-flight promise
+        // and `refreshCalls` would come back 1. Per-instance state is the
+        // whole point: run A's re-sign says nothing about run B's urls.
+        it('does not share one run\'s in-flight refresh with another run\'s fetcher', (done) => {
+            const rig = makeRotationRig();
+            let openGate = null;
+            rig.gateRefresh = new Promise((resolve) => { openGate = resolve; });
+            const fetcherA = rig.newFetcher();
+            const fetcherB = rig.newFetcher();
+            rig.rotate();
+            const both = Promise.all([
+                fetcherA.fetchAndDecodeChunk('node_x', [0], F32),
+                fetcherB.fetchAndDecodeChunk('node_y', [0], F32)
+            ]);
+            // Let both 403s land and both refresh branches be entered before
+            // either refresh is allowed to resolve. The count is RECORDED
+            // here and asserted below rather than asserted here, so a throw
+            // cannot strand the gate and turn a clean count mismatch into an
+            // uninformative 2000 ms timeout.
+            let refreshesWhileBothGated = null;
+            setTimeout(() => {
+                refreshesWhileBothGated = rig.refreshCalls;
+                openGate();
+            }, 30);
+            both.then(([a, b]) => {
+                // THE CROSS-RUN ASSERTION: two fetchers, two refreshes, both
+                // in flight at once. Module-global memo state reports 1 here.
+                expect(refreshesWhileBothGated).toBe(2);
+                expect(rig.refreshCalls).toBe(2);
+                expect(a.length).toBe(FIXTURE_MESH.nNode);
+                expect(b.length).toBe(FIXTURE_MESH.nNode);
+                done();
+            }).catch(done);
+        });
+
+        // TASK-2981 W0 phase-1.7 sweep — AC2's OTHER half. The spec above
+        // proves the memo clears after a refresh that RESOLVES; this one
+        // proves it clears after one that FAILS, in the harshest shape:
+        // `refreshManifest` is a caller-supplied option, so it may throw
+        // SYNCHRONOUSLY, and the body of an async function runs synchronously
+        // up to its first await. Memoising with a bare async IIFE therefore
+        // ran clear-on-settle BEFORE the memo was installed and left the
+        // rejected promise cached for the life of the fetcher — every later
+        // 403 reused that one rejection and the run could never recover, the
+        // exact failure mode TASK-2754 set out to remove.
+        it('clears the memo when refreshManifest throws SYNCHRONOUSLY, so a later 403 still refreshes', (done) => {
+            const rig = makeRotationRig();
+            const workingRefresh = rig.refreshManifest;
+            let throwNext = true;
+            rig.refreshManifest = () => {
+                if (throwNext) {
+                    throwNext = false;
+                    rig.refreshCalls += 1;
+                    throw new Error('sync boom from refreshManifest');
+                }
+                return workingRefresh();
+            };
+            const fetcher = rig.newFetcher();   // captures the throwing refresh
+            rig.rotate();
+            fetcher.fetchAndDecodeChunk('node_x', [0], F32).then(
+                () => done(new Error('expected the first fetch to reject')),
+                () => {
+                    // The memo must not still be holding the rejection.
+                    expect(fetcher._refreshInFlight).toBe(null);
+                    // And a later 403 must be able to re-sign for real.
+                    return fetcher.fetchAndDecodeChunk('node_y', [0], F32).then((arr) => {
+                        expect(rig.refreshCalls).toBe(2);
+                        expect(arr.length).toBe(FIXTURE_MESH.nNode);
+                        done();
+                    });
+                }
+            ).catch(done);
+        });
+    });
+
     // TASK-2732 (W3, epic 2706) — `withinBudget` was computed and then thrown
     // away: the clamp to MIN_CHUNKS_PER_QUANTITY ships an over-budget store
     // anyway (deliberately — one chunk plus its neighbour is the minimum that
@@ -363,7 +894,9 @@ describe('playbackEpics', () => {
         // and NO totalChunks (the on-box fixture declares no
         // schema_metadata.n_time, so playbackInitEpic computes
         // totalChunks0 === undefined and hardMax falls to
-        // MAX_CHUNKS_PER_QUANTITY). fixed 600,000,000 B + cache 720,000,000 B
+        // FLOOR_WINDOW_CHUNKS_PER_QUANTITY — renamed from
+        // MAX_CHUNKS_PER_QUANTITY by TASK-2984). fixed 600,000,000 B + cache
+        // 720,000,000 B
         // = peak 1,320,000,000 B -> describePlan renders 'peak=1258.9 MiB'.
         const overBudgetPlan = () => computePlaybackMemoryPlan({ nNode: 6000000, chunkLengthT: 10 });
 
@@ -512,7 +1045,8 @@ describe('playbackEpics', () => {
             const store = makeStore(createInitialPlaybackState());
             const { subject, action$ } = makeActionsSubject();
             playbackInitEpic(action$, store).subscribe((a) => {
-                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED) {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED
+                    && a.type !== PLAYBACK_FALLBACK) {
                     return;
                 }
                 restore();
@@ -521,12 +1055,73 @@ describe('playbackEpics', () => {
                     const lines = warn.budgetLines();
                     expect(lines.length).toBe(1);
                     expect(lines[0]).toContain('peak=2517.7 MiB');
-                    // Shipping over budget is the deliberate choice; the defect
-                    // was that it was silent. Budget did NOT stop this load —
-                    // TASK-2729 did, because this doctored manifest declares
-                    // 6,000,000 nodes over a 6-node mesh. Assert the reason by
-                    // name, so a future change that starts refusing on BUDGET
-                    // cannot hide behind this expectation.
+                    // RE-BASED BY TASK-2986 (W1.3, epic 2981), and this IS
+                    // AC7's assertion rather than a workaround for it.
+                    //
+                    // WHAT CHANGED AND WHY. This fixture declares 12,000,000
+                    // nodes, so its plan AT THE STRUCTURAL FLOOR peaks at
+                    // 2517.7 MiB — above PLAYBACK_HEAP_BUDGET_MAX_BYTES
+                    // (2048 MiB), i.e. above every budget the resolver can
+                    // produce on any device. Under TASK-2984 clause 12 that is
+                    // verdict 'fallback', so this store now stops AT THE
+                    // MANIFEST-TIME SEAM and never reaches the mesh — which
+                    // means TASK-2729's mesh-time node-extent refusal, which
+                    // this spec used to land on, is unreachable FOR THIS
+                    // FIXTURE. It is not lost: assertNodeExtentMatchesMesh has
+                    // its own unit coverage in playbackChunkShape-test.js, and
+                    // the sibling spec below keeps the EPIC-LEVEL wiring
+                    // covered on a fixture that still fits the budget.
+                    //
+                    // WHAT THIS SPEC STILL PROVES, and it is the load-bearing
+                    // half: warnIfOverBudget emits PLAYBACK_BUDGET_WARN_PREFIX
+                    // EXACTLY ONCE, and it does so ON THE FALLBACK PLAN
+                    // ITSELF — the new emit-and-return sits AFTER the warn, so
+                    // the only console signal on that band is not silently
+                    // removed by the early return.
+                    expect(a.type).toBe(PLAYBACK_FALLBACK);
+                    expect(a.reason).toBe('floor-window-exceeds-budget');
+                    expect(a.nNode).toBe(12000000);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, done);
+            subject.next(playbackInit(27325, 'layer-27325', MANIFEST_URL));
+        });
+
+        // TASK-2986 — the EPIC-LEVEL half of TASK-2729's mesh-time refusal,
+        // preserved on a fixture the budget accepts. The spec above used to
+        // carry it; its 12M-node store now stops at the manifest-time fallback
+        // seam and never reaches the mesh, so the coverage is moved here rather
+        // than dropped. 1,000,000 nodes gives a floor-window peak of
+        // 220,000,000 B (209.8 MiB), comfortably inside any resolvable budget,
+        // so the load proceeds exactly as it always did and still trips
+        // assertNodeExtentMatchesMesh against the fixture's real 6-node mesh.
+        it('a store the budget ACCEPTS still fails at mesh time on a lying chunk node extent (TASK-2729)', (done) => {
+            const { n_node: _ignored, ...schemaWithoutNNode } = FIXTURE_MANIFEST.schema_metadata;
+            const lyingManifest = {
+                ...FIXTURE_MANIFEST,
+                schema_metadata: schemaWithoutNNode,
+                chunk_shapes: {
+                    depth: [10, 1000000],
+                    x_velocity: [10, 1000000],
+                    y_velocity: [10, 1000000]
+                }
+            };
+            const restore = stubGlobalFetch((url) => (url === MANIFEST_URL
+                ? Promise.resolve(new Response(JSON.stringify(lyingManifest), { status: 200 }))
+                : fixtureFetchHandler(url)));
+            const store = makeStore(createInitialPlaybackState());
+            const { subject, action$ } = makeActionsSubject();
+            playbackInitEpic(action$, store).subscribe((a) => {
+                if (a.type !== PLAYBACK_MANIFEST_LOADED && a.type !== PLAYBACK_MANIFEST_FAILED
+                    && a.type !== PLAYBACK_FALLBACK) {
+                    return;
+                }
+                restore();
+                try {
+                    // NOT a fallback — the budget accepted this store, which is
+                    // what makes the mesh-time check reachable at all.
                     expect(a.type).toBe(PLAYBACK_MANIFEST_FAILED);
                     expect(String(a.error)).toContain('chunk node extent');
                     expect(String(a.error)).toContain('TASK-2729');
@@ -536,7 +1131,7 @@ describe('playbackEpics', () => {
                     done(e);
                 }
             }, done);
-            subject.next(playbackInit(27325, 'layer-27325', MANIFEST_URL));
+            subject.next(playbackInit(27326, 'layer-27326', MANIFEST_URL));
         });
 
         // NEGATIVE CONTROL for the case above: proves the single line it saw
@@ -621,6 +1216,122 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next(playbackManifestLoaded({ runId: 1 })); // any trigger type in the ofType list
+        });
+
+        /*
+         * TASK-2985 (W1.2, epic 2981) — ONE WINDOW, TWO USES, and the whole
+         * plan actually gets asked for.
+         *
+         * These two drive the epic against a SYNTHETIC 11-chunk store with a
+         * counting fetchImpl, because the shared FIXTURE_MANIFEST store has
+         * only two chunks and a 2-chunk store cannot tell planWindow from
+         * getPrefetchWindow.
+         */
+        function synthChunkUrls(totalChunks) {
+            const chunkUrls = {};
+            ['depth', 'x_velocity', 'y_velocity'].forEach((q) => {
+                for (let t = 0; t < totalChunks; t++) {
+                    chunkUrls[`${q}/c/${t}/0`] = `${q}/c/${t}/0`;
+                }
+            });
+            return chunkUrls;
+        }
+
+        function countingFetcher(totalChunks, calls, memoryPlan) {
+            return new PlaybackChunkFetcher({
+                manifest: { chunk_urls: synthChunkUrls(totalChunks), quantization: FIXTURE_MANIFEST.quantization },
+                memoryPlan,
+                fetchImpl: (url) => {
+                    calls.push(url);
+                    return Promise.resolve(new Response(new ArrayBuffer(8), { status: 200 }));
+                },
+                decodeImpl: () => Promise.resolve(new Uint16Array(8))
+            });
+        }
+
+        function stateFor({ totalChunks, chunksPerQuantity, bufferWindowRadius }) {
+            const loaded = playbackControllerReducer(
+                playbackControllerReducer(createInitialPlaybackState(), playbackInit(1, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 1, manifest: FIXTURE_MANIFEST, mesh: { nodeX: new Float32Array(FIXTURE_MESH.nNode) },
+                    time: FIXTURE_PHYSICAL.time, nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode,
+                    chunkLengthT: 10, totalChunks, quantization: FIXTURE_MANIFEST.quantization
+                })
+            );
+            // bufferWindowAhead is chunksPerQuantity - 1 - radius by
+            // construction in playbackMemoryPolicy, which is exactly how the
+            // epic derives the slot count back out of the reducer's state.
+            return {
+                ...loaded,
+                bufferWindowRadius,
+                bufferWindowAhead: chunksPerQuantity - 1 - bufferWindowRadius
+            };
+        }
+
+        it('AC1 — after MANIFEST_LOADED and no PLAY, the requested set is the WHOLE plan: 11 of 11', (done) => {
+            // The REAL post-2984 plan for the 1412 store at the module's own
+            // default 800 MiB budget: 11 slots, radius 1, ahead 9.
+            const plan = computePlaybackMemoryPlan({
+                nNode: 145824, nFace: 290407, chunkLengthT: 10, totalChunks: 11
+            });
+            expect(plan.chunksPerQuantity).toBe(11);
+            expect(plan.bufferWindowRadius).toBe(1);
+
+            const calls = [];
+            const fetcher = countingFetcher(11, calls, plan);
+            fetcherRegistry.set(1, fetcher);
+            const store = makeStore(stateFor({
+                totalChunks: 11, chunksPerQuantity: 11, bufferWindowRadius: 1
+            }));
+            const { subject, action$ } = makeActionsSubject();
+            const sub = playbackBufferEpic(action$, store).subscribe(() => {});
+            subject.next(playbackManifestLoaded({ runId: 1 }));
+            setTimeout(() => {
+                sub.unsubscribe();
+                try {
+                    const chunks = Array.from(new Set(calls.map((u) => Number(u.split('/')[2]))))
+                        .sort((a, b) => a - b);
+                    // THE RED, verified against the real module before this
+                    // task: getPrefetchWindow(0, 11, 1, {ahead: 9}) CLIPS to
+                    // [0..9] — 10 of 11, one chunk short, because the
+                    // behind-slot at centre 0 is spent on nothing.
+                    expect(chunks).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+                    expect(chunks.length).toBe(11);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 400);
+        });
+
+        it('AC3 — with a 3-slot plan the pre-play window is [0,1,2]; the GUARD sees the same array the fill does', (done) => {
+            // ONE WINDOW, TWO USES. If the already-buffered guard were left on
+            // getPrefetchWindow it would return [0,1], see both resident and
+            // emit Observable.empty() — so this AC would pass in the unit test
+            // and fail in the product. Feeding the guard [0,1,2] while the
+            // cache holds [0,1] is exactly that discrimination.
+            const plan = { chunksPerQuantity: 3, bufferWindowRadius: 1, cacheMaxBytes: 4096 };
+            const calls = [];
+            const fetcher = countingFetcher(11, calls, plan);
+            fetcherRegistry.set(1, fetcher);
+            const store = makeStore({
+                ...stateFor({ totalChunks: 11, chunksPerQuantity: 3, bufferWindowRadius: 1 }),
+                bufferedChunks: [0, 1]
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const sub = playbackBufferEpic(action$, store).subscribe(() => {});
+            subject.next(playbackManifestLoaded({ runId: 1 }));
+            setTimeout(() => {
+                sub.unsubscribe();
+                try {
+                    const chunks = Array.from(new Set(calls.map((u) => Number(u.split('/')[2]))))
+                        .sort((a, b) => a - b);
+                    expect(chunks).toEqual([0, 1, 2]);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 400);
         });
 
         it('is a no-op once the required window is already buffered', (done) => {
@@ -1226,6 +1937,390 @@ describe('playbackEpics', () => {
     // read at the buffer/sync epics, and NEVER `.delete`d — so every stale run
     // stayed fully resident (~578 MiB at prod scale) and IDLE, the only status
     // that re-renders the manifest loader, was unreachable.
+    /*
+     * =====================================================================
+     * TASK-2986 (W1.3, epic 2981) — THE FALLBACK PATH.
+     *
+     * A phone handed a 3.39 M-node mesh downloads 63 MB of geometry and holds
+     * 440 MiB of typed arrays. The old refusal rule never fired for it: at the
+     * 800 MiB floor budget refusal needed 8,388,608 nodes, so every real store
+     * on every real device was accepted and the devices that actually die sat
+     * inside the accepted band. TASK-2984's downward device path moves the
+     * threshold into that band; this is what the user sees when it fires.
+     *
+     * WHERE THE CONSTANTS ARE CHARGED, because every fixture here depends on
+     * it: APP_BASELINE_FLOOR_BYTES floors the usedJSHeapSize READING inside
+     * resolvePlaybackHeapBudget and is NEVER subtracted from budgetBytes;
+     * PLAN_TRANSIENT_EXCESS_BYTES is subtracted only from the WINDOW budget;
+     * and the fallback VERDICT is judged against the GROSS budgetBytes
+     * (TASK-2984 clause 12's deliberate asymmetry). So none of the three moves
+     * any threshold in this task.
+     * =====================================================================
+     */
+    describe('the fallback path — TASK-2986 (W1.3, epic 2981)', () => {
+        const MIB = 1024 * 1024;
+        // 741_410_1328_chunk2 AT MANIFEST TIME. nFace is NOT in the manifest,
+        // so the manifest-time plan uses FACES_PER_NODE_ESTIMATE = 2 and the
+        // numbers differ from the exact-nFace ones by ~0.1 MiB. Grade against
+        // THESE, never against a formatted MiB string.
+        const CHUNK2_NODES = 3393075;
+        const CHUNK2_FIXED_BYTES = 339307500;        // 323.59 MiB
+        const CHUNK2_FLOOR_WINDOW_BYTES = 420741300; // 401.25 MiB
+        const CHUNK2_N3_PEAK_BYTES = 461458200;      // 440.08 MiB
+
+        function manifestFor({ nNode, chunkLengthT, nTime }) {
+            const shapes = {};
+            const chunkUrls = { 'zarr.json': 'zarr.json' };
+            ['depth', 'x_velocity', 'y_velocity'].forEach((q) => {
+                shapes[q] = [chunkLengthT, nNode];
+                chunkUrls[`${q}/zarr.json`] = `${q}/zarr.json`;
+                for (let t = 0; t < Math.ceil(nTime / chunkLengthT); t++) {
+                    chunkUrls[`${q}/c/${t}/0`] = `${q}/c/${t}/0`;
+                }
+            });
+            ['node_x', 'node_y', 'elevation', 'friction', 'inradius', 'face_node_connectivity', 'time'].forEach((a) => {
+                chunkUrls[`${a}/zarr.json`] = `${a}/zarr.json`;
+                chunkUrls[`${a}/c/0`] = `${a}/c/0`;
+                chunkUrls[`${a}/c/0/0`] = `${a}/c/0/0`;
+            });
+            return {
+                chunk_urls: chunkUrls,
+                chunk_shapes: shapes,
+                schema_metadata: { format_version: 2, n_time: nTime, chunk_length_t: chunkLengthT },
+                quantization: FIXTURE_MANIFEST.quantization
+            };
+        }
+
+        /**
+         * Drive the REAL budget resolution rather than stubbing past it: the
+         * whole point of this task is what a small device resolves. Both
+         * signals are stubbed so the resolved budget is deterministic and does
+         * not depend on how much heap this karma browser happens to have —
+         * and every spec ASSERTS the budget it got rather than assuming it.
+         */
+        function withEnvironment({ deviceMemoryGiB, jsHeapSizeLimit, usedJSHeapSize }, run) {
+            Object.defineProperty(navigator, 'deviceMemory', { value: deviceMemoryGiB, configurable: true });
+            Object.defineProperty(performance, 'memory', {
+                value: { jsHeapSizeLimit, usedJSHeapSize }, configurable: true
+            });
+            const restore = () => {
+                delete navigator.deviceMemory;
+                delete performance.memory;
+            };
+            return run(restore);
+        }
+
+        // A budget squarely inside the (323.59, 401.25) MiB band — see AC1.
+        // 1.9482421875 GiB x 0.20 = 399.0 MiB exactly.
+        const BAND_DEVICE_MEMORY_GIB = 1.9482421875;
+        // 3.90625 GiB x 0.20 = 800.0 MiB exactly — the epic's own control.
+        const FITS_DEVICE_MEMORY_GIB = 3.90625;
+        const BIG_HEAP = { jsHeapSizeLimit: 8192 * MIB, usedJSHeapSize: 300 * MIB };
+
+        function driveInit(manifest, fetchCounter) {
+            const handler = (url) => {
+                if (String(url).indexOf('manifest') !== -1) {
+                    return Promise.resolve(new Response(JSON.stringify(manifest), { status: 200 }));
+                }
+                fetchCounter.push(url);
+                return Promise.resolve(new Response(new ArrayBuffer(8), { status: 200 }));
+            };
+            return stubGlobalFetch(handler);
+        }
+
+        function collect(store, manifest, fetches, done, assertFn) {
+            const restoreFetch = driveInit(manifest, fetches);
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            const sub = playbackInitEpic(action$, store).subscribe((a) => seen.push(a));
+            subject.next(playbackInit(77, 'layer-77', 'http://rig/playback-manifest/'));
+            setTimeout(() => {
+                sub.unsubscribe();
+                restoreFetch();
+                try {
+                    assertFn(seen);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 500);
+        }
+
+        it('AC1 — fallback FIRES on a real store: 0 fetches, status fallback, reason floor-window-exceeds-budget', (done) => {
+            // THE BUDGET MUST SIT STRICTLY INSIDE (323.59, 401.25) MiB — above
+            // this fixture's fixed-mesh total and below its floor-window peak.
+            // BELOW 323.59 MiB the 'fixed-mesh-exceeds-budget' branch fires
+            // FIRST and this spec would assert a reason the module never
+            // produces on it. An earlier draft stubbed 163 MiB, which is below
+            // the fixed mesh — and this is the ONLY coverage that
+            // 'floor-window-exceeds-budget' has anywhere in the epic.
+            withEnvironment({ deviceMemoryGiB: BAND_DEVICE_MEMORY_GIB, ...BIG_HEAP }, (restore) => {
+                const manifest = manifestFor({ nNode: CHUNK2_NODES, chunkLengthT: 2, nTime: 31 });
+                const fetches = [];
+                const store = makeStore(createInitialPlaybackState());
+                collect(store, manifest, fetches, (e) => { restore(); done(e); }, (seen) => {
+                    const fallback = seen.find((a) => a.type === PLAYBACK_FALLBACK);
+                    expect(fallback).toExist();
+                    expect(fallback.budgetBytes > CHUNK2_FIXED_BYTES).toBe(true);
+                    expect(fallback.budgetBytes < CHUNK2_FLOOR_WINDOW_BYTES).toBe(true);
+                    expect(fallback.reason).toBe('floor-window-exceeds-budget');
+                    expect(fallback.floorWindowPlanPeakBytes).toBe(CHUNK2_FLOOR_WINDOW_BYTES);
+                    expect(fallback.nNode).toBe(CHUNK2_NODES);
+                    // ZERO fetches after the manifest. RED at HEAD: the same
+                    // fixture warns and then downloads the mesh.
+                    expect(fetches.length).toBe(0);
+                    // ...and nothing was registered, so nothing can fetch later
+                    expect(fetcherRegistry.has(77)).toBe(false);
+                    const state = playbackControllerReducer(createInitialPlaybackState(), fallback);
+                    expect(state.status).toBe(PLAYBACK_STATUS.FALLBACK);
+                    expect(state.pendingPlay).toBe(false);
+                });
+            });
+        });
+
+        it('AC2(a) — fallback does NOT fire on the SAME store at 800 MiB: verdict ok, n=3, and the mesh IS fetched', (done) => {
+            // The control that stops AC1 passing for the wrong reason. The
+            // adjudicated AC2 table row is `chunk2 L2/16 ... 800: 3->3 (440)`.
+            withEnvironment({ deviceMemoryGiB: FITS_DEVICE_MEMORY_GIB, ...BIG_HEAP }, (restore) => {
+                const manifest = manifestFor({ nNode: CHUNK2_NODES, chunkLengthT: 2, nTime: 31 });
+                const fetches = [];
+                const store = makeStore(createInitialPlaybackState());
+                collect(store, manifest, fetches, (e) => { restore(); done(e); }, (seen) => {
+                    expect(seen.find((a) => a.type === PLAYBACK_FALLBACK)).toBe(undefined);
+                    // the plan itself, computed the way the epic computes it
+                    const plan = computePlaybackMemoryPlan({
+                        nNode: CHUNK2_NODES, chunkLengthT: 2, totalChunks: 16, budgetBytes: 800 * MIB
+                    });
+                    expect(plan.verdict).toBe('ok');
+                    expect(plan.chunksPerQuantity).toBe(3);
+                    expect(plan.peakResidentBytes).toBe(CHUNK2_N3_PEAK_BYTES);
+                    // and the geometry really did start moving
+                    expect(fetches.length > 0).toBe(true);
+                    expect(fetcherRegistry.has(77)).toBe(true);
+                });
+            });
+        });
+
+        it('AC2(b)/AC3 — the plan-arithmetic rows: the small store plays on a phone, the synthetic fails closed', () => {
+            // Stub the literals (the prompt's authority paragraph): a stubbed
+            // budgetBytes bypasses APP_BASELINE_FLOOR_BYTES entirely, because
+            // the floor lives inside the budget RESOLUTION, not in the plan.
+            //
+            // AC2(b) — 1412 at TASK-2984's PHONE_CLASS_BUDGET_BYTES. Assert
+            // against the SYMBOL so the row survives whichever literal 2984
+            // ships. Its fixed mesh is 14,582,400 B (13.91 MiB) and its
+            // floor-window peak 32,081,280 B (30.60 MiB), far below any budget
+            // the module can resolve — including SMALL_DEVICE_MIN_BUDGET_BYTES
+            // (128 MiB), the other floor this path can produce. (163 MiB is a
+            // budget COLUMN in the AC2 table, an Android raw offer, NOT a
+            // constant — do not conflate them.)
+            const small = computePlaybackMemoryPlan({
+                nNode: 145824, chunkLengthT: 10, totalChunks: 11, budgetBytes: PHONE_CLASS_BUDGET_BYTES
+            });
+            expect(small.verdict).toBe('ok');
+            expect(small.fixedBytes).toBe(14582400);
+            expect(small.floorWindowPlanPeakBytes).toBe(32081280);
+
+            // AC3 — the 14,582,400-node synthetic at 800 MiB: 1,390.7 MiB of
+            // fixed mesh alone exceeds it, so the FIRST branch fires.
+            const synth = computePlaybackMemoryPlan({
+                nNode: 14582400, chunkLengthT: 2, totalChunks: 16, budgetBytes: 800 * MIB
+            });
+            expect(synth.verdict).toBe('fallback');
+            expect(synth.fallbackReason).toBe('fixed-mesh-exceeds-budget');
+
+            // ...AND THE CORRECTED COMPANION ROW: the SAME synthetic at
+            // 1,849 MiB is NOT fallback — its floor-window peak of 1,724.5 MiB
+            // FITS. The superseded spec asserted the opposite, and an
+            // implementer copying it writes a test that cannot pass.
+            const synthBig = computePlaybackMemoryPlan({
+                nNode: 14582400, chunkLengthT: 2, totalChunks: 16, budgetBytes: 1849 * MIB
+            });
+            expect(synthBig.verdict).toBe('ok');
+            expect(synthBig.fallbackReason).toBe(null);
+            expect(synthBig.chunksPerQuantity).toBe(2);
+
+            // THE HONEST CAVEAT, and it is not decoration: 'not fallback' means
+            // THE PLAN FITS THE BUDGET, not THE TAB WILL SURVIVE. TASK-3013's
+            // W0.4 rig killed 813_417_1412 — whole plan 38.9 MiB — under a
+            // 768 MiB cgroup, and killed 741_410_1328_chunk2 at 384, 768 AND
+            // 1536 MiB. These rows assert what the shipped arithmetic
+            // produces, never a survival prediction.
+        });
+
+        it('AC3 third row — A NULL PLAN IS NOT A FALLBACK: an unsizable store PROCEEDS', (done) => {
+            // readNodeCount returns undefined when chunk_shapes declare no
+            // usable node extent for ANY quantity array, so `initialPlan` is
+            // null. A store whose size cannot be READ cannot be JUDGED, and
+            // today it proceeds — that behaviour is KEPT and RECORDED here
+            // rather than inherited.
+            //
+            // No RED is available for this row (HEAD already proceeds), so it
+            // is a REGRESSION GUARD on the defensive read. Shown red by
+            // reversible mutation instead: write `initialPlan.verdict ===
+            // 'fallback'` without the null guard and it throws a TypeError
+            // into runLoad's catch, landing status 'error'.
+            withEnvironment({ deviceMemoryGiB: BAND_DEVICE_MEMORY_GIB, ...BIG_HEAP }, (restore) => {
+                const manifest = manifestFor({ nNode: CHUNK2_NODES, chunkLengthT: 2, nTime: 31 });
+                // strip the node extent from every quantity array
+                Object.keys(manifest.chunk_shapes).forEach((q) => {
+                    manifest.chunk_shapes[q] = [2];
+                });
+                const fetches = [];
+                const store = makeStore(createInitialPlaybackState());
+                collect(store, manifest, fetches, (e) => { restore(); done(e); }, (seen) => {
+                    const failed = seen.find((a) => a.type === PLAYBACK_MANIFEST_FAILED);
+                    // The assertion carries the evidence, so the RED of the
+                    // reversible mutation NAMES the TypeError instead of
+                    // printing a bare `false`. With the null guard removed this
+                    // reads:
+                    //   fallback=false proceeded=false error="Cannot read
+                    //   properties of null (reading 'verdict')"
+                    // A downstream mesh-decode/fetch failure on this synthetic
+                    // manifest is expected and is NOT what this row grades —
+                    // what it grades is that the plan was not judged, the run
+                    // proceeded, and no null-read threw into runLoad's catch.
+                    const message = failed ? String(failed.error) : '';
+                    expect('fallback=' + (seen.some((a) => a.type === PLAYBACK_FALLBACK))
+                        + ' proceeded=' + fetcherRegistry.has(77)
+                        + ' nullVerdictThrow=' + /verdict/.test(message))
+                        .toBe('fallback=false proceeded=true nullVerdictThrow=false');
+                });
+            });
+        });
+
+        it('AC4 — all three envelope branches, asserted on dispatched ACTIONS and never on a testid', () => {
+            const depthMax = {
+                id: 'lyr-9', name: 'geonode:run77_depth_max_cog',
+                title: 'Results.Depth', visibility: false, type: 'wms'
+            };
+            const scenarioState = {
+                anuga: { scenarios: { allIds: [1], byId: { 1: {
+                    id: 1, latest_complete_run: { id: 77, gn_layer_depth_max: depthMax }
+                } } } }
+            };
+
+            // (a) ALREADY in state.layers.flat -> made visible, no addLayer.
+            const emittedA = [];
+            const storeA = makeStore(createInitialPlaybackState(), {
+                ...scenarioState, layers: { flat: [{ ...depthMax }] }
+            });
+            expect(showFallbackEnvelope(storeA, 77, (a) => emittedA.push(a))).toBe('existing');
+            expect(emittedA.length).toBe(1);
+            expect(emittedA[0].type).toBe(CHANGE_LAYER_PROPERTIES);
+            expect(emittedA[0].layer).toBe('lyr-9');
+            // ASSERT THE PROPERTIES OBJECT, not merely that something fired.
+            expect(emittedA[0].newProperties).toEqual({ visibility: true });
+
+            // (b) NOT in state but reachable from scenario state -> addLayer,
+            // and `visibility: true` IS LOAD-BEARING: _serialize_gn_layer ships
+            // every nested gn_layer_* dict with `visibility = False`, so a bare
+            // addLayer(gn_layer_depth_max) files an INVISIBLE layer — the epic
+            // records 'added', a gate greens on 'added', and the phone user
+            // still sees a blank map with an apology.
+            const emittedB = [];
+            const storeB = makeStore(createInitialPlaybackState(), scenarioState);
+            expect(showFallbackEnvelope(storeB, 77, (a) => emittedB.push(a))).toBe('added');
+            expect(emittedB.length).toBe(1);
+            expect(emittedB[0].type).toBe(ADD_LAYER);
+            expect(emittedB[0].layer.name).toBe('geonode:run77_depth_max_cog');
+            expect(emittedB[0].layer.visibility).toBe(true);
+            // the source dict is NOT mutated — the state object stays as served
+            expect(depthMax.visibility).toBe(false);
+
+            // (c) neither -> nothing dispatched, and the caller still lands
+            // 'fallback'. FAILS CLOSED.
+            const emittedC = [];
+            const storeC = makeStore(createInitialPlaybackState());
+            expect(showFallbackEnvelope(storeC, 77, (a) => emittedC.push(a))).toBe('none');
+            expect(emittedC.length).toBe(0);
+
+            // ...and a run that is NEITHER latest_complete_run NOR latest_run
+            // is NOT REACHABLE, BY DESIGN — it falls to (c) rather than
+            // triggering a lookup this task deliberately does not build.
+            const emittedD = [];
+            const storeD = makeStore(createInitialPlaybackState(), scenarioState);
+            expect(showFallbackEnvelope(storeD, 999, (a) => emittedD.push(a))).toBe('none');
+            expect(emittedD.length).toBe(0);
+        });
+
+        it('phase 1.7 — a STALE run\'s fallback cannot clobber the run that replaced it', () => {
+            // FOUND BY THIS WAVE'S CUMULATIVE REVIEW, not by an AC.
+            // playbackInitEpic is a mergeMap, NOT a switchMap, so a second
+            // PLAYBACK_INIT does not tear down the first run's still-running
+            // load — run A's verdict can land after run B has started. Without
+            // the guard a LIVE loading run is forced into a TERMINAL
+            // 'fallback' carrying ANOTHER run's mesh size and budget, and
+            // nothing short of a reload gets it out.
+            //
+            // The four sibling cases (MANIFEST_FETCHED, LOAD_PROGRESS,
+            // MANIFEST_LOADED, MANIFEST_FAILED) all carry this guard already.
+            const runB = playbackControllerReducer(
+                createInitialPlaybackState(), playbackInit(88, 'layer-88'));
+            expect(runB.runId).toBe(88);
+            const payload = {
+                reason: 'fixed-mesh-exceeds-budget',
+                nNode: 14582400, nFace: 29164800,
+                budgetBytes: 128 * 1024 * 1024, budgetSource: 'phone-class',
+                floorWindowPlanPeakBytes: 1808793600, fallbackLayerShown: 'none'
+            };
+            const after = playbackControllerReducer(
+                runB, playbackFallback({ ...payload, runId: 77 }));
+            expect(after).toBe(runB);
+            expect(after.status).toNotBe(PLAYBACK_STATUS.FALLBACK);
+            // ...and the SAME payload for the CURRENT run IS honoured, so the
+            // guard cannot be satisfied by ignoring everything.
+            const own = playbackControllerReducer(
+                runB, playbackFallback({ ...payload, runId: 88 }));
+            expect(own.status).toBe(PLAYBACK_STATUS.FALLBACK);
+            expect(own.nNode).toBe(14582400);
+        });
+
+        it('AC5/AC6 — the reducer keeps every number the message names, and fallback is TERMINAL', () => {
+            const action = playbackFallback({
+                runId: 77, reason: 'floor-window-exceeds-budget',
+                nNode: CHUNK2_NODES, nFace: 6786150,
+                budgetBytes: 399 * MIB, budgetSource: 'small-device',
+                floorWindowPlanPeakBytes: CHUNK2_FLOOR_WINDOW_BYTES,
+                fallbackLayerShown: 'added'
+            });
+            const state = playbackControllerReducer(createInitialPlaybackState(), action);
+            // AC5 — WITHOUT THIS the bar is connected to a state that knows
+            // none of it: on this path PLAYBACK_MANIFEST_LOADED never fires, so
+            // nNode stays 0 and memoryPlan stays null, and budgetSource has no
+            // home in state at HEAD at all.
+            expect(state.status).toBe(PLAYBACK_STATUS.FALLBACK);
+            expect(state.nNode).toBe(CHUNK2_NODES);
+            expect(state.nFace).toBe(6786150);
+            expect(state.budgetBytes).toBe(399 * MIB);
+            expect(state.budgetSource).toBe('small-device');
+            expect(state.fallbackReason).toBe('floor-window-exceeds-budget');
+            expect(state.floorWindowPlanPeakBytes).toBe(CHUNK2_FLOOR_WINDOW_BYTES);
+            expect(state.fallbackLayerShown).toBe('added');
+            expect(state.pendingPlay).toBe(false);
+            expect(state.memoryPlan).toBe(null);
+
+            // AC6 — a TICK or a SEEK cannot escape it. RED is unavailable: no
+            // such status exists at HEAD, so this spec cannot even be written
+            // against unmodified source.
+            const ticked = playbackControllerReducer(state, playbackTick(Date.now()));
+            expect(ticked.status).toBe(PLAYBACK_STATUS.FALLBACK);
+            expect(ticked.currentTimestep).toBe(state.currentTimestep);
+            const sought = playbackControllerReducer(state, playbackSeek(5));
+            expect(sought.status).toBe(PLAYBACK_STATUS.FALLBACK);
+            expect(sought.currentTimestep).toBe(state.currentTimestep);
+
+            // ...and PLAYBACK_RESET clears every one of the new keys, because
+            // they live in createInitialPlaybackState().
+            const reset = playbackControllerReducer(state, playbackReset(77, 'layer-77'));
+            expect(reset.status).toBe(PLAYBACK_STATUS.IDLE);
+            expect(reset.fallbackReason).toBe(null);
+            expect(reset.budgetSource).toBe(null);
+            expect(reset.fallbackLayerShown).toBe(null);
+            expect(reset.nFace).toBe(0);
+        });
+    });
+
     describe('playbackDisposeEpic + disposeRun — TASK-2744 AC2', () => {
         // TASK-2728 taught PlaybackChunkFetcher a `releaseCaches()` that drops
         // BOTH the time-series LRU and the statics it moved out of that LRU,

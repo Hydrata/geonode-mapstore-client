@@ -608,14 +608,15 @@
         "legend": "Legend",
         "flowViz": "Flow",
         "particles": "Trails",
-        "degraded": "Playback is waiting for data — try a slower speed",
+        "degraded": "Playback has run out of buffered frames — waiting for the connection",
         "status": {
           "loadingManifest": "Loading…",
           "buffering": "Buffering…",
           "seeking": "Buffering scrub target…",
           "stalled": "Buffering — waiting for data…",
           "error": "Playback store failed to load",
-          "loadingMesh": "Downloading mesh"
+          "loadingMesh": "Downloading mesh",
+          "fallback": "Playback unavailable on this device"
         },
         "legendTitleDepth": "Depth (m)",
         "legendTitleSpeed": "Velocity (m/s)",
@@ -650,7 +651,11 @@
         "legendTooltip": "Show the colour legend",
         "flowVizTooltip": "Velocity arrow overlay",
         "particlesTooltip": "Particle trails",
-        "degradedTooltip": "Playback has been waiting several seconds for the next frames. A slower speed gives the buffer time to keep up.",
+        "degradedTooltip": "Playback has been waiting several seconds for the next frames. The connection is not keeping up with this run; playback resumes on its own as soon as they arrive.",
+        "paced": "paced {r}x",
+        "pacedTooltip": "The connection is not keeping up with this run, so playback is running at {r}x of the speed you selected. Your selected speed returns on its own once the buffer catches up.",
+        "preRoll": "Buffering {p}%",
+        "preRollTooltip": "Buffering the first frames — {p}% of the way there. Play starts on its own.",
         "arrowDensity": "Arrow density (px spacing)",
         "arrowScale": "Arrow scale",
         "particleDensity": "Particle density (grid side length)",
@@ -704,7 +709,21 @@
         "zoomToResults": "Zoom to results",
         "zoomToResultsTooltip": "Zoom the map to this run’s results",
         "envelopeLoadFailedTitle": "Run maximum unavailable",
-        "envelopeLoadFailed": "The run-maximum (Max) layer could not be loaded for this quantity. Showing normal playback instead."
+        "envelopeLoadFailed": "The run-maximum (Max) layer could not be loaded for this quantity. Showing normal playback instead.",
+        "fallback": {
+          "mesh": "This result has {nodes} nodes and {triangles} triangles.",
+          "budget": "Animated playback needs more memory than this device offers: {budget}, measured from {source}.",
+          "envelopeShown": "Showing the maximum depth envelope for this run instead — the deepest water each point reached.",
+          "noEnvelope": "No maximum depth envelope is available for this run, so there is nothing to show in its place."
+        },
+        "budgetSource": {
+          "default": "a default budget (this browser reports no memory signals)",
+          "heapDevice": "this browser's heap headroom and reported device memory",
+          "partial": "the one memory signal this browser reports",
+          "smallDevice": "this device's own reported memory",
+          "phoneClass": "a phone-class estimate (this browser reports no memory signals)",
+          "unknown": "an unrecognised memory signal"
+        }
       },
       "hgeval": {
         "annualPrecipitation": "Annual Precipitation",
