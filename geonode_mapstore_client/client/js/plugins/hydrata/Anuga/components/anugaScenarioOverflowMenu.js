@@ -7,8 +7,8 @@ import {trackEvent} from "@js/utils/analytics";
 
 /**
  * TASK-2240 (epic 2237 W1.2) — a small CUSTOM, portaled overflow menu for the
- * scenario-scoped bulk actions (New scenario / Duplicate / Archive-Restore /
- * Delete), triggered by a kebab (⋮) in the Scenarios section header.
+ * scenario-scoped bulk actions (Duplicate / Archive-Restore / Delete),
+ * triggered by a kebab (⋮) in the Scenarios section header.
  *
  * Amendment A3 (binding) — react-bootstrap 0.31 Dropdown/MenuItem is
  * FORBIDDEN here: its DropdownMenu clips inside the
@@ -23,12 +23,15 @@ import {trackEvent} from "@js/utils/analytics";
  * the trigger's `getBoundingClientRect()`, so it always escapes the
  * scrollable rows-container ancestor instead of being clipped inside it.
  *
- * Scenario-INDEPENDENT rendering (acceptance #4): the kebab trigger itself
- * is gated ONLY on `canCreateScenario` (mirrors the pre-2240 New Scenario
- * button's own gate) — it is NOT hidden just because no scenario is
- * selected. Every scenario-SCOPED item (Duplicate / Archive-Restore /
- * Delete) instead renders always-present but `disabled` when there is no
- * selected scenario, so "New scenario" survives the empty-project case.
+ * Scenario-SCOPED rendering (TASK-3077, superseding TASK-2240's acceptance
+ * #4): "New scenario" moved OUT of this menu into the run-action strip
+ * (scenarioHeaderActions.js, `.sv-scenario-action-new`), which is where it
+ * now survives the empty-project case. With New gone, every remaining item
+ * is scoped to the SELECTED scenario, so the trigger is gated on
+ * `canCreateScenario` AND a selected scenario — a kebab holding three
+ * disabled items in an empty project is dead UI (operator decision,
+ * 2026-09-11). The items still carry their own `disabled` gates (canEdit /
+ * in-flight) for the selected case.
  *
  * Keyboard: Enter/Space on the trigger toggles the menu; ArrowDown while
  * closed opens it. Once open, ArrowUp/ArrowDown rove focus between items
@@ -39,9 +42,7 @@ import {trackEvent} from "@js/utils/analytics";
  * Umami analytics: labels fire from the SAME handler this component's
  * predecessor used (scenarioHeaderActions.js's Archive/Unarchive/Delete
  * blocks, pre-2240) — byte-identical label strings, now fired from this
- * component's <button> onClick instead. New Scenario's label already fires
- * inside the container's `onNewScenario` handler (unchanged) so it is not
- * re-fired here.
+ * component's <button> onClick instead.
  */
 const AnugaScenarioOverflowMenu = (props, context) => {
     const {
@@ -49,7 +50,6 @@ const AnugaScenarioOverflowMenu = (props, context) => {
         scenario,
         canEdit,
         inFlight,
-        onNewScenario,
         onDuplicateClick,
         onArchiveClick,
         onUnarchiveClick,
@@ -161,11 +161,11 @@ const AnugaScenarioOverflowMenu = (props, context) => {
         }
     };
 
-    // Scenario-INDEPENDENT (acceptance #4): the kebab itself only requires
-    // create permission — never hidden by scenario selection.
-    if (!canCreateScenario) return null;
-
+    // TASK-3077 — every item left in this menu is scoped to the selected
+    // scenario, so no selection ⇒ no kebab (see the file doc comment).
     const hasSelected = !!(scenario && scenario.id);
+    if (!canCreateScenario || !hasSelected) return null;
+
     const isArchived = !!(scenario && scenario.archived_at);
     const canDuplicateNow = hasSelected;
     const canArchiveNow = hasSelected && canEdit && !inFlight;
@@ -218,20 +218,6 @@ const AnugaScenarioOverflowMenu = (props, context) => {
                     className="sv-anuga-scenario-overflow-menu"
                     style={menuStyle}
                 >
-                    <button
-                        type="button"
-                        role="menuitem"
-                        ref={nextRef()}
-                        className="sv-anuga-scenario-overflow-item sv-anuga-scenario-overflow-new"
-                        onKeyDown={handleItemKeyDown(refIndex)}
-                        onClick={() => {
-                            close();
-                            focusTrigger();
-                            if (onNewScenario) onNewScenario();
-                        }}
-                    >
-                        <Message msgId="hydrata.anuga.newScenario" />
-                    </button>
                     <button
                         type="button"
                         role="menuitem"
@@ -314,7 +300,6 @@ AnugaScenarioOverflowMenu.propTypes = {
     scenario: PropTypes.object,
     canEdit: PropTypes.bool,
     inFlight: PropTypes.bool,
-    onNewScenario: PropTypes.func,
     onDuplicateClick: PropTypes.func,
     onArchiveClick: PropTypes.func,
     onUnarchiveClick: PropTypes.func,

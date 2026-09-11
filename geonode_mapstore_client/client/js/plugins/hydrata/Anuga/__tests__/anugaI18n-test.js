@@ -170,6 +170,31 @@ describe('Anuga i18n', () => {
             });
     });
 
+    it('the strip New button keys exist in every maintained locale (TASK-3077)', () => {
+        // TASK-3077 — the run-action strip's "New" button reads its visible
+        // label from hydrata.anuga.new and its title/aria-label from the
+        // pre-existing hydrata.anuga.newScenario; both must be present and
+        // non-empty in the four maintained locales. (hydrata.scenarios.new is
+        // an orphan in another namespace — not what the button reads.)
+        const {esMessages, htMessages} = require('../../../../__tests__/fixtures/translations');
+        const expected = {
+            en: {'new': 'New', newScenario: 'New Scenario'},
+            fr: {'new': 'Nouveau'},
+            es: {'new': 'Nuevo'},
+            ht: {'new': 'Nouvo'}
+        };
+        [['en', enMessages], ['fr', frMessages], ['es', esMessages], ['ht', htMessages]]
+            .forEach(([locale, messages]) => {
+                ['hydrata.anuga.new', 'hydrata.anuga.newScenario'].forEach((key) => {
+                    expect(messages[key]).toExist(`Missing ${locale} translation for: ${key}`);
+                    expect(messages[key].length).toBeGreaterThan(0, `Empty ${locale} value for: ${key}`);
+                });
+                Object.keys(expected[locale]).forEach((suffix) => {
+                    expect(messages[`hydrata.anuga.${suffix}`]).toBe(expected[locale][suffix]);
+                });
+            });
+    });
+
     it('core navigation keys exist', () => {
         const requiredKeys = [
             'hydrata.anuga.inputs',
