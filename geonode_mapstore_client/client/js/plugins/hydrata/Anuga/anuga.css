@@ -3880,3 +3880,46 @@ span.sv-scenario-run-price--short {
     line-height: 1.35;
     color: rgba(255, 255, 255, 0.6);
 }
+
+/* TASK-2973 — every Results row (actionable or storeless) sits in a wrapper
+   with a session-only show/hide of its run's max-value rasters beside it.
+   The wrapper is layout only (no `sv-anuga-results-row` token — specs count
+   actionable rows by that selector); the row keeps its full width minus the
+   toggle, which is sized to its label and never wraps. The toggle borrows the
+   row's pill language at a quieter weight so the row stays the primary
+   affordance; `is-shown` mirrors the row's active green so "these rasters are
+   on the map" reads at a glance. */
+.sv-anuga-results-row-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+}
+.sv-anuga-results-row-wrap > .sv-anuga-results-row,
+.sv-anuga-results-row-wrap > .sv-anuga-results-row-unavailable {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+}
+.sv-anuga-results-row-toggle {
+    flex: 0 0 auto;
+    align-self: center;
+    margin: 0;
+    padding: 5px 8px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    font-family: Montserrat, sans-serif;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.sv-anuga-results-row-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+.sv-anuga-results-row-toggle.is-shown {
+    border-color: rgba(255, 255, 255, 0.9);
+    background-color: var(--sv-row-active-bg, rgba(30, 126, 52, 0.7));
+}

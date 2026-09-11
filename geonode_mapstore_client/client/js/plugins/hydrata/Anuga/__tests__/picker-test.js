@@ -201,6 +201,30 @@ describe('profileEpic — picker fallback seed when nothing visible (TASK-2254, 
         state.anuga.scenarios.selectedId = 3;
         expect(seedCheckedScenarios(state)).toEqual([]);
     });
+
+    // TASK-2973 — resultRasterVisibilityEpic hides every result raster on
+    // load, so the raster branch above no longer seeds on a fresh map. The
+    // scenario whose latest complete run is PLAYING (state.anugaPlayback.runId)
+    // is the one the user is looking at, and it wins over the selected-scenario
+    // fallback. The raster branch is kept: a toggled-on run still seeds through it.
+    it("seeds the playback run's scenario although no raster is visible", () => {
+        const hiddenResults = [
+            { name: 'geonode:run_1_10_depth_max_cog', group: 'Results.Depth', visibility: false },
+            { name: 'geonode:run_2_11_depth_max_cog', group: 'Results.Depth', visibility: false },
+            { name: 'geonode:run_4_12_depth_max_cog', group: 'Results.Depth', visibility: false }
+        ];
+        const base = makeState({ layers: { flat: hiddenResults } });
+        // Playback is on scenario 1's run while scenario 2 is SELECTED — the
+        // two branches disagree, so the outcome is not the fallback's.
+        const playingRunId = String(base.anuga.scenarios.byId[1].latest_complete_run.id);
+        base.anuga.scenarios.selectedId = 2;
+        // Positive control: without a playing run this state seeds the
+        // selected scenario (the shipped fallback), so [1] below is the new branch.
+        expect(seedCheckedScenarios(base)).toEqual([2]);
+
+        const state = { ...base, anugaPlayback: { status: 'ready', runId: playingRunId } };
+        expect(seedCheckedScenarios(state)).toEqual([1]);
+    });
 });
 
 // ── Stable colour slots (AC5) ───────────────────────────────────────────────

@@ -302,6 +302,8 @@
         "viewResults": "Wè Rezilta",
         "resultsNoRuns": "Poko gen senaryo ki gen egzekisyon konplè ak rezilta.",
         "resultsNoPlayback": "Egzekisyon an fini, men pa gen okenn replè ki sove pou li — replè a egziste sèlman pou egzekisyon ki fini apre yo te entwodwi l.",
+        "resultsShowMaxRasters": "Montre rastè valè maksimòm yo",
+        "resultsHideMaxRasters": "Kache rastè valè maksimòm yo",
         "retry": "Eseye ankò",
         "retryError": "Echèk nan eseye ankò",
         "retrySuccess": "Egzekisyon reinisyalize — pare pou relanse",

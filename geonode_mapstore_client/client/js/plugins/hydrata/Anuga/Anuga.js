@@ -131,7 +131,10 @@ import {
     // TASK-1903 — floater ranking + intra-Results band order (latest run on top).
     resultsLayerOrderEpic,
     // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch.
-    warmTilesOnMapOpenEpic
+    warmTilesOnMapOpenEpic,
+    // TASK-2973 — nothing result-shaped on map load (hide sweep + row toggle).
+    resultRasterVisibilityEpic,
+    resultRasterToggleEpic
 } from "./epicsAnuga";
 // TASK-1995 (epic 1969 W2.3) — map-click disambiguation: the classifier epic
 // (drawing-guarded + perms-gated) and the Identify-ON enabler.
@@ -356,6 +359,12 @@ export default createPlugin('Anuga', {
         resultsLayerOrderEpic,
         // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch (warm visible COGs).
         warmTilesOnMapOpenEpic,
+        // TASK-2973 — every result-shaped raster hidden on MAP_CONFIG_LOADED /
+        // ADD_LAYER (display-only, exempting the playback run and any run the
+        // user toggled on), and the per-run session-only toggle behind every
+        // Results row.
+        resultRasterVisibilityEpic,
+        resultRasterToggleEpic,
         // TASK-1995 (epic 1969 W2.3) — map-click disambiguation (classify GFI ->
         // open editable vector) + ensure Identify is ON for ANUGA maps + force
         // application/json info_format (W2 corrective: live Identify default is

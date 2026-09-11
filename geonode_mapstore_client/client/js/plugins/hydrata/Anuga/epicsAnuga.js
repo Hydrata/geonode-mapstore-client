@@ -178,3 +178,11 @@ export {
 export {
     warmTilesOnMapOpenEpic
 } from './epics/warmTilesEpic';
+
+// TASK-2973 — nothing result-shaped on map load, ever: hide every result
+// raster on MAP_CONFIG_LOADED / ADD_LAYER (display-only), plus the
+// session-only per-run toggle behind every Results row.
+export {
+    resultRasterVisibilityEpic,
+    resultRasterToggleEpic
+} from './epics/resultRasterVisibilityEpic';
