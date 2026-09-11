@@ -1114,7 +1114,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             {this.renderSlider({
                                 testid: 'anuga-playback-particles-exaggeration',
                                 className: 'sv-playback-particles-exaggeration',
-                                min: 0.25, max: 5, step: 0.25,
+                                // TASK-3076 AC12 — 0.25x-20x, default 5x (playbackParticles).
+                                min: 0.25, max: 20, step: 0.25,
                                 value: playback.particleSpeedExaggeration,
                                 label: this.tr('hydrata.playback.speedExaggeration', 'Speed exaggeration'),
                                 format: (v) => `${v}x`,

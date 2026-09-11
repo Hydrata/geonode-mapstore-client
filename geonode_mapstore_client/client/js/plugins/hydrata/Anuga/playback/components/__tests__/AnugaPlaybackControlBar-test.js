@@ -648,6 +648,19 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(onSetOverlay.calls[2].arguments).toEqual(['particleSpeedExaggeration', 2.5]);
         });
 
+        // TASK-3076 AC12 — the trails' Speed exaggeration: 0.25x-20x in 0.25
+        // steps, reading 5x before any interaction (today's maximum is the new
+        // default; 1x read as still water at basin zoom).
+        it('AC12 — the speed-exaggeration slider spans 0.25-20 and reads 5x by default', () => {
+            render({ playback: loaded({ particlesEnabled: true }) });
+            const slider = container.querySelector('[data-testid="anuga-playback-particles-exaggeration"]');
+            expect(slider.getAttribute('min')).toBe('0.25');
+            expect(slider.getAttribute('max')).toBe('20');
+            expect(slider.getAttribute('step')).toBe('0.25');
+            expect(Number(slider.value)).toBe(5);
+            expect(container.querySelector('[data-testid="anuga-playback-particles-exaggeration-value"]').textContent).toBe('5x');
+        });
+
         it('AC7 — every slider renders its current numeric value adjacent to it', () => {
             render({ playback: loaded({ flowVizEnabled: true, particlesEnabled: true }) });
             ['anuga-playback-opacity', 'anuga-playback-flowviz-density', 'anuga-playback-flowviz-scale',

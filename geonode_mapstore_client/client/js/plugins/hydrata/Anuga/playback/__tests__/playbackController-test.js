@@ -1175,6 +1175,12 @@ describe('playbackController', () => {
         });
     });
 
+    // TASK-3076 AC12 — the trails' Speed exaggeration defaults to 5x (the
+    // constant in playbackParticles, not a call site).
+    it('AC12 — initial particleSpeedExaggeration is 5', () => {
+        expect(createInitialPlaybackState().particleSpeedExaggeration).toBe(5);
+    });
+
     /*
      * TASK-3076 (AC3/AC4) — THE COLOUR-SCALE FLOOR, paired with the ceiling.
      * Per-quantity like colorMaxOverride; null/non-finite CLEARS that quantity
