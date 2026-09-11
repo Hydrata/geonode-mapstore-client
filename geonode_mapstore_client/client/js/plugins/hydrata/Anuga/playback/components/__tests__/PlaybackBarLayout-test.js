@@ -212,6 +212,67 @@ describe('Playback bar layout — TASK-2751', () => {
         });
     });
 
+    /* TASK-3076 AC11 — THE HEADING. The operator could not tell which scenario
+       was loaded on prod map 6697: the Results row had no contrast and the bar
+       never said. Both cards (normal and fallback) now carry an <h3> naming the
+       loaded scenario, resolved by the SAME helper the Results menu uses, as the
+       card's permanent top edge (order:-2 in CSS, above the drawer whether open
+       or shut). Karma proves DOM order and text; the width guarantee is CSS
+       and is measured live. */
+    describe('the loaded-scenario heading (TASK-3076 AC11)', () => {
+        const scenarios = [
+            { id: 1, name: 'Baseline', latest_complete_run: { id: 101, has_playback_store: true } },
+            { id: 2, name: 'Msimbazi 100-year', latest_complete_run: { id: 67147, has_playback_store: true } }
+        ];
+        const indexOf = (card, testid) => Array.from(card.children).findIndex((el) => el.getAttribute('data-testid') === testid);
+
+        it('the normal card names the loaded scenario in an <h3> that precedes the drawer and the transport row', () => {
+            render({ playback: readyState({ runId: '67147' }), scenarios });
+            const card = q('anuga-playback-bar');
+            const title = q('anuga-playback-title', card);
+            expect(title).toBeTruthy();
+            expect(title.tagName).toBe('H3');
+            expect(title.className).toInclude('sv-playback-title');
+            expect(title.textContent).toBe('Msimbazi 100-year');
+            expect(title.parentNode).toBe(card, 'a direct child of the card');
+            expect(indexOf(card, 'anuga-playback-title') < indexOf(card, 'anuga-playback-drawer')).toBe(true);
+            expect(indexOf(card, 'anuga-playback-title') < indexOf(card, 'anuga-playback-transport')).toBe(true);
+            expect(indexOf(card, 'anuga-playback-drawer') < indexOf(card, 'anuga-playback-transport')).toBe(true);
+        });
+
+        it('the same heading is there with the drawer open, and outside the transport row', () => {
+            render({ playback: readyState({ runId: '67147' }), scenarios });
+            TestUtils.Simulate.click(q('anuga-playback-display-toggle'));
+            expect(q('anuga-playback-drawer').hidden).toBe(false);
+            const card = q('anuga-playback-bar');
+            expect(q('anuga-playback-title', card)).toBeTruthy();
+            expect(indexOf(card, 'anuga-playback-title') < indexOf(card, 'anuga-playback-drawer')).toBe(true);
+            expect(q('anuga-playback-title', q('anuga-playback-transport'))).toBe(null);
+        });
+
+        it('falls back to "Run <runId>" when no scenario matches (e.g. a hand-typed manifest)', () => {
+            render({ playback: readyState({ runId: '4242' }), scenarios });
+            expect(q('anuga-playback-title').textContent).toBe('Run 4242');
+            render({ playback: readyState({ runId: '4242' }) });
+            expect(q('anuga-playback-title').textContent).toBe('Run 4242');
+        });
+
+        it('the FALLBACK card carries the heading too, above its transport row', () => {
+            render({ playback: readyState({ runId: '67147', status: PLAYBACK_STATUS.FALLBACK, nNode: 10, nFace: 12, budgetBytes: 1e6, budgetSource: 'default' }), scenarios });
+            const card = q('anuga-playback-bar');
+            expect(card.className).toInclude('sv-playback-bar--fallback');
+            const title = q('anuga-playback-title', card);
+            expect(title).toBeTruthy();
+            expect(title.textContent).toBe('Msimbazi 100-year');
+            expect(indexOf(card, 'anuga-playback-title') < indexOf(card, 'anuga-playback-transport')).toBe(true);
+        });
+
+        it('the loader (nothing loaded) has no heading', () => {
+            render({ playback: createInitialPlaybackState(), scenarios });
+            expect(q('anuga-playback-title')).toBe(null);
+        });
+    });
+
     describe('AC3 — the result-quantity picker is on the primary path', () => {
         it('sits inside the primary group, after the speed picker and before the divider', () => {
             render({ playback: readyState() });
@@ -537,9 +598,10 @@ describe('Playback fallback message — TASK-2986', () => {
             ['budgetSource', 'default'], ['budgetSource', 'heapDevice'],
             ['budgetSource', 'partial'], ['budgetSource', 'smallDevice'],
             ['budgetSource', 'phoneClass'], ['budgetSource', 'unknown'],
-            // TASK-3076 — the colour-scale floor and the legend's hidden row.
+            // TASK-3076 — the colour-scale floor, the legend's hidden row and
+            // the bar heading's fallback.
             ['floor'], ['floorTooltip'], ['floorReset'], ['floorInert'],
-            ['legendBelowFloorHidden']
+            ['legendBelowFloorHidden'], ['runTitle']
         ];
         Object.keys(LOCALES).forEach((locale) => {
             const messages = LOCALES[locale].messages || LOCALES[locale];
@@ -561,6 +623,8 @@ describe('Playback fallback message — TASK-2986', () => {
             });
             expect(`${locale} legendBelowFloorHidden has {floor}=${playback.legendBelowFloorHidden.indexOf('{floor}') !== -1}`)
                 .toBe(`${locale} legendBelowFloorHidden has {floor}=true`);
+            expect(`${locale} runTitle has {runId}=${String(playback.runTitle).indexOf('{runId}') !== -1}`)
+                .toBe(`${locale} runTitle has {runId}=true`);
             // the two substituted messages must keep their placeholders in
             // EVERY language, or the translated string renders a bare sentence
             // with the numbers silently dropped.

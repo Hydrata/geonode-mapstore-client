@@ -682,6 +682,7 @@
         "floorReset": "Retire planche a",
         "floorInert": "Pa aplike: deyò echèl koulè a",
         "legendBelowFloorHidden": "anba {floor} {unit}: kache",
+        "runTitle": "Egzekisyon {runId}",
         "showThisQuantity": "Montre kalite rezilta sa a",
         "display": "Afichaj",
         "displayTooltip": "Opasite, kouch anlè ak echèl koulè pou chak kalite rezilta",

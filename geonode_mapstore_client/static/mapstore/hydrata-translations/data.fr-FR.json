@@ -682,6 +682,7 @@
         "floorReset": "Retirer le plancher",
         "floorInert": "Non appliqué : hors de l'échelle de couleurs",
         "legendBelowFloorHidden": "sous {floor} {unit} : masqué",
+        "runTitle": "Exécution {runId}",
         "showThisQuantity": "Afficher cette grandeur de résultat",
         "display": "Affichage",
         "displayTooltip": "Opacité, superpositions et échelle de couleurs pour chaque grandeur",

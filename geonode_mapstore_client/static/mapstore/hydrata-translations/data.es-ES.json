@@ -682,6 +682,7 @@
         "floorReset": "Quitar el piso",
         "floorInert": "No aplicado: fuera de la escala de color",
         "legendBelowFloorHidden": "bajo {floor} {unit}: oculto",
+        "runTitle": "Ejecución {runId}",
         "showThisQuantity": "Mostrar esta magnitud de resultado",
         "display": "Visualización",
         "displayTooltip": "Opacidad, superposiciones y escala de color para cada magnitud",

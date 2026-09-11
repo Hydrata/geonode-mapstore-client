@@ -44,6 +44,7 @@ import {
     buildPlaybackManifestUrl, scenarioHasActivatablePlayback, ANUGA_RESULTS_PLAYBACK_LAYER_ID
 } from '../anugaScenarioMenu';
 import { PLAYBACK_INIT } from '../../playback/actions/playbackActions';
+import { findLoadedScenario } from '../../playback/loadedScenario';
 // TASK-2194 (review fix) — real reducer tree + action creators for the
 // session compute-target integration block (drives the REAL store paths the
 // original fixture-seeded specs bypassed).
@@ -549,6 +550,42 @@ describe('AnugaResultsMenuClass (unconnected — rendering logic)', () => {
     afterEach(() => {
         ReactDOM.unmountComponentAtNode(container);
         document.body.removeChild(container);
+    });
+
+    // TASK-3076 AC11 — ONE exported helper resolves "which scenario is loaded"
+    // for BOTH the Results menu's active row and the playback bar's heading,
+    // so the two cannot disagree. Same match the menu always made: the
+    // scenario whose latest_complete_run.id equals the playback runId, as
+    // strings (the reducer stores runId as a string, the API sends a number).
+    describe('findLoadedScenario (TASK-3076)', () => {
+        const scenarios = [
+            makeScenario(1, 'Baseline', {latest_complete_run: {id: 101, has_playback_store: true}}),
+            makeScenario(2, 'Alternate', {latest_complete_run: {id: 102, has_playback_store: true}}),
+            makeScenario(3, 'Never run', {latest_complete_run: null})
+        ];
+
+        it('returns the scenario whose latest complete run matches the runId, comparing as strings', () => {
+            expect(findLoadedScenario(scenarios, '102').name).toBe('Alternate');
+            expect(findLoadedScenario(scenarios, 102).name).toBe('Alternate');
+        });
+
+        it('returns null for no runId, an unknown runId, or no scenarios', () => {
+            expect(findLoadedScenario(scenarios, null)).toBe(null);
+            expect(findLoadedScenario(scenarios, undefined)).toBe(null);
+            expect(findLoadedScenario(scenarios, '999')).toBe(null);
+            expect(findLoadedScenario([], '101')).toBe(null);
+            expect(findLoadedScenario(undefined, '101')).toBe(null);
+        });
+
+        it('the menu\'s active row IS the helper\'s answer', () => {
+            ReactDOM.render(
+                <AnugaResultsMenuClass scenarios={scenarios} activeRunId={'101'} onSelectScenario={() => {}} />,
+                container
+            );
+            const active = [...container.querySelectorAll('.sv-anuga-results-row')].filter(r => r.className.includes('active'));
+            expect(active.length).toBe(1);
+            expect(active[0].textContent).toBe(findLoadedScenario(scenarios, '101').name);
+        });
     });
 
     it('renders exactly one row per scenario with an activatable run, labelled with the scenario name', () => {

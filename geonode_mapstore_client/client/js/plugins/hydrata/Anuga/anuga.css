@@ -3107,6 +3107,30 @@ span.sv-scenario-run-price--short {
    the tab order and the a11y tree, which a display:none wrapper alone would
    not. The `[hidden]` rule is required because `display:grid` on the class
    beats the UA sheet's `[hidden] { display: none }`. */
+/* ── The heading (TASK-3076 AC11) ───────────────────────────────────────────
+   The loaded scenario's name, the card's PERMANENT top edge: order:-2 puts it
+   above the drawer (order:-1) whether the drawer is open or shut, so opening
+   the drawer grows the card upward UNDER the heading and the heading never
+   moves relative to the card. Single line, ellipsised: the card's width is
+   viewport-derived (.sv-playback-bar left/right/max-width), never content-
+   derived, so a long name cannot widen it or move the play button. */
+.sv-playback-title {
+    order: -2;
+    margin: 0;
+    padding: 7px 14px 5px;
+    min-width: 0;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: left;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
 .sv-playback-drawer {
     order: -1;
     display: grid;
@@ -3115,9 +3139,9 @@ span.sv-scenario-run-price--short {
     padding: 12px 14px 14px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.22);
     background: rgba(0, 0, 0, 0.16);
-    /* Rounds the card's TOP corners now that the card no longer clips: the
-       drawer is the top child whenever it is open. */
-    border-radius: 6px 6px 0 0;
+    /* The drawer used to round the card's top corners as its top child; since
+       TASK-3076 the heading is the top child, so the drawer is square. */
+    border-radius: 0;
     /* TASK-2743 UAT-04 (W6, epic 2706). Was a flat 42vh, which sounds modest but
        is measured against the VIEWPORT while the bar the user actually sees is
        the drawer PLUS the fixed transport row. On a 1280x720 window the viewport
@@ -3805,9 +3829,14 @@ span.sv-scenario-run-price--short {
 .sv-anuga-results-row:hover {
     background-color: rgba(255, 255, 255, 0.18);
 }
+/* TASK-3076 AC10 — the LOADED scenario's row, in the design system's standard
+   active green (the same family as the green 'Results' menu button,
+   .simple-view-menu-button.active). The previous translucent input-blue had
+   zero contrast on the blue panel: on prod map 6697 the loaded row was
+   indistinguishable from its neighbours (operator screenshot, 2026-09-11). */
 .sv-anuga-results-row.active {
-    border-color: var(--sv-input-blue, #5178af);
-    background-color: rgba(81, 120, 175, 0.35);
+    border-color: rgba(255, 255, 255, 0.9);
+    background-color: var(--sv-row-active-bg, rgba(30, 126, 52, 0.7));
 }
 .sv-anuga-results-empty {
     padding: 10px;

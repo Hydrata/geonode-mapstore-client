@@ -682,6 +682,7 @@
         "floorReset": "Remove the floor",
         "floorInert": "Not applied: outside the colour scale",
         "legendBelowFloorHidden": "below {floor} {unit}: hidden",
+        "runTitle": "Run {runId}",
         "showThisQuantity": "Display this result quantity",
         "display": "Display",
         "displayTooltip": "Opacity, overlays and the colour scale for every result quantity",

@@ -36,6 +36,10 @@ import { translateOr } from '../playbackI18n';
 // zoom in the plugin instead of inventing a second one.
 import { zoomToExtent } from '@mapstore/framework/actions/map';
 import EditableCeiling from './EditableCeiling';
+// TASK-3076 AC11 — the heading names the loaded scenario, resolved by the
+// SAME helper the Results menu highlights its row with.
+import { getScenariosArray } from '../../selectorsAnuga';
+import { findLoadedScenario } from '../loadedScenario';
 
 /**
  * TASK-2726 — maxZoom hint for "zoom to results". A results extent is a whole
@@ -444,6 +448,10 @@ function formatCount(n) {
 export class AnugaPlaybackControlBarComponent extends React.Component {
     static propTypes = {
         playback: PropTypes.object,
+        // TASK-3076 AC11 — selectorsAnuga.getScenariosArray(state), for the
+        // heading. Optional: a bar mounted without scenario state (or a
+        // hand-typed manifest) falls back to 'Run <runId>'.
+        scenarios: PropTypes.array,
         onInit: PropTypes.func,
         onPlay: PropTypes.func,
         onPause: PropTypes.func,
@@ -1158,6 +1166,31 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      *
      * Play is disabled and Unload is enabled in both cases.
      */
+    /**
+     * TASK-3076 AC11 — THE HEADING: the loaded scenario's name, top-left of
+     * the card, on both the normal and the fallback card. The operator could
+     * not tell which scenario was loaded on prod map 6697 — the Results row
+     * had no contrast and the bar never said. Resolved by findLoadedScenario,
+     * the helper the Results menu uses for its highlight, so the row and the
+     * heading always agree; 'Run <id>' when nothing matches (a hand-typed
+     * fixture manifest has no scenario). It is the card's permanent top edge
+     * (`order: -2`, above the drawer whether open or shut), single-line with
+     * an ellipsis — the card's width is viewport-derived, so a 200-character
+     * name cannot widen it (proven live, not here: anuga.css is not bundled
+     * into karma).
+     */
+    renderTitle(playback) {
+        const loaded = findLoadedScenario(this.props.scenarios, playback.runId);
+        const text = loaded && loaded.name
+            ? loaded.name
+            : this.tr('hydrata.playback.runTitle', 'Run {runId}').replace('{runId}', String(playback.runId));
+        return (
+            <h3 className="sv-playback-title" data-testid="anuga-playback-title" title={text}>
+                {text}
+            </h3>
+        );
+    }
+
     renderFallback(playback) {
         const shown = playback.fallbackLayerShown;
         const hasEnvelopeLayer = shown === 'existing' || shown === 'added';
@@ -1186,6 +1219,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 data-testid="anuga-playback-bar"
                 onKeyDown={this.onCardKeyDown}
             >
+                {this.renderTitle(playback)}
                 <div
                     className="sv-playback-fallback"
                     data-testid="anuga-playback-fallback"
@@ -1259,6 +1293,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 data-testid="anuga-playback-bar"
                 onKeyDown={this.onCardKeyDown}
             >
+                {this.renderTitle(playback)}
                 {this.renderToast(playback, isBuffering, statusMsgId)}
                 {this.renderDrawer(playback)}
 
@@ -1524,7 +1559,9 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
 const mapStateToProps = (state) => ({
     // NOT `state.playback` — MapStore2 core already owns that key for its
     // own Timeline plugin (found live, see playbackEpics.js's header note).
-    playback: state && state.anugaPlayback
+    playback: state && state.anugaPlayback,
+    // TASK-3076 AC11 — memoised selector; the heading's scenario lookup.
+    scenarios: getScenariosArray(state)
 });
 
 const mapDispatchToProps = {
