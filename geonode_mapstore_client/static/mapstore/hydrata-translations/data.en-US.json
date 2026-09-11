@@ -302,6 +302,8 @@
         "viewResults": "View Results",
         "resultsNoRuns": "No scenarios have completed runs with results yet.",
         "resultsNoPlayback": "Run completed, but no playback was saved for it — playback exists only for runs finished after it was introduced.",
+        "resultsShowMaxRasters": "Show max-value rasters",
+        "resultsHideMaxRasters": "Hide max-value rasters",
         "retry": "Retry",
         "retryError": "Failed to retry run",
         "retrySuccess": "Run reset — ready to re-run",

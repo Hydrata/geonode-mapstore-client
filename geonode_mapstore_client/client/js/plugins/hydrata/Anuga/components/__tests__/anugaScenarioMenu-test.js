@@ -784,6 +784,107 @@ describe('AnugaResultsMenuClass (unconnected — rendering logic)', () => {
         container.querySelector('.sv-anuga-results-row').click();
         expect(selected).toBe(scenario);
     });
+
+    /*
+     * TASK-2973 — every Results row (actionable AND storeless) carries a
+     * session-only show/hide of its run's max-value rasters. The epic hides
+     * every result-shaped raster on load, so this toggle is the ONE peak-view
+     * control a storeless run (or a store baked without an envelope) has left.
+     * It is a SIBLING of the row inside a wrapper, never nested in the row's
+     * <button>, and the wrapper carries no `sv-anuga-results-row` token — the
+     * shipped specs above count actionable rows by that selector.
+     */
+    it('renders a max-value raster toggle on every Results row that dispatches the run id, not onSelectScenario', () => {
+        const scenarios = [
+            makeScenario(7, 'Storeless', {latest_complete_run: {id: 102, has_playback_store: false}}),
+            makeScenario(8, 'Stored', {latest_complete_run: {id: 103, has_playback_store: true}})
+        ];
+        const selectCalls = [];
+        const toggleCalls = [];
+        const render = (shownResultRunIds) => ReactDOM.render(
+            <AnugaResultsMenuClass
+                scenarios={scenarios}
+                activeRunId={null}
+                onSelectScenario={(s) => selectCalls.push(s)}
+                onToggleResultRasters={(runId, shown) => toggleCalls.push([runId, shown])}
+                shownResultRunIds={shownResultRunIds}
+            />,
+            container
+        );
+
+        render([]);
+        const toggles = container.querySelectorAll('[data-testid^="anuga-results-row-toggle-"]');
+        expect(toggles.length).toBe(2);
+        const toggle7 = container.querySelector('[data-testid="anuga-results-row-toggle-7"]');
+        expect(toggle7).toExist();
+        expect(toggle7.tagName).toBe('BUTTON');
+        expect(toggle7.getAttribute('type')).toBe('button');
+        // Label = the Show string while the run is not in the shown set
+        // (Message renders its msgId with no intl context in this rig).
+        expect(toggle7.textContent).toBe('hydrata.anuga.resultsShowMaxRasters');
+
+        toggle7.click();
+        expect(toggleCalls).toEqual([['102', true]]);
+        expect(selectCalls.length).toBe(0);
+
+        // With the run shown, the same control reads Hide and dispatches false.
+        render(['102']);
+        const toggle7Shown = container.querySelector('[data-testid="anuga-results-row-toggle-7"]');
+        expect(toggle7Shown.textContent).toBe('hydrata.anuga.resultsHideMaxRasters');
+        toggle7Shown.click();
+        expect(toggleCalls).toEqual([['102', true], ['102', false]]);
+        expect(selectCalls.length).toBe(0);
+
+        // The actionable row still selects — and only selects.
+        container.querySelector('[data-testid="anuga-results-row-8"]').click();
+        expect(selectCalls.length).toBe(1);
+        expect(selectCalls[0].id).toBe(8);
+        expect(toggleCalls.length).toBe(2);
+
+        // Structure the shipped specs depend on: ONE actionable row by class,
+        // the storeless row still not a button, and neither toggle nested
+        // inside a row element.
+        expect(container.querySelectorAll('.sv-anuga-results-row').length).toBe(1);
+        const dead = container.querySelector('[data-testid="anuga-results-row-unavailable-7"]');
+        expect(dead.tagName).toNotBe('BUTTON');
+        expect(dead.querySelector('[data-testid^="anuga-results-row-toggle-"]')).toNotExist();
+        expect(container.querySelector('[data-testid="anuga-results-row-8"]').querySelector('button')).toNotExist();
+        const wraps = container.querySelectorAll('.sv-anuga-results-row-wrap');
+        expect(wraps.length).toBe(2);
+        [...wraps].forEach((w) => expect(w.classList.contains('sv-anuga-results-row')).toBe(false));
+    });
+
+    // TASK-2973 review fix — the hide epic has TWO exemptions (the toggled set
+    // AND the active playback run, whose depth raster showFallbackEnvelope
+    // paints), so the label must read the map, not only the toggled set: a
+    // run whose rasters are visible without a toggle reads Hide and its first
+    // click HIDES, rather than re-showing and needing a second click.
+    it('labels the toggle Hide and dispatches false when the run\'s rasters are visible without a toggle', () => {
+        const scenarios = [
+            makeScenario(7, 'Fallback', {latest_complete_run: {id: 102, has_playback_store: true}}),
+            makeScenario(8, 'Other', {latest_complete_run: {id: 103, has_playback_store: true}})
+        ];
+        const toggleCalls = [];
+        ReactDOM.render(
+            <AnugaResultsMenuClass
+                scenarios={scenarios}
+                activeRunId={'102'}
+                onSelectScenario={() => {}}
+                onToggleResultRasters={(runId, shown) => toggleCalls.push([runId, shown])}
+                shownResultRunIds={[]}
+                visibleResultRunIds={['102']}
+            />,
+            container
+        );
+        const toggle7 = container.querySelector('[data-testid="anuga-results-row-toggle-7"]');
+        expect(toggle7.textContent).toBe('hydrata.anuga.resultsHideMaxRasters');
+        expect(toggle7.getAttribute('aria-pressed')).toBe('true');
+        toggle7.click();
+        expect(toggleCalls).toEqual([['102', false]]);
+        // the other run is untouched by the map-derived set
+        const toggle8 = container.querySelector('[data-testid="anuga-results-row-toggle-8"]');
+        expect(toggle8.textContent).toBe('hydrata.anuga.resultsShowMaxRasters');
+    });
 });
 
 describe('AnugaResultsMenu (connected)', () => {
@@ -817,6 +918,35 @@ describe('AnugaResultsMenu (connected)', () => {
         // imported indirectly via its dispatched shape (no new import needed:
         // asserting the visible flag lands on the payload is enough here).
         expect(actions.some(a => a.visible === false)).toBe(true);
+    });
+
+    // TASK-2973 review fix — mapStateToProps derives the run ids whose result
+    // rasters are VISIBLE on the map (state.layers.flat), so a fallback-shown
+    // raster labels its row Hide even though nothing was toggled.
+    it('derives visibleResultRunIds from state.layers.flat so a fallback-shown run reads Hide', () => {
+        const s1 = makeScenario(21, 'Baseline', {latest_complete_run: {
+            id: 501, has_playback_store: true,
+            gn_layer_depth_max: {name: 'geonode:run501_depth_max_cog'}
+        }});
+        const s2 = makeScenario(22, 'Alternate', {latest_complete_run: {id: 502, has_playback_store: true}});
+        const store = makeStore({scenariosArr: [s1, s2], anugaPlayback: {runId: '501', layerId: ANUGA_RESULTS_PLAYBACK_LAYER_ID}});
+        store.getState().layers = { flat: [
+            { id: 'u-501-d', name: 'geonode:run501_depth_max_cog', group: 'Results.Depth', visibility: true },
+            { id: 'u-502-d', name: 'geonode:run502_depth_max_cog', group: 'Results.Depth', visibility: false }
+        ] };
+        ReactDOM.render(
+            <Provider store={store}><AnugaResultsMenu /></Provider>,
+            container
+        );
+        expect(container.querySelector('[data-testid="anuga-results-row-toggle-21"]').textContent)
+            .toBe('hydrata.anuga.resultsHideMaxRasters');
+        expect(container.querySelector('[data-testid="anuga-results-row-toggle-22"]').textContent)
+            .toBe('hydrata.anuga.resultsShowMaxRasters');
+        container.querySelector('[data-testid="anuga-results-row-toggle-21"]').click();
+        const toggled = store.__actions().filter(a => a.type === 'ANUGA:SET_ANUGA_RESULT_RASTERS_SHOWN');
+        expect(toggled.length).toBe(1);
+        expect(toggled[0].runId).toBe('501');
+        expect(toggled[0].shown).toBe(false);
     });
 
     it('GIVEN a second scenario is selected THEN the first is no longer the active run (never two active at once)', () => {

@@ -205,9 +205,22 @@ function isTerrainRowVisible(state, terrainRow) {
 // visible on the map (name-match precedent: pollingEpics.js isScenarioLoaded
 // — but OR across the 3 fields, not AND, per LOCKED decision #10). stage_max
 // is NEVER a MapLayer (W1) so it is deliberately excluded from this check.
+//
+// TASK-2973 — OR the scenario whose latest complete run is the active
+// PLAYBACK run (state.anugaPlayback.runId, a string). resultRasterVisibilityEpic
+// now hides every result raster on load, so on a fresh map the raster branch
+// below finds nothing and the seed would always fall through to the selected
+// scenario; the run the user is actually watching is the better default. The
+// raster branch is kept — a run toggled on from its Results row still seeds
+// through it. Sampling itself is BE-side by bare dataset name and does not
+// care whether the raster is visible; only this default seed narrows.
 function isScenarioRowVisible(state, scenario) {
     const run = scenario && scenario.latest_complete_run;
     if (!run) return false;
+    const playingRunId = state?.anugaPlayback?.runId;
+    if (playingRunId !== undefined && playingRunId !== null && String(run.id) === String(playingRunId)) {
+        return true;
+    }
     const layers = state?.layers?.flat || [];
     return RESULT_LAYER_FIELDS.some(({ field }) => {
         const bare = bareName(run[field] && run[field].name);

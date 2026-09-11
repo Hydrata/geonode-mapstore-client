@@ -302,6 +302,8 @@
         "viewResults": "Ver Resultados",
         "resultsNoRuns": "Ningún escenario tiene ejecuciones completadas con resultados todavía.",
         "resultsNoPlayback": "Ejecución completada, pero no se guardó ninguna reproducción — la reproducción solo existe para ejecuciones finalizadas después de su introducción.",
+        "resultsShowMaxRasters": "Mostrar rásteres de valor máximo",
+        "resultsHideMaxRasters": "Ocultar rásteres de valor máximo",
         "retry": "Reintentar",
         "retryError": "Error al reintentar",
         "retrySuccess": "Ejecución reiniciada — lista para relanzar",

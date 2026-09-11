@@ -40,7 +40,10 @@ import {
     // TASK-2420 (epic 2359 W4.5) — the over-balance estimate badge opens the
     // Account panel on Billing.
     setMembershipPanel,
-    setMembershipPanelTab
+    setMembershipPanelTab,
+    // TASK-2973 — every Results row's session-only show/hide of its run's
+    // max-value rasters (resultRasterToggleEpic + uiReducer.shownResultRunIds).
+    setAnugaResultRastersShown
 } from "../actionsAnuga";
 import {
     canCreateScenario,
@@ -63,6 +66,9 @@ import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 // visibility toggle this file used to dispatch here).
 import {playbackInit} from '../playback/actions/playbackActions';
 import { findLoadedScenario } from '../playback/loadedScenario';
+// TASK-2973 — which runs have a result raster visible on the map right now
+// (the fallback envelope paints one without a toggle); read by the label.
+import { visibleResultRunIds as selectVisibleResultRunIds } from '../epics/resultRasterVisibilityEpic';
 import {
     validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES,
     getMeshDivergence, getMeshComparison
@@ -183,12 +189,26 @@ export function scenarioHasCompleteRunWithoutPlayback(scenario) {
  * `Results.<Quantity>`) with exactly one row per scenario, labelled with the
  * scenario name. Selecting a row activates playback for that scenario
  * (dispatches playbackInit with the run's presigned-manifest URL) instead of
- * toggling the three static max-raster COGs' visibility — those layers stay
- * on the map as DATA (untouched), just no longer exposed as a user-facing
- * selector here (AC). Mounted by simpleViewContainer.js in place of the
- * generic MenuRows component when openMenuGroupId === 'Results'.
+ * toggling the three static max-raster COGs' visibility. TASK-2684 left
+ * those layers "on the map as DATA (untouched)"; TASK-2973 REVERSES that
+ * ruling (operator, 2026-09-11: "nothing result-shaped on load ever") —
+ * resultRasterVisibilityEpic hides every result-shaped raster on load, and
+ * the peak view is reached on request: the playback bar's Max envelope for a
+ * store-backed run, and the session-only show/hide toggle every row below
+ * carries for its run's max-value rasters (the ONE control a storeless run,
+ * or a store baked without an envelope, has). Mounted by
+ * simpleViewContainer.js in place of the generic MenuRows component when
+ * openMenuGroupId === 'Results'.
  */
-export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}) => {
+export const AnugaResultsMenuClass = ({
+    scenarios,
+    activeRunId,
+    onSelectScenario,
+    // TASK-2973 — all optional: the shipped specs render without them.
+    onToggleResultRasters,
+    shownResultRunIds,
+    visibleResultRunIds
+}) => {
     const all = scenarios || [];
     const actionable = all.filter(scenarioHasActivatablePlayback);
     // TASK-3076 AC11 — the ONE helper the playback bar's heading also uses,
@@ -207,20 +227,51 @@ export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}
             </div>
         );
     }
+    // TASK-2973 — the session-only max-value raster toggle, rendered next to
+    // EVERY row (actionable and storeless alike). A SIBLING of the row inside
+    // a wrapper, never nested: a <button> inside the actionable row's <button>
+    // is invalid HTML, and one structure serves both row kinds. The wrapper
+    // carries NO `sv-anuga-results-row` token — shipped specs count
+    // actionable rows by that selector. Dispatches the RUN id (as a string),
+    // never onSelectScenario.
+    //
+    // The label reads the MAP as well as the toggled set: the hide epic also
+    // exempts the active playback run, whose depth raster showFallbackEnvelope
+    // paints with no toggle involved. Such a row reads Hide and its first
+    // click hides — otherwise it would read Show over a painted raster and
+    // the first click would re-show (review finding, 2026-09-11).
+    const shown = (shownResultRunIds || []).map(String).concat((visibleResultRunIds || []).map(String));
+    const renderToggle = (scenario) => {
+        const runId = String(scenario.latest_complete_run.id);
+        const isShown = shown.indexOf(runId) > -1;
+        return (
+            <button
+                type="button"
+                className={'sv-anuga-results-row-toggle' + (isShown ? ' is-shown' : '')}
+                data-testid={`anuga-results-row-toggle-${scenario.id}`}
+                aria-pressed={isShown}
+                onClick={() => onToggleResultRasters && onToggleResultRasters(runId, !isShown)}
+            >
+                <Message msgId={isShown ? 'hydrata.anuga.resultsHideMaxRasters' : 'hydrata.anuga.resultsShowMaxRasters'} />
+            </button>
+        );
+    };
     return (
         <div className="sv-menu-rows-container sv-anuga-results-menu">
             {actionable.map((scenario) => {
                 const active = loaded === scenario;
                 return (
-                    <button
-                        key={scenario.id}
-                        type="button"
-                        className={'sv-anuga-results-row' + (active ? ' active' : '')}
-                        data-testid={`anuga-results-row-${scenario.id}`}
-                        onClick={() => onSelectScenario(scenario)}
-                    >
-                        {scenario.name}
-                    </button>
+                    <div key={scenario.id} className="sv-anuga-results-row-wrap">
+                        <button
+                            type="button"
+                            className={'sv-anuga-results-row' + (active ? ' active' : '')}
+                            data-testid={`anuga-results-row-${scenario.id}`}
+                            onClick={() => onSelectScenario(scenario)}
+                        >
+                            {scenario.name}
+                        </button>
+                        {renderToggle(scenario)}
+                    </div>
                 );
             })}
             {/* TASK-2715 — the run finished; only its player is missing. A
@@ -236,17 +287,22 @@ export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}
 
                 The copy states what is knowable and no more: the backend
                 exposes only a boolean (has_playback_store), with no reason
-                code, so it must not claim a cause it cannot see. */}
+                code, so it must not claim a cause it cannot see.
+
+                TASK-2973 — the toggle beside it is this run's ONE peak-view
+                control now that its max-value rasters no longer paint on load. */}
             {unavailable.map((scenario) => (
-                <div
-                    key={`unavailable-${scenario.id}`}
-                    className="sv-anuga-results-row-unavailable"
-                    data-testid={`anuga-results-row-unavailable-${scenario.id}`}
-                >
-                    <span className="sv-anuga-results-row-unavailable-name">{scenario.name}</span>
-                    <span className="sv-anuga-results-row-unavailable-reason">
-                        <Message msgId="hydrata.anuga.resultsNoPlayback" />
-                    </span>
+                <div key={`unavailable-${scenario.id}`} className="sv-anuga-results-row-wrap">
+                    <div
+                        className="sv-anuga-results-row-unavailable"
+                        data-testid={`anuga-results-row-unavailable-${scenario.id}`}
+                    >
+                        <span className="sv-anuga-results-row-unavailable-name">{scenario.name}</span>
+                        <span className="sv-anuga-results-row-unavailable-reason">
+                            <Message msgId="hydrata.anuga.resultsNoPlayback" />
+                        </span>
+                    </div>
+                    {renderToggle(scenario)}
                 </div>
             ))}
         </div>
@@ -256,15 +312,37 @@ export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}
 AnugaResultsMenuClass.propTypes = {
     scenarios: PropTypes.array,
     activeRunId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    onSelectScenario: PropTypes.func
+    onSelectScenario: PropTypes.func,
+    // TASK-2973 — (runId: string, shown: boolean) => void; run ids toggled on
+    // this session; run ids with a result raster visible on the map.
+    onToggleResultRasters: PropTypes.func,
+    shownResultRunIds: PropTypes.array,
+    visibleResultRunIds: PropTypes.array
 };
 
-const resultsMenuMapStateToProps = (state) => ({
-    scenarios: getScenariosArray(state),
-    activeRunId: state && state.anugaPlayback && state.anugaPlayback.runId
-});
+const resultsMenuMapStateToProps = (state) => {
+    const scenarios = getScenariosArray(state);
+    return {
+        scenarios,
+        activeRunId: state && state.anugaPlayback && state.anugaPlayback.runId,
+        // TASK-2973 — session-only; the slice mounts at state.anuga.ui.
+        shownResultRunIds: (state && state.anuga && state.anuga.ui && state.anuga.ui.shownResultRunIds) || [],
+        // TASK-2973 — derived from state.layers.flat for the rows this menu
+        // renders (scenarios with a latest complete run).
+        visibleResultRunIds: selectVisibleResultRunIds(
+            state,
+            (scenarios || []).filter((s) => s && s.latest_complete_run).map((s) => s.latest_complete_run.id)
+        )
+    };
+};
 
 const resultsMenuMapDispatchToProps = (dispatch) => ({
+    // TASK-2973 — show/hide one run's max-value rasters for this session only.
+    // No saveDirectContent here or in the epic: display-only by design.
+    onToggleResultRasters: (runId, shown) => {
+        dispatch(setAnugaResultRastersShown(runId, shown));
+        trackEvent('button', 'click', shown ? 'anuga-results-show-max-rasters' : 'anuga-results-hide-max-rasters');
+    },
     onSelectScenario: (scenario) => {
         if (!scenarioHasActivatablePlayback(scenario)) {
             return;

@@ -99,6 +99,12 @@ const SET_MOVABLE_PANEL_STATE = 'ANUGA:SET_MOVABLE_PANEL_STATE';
 // UPDATE_TERRAIN_ROW flipping a terrain to styling_mode='dynamic' (see
 // uiReducer) so re-entering dynamic mode re-shows the legend (AC2).
 const SET_DEM_LEGEND_PANEL = 'ANUGA:SET_DEM_LEGEND_PANEL';
+// TASK-2973 — session-only show/hide of ONE run's max-value result rasters,
+// the toggle on every Results row. resultRasterVisibilityEpic hides every
+// result-shaped raster on load; a run in state.anuga.ui.shownResultRunIds is
+// exempt from that sweep and resultRasterToggleEpic flips its layers. Lives
+// on `ui` and is never serialised — a reload starts hidden again on purpose.
+const SET_ANUGA_RESULT_RASTERS_SHOWN = 'ANUGA:SET_ANUGA_RESULT_RASTERS_SHOWN';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -278,6 +284,13 @@ function setDemLegendPanel(visible) {
     return { type: SET_DEM_LEGEND_PANEL, visible };
 }
 
+// TASK-2973 — show (true) / hide (false) run `runId`'s max-value rasters this
+// session. runId is stringified: the playback slice and the Results menu
+// already compare run ids as strings (the API sends numbers).
+function setAnugaResultRastersShown(runId, shown) {
+    return { type: SET_ANUGA_RESULT_RASTERS_SHOWN, runId: String(runId), shown: !!shown };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -322,5 +335,7 @@ module.exports = {
     SET_TERRAIN_UPLOAD_CRS_ERROR, setTerrainUploadCrsError,
     // TASK-2233 — MovablePanel per-panel state + floating DEM legend visibility.
     SET_MOVABLE_PANEL_STATE, setMovablePanelState,
-    SET_DEM_LEGEND_PANEL, setDemLegendPanel
+    SET_DEM_LEGEND_PANEL, setDemLegendPanel,
+    // TASK-2973 — per-run session-only max-value raster show/hide.
+    SET_ANUGA_RESULT_RASTERS_SHOWN, setAnugaResultRastersShown
 };
