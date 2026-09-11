@@ -419,28 +419,16 @@ const ScenarioHeaderActions = (props, context) => {
     // does not. The over-balance state is a BUTTON into the Billing tab,
     // because at that moment the price is not information, it is a task.
     // Deliberately NOT paired with a disabled Run (decision 4).
-    // TASK-2716 — the chip's role, in VISIBLE text.
     //
-    // The correct tooltip below (priceTitle) has said exactly this all along
-    // and the dogfood's reader still misread the $5 as a band index rendered
-    // as money. Three dollar figures can be on screen for one scenario at
-    // once; a tooltip nobody hovers cannot separate them.
-    //
-    // It renders as a SIBLING of the chip, never inside it. A shipped spec
-    // (TASK-2100, now re-homed to `quote`) asserts the chip's textContent by
-    // exact equality — '$5', 'Free' — and that contract is what guarantees
-    // the amount shown is the amount. Wrapping the word into the chip would
-    // break it and quietly turn the chip into prose.
+    // TASK-2716 once rendered a visible role word ("Charged") as a sibling
+    // of the chip; the operator dropped it on 2026-09-11 — the strip has to
+    // fit ONE row and the word cost a button's width, while the chip's
+    // tooltip (priceTitle) already carries the charge copy. The chip's
+    // textContent stays exactly the amount ('$5', 'Free'), the shipped
+    // TASK-2100 contract.
     //
     // COPY RULE (decision 5, glossary.md:609): never say "band" to a customer
     // — it collides with Analysis band, a raster concept.
-    //
-    // TASK-2872 — there is no pre-build state left to give a role word to:
-    // the chip renders nothing until a real Quote exists (priceLabel is
-    // null pre-build), so `hasRunQuote` here is equivalent to "the chip is
-    // rendering at all" — the built Quote is the only figure this chip ever
-    // shows, and it always gets 'Charged'.
-    const priceRoleWord = hasRunQuote ? 'Charged' : '';
     const renderPrice = () => {
         const shared = {
             'data-testid': 'sv-scenario-run-price',
@@ -448,22 +436,12 @@ const ScenarioHeaderActions = (props, context) => {
             title: shortfall !== null ? shortfallTitle : priceTitle
         };
         if (shortfall === null) {
-            return (
-                <React.Fragment>
-                    {priceRoleWord ? (
-                        <span className="sv-scenario-run-price-role" data-testid="sv-scenario-run-price-role">
-                            {priceRoleWord}
-                        </span>
-                    ) : null}
-                    <span {...shared}>{priceLabel}</span>
-                </React.Fragment>
-            );
+            return <span {...shared}>{priceLabel}</span>;
         }
-        // NO role word on this branch either: the shortfall state replaces
-        // the bare amount with a whole sentence that already names the role —
-        // "Costs $5 · balance $0.00 · add $5 to run". Shortfall is only ever
-        // reached off a BUILT quote now (see the comment above shortfallTitle),
-        // so there is no pre-build "at least" hedge left to carry here.
+        // The shortfall state replaces the bare amount with a whole sentence
+        // that names the role itself — "Costs $5 · balance $0.00 · add $5 to
+        // run". Shortfall is only ever reached off a BUILT quote now (see the
+        // comment above shortfallTitle).
         const text = `Costs ${usd(price)} · balance $${balance.toFixed(2)} · add ${usd(shortfall)} to run`;
         return onOpenAccountBilling
             ? <button type="button" {...shared} onClick={() => onOpenAccountBilling()}>{text}</button>

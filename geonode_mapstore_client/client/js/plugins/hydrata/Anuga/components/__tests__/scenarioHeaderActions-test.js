@@ -1532,26 +1532,25 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
      * figure this chip ever shows, and the only one needing a word to name
      * its role.
      */
-    describe('TASK-2716 — the money figures name their role in visible text', () => {
+    describe('the run-price chip carries the amount ALONE — no role word (operator, 2026-09-11)', () => {
+        // TASK-2716 rendered a visible "Charged" beside the chip; the operator
+        // dropped it on 2026-09-11 so the strip fits ONE row (the tooltip
+        // already carries the charge copy). These pin the removal in every
+        // state that renders a chip, and would go RED if the word came back.
         const FREE_BAND = {cap: 3, usedToday: 0, edge: '0.50'};
         const ROLE = '[data-testid="sv-scenario-run-price-role"]';
 
-        it('the run-price chip names its role in VISIBLE text, not only in title', (done) => {
+        it('a built quote renders the bare amount with NO role word beside it; the tooltip keeps the charge copy', (done) => {
             const scenario = {...baseScenario, latest_run: {quote: '5'}};
             ReactDOM.render(
                 <ScenarioHeaderActions scenario={scenario} canEdit canRunScenario />,
                 container,
                 () => {
-                    const role = container.querySelector(ROLE);
-                    expect(role).toExist('no visible role word beside the price chip');
-                    expect(role.textContent).toBe('Charged');
-                    // It is a SIBLING, not a wrapper: the chip's own text is
-                    // still exactly the amount (the shipped contract).
                     const chip = container.querySelector('[data-testid="sv-scenario-run-price"]');
+                    expect(chip).toExist();
                     expect(chip.textContent).toBe('$5');
-                    expect(chip.contains(role)).toBe(false);
-                    // and the tooltip is not a substitute — it stays, now as
-                    // the TASK-2848 charge copy.
+                    expect(container.querySelector(ROLE)).toNotExist('the role word is gone');
+                    expect(container.textContent).toNotInclude('Charged');
                     expect(chip.getAttribute('title')).toBe(
                         "You'll be charged $5 for this run — full credit back if it produces no results"
                     );
@@ -1560,42 +1559,23 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('a pre-build scenario gets NO role word — there is no chip to name (TASK-2872: the CPU hedge is deleted)', (done) => {
-            const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
+        it('a free built quote renders "Free" alone', (done) => {
+            const scenario = {...baseScenario, latest_run: {quote: '0'}};
             ReactDOM.render(
-                <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
+                <ScenarioHeaderActions scenario={scenario} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
                 container,
                 () => {
-                    expect(container.querySelector(ROLE)).toNotExist('nothing pre-build gets a role word');
-                    expect(container.querySelector('[data-testid="sv-scenario-run-price"]')).toNotExist();
+                    const chip = container.querySelector('[data-testid="sv-scenario-run-price"]');
+                    expect(chip).toExist();
+                    expect(chip.textContent).toBe('Free');
+                    expect(container.querySelector(ROLE)).toNotExist();
+                    expect(container.textContent).toNotInclude('Charged');
                     done();
                 }
             );
         });
 
-        it('the role word appears for a built quote and disappears again for the pre-build hedge (non-vacuity)', (done) => {
-            // Without this, a role word hardcoded to always render (or never
-            // render) would satisfy the two specs above independently.
-            const built = {...baseScenario, latest_run: {quote: '5'}};
-            ReactDOM.render(
-                <ScenarioHeaderActions scenario={built} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
-                container,
-                () => {
-                    expect(container.querySelector(ROLE)).toExist();
-                    const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
-                    ReactDOM.render(
-                        <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled freeBand={FREE_BAND} />,
-                        container,
-                        () => {
-                            expect(container.querySelector(ROLE)).toNotExist();
-                            done();
-                        }
-                    );
-                }
-            );
-        });
-
-        it('renders NO role word when nothing renders at all (paywall dark)', (done) => {
+        it('renders neither chip nor role word when nothing renders at all (paywall dark)', (done) => {
             const priced = {...baseScenario, compute_cost_estimate: 3, mesh_triangle_count_estimate: 42000, latest_run: null};
             ReactDOM.render(
                 <ScenarioHeaderActions scenario={priced} canEdit canRunScenario paywallEnabled={false} freeBand={FREE_BAND} />,
@@ -1608,11 +1588,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
             );
         });
 
-        it('renders NO role word in the shortfall state, which already says "Costs"', (done) => {
-            // The shortfall branch replaces the bare amount with a whole
-            // sentence — "Costs $5 · balance $0.00 · add $5 to run" — which
-            // already names the role. A second role word beside it would
-            // read as "Charged Costs $5 · ...".
+        it('the shortfall state renders its own "Costs" sentence and no role word', (done) => {
             const built = {...baseScenario, latest_run: {quote: '5'}};
             ReactDOM.render(
                 <ScenarioHeaderActions scenario={built} canEdit canRunScenario paywallEnabled accountBalance="0.00" freeBand={FREE_BAND} />,
@@ -1622,6 +1598,7 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
                     expect(chip).toExist();
                     expect(chip.textContent).toInclude('Costs $5');
                     expect(container.querySelector(ROLE)).toNotExist();
+                    expect(container.textContent).toNotInclude('Charged');
                     done();
                 }
             );

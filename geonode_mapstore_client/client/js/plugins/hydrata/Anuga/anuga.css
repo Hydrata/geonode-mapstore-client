@@ -1957,17 +1957,20 @@ div that holds the feature-grid */
 }
 
 /* UAT #8 — always-visible run-action strip beneath the Scenarios heading.
-   Left-packed (operator polish 2026-07-07): with fixed-width buttons the row
-   no longer fills its width, so it reads with the panel's left-justified flow;
-   the row split (border-bottom) keeps it distinct from the
-   New/Compare/Duplicate cluster. */
+   Left-packed (operator polish 2026-07-07): the row reads with the panel's
+   left-justified flow; the row split (border-bottom) keeps it distinct from
+   the pane below.
+   Operator 2026-09-11: ONE ROW, always — `nowrap`, and every button is
+   sized to its label (see .sv-scenario-action-toolbar-btn below) instead of
+   the former shared 150px target width, which pushed New onto a second
+   line as soon as the price chip + View Results + Download all rendered. */
 .sv-scenario-header-run-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-start;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
+    padding: 6px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
@@ -1975,18 +1978,26 @@ div that holds the feature-grid */
     margin: 0;
 }
 
-/* UAT re-aim (2026-07-06, epic 2111 W2 dogfood follow-up, finding 3), then
-   operator polish (2026-07-07): every button in this row shares one FIXED
-   target width (so a sparse row — e.g. read-only View Results + Download —
-   never stretches its buttons across the panel), while still shrinking
-   equally when a crowded owner row would otherwise overflow. All the
-   button variants (View Results / Build / Build-and-Run / Run / Retry /
-   Rerun / Download / Archive / Unarchive / Delete / Cancel-run) already
-   shared this hook class before this change — extended, not invented. */
+/* Operator 2026-09-11 (supersedes the 2026-07-07 shared 150px target
+   width): every button in this row is sized to its own label — no
+   stretching past what the text needs, no shrinking below it (`flex: 0 0
+   auto` + nowrap text), so the full owner row (Build & Run / Run / Build /
+   price / View Results / Download / New) sits on one line. The hook class
+   is shared by every variant (View Results / Build / Build-and-Run / Run /
+   Retry / Rerun / Download / Cancel-run / New). */
 .sv-scenario-header-run-actions .sv-scenario-action-toolbar-btn {
-    flex: 0 1 150px;
-    min-width: 92px;
+    flex: 0 0 auto;
+    min-width: 0;
+    white-space: nowrap;
     text-align: center;
+}
+
+/* New is the strip's one non-executable and the shortest label — an
+   explicit narrower override (tighter horizontal padding than the rest)
+   so it reads as the small trailing affordance it is, not a peer of Run. */
+.sv-scenario-header-run-actions .sv-scenario-action-new {
+    padding-left: 6px;
+    padding-right: 6px;
 }
 
 /* TASK-2239 (epic 2237 W1.1) — the run cluster: Build-and-Run, the 4-state
@@ -2027,8 +2038,8 @@ div that holds the feature-grid */
    deeper; the inner button fills 100% of the wrapper. */
 .sv-scenario-header-run-actions .sv-scenario-tooltip-wrap {
     display: inline-flex;
-    flex: 0 1 150px;
-    min-width: 92px;
+    flex: 0 0 auto;
+    min-width: 0;
 }
 
 .sv-scenario-tooltip-wrap .sv-scenario-action-toolbar-btn {
@@ -2062,7 +2073,7 @@ div that holds the feature-grid */
    into the Billing tab — when it does not. */
 .sv-scenario-run-price {
     display: inline-block;
-    margin-left: 6px;
+    margin-left: 0;
     padding: 2px 8px;
     border-radius: 10px;
     border: 1px solid transparent;
@@ -2075,31 +2086,9 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.85);
 }
 
-/* Role word beside the price (TASK-2716, epic 2706 W5).
-   The chip's tooltip already said whether the figure is the charge or an
-   estimate, and the dogfood's reader still misread it — so the word is now
-   on screen. It is deliberately QUIETER than the amount: the number is what
-   the eye should land on, the word is what disambiguates it once it has.
-   Landing it with its own rule rather than as bare inherited text, because
-   that is the defect this very block was written to fix. */
-.sv-scenario-run-price-role {
-    display: inline-block;
-    margin-left: 6px;
-    font-size: 10.5px;
-    font-weight: 600;
-    line-height: 1.5;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    vertical-align: baseline;
-    white-space: nowrap;
-    color: rgba(255, 255, 255, 0.78);
-}
-
-/* The amount follows the word immediately — collapse the chip's own leading
-   margin so the pair reads as one phrase rather than two chips. */
-.sv-scenario-run-price-role + .sv-scenario-run-price {
-    margin-left: 3px;
-}
+/* The TASK-2716 role word ("CHARGED") that used to sit beside the chip was
+   removed by the operator on 2026-09-11 (one-row strip); its rules went
+   with it. */
 
 /* Over balance: the SAME amber token pair as the estimate section's
    actionable badge (.sv-anuga-scenario-estimate-badge--action) — identical
