@@ -401,6 +401,29 @@ export function isRampNormalized(quantityId, ceilingOverridden) {
 }
 
 /**
+ * TASK-3076 (AC1) — THE display formatter for every number the colour scale
+ * shows: the floor and ceiling buttons, the boxes they open into, the legend's
+ * stop labels and its "ramp extended to" note. Three significant figures,
+ * prefix-free (the caller adds `≥` / `≤`), non-finite → an em dash.
+ *
+ * Why 3 s.f. and not fixed decimals: a ceiling of 16.86 m and a stop label of
+ * 0.02 m are both artefacts of toFixed(), not of the data. Adjacent stop
+ * labels cannot collide at this precision — every ramp's neighbouring stops
+ * differ by ≥1.2× (the stop tables above). DISPLAY ONLY: the stored value keeps
+ * whatever precision the reader typed (EditableCeiling seeds its box from this
+ * string and commits nothing unless the string is edited).
+ *
+ * @param {number} value
+ * @returns {string}
+ */
+export function formatRampValue(value) {
+    if (!Number.isFinite(value)) {
+        return '—';
+    }
+    return String(Number(value.toPrecision(3)));
+}
+
+/**
  * TASK-2784 — the value each ramp stop stands for AT THE CURRENT DISPLAY
  * RANGE, i.e. the number the legend must print beside that swatch.
  *

@@ -117,7 +117,10 @@ export class AnugaPlaybackRenderer {
             uBackgroundAlpha: gl.getUniformLocation(this.meshProgram, 'uBackgroundAlpha'),
             uLUT: gl.getUniformLocation(this.meshProgram, 'uLUT'),
             // TASK-2752 (AC5) — the supplied-scalar (Max envelope) toggle.
-            uEnvelopeMode: gl.getUniformLocation(this.meshProgram, 'uEnvelopeMode')
+            uEnvelopeMode: gl.getUniformLocation(this.meshProgram, 'uEnvelopeMode'),
+            // TASK-3076 — the colour-scale floor (normalised) and its switch.
+            uColorFloor: gl.getUniformLocation(this.meshProgram, 'uColorFloor'),
+            uColorFloorActive: gl.getUniformLocation(this.meshProgram, 'uColorFloorActive')
         };
         this.wireUniforms = {
             uProj: gl.getUniformLocation(this.wireProgram, 'uProj'),
@@ -582,6 +585,10 @@ export class AnugaPlaybackRenderer {
      * @param {boolean} [params.envelopeMode] TASK-2752 (AC5/AC6) — display the
      *   uploaded envelope (setEnvelope) directly instead of deriving from
      *   aQty0/aQty1. Default false — byte-identical to pre-TASK-2752 output.
+     * @param {number|null} [params.colorFloor] TASK-3076 — the colour-scale
+     *   floor in the quantity's PHYSICAL units, or null for none. Normalised
+     *   to the display range here and cut in the FRAGMENT shader; null (the
+     *   default) leaves uColorFloorActive at 0 — byte-identical to before.
      * @returns {HTMLCanvasElement}
      */
     render({
@@ -591,7 +598,8 @@ export class AnugaPlaybackRenderer {
         g = 9.8, rhoW = 1000, dt = 0,
         flowVizEnabled = false, arrowDensity, arrowScale,
         particlesEnabled = false, particleDensity, particleSpeedExaggeration,
-        envelopeMode = false
+        envelopeMode = false,
+        colorFloor = null
     }) {
         const gl = this.gl;
         const canvas = this.canvas;
@@ -645,6 +653,14 @@ export class AnugaPlaybackRenderer {
         // still metres of depth, on the depth ramp), only the shader's raw
         // value stops being derived.
         gl.uniform1f(this.meshUniforms.uEnvelopeMode, envelopeMode ? 1 : 0);
+        // TASK-3076 — the floor, normalised onto the same [0,1] the vertex
+        // shader maps `raw` onto (vValue = (raw - colorMin) / (colorMax -
+        // colorMin)), so the fragment compares like with like. The epic has
+        // already applied isColorFloorActive: a null here means "no cut".
+        const floorActive = colorFloor !== null && colorFloor !== undefined && isFinite(colorFloor);
+        gl.uniform1f(this.meshUniforms.uColorFloor, floorActive
+            ? (Number(colorFloor) - colorMin) / Math.max(safeColorMax - colorMin, 1e-9) : 0);
+        gl.uniform1f(this.meshUniforms.uColorFloorActive, floorActive ? 1 : 0);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.lutTextures[mode]);
         gl.uniform1i(this.meshUniforms.uLUT, 0);

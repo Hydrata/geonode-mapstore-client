@@ -44,7 +44,12 @@
 // exaggeration... control") multiplies this baseline directly (real flood
 // velocities read as visually slow at basin zoom — wave brief).
 export const PARTICLE_BASE_SPEED_SCALE = 0.02;
-export const DEFAULT_SPEED_EXAGGERATION = 1;
+// TASK-3076 AC12 — 5x, which was the slider's old MAXIMUM: 1x read as still
+// water at basin zoom on every run the operator reviewed. The slider now
+// runs 0.25x-20x (AnugaPlaybackControlBar); this constant is the only place
+// the default lives (the controller's initial state and the
+// computeAdvectionSpeedScale fallback both read it).
+export const DEFAULT_SPEED_EXAGGERATION = 5;
 
 // AC: "start modest (10-50k default)" — 128x128 = 16,384 particles.
 export const DEFAULT_PARTICLE_GRID = 128;

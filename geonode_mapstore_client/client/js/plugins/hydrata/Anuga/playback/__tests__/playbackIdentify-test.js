@@ -114,6 +114,20 @@ describe('playbackIdentify', () => {
             expect(r.depth).toBe(2);
         });
 
+        // TASK-3076 AC7 — the colour-scale floor hides the SCALAR FILL only.
+        // Identify reads the solver's wet threshold and nothing else: a cell
+        // between a display floor and the wet threshold still reports its
+        // value as wet. There is no floor input to this function at all, and a
+        // floor smuggled in through `constants` changes nothing.
+        it('is floor-blind: a shallow wet cell reports its value whatever colour-scale floor is set', () => {
+            const shallow0 = { ...frame0, depth: new Float32Array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) };
+            const shallow1 = { ...frame1, depth: new Float32Array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) };
+            const r = sampleFieldAtPoint(mesh, shallow0, shallow1, 0, 0, 0, 1e-5, {}, { colorFloor: 0.1, colorFloorOverride: 0.1 });
+            expect(r.located).toBe(true);
+            expect(r.wet).toBe(true);
+            expect(Math.abs(r.depth - 0.05) < 1e-6).toBe(true);
+        });
+
         it('at mixT=0.5, linearly blends frame0/frame1 at a triangle vertex', () => {
             const r = sampleFieldAtPoint(mesh, frame0, frame1, 0.5, 0, 0);
             expect(r.depth).toBe(1.5); // (1+2)/2

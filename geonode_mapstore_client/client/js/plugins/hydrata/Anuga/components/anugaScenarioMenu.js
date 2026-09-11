@@ -62,6 +62,7 @@ import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 // activation directly (replaces the old per-quantity changeLayerProperties
 // visibility toggle this file used to dispatch here).
 import {playbackInit} from '../playback/actions/playbackActions';
+import { findLoadedScenario } from '../playback/loadedScenario';
 import {
     validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES,
     getMeshDivergence, getMeshComparison
@@ -190,6 +191,9 @@ export function scenarioHasCompleteRunWithoutPlayback(scenario) {
 export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}) => {
     const all = scenarios || [];
     const actionable = all.filter(scenarioHasActivatablePlayback);
+    // TASK-3076 AC11 — the ONE helper the playback bar's heading also uses,
+    // so the highlighted row and the heading name the same scenario.
+    const loaded = findLoadedScenario(actionable, activeRunId);
     // TASK-2715 — filter becomes CLASSIFY. A completed run with no playback
     // store used to be dropped here, which left the user of a 29-hour run
     // looking at a menu that said they had nothing.
@@ -206,8 +210,7 @@ export const AnugaResultsMenuClass = ({scenarios, activeRunId, onSelectScenario}
     return (
         <div className="sv-menu-rows-container sv-anuga-results-menu">
             {actionable.map((scenario) => {
-                const run = scenario.latest_complete_run;
-                const active = activeRunId !== null && activeRunId !== undefined && String(activeRunId) === String(run.id);
+                const active = loaded === scenario;
                 return (
                     <button
                         key={scenario.id}

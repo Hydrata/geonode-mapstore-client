@@ -3107,6 +3107,34 @@ span.sv-scenario-run-price--short {
    the tab order and the a11y tree, which a display:none wrapper alone would
    not. The `[hidden]` rule is required because `display:grid` on the class
    beats the UA sheet's `[hidden] { display: none }`. */
+/* ── The heading (TASK-3076 AC11) ───────────────────────────────────────────
+   The loaded scenario's name, the card's PERMANENT top edge: order:-2 puts it
+   above the drawer (order:-1) whether the drawer is open or shut, so opening
+   the drawer grows the card upward UNDER the heading and the heading never
+   moves relative to the card. Single line, ellipsised: the card's width is
+   viewport-derived (.sv-playback-bar left/right/max-width), never content-
+   derived, so a long name cannot widen it or move the play button. */
+/* Two class selectors (0,2,0) on purpose: the served theme's `.msgapi h3`
+   rules (0,1,1: 1rem margins, 1rem/500 type) would otherwise beat a single
+   class, and anuga.css is not in the karma bundle so nothing but the live
+   page would show it. */
+.sv-playback-bar .sv-playback-title {
+    order: -2;
+    margin: 0;
+    padding: 7px 14px 5px;
+    min-width: 0;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: left;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
 .sv-playback-drawer {
     order: -1;
     display: grid;
@@ -3115,9 +3143,9 @@ span.sv-scenario-run-price--short {
     padding: 12px 14px 14px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.22);
     background: rgba(0, 0, 0, 0.16);
-    /* Rounds the card's TOP corners now that the card no longer clips: the
-       drawer is the top child whenever it is open. */
-    border-radius: 6px 6px 0 0;
+    /* The drawer used to round the card's top corners as its top child; since
+       TASK-3076 the heading is the top child, so the drawer is square. */
+    border-radius: 0;
     /* TASK-2743 UAT-04 (W6, epic 2706). Was a flat 42vh, which sounds modest but
        is measured against the VIEWPORT while the bar the user actually sees is
        the drawer PLUS the fixed transport row. On a 1280x720 window the viewport
@@ -3202,28 +3230,37 @@ span.sv-scenario-run-price--short {
     padding: 5px 8px;
 }
 
-/* ── EditableCeiling (TASK-2751) ───────────────────────────────────────────
-   The colour-scale ceiling. NOT called "max" anywhere visible — epic 2706
-   reserves that word for the temporal-max envelope (TASK-2752). */
-/* FIXED WIDTH, and this is the point of it: the value button and the number
-   input that replaces it are the same size, and the reset affordance's slot is
-   reserved whether or not it is occupied. Measured on map 1461 before the
-   width was pinned, clicking the ceiling to edit it moved the scrubber by
-   10px — small, but the exact class of involuntary reflow this card exists to
-   remove. A long value ("≤ 512.7 Pa") is the sizing case. */
-.sv-playback-ceiling {
+/* ── EditableCeiling (TASK-2751, TASK-3076) ────────────────────────────────
+   The colour-scale ceiling, and since TASK-3076 its FLOOR, as ONE range row:
+   `≥ 0.1 m … ≤ 1.5 m`, two click targets joined by a static ellipsis. NOT
+   called "max" (epic 2706 reserves that for the temporal-max envelope,
+   TASK-2752) nor "min" anywhere visible.
+
+   The 118 px / 92 px fixed widths TASK-2751 pinned here are gone. They were
+   for the removed bar chip (both surviving mounts overrode the wrapper to
+   `width: auto` already), and a range needs ~115 px at 12 px, so a 92 px
+   button clipped it to an ellipsis. Neither mount is width-critical: the
+   legend has room, and the drawer lives inside a card whose width is
+   viewport-derived (`.sv-playback-bar`), so nothing here can move the
+   transport row. */
+.sv-playback-ceiling,
+.sv-playback-range {
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
     gap: 4px;
-    flex: 0 0 118px;
-    width: 118px;
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+}
+.sv-playback-range-sep {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    font-size: 12px;
+    padding: 0 1px;
 }
 .sv-playback-ceiling-value {
-    width: 92px;
+    width: auto;
     text-align: right;
-    overflow: hidden;
-    text-overflow: ellipsis;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
     border: 1px solid rgba(255, 255, 255, 0.28);
     color: inherit;
@@ -3242,12 +3279,20 @@ span.sv-scenario-run-price--short {
     border-color: var(--sv-accent-lime, #cae33b);
     color: var(--sv-accent-lime, #cae33b);
 }
+/* TASK-3076 — a floor that is STORED but takes no effect (above the ceiling,
+   or at/below the ramp minimum): shown, muted and struck through, with its
+   reset still offered, so the reader can see it and remove it. */
+.sv-playback-ceiling-value.is-inert {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    border-style: dashed;
+    text-decoration: line-through;
+}
 .sv-playback-ceiling-value:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
 .sv-playback-ceiling-input {
-    width: 92px;
+    width: 72px;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
     border: 1px solid var(--sv-accent-lime, #cae33b);
     color: inherit;
@@ -3338,13 +3383,6 @@ span.sv-scenario-run-price--short {
     font-size: 10px;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     white-space: nowrap;
-}
-
-/* The legend has room to breathe; only the bar is width-critical. */
-.sv-playback-legend-ceiling .sv-playback-ceiling,
-.sv-playback-ceiling-row .sv-playback-ceiling {
-    flex: 0 0 auto;
-    width: auto;
 }
 
 /* The legend's own ceiling row — same component, above the swatch list. */
@@ -3705,6 +3743,14 @@ span.sv-scenario-run-price--short {
     color: rgba(255, 255, 255, 0.8);
     font-variant-numeric: tabular-nums;
 }
+/* TASK-3076 AC9 — stops under an active floor keep their swatch and label
+   (the ramp above the floor is unchanged) and are only muted. */
+.sv-playback-legend-row.is-below-floor {
+    opacity: 0.45;
+}
+.sv-playback-legend-row.is-below-floor .sv-playback-legend-label {
+    text-decoration: line-through;
+}
 .sv-playback-legend-note {
     font-size: 10px;
     color: rgba(245, 200, 120, 0.9);
@@ -3787,9 +3833,14 @@ span.sv-scenario-run-price--short {
 .sv-anuga-results-row:hover {
     background-color: rgba(255, 255, 255, 0.18);
 }
+/* TASK-3076 AC10 — the LOADED scenario's row, in the design system's standard
+   active green (the same family as the green 'Results' menu button,
+   .simple-view-menu-button.active). The previous translucent input-blue had
+   zero contrast on the blue panel: on prod map 6697 the loaded row was
+   indistinguishable from its neighbours (operator screenshot, 2026-09-11). */
 .sv-anuga-results-row.active {
-    border-color: var(--sv-input-blue, #5178af);
-    background-color: rgba(81, 120, 175, 0.35);
+    border-color: rgba(255, 255, 255, 0.9);
+    background-color: var(--sv-row-active-bg, rgba(30, 126, 52, 0.7));
 }
 .sv-anuga-results-empty {
     padding: 10px;

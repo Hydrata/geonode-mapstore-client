@@ -36,6 +36,10 @@ import { translateOr } from '../playbackI18n';
 // zoom in the plugin instead of inventing a second one.
 import { zoomToExtent } from '@mapstore/framework/actions/map';
 import EditableCeiling from './EditableCeiling';
+// TASK-3076 AC11 — the heading names the loaded scenario, resolved by the
+// SAME helper the Results menu highlights its row with.
+import { getScenariosArray } from '../../selectorsAnuga';
+import { findLoadedScenario } from '../loadedScenario';
 
 /**
  * TASK-2726 — maxZoom hint for "zoom to results". A results extent is a whole
@@ -52,6 +56,8 @@ import {
     MIN_SPEED,
     colorMaxForQuantity,
     isColorMaxOverridden,
+    // TASK-3076 — the floor's ONE predicate; this bar never compares a floor.
+    isColorFloorActive,
     clampSpeed,
     simulatedSpanSeconds,
     // TASK-2752 (AC6) — the one predicate the reducer, the epic and this bar
@@ -80,6 +86,7 @@ import {
     playbackSetBackgroundOpacity,
     playbackSetOverlay,
     playbackSetColorMax,
+    playbackSetColorFloor,
     playbackSetEnvelopeMode
 } from '../actions/playbackActions';
 
@@ -441,6 +448,10 @@ function formatCount(n) {
 export class AnugaPlaybackControlBarComponent extends React.Component {
     static propTypes = {
         playback: PropTypes.object,
+        // TASK-3076 AC11 — selectorsAnuga.getScenariosArray(state), for the
+        // heading. Optional: a bar mounted without scenario state (or a
+        // hand-typed manifest) falls back to 'Run <runId>'.
+        scenarios: PropTypes.array,
         onInit: PropTypes.func,
         onPlay: PropTypes.func,
         onPause: PropTypes.func,
@@ -457,6 +468,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         onSetBackgroundOpacity: PropTypes.func,
         onSetOverlay: PropTypes.func,
         onSetColorMax: PropTypes.func,
+        // TASK-3076 — the colour-scale floor, edited in the same drawer row.
+        onSetColorFloor: PropTypes.func,
         onSetEnvelopeMode: PropTypes.func
     };
 
@@ -764,10 +777,15 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         const rows = availableQuantityIds(playback.hasDt).map((id) => {
             const meta = QUANTITY_META[id] || QUANTITY_META.depth;
             const override = (playback.colorMaxOverride || {})[id];
+            // TASK-3076 — the floor rides the SAME context object (extended,
+            // not duplicated), so the ceiling and the floor of one row are
+            // always judged against the same range.
+            const floorOverride = (playback.colorFloorOverride || {})[id];
             const ceilingContext = {
                 elevationMin: playback.elevationMin,
                 elevationMax: playback.elevationMax,
-                colorMaxOverride: override
+                colorMaxOverride: override,
+                colorFloorOverride: floorOverride
             };
             const effective = colorMaxForQuantity(id, playback.quantization, ceilingContext);
             return (
@@ -803,6 +821,9 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             unit={meta.unit}
                             overridden={isColorMaxOverridden(id, ceilingContext)}
                             onChange={this.props.onSetColorMax}
+                            floor={floorOverride}
+                            floorActive={isColorFloorActive(id, playback.quantization, ceilingContext)}
+                            onChangeFloor={this.props.onSetColorFloor}
                         />
                     )}
                 </li>
@@ -1093,7 +1114,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             {this.renderSlider({
                                 testid: 'anuga-playback-particles-exaggeration',
                                 className: 'sv-playback-particles-exaggeration',
-                                min: 0.25, max: 5, step: 0.25,
+                                // TASK-3076 AC12 — 0.25x-20x, default 5x (playbackParticles).
+                                min: 0.25, max: 20, step: 0.25,
                                 value: playback.particleSpeedExaggeration,
                                 label: this.tr('hydrata.playback.speedExaggeration', 'Speed exaggeration'),
                                 format: (v) => `${v}x`,
@@ -1145,6 +1167,31 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      *
      * Play is disabled and Unload is enabled in both cases.
      */
+    /**
+     * TASK-3076 AC11 — THE HEADING: the loaded scenario's name, top-left of
+     * the card, on both the normal and the fallback card. The operator could
+     * not tell which scenario was loaded on prod map 6697 — the Results row
+     * had no contrast and the bar never said. Resolved by findLoadedScenario,
+     * the helper the Results menu uses for its highlight, so the row and the
+     * heading always agree; 'Run <id>' when nothing matches (a hand-typed
+     * fixture manifest has no scenario). It is the card's permanent top edge
+     * (`order: -2`, above the drawer whether open or shut), single-line with
+     * an ellipsis — the card's width is viewport-derived, so a 200-character
+     * name cannot widen it (proven live, not here: anuga.css is not bundled
+     * into karma).
+     */
+    renderTitle(playback) {
+        const loaded = findLoadedScenario(this.props.scenarios, playback.runId);
+        const text = loaded && loaded.name
+            ? loaded.name
+            : this.tr('hydrata.playback.runTitle', 'Run {runId}').replace('{runId}', String(playback.runId));
+        return (
+            <h3 className="sv-playback-title" data-testid="anuga-playback-title" title={text}>
+                {text}
+            </h3>
+        );
+    }
+
     renderFallback(playback) {
         const shown = playback.fallbackLayerShown;
         const hasEnvelopeLayer = shown === 'existing' || shown === 'added';
@@ -1173,6 +1220,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 data-testid="anuga-playback-bar"
                 onKeyDown={this.onCardKeyDown}
             >
+                {this.renderTitle(playback)}
                 <div
                     className="sv-playback-fallback"
                     data-testid="anuga-playback-fallback"
@@ -1246,6 +1294,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 data-testid="anuga-playback-bar"
                 onKeyDown={this.onCardKeyDown}
             >
+                {this.renderTitle(playback)}
                 {this.renderToast(playback, isBuffering, statusMsgId)}
                 {this.renderDrawer(playback)}
 
@@ -1511,7 +1560,9 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
 const mapStateToProps = (state) => ({
     // NOT `state.playback` — MapStore2 core already owns that key for its
     // own Timeline plugin (found live, see playbackEpics.js's header note).
-    playback: state && state.anugaPlayback
+    playback: state && state.anugaPlayback,
+    // TASK-3076 AC11 — memoised selector; the heading's scenario lookup.
+    scenarios: getScenariosArray(state)
 });
 
 const mapDispatchToProps = {
@@ -1538,6 +1589,8 @@ const mapDispatchToProps = {
     onSetBackgroundOpacity: playbackSetBackgroundOpacity,
     onSetOverlay: playbackSetOverlay,
     onSetColorMax: playbackSetColorMax,
+    // TASK-3076 — the colour-scale floor, the ceiling's pair.
+    onSetColorFloor: playbackSetColorFloor,
     // TASK-2752 (AC6) — the Max toggle.
     onSetEnvelopeMode: playbackSetEnvelopeMode
 };

@@ -42,8 +42,14 @@ import { computeBboxOrtho, worldToVelocityUv } from '../playbackFlowViz';
 
 describe('playbackParticles', () => {
     describe('computeAdvectionSpeedScale (the "speed exaggeration" control)', () => {
-        it('the default exaggeration (1) yields the base scale', () => {
-            expect(computeAdvectionSpeedScale(DEFAULT_SPEED_EXAGGERATION)).toBe(PARTICLE_BASE_SPEED_SCALE);
+        // TASK-3076 AC12 — the default moved from 1x to 5x (1x read as still
+        // water at basin zoom on every run the operator reviewed), so the
+        // default exaggeration is DEFAULT_SPEED_EXAGGERATION times the base
+        // scale, and 1x is what yields the base scale.
+        it('the default exaggeration is 5x, and 1x yields the base scale', () => {
+            expect(DEFAULT_SPEED_EXAGGERATION).toBe(5);
+            expect(computeAdvectionSpeedScale(DEFAULT_SPEED_EXAGGERATION)).toBe(PARTICLE_BASE_SPEED_SCALE * 5);
+            expect(computeAdvectionSpeedScale(1)).toBe(PARTICLE_BASE_SPEED_SCALE);
         });
 
         it('scales linearly with the exaggeration multiplier', () => {

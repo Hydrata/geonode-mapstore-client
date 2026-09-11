@@ -153,9 +153,18 @@ uniform sampler2D uLUT;
 // knob from the layer's own opacity (a CSS opacity on the whole canvas): this
 // one fades ONLY the dry ground, leaving the water at full strength.
 uniform float uBackgroundAlpha;
+// TASK-3076 — the colour-scale FLOOR, already NORMALISED to the display range
+// by the renderer ((floor - colorMin) / (colorMax - colorMin)), and its switch.
+// The cut is made HERE, on the interpolated vValue, so it lands on the value
+// isoline the legend claims — a vertex-stage wet *= step(floor, raw) would
+// cut at the half-triangle crossing of the interpolated wet varying instead,
+// and the legend row would be false along every fringe. GL's default uniform
+// value 0.0 for uColorFloorActive makes an unset floor inert by construction.
+uniform float uColorFloor;
+uniform float uColorFloorActive;
 out vec4 fragColor;
 void main() {
-  if (vWet < 0.5) {
+  if (vWet < 0.5 || (uColorFloorActive > 0.5 && vValue < uColorFloor)) {
     // PREMULTIPLIED. The context is created with the WebGL defaults
     // alpha:true + premultipliedAlpha:true, and the mesh pass draws with
     // BLEND DISABLED (blending is enabled only for the wireframe pass), so

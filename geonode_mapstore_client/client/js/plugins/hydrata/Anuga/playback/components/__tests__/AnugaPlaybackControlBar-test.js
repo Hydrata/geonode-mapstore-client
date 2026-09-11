@@ -411,7 +411,8 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(chip).toBeTruthy();
             // This is the store's valid_max — every urban depth lands in the
             // bottom 6% of the ramp, which is what AC4 existed to fix.
-            expect(chip.textContent).toInclude('16.863');
+            // TASK-3076 AC1: three significant figures, so 16.8627… reads 16.9.
+            expect(chip.textContent).toInclude('16.9');
             TestUtils.Simulate.click(chip);
             const input = container.querySelector('[data-testid="anuga-playback-ceiling-depth-input"]');
             TestUtils.Simulate.change(input, { target: { value: '1.5' } });
@@ -425,7 +426,54 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             render({ playback: loadedState({ quantity: 'depth', quantization, colorMaxOverride: { depth: 1.5 } }) });
             const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth"]');
             expect(chip.textContent).toInclude('1.5');
-            expect(chip.textContent).toNotInclude('16.863');
+            expect(chip.textContent).toNotInclude('16.9');
+        });
+
+        /* TASK-3076 AC7/AC8 — the FLOOR beside the ceiling in the drawer's
+           per-quantity table. Same range row the legend mounts; the drawer's
+           context is extended (not duplicated) with colorFloorOverride, and
+           whether a floor is active is playbackController.isColorFloorActive's
+           call, never this component's. */
+        describe('colour-scale floor in the drawer table (TASK-3076)', () => {
+            it('every non-discrete row has a floor button; hazard shows the fixed-classes text instead', () => {
+                render({ playback: loadedState({ quantity: 'depth', hasDt: true }) });
+                ['depth', 'speed', 'stage', 'div', 'froude', 'shear', 'courant'].forEach((id) => {
+                    expect(container.querySelector(`[data-testid="anuga-playback-ceiling-${id}-floor"]`)).toBeTruthy(`${id} floor`);
+                    expect(container.querySelector(`[data-testid="anuga-playback-ceiling-${id}"]`)).toBeTruthy(`${id} ceiling`);
+                });
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-hazard-floor"]')).toBe(null);
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-hazard"]')).toBe(null);
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-row-hazard"]').textContent).toInclude('H1');
+            });
+
+            it('commits onSetColorFloor against the row it was edited on', () => {
+                const onSetColorFloor = expect.createSpy();
+                render({ playback: loadedState({ quantity: 'depth' }), onSetColorFloor });
+                const chip = container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor"]');
+                TestUtils.Simulate.click(chip);
+                const input = container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor-input"]');
+                TestUtils.Simulate.change(input, { target: { value: '50' } });
+                TestUtils.Simulate.keyDown(input, { key: 'Enter' });
+                expect(onSetColorFloor.calls.length).toBe(1);
+                expect(onSetColorFloor.calls[0].arguments).toEqual(['shear', 50]);
+            });
+
+            it('is per-quantity: a stored shear floor leaves depth\'s row unset', () => {
+                const quantization = { depth: { valid_max: 16.862720489501953 } };
+                render({ playback: loadedState({ quantity: 'depth', quantization, colorFloorOverride: { shear: 50 } }) });
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor"]').textContent).toBe('≥ 50 Pa');
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor"]').className).toInclude('is-override');
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor"]').textContent).toBe('≥ —');
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor-reset"]')).toBe(null);
+            });
+
+            it('an inert floor (above that row\'s ceiling) is muted in the drawer too', () => {
+                const quantization = { depth: { valid_max: 16.862720489501953 } };
+                render({ playback: loadedState({ quantity: 'depth', quantization, colorMaxOverride: { depth: 1.5 }, colorFloorOverride: { depth: 2 } }) });
+                const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor"]');
+                expect(chip.className).toInclude('is-inert');
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor-reset"]')).toBeTruthy();
+            });
         });
 
         it('after a reset the component returns to IDLE and shows the manifest loader again', () => {
@@ -598,6 +646,19 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(onSetOverlay.calls[1].arguments).toEqual(['arrowDensity', 80]);
             TestUtils.Simulate.change(container.querySelector('[data-testid="anuga-playback-particles-exaggeration"]'), { target: { value: '2.5' } });
             expect(onSetOverlay.calls[2].arguments).toEqual(['particleSpeedExaggeration', 2.5]);
+        });
+
+        // TASK-3076 AC12 — the trails' Speed exaggeration: 0.25x-20x in 0.25
+        // steps, reading 5x before any interaction (today's maximum is the new
+        // default; 1x read as still water at basin zoom).
+        it('AC12 — the speed-exaggeration slider spans 0.25-20 and reads 5x by default', () => {
+            render({ playback: loaded({ particlesEnabled: true }) });
+            const slider = container.querySelector('[data-testid="anuga-playback-particles-exaggeration"]');
+            expect(slider.getAttribute('min')).toBe('0.25');
+            expect(slider.getAttribute('max')).toBe('20');
+            expect(slider.getAttribute('step')).toBe('0.25');
+            expect(Number(slider.value)).toBe(5);
+            expect(container.querySelector('[data-testid="anuga-playback-particles-exaggeration-value"]').textContent).toBe('5x');
         });
 
         it('AC7 — every slider renders its current numeric value adjacent to it', () => {

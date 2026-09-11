@@ -25,6 +25,7 @@ import {
     findTimestepBracket,
     colorMaxForQuantity,
     isColorMaxOverridden,
+    isColorFloorActive,
     colorMinForQuantity,
     clampOpacity,
     DEFAULT_PLAYBACK_OPACITY,
@@ -50,6 +51,7 @@ import {
     playbackChunksBuffered,
     playbackPlay,
     playbackPause,
+    playbackSetColorFloor,
     playbackSeek,
     playbackTick,
     playbackSetSpeed,
@@ -1170,6 +1172,84 @@ describe('playbackController', () => {
                 const took = colorMaxForQuantity(quantity, quantization, ctx) === Number(ctx.colorMaxOverride);
                 expect(took).toBe(expected, `colorMaxForQuantity disagreed for ${quantity}`);
             });
+        });
+    });
+
+    // TASK-3076 AC12 — the trails' Speed exaggeration defaults to 5x (the
+    // constant in playbackParticles, not a call site).
+    it('AC12 — initial particleSpeedExaggeration is 5', () => {
+        expect(createInitialPlaybackState().particleSpeedExaggeration).toBe(5);
+    });
+
+    /*
+     * TASK-3076 (AC3/AC4) — THE COLOUR-SCALE FLOOR, paired with the ceiling.
+     * Per-quantity like colorMaxOverride; null/non-finite CLEARS that quantity
+     * only. ONE predicate, isColorFloorActive(quantity, quantization, context),
+     * decides both what the renderer hides and what the UI claims: the
+     * quantity must be non-discrete (hazard's H1-H6 are classes, and
+     * HAZARD_COLOR_MAX is finite so a naive colorMin < floor < colorMax is
+     * TRUE for it) and the floor must sit strictly inside the display range.
+     */
+    describe('colour-scale floor — TASK-3076', () => {
+        it('AC3 — initial state carries an empty per-quantity colorFloorOverride map', () => {
+            expect(createInitialPlaybackState().colorFloorOverride).toEqual({});
+        });
+
+        it('AC3 — SET_COLOR_FLOOR is per-quantity, and null / non-finite CLEARS that quantity only', () => {
+            const base = createInitialPlaybackState();
+            const depth = reduce(base, playbackSetColorFloor('depth', 0.1));
+            expect(depth.colorFloorOverride).toEqual({ depth: 0.1 });
+            const both = reduce(depth, playbackSetColorFloor('speed', 0.5));
+            expect(both.colorFloorOverride).toEqual({ depth: 0.1, speed: 0.5 });
+
+            const clearedDepth = reduce(both, playbackSetColorFloor('depth', null));
+            expect(clearedDepth.colorFloorOverride).toEqual({ speed: 0.5 });
+            expect(reduce(both, playbackSetColorFloor('depth', NaN)).colorFloorOverride).toEqual({ speed: 0.5 });
+            expect(reduce(both, playbackSetColorFloor('depth', undefined)).colorFloorOverride).toEqual({ speed: 0.5 });
+            // a string number is stored as a number
+            expect(reduce(base, playbackSetColorFloor('depth', '0.25')).colorFloorOverride).toEqual({ depth: 0.25 });
+        });
+
+        it('AC3 — the floor survives PAUSE/PLAY and a quantity switch, and PLAYBACK_RESET clears it', () => {
+            const set = reduce(createInitialPlaybackState(), playbackSetColorFloor('depth', 0.1));
+            expect(reduce(set, playbackPause()).colorFloorOverride).toEqual({ depth: 0.1 });
+            expect(reduce(set, { type: 'PLAYBACK:SET_QUANTITY', quantity: 'speed' }).colorFloorOverride).toEqual({ depth: 0.1 });
+            expect(reduce(set, { type: 'PLAYBACK:RESET' }).colorFloorOverride).toEqual({});
+        });
+
+        it('AC4 — isColorFloorActive: non-discrete AND colorMin < floor < colorMax', () => {
+            const quantization = { depth: { valid_max: 16.862720489501953 }, x_velocity: { valid_max: 3 }, y_velocity: { valid_max: 3 } };
+            const cases = [
+                // floor 2.0 with ceiling 1.5 -> inert
+                { q: 'depth', ctx: { colorMaxOverride: 1.5, colorFloorOverride: 2.0 }, expected: false },
+                // ceiling raised to 3.0 -> active with no further action
+                { q: 'depth', ctx: { colorMaxOverride: 3.0, colorFloorOverride: 2.0 }, expected: true },
+                // no ceiling: the store's 16.86 m is the range
+                { q: 'depth', ctx: { colorFloorOverride: 0.1 }, expected: true },
+                // depth floor 0 -> inert (0 is the ramp minimum, not inside it)
+                { q: 'depth', ctx: { colorFloorOverride: 0 }, expected: false },
+                { q: 'depth', ctx: { colorFloorOverride: -0.5 }, expected: false },
+                // at the ceiling -> inert
+                { q: 'depth', ctx: { colorMaxOverride: 1.5, colorFloorOverride: 1.5 }, expected: false },
+                // hazard: a stored floor is NEVER active (discrete classes)
+                { q: 'hazard', ctx: { colorFloorOverride: 2 }, expected: false },
+                // stage: between elevationMin and the ceiling -> active
+                { q: 'stage', ctx: { elevationMin: 10, elevationMax: 20, colorFloorOverride: 12 }, expected: true },
+                { q: 'stage', ctx: { elevationMin: 10, elevationMax: 20, colorFloorOverride: 10 }, expected: false },
+                { q: 'stage', ctx: { elevationMin: 10, elevationMax: 20, colorFloorOverride: 9 }, expected: false },
+                // nothing stored / not a number -> inert
+                { q: 'depth', ctx: {}, expected: false },
+                { q: 'depth', ctx: { colorFloorOverride: NaN }, expected: false },
+                { q: 'depth', ctx: { colorFloorOverride: 'abc' }, expected: false },
+                { q: 'speed', ctx: { colorFloorOverride: 0.2 }, expected: true }
+            ];
+            cases.forEach(({ q, ctx, expected }) => {
+                expect(`${q} ${JSON.stringify(ctx)} -> ${isColorFloorActive(q, quantization, ctx)}`)
+                    .toBe(`${q} ${JSON.stringify(ctx)} -> ${expected}`);
+            });
+            // and a missing context / quantization is inert, never a throw
+            expect(isColorFloorActive('depth')).toBe(false);
+            expect(isColorFloorActive('depth', null, { colorFloorOverride: 0.1 })).toBe(true, 'no quantization: colorMax falls back to 1, so 0.1 is inside');
         });
     });
 
