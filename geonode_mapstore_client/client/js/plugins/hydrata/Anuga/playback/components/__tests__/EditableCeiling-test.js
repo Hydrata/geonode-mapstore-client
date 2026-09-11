@@ -152,6 +152,67 @@ describe('EditableCeiling — TASK-2751', () => {
         expect(onChange.calls[0].arguments[0]).toBe('shear');
     });
 
+    /* TASK-3076 AC2 — the edit box SEEDS at three significant figures (the
+       operator asked for 3 s.f. "in the input boxes") but an untouched blur
+       commits NOTHING. At HEAD the seed was toFixed(3) and blur committed
+       unconditionally, so merely clicking the store's 16.8627… ceiling and
+       clicking away wrote 16.863 as an override, flipped colorRescaled and
+       recoloured the map. */
+    describe('AC2 — seed at 3 s.f., unchanged blur is a no-op (TASK-3076)', () => {
+        it('click then blur — onChange is NOT called', () => {
+            const onChange = expect.createSpy();
+            render({ onChange, value: 16.862720489501953 });
+            TestUtils.Simulate.click(q('ceiling'));
+            TestUtils.Simulate.blur(q('ceiling-input'));
+            expect(onChange.calls.length).toBe(0);
+            expect(q('ceiling')).toBeTruthy('edit mode is left');
+        });
+
+        it('seeds the box at three significant figures', () => {
+            render({ value: 16.862720489501953 });
+            TestUtils.Simulate.click(q('ceiling'));
+            expect(q('ceiling-input').value).toBe('16.9');
+        });
+
+        it('a typed edit commits at the TYPED precision — 1.2345 stays 1.2345', () => {
+            const onChange = expect.createSpy();
+            render({ onChange });
+            TestUtils.Simulate.click(q('ceiling'));
+            TestUtils.Simulate.change(q('ceiling-input'), { target: { value: '1.2345' } });
+            TestUtils.Simulate.blur(q('ceiling-input'));
+            expect(onChange.calls.length).toBe(1);
+            expect(onChange.calls[0].arguments[1]).toBe(1.2345);
+        });
+
+        it('re-opening a 1.2345 ceiling shows 1.23, and a blur keeps 1.2345 (no commit)', () => {
+            const onChange = expect.createSpy();
+            render({ onChange, value: 1.2345, overridden: true });
+            TestUtils.Simulate.click(q('ceiling'));
+            expect(q('ceiling-input').value).toBe('1.23');
+            TestUtils.Simulate.blur(q('ceiling-input'));
+            expect(onChange.calls.length).toBe(0);
+        });
+
+        it('re-opening and typing 1.3 commits 1.3', () => {
+            const onChange = expect.createSpy();
+            render({ onChange, value: 1.2345, overridden: true });
+            TestUtils.Simulate.click(q('ceiling'));
+            TestUtils.Simulate.change(q('ceiling-input'), { target: { value: '1.3' } });
+            TestUtils.Simulate.keyDown(q('ceiling-input'), { key: 'Enter' });
+            expect(onChange.calls.length).toBe(1);
+            expect(onChange.calls[0].arguments[1]).toBe(1.3);
+        });
+
+        it('an un-overridden ceiling, clicked and blurred, creates NO override', () => {
+            const onChange = expect.createSpy();
+            render({ onChange, value: 16.862720489501953, overridden: false });
+            TestUtils.Simulate.click(q('ceiling'));
+            TestUtils.Simulate.blur(q('ceiling-input'));
+            expect(onChange.calls.length).toBe(0);
+            expect(q('ceiling-reset')).toBe(null);
+        });
+    });
+
     it('is inert when disabled — no editor, no onChange', () => {
         const onChange = expect.createSpy();
         render({ onChange, disabled: true });

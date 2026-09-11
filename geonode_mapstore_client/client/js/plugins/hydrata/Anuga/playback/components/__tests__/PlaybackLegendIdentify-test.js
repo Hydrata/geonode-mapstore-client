@@ -70,7 +70,7 @@ describe('PlaybackLegend — TASK-2628', () => {
             const labels = rows.map((row) => row.querySelector('.sv-playback-legend-label').textContent);
             // rows render high -> low, so the FIRST rendered row is the top stop
             expect(labels[0]).toContain('+');
-            expect(labels[0]).toContain('1.50');
+            expect(labels[0]).toContain('1.5');
             // ...and no rendered value exceeds the override the shader saturates at
             labels.forEach((label) => {
                 expect(parseFloat(label)).toBeLessThanOrEqualTo(1.5);

@@ -25,7 +25,7 @@ import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 
-import { QUANTITY_RAMPS, isRampNormalized, rampStopValues } from '../playbackColormap';
+import { QUANTITY_RAMPS, isRampNormalized, rampStopValues, formatRampValue } from '../playbackColormap';
 import { QUANTITY_META } from '../playbackDerivedQuantities';
 import { colorMaxForQuantity, colorMinForQuantity, isColorMaxOverridden } from '../playbackController';
 import MovablePanel from '../../../shared/components/MovablePanel';
@@ -47,13 +47,6 @@ const QUANTITY_TITLE_ID = {
     shear: 'hydrata.playback.legendTitleShear',
     courant: 'hydrata.playback.legendTitleCourant'
 };
-
-function formatValue(v) {
-    if (!isFinite(v)) {
-        return '—';
-    }
-    return Number.isInteger(v) ? String(v) : v.toFixed(2);
-}
 
 export class PlaybackLegendComponent extends React.Component {
     static propTypes = {
@@ -165,14 +158,14 @@ export class PlaybackLegendComponent extends React.Component {
                         visibleStops.slice().reverse().map((stop) => (
                             <li className="sv-playback-legend-row" key={stop.quantity} data-testid={`playback-legend-row-${stop.quantity}`}>
                                 <span className="sv-playback-legend-swatch" style={{ backgroundColor: `rgb(${stop.color.join(',')})` }} aria-hidden="true" />
-                                <span className="sv-playback-legend-label">{formatValue(stop.value)} {meta.unit}{stop.quantity === topStop.quantity ? '+' : ''}</span>
+                                <span className="sv-playback-legend-label">{formatRampValue(stop.value)} {meta.unit}{stop.quantity === topStop.quantity ? '+' : ''}</span>
                             </li>
                         ))
                     )}
                 </ul>
                 {exceedsSld ? (
                     <div className="sv-playback-legend-note" data-testid="playback-legend-exceeds-sld">
-                        <Message msgId="hydrata.playback.legendExceedsSld" msgParams={{ colorMax: formatValue(colorMax), unit: meta.unit }} />
+                        <Message msgId="hydrata.playback.legendExceedsSld" msgParams={{ colorMax: formatRampValue(colorMax), unit: meta.unit }} />
                     </div>
                 ) : null}
                 {meta.requiresDt ? (

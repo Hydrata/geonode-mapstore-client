@@ -27,7 +27,8 @@ import {
     buildQuantityColormapLUT,
     buildDiscreteColormapLUT,
     isRampNormalized,
-    rampStopValues
+    rampStopValues,
+    formatRampValue
 } from '../playbackColormap';
 import { QUANTITY_IDS, AIDR_HAZARD_CLASS_COUNT } from '../playbackDerivedQuantities';
 import { MESH_FRAGMENT_SHADER } from '../playbackShaders';
@@ -333,6 +334,41 @@ describe('playbackColormap', () => {
         it('keeps each stop\'s colour untouched — only the value is rescaled', () => {
             const rows = rampStopValues('speed', { colorMin: 0, colorMax: 4, normalized: true });
             expect(rows.map((r) => r.color)).toEqual(VELOCITY_SLD_STOPS.map((s) => s.color));
+        });
+    });
+
+    // TASK-3076 AC1 — ONE prefix-free display formatter for every number the
+    // colour scale shows (floor/ceiling buttons, their edit-box seeds, the
+    // legend stop labels, the "ramp extended to" note). Three significant
+    // figures: 16.86 m ceilings and 0.02 m stop labels were artefacts of
+    // fixed decimal places, not of the data.
+    describe('formatRampValue (TASK-3076 AC1)', () => {
+        it('renders three significant figures with no fixed-decimal noise', () => {
+            [
+                [16.86, '16.9'],
+                [0.0123, '0.0123'],
+                [1234, '1230'],
+                [1.5, '1.5'],
+                [0, '0'],
+                [123456, '123000'],
+                [1e-7, '1e-7'],
+                [1.2345, '1.23'],
+                [999.5, '1000'],
+                [16.862720489501953, '16.9']
+            ].forEach(([input, expected]) => {
+                expect(`${input} -> ${formatRampValue(input)}`).toBe(`${input} -> ${expected}`);
+            });
+        });
+
+        it('renders a non-finite value as an em dash, never "NaN"', () => {
+            expect(formatRampValue(NaN)).toBe('—');
+            expect(formatRampValue(undefined)).toBe('—');
+            expect(formatRampValue(Infinity)).toBe('—');
+        });
+
+        it('carries no prefix — the caller adds ≥ / ≤', () => {
+            expect(formatRampValue(1.5)).toBe('1.5');
+            expect(formatRampValue(1.5)).toNotInclude('≤');
         });
     });
 });

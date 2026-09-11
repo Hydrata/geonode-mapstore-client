@@ -41,14 +41,14 @@ import React from 'react';
 const PropTypes = require('prop-types');
 
 import { translateOr } from '../playbackI18n';
+import { formatRampValue } from '../playbackColormap';
 
-/** `≤ 1.5 m` — three significant-ish digits, no trailing zero noise. */
+/** `≤ 1.5 m` — the shared 3-s.f. formatter (TASK-3076 AC1) plus the prefix. */
 export function formatCeiling(value, unit) {
     if (!isFinite(value)) {
         return '—';
     }
-    const n = Number(value.toFixed(3));
-    return `≤ ${n}${unit ? ` ${unit}` : ''}`;
+    return `≤ ${formatRampValue(value)}${unit ? ` ${unit}` : ''}`;
 }
 
 export default class EditableCeiling extends React.Component {
@@ -77,7 +77,11 @@ export default class EditableCeiling extends React.Component {
 
     static contextTypes = { messages: PropTypes.object };
 
-    state = { editing: false, draft: '' };
+    // `seed` is what the box opened with. TASK-3076 AC2: a blur that leaves
+    // the draft equal to its seed commits NOTHING — the seed is a 3-s.f.
+    // DISPLAY string, and committing it would round the stored value (and,
+    // for a never-overridden ceiling, silently CREATE an override).
+    state = { editing: false, draft: '', seed: '' };
 
     tr(msgId, fallback) {
         return translateOr(this.context && this.context.messages, msgId, fallback);
@@ -88,23 +92,28 @@ export default class EditableCeiling extends React.Component {
             return;
         }
         const { value } = this.props;
-        this.setState({ editing: true, draft: isFinite(value) ? String(Number(value.toFixed(3))) : '' });
+        const seed = isFinite(value) ? formatRampValue(value) : '';
+        this.setState({ editing: true, draft: seed, seed });
     };
 
     /* Commit is idempotent: Enter fires it, and the blur that Enter causes
-       would fire it again. `editing` is cleared first and guards the second. */
+       would fire it again. `editing` is cleared first and guards the second.
+       An UNCHANGED draft is a no-op (AC2) — only a typed edit commits. */
     commit = () => {
         if (!this.state.editing) {
             return;
         }
-        const { draft } = this.state;
-        this.setState({ editing: false, draft: '' });
+        const { draft, seed } = this.state;
+        this.setState({ editing: false, draft: '', seed: '' });
+        if (draft === seed) {
+            return;
+        }
         const parsed = draft === '' ? null : Number(draft);
         this.props.onChange(this.props.quantity, parsed === null || isNaN(parsed) ? null : parsed);
     };
 
     cancel = () => {
-        this.setState({ editing: false, draft: '' });
+        this.setState({ editing: false, draft: '', seed: '' });
     };
 
     onKeyDown = (e) => {

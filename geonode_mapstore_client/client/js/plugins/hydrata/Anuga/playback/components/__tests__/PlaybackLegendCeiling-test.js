@@ -60,7 +60,7 @@ describe('Playback legend ceiling row — TASK-2751', () => {
         // depth's top SLD stop is 6 m; under a 1.5 m ceiling it stands for 1.5
         const topSwatchRow = q('playback-legend-row-6');
         expect(topSwatchRow).toExist('the ramp\'s last stop must still be reachable');
-        expect(topSwatchRow.textContent).toInclude('1.50 m+');
+        expect(topSwatchRow.textContent).toInclude('1.5 m+');
     });
 
     it('keeps every SLD swatch row, rescaled onto the new ceiling', () => {
@@ -70,7 +70,7 @@ describe('Playback legend ceiling row — TASK-2751', () => {
         // the way up, which under a 1.5 m ceiling is 0.50 m.
         const rescaled = q('playback-legend-row-2');
         expect(rescaled).toExist('stops above the ceiling are rescaled, not clipped');
-        expect(rescaled.textContent).toInclude('0.50 m');
+        expect(rescaled.textContent).toInclude('0.5 m');
 
         const rows = container.querySelectorAll('[data-testid^="playback-legend-row-"]');
         expect(rows.length).toBe(DEPTH_SLD_STOPS.length);

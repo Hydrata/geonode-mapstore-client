@@ -411,7 +411,8 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(chip).toBeTruthy();
             // This is the store's valid_max — every urban depth lands in the
             // bottom 6% of the ramp, which is what AC4 existed to fix.
-            expect(chip.textContent).toInclude('16.863');
+            // TASK-3076 AC1: three significant figures, so 16.8627… reads 16.9.
+            expect(chip.textContent).toInclude('16.9');
             TestUtils.Simulate.click(chip);
             const input = container.querySelector('[data-testid="anuga-playback-ceiling-depth-input"]');
             TestUtils.Simulate.change(input, { target: { value: '1.5' } });
@@ -425,7 +426,7 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             render({ playback: loadedState({ quantity: 'depth', quantization, colorMaxOverride: { depth: 1.5 } }) });
             const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth"]');
             expect(chip.textContent).toInclude('1.5');
-            expect(chip.textContent).toNotInclude('16.863');
+            expect(chip.textContent).toNotInclude('16.9');
         });
 
         it('after a reset the component returns to IDLE and shows the manifest loader again', () => {
