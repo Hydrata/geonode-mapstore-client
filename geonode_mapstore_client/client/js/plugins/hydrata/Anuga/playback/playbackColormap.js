@@ -417,10 +417,10 @@ export function isRampNormalized(quantityId, ceilingOverridden) {
  * @returns {string}
  */
 export function formatRampValue(value) {
-    if (!isFinite(value)) {
+    if (!Number.isFinite(value)) {
         return '—';
     }
-    return String(Number(Number(value).toPrecision(3)));
+    return String(Number(value.toPrecision(3)));
 }
 
 /**

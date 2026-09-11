@@ -197,7 +197,9 @@ export class PlaybackLegendComponent extends React.Component {
                 {floorValue !== null ? (
                     <div className="sv-playback-legend-note sv-playback-legend-floor-row" data-testid="playback-legend-floor-row">
                         {this.tr('hydrata.playback.legendBelowFloorHidden', 'below {floor} {unit}: hidden')
-                            .replace('{floor}', formatRampValue(floorValue)).replace('{unit}', meta.unit)}
+                            .replace('{floor}', formatRampValue(floorValue))
+                            // a unitless quantity (froude, courant) drops the unit AND its leading space
+                            .replace(meta.unit ? '{unit}' : / ?\{unit\}/, meta.unit)}
                     </div>
                 ) : null}
                 {exceedsSld ? (

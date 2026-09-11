@@ -203,6 +203,16 @@ describe('EditableCeiling — TASK-2751', () => {
             expect(onChange.calls[0].arguments[1]).toBe(1.3);
         });
 
+        it('retyping the seed in another spelling (16.90 for 16.9) is NOT an edit — nothing commits', () => {
+            const onChange = expect.createSpy();
+            render({ onChange, value: 16.862720489501953, overridden: false });
+            TestUtils.Simulate.click(q('ceiling'));
+            expect(q('ceiling-input').value).toBe('16.9');
+            TestUtils.Simulate.change(q('ceiling-input'), { target: { value: '16.90' } });
+            TestUtils.Simulate.blur(q('ceiling-input'));
+            expect(onChange.calls.length).toBe(0);
+        });
+
         it('an un-overridden ceiling, clicked and blurred, creates NO override', () => {
             const onChange = expect.createSpy();
             render({ onChange, value: 16.862720489501953, overridden: false });
@@ -240,6 +250,13 @@ describe('EditableCeiling — TASK-2751', () => {
             expect(visible).toNotInclude('min');
             expect(visible).toNotInclude('max');
             expect(q('ceiling-floor-reset')).toBe(null, 'nothing stored, nothing to reset');
+        });
+
+        it('a null floor is "none", not a stored floor of 0', () => {
+            render({ floor: null, floorActive: false });
+            expect(q('ceiling-floor').textContent).toBe('≥ —');
+            expect(q('ceiling-floor').className).toNotInclude('is-inert');
+            expect(q('ceiling-floor-reset')).toBe(null);
         });
 
         it('renders the stored floor with its unit, and the ceiling still renders its own value', () => {

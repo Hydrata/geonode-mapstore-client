@@ -129,6 +129,11 @@ describe('Playback legend floor — TASK-3076', () => {
         expect(q('playback-legend-floor-row')).toBe(null);
     });
 
+    it('a unitless quantity (froude) reads "below 1.2: hidden" with no stray space', () => {
+        render({ quantity: 'froude', colorFloorOverride: 1.2 });
+        expect(q('playback-legend-floor-row').textContent).toBe('below 1.2: hidden');
+    });
+
     it('AC7 — hazard has no floor: the whole range row is absent for a classification', () => {
         render({ quantity: 'hazard' });
         expect(q('playback-legend-ceiling-floor')).toBe(null);

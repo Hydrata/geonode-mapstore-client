@@ -119,8 +119,10 @@ describe('playbackShaders', () => {
  * drawn pixel reads the same vValue), or — TASK-3076 AC5(d) — an array of
  * THREE triples, one per vertex, so a pixel's value is the barycentric blend.
  *
- * Vertices are (-1,-1), (3,-1), (-1,3), so on the 4x4 canvas pixel (i,j) has
- * barycentric λ1 = (2i+1)/8 toward vertex 1 and λ2 = (2j+1)/8 toward vertex 2.
+ * Vertices are (-1,-1), (3,-1), (-1,3), so on the 4x4 canvas pixel (i,j) — whose
+ * centre is at NDC (-1 + (2i+1)/4, -1 + (2j+1)/4) — has barycentric
+ * λ1 = (2i+1)/16 toward vertex 1 and λ2 = (2j+1)/16 toward vertex 2
+ * (e.g. pixel (2,3): λ1 = 0.3125, λ2 = 0.4375).
  * `readAt` picks which pixel to read back (default the origin).
  *
  * `colorFloor` is the floor ALREADY NORMALISED to the display range (the
@@ -384,6 +386,20 @@ describe('MESH_FRAGMENT_SHADER colour-scale floor — TASK-3076 AC5', () => {
             uLUT: gl.getUniformLocation(program, 'uLUT'),
             _lutTexture: lutTexture
         };
+    });
+
+    // Chrome caps live WebGL contexts per page and silently loses the OLDEST
+    // past the cap; release each spec's context so later GL suites in the same
+    // karma page cannot lose theirs mid-test.
+    afterEach(() => {
+        if (gl) {
+            gl.deleteProgram(program);
+            const lose = gl.getExtension('WEBGL_lose_context');
+            if (lose) {
+                lose.loseContext();
+            }
+            gl = null;
+        }
     });
 
     // GL_LINEAR sampling of the 256-texel LUT at `vValue`: texel centres sit

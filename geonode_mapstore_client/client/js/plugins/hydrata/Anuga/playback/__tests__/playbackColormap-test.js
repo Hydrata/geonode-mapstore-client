@@ -360,9 +360,10 @@ describe('playbackColormap', () => {
             });
         });
 
-        it('renders a non-finite value as an em dash, never "NaN"', () => {
+        it('renders a non-finite value as an em dash, never "NaN" — and null is not 0', () => {
             expect(formatRampValue(NaN)).toBe('—');
             expect(formatRampValue(undefined)).toBe('—');
+            expect(formatRampValue(null)).toBe('—');
             expect(formatRampValue(Infinity)).toBe('—');
         });
 

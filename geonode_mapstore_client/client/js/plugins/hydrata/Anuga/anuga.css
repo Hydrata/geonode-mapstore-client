@@ -3114,7 +3114,11 @@ span.sv-scenario-run-price--short {
    moves relative to the card. Single line, ellipsised: the card's width is
    viewport-derived (.sv-playback-bar left/right/max-width), never content-
    derived, so a long name cannot widen it or move the play button. */
-.sv-playback-title {
+/* Two class selectors (0,2,0) on purpose: the served theme's `.msgapi h3`
+   rules (0,1,1: 1rem margins, 1rem/500 type) would otherwise beat a single
+   class, and anuga.css is not in the karma bundle so nothing but the live
+   page would show it. */
+.sv-playback-bar .sv-playback-title {
     order: -2;
     margin: 0;
     padding: 7px 14px 5px;

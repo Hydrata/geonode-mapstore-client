@@ -57,7 +57,7 @@ import { formatRampValue } from '../playbackColormap';
 
 /** `≤ 1.5 m` — the shared 3-s.f. formatter (TASK-3076 AC1) plus the prefix. */
 export function formatCeiling(value, unit) {
-    if (!isFinite(value)) {
+    if (!Number.isFinite(value)) {
         return '—';
     }
     return `≤ ${formatRampValue(value)}${unit ? ` ${unit}` : ''}`;
@@ -65,7 +65,7 @@ export function formatCeiling(value, unit) {
 
 /** `≥ 0.1 m`, or `≥ —` while no floor is stored (TASK-3076 AC8). */
 export function formatFloor(value, unit) {
-    if (!isFinite(value)) {
+    if (!Number.isFinite(value)) {
         return '≥ —';
     }
     return `≥ ${formatRampValue(value)}${unit ? ` ${unit}` : ''}`;
@@ -109,20 +109,23 @@ class EditableBound extends React.Component {
             return;
         }
         const { value } = this.props;
-        const seed = isFinite(value) ? formatRampValue(value) : '';
+        const seed = Number.isFinite(value) ? formatRampValue(value) : '';
         this.setState({ editing: true, draft: seed, seed });
     };
 
     /* Commit is idempotent: Enter fires it, and the blur that Enter causes
        would fire it again. `editing` is cleared first and guards the second.
-       An UNCHANGED draft is a no-op (AC2) — only a typed edit commits. */
+       An UNCHANGED draft is a no-op (AC2) — only a typed edit commits. The
+       comparison is NUMERIC, not string: retyping the seed as '16.90' or
+       '1.5e0' is not an edit, and committing it would create the very
+       override AC2 exists to prevent. */
     commit = () => {
         if (!this.state.editing) {
             return;
         }
         const { draft, seed } = this.state;
         this.setState({ editing: false, draft: '', seed: '' });
-        if (draft === seed) {
+        if (draft === seed || (draft !== '' && seed !== '' && Number(draft) === Number(seed))) {
             return;
         }
         const parsed = draft === '' ? null : Number(draft);
@@ -237,7 +240,9 @@ export default class EditableCeiling extends React.Component {
         const { value, unit, overridden, disabled, testid, quantity, floor, floorActive, onChange, onChangeFloor } = this.props;
         const ceilingLabel = this.tr('hydrata.playback.ceiling', 'Colour scale ceiling');
         const floorLabel = this.tr('hydrata.playback.floor', 'Colour scale floor');
-        const floorStored = isFinite(floor);
+        // Number.isFinite, not the coercing global: null must read as "none",
+        // not as a stored floor of 0.
+        const floorStored = Number.isFinite(floor);
         const floorClass = floorStored ? (floorActive ? 'is-override' : 'is-inert') : '';
         const floorTitle = floorStored && !floorActive
             ? this.tr('hydrata.playback.floorInert', 'Not applied: outside the colour scale')
