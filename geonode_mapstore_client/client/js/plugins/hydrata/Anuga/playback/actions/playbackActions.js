@@ -82,6 +82,9 @@ export const PLAYBACK_SET_OPACITY = 'PLAYBACK:SET_OPACITY';
 export const PLAYBACK_SET_BACKGROUND_OPACITY = 'PLAYBACK:SET_BACKGROUND_OPACITY';
 export const PLAYBACK_SET_OVERLAY = 'PLAYBACK:SET_OVERLAY';
 export const PLAYBACK_SET_COLOR_MAX = 'PLAYBACK:SET_COLOR_MAX';
+// TASK-3076 — the colour-scale FLOOR, the ceiling's pair (glossary
+// "Colour-scale floor"): cells whose displayed value is below it are hidden.
+export const PLAYBACK_SET_COLOR_FLOOR = 'PLAYBACK:SET_COLOR_FLOOR';
 // TASK-2752 (W8.2, epic 2706) — the temporal-max envelope (Max toggle).
 export const PLAYBACK_SET_ENVELOPE_MODE = 'PLAYBACK:SET_ENVELOPE_MODE';
 export const PLAYBACK_ENVELOPE_LOADED = 'PLAYBACK:ENVELOPE_LOADED';
@@ -289,6 +292,17 @@ export function playbackSetOverlay(key, value) {
  */
 export function playbackSetColorMax(quantity, value) {
     return { type: PLAYBACK_SET_COLOR_MAX, quantity, value };
+}
+
+/**
+ * TASK-3076 — the colour-scale floor for one quantity. `value = null` (or
+ * anything non-finite) clears it. Per-quantity for the same reason the
+ * ceiling is: a depth floor in metres must never become a speed floor in m/s.
+ * Whether a STORED floor actually takes effect is decided by
+ * playbackController.isColorFloorActive — the reducer stores what was typed.
+ */
+export function playbackSetColorFloor(quantity, value) {
+    return { type: PLAYBACK_SET_COLOR_FLOOR, quantity, value };
 }
 
 /**

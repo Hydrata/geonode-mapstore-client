@@ -179,6 +179,16 @@ describe('PlaybackIdentifyReadout — TASK-2628', () => {
         expect(container.querySelector('[data-testid="playback-identify-dry"]')).toBe(null);
     });
 
+    // TASK-3076 AC7 — the readout is floor-blind: a cell between the
+    // colour-scale floor and the solver's wet threshold reports its value with
+    // no 'dry' row. The component has no floor input; this pins that a
+    // shallow-but-wet result renders as a value, not as dry ground.
+    it('reports a shallow wet cell (below any display floor) as a value, with no dry row', () => {
+        ReactDOM.render(<PlaybackIdentifyReadoutComponent result={{ located: true, depth: 0.05, speed: 0.1, wet: true, surface: 'vertex-smoothed' }} />, container);
+        expect(container.querySelector('[data-testid="playback-identify-dry"]')).toBe(null);
+        expect(container.querySelector('[data-testid="playback-identify-depth"]').textContent).toInclude('0.05');
+    });
+
     it('shows the dry-ground note when wet=false', () => {
         ReactDOM.render(<PlaybackIdentifyReadoutComponent result={{ located: true, depth: 0, speed: 0, wet: false, surface: 'vertex-smoothed' }} />, container);
         expect(container.querySelector('[data-testid="playback-identify-dry"]')).toBeTruthy();

@@ -29,7 +29,7 @@
  * ahead of data that hasn't arrived ("no stream and hope").
  */
 import { computeMixFactor } from './playbackMeshGeometry';
-import { availableQuantityIds, availableEnvelopeQuantityIds } from './playbackDerivedQuantities';
+import { availableQuantityIds, availableEnvelopeQuantityIds, QUANTITY_META } from './playbackDerivedQuantities';
 import { isUsableChunkLength } from './playbackChunkShape';
 // TASK-2744 AC11 — the overlay knobs' defaults, now that they are controller
 // state rather than the control bar's component-local state.
@@ -58,6 +58,7 @@ import {
     PLAYBACK_SET_BACKGROUND_OPACITY,
     PLAYBACK_SET_OVERLAY,
     PLAYBACK_SET_COLOR_MAX,
+    PLAYBACK_SET_COLOR_FLOOR,
     PLAYBACK_MANIFEST_FETCHED,
     PLAYBACK_LOAD_PROGRESS,
     PLAYBACK_SET_ENVELOPE_MODE,
@@ -371,6 +372,10 @@ export function createInitialPlaybackState() {
         // upper bound; {} means "use the store-derived maximum for every
         // quantity". Keyed by quantity so metres never leak onto m/s.
         colorMaxOverride: {},
+        // TASK-3076 — the ceiling's pair: per-quantity colour-scale FLOOR, {}
+        // means "no floor anywhere". Stored as typed; isColorFloorActive
+        // decides whether it takes effect. Session-only, like the ceiling.
+        colorFloorOverride: {},
         // TASK-2744 AC11 — the flow-viz / particle overlay knobs, promoted out
         // of the bar's component-local state for the same reason wireframe was
         // (TASK-2656d): the bar is UNMOUNTED whenever the SimpleView menu
@@ -658,6 +663,39 @@ export function colorMaxForQuantity(quantity, quantization, context = {}) {
         return velocityAbsMax(quantization);
     }
     return depthValidMax(quantization);
+}
+
+/**
+ * TASK-3076 — does the reader's colour-scale FLOOR take effect for this
+ * quantity? THE ONE PREDICATE: the epic's baseProps (what is drawn), the
+ * legend and the drawer table (what the UI claims) all call this and nothing
+ * else compares a floor to anything — the ceiling grill of 2026-08-13 found
+ * two predicates drift, and this pair is built so they cannot.
+ *
+ * Active iff the quantity is NON-DISCRETE and the floor sits STRICTLY inside
+ * the display range, colorMin < floor < colorMax. Discreteness is checked
+ * explicitly because HAZARD_COLOR_MAX is finite, so a bare range test would
+ * be TRUE for hazard's H1-H6 classes. A floor at or below the ramp minimum
+ * (depth 0, stage's elevationMin) is not a cut; one at or above the ceiling
+ * would hide everything. Either is stored but inert, and the UI shows it so.
+ *
+ * @param {string} quantity
+ * @param {object|null} quantization manifest.quantization (colorMax needs it)
+ * @param {{elevationMin?: number, elevationMax?: number, colorMaxOverride?: number, colorFloorOverride?: number}} [context]
+ * @returns {boolean}
+ */
+export function isColorFloorActive(quantity, quantization, context = {}) {
+    const meta = QUANTITY_META[quantity];
+    if (!meta || meta.discrete) {
+        return false;
+    }
+    const floor = context && context.colorFloorOverride;
+    if (floor === null || floor === undefined || floor === '' || !isFinite(floor)) {
+        return false;
+    }
+    const value = Number(floor);
+    return value > colorMinForQuantity(quantity, context)
+        && value < colorMaxForQuantity(quantity, quantization, context);
 }
 
 function requiredWindowFor(state, currentTimestep) {
@@ -1336,6 +1374,18 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             next[quantity] = Number(action.value);
         }
         return { ...state, colorMaxOverride: next };
+    }
+    // TASK-3076 — per-quantity colour-scale floor; null/undefined or a
+    // non-finite value CLEARS that quantity's floor only.
+    case PLAYBACK_SET_COLOR_FLOOR: {
+        const quantity = action.quantity || state.quantity;
+        const next = { ...(state.colorFloorOverride || {}) };
+        if (action.value === null || action.value === undefined || !isFinite(action.value)) {
+            delete next[quantity];
+        } else {
+            next[quantity] = Number(action.value);
+        }
+        return { ...state, colorFloorOverride: next };
     }
     // TASK-2752 AC6 — the Max toggle itself. A no-op when the requested
     // state has no envelope to show (hasEnvelopeForQuantity false): the

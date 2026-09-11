@@ -123,6 +123,7 @@ import {
     colorMaxForQuantity,
     colorMinForQuantity,
     isColorMaxOverridden,
+    isColorFloorActive,
     DEFAULT_PLAYBACK_OPACITY,
     DEFAULT_PLAYBACK_BACKGROUND_OPACITY
 } from '../playbackController';
@@ -143,6 +144,7 @@ import {
     PLAYBACK_SET_BACKGROUND_OPACITY,
     PLAYBACK_SET_OVERLAY,
     PLAYBACK_SET_COLOR_MAX,
+    PLAYBACK_SET_COLOR_FLOOR,
     PLAYBACK_SET_ENVELOPE_MODE,
     PLAYBACK_ENVELOPE_LOADED,
     playbackManifestLoaded,
@@ -1043,6 +1045,9 @@ export function playbackSyncLayerEpic(action$, store) {
         PLAYBACK_SET_BACKGROUND_OPACITY,
         PLAYBACK_SET_OVERLAY,
         PLAYBACK_SET_COLOR_MAX,
+        // TASK-3076 — the floor, for exactly the reason SET_COLOR_MAX is here:
+        // it is edited in the drawer, which is worked while PAUSED.
+        PLAYBACK_SET_COLOR_FLOOR,
         // TASK-2752 — the Max toggle and its fetch landing are each their
         // own trigger for the SAME reason SET_WIREFRAME is: flipping either
         // while PAUSED has no other action to ride to the layer.
@@ -1064,7 +1069,9 @@ export function playbackSyncLayerEpic(action$, store) {
             elevationMax: pb.elevationMax,
             // TASK-2744 AC4 — the operator's ramp override for the ACTIVE
             // quantity, fed into the same shared derivation the legend uses.
-            colorMaxOverride: (pb.colorMaxOverride || {})[pb.quantity]
+            colorMaxOverride: (pb.colorMaxOverride || {})[pb.quantity],
+            // TASK-3076 — the floor, same per-quantity map, same context.
+            colorFloorOverride: (pb.colorFloorOverride || {})[pb.quantity]
         };
         const baseProps = {
             mesh: getLayerMesh(pb),
@@ -1077,6 +1084,12 @@ export function playbackSyncLayerEpic(action$, store) {
             // to absolute SLD values. Derived from the same predicate
             // colorMaxForQuantity uses, so the LUT and the uniform agree.
             colorRescaled: isColorMaxOverridden(pb.quantity, context),
+            // TASK-3076 — the colour-scale floor, in PHYSICAL units, or null
+            // when none takes effect. The ONE predicate is consumed HERE and
+            // nowhere else on the render path: the renderer maps null to
+            // uColorFloorActive = 0 and never re-derives the rule.
+            colorFloor: isColorFloorActive(pb.quantity, pb.quantization, context)
+                ? Number(context.colorFloorOverride) : null,
             // TASK-2744 AC3 — opacity is controller state now, so it is
             // re-asserted on every sync and survives a bar remount.
             opacity: pb.opacity,

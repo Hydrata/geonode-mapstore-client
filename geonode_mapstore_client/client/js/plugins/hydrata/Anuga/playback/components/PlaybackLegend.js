@@ -26,11 +26,12 @@ const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 
 import { QUANTITY_RAMPS, isRampNormalized, rampStopValues, formatRampValue } from '../playbackColormap';
+import { translateOr } from '../playbackI18n';
 import { QUANTITY_META } from '../playbackDerivedQuantities';
-import { colorMaxForQuantity, colorMinForQuantity, isColorMaxOverridden } from '../playbackController';
+import { colorMaxForQuantity, colorMinForQuantity, isColorMaxOverridden, isColorFloorActive } from '../playbackController';
 import MovablePanel from '../../../shared/components/MovablePanel';
 import { setMovablePanelState } from '../../actions/uiActions';
-import { playbackSetLegendOpen, playbackSetColorMax } from '../actions/playbackActions';
+import { playbackSetLegendOpen, playbackSetColorMax, playbackSetColorFloor } from '../actions/playbackActions';
 import EditableCeiling from './EditableCeiling';
 
 export const PLAYBACK_LEGEND_PANEL_ID = 'playbackLegend';
@@ -60,19 +61,40 @@ export class PlaybackLegendComponent extends React.Component {
         // TASK-2751 — the ceiling is editable HERE too, from the number the
         // reader is already looking at.
         onSetColorMax: PropTypes.func,
+        // TASK-3076 — the floor: the STORED value for the ACTIVE quantity (or
+        // undefined), edited from the same row. Whether it takes effect is
+        // playbackController.isColorFloorActive's call, made below.
+        colorFloorOverride: PropTypes.number,
+        onSetColorFloor: PropTypes.func,
         // TASK-2752 AC6 — "the legend states this is the run maximum, not a
         // timestep" while Max is on.
         envelopeMode: PropTypes.bool
     };
 
+    // Legacy context, as EditableCeiling and the control bar use: the karma
+    // specs mount this component bare, where <Message> would render its msgId
+    // and this.tr falls back to English.
+    static contextTypes = { messages: PropTypes.object };
+
+    tr(msgId, fallback) {
+        return translateOr(this.context && this.context.messages, msgId, fallback);
+    }
+
     render() {
-        const { quantity, quantization, elevationMin, elevationMax, colorMaxOverride, onSetColorMax, envelopeMode } = this.props;
+        const {
+            quantity, quantization, elevationMin, elevationMax, colorMaxOverride, onSetColorMax, envelopeMode,
+            colorFloorOverride, onSetColorFloor
+        } = this.props;
         const ramp = QUANTITY_RAMPS[quantity] || QUANTITY_RAMPS.depth;
         const meta = QUANTITY_META[quantity] || QUANTITY_META.depth;
         const titleId = QUANTITY_TITLE_ID[quantity] || QUANTITY_TITLE_ID.depth;
-        const context = { elevationMin, elevationMax, colorMaxOverride };
+        const context = { elevationMin, elevationMax, colorMaxOverride, colorFloorOverride };
         const colorMax = colorMaxForQuantity(quantity, quantization, context);
         const colorMin = colorMinForQuantity(quantity, context);
+        // TASK-3076 — the ONE predicate. Drives the floor button's state, the
+        // muted stop rows and the "below X: hidden" row alike.
+        const floorActive = isColorFloorActive(quantity, quantization, context);
+        const floorValue = floorActive ? Number(colorFloorOverride) : null;
         // Hazard is CLASSED (H1-H6), not a continuous physical ramp — AC:
         // "the legend must render discrete classes" — every stop always
         // shows (no exceeds-cap note, no rescale note; the classification
@@ -138,6 +160,9 @@ export class PlaybackLegendComponent extends React.Component {
                             unit={meta.unit}
                             overridden={isColorMaxOverridden(quantity, context)}
                             onChange={onSetColorMax}
+                            floor={colorFloorOverride}
+                            floorActive={floorActive}
+                            onChangeFloor={onSetColorFloor}
                         />
                     </div>
                 )}
@@ -154,15 +179,27 @@ export class PlaybackLegendComponent extends React.Component {
                            the stop's stable identity across every ceiling —
                            while the label carries the value it stands for at
                            the current range. They coincide unless the reader
-                           has set a ceiling. */
+                           has set a ceiling.
+                           TASK-3076 AC9 — a stop below an ACTIVE floor keeps
+                           its swatch and its label (the ramp above the floor
+                           is unchanged) and is only MUTED by class. */
                         visibleStops.slice().reverse().map((stop) => (
-                            <li className="sv-playback-legend-row" key={stop.quantity} data-testid={`playback-legend-row-${stop.quantity}`}>
+                            <li className={`sv-playback-legend-row${floorValue !== null && stop.value < floorValue ? ' is-below-floor' : ''}`} key={stop.quantity} data-testid={`playback-legend-row-${stop.quantity}`}>
                                 <span className="sv-playback-legend-swatch" style={{ backgroundColor: `rgb(${stop.color.join(',')})` }} aria-hidden="true" />
                                 <span className="sv-playback-legend-label">{formatRampValue(stop.value)} {meta.unit}{stop.quantity === topStop.quantity ? '+' : ''}</span>
                             </li>
                         ))
                     )}
                 </ul>
+                {/* TASK-3076 AC9 — the floor, stated below the stops it cuts
+                    under. "hidden", NOT "not drawn"/"dry": with a tinted dry
+                    sheet those pixels ARE drawn, in the sheet's colour. */}
+                {floorValue !== null ? (
+                    <div className="sv-playback-legend-note sv-playback-legend-floor-row" data-testid="playback-legend-floor-row">
+                        {this.tr('hydrata.playback.legendBelowFloorHidden', 'below {floor} {unit}: hidden')
+                            .replace('{floor}', formatRampValue(floorValue)).replace('{unit}', meta.unit)}
+                    </div>
+                ) : null}
                 {exceedsSld ? (
                     <div className="sv-playback-legend-note" data-testid="playback-legend-exceeds-sld">
                         <Message msgId="hydrata.playback.legendExceedsSld" msgParams={{ colorMax: formatRampValue(colorMax), unit: meta.unit }} />
@@ -190,13 +227,18 @@ const mapStateToPropsLegend = (state) => ({
     // the legend and the mesh can never disagree about the active range.
     colorMaxOverride: state.anugaPlayback
         && (state.anugaPlayback.colorMaxOverride || {})[(state.anugaPlayback.quantity) || 'depth'],
+    // TASK-3076 — the floor, same per-quantity map, same derivation.
+    colorFloorOverride: state.anugaPlayback
+        && (state.anugaPlayback.colorFloorOverride || {})[(state.anugaPlayback.quantity) || 'depth'],
     envelopeMode: !!(state.anugaPlayback && state.anugaPlayback.envelopeMode)
 });
 
 export const PlaybackLegendConnected = connect(mapStateToPropsLegend, {
     // TASK-2751 — the ceiling row commits through the same per-quantity action
     // the control bar uses, so the bar chip and the legend row cannot disagree.
-    onSetColorMax: playbackSetColorMax
+    onSetColorMax: playbackSetColorMax,
+    // TASK-3076 — and the floor likewise.
+    onSetColorFloor: playbackSetColorFloor
 })(PlaybackLegendComponent);
 
 function defaultLegendPosition() {

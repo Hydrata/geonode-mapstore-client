@@ -235,6 +235,53 @@ describe('AnugaPlaybackLayer', () => {
             expect(layer.get('backgroundOpacity')).toBe(0.4);
         });
 
+        /*
+         * TASK-3076 (AC6) — the colour-scale floor. Three chokepoints between
+         * the epic's baseProps and the renderer (constructor set, update() diff,
+         * render-hook get); a prop missing from any one is silently dropped and
+         * the live map never hides a cell while karma stays green. `null` is the
+         * "no floor" value and must survive as null — the `=== undefined` guard,
+         * never `|| fallback`.
+         */
+        it('carries colorFloor through create() and update(), and null clears it', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-floor', colorFloor: 0.1 });
+            expect(layer.get('colorFloor')).toBe(0.1);
+
+            const set = { id: 'playback-floor', colorFloor: 0.1 };
+            const cleared = { id: 'playback-floor', colorFloor: null };
+            Layers.updateLayer(LAYER_TYPE, layer, cleared, set);
+            expect(layer.get('colorFloor')).toBe(null, 'null must clear the floor, not fall back to the old value');
+
+            Layers.updateLayer(LAYER_TYPE, layer, set, cleared);
+            expect(layer.get('colorFloor')).toBe(0.1);
+
+            // a stage floor is in datum metres and can be negative — and 0 is a value, not "unset"
+            const negative = { id: 'playback-floor', colorFloor: -3.5 };
+            Layers.updateLayer(LAYER_TYPE, layer, negative, set);
+            expect(layer.get('colorFloor')).toBe(-3.5);
+            const zero = { id: 'playback-floor', colorFloor: 0 };
+            Layers.updateLayer(LAYER_TYPE, layer, zero, negative);
+            expect(layer.get('colorFloor')).toBe(0);
+        });
+
+        it('defaults colorFloor to null — no floor means today\'s render', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-floor-default' });
+            expect(layer.get('colorFloor')).toBe(null);
+        });
+
+        it('the render hook hands colorFloor to the renderer verbatim (null when unset)', () => {
+            const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-floor-render', colorFloor: 0.25 });
+            const renderer = layer.__anugaPlaybackRenderer;
+            const seen = [];
+            const original = renderer.render;
+            renderer.render = (params) => { seen.push(params.colorFloor); return original.call(renderer, params); };
+            const frameState = { viewState: { center: [0, 0], resolution: 100, rotation: 0 }, size: [200, 150], pixelRatio: 1 };
+            layer.render(frameState, null);
+            Layers.updateLayer(LAYER_TYPE, layer, { id: 'playback-floor-render', colorFloor: null }, { id: 'playback-floor-render', colorFloor: 0.25 });
+            layer.render(frameState, null);
+            expect(seen).toEqual([0.25, null]);
+        });
+
         it('defaults backgroundOpacity to 0 — the dry ground starts transparent', () => {
             const layer = Layers.createLayer(LAYER_TYPE, { id: 'playback-bg-default' });
             expect(layer.get('backgroundOpacity')).toBe(0);

@@ -3202,28 +3202,37 @@ span.sv-scenario-run-price--short {
     padding: 5px 8px;
 }
 
-/* ── EditableCeiling (TASK-2751) ───────────────────────────────────────────
-   The colour-scale ceiling. NOT called "max" anywhere visible — epic 2706
-   reserves that word for the temporal-max envelope (TASK-2752). */
-/* FIXED WIDTH, and this is the point of it: the value button and the number
-   input that replaces it are the same size, and the reset affordance's slot is
-   reserved whether or not it is occupied. Measured on map 1461 before the
-   width was pinned, clicking the ceiling to edit it moved the scrubber by
-   10px — small, but the exact class of involuntary reflow this card exists to
-   remove. A long value ("≤ 512.7 Pa") is the sizing case. */
-.sv-playback-ceiling {
+/* ── EditableCeiling (TASK-2751, TASK-3076) ────────────────────────────────
+   The colour-scale ceiling, and since TASK-3076 its FLOOR, as ONE range row:
+   `≥ 0.1 m … ≤ 1.5 m`, two click targets joined by a static ellipsis. NOT
+   called "max" (epic 2706 reserves that for the temporal-max envelope,
+   TASK-2752) nor "min" anywhere visible.
+
+   The 118 px / 92 px fixed widths TASK-2751 pinned here are gone. They were
+   for the removed bar chip (both surviving mounts overrode the wrapper to
+   `width: auto` already), and a range needs ~115 px at 12 px, so a 92 px
+   button clipped it to an ellipsis. Neither mount is width-critical: the
+   legend has room, and the drawer lives inside a card whose width is
+   viewport-derived (`.sv-playback-bar`), so nothing here can move the
+   transport row. */
+.sv-playback-ceiling,
+.sv-playback-range {
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
     gap: 4px;
-    flex: 0 0 118px;
-    width: 118px;
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+}
+.sv-playback-range-sep {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    font-size: 12px;
+    padding: 0 1px;
 }
 .sv-playback-ceiling-value {
-    width: 92px;
+    width: auto;
     text-align: right;
-    overflow: hidden;
-    text-overflow: ellipsis;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
     border: 1px solid rgba(255, 255, 255, 0.28);
     color: inherit;
@@ -3242,12 +3251,20 @@ span.sv-scenario-run-price--short {
     border-color: var(--sv-accent-lime, #cae33b);
     color: var(--sv-accent-lime, #cae33b);
 }
+/* TASK-3076 — a floor that is STORED but takes no effect (above the ceiling,
+   or at/below the ramp minimum): shown, muted and struck through, with its
+   reset still offered, so the reader can see it and remove it. */
+.sv-playback-ceiling-value.is-inert {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    border-style: dashed;
+    text-decoration: line-through;
+}
 .sv-playback-ceiling-value:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
 .sv-playback-ceiling-input {
-    width: 92px;
+    width: 72px;
     background: var(--sv-input-bg, rgba(255, 255, 255, 0.06));
     border: 1px solid var(--sv-accent-lime, #cae33b);
     color: inherit;
@@ -3338,13 +3355,6 @@ span.sv-scenario-run-price--short {
     font-size: 10px;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     white-space: nowrap;
-}
-
-/* The legend has room to breathe; only the bar is width-critical. */
-.sv-playback-legend-ceiling .sv-playback-ceiling,
-.sv-playback-ceiling-row .sv-playback-ceiling {
-    flex: 0 0 auto;
-    width: auto;
 }
 
 /* The legend's own ceiling row — same component, above the swatch list. */
@@ -3704,6 +3714,14 @@ span.sv-scenario-run-price--short {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.8);
     font-variant-numeric: tabular-nums;
+}
+/* TASK-3076 AC9 — stops under an active floor keep their swatch and label
+   (the ramp above the floor is unchanged) and are only muted. */
+.sv-playback-legend-row.is-below-floor {
+    opacity: 0.45;
+}
+.sv-playback-legend-row.is-below-floor .sv-playback-legend-label {
+    text-decoration: line-through;
 }
 .sv-playback-legend-note {
     font-size: 10px;

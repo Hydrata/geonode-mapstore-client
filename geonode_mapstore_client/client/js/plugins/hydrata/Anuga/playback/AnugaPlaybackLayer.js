@@ -254,6 +254,10 @@ function create(options = {}, map) {
                 // quantity's ceiling, so the ramp stretches to fill it rather
                 // than staying pinned to absolute SLD values.
                 colorRescaled: !!olLayer.get('colorRescaled'),
+                // TASK-3076 — the colour-scale floor in physical units, or
+                // null. Read with the `=== undefined` guard, never `||`: 0 and
+                // a negative stage floor are values, and null is "no floor".
+                colorFloor: olLayer.get('colorFloor') === undefined ? null : olLayer.get('colorFloor'),
                 // TASK-2629 (W4.1) — the store's OWN minimum_storable_height/
                 // g/rho_w, never a hardcoded guess; the 1e-5/9.8/1000 fallbacks
                 // below only cover a caller that never set these (e.g. a karma
@@ -298,6 +302,7 @@ function create(options = {}, map) {
     olLayer.set('colorMax', options.colorMax || 1);
     olLayer.set('colorMin', options.colorMin || 0);
     olLayer.set('colorRescaled', !!options.colorRescaled);
+    olLayer.set('colorFloor', options.colorFloor === undefined ? null : options.colorFloor);
     olLayer.set('backgroundOpacity', options.backgroundOpacity === undefined ? 0 : options.backgroundOpacity);
     olLayer.set('wetThreshold', options.wetThreshold || 1e-5);
     olLayer.set('g', options.g || 9.8);
@@ -409,6 +414,9 @@ function update(layer, newOptions, oldOptions, map) {
     }
     if (!newOptions.colorRescaled !== !oldOptions.colorRescaled) {
         layer.set('colorRescaled', !!newOptions.colorRescaled);
+    }
+    if (newOptions.colorFloor !== oldOptions.colorFloor) {
+        layer.set('colorFloor', newOptions.colorFloor === undefined ? null : newOptions.colorFloor);
     }
     if (newOptions.backgroundOpacity !== oldOptions.backgroundOpacity) {
         layer.set('backgroundOpacity', newOptions.backgroundOpacity === undefined ? 0 : newOptions.backgroundOpacity);

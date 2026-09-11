@@ -52,6 +52,8 @@ import {
     MIN_SPEED,
     colorMaxForQuantity,
     isColorMaxOverridden,
+    // TASK-3076 — the floor's ONE predicate; this bar never compares a floor.
+    isColorFloorActive,
     clampSpeed,
     simulatedSpanSeconds,
     // TASK-2752 (AC6) — the one predicate the reducer, the epic and this bar
@@ -80,6 +82,7 @@ import {
     playbackSetBackgroundOpacity,
     playbackSetOverlay,
     playbackSetColorMax,
+    playbackSetColorFloor,
     playbackSetEnvelopeMode
 } from '../actions/playbackActions';
 
@@ -457,6 +460,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         onSetBackgroundOpacity: PropTypes.func,
         onSetOverlay: PropTypes.func,
         onSetColorMax: PropTypes.func,
+        // TASK-3076 — the colour-scale floor, edited in the same drawer row.
+        onSetColorFloor: PropTypes.func,
         onSetEnvelopeMode: PropTypes.func
     };
 
@@ -764,10 +769,15 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
         const rows = availableQuantityIds(playback.hasDt).map((id) => {
             const meta = QUANTITY_META[id] || QUANTITY_META.depth;
             const override = (playback.colorMaxOverride || {})[id];
+            // TASK-3076 — the floor rides the SAME context object (extended,
+            // not duplicated), so the ceiling and the floor of one row are
+            // always judged against the same range.
+            const floorOverride = (playback.colorFloorOverride || {})[id];
             const ceilingContext = {
                 elevationMin: playback.elevationMin,
                 elevationMax: playback.elevationMax,
-                colorMaxOverride: override
+                colorMaxOverride: override,
+                colorFloorOverride: floorOverride
             };
             const effective = colorMaxForQuantity(id, playback.quantization, ceilingContext);
             return (
@@ -803,6 +813,9 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             unit={meta.unit}
                             overridden={isColorMaxOverridden(id, ceilingContext)}
                             onChange={this.props.onSetColorMax}
+                            floor={floorOverride}
+                            floorActive={isColorFloorActive(id, playback.quantization, ceilingContext)}
+                            onChangeFloor={this.props.onSetColorFloor}
                         />
                     )}
                 </li>
@@ -1538,6 +1551,8 @@ const mapDispatchToProps = {
     onSetBackgroundOpacity: playbackSetBackgroundOpacity,
     onSetOverlay: playbackSetOverlay,
     onSetColorMax: playbackSetColorMax,
+    // TASK-3076 — the colour-scale floor, the ceiling's pair.
+    onSetColorFloor: playbackSetColorFloor,
     // TASK-2752 (AC6) — the Max toggle.
     onSetEnvelopeMode: playbackSetEnvelopeMode
 };

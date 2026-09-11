@@ -194,6 +194,22 @@ describe('Playback bar layout — TASK-2751', () => {
             expect(q('anuga-playback-ceiling-depth-input')).toBeTruthy();
             expect(transportChildTestids()).toEqual(atRest);
         });
+
+        // TASK-3076 AC8 — the floor is edited in the same row; the transport
+        // row's child list is as invariant to it as it is to the ceiling.
+        it('is identical while a floor is being edited in the drawer', () => {
+            render({ playback: readyState() });
+            const atRest = transportChildTestids();
+            TestUtils.Simulate.click(q('anuga-playback-display-toggle'));
+            TestUtils.Simulate.click(q('anuga-playback-ceiling-depth-floor'));
+            expect(q('anuga-playback-ceiling-depth-floor-input')).toBeTruthy();
+            expect(transportChildTestids()).toEqual(atRest);
+            // and with a floor STORED (active or inert) the row is still the same
+            render({ playback: readyState({ colorFloorOverride: { depth: 0.1 } }) });
+            expect(transportChildTestids()).toEqual(atRest);
+            render({ playback: readyState({ colorMaxOverride: { depth: 1.5 }, colorFloorOverride: { depth: 2 } }) });
+            expect(transportChildTestids()).toEqual(atRest);
+        });
     });
 
     describe('AC3 — the result-quantity picker is on the primary path', () => {
@@ -512,23 +528,39 @@ describe('Playback fallback message — TASK-2986', () => {
         // files under hydrata-translations/ carry hydrata.playback.*; the
         // sibling gn-translations/ and ms-translations/ are upstream.
         const LOCALES = { 'en-US': enUS, 'es-ES': esES, 'fr-FR': frFR, 'ht-HT': htHT };
+        // Each entry is a key PATH under hydrata.playback — one segment for a
+        // flat key, two for a grouped one.
         const REQUIRED = [
             ['status', 'fallback'],
             ['fallback', 'mesh'], ['fallback', 'budget'],
             ['fallback', 'envelopeShown'], ['fallback', 'noEnvelope'],
             ['budgetSource', 'default'], ['budgetSource', 'heapDevice'],
             ['budgetSource', 'partial'], ['budgetSource', 'smallDevice'],
-            ['budgetSource', 'phoneClass'], ['budgetSource', 'unknown']
+            ['budgetSource', 'phoneClass'], ['budgetSource', 'unknown'],
+            // TASK-3076 — the colour-scale floor and the legend's hidden row.
+            ['floor'], ['floorTooltip'], ['floorReset'], ['floorInert'],
+            ['legendBelowFloorHidden']
         ];
         Object.keys(LOCALES).forEach((locale) => {
             const messages = LOCALES[locale].messages || LOCALES[locale];
             const playback = messages.hydrata.playback;
-            REQUIRED.forEach(([group, key]) => {
-                const value = playback[group] && playback[group][key];
-                expect(`${locale}.${group}.${key}=${typeof value}`).toBe(`${locale}.${group}.${key}=string`);
-                expect(`${locale}.${group}.${key} nonEmpty=${!!(value && value.trim())}`)
-                    .toBe(`${locale}.${group}.${key} nonEmpty=true`);
+            REQUIRED.forEach((path) => {
+                const value = path.reduce((node, key) => (node ? node[key] : undefined), playback);
+                const name = path.join('.');
+                expect(`${locale}.${name}=${typeof value}`).toBe(`${locale}.${name}=string`);
+                expect(`${locale}.${name} nonEmpty=${!!(value && value.trim())}`)
+                    .toBe(`${locale}.${name} nonEmpty=true`);
             });
+            // TASK-3076 — the floor is never called "min"/"minimum" (nor "max",
+            // the temporal envelope's word) in ANY locale: fr 'plancher', es
+            // 'piso', ht 'planche', never 'minimum'/'mínimo'.
+            ['floor', 'floorTooltip', 'floorReset', 'floorInert', 'legendBelowFloorHidden'].forEach((key) => {
+                const lower = String(playback[key]).toLowerCase();
+                expect(`${locale}.${key} says min: ${lower.indexOf('min') !== -1}`).toBe(`${locale}.${key} says min: false`);
+                expect(`${locale}.${key} says max: ${lower.indexOf('max') !== -1}`).toBe(`${locale}.${key} says max: false`);
+            });
+            expect(`${locale} legendBelowFloorHidden has {floor}=${playback.legendBelowFloorHidden.indexOf('{floor}') !== -1}`)
+                .toBe(`${locale} legendBelowFloorHidden has {floor}=true`);
             // the two substituted messages must keep their placeholders in
             // EVERY language, or the translated string renders a bare sentence
             // with the numbers silently dropped.

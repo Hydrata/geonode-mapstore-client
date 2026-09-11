@@ -429,6 +429,53 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             expect(chip.textContent).toNotInclude('16.9');
         });
 
+        /* TASK-3076 AC7/AC8 — the FLOOR beside the ceiling in the drawer's
+           per-quantity table. Same range row the legend mounts; the drawer's
+           context is extended (not duplicated) with colorFloorOverride, and
+           whether a floor is active is playbackController.isColorFloorActive's
+           call, never this component's. */
+        describe('colour-scale floor in the drawer table (TASK-3076)', () => {
+            it('every non-discrete row has a floor button; hazard shows the fixed-classes text instead', () => {
+                render({ playback: loadedState({ quantity: 'depth', hasDt: true }) });
+                ['depth', 'speed', 'stage', 'div', 'froude', 'shear', 'courant'].forEach((id) => {
+                    expect(container.querySelector(`[data-testid="anuga-playback-ceiling-${id}-floor"]`)).toBeTruthy(`${id} floor`);
+                    expect(container.querySelector(`[data-testid="anuga-playback-ceiling-${id}"]`)).toBeTruthy(`${id} ceiling`);
+                });
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-hazard-floor"]')).toBe(null);
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-hazard"]')).toBe(null);
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-row-hazard"]').textContent).toInclude('H1');
+            });
+
+            it('commits onSetColorFloor against the row it was edited on', () => {
+                const onSetColorFloor = expect.createSpy();
+                render({ playback: loadedState({ quantity: 'depth' }), onSetColorFloor });
+                const chip = container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor"]');
+                TestUtils.Simulate.click(chip);
+                const input = container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor-input"]');
+                TestUtils.Simulate.change(input, { target: { value: '50' } });
+                TestUtils.Simulate.keyDown(input, { key: 'Enter' });
+                expect(onSetColorFloor.calls.length).toBe(1);
+                expect(onSetColorFloor.calls[0].arguments).toEqual(['shear', 50]);
+            });
+
+            it('is per-quantity: a stored shear floor leaves depth\'s row unset', () => {
+                const quantization = { depth: { valid_max: 16.862720489501953 } };
+                render({ playback: loadedState({ quantity: 'depth', quantization, colorFloorOverride: { shear: 50 } }) });
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor"]').textContent).toBe('≥ 50 Pa');
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor"]').className).toInclude('is-override');
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor"]').textContent).toBe('≥ —');
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor-reset"]')).toBe(null);
+            });
+
+            it('an inert floor (above that row\'s ceiling) is muted in the drawer too', () => {
+                const quantization = { depth: { valid_max: 16.862720489501953 } };
+                render({ playback: loadedState({ quantity: 'depth', quantization, colorMaxOverride: { depth: 1.5 }, colorFloorOverride: { depth: 2 } }) });
+                const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor"]');
+                expect(chip.className).toInclude('is-inert');
+                expect(container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor-reset"]')).toBeTruthy();
+            });
+        });
+
         it('after a reset the component returns to IDLE and shows the manifest loader again', () => {
             render({ playback: loadedState() });
             expect(container.querySelector('[data-testid="anuga-playback-manifest-input"]')).toBe(null);

@@ -81,6 +81,7 @@ import {
     PLAYBACK_SET_ENVELOPE_MODE,
     PLAYBACK_ENVELOPE_LOADED,
     playbackSetEnvelopeMode,
+    playbackSetColorFloor,
     PLAYBACK_FALLBACK,
     playbackFallback,
     playbackSeek,
@@ -1619,6 +1620,108 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next(playbackTick(1));
+        });
+
+        /*
+         * TASK-3076 (AC3/AC4/AC6) — the colour-scale FLOOR reaches the layer
+         * through the SAME baseProps, gated by the ONE predicate: the epic
+         * passes `colorFloor: isColorFloorActive(...) ? floor : null`, so the
+         * renderer maps null -> uColorFloorActive 0 and never re-derives the
+         * rule. SET_COLOR_FLOOR must be a trigger of its own for the same
+         * reason SET_COLOR_MAX is: the drawer is worked while PAUSED.
+         */
+        describe('colour-scale floor (TASK-3076)', () => {
+            function floorPb(runId, extra) {
+                const mesh = { nodeX: new Float32Array(FIXTURE_MESH.nNode), nodeY: new Float32Array(FIXTURE_MESH.nNode) };
+                return {
+                    ...createInitialPlaybackState(),
+                    runId, layerId: `layer-${runId}`, manifest: FIXTURE_MANIFEST, mesh,
+                    nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
+                    currentTimestep: 2, quantity: 'depth', quantization: FIXTURE_MANIFEST.quantization,
+                    ...extra
+                };
+            }
+
+            it('AC6 — with no floor, colorFloor is null and every EXISTING key is unchanged', (done) => {
+                const restore = stubGlobalFetch(fixtureFetchHandler);
+                fetcherRegistry.set(301, new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler }));
+                const pb = floorPb(301);
+                const { subject, action$ } = makeActionsSubject();
+                playbackSyncLayerEpic(action$, makeStore(pb)).subscribe((a) => {
+                    restore();
+                    try {
+                        expect('colorFloor' in a.options).toBe(true, 'the key is always present');
+                        expect(a.options.colorFloor).toBe(null);
+                        // the pre-existing contract, key by key
+                        expect(a.options.colorMode).toBe('depth');
+                        expect(a.options.colorMax).toBe(FIXTURE_MANIFEST.quantization.depth.valid_max);
+                        expect(a.options.colorMin).toBe(0);
+                        expect(a.options.colorRescaled).toBe(false);
+                        expect(a.options.opacity).toBe(pb.opacity);
+                        expect(a.options.backgroundOpacity).toBe(pb.backgroundOpacity);
+                        expect(a.options.wireframe).toBe(false);
+                        expect(a.options.envelopeMode).toBe(false);
+                        expect(a.options.envelopeData).toBe(null);
+                        expect(a.options.wetThreshold).toBe(pb.wetThreshold);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }, done);
+                subject.next(playbackTick(1));
+            });
+
+            it('AC3 — SET_COLOR_FLOOR alone (no tick) re-syncs the layer, exactly as SET_COLOR_MAX does', (done) => {
+                const restore = stubGlobalFetch(fixtureFetchHandler);
+                fetcherRegistry.set(302, new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler }));
+                // fixture depth valid_max is 0.36 m, so a 0.1 m floor is inside the range
+                const pb = floorPb(302, { colorFloorOverride: { depth: 0.1 } });
+                const { subject, action$ } = makeActionsSubject();
+                playbackSyncLayerEpic(action$, makeStore(pb)).subscribe((a) => {
+                    restore();
+                    try {
+                        expect(a.type).toBe(MERGE_OPTIONS_BY_ID);
+                        expect(a.options.colorFloor).toBe(0.1);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }, done);
+                // the ONLY action fired — no playbackTick
+                subject.next(playbackSetColorFloor('depth', 0.1));
+            });
+
+            it('AC4 — an INERT floor (above the ceiling / on another quantity) reaches the layer as null', (done) => {
+                const restore = stubGlobalFetch(fixtureFetchHandler);
+                fetcherRegistry.set(303, new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler }));
+                const seen = [];
+                const run = (pb, next) => {
+                    const { subject, action$ } = makeActionsSubject();
+                    playbackSyncLayerEpic(action$, makeStore(pb)).subscribe((a) => {
+                        seen.push(a.options);
+                        next();
+                    }, done);
+                    subject.next(playbackTick(1));
+                };
+                // floor 2.0 with a 1.5 ceiling -> inert
+                run(floorPb(303, { colorMaxOverride: { depth: 1.5 }, colorFloorOverride: { depth: 2.0 } }), () => {
+                    // ceiling raised to 3.0 -> the same stored floor becomes active
+                    run(floorPb(303, { colorMaxOverride: { depth: 3.0 }, colorFloorOverride: { depth: 2.0 } }), () => {
+                        // shear's floor while DISPLAYING depth -> depth is untouched
+                        run(floorPb(303, { colorFloorOverride: { shear: 50 } }), () => {
+                            restore();
+                            try {
+                                expect(seen[0].colorFloor).toBe(null, 'inert above the ceiling');
+                                expect(seen[1].colorFloor).toBe(2.0);
+                                expect(seen[2].colorFloor).toBe(null, 'per-quantity: shear\'s floor is not depth\'s');
+                                done();
+                            } catch (e) {
+                                done(e);
+                            }
+                        });
+                    });
+                });
+            });
         });
 
         it('reuses the SAME cloned layer-mesh object across repeated dispatches (does not defeat AnugaPlaybackLayer\'s own re-reproject reference check)', (done) => {
