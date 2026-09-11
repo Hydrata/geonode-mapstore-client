@@ -147,7 +147,9 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
         });
 
-        it('renders exactly one kebab trigger; opening it lists New / Duplicate / Archive / Delete in order', () => {
+        // TASK-3077 — New moved OUT of the kebab into the run-action strip;
+        // the kebab now lists the three scenario-scoped items only.
+        it('renders exactly one kebab trigger; opening it lists Duplicate / Archive / Delete in order (no New, TASK-3077)', () => {
             const s1 = makeScenario(21, 'Baseline');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
@@ -159,16 +161,17 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(strip.querySelectorAll('.sv-anuga-scenario-overflow-trigger').length).toBe(1);
             openKebab(container);
             const items = Array.prototype.slice.call(kebabMenu().querySelectorAll('[role="menuitem"]'));
-            expect(items.length).toBe(4);
-            expect(items[0].className).toInclude('sv-anuga-scenario-overflow-new');
-            expect(items[1].className).toInclude('sv-anuga-scenario-overflow-duplicate');
-            expect(items[2].className).toInclude('sv-anuga-scenario-overflow-archive');
-            expect(items[3].className).toInclude('sv-anuga-scenario-overflow-delete');
+            expect(items.length).toBe(3);
+            expect(items[0].className).toInclude('sv-anuga-scenario-overflow-duplicate');
+            expect(items[1].className).toInclude('sv-anuga-scenario-overflow-archive');
+            expect(items[2].className).toInclude('sv-anuga-scenario-overflow-delete');
+            expect(kebabMenu().querySelector('.sv-anuga-scenario-overflow-new')).toNotExist();
         });
 
-        it('the kebab itself is gated on canCreateScenario (viewer role never sees it — scenario-independent gate)', () => {
+        it('the kebab is gated on canCreateScenario (viewer role never sees it, even with a scenario selected)', () => {
             // Viewer role kills canCreateScenario.
-            const store = makeStore();
+            const s1 = makeScenario(21, 'Baseline');
+            const store = makeStore({scenariosArr: [s1]});
             const state = store.getState();
             state.anuga.projects.data.my_role = 'viewer';
             ReactDOM.render(
@@ -177,20 +180,38 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             );
             expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
         });
+
+        it('the kebab is hidden when no scenario is selected, even for a role that can create (TASK-3077)', () => {
+            const store = makeStore(); // editor role, no scenarios → no selectedScenario
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('#scenario-header-actions')).toExist();
+            expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
+        });
     });
 
     // ----------------------------------------------------------------
-    // + New Scenario menu item
+    // "New" button in the run-action strip (TASK-3077; was a kebab item)
     // ----------------------------------------------------------------
-    describe('+ New Scenario menu item', () => {
-        it('renders inside the kebab menu when canCreateScenario is true', () => {
+    describe('New button in the run-action strip (TASK-3077)', () => {
+        it('renders in #scenario-run-actions when canCreateScenario is true, and not for a viewer', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            openKebab(container);
-            expect(kebabMenu().querySelector('.sv-anuga-scenario-overflow-new')).toExist();
+            expect(container.querySelector('#scenario-run-actions .sv-scenario-action-new')).toExist();
+            ReactDOM.unmountComponentAtNode(container);
+
+            const viewerStore = makeStore();
+            viewerStore.getState().anuga.projects.data.my_role = 'viewer';
+            ReactDOM.render(
+                <Provider store={viewerStore}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('#scenario-run-actions .sv-scenario-action-new')).toNotExist();
         });
 
         it('is enabled + dispatches ADD_ANUGA_SCENARIO even with NO scenario selected (survives the empty project)', () => {
@@ -199,9 +220,12 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            openKebab(container);
-            const btn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-new');
+            const strip = container.querySelector('#scenario-run-actions');
+            expect(strip).toExist();
+            const btn = strip.querySelector('.sv-scenario-action-new');
             expect(btn.disabled).toBe(false);
+            // Alone in the strip: no run cluster without a scenario.
+            expect(strip.querySelector('.sv-scenario-run-cluster')).toNotExist();
             btn.click();
             const add = store.__actions().find(a => a?.type === 'ADD_ANUGA_SCENARIO');
             expect(add).toExist();
@@ -260,18 +284,19 @@ describe('anugaScenarioMenu — header strip wiring', () => {
     // Duplicate menu item (.sv-anuga-scenario-overflow-duplicate)
     // ----------------------------------------------------------------
     describe('Duplicate menu item', () => {
-        it('is disabled when no selectedScenario.id', () => {
+        // TASK-3077 — with no selection the whole kebab is hidden (every
+        // remaining item is scenario-scoped), so Duplicate is UNREACHABLE
+        // rather than rendered-disabled.
+        it('is unreachable when no selectedScenario.id (the kebab itself is hidden, TASK-3077)', () => {
             // Empty store → no selected.
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            openKebab(container);
-            const dupBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate');
-            expect(dupBtn).toExist();
-            expect(dupBtn.disabled).toBe(true);
-            expect(dupBtn.className).toInclude('disabled');
+            expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
+            expect(kebabMenu()).toNotExist();
+            expect(document.querySelector('.sv-anuga-scenario-overflow-duplicate')).toNotExist();
         });
 
         it('is enabled when a saved scenario is selected', () => {
@@ -305,19 +330,15 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(dialogAfter.className).toInclude('is-open');
         });
 
-        it('does not open the confirm dialog when disabled (no selected)', () => {
+        it('cannot open the confirm dialog with no selection — there is no Duplicate item to click (TASK-3077)', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            openKebab(container);
-            const dupBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate');
-            // .click() on a `disabled` button is a no-op in JSDOM (no event fires).
-            // Defensive: even if it did fire, the item's own onClick is gated on
-            // canDuplicateNow.
-            dupBtn.click();
+            expect(document.querySelector('.sv-anuga-scenario-overflow-duplicate')).toNotExist();
             const dialog = container.querySelector('.sv-anuga-scenario-confirm-dialog');
+            expect(dialog).toExist();
             expect(dialog.className).toNotInclude('is-open');
         });
     });
@@ -2419,9 +2440,9 @@ describe('anugaScenarioMenu — + New scenario moves the selection (TASK-3011)',
         ReactDOM.render(<Provider store={store}><AnugaScenarioMenu /></Provider>, container);
     }
 
+    // TASK-3077 — New lives in the run-action strip now, not the kebab.
     function clickNewScenario() {
-        openKebab(container);
-        kebabMenu().querySelector('.sv-anuga-scenario-overflow-new').click();
+        container.querySelector('#scenario-run-actions .sv-scenario-action-new').click();
     }
 
     function newestId(store) {

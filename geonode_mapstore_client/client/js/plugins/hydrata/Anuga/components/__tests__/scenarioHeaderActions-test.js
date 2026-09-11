@@ -66,15 +66,182 @@ describe('ScenarioHeaderActions (UAT #8)', () => {
         setTimeout(done);
     });
 
-    it('renders nothing when no scenario is selected', (done) => {
-        ReactDOM.render(
-            <ScenarioHeaderActions scenario={null} canEdit canRunScenario />,
-            container,
-            () => {
-                expect(container.querySelector('#scenario-run-actions')).toNotExist();
-                done();
-            }
-        );
+    // TASK-3077 — "New" moved OUT of the kebab (anugaScenarioOverflowMenu.js)
+    // into THIS strip as its LAST button: FILLED bsStyle=warning (the Retry
+    // precedent in this same strip), the row's shared fixed width, gated on
+    // canCreateScenario ONLY. Because the container auto-selects scenarios[0]
+    // whenever any exist, "no scenario selected" ≡ a zero-scenario project —
+    // so the strip must render New ALONE in that state, or New regresses to
+    // unreachable in every fresh project (TASK-2240 acceptance #4 kept it in
+    // the kebab for exactly that reason; the kebab is now hidden without a
+    // selection instead). Every pre-3077 spec below that asserts "Download is
+    // rightmost" omits canCreateScenario and therefore still holds verbatim.
+    describe('New button in the strip (TASK-3077)', () => {
+        const builtWithPackage = {
+            ...baseScenario, status: 'built',
+            latest_run: {id: 9, s3_package_url: 'https://x/y.zip'}
+        };
+
+        it('renders ONLY New when no scenario is selected', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={null} canEdit canRunScenario canCreateScenario />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    expect(strip).toExist();
+                    const buttons = strip.querySelectorAll('button');
+                    expect(buttons.length).toBe(1);
+                    expect(buttons[0].className).toInclude('sv-scenario-action-new');
+                    expect(buttons[0].className).toInclude('btn-warning');
+                    expect(strip.querySelector('.sv-scenario-run-cluster')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('renders nothing when no scenario is selected and canCreateScenario is false', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={null} canEdit canRunScenario canCreateScenario={false} />,
+                container,
+                () => {
+                    expect(container.querySelector('#scenario-run-actions')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('New is the LAST child of the strip, after Download', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={builtWithPackage}
+                    canEdit canRunScenario canCreateScenario
+                    hasCompleteResults
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    const newBtn = strip.querySelector('.sv-scenario-action-new');
+                    const dlBtn = strip.querySelector('.sv-scenario-action-download');
+                    expect(newBtn).toExist();
+                    expect(dlBtn).toExist();
+                    expect(strip.lastElementChild).toBe(newBtn);
+                    expect(newBtn.previousElementSibling).toBe(dlBtn);
+                    done();
+                }
+            );
+        });
+
+        it('New is still the last child when neither View Results nor Download renders', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'created'}}
+                    canEdit canRunScenario canCreateScenario
+                    hasCompleteResults={false}
+                />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    expect(strip.querySelector('.sv-scenario-action-download')).toNotExist();
+                    expect(strip.querySelector('.sv-anuga-btn-view-results')).toNotExist();
+                    expect(strip.lastElementChild.className).toInclude('sv-scenario-action-new');
+                    done();
+                }
+            );
+        });
+
+        it('New is a FILLED warning button (btn-warning + the row width class, NO outline modifier) labelled "New" with a "New Scenario" title/aria-label', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario canCreateScenario />,
+                container,
+                () => {
+                    const newBtn = container.querySelector('#scenario-run-actions .sv-scenario-action-new');
+                    expect(newBtn).toExist();
+                    expect(newBtn.tagName).toBe('BUTTON');
+                    expect(newBtn.className).toInclude('btn-warning');
+                    expect(newBtn.className).toInclude('sv-scenario-action-toolbar-btn');
+                    expect(newBtn.className).toNotInclude('sv-scenario-action-outline');
+                    // No intl provider in this harness: Message renders its msgId.
+                    expect(newBtn.textContent).toBe('hydrata.anuga.new');
+                    // tr() falls back to the English string on a locale miss.
+                    expect(newBtn.getAttribute('title')).toBe('New Scenario');
+                    expect(newBtn.getAttribute('aria-label')).toBe('New Scenario');
+                    done();
+                }
+            );
+        });
+
+        it('New is hidden when canCreateScenario is false, even with a scenario selected', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions scenario={baseScenario} canEdit canRunScenario canCreateScenario={false} />,
+                container,
+                () => {
+                    const strip = container.querySelector('#scenario-run-actions');
+                    expect(strip).toExist();
+                    expect(strip.querySelector('.sv-scenario-action-new')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('New renders ENABLED while a run is in flight and with canEdit/canRunScenario both false', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={{...baseScenario, status: 'running', latest_run: {id: 9, status: 'running'}}}
+                    canEdit={false} canRunScenario={false} canCreateScenario
+                />,
+                container,
+                () => {
+                    const newBtn = container.querySelector('#scenario-run-actions .sv-scenario-action-new');
+                    expect(newBtn).toExist();
+                    expect(newBtn.disabled).toBe(false);
+                    expect(newBtn.className).toNotInclude('disabled');
+                    done();
+                }
+            );
+        });
+
+        it('New stays enabled during a sibling action\'s post-click debounce', (done) => {
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={baseScenario}
+                    canEdit canRunScenario canCreateScenario
+                    onBuildClick={() => {}}
+                />,
+                container,
+                () => {
+                    container.querySelector('.sv-scenario-action-build').click();
+                    setTimeout(() => {
+                        // The sibling IS debounced (positive control) …
+                        expect(container.querySelector('.sv-scenario-action-build').disabled).toBe(true);
+                        // … and New is untouched by it.
+                        const newBtn = container.querySelector('.sv-scenario-action-new');
+                        expect(newBtn.disabled).toBe(false);
+                        expect(newBtn.className).toNotInclude('disabled');
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('click calls onNewScenario exactly once and the button fires NO Umami label itself', (done) => {
+            let calls = 0;
+            ReactDOM.render(
+                <ScenarioHeaderActions
+                    scenario={baseScenario}
+                    canEdit canRunScenario canCreateScenario
+                    onNewScenario={() => { calls++; }}
+                />,
+                container,
+                () => {
+                    container.querySelector('.sv-scenario-action-new').click();
+                    expect(calls).toBe(1);
+                    // The 'anuga-scenario-menu-new-scenario' label fires inside
+                    // the container's handleNewScenario, never here.
+                    expect(labels()).toEqual([]);
+                    done();
+                }
+            );
+        });
     });
 
     // TASK-2115 (C) — View Results folded into this strip (dogfood finding C:

@@ -11,7 +11,24 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * UAT #8 — always-visible run-action strip for the selected scenario, rendered
  * on the right-hand side of the Scenarios heading (a sibling of, and visually
  * separate from, the overflow-menu kebab — anugaScenarioOverflowMenu.js,
- * TASK-2240 — that now carries New Scenario / Duplicate / Archive / Delete).
+ * TASK-2240 — that now carries Duplicate / Archive / Delete).
+ *
+ * TASK-3077 — "New" (create a scenario) moved OUT of that kebab into THIS
+ * strip as its LAST button, immediately right of Download: the single
+ * most-used create action was one click deep behind a menu. FILLED
+ * bsStyle=warning (Bootstrap amber, the same precedent Retry sets in this
+ * strip — NOT the SWAMM --sv-btn-warn token) because New creates a row
+ * (the TASK-2239 family rule: FILLED = executes/mutates); `btn()` gives it
+ * the row's shared fixed width for free. Gated on `canCreateScenario` ONLY
+ * — never on canEdit / canRunScenario / in-flight / the debounce, none of
+ * which has any bearing on creating a sibling scenario. Because the
+ * container auto-selects scenarios[0] whenever any exist, "no scenario
+ * selected" ≡ a zero-scenario project — so this strip now renders with New
+ * ALONE in that state (instead of returning null), or New would regress to
+ * unreachable in every fresh project (the reason TASK-2240's acceptance #4
+ * had parked it in the kebab). The Umami label
+ * (anuga-scenario-menu-new-scenario) still fires inside the container's
+ * handleNewScenario, not here — the button must not re-fire it.
  *
  * Replaces the status-mutex ScenarioActionToolbar that used to live INSIDE the
  * Run pane: the user can now Build / Build-and-Run / Run / Retry / Download
@@ -188,7 +205,9 @@ const ScenarioHeaderActions = (props, context) => {
         onConfirmCancelRun,
         accountBalance,
         freeBand,
-        onOpenAccountBilling
+        onOpenAccountBilling,
+        canCreateScenario,
+        onNewScenario
     } = props;
 
     // One debounce timer id per action; cleared on unmount so a late timer
@@ -220,7 +239,42 @@ const ScenarioHeaderActions = (props, context) => {
         return resolved === msgId ? fallback : resolved;
     };
 
-    if (!scenario) return null;
+    const btn = (extra) => 'sv-anuga-btn sv-scenario-action-toolbar-btn ' + extra;
+    // Family rule (TASK-2239): OUTLINE = safe/non-destructive read (View
+    // Results, Download). Adds a modifier class alongside the existing
+    // bsStyle-driven Bootstrap class; does not touch legacy classnames.
+    const outlineBtn = (extra) => btn(extra) + ' sv-scenario-action-outline';
+
+    // TASK-3077 — the strip's New button (see the file doc comment). Plain
+    // title + aria-label rather than withExecutableTooltip: New is never
+    // natively disabled, so the OverlayTrigger/<span> idiom the cluster
+    // executables need buys nothing here. No trackEvent — the container's
+    // handleNewScenario owns the 'anuga-scenario-menu-new-scenario' label.
+    const newScenarioLabel = tr('hydrata.anuga.newScenario', 'New Scenario');
+    const newButton = canCreateScenario ? (
+        <Button
+            bsStyle={'warning'}
+            bsSize={'xsmall'}
+            className={btn('sv-scenario-action-new')}
+            title={newScenarioLabel}
+            aria-label={newScenarioLabel}
+            onClick={() => { if (onNewScenario) onNewScenario(); }}
+        >
+            <Message msgId="hydrata.anuga.new" />
+        </Button>
+    ) : null;
+
+    // No selected scenario ≡ a zero-scenario project (the container
+    // auto-selects scenarios[0] whenever any exist): nothing to build/run/
+    // download, so the strip is New alone — or nothing at all for a role
+    // that cannot create.
+    if (!scenario) {
+        return newButton ? (
+            <div id="scenario-run-actions" className="sv-scenario-header-run-actions">
+                {newButton}
+            </div>
+        ) : null;
+    }
 
     const status = findScenarioStatus(scenario);
     const inFlight = IN_FLIGHT_STATUSES.includes(status);
@@ -426,12 +480,6 @@ const ScenarioHeaderActions = (props, context) => {
         trackEvent('button', 'click', eventName);
     };
 
-    const btn = (extra) => 'sv-anuga-btn sv-scenario-action-toolbar-btn ' + extra;
-    // Family rule (TASK-2239): OUTLINE = safe/non-destructive read (View
-    // Results, Download). Adds a modifier class alongside the existing
-    // bsStyle-driven Bootstrap class; does not touch legacy classnames.
-    const outlineBtn = (extra) => btn(extra) + ' sv-scenario-action-outline';
-
     // TASK-2239 — the 4-state lifecycle-slot mutex (amendment A2). Exactly
     // one of Cancel run / Retry / Run / Re-run renders, in that priority
     // order; the FALLBACK (disabled Run in the poll-lag window) falls out
@@ -598,6 +646,11 @@ const ScenarioHeaderActions = (props, context) => {
                     <Message msgId="hydrata.anuga.download" />
                 </Button> : null
             }
+            {/* TASK-3077 — New is ALWAYS the last child of the strip: right
+                of Download when Download renders, still last when neither
+                View Results nor Download does. DOM order IS visual order
+                here (no CSS `order:` anywhere in this strip). */}
+            {newButton}
         </div>
     );
 };
@@ -627,14 +680,20 @@ ScenarioHeaderActions.propTypes = {
         edge: PropTypes.string,
         table: PropTypes.array
     }),
-    onOpenAccountBilling: PropTypes.func
+    onOpenAccountBilling: PropTypes.func,
+    // TASK-3077 — the strip's New button (was a kebab item). Gated on
+    // canCreateScenario ONLY; onNewScenario is the container's
+    // handleNewScenario, unchanged.
+    canCreateScenario: PropTypes.bool,
+    onNewScenario: PropTypes.func
 };
 
 ScenarioHeaderActions.defaultProps = {
     canEdit: false,
     canRunScenario: false,
     hasCompleteResults: false,
-    paywallEnabled: false
+    paywallEnabled: false,
+    canCreateScenario: false
 };
 
 // Pull intl messages off React legacy context so getMessageById can resolve

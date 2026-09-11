@@ -145,17 +145,38 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
         // guard' block below, which also now covers Compare's two retired
         // labels).
 
-        it('fires anuga-scenario-menu-new-scenario on + New Scenario click (via the kebab menu)', () => {
-            const store = makeStore();
+        // TASK-3077 — New Scenario moved OUT of the kebab into the run-action
+        // strip (#scenario-run-actions .sv-scenario-action-new). The label
+        // still fires from the container's handleNewScenario, exactly once,
+        // with NO kebab interaction; the strip button carries no label of
+        // its own (the parity property: classname + onClick on the SAME
+        // clickable element — a react-bootstrap <Button> renders one <button>).
+        it('fires anuga-scenario-menu-new-scenario exactly once on the strip\'s New click (no kebab, TASK-3077)', () => {
+            const store = makeStore(); // no scenarios → strip renders New alone
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
+            const btn = container.querySelector('#scenario-run-actions .sv-scenario-action-new');
+            expect(btn).toExist();
+            expect(btn.tagName).toBe('BUTTON');
+            btn.click();
+            expect(labelsFired().filter(l => l === 'anuga-scenario-menu-new-scenario').length).toBe(1);
+        });
+
+        it('the kebab opened on a selected scenario carries no New item (TASK-3077)', () => {
+            const s1 = makeScenario(21, 'A', {status: 'built'});
+            const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
             openKebab(container);
-            const btn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-new');
-            expect(btn).toExist();
-            btn.click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-new-scenario');
+            expect(kebabMenu()).toExist();
+            expect(kebabMenu().querySelector('.sv-anuga-scenario-overflow-new')).toNotExist();
+            expect(kebabMenu().querySelectorAll('[role="menuitem"]').length).toBe(3);
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-new-scenario');
         });
 
         // Wave 3C C3: Close X removed per operator decision D3 — Option A
@@ -349,16 +370,17 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             expect(labelsFired()).toNotInclude('anuga-scenario-menu-duplicate-scenario');
         });
 
-        it('disables the Duplicate menu item when no scenario is selected', () => {
+        // TASK-3077 — with New out of the kebab every remaining item is
+        // scenario-scoped, so the trigger is hidden (not rendered with three
+        // disabled items) until a scenario is selected.
+        it('does NOT render the kebab trigger when no scenario is selected (TASK-3077)', () => {
             const store = makeStore(); // no scenarios → no selectedScenario
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            openKebab(container);
-            const dupBtn = kebabMenu().querySelector('.sv-anuga-scenario-overflow-duplicate');
-            expect(dupBtn).toExist();
-            expect(dupBtn.className).toInclude('disabled');
+            expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
+            expect(kebabMenu()).toNotExist();
         });
 
         it('fires anuga-scenario-menu-archive-scenario on Archive click (from the overflow menu)', () => {
@@ -542,7 +564,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             );
             openKebab(container);
             const items = Array.prototype.slice.call(kebabMenu().querySelectorAll('[role="menuitem"]'));
-            expect(items.length).toBe(4);
+            // TASK-3077 — three items: New moved out to the run-action strip.
+            expect(items.length).toBe(3);
             items.forEach((item) => {
                 expect(item.tagName).toBe('BUTTON');
                 expect(item.className).toInclude('sv-anuga-scenario-overflow-item');

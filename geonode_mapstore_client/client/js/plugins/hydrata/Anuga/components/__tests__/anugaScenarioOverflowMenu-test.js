@@ -4,6 +4,13 @@
  * old New Scenario/Compare/Duplicate cluster + strip Archive/Delete) is
  * covered in anugaScenarioMenu-test.js.
  *
+ * TASK-3077 — New Scenario moved OUT of this menu into the run-action strip
+ * (scenarioHeaderActions.js, `.sv-scenario-action-new`). The kebab now holds
+ * exactly three scenario-SCOPED items (Duplicate / Archive-Restore / Delete)
+ * and its trigger is HIDDEN until a scenario is selected — a menu of three
+ * disabled items in an empty project is dead UI. TASK-2240's acceptance #4
+ * (scenario-INDEPENDENT kebab) is therefore superseded, not merely re-cut.
+ *
  * Memory pins:
  *   - feedback-window-confirm-blocks-automation: this component never calls
  *     window.confirm/alert — confirm-requiring actions route through the
@@ -64,30 +71,41 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
         expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
     });
 
-    // Acceptance #4 — scenario-INDEPENDENT: kebab renders + New scenario is
-    // enabled with NO scenario selected; scenario-scoped items are disabled.
-    describe('scenario-independent rendering (acceptance #4)', () => {
-        it('renders the kebab + enables New scenario with no scenario selected', () => {
+    // TASK-3077 (supersedes TASK-2240 acceptance #4): with New gone from this
+    // menu, every remaining item is scenario-scoped, so the trigger itself is
+    // hidden until a scenario is selected — never a kebab of three disabled
+    // items. New survives the empty project from the run-action strip now.
+    describe('kebab hidden without a selection (TASK-3077)', () => {
+        it('kebab renders nothing when no scenario is selected', () => {
             ReactDOM.render(
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={null} canEdit />,
                 container
             );
-            expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toExist();
-            openMenu();
-            const newBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-new');
-            expect(newBtn).toExist();
-            expect(newBtn.disabled).toBe(false);
+            expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
+            expect(container.querySelector('.sv-anuga-scenario-overflow')).toNotExist();
+            expect(menuEl()).toNotExist();
         });
 
-        it('disables Duplicate/Archive/Delete when no scenario is selected', () => {
+        it('kebab renders nothing for a scenario object without an id (unsaved draft)', () => {
             ReactDOM.render(
-                <AnugaScenarioOverflowMenu canCreateScenario scenario={null} canEdit />,
+                <AnugaScenarioOverflowMenu canCreateScenario scenario={{name: 'draft'}} canEdit />,
+                container
+            );
+            expect(container.querySelector('.sv-anuga-scenario-overflow-trigger')).toNotExist();
+        });
+
+        it('the open menu holds exactly three menuitems (Duplicate, Archive, Delete) and no New item', () => {
+            ReactDOM.render(
+                <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
             openMenu();
-            expect(menuEl().querySelector('.sv-anuga-scenario-overflow-duplicate').disabled).toBe(true);
-            expect(menuEl().querySelector('.sv-anuga-scenario-overflow-archive').disabled).toBe(true);
-            expect(menuEl().querySelector('.sv-anuga-scenario-overflow-delete').disabled).toBe(true);
+            const items = Array.prototype.slice.call(menuEl().querySelectorAll('[role="menuitem"]'));
+            expect(items.length).toBe(3);
+            expect(items[0].className).toInclude('sv-anuga-scenario-overflow-duplicate');
+            expect(items[1].className).toInclude('sv-anuga-scenario-overflow-archive');
+            expect(items[2].className).toInclude('sv-anuga-scenario-overflow-delete');
+            expect(menuEl().querySelector('.sv-anuga-scenario-overflow-new')).toNotExist();
         });
     });
 
@@ -133,7 +151,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
 
         it('does NOT close when clicking inside the menu itself', () => {
             ReactDOM.render(
-                <AnugaScenarioOverflowMenu canCreateScenario scenario={null} canEdit />,
+                <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
             openMenu();
@@ -181,13 +199,13 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
             expect(menuEl()).toExist();
         });
 
-        it('opening the menu focuses the first item', () => {
+        it('opening the menu focuses the first item (Duplicate, since TASK-3077)', () => {
             ReactDOM.render(
                 <AnugaScenarioOverflowMenu canCreateScenario scenario={scenario} canEdit />,
                 container
             );
             openMenu();
-            expect(document.activeElement).toBe(menuEl().querySelector('.sv-anuga-scenario-overflow-new'));
+            expect(document.activeElement).toBe(menuEl().querySelector('.sv-anuga-scenario-overflow-duplicate'));
         });
 
         it('ArrowDown/ArrowUp rove focus between items with wraparound', () => {
@@ -197,7 +215,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
             );
             openMenu();
             const items = Array.prototype.slice.call(menuEl().querySelectorAll('[role="menuitem"]'));
-            expect(items.length).toBe(4);
+            expect(items.length).toBe(3);
             expect(document.activeElement).toBe(items[0]);
             items[0].dispatchEvent(new window.KeyboardEvent('keydown', {key: 'ArrowDown', keyCode: 40, bubbles: true}));
             expect(document.activeElement).toBe(items[1]);
@@ -256,7 +274,7 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
             openMenu();
             expect(menuEl().getAttribute('role')).toBe('menu');
             const items = menuEl().querySelectorAll('[role="menuitem"]');
-            expect(items.length).toBe(4);
+            expect(items.length).toBe(3);
         });
     });
 
@@ -353,22 +371,6 @@ describe('AnugaScenarioOverflowMenu (TASK-2240)', () => {
     // itself (the clickable node carries both class + onClick — the exact
     // property react-bootstrap MenuItem breaks, per amendment A3).
     describe('labels + classnames fire from the clickable element itself (amendment A3)', () => {
-        it('New scenario calls onNewScenario from the SAME button that carries its classname', () => {
-            let called = false;
-            ReactDOM.render(
-                <AnugaScenarioOverflowMenu
-                    canCreateScenario scenario={null} canEdit
-                    onNewScenario={() => { called = true; }}
-                />,
-                container
-            );
-            openMenu();
-            const newBtn = menuEl().querySelector('.sv-anuga-scenario-overflow-new');
-            expect(newBtn.tagName).toBe('BUTTON');
-            newBtn.click();
-            expect(called).toBe(true);
-        });
-
         it('Duplicate calls onDuplicateClick from the SAME button that carries its classname', () => {
             let captured = null;
             ReactDOM.render(

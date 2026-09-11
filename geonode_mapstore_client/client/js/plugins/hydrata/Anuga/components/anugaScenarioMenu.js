@@ -1627,6 +1627,11 @@ class AnugaScenarioMenuClass extends React.Component {
   // `!!selectedScenario?.latest_complete_run`, shared with the freshness
   // banner below) — simplify-pass cleanup (TASK-2111 W2 sweep), no behaviour
   // change.
+  //
+  // TASK-3077 — New Scenario moved out of the header kebab into this strip
+  // (its last button). Same handleNewScenario (and its Umami label) as the
+  // kebab item used; the strip renders New alone when no scenario is
+  // selected, which is how New survives a zero-scenario project now.
   renderRunActions(hasCompleteResults) {
       const {selectedScenario, myRole, currentUserId} = this.props;
       const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
@@ -1635,6 +1640,8 @@ class AnugaScenarioMenuClass extends React.Component {
               scenario={selectedScenario}
               canEdit={canEdit}
               canRunScenario={this.props.canRunScenario}
+              canCreateScenario={this.props.canCreateScenario}
+              onNewScenario={this.handleNewScenario}
               hasCompleteResults={hasCompleteResults}
               onViewResultsClick={this.handleViewResults}
               onBuildClick={this.handleBuildClick}
@@ -1655,8 +1662,10 @@ class AnugaScenarioMenuClass extends React.Component {
   }
 
   // TASK-2240 (epic 2237 W1.2) — the header's action cluster is now a
-  // single kebab overflow menu (AnugaScenarioOverflowMenu) carrying New
-  // scenario / Duplicate / Archive-Restore / Delete. Compare's UI entry is
+  // single kebab overflow menu (AnugaScenarioOverflowMenu) carrying
+  // Duplicate / Archive-Restore / Delete (New scenario moved into the
+  // run-action strip, TASK-3077; the kebab hides itself without a selected
+  // scenario). Compare's UI entry is
   // REMOVED entirely (amendment, epic 2237): no button anywhere dispatches
   // it any more — see the handleArchiveFilterToggle-adjacent removal note
   // earlier in this file (where handleToggleCompareMode/handleExecuteCompare
@@ -1681,7 +1690,6 @@ class AnugaScenarioMenuClass extends React.Component {
                       scenario={selectedScenario}
                       canEdit={canEdit}
                       inFlight={inFlight}
-                      onNewScenario={this.handleNewScenario}
                       onDuplicateClick={(s) => this.openConfirm('duplicate', s)}
                       onArchiveClick={(s) => this.openConfirm('archive', s)}
                       onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
