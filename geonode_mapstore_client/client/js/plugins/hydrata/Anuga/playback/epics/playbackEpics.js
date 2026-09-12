@@ -125,7 +125,9 @@ import {
     isColorMaxOverridden,
     isColorFloorActive,
     DEFAULT_PLAYBACK_OPACITY,
-    DEFAULT_PLAYBACK_BACKGROUND_OPACITY
+    DEFAULT_PLAYBACK_BACKGROUND_OPACITY,
+    // TASK-3078 — playbackResetOnMapSwitchEpic's "is a run loaded" read.
+    PLAYBACK_STATUS
 } from '../playbackController';
 import { mixDtSeconds } from '../playbackDerivedQuantities';
 import {
@@ -157,9 +159,18 @@ import {
     playbackSetIdentifyResult,
     playbackEnvelopeLoaded,
     playbackSetEnvelopeMode,
-    playbackFallback
+    playbackFallback,
+    // TASK-3078 — dispatched by playbackResetOnMapSwitchEpic.
+    playbackReset
 } from '../actions/playbackActions';
 import { show } from '@mapstore/framework/actions/notifications';
+// TASK-3078 — "the map changed" is `gnresource.id` moving (the same action
+// projectsReducer keys its own map-switch reset on) …
+import { SET_RESOURCE_ID } from '@js/actions/gnresource';
+// … and INIT_ANUGA is the container's own "I am up on this map" — the
+// trigger that survives MapStore muting this plugin's epics across a route
+// change (see playbackResetOnMapSwitchEpic).
+import { INIT_ANUGA } from '../../actionsAnuga';
 
 // ~20Hz controller clock. NOT a render-fps claim (memory:
 // reference-claude-in-chrome-prod-ui-driving-traps — never measure
@@ -1277,8 +1288,10 @@ export function playbackIdentifyEpic(action$, store) {
  * playbackController-test.js, so PLAYBACK_STATUS.IDLE — the only state that
  * renders the loader — was unreachable once a run was loaded, and every
  * off-Redux structure the run allocated stayed reachable for the life of the
- * tab. The bar now has an Unload control, and this epic is what makes that
- * control actually free the memory rather than merely blank the UI.
+ * tab. The bar has a close control (TASK-3078: the card's red × chip, which
+ * replaced the transport-row Unload button — same PLAYBACK_RESET), and this
+ * epic is what makes that control actually free the memory rather than
+ * merely blank the UI.
  *
  * Reads runId/layerId off the ACTION, not off state: epics run after the
  * reducer, and PLAYBACK_RESET's reducer case returns
@@ -1290,6 +1303,54 @@ export function playbackDisposeEpic(action$) {
         disposeRun(action.runId);
         return action.layerId
             ? Rx.Observable.of(removeAdditionalLayer({ id: action.layerId, owner: PLAYBACK_LAYER_OWNER }))
+            : Rx.Observable.empty();
+    });
+}
+
+/**
+ * TASK-3078 (AC15) — A RUN DIES WHEN ITS MAP IS LEFT.
+ *
+ * Nothing reset `state.anugaPlayback` on an in-SPA map switch: PLAYBACK_RESET
+ * had exactly one dispatcher (the bar's own close), the overlay is an
+ * ADDITIONAL layer that only REMOVE_ADDITIONAL_LAYER clears, and gmc never
+ * dispatches `initMap` for `#/map/<pk>` — so map A's mesh kept painting on
+ * map B (a pre-existing leak), and with the bar now persisting while a run is
+ * loaded (anugaContainer.js `playbackLoaded`) map A's BAR would have followed
+ * the user to map B as well.
+ *
+ * Keyed on the state AFTER the reducer: projectsReducer drops
+ * `anuga.projects.data` to null exactly once per REAL map switch
+ * (SET_RESOURCE_ID — "`gnresource.id` moving is what 'the map changed' MEANS
+ * in this app") and returns the same state (data intact) on a same-map
+ * repeat, so `projects.data == null` is the "really changed" test. Emits the
+ * same `playbackReset(runId, layerId)` the chip does, so playbackDisposeEpic
+ * above frees the fetcher and removes the overlay through the one existing
+ * teardown path. Silent when nothing is loaded.
+ *
+ * TWO triggers, and the second is load-bearing. MapStore MUTES a plugin's
+ * epics while its plugins are re-resolved on a route change
+ * (StateUtils.js isolateEpics/semaphore, driven by useModulePlugins), and on
+ * a real `#/map/A` → `#/map/B` switch the mute window brackets the very
+ * action this epic wants — measured on localhost map 1461 → 1418: mute at
+ * +0 ms, SET_RESOURCE_ID at +112 ms (DROPPED for every Anuga epic, while the
+ * un-mutable projectsReducer still processed it), unmute at +214 ms, then
+ * INIT_ANUGA at +292 ms from the freshly mounted container with
+ * `projects.data` still null and the run still `ready`. So SET_RESOURCE_ID
+ * alone reset nothing on a real switch; INIT_ANUGA — the container's own
+ * post-remount dispatch — is the trigger that is guaranteed to arrive after
+ * the unmute. Both run the same predicate and the second sees an idle
+ * controller when the first already fired, so no double reset.
+ */
+export function playbackResetOnMapSwitchEpic(action$, store) {
+    return action$.ofType(SET_RESOURCE_ID, INIT_ANUGA).mergeMap(() => {
+        const state = store.getState();
+        const pb = state && state.anugaPlayback;
+        const loaded = !!pb && pb.status !== PLAYBACK_STATUS.IDLE;
+        const projectData = state && state.anuga && state.anuga.projects && state.anuga.projects.data;
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+        const mapChanged = projectData == null;
+        return loaded && mapChanged
+            ? Rx.Observable.of(playbackReset(pb.runId, pb.layerId))
             : Rx.Observable.empty();
     });
 }

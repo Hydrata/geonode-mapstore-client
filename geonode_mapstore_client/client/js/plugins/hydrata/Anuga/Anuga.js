@@ -19,8 +19,10 @@ import {
     // Inspect is armed.
     playbackSuppressIdentifyEpic,
     // TASK-2744 (AC2, epic 2706) — free the run's fetcher/caches and remove
-    // the map overlay on Unload.
+    // the map overlay on close.
     playbackDisposeEpic,
+    // TASK-3078 (AC15) — reset the loaded run when the map changes.
+    playbackResetOnMapSwitchEpic,
     // TASK-2752 (W8.2, epic 2706) — fetches the temporal-max envelope for
     // the active quantity when the Max toggle turns on (or the operator
     // switches to a different envelope-having quantity while it is on).
@@ -132,9 +134,8 @@ import {
     resultsLayerOrderEpic,
     // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch.
     warmTilesOnMapOpenEpic,
-    // TASK-2973 — nothing result-shaped on map load (hide sweep + row toggle).
-    resultRasterVisibilityEpic,
-    resultRasterToggleEpic
+    // TASK-2973 — nothing result-shaped on map load (the hide sweep).
+    resultRasterVisibilityEpic
 } from "./epicsAnuga";
 // TASK-1995 (epic 1969 W2.3) — map-click disambiguation: the classifier epic
 // (drawing-guarded + perms-gated) and the Identify-ON enabler.
@@ -360,11 +361,9 @@ export default createPlugin('Anuga', {
         // TASK-1930 (W2.6) — map-OPEN GWC tile prefetch (warm visible COGs).
         warmTilesOnMapOpenEpic,
         // TASK-2973 — every result-shaped raster hidden on MAP_CONFIG_LOADED /
-        // ADD_LAYER (display-only, exempting the playback run and any run the
-        // user toggled on), and the per-run session-only toggle behind every
-        // Results row.
+        // ADD_LAYER (display-only, exempting the active playback run).
+        // TASK-3078 removed the per-row toggle that used to ride beside it.
         resultRasterVisibilityEpic,
-        resultRasterToggleEpic,
         // TASK-1995 (epic 1969 W2.3) — map-click disambiguation (classify GFI ->
         // open editable vector) + ensure Identify is ON for ANUGA maps + force
         // application/json info_format (W2 corrective: live Identify default is
@@ -396,11 +395,17 @@ export default createPlugin('Anuga', {
         // TASK-2656c (W6.5) — suppress the generic GFI popup while playback
         // Inspect is armed; restores mapInfo.enabled verbatim on disarm.
         playbackSuppressIdentifyEpic,
-        // TASK-2744 (AC2, epic 2706) — Unload: drop the fetcher + its decoded
+        // TASK-2744 (AC2, epic 2706) — close: drop the fetcher + its decoded
         // chunk cache + the cloned/reprojected mesh copies, and remove the
         // map overlay. Without it a scenario switch retained ~578 MiB per
         // stale run.
         playbackDisposeEpic,
+        // TASK-3078 (AC15) — the loaded run is reset (through the same
+        // PLAYBACK_RESET → playbackDisposeEpic path) when the project is
+        // dropped for a new map (SET_RESOURCE_ID, or INIT_ANUGA when the
+        // route-change epic mute swallowed it), so a stale run's bar and
+        // overlay never follow the user to the next map.
+        playbackResetOnMapSwitchEpic,
         // TASK-2752 (W8.2, epic 2706) — the Max envelope fetch.
         playbackEnvelopeFetchEpic
     }

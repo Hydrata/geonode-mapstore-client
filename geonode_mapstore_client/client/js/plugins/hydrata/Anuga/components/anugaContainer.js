@@ -153,14 +153,22 @@ export class AnugaContainer extends React.Component {
         // only the UI that could ever CREATE one is gated). Ships dark (false)
         // until localConfig.json's Anuga plugin cfg is flipped alongside the
         // operator's RESULTS_PLAYBACK_ENABLED flip (hydrata.com first).
-        resultsPlaybackEnabled: PropTypes.bool
+        resultsPlaybackEnabled: PropTypes.bool,
+        // TASK-3078 — TRUE while a playback run is loaded
+        // (`state.anugaPlayback.status !== 'idle'`, every other status
+        // INCLUDING `error` — the bar's close chip is an errored run's only
+        // exit). A NAMED prop, not a gate derived inside render: the container
+        // spec renders this class unconnected and passes it explicitly.
+        playbackLoaded: PropTypes.bool
     };
 
     static defaultProps = {
         // TASK-2399 — see the propTypes comment; dark by construction.
         paywallEnabled: false,
         // TASK-2631 — see the propTypes comment; dark by construction.
-        resultsPlaybackEnabled: false
+        resultsPlaybackEnabled: false,
+        // TASK-3078 — nothing loaded until the slice says otherwise.
+        playbackLoaded: false
     };
 
     constructor(props) {
@@ -415,9 +423,23 @@ export class AnugaContainer extends React.Component {
             && this.props.canViewAnugaResults && this.props.hasEPSGset)
             ? document.querySelector('.simple-view-panel--miller')
             : null;
+        // TASK-3078 — the playback bar's LOADED-card gate. The bar used to
+        // mount only while the Results group was open, so closing that panel
+        // (the Results tab is a toggle) or opening Inputs/Hydraulics unmounted
+        // every control while the run stayed painted and resident. Now: the
+        // loaded card stays mounted while a run is loaded whatever menu is
+        // open; the manifest LOADER (what the bar renders when nothing is
+        // loaded) keeps its Results-open gate. `sv-playback-loaded` on the
+        // container is what lets the Inputs/Hydraulics panels reserve the
+        // card's height (anuga.css) while it is on screen.
+        const playbackSurface = !!(this.props.resultsPlaybackEnabled
+            && this.props.canViewAnugaResults && this.props.hasEPSGset);
+        const playbackCardMounted = playbackSurface && !!this.props.playbackLoaded;
+        const playbackBarMounted = playbackCardMounted
+            || (playbackSurface && this.props.openMenuGroupId === 'Results');
         return this.props.isAnugaProject ?
             (
-                <div id={"anuga-container"}>
+                <div id={"anuga-container"} className={playbackCardMounted ? 'sv-playback-loaded' : undefined}>
                     {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
                     {mapFooterTarget ? ReactDOM.createPortal(<ElevationReadout />, mapFooterTarget) : null}
                     {resultsPanelTarget ? ReactDOM.createPortal(this.renderResultsProfileButton(), resultsPanelTarget) : null}
@@ -461,19 +483,22 @@ export class AnugaContainer extends React.Component {
                         closing the Inputs menu. */}
                     <FloatingDemLegendPanel/>
                     {/* TASK-2627 (W3.1, epic 2618) — playback controller bar.
-                        Gated on the Results group being open (the natural
-                        entry point for viewing a completed run's playback
-                        store — no separate run-picker exists yet, see the
-                        component's own header note) rather than mounted on
-                        every map view unconditionally.
+                        Originally gated on the Results group being open (the
+                        natural entry point for viewing a completed run's
+                        playback store) rather than mounted on every map view
+                        unconditionally.
                         TASK-2631 (W6.2) — ALSO gated on resultsPlaybackEnabled
                         (dark ship, see the propTypes comment above): the
-                        primary entry point into the whole playback surface. */}
+                        primary entry point into the whole playback surface.
+                        TASK-3078 — the bar owns its own lifecycle: mounted
+                        while a run is loaded (`playbackLoaded`) OR while the
+                        Results group is open (the loader). It is dismissed by
+                        its own close chip, or by the map-switch reset epic —
+                        never by which top menu happens to be open. See
+                        `playbackBarMounted` above. */}
                     {/* TASK-2993 (W4.2) — the playback bar IS the results
                         surface this epic exists to show a stranger. */}
-                    {this.props.resultsPlaybackEnabled && this.props.openMenuGroupId === 'Results' && this.props.canViewAnugaResults && this.props.hasEPSGset ?
-                        <AnugaPlaybackControlBar/> : null
-                    }
+                    {playbackBarMounted ? <AnugaPlaybackControlBar/> : null}
                     {/* TASK-2628 — legend + identify readout. Mounted
                         unconditionally (not gated on the Results group like
                         the control bar) since a click-to-inspect result or an
@@ -577,7 +602,13 @@ export const mapStateToProps = (state) => {
         hydrologyPluginPresent: !!mapViewerPlugins.find(x => x.name === "Hydrology"),
         showHydrologyMainMenu: !!state?.hydrology?.showHydrologyMainMenu,
         // TASK-1861 (W4.4) — depth/result line-profile tool visibility.
-        showProfilePanel: !!state?.anuga?.ui?.profilePanelVisible
+        showProfilePanel: !!state?.anuga?.ui?.profilePanelVisible,
+        // TASK-3078 — a run is loaded ⇔ the playback slice is not idle
+        // (`createInitialPlaybackState()` is exactly what PLAYBACK_RESET
+        // returns). Null-guarded like every read above: the slice is
+        // registered unconditionally, but this selector must still complete
+        // against the anon `{}` state.
+        playbackLoaded: !!state?.anugaPlayback?.status && state.anugaPlayback.status !== 'idle'
     };
 };
 

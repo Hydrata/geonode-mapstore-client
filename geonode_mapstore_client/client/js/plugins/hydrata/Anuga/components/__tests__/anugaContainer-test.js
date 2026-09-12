@@ -29,6 +29,7 @@ import ReactDOM from 'react-dom';
 import { Provider } from 'react-redux';
 import expect from 'expect';
 import { mapStateToProps, AnugaContainer } from '../anugaContainer';
+import { createInitialPlaybackState } from '../../playback/playbackController';
 
 describe('AnugaContainer resultsPlaybackEnabled (TASK-2631, W6.2 — dark-ship default)', () => {
     it('defaults to false — the whole playback surface (control bar, legend, identify readout, W6.1 preview button) ships dark by construction', () => {
@@ -50,6 +51,17 @@ describe('anugaContainer mapStateToProps (TASK-1491 anon null-guard)', () => {
         const props = mapStateToProps({});
         expect(typeof props).toBe('object');
         expect(props.isAnugaProject).toBe(undefined);
+    });
+    // TASK-3078 AC0 — the playback-bar gate is a NAMED prop derived here, so
+    // it has to be null-safe for the anon shape like every other read, and
+    // it has to read `status !== 'idle'` (every other status, error
+    // included, keeps the bar — the chip is an errored run's only exit).
+    it('derives playbackLoaded from anugaPlayback.status, false for the anon empty state (TASK-3078 AC0)', () => {
+        expect(mapStateToProps({}).playbackLoaded).toBe(false);
+        expect(mapStateToProps({ anugaPlayback: createInitialPlaybackState() }).playbackLoaded).toBe(false);
+        expect(mapStateToProps({ anugaPlayback: { ...createInitialPlaybackState(), status: 'ready' } }).playbackLoaded).toBe(true);
+        expect(mapStateToProps({ anugaPlayback: { ...createInitialPlaybackState(), status: 'error' } }).playbackLoaded).toBe(true);
+        expect(AnugaContainer.propTypes.playbackLoaded).toBeTruthy();
     });
 });
 
@@ -223,3 +235,137 @@ describe('AnugaContainer — TASK-2993 (W4.2, epic 2981) the stranger toolbar', 
     });
 });
 
+/*
+ * ===========================================================================
+ * TASK-3078 — THE PLAYBACK BAR OWNS ITS OWN LIFECYCLE.
+ *
+ * At HEAD the bar's existence was a side-effect of which top menu was open
+ * (`openMenuGroupId === 'Results'`): the Results tab is a toggle and Inputs /
+ * Hydraulics / Hydrology all dispatch setOpenMenuGroupId(null), so the two
+ * most natural moves — close the panel to see the map, open Inputs to compare
+ * against the terrain — unmounted every control while the run stayed painted
+ * and resident (unmount only PAUSEs). The gate is now
+ * `resultsPlaybackEnabled && canViewAnugaResults && hasEPSGset
+ *   && (openMenuGroupId === 'Results' || playbackLoaded)`.
+ *
+ * `playbackLoaded` is a NAMED PROP (mapStateToProps, pinned above): this rig
+ * renders the UNCONNECTED class, so a gate derived inside mapStateToProps
+ * could never reach it — the specs pass the prop explicitly. The store only
+ * feeds the CONNECTED bar (its own mapStateToProps reads state.anugaPlayback),
+ * which is why a loaded run is seeded there too: with an idle slice the bar
+ * would render its manifest LOADER, not the card.
+ *
+ * Every DOM assertion is scoped to `host`, never `document`.
+ * ===========================================================================
+ */
+describe('AnugaContainer — TASK-3078 the playback bar owns its own lifecycle', () => {
+    const noop = () => {};
+    const makeStore = (anugaPlayback) => ({
+        getState: () => ({
+            anuga: { ui: {}, projects: {}, resources: {} },
+            layers: { flat: [], groups: [] },
+            simpleView: {},
+            controls: {},
+            localConfig: { plugins: {} },
+            anugaPlayback
+        }),
+        subscribe: () => () => {},
+        dispatch: () => {}
+    });
+    const loadedSlice = () => ({
+        ...createInitialPlaybackState(),
+        status: 'ready',
+        runId: 'run-1',
+        layerId: 'layer-1',
+        nTime: 3
+    });
+
+    const strangerProps = (over = {}) => ({
+        isAnugaProject: 42,
+        canViewAnugaMap: false,
+        canEditAnugaMap: false,
+        canViewAnugaResults: true,
+        hasEPSGset: true,
+        hydrologyPluginPresent: true,
+        openMenuGroupId: null,
+        resultsPlaybackEnabled: true,
+        playbackLoaded: false,
+        initAnuga: noop,
+        setAnugaInputMenu: noop,
+        setAnugaScenarioMenu: noop,
+        setAnugaResultMenu: noop,
+        setPublicationPanel: noop,
+        setOpenMenuGroupId: noop,
+        startAnugaScenarioPolling: noop,
+        stopAnugaScenarioPolling: noop,
+        setMembershipPanel: noop,
+        setHydrologyMainMenu: noop,
+        setProfilePanelVisible: noop,
+        showProfilePanel: false,
+        ...over
+    });
+
+    let host;
+    let toolbar;
+    let resultsPanel;
+    const render = (props, anugaPlayback) => {
+        ReactDOM.render(
+            <Provider store={makeStore(anugaPlayback)}>
+                <AnugaContainer {...props} />
+            </Provider>,
+            host
+        );
+    };
+    beforeEach(() => {
+        host = document.createElement('div');
+        document.body.appendChild(host);
+        toolbar = document.createElement('div');
+        toolbar.className = 'simple-view-left-toolbar';
+        document.body.appendChild(toolbar);
+        resultsPanel = document.createElement('div');
+        resultsPanel.className = 'simple-view-panel simple-view-panel--miller';
+        document.body.appendChild(resultsPanel);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(host);
+        [host, toolbar, resultsPanel].forEach(n => n && n.parentNode && n.parentNode.removeChild(n));
+    });
+
+    const bar = () => host.querySelector('[data-testid="anuga-playback-bar"]');
+    const loader = () => host.querySelector('[data-testid="anuga-playback-bar-loader"]');
+    const containerHasReserve = () => host.querySelector('#anuga-container').classList.contains('sv-playback-loaded');
+
+    it('keeps the playback card mounted with a run loaded after the Results group closes', () => {
+        // RED at HEAD: the `openMenuGroupId === 'Results'` gate returns null.
+        render(strangerProps({ playbackLoaded: true, openMenuGroupId: null }), loadedSlice());
+        expect(bar()).toExist();
+        // AC10b — the container flags the reserve while the card is mounted.
+        expect(containerHasReserve()).toBe(true);
+
+        // Any OTHER group open (Inputs here) — still mounted.
+        render(strangerProps({ playbackLoaded: true, openMenuGroupId: 'Inputs' }), loadedSlice());
+        expect(bar()).toExist();
+
+        // The other gates still hold: a loaded run alone is NOT enough
+        // (guards the naive "mount on loaded" fix).
+        render(strangerProps({ playbackLoaded: true, openMenuGroupId: null, canViewAnugaResults: false }), loadedSlice());
+        expect(bar()).toBe(null);
+        expect(containerHasReserve()).toBe(false);
+    });
+
+    it('mounts nothing when nothing is loaded and the Results group is closed', () => {
+        // A pin (true at HEAD) — fails the "mount unconditionally" fix.
+        render(strangerProps({ playbackLoaded: false, openMenuGroupId: null }), createInitialPlaybackState());
+        expect(bar()).toBe(null);
+        expect(loader()).toBe(null);
+        expect(containerHasReserve()).toBe(false);
+    });
+
+    it('still mounts the manifest loader when the Results group is open and nothing is loaded', () => {
+        // A pin of the loader's UNCHANGED Results-open gate.
+        render(strangerProps({ playbackLoaded: false, openMenuGroupId: 'Results' }), createInitialPlaybackState());
+        expect(loader()).toExist();
+        expect(bar()).toBe(null);
+        expect(containerHasReserve()).toBe(false);
+    });
+});

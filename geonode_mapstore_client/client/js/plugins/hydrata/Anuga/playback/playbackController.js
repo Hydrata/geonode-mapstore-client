@@ -1033,7 +1033,7 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // TASK-2986 (W1.3, epic 2981) — PERSIST THE WHOLE PAYLOAD. On this
         // path PLAYBACK_MANIFEST_LOADED never fires, so every number the
         // message names has to arrive here or the bar has nothing to render.
-        // pendingPlay false: Play is disabled, Unload stays enabled.
+        // pendingPlay false: Play is disabled, the close chip stays enabled.
         return {
             ...state,
             status: PLAYBACK_STATUS.FALLBACK,
@@ -1071,7 +1071,7 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // is what made "consecutive" false (isolated hiccups an hour apart
         // still summed) and what made the warning unclearable: `degraded` was
         // written as `state.degraded || …` and set false in exactly one place,
-        // the initial state, so nothing short of Unload could take it back down
+        // the initial state, so nothing short of a close could take it back down
         // — not recovering, not pausing, not finishing the run cleanly.
         let stallCount = state.stallCount;
         let degraded = state.degraded;

@@ -26,6 +26,8 @@ import {
     playbackIdentifyEpic,
     playbackSuppressIdentifyEpic,
     playbackDisposeEpic,
+    // TASK-3078 AC15 — the map-switch reset.
+    playbackResetOnMapSwitchEpic,
     disposeRun,
     countMeshObjects,
     warnIfOverBudget,
@@ -85,8 +87,13 @@ import {
     PLAYBACK_FALLBACK,
     playbackFallback,
     playbackSeek,
-    playbackReset
+    playbackReset,
+    PLAYBACK_RESET
 } from '../../actions/playbackActions';
+// TASK-3078 AC15 — "the map changed" is gnresource.id moving; INIT_ANUGA is
+// the trigger that survives MapStore's route-change epic mute.
+import { SET_RESOURCE_ID } from '@js/actions/gnresource';
+import { INIT_ANUGA } from '../../../actionsAnuga';
 import { SHOW_NOTIFICATION } from '@mapstore/framework/actions/notifications';
 import { createInitialPlaybackState, playbackControllerReducer, PLAYBACK_STATUS } from '../../playbackController';
 import { FIXTURE_STORE_FILES, FIXTURE_MANIFEST, FIXTURE_MESH, FIXTURE_PHYSICAL } from '../../__tests__/fixtures/fixturePlaybackStore';
@@ -2503,6 +2510,73 @@ describe('playbackEpics', () => {
                 }
             }, done);
             subject.next(playbackInit(43, 'layer-2', MANIFEST_URL));
+        });
+    });
+
+    // TASK-3078 AC15 — A RUN MUST DIE WHEN ITS MAP IS LEFT.
+    //
+    // Nothing reset state.anugaPlayback on a map switch: PLAYBACK_RESET had
+    // exactly one dispatcher (the bar's own close), the overlay is an
+    // ADDITIONAL layer that only REMOVE_ADDITIONAL_LAYER clears, and gmc never
+    // dispatches initMap for `#/map/<pk>` — so map A's mesh kept painting on
+    // map B, and with the bar now persisting while a run is loaded
+    // (anugaContainer.js `playbackLoaded`) map A's BAR would have followed the
+    // user to map B as well. Epics see state AFTER the reducer, and
+    // projectsReducer drops `anuga.projects.data` to null on SET_RESOURCE_ID
+    // exactly once per real map switch (a same-map repeat returns the same
+    // state, data intact) — so "the map really changed" is
+    // `projects.data == null` right after SET_RESOURCE_ID.
+    //
+    // AND on a REAL route change MapStore mutes this plugin's epics across
+    // the plugin re-resolve, a window that (measured) swallows the
+    // SET_RESOURCE_ID — so the container's own post-remount INIT_ANUGA is
+    // the second trigger, same predicate.
+    describe('playbackResetOnMapSwitchEpic — TASK-3078 AC15', () => {
+        const fakeStore = (status, projectsData) => ({
+            getState: () => ({
+                anugaPlayback: { ...createInitialPlaybackState(), status, runId: 'run-m', layerId: 'layer-m' },
+                anuga: { projects: { data: projectsData } }
+            })
+        });
+
+        it('resets a loaded run when SET_RESOURCE_ID drops the project and is silent on a same-map repeat', (done) => {
+            const seen = [];
+            // (i) ready + project dropped ⇒ exactly one PLAYBACK_RESET with the run's ids.
+            const a = makeActionsSubject();
+            playbackResetOnMapSwitchEpic(a.action$, fakeStore(PLAYBACK_STATUS.READY, null)).subscribe((x) => seen.push(['i', x]));
+            a.subject.next({ type: SET_RESOURCE_ID, id: '1418' });
+            // (ii) ready + project intact (same-map repeat) ⇒ nothing.
+            const b = makeActionsSubject();
+            playbackResetOnMapSwitchEpic(b.action$, fakeStore(PLAYBACK_STATUS.READY, { id: 1 })).subscribe((x) => seen.push(['ii', x]));
+            b.subject.next({ type: SET_RESOURCE_ID, id: '1461' });
+            // (iii) idle + project dropped ⇒ nothing (no run to reset).
+            const c = makeActionsSubject();
+            playbackResetOnMapSwitchEpic(c.action$, fakeStore(PLAYBACK_STATUS.IDLE, null)).subscribe((x) => seen.push(['iii', x]));
+            c.subject.next({ type: SET_RESOURCE_ID, id: '1418' });
+            // (iv) the SET_RESOURCE_ID was swallowed by the route-change mute:
+            //      INIT_ANUGA with the project still dropped ⇒ the same reset.
+            const d = makeActionsSubject();
+            playbackResetOnMapSwitchEpic(d.action$, fakeStore(PLAYBACK_STATUS.READY, null)).subscribe((x) => seen.push(['iv', x]));
+            d.subject.next({ type: INIT_ANUGA });
+            // (v) INIT_ANUGA on a map whose project is loaded (a re-init, a
+            //     watchdog retry) ⇒ nothing.
+            const f = makeActionsSubject();
+            playbackResetOnMapSwitchEpic(f.action$, fakeStore(PLAYBACK_STATUS.READY, { id: 1 })).subscribe((x) => seen.push(['v', x]));
+            f.subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    expect(seen.map((x) => x[0])).toEqual(['i', 'iv']);
+                    expect(seen[0][1].type).toBe(PLAYBACK_RESET);
+                    expect(seen[0][1].runId).toBe('run-m');
+                    expect(seen[0][1].layerId).toBe('layer-m');
+                    expect(seen[1][1].type).toBe(PLAYBACK_RESET);
+                    expect(seen[1][1].runId).toBe('run-m');
+                    expect(seen[1][1].layerId).toBe('layer-m');
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 20);
         });
     });
 

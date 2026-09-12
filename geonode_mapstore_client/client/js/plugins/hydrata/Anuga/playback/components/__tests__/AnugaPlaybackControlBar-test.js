@@ -347,12 +347,15 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         });
     });
 
-    // TASK-2744 (AC2, epic 2706) — THE RUN MUST BE UNLOADABLE.
-    // RED on HEAD: there was NO control anywhere on the bar that dispatched
-    // playbackReset(), so a loaded run could never be released — measured live
-    // on map 1461, `[data-testid="anuga-playback-unload"]` was null while
-    // status was 'ready'.
-    describe('Unload — TASK-2744 AC2', () => {
+    // TASK-2744 (AC2, epic 2706) — THE RUN MUST BE UNLOADABLE. There was NO
+    // control anywhere on the bar that dispatched playbackReset(), so a loaded
+    // run could never be released.
+    // TASK-3078 — that control is now the red × close chip at the card's
+    // top-right (the TASK-2235 chip convention, PanelHeader.js's closeStyle),
+    // not a transport-row "Unload" button. It dispatches the very same
+    // onReset(runId, layerId): "close" IS "unload". The describe keeps the
+    // AC3/AC4/TASK-3076 specs that share loadedState() below.
+    describe('Close chip — TASK-3078 (was Unload, TASK-2744 AC2)', () => {
         function loadedState(extra = {}) {
             return {
                 ...createInitialPlaybackState(),
@@ -364,21 +367,63 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             };
         }
 
-        it('renders a visible Unload control whenever a run is active', () => {
-            render({ playback: loadedState() });
-            const btn = container.querySelector('[data-testid="anuga-playback-unload"]');
-            expect(btn).toBeTruthy();
-            // an accessible name, not a bare glyph (AC7 applies to it too)
-            expect(btn.getAttribute('title')).toBeTruthy();
-        });
+        const CLOSE_LABEL = 'Close — unload this run and free its memory';
+        // TRUE when nothing on the card is an Unload button: no testid ending
+        // in `-unload`, and no <button> whose text (the msgId, in this
+        // context-less rig) says unload.
+        const noUnloadButton = (card) => card.querySelectorAll('[data-testid$="-unload"]').length === 0
+            && ![...card.querySelectorAll('button')].some((b) => /unload/i.test(b.textContent));
 
-        it('dispatches onReset(runId, layerId) so the epic can free the fetcher AND remove the overlay', () => {
+        it('renders a red close chip that dispatches onReset(runId, layerId) and no Unload button', () => {
             const onReset = expect.createSpy();
             render({ playback: loadedState(), onReset });
-            TestUtils.Simulate.click(container.querySelector('[data-testid="anuga-playback-unload"]'));
+            const chip = container.querySelector('[data-testid="anuga-playback-close"]');
+            expect(chip).toBeTruthy();
+            expect(chip.tagName).toBe('BUTTON');
+            expect(chip.getAttribute('type')).toBe('button');
+            // EXACTLY the one class: `btn` / `sv-glass-button` would let the
+            // theme and `.sv-playback-bar .sv-glass-button` restyle it.
+            expect(chip.className).toBe('sv-playback-close');
+            // The bare rig has no messages, so tr() returns the fallback
+            // literal — an accessible name, never a dotted key.
+            expect(chip.getAttribute('aria-label')).toBe(CLOSE_LABEL);
+            expect(chip.getAttribute('title')).toBe(CLOSE_LABEL);
+            expect(chip.querySelector('.glyphicon.glyphicon-remove[aria-hidden="true"]')).toBeTruthy();
+            // A DIRECT child of the card (a sibling of the h3), corner-anchored
+            // by CSS — never inside the transport row or the drawer.
+            const card = container.querySelector('[data-testid="anuga-playback-bar"]');
+            expect(chip.parentNode).toBe(card);
+            expect(container.querySelector('[data-testid="anuga-playback-transport"]').contains(chip)).toBe(false);
+            const drawer = container.querySelector('[data-testid="anuga-playback-drawer"]');
+            expect(drawer ? drawer.contains(chip) : false).toBe(false);
+            TestUtils.Simulate.click(chip);
             expect(onReset.calls.length).toBe(1);
             expect(onReset.calls[0].arguments[0]).toBe('run-77');
             expect(onReset.calls[0].arguments[1]).toBe('layer-77');
+            // No Unload button remains anywhere on the card — asserted by
+            // shape (the stored proof greps the tree for the old testid, so
+            // its literal cannot appear here either).
+            expect(noUnloadButton(card)).toBe(true);
+        });
+
+        it('the fallback card carries the same close chip and no Unload button', () => {
+            const onReset = expect.createSpy();
+            render({
+                playback: loadedState({ status: PLAYBACK_STATUS.FALLBACK, nNode: 10, nFace: 12, budgetBytes: 1e6, budgetSource: 'default' }),
+                onReset
+            });
+            const card = container.querySelector('.sv-playback-bar--fallback');
+            expect(card).toBeTruthy();
+            const chip = container.querySelector('[data-testid="anuga-playback-close"]');
+            expect(chip).toBeTruthy();
+            expect(chip.parentNode).toBe(card);
+            expect(chip.className).toBe('sv-playback-close');
+            TestUtils.Simulate.click(chip);
+            expect(onReset.calls.length).toBe(1);
+            expect(onReset.calls[0].arguments[0]).toBe('run-77');
+            expect(onReset.calls[0].arguments[1]).toBe('layer-77');
+            expect(container.querySelector('[data-testid="anuga-playback-playpause"]').disabled).toBe(true);
+            expect(noUnloadButton(card)).toBe(true);
         });
 
         it('AC3 — a labelled opacity control exists and moves the value across 0.2..1.0', () => {
@@ -482,18 +527,25 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             // what the reducer's PLAYBACK_RESET case actually produces
             render({ playback: createInitialPlaybackState() });
             expect(container.querySelector('[data-testid="anuga-playback-manifest-input"]')).toBeTruthy();
-            expect(container.querySelector('[data-testid="anuga-playback-unload"]')).toBe(null);
+            expect(container.querySelector('[data-testid="anuga-playback-close"]')).toBe(null);
         });
     });
 
     // TASK-2744 (AC1, epic 2706) — UNMOUNT MUST NOT LEAVE PLAYBACK RUNNING.
     //
     // RED, measured on map 1461: press Play, switch the SimpleView menu away
-    // from 'Results' (which unmounts this bar, anugaContainer.js:431) and the
+    // from 'Results' (which, at the time, unmounted this bar) and the
     // controller stayed 'playing' — the playhead advanced 3.00 s over 3 s of
     // wall clock with the bar gone and no control left to stop it. There was
     // no componentWillUnmount in the file at all, and playbackTickEpic only
     // stops on PLAYBACK_PAUSE/PLAYBACK_RESET.
+    //
+    // TASK-3078 — a menu switch no longer unmounts the bar (it stays mounted
+    // while a run is loaded, anugaContainer.js's `playbackLoaded` gate), so
+    // this PAUSE now fires only on a map switch, plugin teardown, or the
+    // close chip with Results shut — where a PAUSE landing after RESET is a
+    // harmless no-op on an idle controller. The contract itself is unchanged
+    // and still pinned here.
     describe('unmount stops playback — TASK-2744 AC1', () => {
         function playing(extra = {}) {
             return { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.PLAYING, nTime: 31, runId: 'r', layerId: 'l', ...extra };
@@ -851,6 +903,22 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             renderWithMessages({ hydrata: { playback: { scrubber: 'Position sur la chronologie' } } }, loaded);
             expect(container.querySelector('[data-testid="anuga-playback-scrubber"]').getAttribute('aria-label'))
                 .toBe('Position sur la chronologie');
+        });
+
+        // TASK-3078 AC9 — the close chip's name resolves through the REAL
+        // en-US catalogue (`hydrata.playback.closeTooltip`), on both cards.
+        it('names the close chip from hydrata.playback.closeTooltip in the real en-US catalogue', () => {
+            const expected = (enUS.messages || enUS).hydrata.playback.closeTooltip;
+            expect(typeof expected).toBe('string');
+            renderWithMessages(enUS.messages || enUS, { ...loaded, runId: 'run-77', layerId: 'layer-77' });
+            const chip = container.querySelector('[data-testid="anuga-playback-close"]');
+            expect(chip.title).toBe(expected);
+            expect(chip.getAttribute('aria-label')).toBe(expected);
+            renderWithMessages(enUS.messages || enUS, {
+                ...loaded, status: PLAYBACK_STATUS.FALLBACK, runId: 'run-77', layerId: 'layer-77',
+                nNode: 10, nFace: 12, budgetBytes: 1e6, budgetSource: 'default'
+            });
+            expect(container.querySelector('[data-testid="anuga-playback-close"]').title).toBe(expected);
         });
     });
 

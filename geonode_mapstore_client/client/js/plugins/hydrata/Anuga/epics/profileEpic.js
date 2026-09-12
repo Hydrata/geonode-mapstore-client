@@ -211,9 +211,12 @@ function isTerrainRowVisible(state, terrainRow) {
 // now hides every result raster on load, so on a fresh map the raster branch
 // below finds nothing and the seed would always fall through to the selected
 // scenario; the run the user is actually watching is the better default. The
-// raster branch is kept — a run toggled on from its Results row still seeds
-// through it. Sampling itself is BE-side by bare dataset name and does not
-// care whether the raster is visible; only this default seed narrows.
+// raster branch is kept for a raster that IS visible — the fallback envelope
+// showFallbackEnvelope paints for the active run, or a layer the user showed
+// through the TOC (TASK-3078 removed the Results-row show/hide, so nothing
+// else re-shows one). Sampling itself is BE-side by bare dataset name and
+// does not care whether the raster is visible; only this default seed
+// narrows.
 function isScenarioRowVisible(state, scenario) {
     const run = scenario && scenario.latest_complete_run;
     if (!run) return false;
