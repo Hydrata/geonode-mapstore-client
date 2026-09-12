@@ -1342,6 +1342,86 @@ describe('playbackEpics', () => {
             }, 400);
         });
 
+        // TASK-3081 — the buffer epic must not run at `error`. Reducers run
+        // before epics, so a Play pressed AT `error` has already moved the run
+        // to `buffering` + pendingPlay when this epic sees PLAY (the second
+        // spec); the guard exists for a Play pressed BEFORE the flip, whose
+        // tick interval keeps firing TICK (a trigger) against a dead object.
+        it('AC1 — playbackBufferEpic issues no fill while the run is at status error', (done) => {
+            const plan = { chunksPerQuantity: 3, bufferWindowRadius: 1, cacheMaxBytes: 4096 };
+            const calls = [];
+            const fetcher = countingFetcher(11, calls, plan);
+            fetcherRegistry.set(1, fetcher);
+            const store = makeStore({
+                ...stateFor({ totalChunks: 11, chunksPerQuantity: 3, bufferWindowRadius: 1 }),
+                status: PLAYBACK_STATUS.ERROR,
+                error: "playbackChunkFetcher: stalled fetching 'depth/c/2/0'",
+                bufferedChunks: [0, 1]
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const emitted = [];
+            const sub = playbackBufferEpic(action$, store).subscribe((a) => emitted.push(a));
+            // Every trigger the epic listens for, not just the first one.
+            subject.next(playbackManifestLoaded({ runId: 1 }));
+            subject.next(playbackTick(1));
+            setTimeout(() => {
+                sub.unsubscribe();
+                try {
+                    expect(calls.length).toBe(0);
+                    expect(emitted.length).toBe(0);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }, 200);
+        });
+
+        it('AC1 — a PLAY at status error refills the missing floor chunk', (done) => {
+            const plan = { chunksPerQuantity: 3, bufferWindowRadius: 1, cacheMaxBytes: 4096 };
+            const calls = [];
+            const fetcher = countingFetcher(11, calls, plan);
+            fetcherRegistry.set(1, fetcher);
+            // The same shape arrayConfigsFor() derives from the manifest; the
+            // counting fetcher's decodeImpl ignores it.
+            const arrayConfigs = {};
+            ['depth', 'x_velocity', 'y_velocity'].forEach((name) => {
+                arrayConfigs[name] = { dtype: 'uint16', byteorder: 'little' };
+            });
+            // Chunks 0 and 1 landed before the flip; only chunk 2 died.
+            Promise.all(fetcher.fillTowards([0, 1], 0, arrayConfigs, { totalChunks: 11 }).map((g) => g.promise))
+                .then(() => {
+                    expect(Array.from(new Set(calls.map((u) => Number(u.split('/')[2])))).sort()).toEqual([0, 1]);
+                    calls.length = 0;
+                    const store = makeStore(stateFor({ totalChunks: 11, chunksPerQuantity: 3, bufferWindowRadius: 1 }));
+                    // What the reducer produces for PLAYBACK_PLAY at `error` on a
+                    // non-resident floor window (playbackController PLAYBACK_PLAY).
+                    store.__setPlayback({
+                        ...store.getState().anugaPlayback,
+                        status: PLAYBACK_STATUS.BUFFERING,
+                        pendingPlay: true,
+                        bufferedChunks: [0, 1],
+                        error: "playbackChunkFetcher: stalled fetching 'depth/c/2/0'"
+                    });
+                    const { subject, action$ } = makeActionsSubject();
+                    const sub = playbackBufferEpic(action$, store).subscribe(() => {});
+                    subject.next(playbackPlay());
+                    setTimeout(() => {
+                        sub.unsubscribe();
+                        try {
+                            const chunks = Array.from(new Set(calls.map((u) => Number(u.split('/')[2]))))
+                                .sort((a, b) => a - b);
+                            expect(chunks).toEqual([2]);
+                            // All three arrays of the gap, and nothing resident re-requested.
+                            expect(calls.filter((u) => u.indexOf('/c/2/0') !== -1).length).toBe(3);
+                            done();
+                        } catch (e) {
+                            done(e);
+                        }
+                    }, 400);
+                })
+                .catch(done);
+        });
+
         it('is a no-op once the required window is already buffered', (done) => {
             const store = makeStore({ ...loadedPlaybackState(), bufferedChunks: [0, 1] });
             const { subject, action$ } = makeActionsSubject();

@@ -847,6 +847,17 @@ export function playbackBufferEpic(action$, store) {
         if (!fetcher) {
             return Rx.Observable.empty();
         }
+        // TASK-3081 — no fill at `error`. Reducers run before epics, so a
+        // Play pressed AT `error` has already moved the run to `buffering` +
+        // pendingPlay by the time PLAY reaches this switchMap and still
+        // refills. What this stops is a Play pressed BEFORE the flip:
+        // playbackTickEpic starts its interval on PLAY regardless of status,
+        // TICK is a trigger here, and the reducer ignores ticks while not
+        // playing — so without this the dead object was re-requested every
+        // ~45 s for as long as the tab lived.
+        if (pb.status === PLAYBACK_STATUS.ERROR) {
+            return Rx.Observable.empty();
+        }
         const centerChunk = timestepToChunkIndex(pb.currentTimestep, pb.chunkLengthT);
         // TASK-2708 — the SAME behind/ahead pair drives the "is it already
         // buffered?" check and the actual prefetch, so the epic can never ask
@@ -938,7 +949,11 @@ export function playbackBufferEpic(action$, store) {
                 // already uses, so the two share one clock.
                 actions.push(playbackChunksBuffered(resident, true, Date.now()));
             }
-            errors.forEach((r) => actions.push(playbackChunkBufferError(r.chunkIndex, String((r.error && r.error.message) || r.error))));
+            // TASK-3081 — stamped with the run this fill was issued for, so a
+            // rejection from disposeRun() cannot land on the run that replaced it.
+            errors.forEach((r) => actions.push(playbackChunkBufferError(
+                r.chunkIndex, String((r.error && r.error.message) || r.error), pb.runId
+            )));
             return actions.length ? Rx.Observable.of(...actions) : Rx.Observable.empty();
         });
     });
@@ -1190,15 +1205,20 @@ export function playbackSyncLayerEpic(action$, store) {
             // only worth anything if the refusal reaches someone.
             //
             // Reuses the existing chunk-buffer-error channel rather than
-            // inventing a state: its reducer case records `error` WITHOUT
-            // flipping status, so a transient failure still self-heals on the
-            // next tick (`lastSyncedTimestep` is deliberately left unset, so
-            // the retry is the same one that already happened — now with a
-            // breadcrumb, and with `renderedTimestep` keeping Inspect honest
-            // about which timestep the on-screen frames actually are).
+            // inventing a state: outside the pre-roll its reducer case records
+            // `error` WITHOUT flipping status, so a transient failure still
+            // self-heals on the next tick (`lastSyncedTimestep` is deliberately
+            // left unset, so the retry is the same one that already happened —
+            // now with a breadcrumb, and with `renderedTimestep` keeping
+            // Inspect honest about which timestep the on-screen frames actually
+            // are). TASK-3081: while BUFFERING the playhead chunk is always in
+            // the floor window, so a refused frame there — the missing
+            // chunk_urls entry case — takes the same bounded exit to `error`
+            // a rejected fill does; `pb.runId` stamps it for the stale-run guard.
             return Rx.Observable.of(playbackChunkBufferError(
                 timestepToChunkIndex(pb.currentTimestep, pb.chunkLengthT),
-                String((error && error.message) || error)
+                String((error && error.message) || error),
+                pb.runId
             ));
         });
     });

@@ -1120,10 +1120,42 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             effectiveSpeed, lastPaceMs };
     }
     case PLAYBACK_CHUNK_BUFFER_ERROR: {
-        // Recorded for visibility only — a single chunk error among a
-        // redundant multi-array window fetch must not itself flip status;
-        // TICK/PLAY's own "is the required window buffered" check is what
-        // actually detects a stuck window.
+        // TASK-3081 — STALE-RUN GUARD (sibling idiom, `undefined` keeps a
+        // hand-built action working): the init epic's disposeRun() rejects
+        // the previous run's deferreds and those rejections reach the buffer
+        // epic's still-live subscription after the NEW run is already bound.
+        if (action.runId !== undefined && action.runId !== state.runId) {
+            return state;
+        }
+        // TASK-3081 — the FIRST cause wins. The buffer epic dispatches one
+        // action per failed ARRAY, so a chunk whose three arrays all stalled
+        // would otherwise report whichever key rejected last.
+        if (state.status === PLAYBACK_STATUS.ERROR) {
+            return state.error ? state : { ...state, error: action.error };
+        }
+        // TASK-3081 — the bounded exit for the initial-buffering phase, one
+        // level above TASK-3079's fetch-level stall guard. The
+        // BUFFERING -> READY gate needs the WHOLE floor window resident
+        // (PLAYBACK_CHUNKS_BUFFERED via isFloorWindowResident) and nothing
+        // re-triggers playbackBufferEpic without Play, Seek or a tick — so a
+        // rejected floor-window chunk with Play never pressed parked the run
+        // in `buffering` for the rest of the session (measured on map 1461:
+        // `depth/c/2/0` hung after 64 KB, three attempts, then 150 s+ of
+        // silence behind a bar that looked ready). OPTION B, reducer-only:
+        // no backoff, no re-enqueue — the fetcher already spent its attempts
+        // on the object, and PLAYBACK_PLAY at `error` is the manual retry
+        // (it re-derives the window and refills only the gap).
+        if (state.status === PLAYBACK_STATUS.BUFFERING
+            && floorWindowFor(state, state.currentTimestep).indexOf(action.chunkIndex) !== -1) {
+            return { ...state, status: PLAYBACK_STATUS.ERROR, error: action.error || state.error,
+                pendingPlay: false, effectiveSpeed: null, lastPaceMs: null };
+        }
+        // Every other status: recorded for visibility only. A single chunk
+        // error among a redundant multi-array window fetch must not itself
+        // flip status — TICK/PLAY's own "is the required window buffered"
+        // check is what detects a stuck window, and the tick loop self-heals
+        // a transient (that is deliberately NOT the case for the pre-roll
+        // above, where no tick is running).
         return { ...state, error: action.error || state.error };
     }
     case PLAYBACK_PLAY: {

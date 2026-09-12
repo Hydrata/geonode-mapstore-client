@@ -19,6 +19,8 @@ import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import TestUtils from 'react-dom/test-utils';
+// TASK-3081 — the real IntlProvider wrapper, so <Message> resolves a catalogue.
+import Localized from '@mapstore/framework/components/I18N/Localized';
 
 import { AnugaPlaybackControlBarComponent, formatClock, bufferedTrackSegments, formatPaceRatio, PLAYBACK_ZOOM_MAX } from '../AnugaPlaybackControlBar';
 import { PLAYBACK_STATUS, createInitialPlaybackState } from '../../playbackController';
@@ -316,6 +318,63 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
 
     // TASK-2656d (W6.5, epic 2618) — real wireframe toggle (was hardcoded
     // `false` in playbackEpics.js baseProps with no control anywhere).
+    /*
+     * TASK-3081 — the bar must SAY why a run left `buffering` for `error`.
+     * STATUS_MESSAGE_ID[ERROR] existed and was rendered nowhere: renderToast
+     * gated the status span on isBuffering (which excludes ERROR) and its early
+     * return on `!isBuffering && !progress`, and PLAYBACK_MANIFEST_LOADED sets
+     * loadProgress null — so a `buffering → error` flip rendered a bar with a
+     * title, the chip, an enabled Play and NO status text at all. It looked
+     * `ready` and never became so.
+     */
+    describe('TASK-3081 — the error toast', () => {
+        const errored = (overrides) => ({
+            ...createInitialPlaybackState(),
+            status: PLAYBACK_STATUS.ERROR,
+            runId: 'r', layerId: 'l', nTime: 31, totalChunks: 3, chunkLengthT: 10,
+            bufferedChunks: [0, 1],
+            error: "playbackChunkFetcher: stalled fetching 'depth/c/2/0' — no bytes for 15000 ms",
+            ...overrides
+        });
+
+        it('AC2 — at status error with no loadProgress the toast renders hydrata.playback.status.error', () => {
+            // THIS path: the flip happens after MANIFEST_LOADED cleared the
+            // mesh-phase progress, so there is nothing else to hang the toast on.
+            render({ playback: errored({ loadProgress: null }) });
+            const toast = container.querySelector('[data-testid="anuga-playback-toast"]');
+            expect(toast).toBeTruthy();
+            const span = container.querySelector('[data-testid="anuga-playback-buffering"]');
+            expect(span).toBeTruthy();
+            // Bare render: MapStore's Message emits the raw msgId without intl.
+            expect(span.textContent).toBe('hydrata.playback.status.error');
+            expect(span.className).toContain('sv-playback-error');
+            // Retry and exit are both still on the bar.
+            expect(container.querySelector('.sv-playback-playpause')).toBeTruthy();
+            expect(container.querySelector('.sv-playback-close')).toBeTruthy();
+        });
+
+        it('AC2 — at status error with a stale loadProgress the toast still renders hydrata.playback.status.error', () => {
+            // The MESH-phase path (PLAYBACK_MANIFEST_FAILED keeps loadProgress):
+            // the progress line may remain, the message must be there beside it.
+            render({ playback: errored({ loadProgress: { objectsLoaded: 7, objectCount: 7, bytesLoaded: 57671680 } }) });
+            const span = container.querySelector('[data-testid="anuga-playback-buffering"]');
+            expect(span).toBeTruthy();
+            expect(span.textContent).toBe('hydrata.playback.status.error');
+            expect(span.className).toContain('sv-playback-error');
+        });
+
+        it('at ready the status span is absent and carries no error class', () => {
+            render({ playback: errored({ status: PLAYBACK_STATUS.READY, loadProgress: null }) });
+            expect(container.querySelector('[data-testid="anuga-playback-buffering"]')).toBe(null);
+            expect(container.querySelector('.sv-playback-error')).toBe(null);
+            // ...and while buffering the span is the plain buffering one.
+            render({ playback: errored({ status: PLAYBACK_STATUS.BUFFERING, loadProgress: null }) });
+            const span = container.querySelector('[data-testid="anuga-playback-buffering"]');
+            expect(span.textContent).toBe('hydrata.playback.status.buffering');
+            expect(span.className).toNotContain('sv-playback-error');
+        });
+    });
+
     describe('wireframe toggle (TASK-2656d)', () => {
         it('reflects playback.wireframe in its active class and calls onSetWireframe(!current) on click', () => {
             const onSetWireframe = expect.createSpy();
@@ -919,6 +978,33 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
                 nNode: 10, nFace: 12, budgetBytes: 1e6, budgetSource: 'default'
             });
             expect(container.querySelector('[data-testid="anuga-playback-close"]').title).toBe(expected);
+        });
+
+        // TASK-3081 AC2 — the error toast resolves through the REAL en-US
+        // catalogue: the key has existed at hydrata.playback.status.error since
+        // the status map was written, and was rendered nowhere. The toast goes
+        // through <Message>, which reads react-intl's context — MessagesProvider
+        // above only feeds tr()'s `messages` — so this mounts under MapStore's
+        // own Localized wrapper (IntlProvider + the flattened catalogue), the
+        // way scenarioPane-test.js proves its interpolated copy.
+        it('AC2 — at status error the English catalogue renders Playback store failed to load', () => {
+            const expected = (enUS.messages || enUS).hydrata.playback.status.error;
+            expect(expected).toBe('Playback store failed to load');
+            ReactDOM.render(
+                <Localized locale="en-US" messages={enUS.messages || enUS}>
+                    <AnugaPlaybackControlBarComponent playback={{
+                        ...loaded, status: PLAYBACK_STATUS.ERROR, runId: 'run-77', layerId: 'layer-77',
+                        loadProgress: null, error: "playbackChunkFetcher: stalled fetching 'depth/c/2/0'"
+                    }} />
+                </Localized>,
+                container
+            );
+            const toast = container.querySelector('[data-testid="anuga-playback-toast"]');
+            expect(toast).toBeTruthy();
+            expect(toast.textContent).toContain('Playback store failed to load');
+            // and no raw dotted key leaks into the status slot
+            expect(container.querySelector('[data-testid="anuga-playback-buffering"]').textContent)
+                .toBe('Playback store failed to load');
         });
     });
 
