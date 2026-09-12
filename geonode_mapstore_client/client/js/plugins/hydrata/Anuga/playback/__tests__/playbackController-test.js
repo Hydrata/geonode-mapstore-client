@@ -63,6 +63,8 @@ import {
     playbackSetEnvelopeMode,
     playbackEnvelopeLoaded,
     playbackFallback,
+    // TASK-3081
+    playbackChunkBufferError,
     playbackReset
 } from '../actions/playbackActions';
 
@@ -824,6 +826,93 @@ describe('playbackController', () => {
             expect(faster.speed).toBe(ticked.speed * 2);
             // The FRACTION is a property of the link, not of the user's choice.
             expect(Math.abs(faster.effectiveSpeed / faster.speed - ticked.effectiveSpeed / ticked.speed) < 1e-12).toBe(true);
+        });
+    });
+
+    /*
+     * TASK-3081 — a rejected FLOOR-window chunk while BUFFERING must leave the
+     * run somewhere the user can see. Before this task CHUNK_BUFFER_ERROR was
+     * recorded-only at EVERY status, and nothing re-triggers the buffer epic
+     * without Play/Seek/a tick — so one dead object in the pre-roll parked the
+     * run in `buffering` for the rest of the session (measured on map 1461,
+     * `depth/c/2/0` hung after 64 KB: 3 attempts, then silence for 150 s+).
+     *
+     * OPTION B, reducer-only: flip to ERROR while BUFFERING when the failed
+     * chunk is in the floor window. Every OTHER status stays recorded-only —
+     * that is where the tick loop self-heals a transient today — and at ERROR
+     * the FIRST cause wins (the epic dispatches one action per failed ARRAY).
+     */
+    describe('TASK-3081 — a floor-window chunk error while BUFFERING', () => {
+        const STALL_MSG = "playbackChunkFetcher: stalled fetching 'depth/c/2/0' — no bytes for 15000 ms (or no headers for 60000 ms) on 3 attempts";
+
+        /** A store of `totalChunks` chunks (chunkLengthT 10) at `buffering`, `bufferedChunks` resident. */
+        function bufferingStore(totalChunks, bufferedChunks) {
+            const time = Array.from({ length: totalChunks * 10 }, (unused, i) => i * 30);
+            const loaded = reduce(reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1')),
+                playbackManifestLoaded({
+                    runId: 7, manifest: { id: 'm' }, mesh: null, time, nTime: time.length, nNode: 6,
+                    chunkLengthT: 10, totalChunks, quantization: { depth: { valid_max: 1 } }
+                }));
+            const s = reduce(loaded, playbackChunksBuffered(bufferedChunks, true));
+            expect(s.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            return s;
+        }
+
+        it('AC1 — a CHUNK_BUFFER_ERROR naming a FLOOR-window chunk while BUFFERING flips status to error and carries the chunk message', () => {
+            const s = bufferingStore(3, [0, 1]);
+            expect(floorWindowFor(s, s.currentTimestep)).toEqual([0, 1, 2]);
+            const failed = reduce(s, playbackChunkBufferError(2, STALL_MSG, 7));
+            expect(failed.status).toBe(PLAYBACK_STATUS.ERROR);
+            expect(failed.error).toContain('depth/c/2/0');
+            expect(failed.pendingPlay).toBe(false);
+            expect(failed.effectiveSpeed).toBe(null);
+            expect(failed.lastPaceMs).toBe(null);
+            // The resident set is untouched: a Play at `error` refills only the gap.
+            expect(failed.bufferedChunks).toEqual([0, 1]);
+        });
+
+        it('AC1 — a CHUNK_BUFFER_ERROR for a chunk OUTSIDE the floor window while BUFFERING stays recorded-only', () => {
+            const s = bufferingStore(6, [0, 1]);
+            expect(floorWindowFor(s, s.currentTimestep)).toEqual([0, 1, 2]);
+            const after = reduce(s, playbackChunkBufferError(5, 'boom-5', 7));
+            expect(after.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(after.error).toBe('boom-5');
+        });
+
+        it('AC1 — a CHUNK_BUFFER_ERROR while READY, SEEKING, STALLED or PLAYING stays recorded-only even for a floor-window chunk', () => {
+            const base = bufferingStore(6, [0, 1]);
+            [PLAYBACK_STATUS.READY, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED, PLAYBACK_STATUS.PLAYING].forEach((status) => {
+                const s = { ...base, status, pendingPlay: true };
+                const after = reduce(s, playbackChunkBufferError(2, `boom at ${status}`, 7));
+                expect(after.status).toBe(status);
+                expect(after.pendingPlay).toBe(true);
+                expect(after.error).toBe(`boom at ${status}`);
+            });
+        });
+
+        it('AC1 — at status error a later CHUNK_BUFFER_ERROR does not overwrite the first cause', () => {
+            const s = bufferingStore(3, [0, 1]);
+            const first = reduce(s, playbackChunkBufferError(2, STALL_MSG, 7));
+            expect(first.status).toBe(PLAYBACK_STATUS.ERROR);
+            // The epic dispatches one action per failed ARRAY of the chunk.
+            const second = reduce(first, playbackChunkBufferError(2, "playbackChunkFetcher: stalled fetching 'x_velocity/c/2/0'", 7));
+            const third = reduce(second, playbackChunkBufferError(2, "playbackChunkFetcher: stalled fetching 'y_velocity/c/2/0'", 7));
+            expect(third.status).toBe(PLAYBACK_STATUS.ERROR);
+            expect(third.error).toBe(STALL_MSG);
+        });
+
+        it('AC1 — a CHUNK_BUFFER_ERROR carrying a stale runId is ignored', () => {
+            const s = bufferingStore(3, [0, 1]);
+            // The init epic's disposeRun() rejects the OLD run's deferreds
+            // ("fill cancelled") and those land on the buffer epic after the
+            // NEW run has already been bound — the stamp is what keeps them out.
+            const after = reduce(s, playbackChunkBufferError(2, 'fill cancelled', 6));
+            expect(after).toBe(s);
+            expect(after.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(after.error).toBe(null);
+            // A hand-built action without a runId still lands (sibling idiom).
+            const unstamped = reduce(s, playbackChunkBufferError(5, 'no stamp'));
+            expect(unstamped.error).toBe('no stamp');
         });
     });
 

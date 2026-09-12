@@ -916,7 +916,16 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
     renderToast(playback, isBuffering, statusMsgId) {
         const progress = playback.loadProgress;
         const showDegraded = !!playback.degraded && !playback.degradedDismissed;
-        if (!isBuffering && !progress && !showDegraded) {
+        // TASK-3081 — `error` speaks too. STATUS_MESSAGE_ID[ERROR] existed and
+        // was rendered nowhere: isBuffering excludes ERROR, and on the
+        // buffering-phase path PLAYBACK_MANIFEST_LOADED has already cleared
+        // loadProgress, so a `buffering -> error` flip rendered a bar with a
+        // title, the chip, an enabled Play and no status text at all — it
+        // looked `ready` and never became so. The span keeps its testid (the
+        // status slot is one slot) and gains a class the stylesheet colours.
+        const isError = playback.status === PLAYBACK_STATUS.ERROR;
+        const showStatus = isBuffering || isError;
+        if (!showStatus && !progress && !showDegraded) {
             return null;
         }
         return (
@@ -927,8 +936,11 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 aria-live="polite"
                 aria-label={this.tr('hydrata.playback.statusToast', 'Playback status')}
             >
-                {isBuffering ? (
-                    <span className="sv-playback-buffering" data-testid="anuga-playback-buffering">
+                {showStatus ? (
+                    <span
+                        className={`sv-playback-buffering${isError ? ' sv-playback-error' : ''}`}
+                        data-testid="anuga-playback-buffering"
+                    >
                         {statusMsgId ? <Message msgId={statusMsgId} /> : null}
                     </span>
                 ) : null}

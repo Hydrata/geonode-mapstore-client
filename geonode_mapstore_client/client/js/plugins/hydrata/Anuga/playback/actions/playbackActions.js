@@ -183,8 +183,16 @@ export function playbackFallback(payload) {
     return { type: PLAYBACK_FALLBACK, ...payload };
 }
 
-export function playbackChunkBufferError(chunkIndex, error) {
-    return { type: PLAYBACK_CHUNK_BUFFER_ERROR, chunkIndex, error };
+/**
+ * TASK-3081 — `runId` is stamped by both dispatch sites (the buffer epic's
+ * per-array rejections and the sync epic's refused frame) so the reducer can
+ * drop a rejection that belongs to a run already disposed: playbackInitEpic's
+ * disposeRun() rejects the OLD run's deferreds ("fill cancelled") and those
+ * land on the buffer epic's still-live subscription AFTER the new run is bound.
+ * Optional, so a hand-built action still lands (the sibling idiom).
+ */
+export function playbackChunkBufferError(chunkIndex, error, runId) {
+    return { type: PLAYBACK_CHUNK_BUFFER_ERROR, chunkIndex, error, runId };
 }
 
 export function playbackPlay() {

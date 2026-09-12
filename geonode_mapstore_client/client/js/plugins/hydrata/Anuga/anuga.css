@@ -3720,6 +3720,11 @@ span.sv-scenario-run-price--short {
     color: var(--sv-accent-blue, #5bc0ff);
     white-space: nowrap;
 }
+/* TASK-3081 — the same slot at `error`: the run left `buffering` because a
+   pre-roll chunk was rejected; Play is the retry, the chip is the exit. */
+.sv-playback-buffering.sv-playback-error {
+    color: #ff6b6b;
+}
 .sv-playback-load-progress {
     font-variant-numeric: tabular-nums;
     opacity: 0.85;
