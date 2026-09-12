@@ -986,7 +986,7 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
         const groups = fetcher.fillTowards(window, 0, configs(), { totalChunks: 11 });
         expect(groups.map((g) => g.chunkIndex)).toEqual(window);
 
-        // Drain the queue two chunks at a time and collect the requested set.
+        // Drain the queue MAX_CONCURRENT_FILL_CHUNKS chunks at a time and collect the requested set.
         const drain = (remaining) => {
             if (!remaining.length) {
                 return Promise.resolve();
@@ -1002,19 +1002,20 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
         }).catch(done);
     });
 
-    it('AC2 — at most 6 queue-issued requests in flight, and the FIRST one is the playhead chunk', (done) => {
-        // A FORCED 3-slot plan over an 11-chunk store at CENTRE 5. The centre
-        // matters: at centre 0 on a 3-slot plan HEAD's window is [0,1] =
-        // exactly 6 requests and the first IS chunk 0, so both halves of this
-        // AC pass against unmodified source and grade nothing.
+    it('AC2 — at most 9 queue-issued requests in flight (three chunks), and the FIRST one is the playhead chunk', (done) => {
+        // A FORCED 4-slot plan over an 11-chunk store at CENTRE 5 — one slot
+        // WIDER than the bound, so the bound is visible: TASK-3080 raised
+        // MAX_CONCURRENT_FILL_CHUNKS from 2 to 3, and on the 3-slot plan this
+        // spec used to force, all three chunks now start at once and nothing
+        // here would grade the bound. The centre matters too: at centre 0 the
+        // first request IS chunk 0 whatever the fill order does.
         //
-        // VERIFIED AT HEAD on this shape: peak concurrent fetchImpl = 9, first
-        // call = depth chunk 4. HEAD is not "unbounded" here — with 2984's
-        // monotone rule its worst case on this forced plan is 9 — it is simply
-        // NOT BOUNDED BY ANYTHING THE CODE SAYS.
-        const plan = { chunksPerQuantity: 3, bufferWindowRadius: 1, cacheMaxBytes: 3 * 3 * CHUNK_BYTES };
+        // Window [4,5,6,7]; fill order from the playhead is [5,6,7,4]. Three
+        // chunks (nine requests) run, the FOURTH — chunk 4, the behind-slot —
+        // waits for a slot.
+        const plan = { chunksPerQuantity: 4, bufferWindowRadius: 1, cacheMaxBytes: 4 * 3 * CHUNK_BYTES };
         const window = planWindow(5, 11, plan);
-        expect(window).toEqual([4, 5, 6]);
+        expect(window).toEqual([4, 5, 6, 7]);
 
         const rig = gatedFetch();
         const fetcher = makeFetcher(rig, { totalChunks: 11, memoryPlan: plan });
@@ -1023,12 +1024,12 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
         // FIRST request issued is the playhead's own chunk, not the behind-slot.
         expect(chunkOf(rig.calls[0])).toBe(5);
         expect(rig.calls[0]).toBe('depth/c/5/0');
-        // Assert against the EXPORTED constant, not a magic 6, so a change to
+        // Assert against the EXPORTED constant, not a magic 9, so a change to
         // the bound has to change this line rather than slipping past it.
-        expect(MAX_CONCURRENT_FILL_CHUNKS * QUANTITIES.length).toBe(6);
+        expect(MAX_CONCURRENT_FILL_CHUNKS * QUANTITIES.length).toBe(9);
         expect(rig.peak).toBe(MAX_CONCURRENT_FILL_CHUNKS * QUANTITIES.length);
         expect(rig.live).toBe(MAX_CONCURRENT_FILL_CHUNKS * QUANTITIES.length);
-        // the third chunk has NOT started — that is the bound doing its job
+        // the fourth chunk has NOT started — that is the bound doing its job
         expect(rig.calls.filter((u) => chunkOf(u) === 4).length).toBe(0);
 
         rig.settleChunk(5).then(() => {
@@ -1036,37 +1037,40 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
             // bound still holds
             expect(rig.peak).toBe(MAX_CONCURRENT_FILL_CHUNKS * QUANTITIES.length);
             expect(rig.live).toBeLessThanOrEqualTo(MAX_CONCURRENT_FILL_CHUNKS * QUANTITIES.length);
-            expect(Array.from(new Set(rig.calls.map(chunkOf)))).toEqual([5, 6, 4]);
-            return rig.settleChunk(6).then(() => rig.settleChunk(4));
+            expect(Array.from(new Set(rig.calls.map(chunkOf)))).toEqual([5, 6, 7, 4]);
+            return rig.settleChunk(6).then(() => rig.settleChunk(7)).then(() => rig.settleChunk(4));
         }).then(() => {
-            expect(rig.peak).toBe(6);
-            expect(rig.calls.length).toBe(9);
+            expect(rig.peak).toBe(9);
+            expect(rig.calls.length).toBe(12);
             done();
         }).catch(done);
     });
 
     it('AC5 — a SEEK re-prioritises: the seeked chunk is the next request the queue STARTS', (done) => {
-        // ON A PLAN WITH A BEHIND-SLOT. On a 2-slot plan getPrefetchWindow(9,
-        // 16, 0, {ahead: 1}) is [9,10] and chunk 9 is already HEAD's first
-        // request, so the AC could not fail. With radius 1 HEAD issues chunk 8
-        // first (window [8,9,10]).
-        const plan = { chunksPerQuantity: 3, bufferWindowRadius: 1, cacheMaxBytes: 3 * 3 * CHUNK_BYTES };
+        // ON A PLAN WITH A BEHIND-SLOT AND A PENDING TAIL. On a 2-slot plan
+        // getPrefetchWindow(9, 16, 0, {ahead: 1}) is [9,10] and chunk 9 is
+        // already HEAD's first request, so the AC could not fail. With radius
+        // 1 HEAD issues chunk 8 first (window [8,9,10,11]). The plan is one
+        // slot WIDER than MAX_CONCURRENT_FILL_CHUNKS (TASK-3080: 3) so that a
+        // chunk is still PENDING when the seek lands — re-prioritisation is
+        // only observable on a queue that has a tail.
+        const plan = { chunksPerQuantity: 4, bufferWindowRadius: 1, cacheMaxBytes: 4 * 3 * CHUNK_BYTES };
         const rig = gatedFetch();
         const fetcher = makeFetcher(rig, { totalChunks: 16, memoryPlan: plan });
 
         // fill around chunk 0 first, so the queue is busy and has a tail
         fetcher.fillTowards(planWindow(0, 16, plan), 0, configs(), { totalChunks: 16 });
         const beforeSeek = rig.calls.length;
-        expect(beforeSeek).toBe(6); // chunks 0 and 1 running, chunk 2 pending
+        expect(beforeSeek).toBe(9); // chunks 0, 1 and 2 running, chunk 3 pending
 
         // ...now SEEK to chunk 9.
         const seekWindow = planWindow(9, 16, plan);
-        expect(seekWindow).toEqual([8, 9, 10]);
+        expect(seekWindow).toEqual([8, 9, 10, 11]);
         fetcher.fillTowards(seekWindow, 9, configs(), { totalChunks: 16 });
 
-        // Requests already in flight are neither cancelled nor counted — an Rx
-        // fromPromise unsubscribe does not cancel a fetch and this class has no
-        // AbortController. Assert on the ORDER of what the queue STARTS NEXT.
+        // Requests already in flight are neither cancelled by a seek nor
+        // counted against it (only releaseCaches() aborts them, TASK-3079).
+        // Assert on the ORDER of what the queue STARTS NEXT.
         rig.settleChunk(0).then(() => {
             const started = rig.calls.slice(beforeSeek).map(chunkOf);
             expect(started.length).toBeGreaterThan(0);
@@ -1196,12 +1200,16 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
         const fetcher = makeFetcher(rig, { totalChunks: 16, memoryPlan: plan });
         const window = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
         fetcher.fillTowards(window, 0, configs(), { totalChunks: 16 });
-        // the queue is saturated on chunks 0 and 1
-        expect(Array.from(new Set(rig.calls.map(chunkOf)))).toEqual([0, 1]);
+        // the queue is saturated on the first MAX_CONCURRENT_FILL_CHUNKS chunks
+        const saturated = [];
+        for (let t = 0; t < MAX_CONCURRENT_FILL_CHUNKS; t++) {
+            saturated.push(t);
+        }
+        expect(Array.from(new Set(rig.calls.map(chunkOf)))).toEqual(saturated);
 
         // A DIRECT request for chunk 9 — enqueued, not started. It must start
-        // immediately, PAST the two-chunk bound, and resolve without chunks
-        // 2..8 completing first.
+        // immediately, PAST the bound, and resolve without the chunks between
+        // the bound and 9 completing first.
         const urgent = fetcher.fetchAndDecodeChunk('depth', [9, 0], { dtype: 'uint16' });
         expect(rig.calls.filter((u) => chunkOf(u) === 9).length).toBe(QUANTITIES.length);
         expect(rig.calls.filter((u) => chunkOf(u) === 5).length).toBe(0);
@@ -1210,7 +1218,9 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
             expect(value.length).toBe(CHUNK_BYTES / 2);
             const touched = Array.from(new Set(rig.calls.map(chunkOf)));
             expect(touched.indexOf(9)).toNotBe(-1);
-            [2, 3, 4, 5, 6, 7, 8].forEach((t) => expect(touched.indexOf(t)).toBe(-1));
+            for (let t = MAX_CONCURRENT_FILL_CHUNKS; t < 9; t++) {
+                expect(touched.indexOf(t)).toBe(-1);
+            }
             done();
         }).catch(done);
     });
@@ -1224,7 +1234,8 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], 0, configs(), { totalChunks: 16 });
         expect(groups.length).toBe(16);
         const callsAtTeardown = rig.calls.length;
-        expect(callsAtTeardown).toBe(6); // two chunks in flight
+        // MAX_CONCURRENT_FILL_CHUNKS chunks in flight, three arrays each
+        expect(callsAtTeardown).toBe(MAX_CONCURRENT_FILL_CHUNKS * QUANTITIES.length);
 
         fetcher.releaseCaches();
 
@@ -1282,7 +1293,8 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
         const second = fetcher.fillTowards([0, 1, 2], 0, configs(), { totalChunks: 16 });
         expect(second.length).toBe(first.length);
         first.forEach((g, i) => expect(second[i].promise).toBe(g.promise));
-        // ...and it did NOT re-issue the network requests
-        expect(rig.calls.length).toBe(6);
+        // ...and it did NOT re-issue the network requests (every chunk of this
+        // 3-slot plan starts at once at MAX_CONCURRENT_FILL_CHUNKS = 3)
+        expect(rig.calls.length).toBe(Math.min(3, MAX_CONCURRENT_FILL_CHUNKS) * QUANTITIES.length);
     });
 });

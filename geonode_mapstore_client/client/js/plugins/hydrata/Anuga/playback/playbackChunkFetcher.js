@@ -95,15 +95,29 @@ export const PLAYBACK_FETCH_MAX_ATTEMPTS = 3;
 
 /**
  * TASK-2985 (W1.2, epic 2981) — how many CHUNKS the fill queue runs at once.
- * Three quantity arrays per chunk, so two chunks is six concurrent requests.
+ * Three quantity arrays per chunk, so three chunks is nine concurrent requests.
  *
  * THE BOUND IS ON QUEUE-ISSUED REQUESTS ONLY, never on the shared `_inflight`.
  * playbackInitEpic's mesh load (a Promise.all of six static-array fetches),
  * playbackEnvelopeFetchEpic and playbackSyncLayerEpic's per-frame
  * loadPlaybackFrame all call fetchAndDecodeChunk OUTSIDE the queue and must
  * not be throttled by it: the frame path is the one the user is waiting on.
+ *
+ * TASK-3080 — THREE, up from two. A slot is released only when ALL THREE
+ * arrays of its chunk have landed (`Promise.all` in _startFillEntry), so at
+ * two chunks one straggling array idled its two siblings' connections and
+ * nothing was queued at the browser to take them: measured on prod map 6697
+ * (run 1422, 58 MiB store), a mean of 2.72 of Chrome's six per-host sockets
+ * busy over a 322 s fill, 52 % of the fill on one or two requests. At three
+ * chunks nine requests are issued, Chrome holds three in its own per-host
+ * queue and dispatches each the instant any socket frees, so a crawl on one
+ * connection no longer parks two others. The queue only ever holds PLAN
+ * chunks, so on a 3-slot phone plan the bound simply stops binding; eviction
+ * is per chunk BEFORE insert, so peak residency is unchanged. Queue time
+ * counts against TASK-3079's HEADERS budget (PLAYBACK_FETCH_HEADERS_MS),
+ * which is why that budget is generous.
  */
-export const MAX_CONCURRENT_FILL_CHUNKS = 2;
+export const MAX_CONCURRENT_FILL_CHUNKS = 3;
 
 /** The single stable rejection every cancelled fill deferred carries. */
 export const FILL_CANCELLED_MESSAGE = 'playbackChunkFetcher: fill cancelled (run disposed)';
@@ -889,7 +903,7 @@ export class PlaybackChunkFetcher {
         // hang; it is only the RESIDENCY that is refused.
         if (!this._disposed) {
             // ROOM IS MADE AT INSERT TIME, NOT AT CHUNK START. Making it at
-            // start is a real bug and it was measured: with two chunks in
+            // start is a real bug and it was measured: with more than one chunk in
             // flight the decode lands long after the decision, so the resident
             // count the chooser saw is stale by then and the byte LRU gets
             // there first — evicting the chunk the playhead is IN, which is
@@ -1058,7 +1072,7 @@ export class PlaybackChunkFetcher {
      *
      * FOUR THINGS IT OWNS, none of which the old fan-out did:
      *  1. ORDER — the playhead's own chunk is the first request issued.
-     *  2. A BOUND — two chunks, six requests, at any instant. On queue-issued
+     *  2. A BOUND — three chunks, nine requests, at any instant. On queue-issued
      *     requests ONLY; the mesh load, the envelope fetch and the per-frame
      *     loadPlaybackFrame all bypass it (see MAX_CONCURRENT_FILL_CHUNKS).
      *  3. RE-PRIORITISATION — a new playhead rebuilds the pending order, so a
