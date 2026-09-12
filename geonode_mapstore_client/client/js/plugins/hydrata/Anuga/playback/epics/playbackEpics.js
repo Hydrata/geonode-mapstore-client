@@ -887,7 +887,7 @@ export function playbackBufferEpic(action$, store) {
         //
         // TASK-2985 — the fan-out is replaced by the fetcher's own fill queue:
         // the SAME `window` array that fed the already-buffered guard above,
-        // filled forward from the playhead, at most two chunks (six requests)
+        // filled forward from the playhead, at most three chunks (nine requests)
         // in flight, with playhead-distance eviction. The per-chunk promise
         // shape is unchanged, so `merge` and the per-chunk announcement below
         // are untouched.
