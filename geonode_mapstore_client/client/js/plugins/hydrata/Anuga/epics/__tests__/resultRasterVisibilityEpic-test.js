@@ -3,11 +3,14 @@
  *
  * resultRasterVisibilityEpic hides every result-shaped raster (a run's three
  * max-value COGs, a RunComparison diff raster, a pre-token result name) on
- * MAP_CONFIG_LOADED and ADD_LAYER, display-only; resultRasterToggleEpic is the
- * session-only show/hide behind every Results row's toggle.
+ * MAP_CONFIG_LOADED and ADD_LAYER, display-only. TASK-3078 removed the
+ * session-only per-row show/hide toggle that used to ride beside it (its
+ * epic, action, reducer key and label selector) — the sweep's ONE exemption
+ * is the active playback run, and the last spec here probes that the
+ * removed exports and the reducer key are really gone.
  *
- * The two epics are imported from the BARREL (../../epicsAnuga), not from
- * their own module, so a missing barrel export reds this file — and
+ * The epic is imported from the BARREL (../../epicsAnuga), not from its own
+ * module, so a missing barrel export reds this file — and
  * epicRegistrationCompleteness-test.js then insists on the Anuga.js
  * registration. isResultShapedLayer is a plain predicate (not an epic), so it
  * comes from its own module: the barrel exports epics only, and the
@@ -21,12 +24,10 @@
  * Harness: a manual Rx.Subject action stream + a stub store whose state is
  * MUTATED the way the real reducers would — ADD_LAYER appends to
  * layers.flat, every emitted CHANGE_LAYER_PROPERTIES is applied to the
- * layer's visibility, and the anuga.ui slice runs the REAL uiReducer. That
- * last two matter: without applying the toggle's `visibility:true` back into
- * state, the "keeps them shown through the next sweep" spec would pass
- * vacuously (the sweep skips already-hidden layers regardless of E1).
- * Assertions are collected past the epic's 300 ms debounce and compare the
- * WHOLE emitted stream, never "contains".
+ * layer's visibility, and the anuga.ui slice runs the REAL uiReducer (so the
+ * AC7 reducer-key probe below reads the real default shape). Assertions are
+ * collected past the epic's 300 ms debounce and compare the WHOLE emitted
+ * stream, never "contains".
  */
 import expect from 'expect';
 import Rx from 'rxjs';
@@ -34,9 +35,8 @@ import { ADD_LAYER, CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/
 import { MAP_CONFIG_LOADED } from '@mapstore/framework/actions/config';
 import { SAVE_DIRECT_CONTENT } from '@js/actions/gnsave';
 
-import { resultRasterVisibilityEpic, resultRasterToggleEpic } from '../../epicsAnuga';
+import { resultRasterVisibilityEpic } from '../../epicsAnuga';
 import { isResultShapedLayer } from '../resultRasterVisibilityEpic';
-import { setAnugaResultRastersShown } from '../../actionsAnuga';
 import uiReducer from '../../reducers/uiReducer';
 import { PLAYBACK_FALLBACK } from '../../playback/actions/playbackActions';
 
@@ -126,7 +126,6 @@ const makeState = ({ flat = [], scenarios = [], playback = {} } = {}) => ({
 // ── Harness ───────────────────────────────────────────────────────────────────
 
 const COLLECT_MS = 500; // > the 300 ms debounce
-const SETTLE_MS = 80;   // for the undebounced toggle epic
 
 // Every action any spec in this file ever saw emitted — the
 // "never dispatches saveDirectContent" assertion sweeps ALL of it.
@@ -176,9 +175,6 @@ const collect = (ms, fn, done) => setTimeout(() => {
 
 const hideIds = (emitted) => emitted
     .filter((a) => a.type === CHANGE_LAYER_PROPERTIES && a.newProperties && a.newProperties.visibility === false)
-    .map((a) => a.layer);
-const showIds = (emitted) => emitted
-    .filter((a) => a.type === CHANGE_LAYER_PROPERTIES && a.newProperties && a.newProperties.visibility === true)
     .map((a) => a.layer);
 const sorted = (xs) => xs.slice().sort();
 
@@ -286,7 +282,7 @@ describe('TASK-2973 resultRasterVisibilityEpic — nothing result-shaped on load
     it('is silent on an already-hidden map and never dispatches saveDirectContent', function(done) {
         this.timeout(3000);
         const state = makeState({ flat: nonResultLayers().concat(twelve(false)) });
-        const { dispatch, emitted } = makeRig(state, [resultRasterVisibilityEpic, resultRasterToggleEpic]);
+        const { dispatch, emitted } = makeRig(state, [resultRasterVisibilityEpic]);
 
         dispatch({ type: MAP_CONFIG_LOADED, config: { map: { layers: state.layers.flat } }, mapId: 1418 });
         dispatch({
@@ -336,44 +332,46 @@ describe('TASK-2973 resultRasterVisibilityEpic — nothing result-shaped on load
         }, done);
     });
 
-    it("shows a toggled run's rasters and keeps them shown through the next sweep", function(done) {
-        this.timeout(4000);
-        const shown = QUANTITIES.map((q) => resultLayer(60957, q, false));
+    // TASK-3078 AC7 — the toggled set is GONE. The sweep's one exemption is
+    // the active playback run; the other half of this spec probes the
+    // removed surface by SHAPE (`require()` of an ES module returns its
+    // namespace in this karma/webpack setup, and actionsAnuga is a CommonJS
+    // Object.assign barrel): the epic module's export set is exact, and the
+    // barrel, the actions barrel and the ui reducer's initial state carry no
+    // result-raster toggle name of ANY spelling. The removed identifiers are
+    // deliberately not spelled out here — the stored proof greps the whole
+    // tree for them, specs included.
+    it('exempts only the active playback run — there is no toggled set any more', function(done) {
+        this.timeout(3000);
         const state = makeState({
-            flat: nonResultLayers().concat(shown),
-            scenarios: [scenarioFor(69344, 60957), scenarioFor(80535, 51208)]
+            flat: nonResultLayers().concat(twelve(true)),
+            scenarios: [scenarioFor(69344, 60957, true), scenarioFor(80535, 51208)],
+            playback: { status: 'ready', runId: '60957', layerId: 'anuga-results-playback' }
         });
-        // ONE subscription over both epics: the toggle's show must survive
-        // the hide epic's next sweep via E1 (state.anuga.ui.shownResultRunIds).
-        const { dispatch, emitted } = makeRig(state, [resultRasterVisibilityEpic, resultRasterToggleEpic]);
-        const shownIds = sorted(shown.map((l) => l.id));
-        const later = resultLayer(51208, QUANTITIES[2], true);
+        // `state.anuga.ui = {}` — no toggled-set key of any kind, which must
+        // read exactly like "nothing toggled".
+        state.anuga.ui = {};
+        const { dispatch, emitted } = makeRig(state, [resultRasterVisibilityEpic]);
 
-        dispatch(setAnugaResultRastersShown(60957, true));
+        dispatch({ type: MAP_CONFIG_LOADED, config: { map: { layers: state.layers.flat } }, mapId: 1418 });
 
-        collect(SETTLE_MS, () => {
-            expect(emitted.length).toBe(3);
-            expect(sorted(showIds(emitted))).toEqual(shownIds);
-            expect(state.anuga.ui.shownResultRunIds).toEqual(['60957']);
+        collect(COLLECT_MS, () => {
+            const kept = twelve(true).filter((l) => l.name.indexOf('run60957_') > -1).map((l) => l.id);
+            const hidden = twelve(true).filter((l) => l.name.indexOf('run60957_') === -1).map((l) => l.id);
+            expect(emitted.length).toBe(9);
+            expect(sorted(hideIds(emitted))).toEqual(sorted(hidden));
+            kept.forEach((id) => expect(hideIds(emitted).indexOf(id)).toBe(-1));
 
-            dispatch({ type: ADD_LAYER, layer: later, foreground: true });
-            collect(COLLECT_MS, () => {
-                // Exactly ONE more action: 51208 hidden, 60957 NOT re-hidden
-                // even though its three layers now read visibility:true.
-                expect(emitted.length).toBe(4);
-                expect(hideIds(emitted)).toEqual([later.id]);
-                shown.forEach((l) => {
-                    expect(state.layers.flat.find((x) => x.id === l.id).visibility).toBe(true);
-                });
-
-                dispatch(setAnugaResultRastersShown('60957', false));
-                collect(SETTLE_MS, () => {
-                    expect(emitted.length).toBe(7);
-                    expect(sorted(hideIds(emitted.slice(4)))).toEqual(shownIds);
-                    expect(state.anuga.ui.shownResultRunIds).toEqual([]);
-                    done();
-                }, done);
-            }, done);
+            // THE RED HALF — the removed plumbing is really gone.
+            const own = require('../resultRasterVisibilityEpic');
+            expect(Object.keys(own).sort()).toEqual([
+                'RESULT_NAME_TOKENS', 'isResultShapedLayer', 'resultRasterVisibilityEpic', 'runLayerMatcher'
+            ]);
+            const resultRasterNames = (obj) => Object.keys(obj).filter((k) => /resultRaster/i.test(k));
+            expect(resultRasterNames(require('../../epicsAnuga'))).toEqual(['resultRasterVisibilityEpic']);
+            expect(resultRasterNames(require('../../actionsAnuga'))).toEqual([]);
+            expect(Object.keys(uiReducer(undefined, { type: '@@probe' })).filter((k) => /RunIds|Raster/i.test(k))).toEqual([]);
+            done();
         }, done);
     });
 

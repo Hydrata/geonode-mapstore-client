@@ -63,8 +63,10 @@ const TRANSPORT_CONTROLS = [
     'anuga-playback-max-envelope',
     'anuga-playback-display-toggle',
     'anuga-playback-identify-toggle',
-    'anuga-playback-legend-toggle',
-    'anuga-playback-unload'
+    'anuga-playback-legend-toggle'
+    // TASK-3078 — the Unload button left the transport row; the run's exit is
+    // now the close chip at the card's top-right (a direct child of the card,
+    // asserted in AnugaPlaybackControlBar-test.js), not a transport control.
 ];
 
 describe('Playback bar layout — TASK-2751', () => {
@@ -544,13 +546,14 @@ describe('Playback fallback message — TASK-2986', () => {
     it('AC5 — the NO-ENVELOPE case says something DIFFERENT, and both disable Play', () => {
         const withEnvelope = renderBar(fallbackState({ fallbackLayerShown: 'added' }));
         expect(q('anuga-playback-playpause').disabled).toBe(true);
-        // Unload stays enabled — the run has to be dismissible.
-        expect(q('anuga-playback-unload').disabled).toBe(false);
+        // The close chip stays enabled — the run has to be dismissible
+        // (TASK-3078: the chip replaced the Unload button).
+        expect(q('anuga-playback-close').disabled).toBe(false);
         const without = renderBar(fallbackState({ fallbackLayerShown: 'none' }));
         expect(without).toNotBe(withEnvelope);
         expect(without.toLowerCase()).toContain('no maximum depth envelope');
         expect(q('anuga-playback-playpause').disabled).toBe(true);
-        expect(q('anuga-playback-unload').disabled).toBe(false);
+        expect(q('anuga-playback-close').disabled).toBe(false);
         // 'existing' reads the same as 'added' — both put a layer on the map.
         expect(renderBar(fallbackState({ fallbackLayerShown: 'existing' }))).toBe(withEnvelope);
     });
@@ -601,7 +604,10 @@ describe('Playback fallback message — TASK-2986', () => {
             // TASK-3076 — the colour-scale floor, the legend's hidden row and
             // the bar heading's fallback.
             ['floor'], ['floorTooltip'], ['floorReset'], ['floorInert'],
-            ['legendBelowFloorHidden'], ['runTitle']
+            ['legendBelowFloorHidden'], ['runTitle'],
+            // TASK-3078 — the close chip's accessible name (replaces the
+            // removed Unload button's two keys).
+            ['closeTooltip']
         ];
         Object.keys(LOCALES).forEach((locale) => {
             const messages = LOCALES[locale].messages || LOCALES[locale];

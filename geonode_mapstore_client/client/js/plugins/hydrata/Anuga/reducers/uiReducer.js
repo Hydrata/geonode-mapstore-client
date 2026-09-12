@@ -40,9 +40,7 @@ import {
     // to styling_mode='dynamic' re-shows a user-closed legend (AC2).
     SET_MOVABLE_PANEL_STATE,
     SET_DEM_LEGEND_PANEL,
-    UPDATE_TERRAIN_ROW,
-    // TASK-2973 — per-run session-only max-value raster show/hide.
-    SET_ANUGA_RESULT_RASTERS_SHOWN
+    UPDATE_TERRAIN_ROW
 } from "../actionsAnuga";
 
 import {
@@ -136,14 +134,7 @@ const initialState = {
     // TASK-2233 — the floating dynamic-DEM legend auto-shows whenever a
     // dynamic-mode terrain pair exists; true = the user closed it. Cleared by
     // a terrain re-entering dynamic styling mode (UPDATE_TERRAIN_ROW below).
-    demLegendPanelClosed: false,
-    // TASK-2973 — run ids (strings) whose max-value result rasters the user
-    // has toggled ON this session. resultRasterVisibilityEpic hides every
-    // result-shaped raster on load and exempts these; the toggle on every
-    // Results row adds/removes here. Never persisted (nothing serialises
-    // anuga.ui), so a reload starts hidden again — by design. A stale id
-    // matches nothing once the run's layers are gone, so no pruning.
-    shownResultRunIds: []
+    demLegendPanelClosed: false
 };
 
 export default (state = initialState, action) => {
@@ -410,12 +401,6 @@ export default (state = initialState, action) => {
     }
     case SET_DEM_LEGEND_PANEL:
         return { ...state, demLegendPanelClosed: !action.visible };
-    // ── TASK-2973 — per-run session-only max-value raster show/hide ─────────
-    case SET_ANUGA_RESULT_RASTERS_SHOWN: {
-        const runId = String(action.runId);
-        const current = (state.shownResultRunIds || []).filter(id => id !== runId);
-        return { ...state, shownResultRunIds: action.shown ? [...current, runId] : current };
-    }
     case UPDATE_TERRAIN_ROW:
         // Re-entering dynamic styling mode re-shows a user-closed legend (AC2).
         // Any other row update (including a traditional switch) leaves it alone.

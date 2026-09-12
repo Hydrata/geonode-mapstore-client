@@ -499,13 +499,13 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
 
     // TASK-2744 (AC11, epic 2706) — the flow-viz/particle knobs are NO LONGER
     // component-local state. They were, on the reasoning that they are pure
-    // visual toggles orthogonal to the buffer-then-play state machine — but
-    // this bar is UNMOUNTED every time the SimpleView menu group leaves
-    // 'Results' (anugaContainer.js:431), and local state dies with it while
-    // the LAYER keeps the property. Measured on map 1461: enable Flow viz,
-    // switch menu away and back, and the layer still had flowVizEnabled true
-    // while the button had lost its `active` class — the overlay was drawing
-    // and the control said it was off.
+    // visual toggles orthogonal to the buffer-then-play state machine — but at
+    // the time this bar was UNMOUNTED on any menu switch away from 'Results',
+    // and local state died with it while the LAYER kept the property.
+    // Measured on map 1461: enable Flow viz, switch menu away and
+    // back, and the layer still had flowVizEnabled true while the button had
+    // lost its `active` class — the overlay was drawing and the control said
+    // it was off.
     //
     // The file's own header already anticipated this: wireframe (TASK-2656d)
     // was promoted to reducer state precisely so it would "persist across this
@@ -514,13 +514,20 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
     // override (AC4); playbackSyncLayerEpic's baseProps now owns pushing every
     // one of them to the layer.
     //
+    // TASK-3078 — the bar now stays MOUNTED while a run is loaded whatever
+    // menu is open (anugaContainer.js's `playbackLoaded` gate), so the
+    // menu-switch unmount that motivated AC11 no longer happens; the knobs
+    // stay in the reducer regardless — that is the right home for layer
+    // state either way.
+    //
     // `manifestUrlDraft` stays local: it is a text field's in-progress value,
     // meaningless once the run it produced is loaded.
     // TASK-2751 — `drawerOpen` stays local too, and for the same reason as
     // manifestUrlDraft rather than in spite of AC11's lesson: a disclosure's
     // open/shut is a property of THIS mounting of the bar, not of the run.
-    // Leaving Results and coming back should hand you a tidy bar, not the
-    // drawer you happened to leave open twenty minutes ago.
+    // Since TASK-3078 that mounting outlives a menu switch, so an open drawer
+    // now survives leaving Results and coming back — it resets only when the
+    // bar itself is torn down (close chip, map switch, plugin teardown).
     state = {
         manifestUrlDraft: '',
         drawerOpen: false,
@@ -572,18 +579,29 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
     /**
      * TASK-2744 (AC1, epic 2706) — UNMOUNT MUST NOT LEAVE PLAYBACK RUNNING.
      *
-     * There was no componentWillUnmount in this file at all. The bar is
-     * unmounted outright (a ternary returning null, anugaContainer.js:431)
-     * whenever the SimpleView menu group leaves 'Results', but
-     * `playbackTickEpic` only stops on PLAYBACK_PAUSE/PLAYBACK_RESET —
+     * There was no componentWillUnmount in this file at all. At the time the
+     * bar was unmounted outright (a ternary returning null in
+     * anugaContainer.js) whenever the SimpleView menu group left 'Results',
+     * but `playbackTickEpic` only stops on PLAYBACK_PAUSE/PLAYBACK_RESET —
      * neither of which anything dispatched on unmount. Measured on map 1461:
      * with the bar gone and openMenuGroupId null, status stayed 'playing' and
      * the playhead advanced 3.00 s over 3 s of wall clock, still decoding a
      * 6.78M-triangle mesh, with no control left to stop it short of a reload.
      *
-     * Dispatches PAUSE, not RESET: the operator switched menus, they did not
-     * ask to throw the run away — coming back to Results should find it where
-     * they left it. PAUSE also terminates the tick interval's takeUntil.
+     * Dispatches PAUSE, not RESET: an unmount is not a request to throw the
+     * run away. PAUSE also terminates the tick interval's takeUntil.
+     *
+     * TASK-3078 — the mount rule changed: the bar stays mounted while a run
+     * is loaded OR the Results group is open, so a menu switch no longer
+     * unmounts it. This PAUSE now fires only on a map switch (the
+     * playbackResetOnMapSwitchEpic RESET lands first), on plugin teardown,
+     * or on the close chip with Results shut — where react-redux re-renders
+     * top-down after RESET, the container drops the bar, and it is unmounted
+     * with its PRE-reset props, so a PAUSE can land AFTER the RESET. That is
+     * harmless by construction: the PLAYBACK_PAUSE reducer case only acts
+     * when status is PLAYING and otherwise returns `{...state, pendingPlay:
+     * false}` on the already-idle controller; playbackTickEpic has already
+     * terminated on the RESET; PAUSE triggers no other epic.
      *
      * NOTE ON THE AC's LITERAL TEXT: AC1 asks for status === 'paused'. That
      * status is UNREACHABLE by a user pause and deliberately so — PAUSED is
@@ -1012,8 +1030,8 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             flooding.
                             TASK-2788 — floor lowered 0.1 -> 0. The 0.1 floor was
                             there to stop someone hiding the layer and reporting
-                            it broken, but the Results menu already has Unload
-                            for that, and a slider whose left end is not its
+                            it broken, but the card's own close chip already
+                            covers that, and a slider whose left end is not its
                             label's 0% is lying about its own scale. */}
                         {this.renderSlider({
                             testid: 'anuga-playback-opacity',
@@ -1165,7 +1183,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      *   3. WHAT IS SHOWN INSTEAD — the maximum-depth envelope when one was
      *      put on the map, and different wording when there was none.
      *
-     * Play is disabled and Unload is enabled in both cases.
+     * Play is disabled and the close chip is enabled in both cases.
      */
     /**
      * TASK-3076 AC11 — THE HEADING: the loaded scenario's name, top-left of
@@ -1189,6 +1207,47 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
             <h3 className="sv-playback-title" data-testid="anuga-playback-title" title={text}>
                 {text}
             </h3>
+        );
+    }
+
+    /**
+     * TASK-3078 — THE CLOSE CHIP: the red × at the card's top-right, on both
+     * the normal and the fallback card. It replaces the transport-row
+     * "Unload" button (TASK-2744 AC2) and dispatches the very same
+     * onReset(runId, layerId) — "close" IS "unload": playbackDisposeEpic
+     * frees the fetcher and removes the overlay exactly as before.
+     *
+     * Why a chip, and why here: since TASK-3078 the bar persists while a run
+     * is loaded regardless of which top menu is open, so the player must be
+     * dismissed by the player, with one obvious control. It is the operator's
+     * standard close affordance (TASK-2235, PanelHeader.js's closeStyle:
+     * coral `--sv-close-bg`, `--sv-icon-size` square, corner-anchored at
+     * top:2px/right:2px) — as a sheet rule in anuga.css rather than an inline
+     * style because nothing on this bar is inline-styled.
+     *
+     * A DIRECT child of the card, a sibling of the h3 — never a wrapper around
+     * the title (PlaybackBarLayout-test.js pins `title.parentNode === card`)
+     * and never inside the transport row. The card is `position:absolute`, so
+     * it is the chip's containing block; the title (`order:-2`) is the card's
+     * permanent top edge whether the drawer is open or shut, so the chip
+     * always lands in the title row, and `.sv-playback-title` reserves
+     * `padding-right` for it. Class `sv-playback-close` ONLY: `btn` /
+     * `sv-glass-button` would let the theme and this bar's own glass rules
+     * restyle it.
+     */
+    renderCloseChip(playback) {
+        const label = this.tr('hydrata.playback.closeTooltip', 'Close — unload this run and free its memory');
+        return (
+            <button
+                type="button"
+                className="sv-playback-close"
+                data-testid="anuga-playback-close"
+                onClick={() => this.props.onReset(playback.runId, playback.layerId)}
+                title={label}
+                aria-label={label}
+            >
+                <span className="glyphicon glyphicon-remove" aria-hidden="true" />
+            </button>
         );
     }
 
@@ -1221,6 +1280,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 onKeyDown={this.onCardKeyDown}
             >
                 {this.renderTitle(playback)}
+                {this.renderCloseChip(playback)}
                 <div
                     className="sv-playback-fallback"
                     data-testid="anuga-playback-fallback"
@@ -1243,15 +1303,6 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             button uses — U+25B6 defaults to EMOJI presentation
                             and would paint the orange rounded square. */}
                         {PLAY_GLYPH}
-                    </button>
-                    <button
-                        className="btn sv-glass-button sv-playback-unload"
-                        data-testid="anuga-playback-unload"
-                        onClick={() => this.props.onReset(playback.runId, playback.layerId)}
-                        title={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
-                        aria-label={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
-                    >
-                        <Message msgId="hydrata.playback.unload" />
                     </button>
                 </div>
             </div>
@@ -1295,6 +1346,7 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                 onKeyDown={this.onCardKeyDown}
             >
                 {this.renderTitle(playback)}
+                {this.renderCloseChip(playback)}
                 {this.renderToast(playback, isBuffering, statusMsgId)}
                 {this.renderDrawer(playback)}
 
@@ -1536,21 +1588,15 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         <Message msgId="hydrata.playback.legend" />
                     </button>
 
-                    {/* TASK-2744 (AC2) — Unload. Until this existed PLAYBACK_RESET
-                        had no dispatcher outside tests, so a run could never be
-                        released: the fetcher, its decoded-chunk LRU and two full
-                        Float32Array copies of a 3.39M-vertex mesh stayed reachable
-                        for the life of the tab (~578 MiB per stale run at prod
-                        scale), and IDLE — the only status that renders the manifest
-                        loader — was unreachable. */}
-                    <button
-                        className="btn sv-glass-button sv-playback-unload"
-                        data-testid="anuga-playback-unload"
-                        onClick={() => this.props.onReset(playback.runId, playback.layerId)}
-                        title={this.tr('hydrata.playback.unloadTooltip', 'Unload this run and free its memory')}
-                    >
-                        <Message msgId="hydrata.playback.unload" />
-                    </button>
+                    {/* TASK-2744 (AC2) — the run must be releasable: until a
+                        dispatcher of PLAYBACK_RESET existed the fetcher, its
+                        decoded-chunk LRU and two full Float32Array copies of a
+                        3.39M-vertex mesh stayed reachable for the life of the
+                        tab (~578 MiB per stale run at prod scale), and IDLE —
+                        the only status that renders the manifest loader — was
+                        unreachable. TASK-3078 — that dispatcher is the close
+                        chip at the card's top-right (renderCloseChip), not a
+                        transport-row button any more. */}
                 </div>
             </div>
         );
@@ -1576,7 +1622,8 @@ const mapDispatchToProps = {
     onSetLegendOpen: playbackSetLegendOpen,
     onDismissDegraded: playbackDismissDegraded,
     onSetWireframe: playbackSetWireframe,
-    // TASK-2744 AC2 — the run must be unloadable.
+    // TASK-2744 AC2 — the run must be releasable; TASK-3078 — dispatched by
+    // the card's close chip.
     onReset: playbackReset,
     // TASK-2726 — MapStore core's own zoom action, the same one
     // pollingEpics.js:954 and anugaInputMenu.js:2090 already dispatch. Not a

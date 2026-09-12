@@ -38,6 +38,9 @@
     --sv-panel-border: rgba(255, 255, 255, 0.6);
     --sv-panel-top:       65px;
     --sv-panel-top-anuga: 70px;
+    /* TASK-3078 — height the Anuga panels give back to the playback bar while
+       a run is loaded: 16px bottom inset + ~76px card (title + transport). */
+    --sv-playback-reserve: 92px;
 
     /* ── Section / layout ── */
     --sv-section-border: rgba(255, 255, 255, 0.6);

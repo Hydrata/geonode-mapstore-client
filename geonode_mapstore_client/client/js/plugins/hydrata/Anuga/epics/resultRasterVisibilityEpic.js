@@ -12,8 +12,10 @@
  * like the precedent `terrainEpics.js::supersededTerrainVisibilityEpic`.
  *
  * The peak view is reached on request instead: the playback bar's Max
- * envelope for a store-backed run, and the session-only toggle on every
- * Results row (resultRasterToggleEpic below) for the run's max-value rasters.
+ * envelope for a store-backed run. (TASK-3078 removed the session-only
+ * per-row show/hide that used to live beside this epic — a storeless run,
+ * or a store baked without an envelope, has no in-app peak view now;
+ * operator ruling 2026-09-12, a new task if ever wanted.)
  *
  * Triggers, and why exactly these two:
  *   MAP_CONFIG_LOADED — row-only MapLayers are folded into the map config by
@@ -28,13 +30,11 @@
  * DISPLAY-ONLY: never saveDirectContent. `getGeoNodeMapLayers` persists
  * `layer.visibility` on any save, and saves fire from several epics; a save
  * while hidden writes false (fine), a save while shown writes true (the
- * status quo ante — this epic re-hides it on the next load). The shown set
- * is session-only by construction (nothing serialises `anuga.ui`).
+ * status quo ante — this epic re-hides it on the next load).
  */
 import Rx from 'rxjs';
 import { ADD_LAYER, changeLayerProperties } from '../../../../../MapStore2/web/client/actions/layers';
 import { MAP_CONFIG_LOADED } from '../../../../../MapStore2/web/client/actions/config';
-import { SET_ANUGA_RESULT_RASTERS_SHOWN } from '../actionsAnuga';
 import { getScenariosArray } from '../selectorsAnuga';
 import { bareName } from './terrainEpics';
 
@@ -101,46 +101,19 @@ export const runLayerMatcher = (state, runId) => {
     };
 };
 
-const shownRunIds = (state) => (state && state.anuga && state.anuga.ui && state.anuga.ui.shownResultRunIds) || [];
-
-/**
- * The run ids (strings) among `runIds` that have at least one result-shaped
- * layer VISIBLE on the map right now. The Results menu ORs this into its
- * toggle label: the sweep exempts the active playback run as well as the
- * toggled set, and `showFallbackEnvelope` paints that run's depth raster
- * without any toggle — so the label reads the map, not only the toggled set,
- * and its first click on such a row hides rather than re-shows.
- *
- * @param {object} state
- * @param {Array<string|number>} runIds
- * @returns {string[]}
- */
-export const visibleResultRunIds = (state, runIds) => {
-    const visible = ((state && state.layers && state.layers.flat) || [])
-        .filter((layer) => layer && layer.visibility !== false && isResultShapedLayer(layer));
-    if (!visible.length) return [];
-    return (runIds || [])
-        .filter((runId) => runId !== undefined && runId !== null)
-        .map(String)
-        .filter((runId) => {
-            const belongs = runLayerMatcher(state, runId);
-            return visible.some(belongs);
-        });
-};
-
 /**
  * Epic: hide every result-shaped layer that is still rendering, on
  * MAP_CONFIG_LOADED and ADD_LAYER (debounced, idempotent — silent on an
  * already-hidden map).
  *
- * EXEMPTIONS, exactly two:
- *   E1 — the layer belongs to a run in `state.anuga.ui.shownResultRunIds`
- *        (the user toggled it on this session; resultRasterToggleEpic).
+ * EXEMPTIONS, exactly one (TASK-3078 removed the toggled-set exemption with
+ * the toggle itself):
  *   E2 — the layer belongs to the active playback run,
  *        `state.anugaPlayback.runId`. Keyed on runId ALONE, not on status:
  *        `showFallbackEnvelope` (TASK-2986) emits its `visibility:true` /
  *        addLayer one synchronous emit BEFORE `playbackFallback` sets
- *        status 'fallback', so a status key would race it.
+ *        status 'fallback', so a status key would race it. No active run ⇒
+ *        `runLayerMatcher` returns `() => false` ⇒ nothing is exempt.
  *
  * Dispatches on `layer.id` (a uuid distinct from `name`), never on name.
  */
@@ -149,34 +122,11 @@ export const resultRasterVisibilityEpic = (action$, store) =>
         .debounceTime(300)
         .switchMap(() => {
             const state = store.getState();
-            const exempt = shownRunIds(state)
-                .map((runId) => runLayerMatcher(state, runId))
-                .concat([runLayerMatcher(state, state && state.anugaPlayback && state.anugaPlayback.runId)]);
+            const exempt = [runLayerMatcher(state, state && state.anugaPlayback && state.anugaPlayback.runId)];
             const actions = ((state && state.layers && state.layers.flat) || [])
                 .filter((layer) => layer && layer.id && layer.visibility !== false
                     && isResultShapedLayer(layer)
                     && !exempt.some((belongs) => belongs(layer)))
                 .map((layer) => changeLayerProperties(layer.id, { visibility: false }));
-            return actions.length ? Rx.Observable.from(actions) : Rx.Observable.empty();
-        });
-
-/**
- * Epic: the Results-row toggle. SET_ANUGA_RESULT_RASTERS_SHOWN {runId, shown}
- * → `changeLayerProperties(id, {visibility: shown})` for every layer on the
- * map belonging to that run (same resolution as E1, restricted to
- * result-shaped layers so the control can only ever touch what its label
- * names). Unconditional on the layer's current visibility — a no-op change
- * is harmless, and the user's click always lands. uiReducer records the run
- * in shownResultRunIds so the next sweep of resultRasterVisibilityEpic leaves
- * it alone.
- */
-export const resultRasterToggleEpic = (action$, store) =>
-    action$.ofType(SET_ANUGA_RESULT_RASTERS_SHOWN)
-        .mergeMap((action) => {
-            const state = store.getState();
-            const belongs = runLayerMatcher(state, action.runId);
-            const actions = ((state && state.layers && state.layers.flat) || [])
-                .filter((layer) => layer && layer.id && isResultShapedLayer(layer) && belongs(layer))
-                .map((layer) => changeLayerProperties(layer.id, { visibility: !!action.shown }));
             return actions.length ? Rx.Observable.from(actions) : Rx.Observable.empty();
         });

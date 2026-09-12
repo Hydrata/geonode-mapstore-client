@@ -1,6 +1,22 @@
 .sv-anuga-panel {
     top: var(--sv-panel-top-anuga, 70px);
 }
+/* TASK-3078 — while a playback run is loaded the bar persists whatever menu
+   is open, so the Inputs and Hydraulics panels now coexist with it. Both are
+   absolute children of the same containing block; a panel at its max-height
+   (bottom = 100vh − 56) painted 42px over the bar's transport row (top =
+   100vh − 98) at EVERY viewport height, z 1025 over 1000 — Play and most of
+   the scrubber gone under the panel (measured on map 1461, Hydraulics open).
+   anugaContainer.js puts `sv-playback-loaded` on #anuga-container while the
+   loaded card is mounted; this reserves the card's height (16px bottom inset
+   + ~76px card = --sv-playback-reserve, tokens.css) so the panel stops above
+   it. The Publication and Network panels share .sv-anuga-panel and are
+   reserved too — no harm. The Results panel is NOT one (simpleViewContainer
+   renders it outside #anuga-container); it only ever hosts the loader or the
+   rows, and its bar is the thing it exists to show. */
+#anuga-container.sv-playback-loaded .simple-view-panel.sv-anuga-panel {
+    max-height: calc(100vh - var(--sv-panel-top, 65px) - 110px - var(--sv-playback-reserve, 92px));
+}
 
 #anuga-input-menu {
     width: 760px;
@@ -3111,6 +3127,11 @@ span.sv-scenario-run-price--short {
     order: -2;
     margin: 0;
     padding: 7px 14px 5px;
+    /* TASK-3078 — reserve the close chip's corner so the title's TEXT can
+       never run under it (the h3 is a stretched flex item, so this is the
+       only clearance that means anything). Same reserve PanelHeader.js's
+       closePaddingStyle makes for the same chip. */
+    padding-right: calc(var(--sv-icon-size, 24px) + 8px);
     min-width: 0;
     font: inherit;
     font-size: 12px;
@@ -3122,6 +3143,45 @@ span.sv-scenario-run-price--short {
     text-overflow: ellipsis;
     white-space: nowrap;
     border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* TASK-3078 — THE CLOSE CHIP. The operator's standard close affordance
+   (TASK-2235; PanelHeader.js closeStyle, .sv-legend-close) at the card's
+   top-right, on both the normal and the fallback card. The card is
+   `position:absolute` (its own containing block and stacking context), the
+   title is its permanent top edge whether the drawer is open or shut, so
+   top:2px/right:2px always lands in the title row; offsets are from the
+   padding edge, so the chip sits 3px inside the card's 1px border. NOT a
+   `.btn` / `.sv-glass-button` — this bar's glass rules and the theme would
+   restyle it. z-index:1 keeps it above a later sibling (the drawer) should one
+   ever overlap the corner. */
+.sv-playback-bar .sv-playback-close {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: var(--sv-icon-size, 24px);
+    height: var(--sv-icon-size, 24px);
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: var(--sv-close-bg, #c9544d);
+    color: var(--sv-text, rgba(255, 255, 255, 0.95));
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: var(--sv-icon-size, 24px);
+    font-size: 14px;
+    box-sizing: border-box;
+    z-index: 1;
+}
+.sv-playback-bar .sv-playback-close:hover {
+    background: var(--sv-close-bg-hover, #b5403a);
+}
+/* The same keyboard focus ring the bar's other controls get (TASK-2744 AC7). */
+.sv-playback-bar .sv-playback-close:focus-visible {
+    outline: 2px solid var(--sv-accent-blue, #5bc0ff);
+    outline-offset: 1px;
 }
 
 .sv-playback-drawer {
@@ -3868,47 +3928,4 @@ span.sv-scenario-run-price--short {
     font-size: 11px;
     line-height: 1.35;
     color: rgba(255, 255, 255, 0.6);
-}
-
-/* TASK-2973 — every Results row (actionable or storeless) sits in a wrapper
-   with a session-only show/hide of its run's max-value rasters beside it.
-   The wrapper is layout only (no `sv-anuga-results-row` token — specs count
-   actionable rows by that selector); the row keeps its full width minus the
-   toggle, which is sized to its label and never wraps. The toggle borrows the
-   row's pill language at a quieter weight so the row stays the primary
-   affordance; `is-shown` mirrors the row's active green so "these rasters are
-   on the map" reads at a glance. */
-.sv-anuga-results-row-wrap {
-    display: flex;
-    align-items: stretch;
-    gap: 6px;
-    width: 100%;
-}
-.sv-anuga-results-row-wrap > .sv-anuga-results-row,
-.sv-anuga-results-row-wrap > .sv-anuga-results-row-unavailable {
-    flex: 1 1 auto;
-    min-width: 0;
-    width: auto;
-}
-.sv-anuga-results-row-toggle {
-    flex: 0 0 auto;
-    align-self: center;
-    margin: 0;
-    padding: 5px 8px;
-    background-color: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 3px;
-    color: var(--sv-text, rgba(255, 255, 255, 0.85));
-    font-family: Montserrat, sans-serif;
-    font-size: 11px;
-    line-height: 1.2;
-    white-space: nowrap;
-    cursor: pointer;
-}
-.sv-anuga-results-row-toggle:hover {
-    background-color: rgba(255, 255, 255, 0.16);
-}
-.sv-anuga-results-row-toggle.is-shown {
-    border-color: rgba(255, 255, 255, 0.9);
-    background-color: var(--sv-row-active-bg, rgba(30, 126, 52, 0.7));
 }

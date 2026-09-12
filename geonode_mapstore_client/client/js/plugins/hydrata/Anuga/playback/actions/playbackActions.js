@@ -212,7 +212,8 @@ export function playbackSetQuantity(quantity) {
 }
 
 /**
- * Unload the current run entirely (TASK-2744 AC2, epic 2706).
+ * Close (unload) the current run entirely (TASK-2744 AC2, epic 2706; since
+ * TASK-3078 dispatched by the bar's close chip and by the map-switch epic).
  *
  * The reducer ignores `runId`/`layerId` — it returns
  * createInitialPlaybackState() unconditionally — but the DISPOSE epic needs
