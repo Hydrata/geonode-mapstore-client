@@ -21,7 +21,8 @@
 import expect from 'expect';
 import {
     PlaybackChunkFetcher, fetchPlaybackManifest, planWindow, farthestBehind,
-    MAX_CONCURRENT_FILL_CHUNKS
+    MAX_CONCURRENT_FILL_CHUNKS,
+    PLAYBACK_FETCH_HEADERS_MS, PLAYBACK_FETCH_STALL_MS, PLAYBACK_FETCH_MAX_ATTEMPTS
 } from '../playbackChunkFetcher';
 import { QUANTITY_ARRAYS } from '../playbackChunkShape';
 import { PlaybackChunkCache } from '../playbackChunkCache';
@@ -83,6 +84,39 @@ describe('fetchPlaybackManifest', () => {
             () => done()
         );
     });
+
+    // TASK-3079 AC4 — the HEADERS shape: a fetch whose Response never comes.
+    // The fake never settles and never reacts to `signal`, so the ONLY way
+    // this spec can pass is the guard settling its own race on the headers
+    // budget and retrying exactly maxAttempts times. Asserting on the
+    // recorded signals (not merely "it rejected") is what makes it
+    // falsifiable.
+    it('fetchPlaybackManifest rejects with a stall error when the manifest response never arrives', (done) => {
+        const calls = [];
+        const fetchImpl = (url, options) => {
+            calls.push({ url, signal: options && options.signal });
+            return new Promise(() => {});
+        };
+        const t0 = Date.now();
+        fetchPlaybackManifest('/api/v2/anuga/runs/1/playback-manifest/', fetchImpl, { headersMs: 30, maxAttempts: 2 }).then(
+            () => done(new Error('expected rejection')),
+            (err) => {
+                try {
+                    const elapsed = Date.now() - t0;
+                    expect(String(err.message)).toMatch(/stalled/);
+                    expect(calls.length).toBe(2);
+                    calls.forEach((c) => {
+                        expect(c.signal instanceof AbortSignal).toBe(true);
+                        expect(c.signal.aborted).toBe(true);
+                    });
+                    expect(elapsed < 500).toBe(true);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }
+        );
+    });
 });
 
 describe('PlaybackChunkFetcher', () => {
@@ -142,9 +176,10 @@ describe('PlaybackChunkFetcher', () => {
             .then(() => {
                 expect(spy.length).toBe(1);
                 expect(spy[0].url).toBe('node_x/c/0');
-                // `(spy[0].headers || {})` and not a bare dereference: the
-                // fetcher passes NO options object at all now, so the spy
-                // records `headers: undefined` rather than an empty object.
+                // `(spy[0].headers || {})` and not a bare dereference: since
+                // TASK-3079 the fetcher passes `{ signal }` (its per-attempt
+                // AbortSignal) and NO headers, so the spy records
+                // `headers: undefined` rather than an empty object.
                 expect((spy[0].headers || {}).Range).toBe(undefined);
                 done();
             }).catch(done);
@@ -637,6 +672,162 @@ describe('TASK-2728 — static mesh arrays stay out of the time-series window ca
             expect(cache.has('depth/c/0/0')).toBe(false);
             expect(cache.totalBytes).toBe(0);
             expect(fetcher._staticArrays.size).toBe(0);
+            done();
+        }).catch(done);
+    });
+});
+
+/*
+ * ===========================================================================
+ * TASK-3079 — THE FETCH STALL GUARD.
+ *
+ * A hung S3 stream used to park a load in `loading-mesh` for the rest of the
+ * session: `_fetchRawBytes` was `await fetchImpl(url)` then
+ * `await response.arrayBuffer()` with no signal, no timer and no streaming
+ * read, so a body that stopped after the headers never became a rejection.
+ * These specs pin the two budgets (headers vs body INACTIVITY), the bounded
+ * retry, the distinct `stalled` error, and releaseCaches() aborting what is
+ * in flight — and they assert on the RECORDED `options.signal` because none
+ * of the fixtures react to it: the guard has to settle its own race.
+ * ===========================================================================
+ */
+describe('playbackChunkFetcher — TASK-3079 the fetch stall guard', () => {
+    const NODE_X_KEY = 'node_x/c/0';
+    const NODE_X_BYTES = new Uint8Array(base64ToArrayBuffer(FIXTURE_STORE_FILES[NODE_X_KEY]));
+    const FLOAT32 = { dtype: 'float32', byteorder: 'little' };
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    /** headers + `head` bytes, then silence for ever — the MID-BODY shape. */
+    function stalledBodyFetch(calls, head = 16) {
+        return (url, options) => {
+            calls.push({ url, signal: options && options.signal });
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(head));
+                }
+            });
+            return Promise.resolve(new Response(stream, { status: 200 }));
+        };
+    }
+
+    it('exports the three shipped budgets and takes them as constructor / manifest options', () => {
+        expect(PLAYBACK_FETCH_HEADERS_MS).toBe(60000);
+        expect(PLAYBACK_FETCH_STALL_MS).toBe(15000);
+        expect(PLAYBACK_FETCH_MAX_ATTEMPTS).toBe(3);
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch(),
+            headersMs: 1234, stallMs: 567, maxAttempts: 8
+        });
+        expect(fetcher.headersMs).toBe(1234);
+        expect(fetcher.stallMs).toBe(567);
+        expect(fetcher.maxAttempts).toBe(8);
+        const defaults = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch() });
+        expect(defaults.headersMs).toBe(PLAYBACK_FETCH_HEADERS_MS);
+        expect(defaults.stallMs).toBe(PLAYBACK_FETCH_STALL_MS);
+        expect(defaults.maxAttempts).toBe(PLAYBACK_FETCH_MAX_ATTEMPTS);
+    });
+
+    it('aborts a fetch whose body stops moving for stallMs, retries it, and rejects with a stall error after maxAttempts', (done) => {
+        const calls = [];
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl: stalledBodyFetch(calls), stallMs: 50, maxAttempts: 3
+        });
+        const t0 = Date.now();
+        fetcher.fetchAndDecodeChunk('node_x', [0], FLOAT32).then(
+            () => done(new Error('expected rejection')),
+            (err) => {
+                try {
+                    const elapsed = Date.now() - t0;
+                    expect(String(err.message)).toMatch(/stalled/);
+                    expect(String(err.message)).toContain(NODE_X_KEY);
+                    expect(calls.length).toBe(3);
+                    calls.forEach((c) => {
+                        expect(c.signal instanceof AbortSignal).toBe(true);
+                        expect(c.signal.aborted).toBe(true);
+                    });
+                    expect(elapsed >= 150).toBe(true);
+                    expect(elapsed < 1000).toBe(true);
+                    expect(() => fetcher.releaseCaches()).toNotThrow();
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            }
+        );
+    });
+
+    it('does not trip the stall guard on a slow body that keeps moving', (done) => {
+        // One byte every 10 ms: the whole transfer (32 bytes) takes ~8x
+        // stallMs, so a NAIVE total-duration timeout would abort it; only an
+        // INACTIVITY timer lets it through.
+        const calls = [];
+        const stallMs = 40;
+        const fetchImpl = (url, options) => {
+            calls.push({ url, signal: options && options.signal });
+            let i = 0;
+            const stream = new ReadableStream({
+                start(controller) {
+                    const tick = () => {
+                        if (i >= NODE_X_BYTES.length) {
+                            controller.close();
+                            return;
+                        }
+                        controller.enqueue(NODE_X_BYTES.slice(i, i + 1));
+                        i += 1;
+                        setTimeout(tick, 10);
+                    };
+                    tick();
+                }
+            });
+            return Promise.resolve(new Response(stream, { status: 200 }));
+        };
+        const reference = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch() });
+        const fetcher = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl, stallMs });
+        Promise.all([
+            reference.fetchAndDecodeChunk('node_x', [0], FLOAT32),
+            fetcher.fetchAndDecodeChunk('node_x', [0], FLOAT32)
+        ]).then(([expected, decoded]) => {
+            expect(decoded.length).toBe(expected.length);
+            expect(decoded[0]).toBe(expected[0]);
+            expect(decoded[decoded.length - 1]).toBe(expected[expected.length - 1]);
+            // then let 2 x stallMs pass: a leaked timer or a phantom retry
+            // would show up here as a second call or an aborted signal.
+            return sleep(2 * stallMs);
+        }).then(() => {
+            expect(calls.length).toBe(1);
+            expect(calls[0].signal instanceof AbortSignal).toBe(true);
+            expect(calls[0].signal.aborted).toBe(false);
+            done();
+        }).catch(done);
+    });
+
+    it('releaseCaches() aborts every in-flight fetch through its AbortSignal', (done) => {
+        const calls = [];
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl: stalledBodyFetch(calls), stallMs: 10000, maxAttempts: 3
+        });
+        const outcomes = { a: 'pending', b: 'pending' };
+        const a = fetcher._fetchRawBytes('node_x/c/0').then(() => { outcomes.a = 'resolved'; }, () => { outcomes.a = 'rejected'; });
+        const b = fetcher._fetchRawBytes('node_y/c/0').then(() => { outcomes.b = 'resolved'; }, () => { outcomes.b = 'rejected'; });
+        expect(calls.length).toBe(2);
+        calls.forEach((c) => expect(c.signal.aborted).toBe(false));
+
+        fetcher.releaseCaches();
+
+        Promise.race([Promise.all([a, b]), sleep(100)]).then(() => {
+            expect(calls[0].signal.aborted).toBe(true);
+            expect(calls[1].signal.aborted).toBe(true);
+            expect(outcomes.a).toBe('rejected');
+            expect(outcomes.b).toBe('rejected');
+            // ...and NO retry after release: an abort that lands on a disposed
+            // fetcher must not re-issue the download the chip just stopped.
+            return sleep(100);
+        }).then(() => {
+            expect(calls.length).toBe(2);
+            // a fetcher with nothing in flight survives releaseCaches() unchanged
+            const idle = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch() });
+            expect(() => idle.releaseCaches()).toNotThrow();
+            expect(idle._disposed).toBe(true);
             done();
         }).catch(done);
     });

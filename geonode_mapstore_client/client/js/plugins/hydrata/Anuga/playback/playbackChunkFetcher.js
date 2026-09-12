@@ -27,6 +27,27 @@
  * See report 2026-09-08-q-2-task-2983-range-cache-premise-false.
  * `_fetchRawBytes` still accepts a 206 (see its status guard) so a server or
  * proxy that answers partial anyway does not break the read path.
+ *
+ * TASK-3079 — THE STALL GUARD. A hung S3 stream (measured several times an
+ * hour from a lossy path: headers arrive, then the bytes simply stop) used to
+ * park a load in `loading-mesh` for the rest of the session, because the
+ * fetch here was `await fetchImpl(url)` then `await response.arrayBuffer()`
+ * with no signal, no timer and no streaming read — nothing above the fetcher
+ * ever saw a rejection. Every object fetch now runs under TWO budgets: a
+ * HEADERS budget (`PLAYBACK_FETCH_HEADERS_MS`, fetch -> Response; generous,
+ * because the load fires eight concurrent GETs at one S3 host and Chrome
+ * queues two of them behind its six sockets with zero bytes moving) and a
+ * BODY INACTIVITY budget (`PLAYBACK_FETCH_STALL_MS`, armed only once the body
+ * is being streamed and reset on every received chunk). Either expiry aborts
+ * THAT attempt through its own AbortController; a stalled attempt is retried
+ * on the same url up to `PLAYBACK_FETCH_MAX_ATTEMPTS` times and then the
+ * fetch rejects with ONE distinct `stalled` error the existing failure paths
+ * (MANIFEST_FAILED / CHUNK_BUFFER_ERROR) already know how to surface. The
+ * rule is INACTIVITY, NEVER TOTAL DURATION: a dead stream must be told apart
+ * from a slow one, and a 35 MB object at 0.2 MB/s legitimately takes three
+ * minutes without ever tripping the guard. releaseCaches() aborts every
+ * in-flight attempt, and an abort that lands on a disposed fetcher is never
+ * retried — closing a run mid-download really stops the download.
  */
 
 import { chunkKey } from './playbackDecode';
@@ -49,6 +70,28 @@ import { QUANTITY_ARRAYS, codecChainFor } from './playbackChunkShape';
  * preserves the correct receiver.
  */
 const defaultFetch = (...args) => fetch(...args);
+
+/**
+ * TASK-3079 — the fetch stall guard's three budgets (see the module
+ * docstring). Exported for the specs and overridable per fetcher through the
+ * constructor's `headersMs` / `stallMs` / `maxAttempts` (and
+ * fetchPlaybackManifest's optional third argument) — the same test seam
+ * playbackDecodeWorker exposes as `timeoutMs`.
+ *
+ * HEADERS: from `fetchImpl(url, {signal})` until the Response resolves. This
+ * phase INCLUDES Chrome's per-host socket queue, so it has to cover requests
+ * 7-8 of the mesh load waiting behind five large statics on a slow link. The
+ * manifest uses the same budget on purpose: `?refresh=1` is the most
+ * expensive endpoint in the application (see _refreshManifestOnce), and a
+ * short headers abort plus retries there would re-create the TASK-2754
+ * stampede shape under worker contention.
+ *
+ * STALL: body inactivity — armed once the body is being read as a stream and
+ * reset on every non-empty chunk. Unreachable by a slow-but-moving stream.
+ */
+export const PLAYBACK_FETCH_HEADERS_MS = 60000;
+export const PLAYBACK_FETCH_STALL_MS = 15000;
+export const PLAYBACK_FETCH_MAX_ATTEMPTS = 3;
 
 /**
  * TASK-2985 (W1.2, epic 2981) — how many CHUNKS the fill queue runs at once.
@@ -182,21 +225,232 @@ function orderFromPlayhead(planChunkIndices, playheadChunk) {
     return planChunkIndices.slice(pivot).concat(planChunkIndices.slice(0, pivot));
 }
 
+/** Concatenate streamed chunks into ONE fresh ArrayBuffer (byteOffset 0). */
+function concatChunks(chunks, total) {
+    // A FRESH `Uint8Array(total).buffer`, never a view: playbackDecodeWorker
+    // TRANSFERS the compressed buffer to the worker (`postMessage(..., [buf])`)
+    // and a view is not transferable — its catch would silently fall back to
+    // same-thread decode, and nothing would say so.
+    const out = new Uint8Array(total);
+    let offset = 0;
+    chunks.forEach((chunk) => {
+        out.set(chunk, offset);
+        offset += chunk.byteLength;
+    });
+    return out.buffer;
+}
+
+/**
+ * TASK-3079 — ONE guarded fetch: headers budget, body-inactivity budget, a
+ * fresh AbortController per attempt, bounded retry on a stall, and a distinct
+ * `stalled` error at the end of the budget. Used by BOTH _fetchRawBytes and
+ * fetchPlaybackManifest.
+ *
+ * Resolves `{ response }` IMMEDIATELY for any non-2xx status, WITHOUT
+ * draining the body — the caller's status guards (403 -> manifest refresh,
+ * `!ok && !== 206` -> throw) run before a single body byte is read, so a 403
+ * on attempt N is a status outcome and never a stall. For a 2xx it streams
+ * the body and resolves `{ response, buffer }`.
+ *
+ * THE GUARD SETTLES ITS OWN RACE. Nothing here waits for the stream to
+ * notice the abort: the timer that fires is what settles the attempt (the
+ * karma fixtures never react to `signal`, and a real fetch's AbortError then
+ * arrives on an attempt that is already settled and is ignored). The retry
+ * is recursive (`attempt(n + 1)`) rather than a loop over closures.
+ *
+ * An abort that is NOT ours — i.e. releaseCaches() aborting the controller
+ * while `isDisposed()` reads true — rejects immediately with an AbortError
+ * and NO further attempt: otherwise the chip would re-issue the very download
+ * it was meant to stop.
+ *
+ * `fetchImpl` is called SYNCHRONOUSLY inside the attempt (no microtask in
+ * between) — the fill queue's specs count the requests a fillTowards issues
+ * before the first microtask, and that contract predates this guard.
+ *
+ * @param {typeof fetch} fetchImpl
+ * @param {string} url
+ * @param {object|undefined} init passed through to fetchImpl (plus `signal`)
+ * @param {object} guard
+ * @param {number} guard.headersMs
+ * @param {number} guard.stallMs
+ * @param {number} guard.maxAttempts
+ * @param {string} guard.label the relative key (or url) the error names
+ * @param {() => boolean} [guard.isDisposed]
+ * @param {(c: AbortController) => void} [guard.register]
+ * @param {(c: AbortController) => void} [guard.unregister]
+ * @returns {Promise<{response: Response, buffer?: ArrayBuffer}>}
+ */
+function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAttempts, label, isDisposed, register, unregister }) {
+    const attempts = maxAttempts > 0 ? Math.floor(maxAttempts) : 1;
+    const disposed = () => Boolean(isDisposed && isDisposed());
+    const stallError = () => new Error(
+        `playbackChunkFetcher: stalled fetching '${label}' — no bytes for ${stallMs} ms (or no headers for ${headersMs} ms) on ${attempts} attempts`
+    );
+    const abortError = () => {
+        const error = new Error(`playbackChunkFetcher: fetch of '${label}' aborted (run disposed)`);
+        error.name = 'AbortError';
+        return error;
+    };
+
+    const attempt = (n) => new Promise((resolve, reject) => {
+        const controller = new AbortController();
+        const { signal } = controller;
+        let settled = false;
+        let timer = null;
+        let timedOut = false;
+        const clearTimer = () => {
+            if (timer !== null) {
+                clearTimeout(timer);
+                timer = null;
+            }
+        };
+        let onAbort = null;
+        // Retire this attempt: stop its timer, forget its controller. Called
+        // exactly once per attempt, whichever way it ends.
+        const retire = () => {
+            settled = true;
+            clearTimer();
+            signal.removeEventListener('abort', onAbort);
+            if (unregister) {
+                unregister(controller);
+            }
+        };
+        const arm = (ms) => {
+            clearTimer();
+            timer = setTimeout(() => {
+                timer = null;
+                timedOut = true;
+                controller.abort();
+            }, ms);
+        };
+        onAbort = () => {
+            if (settled) {
+                return;
+            }
+            retire();
+            if (disposed()) {
+                // releaseCaches() ran — never retry after release.
+                reject(abortError());
+                return;
+            }
+            if (timedOut && n < attempts) {
+                attempt(n + 1).then(resolve, reject);
+                return;
+            }
+            reject(timedOut ? stallError() : abortError());
+        };
+        signal.addEventListener('abort', onAbort);
+        if (register) {
+            register(controller);
+        }
+
+        const onResponse = (response) => {
+            if (settled) {
+                return;
+            }
+            clearTimer();
+            if (!response.ok) {
+                retire();
+                resolve({ response });
+                return;
+            }
+            const body = response.body;
+            if (!body || typeof body.getReader !== 'function') {
+                // A non-streaming Response (the spec's `new Response(null)`,
+                // or a duck-typed fake): nothing to watch, drain it whole.
+                Promise.resolve(response.arrayBuffer()).then((buffer) => {
+                    if (!settled) {
+                        retire();
+                        resolve({ response, buffer });
+                    }
+                }, (error) => {
+                    if (!settled) {
+                        retire();
+                        reject(error);
+                    }
+                });
+                return;
+            }
+            const reader = body.getReader();
+            const chunks = [];
+            let total = 0;
+            arm(stallMs);
+            const pump = () => {
+                reader.read().then(({ done, value }) => {
+                    if (settled) {
+                        return;
+                    }
+                    if (done) {
+                        retire();
+                        resolve({ response, buffer: concatChunks(chunks, total) });
+                        return;
+                    }
+                    if (value && value.byteLength) {
+                        chunks.push(value);
+                        total += value.byteLength;
+                        arm(stallMs);
+                    }
+                    pump();
+                }, (error) => {
+                    // A genuine network error mid-body (a reset, not a stall)
+                    // rejects exactly as arrayBuffer() used to. An AbortError
+                    // from OUR abort lands on a settled attempt and is ignored.
+                    if (!settled) {
+                        retire();
+                        reject(error);
+                    }
+                });
+            };
+            pump();
+        };
+        const onFetchError = (error) => {
+            if (!settled) {
+                retire();
+                reject(error);
+            }
+        };
+
+        arm(headersMs);
+        let pending;
+        try {
+            pending = fetchImpl(url, { ...init, signal });
+        } catch (error) {
+            onFetchError(error);
+            return;
+        }
+        Promise.resolve(pending).then(onResponse, onFetchError);
+    });
+
+    return attempt(1);
+}
+
 /**
  * Fetch and parse the playback manifest (TASK-2623's `GET
  * .../runs/<id>/playback-manifest/` action, or an equivalent same-origin/dev
  * URL — this module never assumes an S3 origin, it only ever follows
  * whatever `chunk_urls` the manifest hands back).
+ *
+ * TASK-3079: runs under the same stall guard as every chunk fetch, with the
+ * same (generous) headers budget — see PLAYBACK_FETCH_HEADERS_MS for why the
+ * manifest, and `?refresh=1` in particular, must not be aborted short.
  * @param {string} manifestUrl
  * @param {typeof fetch} [fetchImpl]
+ * @param {{headersMs?: number, stallMs?: number, maxAttempts?: number}} [guard]
  * @returns {Promise<object>}
  */
-export async function fetchPlaybackManifest(manifestUrl, fetchImpl = defaultFetch) {
-    const response = await fetchImpl(manifestUrl, { credentials: 'same-origin' });
+export async function fetchPlaybackManifest(manifestUrl, fetchImpl = defaultFetch, {
+    headersMs = PLAYBACK_FETCH_HEADERS_MS,
+    stallMs = PLAYBACK_FETCH_STALL_MS,
+    maxAttempts = PLAYBACK_FETCH_MAX_ATTEMPTS
+} = {}) {
+    const { response, buffer } = await fetchWithStallGuard(
+        fetchImpl, manifestUrl, { credentials: 'same-origin' },
+        { headersMs, stallMs, maxAttempts, label: manifestUrl }
+    );
     if (!response.ok) {
         throw new Error(`playbackChunkFetcher.fetchPlaybackManifest: GET ${manifestUrl} failed with status ${response.status}`);
     }
-    return response.json();
+    return JSON.parse(new TextDecoder().decode(buffer));
 }
 
 /**
@@ -234,8 +488,17 @@ export class PlaybackChunkFetcher {
      *   overridable seam for the off-main-thread decoder (tests inject a
      *   same-thread one; production takes the worker).
      * @param {typeof fetch} [options.fetchImpl]
+     * @param {number} [options.headersMs] TASK-3079 — per-fetcher overrides
+     * @param {number} [options.stallMs]   of the three stall-guard budgets
+     * @param {number} [options.maxAttempts] (see PLAYBACK_FETCH_*); the
+     *   production epic passes none and takes the module constants.
      */
-    constructor({ manifest, refreshManifest, cache, memoryPlan, decodeImpl, fetchImpl = defaultFetch, onProgress } = {}) {
+    constructor({
+        manifest, refreshManifest, cache, memoryPlan, decodeImpl, fetchImpl = defaultFetch, onProgress,
+        headersMs = PLAYBACK_FETCH_HEADERS_MS,
+        stallMs = PLAYBACK_FETCH_STALL_MS,
+        maxAttempts = PLAYBACK_FETCH_MAX_ATTEMPTS
+    } = {}) {
         if (!manifest) {
             throw new Error('PlaybackChunkFetcher: manifest is required');
         }
@@ -247,6 +510,13 @@ export class PlaybackChunkFetcher {
         );
         this.decodeImpl = decodeImpl || decodeChunkOffThread;
         this.fetchImpl = fetchImpl;
+        // TASK-3079 — the stall guard's budgets, and the live AbortControllers
+        // of every attempt in flight (registered on start, forgotten on
+        // settle) so releaseCaches() can abort them.
+        this.headersMs = headersMs;
+        this.stallMs = stallMs;
+        this.maxAttempts = maxAttempts;
+        this._controllers = new Set();
         // TASK-2744 (AC18, epic 2706) — optional `({key, bytes}) => void`,
         // invoked once per completed object at the single byte choke point
         // below. The UI has no other way to know that the ~100 s after a
@@ -344,11 +614,14 @@ export class PlaybackChunkFetcher {
         // not-yet-started entry, reject every deferred with ONE stable error,
         // and clear `_inflight` of the keys the queue owns.
         //
-        // Already-started requests are not cancellable (there is no
-        // AbortController in this class, and unsubscribing an Rx fromPromise
-        // does not cancel a fetch), so they are left to land — but `_disposed`
-        // makes their `store.set` a no-op, so a disposed run cannot repopulate
-        // the cache it just cleared.
+        // Already-started requests ARE cancelled (TASK-3079): every in-flight
+        // attempt registered its AbortController in `_controllers`, and they
+        // are all aborted below, AFTER `_disposed` is set so the guard sees a
+        // disposed fetcher and rejects without a retry. Unsubscribing an Rx
+        // fromPromise never cancelled a fetch; this does. Whatever decode was
+        // already past the network still lands, and `_disposed` makes its
+        // `store.set` a no-op, so a disposed run cannot repopulate the cache
+        // it just cleared.
         this._disposed = true;
         const cancelled = this._fillPending.concat(Array.from(this._fillRunning));
         this._fillPending = [];
@@ -362,6 +635,10 @@ export class PlaybackChunkFetcher {
                 }
             });
         });
+        // TASK-3079 — abort what is on the wire. A copy, because each abort
+        // retires its attempt, which unregisters from the very Set.
+        Array.from(this._controllers).forEach((controller) => controller.abort());
+        this._controllers.clear();
         if (this.cache && typeof this.cache.clear === 'function') {
             this.cache.clear();
         }
@@ -463,7 +740,21 @@ export class PlaybackChunkFetcher {
 
     async _fetchRawBytes(relativeKey, { allowRefresh = true } = {}) {
         const url = urlForRelativeKey(this.manifest, relativeKey);
-        const response = await this.fetchImpl(url);
+        // TASK-3079 — the guarded fetch resolves BEFORE draining the body on
+        // any non-2xx, so the two status guards below run exactly as they did
+        // when this was a bare `await fetchImpl(url)`. A stall retry never
+        // spends the single `allowRefresh: false` retry, and the post-refresh
+        // recursive call gets a fresh attempt budget of its own (so the honest
+        // worst case is 2 x maxAttempts attempts, each from byte 0).
+        const { response, buffer } = await fetchWithStallGuard(this.fetchImpl, url, undefined, {
+            headersMs: this.headersMs,
+            stallMs: this.stallMs,
+            maxAttempts: this.maxAttempts,
+            label: relativeKey,
+            isDisposed: () => this._disposed,
+            register: (controller) => this._controllers.add(controller),
+            unregister: (controller) => this._controllers.delete(controller)
+        });
         if (response.status === 403) {
             if (!allowRefresh || !this.refreshManifest) {
                 throw new Error(`playbackChunkFetcher: 403 fetching '${relativeKey}' and no refreshManifest available to retry`);
@@ -474,7 +765,8 @@ export class PlaybackChunkFetcher {
         if (!response.ok && response.status !== 206) {
             throw new Error(`playbackChunkFetcher: fetch of '${relativeKey}' failed with status ${response.status}`);
         }
-        const buffer = await response.arrayBuffer();
+        // `buffer` is the whole streamed body; onProgress keeps its contract
+        // of firing ONCE per COMPLETED object (the streaming read is internal).
         if (this.onProgress) {
             try {
                 this.onProgress({ key: relativeKey, bytes: buffer.byteLength });
@@ -771,10 +1063,10 @@ export class PlaybackChunkFetcher {
      *     loadPlaybackFrame all bypass it (see MAX_CONCURRENT_FILL_CHUNKS).
      *  3. RE-PRIORITISATION — a new playhead rebuilds the pending order, so a
      *     SEEK makes the seeked chunk the next request rather than the
-     *     eleventh. In-flight requests are neither cancelled nor counted:
-     *     unsubscribing an Rx fromPromise does not cancel a fetch and this
-     *     class has no AbortController, so pretending otherwise would be a lie
-     *     about the network.
+     *     eleventh. In-flight requests are neither cancelled by a seek nor
+     *     counted against it: they are left to land (only releaseCaches()
+     *     aborts them, through TASK-3079's per-attempt AbortController), so
+     *     pretending a seek reclaims a socket would be a lie about the network.
      *  4. EVICTION — before a chunk's arrays go in, room is made by dropping
      *     the resident chunk farthest BEHIND the playhead (farthestBehind),
      *     not the oldest.
