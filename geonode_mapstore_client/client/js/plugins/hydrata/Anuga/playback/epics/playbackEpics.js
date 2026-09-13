@@ -127,6 +127,9 @@ import {
     // TASK-3087 — the ONE predicate the poster epic, the reducer's poster
     // guard and the Max toggle all share for "does this store have one".
     hasEnvelopeForQuantity,
+    // TASK-3087 (phase-1.7 sweep) — the ONE predicate for "still in the
+    // poster's eligible window", shared with the reducer's own guard.
+    isPosterEligibleStatus,
     DEFAULT_PLAYBACK_OPACITY,
     DEFAULT_PLAYBACK_BACKGROUND_OPACITY,
     // TASK-3078 — playbackResetOnMapSwitchEpic's "is a run loaded" read.
@@ -1285,10 +1288,15 @@ function getLayerMesh(pb) {
  * unavailable fetch resolves to nothing, exactly like a Max-path failure
  * degrades to "no envelope drawn" rather than an error.
  */
+// TASK-3087 (phase-1.7 sweep) — the ONE quantity id this poster ever
+// fetches/draws, named once so a future rename cannot update four of the
+// five occurrences below and miss the fifth.
+const POSTER_QUANTITY = 'depth';
+
 export function playbackPosterEpic(action$, store) {
     return action$.ofType(PLAYBACK_MANIFEST_LOADED).mergeMap(() => {
         const pb = store.getState().anugaPlayback;
-        if (!pb || !pb.runId || !pb.layerId || !hasEnvelopeForQuantity(pb.envelopeQuantities, 'depth')) {
+        if (!pb || !pb.runId || !pb.layerId || !hasEnvelopeForQuantity(pb.envelopeQuantities, POSTER_QUANTITY)) {
             return Rx.Observable.empty();
         }
         const fetcher = fetcherRegistry.get(pb.runId);
@@ -1298,7 +1306,7 @@ export function playbackPosterEpic(action$, store) {
         const runId = pb.runId;
         const layerId = pb.layerId;
         return Rx.Observable.fromPromise(
-            loadPlaybackEnvelope(fetcher, 'depth').catch(() => null)
+            loadPlaybackEnvelope(fetcher, POSTER_QUANTITY).catch(() => null)
         ).mergeMap((data) => {
             if (!data) {
                 return Rx.Observable.empty();
@@ -1315,7 +1323,7 @@ export function playbackPosterEpic(action$, store) {
             // A5/R2 — a poster that resolves AFTER this SAME run has already
             // left the mesh/buffering phase (READY/PLAYING/ERROR/FALLBACK)
             // must not paint over real frames or a terminal state.
-            if (now.status !== PLAYBACK_STATUS.LOADING_MESH && now.status !== PLAYBACK_STATUS.BUFFERING) {
+            if (!isPosterEligibleStatus(now.status)) {
                 return Rx.Observable.empty();
             }
             const context = { elevationMin: now.elevationMin, elevationMax: now.elevationMax };
@@ -1323,9 +1331,9 @@ export function playbackPosterEpic(action$, store) {
                 playbackPosterLoaded(runId, data),
                 mergeOptionsById(layerId, {
                     mesh: getLayerMesh(now),
-                    colorMode: 'depth',
-                    colorMax: colorMaxForQuantity('depth', now.quantization, context),
-                    colorMin: colorMinForQuantity('depth', context),
+                    colorMode: POSTER_QUANTITY,
+                    colorMax: colorMaxForQuantity(POSTER_QUANTITY, now.quantization, context),
+                    colorMin: colorMinForQuantity(POSTER_QUANTITY, context),
                     envelopeMode: true,
                     envelopeData: data
                 })

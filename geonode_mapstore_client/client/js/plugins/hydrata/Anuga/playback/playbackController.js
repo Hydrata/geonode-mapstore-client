@@ -435,6 +435,21 @@ export function hasEnvelopeForQuantity(envelopeQuantities, quantity) {
     return Array.isArray(envelopeQuantities) && envelopeQuantities.indexOf(quantity) !== -1;
 }
 
+/**
+ * TASK-3087 (W2.3, epic 3082, phase-1.7 sweep) — the ONE predicate for "is
+ * this run still in the poster's eligible window" (the mesh still
+ * downloading, or the pre-roll still buffering). Shared between the
+ * reducer's PLAYBACK_POSTER_LOADED late-arrival guard and
+ * playbackEpics.playbackPosterEpic's own identical guard, which is
+ * duplicated here rather than compared, so the two can never drift apart on
+ * which statuses a poster may still land in.
+ * @param {string} status one of PLAYBACK_STATUS
+ * @returns {boolean}
+ */
+export function isPosterEligibleStatus(status) {
+    return status === PLAYBACK_STATUS.LOADING_MESH || status === PLAYBACK_STATUS.BUFFERING;
+}
+
 // TASK-2744 AC11 — the only keys PLAYBACK_SET_OVERLAY may write. A whitelist
 // rather than a blind spread, so a mistyped key is dropped instead of
 // inventing a controller-state field nothing reads.
@@ -1596,7 +1611,7 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         if (action.runId !== state.runId) {
             return state;
         }
-        if (state.status !== PLAYBACK_STATUS.LOADING_MESH && state.status !== PLAYBACK_STATUS.BUFFERING) {
+        if (!isPosterEligibleStatus(state.status)) {
             return state;
         }
         return { ...state, posterEnvelope: action.data || null };
