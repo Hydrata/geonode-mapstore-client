@@ -2732,7 +2732,7 @@ describe('playbackEpics', () => {
         // dispatch (throttled, at most 4/s — R3), not one dispatch per
         // completed object, so `objectsLoaded` no longer climbs by exactly
         // one on every single dispatch.
-        it('emits determinate progress during the mesh phase', (done) => {
+        it('emits determinate per-object progress during the mesh phase', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const store = makeStore(createInitialPlaybackState());
             const { subject, action$ } = makeActionsSubject();
