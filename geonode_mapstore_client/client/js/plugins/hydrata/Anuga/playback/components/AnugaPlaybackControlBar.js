@@ -1000,6 +1000,13 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                     of the old per-object counter. */}
                 {progress ? (
                     <span className="sv-playback-load-progress" data-testid="anuga-playback-load-progress">
+                        {/* TASK-3087 (W2.3, epic 3082, R5) — gated strictly on
+                            posterEnvelope being SET (never on status alone),
+                            so this can never fire for a run with no poster
+                            shown. */}
+                        {playback.posterEnvelope !== null && playback.posterEnvelope !== undefined
+                            ? `${this.tr('hydrata.playback.posterShown', 'Peak flood depth shown while the animation loads')} · `
+                            : ''}
                         {this.formatLoadProgressLine(playback, progress)}
                     </span>
                 ) : null}

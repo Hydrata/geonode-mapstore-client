@@ -23,6 +23,8 @@ import {
     playbackTickEpic,
     playbackSyncLayerEpic,
     playbackEnvelopeFetchEpic,
+    // TASK-3087 (W2.3, epic 3082) — the peak-envelope poster.
+    playbackPosterEpic,
     playbackIdentifyEpic,
     playbackSuppressIdentifyEpic,
     playbackDisposeEpic,
@@ -89,7 +91,9 @@ import {
     playbackFallback,
     playbackSeek,
     playbackReset,
-    PLAYBACK_RESET
+    PLAYBACK_RESET,
+    // TASK-3087 (W2.3, epic 3082) — the peak-envelope poster.
+    PLAYBACK_POSTER_LOADED
 } from '../../actions/playbackActions';
 // TASK-3078 AC15 — "the map changed" is gnresource.id moving; INIT_ANUGA is
 // the trigger that survives MapStore's route-change epic mute.
@@ -2945,6 +2949,94 @@ describe('playbackEpics', () => {
             });
             subject.next(playbackSetEnvelopeMode(true));
             setTimeout(() => subject.complete(), 50);
+        });
+    });
+
+    describe('playbackPosterEpic — TASK-3087 (W2.3, epic 3082)', () => {
+        function posterState(overrides = {}) {
+            return {
+                ...createInitialPlaybackState(),
+                runId: '9', layerId: 'layer-9', envelopeQuantities: ['depth'],
+                quantity: 'depth', status: PLAYBACK_STATUS.BUFFERING,
+                mesh: { nodeX: new Float32Array([0, 1]), nodeY: new Float32Array([0, 1]) },
+                ...overrides
+            };
+        }
+
+        it('draws the depth envelope as a poster while the pre-roll buffers', (done) => {
+            const store = makeStore(posterState());
+            let calls = 0;
+            fetcherRegistry.set('9', {
+                manifest: { quantization: { depth_max: { scale: 0.5, offset: 0 } } },
+                fetchAndDecodeChunk: () => {
+                    calls += 1;
+                    return Promise.resolve(new Uint16Array([2, 4]));
+                }
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackPosterEpic(action$, store).subscribe((a) => seen.push(a), done, () => {
+                // H2 — the SAME loadPlaybackEnvelope call the Max toggle
+                // uses; exactly one fetch, never issued through the fill
+                // queue.
+                expect(calls).toBe(1);
+                expect(seen.map((a) => a.type)).toEqual([PLAYBACK_POSTER_LOADED, MERGE_OPTIONS_BY_ID]);
+                expect(seen[0].runId).toBe('9');
+                expect(Array.from(seen[0].data)).toEqual([1.0, 2.0]);
+                expect(seen[1].id).toBe('layer-9');
+                expect(seen[1].options.envelopeMode).toBe(true);
+                expect(seen[1].options.envelopeData).toBe(seen[0].data);
+                // S2 — mesh must ride along; a layer that never received a
+                // mesh cannot draw an envelope.
+                expect(seen[1].options.mesh).toBeTruthy();
+                done();
+            });
+            subject.next(playbackManifestLoaded({
+                runId: '9', manifest: {}, mesh: null, time: null, nTime: 0, nNode: 0,
+                chunkLengthT: null, totalChunks: 0
+            }));
+            setTimeout(() => subject.complete(), 50);
+        });
+
+        it('a store WITHOUT a depth envelope dispatches nothing', (done) => {
+            const store = makeStore(posterState({ envelopeQuantities: [] }));
+            fetcherRegistry.set('9', {
+                manifest: { quantization: { depth_max: { scale: 0.5, offset: 0 } } },
+                fetchAndDecodeChunk: () => Promise.reject(new Error('must not be called — no envelope declared'))
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackPosterEpic(action$, store).subscribe((a) => seen.push(a), done, () => {
+                expect(seen.length).toBe(0);
+                done();
+            });
+            subject.next(playbackManifestLoaded({
+                runId: '9', manifest: {}, mesh: null, time: null, nTime: 0, nNode: 0,
+                chunkLengthT: null, totalChunks: 0
+            }));
+            setTimeout(() => subject.complete(), 50);
+        });
+
+        it('a run switch mid-fetch drops the stale poster (never painted onto the new run)', (done) => {
+            const store = makeStore(posterState());
+            fetcherRegistry.set('9', {
+                manifest: { quantization: { depth_max: { scale: 0.5, offset: 0 } } },
+                fetchAndDecodeChunk: () => new Promise((resolve) => {
+                    setTimeout(() => resolve(new Uint16Array([2, 4])), 10);
+                })
+            });
+            const { subject, action$ } = makeActionsSubject();
+            const seen = [];
+            playbackPosterEpic(action$, store).subscribe((a) => seen.push(a), done, () => {
+                expect(seen.length).toBe(0);
+                done();
+            });
+            subject.next(playbackManifestLoaded({
+                runId: '9', manifest: {}, mesh: null, time: null, nTime: 0, nNode: 0,
+                chunkLengthT: null, totalChunks: 0
+            }));
+            store.__setPlayback(posterState({ runId: '10' }));
+            setTimeout(() => subject.complete(), 60);
         });
     });
 });

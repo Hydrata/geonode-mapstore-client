@@ -124,6 +124,9 @@ import {
     colorMinForQuantity,
     isColorMaxOverridden,
     isColorFloorActive,
+    // TASK-3087 — the ONE predicate the poster epic, the reducer's poster
+    // guard and the Max toggle all share for "does this store have one".
+    hasEnvelopeForQuantity,
     DEFAULT_PLAYBACK_OPACITY,
     DEFAULT_PLAYBACK_BACKGROUND_OPACITY,
     // TASK-3078 — playbackResetOnMapSwitchEpic's "is a run loaded" read.
@@ -167,7 +170,10 @@ import {
     playbackSetEnvelopeMode,
     playbackFallback,
     // TASK-3078 — dispatched by playbackResetOnMapSwitchEpic.
-    playbackReset
+    playbackReset,
+    // TASK-3087 (W2.3, epic 3082) — the peak-envelope poster.
+    PLAYBACK_POSTER_LOADED,
+    playbackPosterLoaded
 } from '../actions/playbackActions';
 import { show } from '@mapstore/framework/actions/notifications';
 // TASK-3078 — "the map changed" is `gnresource.id` moving (the same action
@@ -1247,6 +1253,87 @@ function getLayerMesh(pb) {
     return layerMesh;
 }
 
+/**
+ * TASK-3087 (W2.3, epic 3082, D6) — the peak-envelope POSTER: while the
+ * pre-roll buffers, draw the run's peak depth (depth_max, ~0.8 MiB) on the
+ * playback layer instead of a blank/near-dry frame 0 — "the single most
+ * informative picture the store has, and it is almost free".
+ *
+ * Fires once per run on PLAYBACK_MANIFEST_LOADED (whose reducer case has
+ * already populated envelopeQuantities/mesh/layerId in state by the time this
+ * epic reads it), gated on the store actually declaring a depth envelope
+ * (hasEnvelopeForQuantity) — a store with none dispatches nothing (AC1/AC2).
+ *
+ * SAME call the Max toggle uses — loadPlaybackEnvelope(fetcher, 'depth'),
+ * cached by the fetcher's own `_staticArrays` map — so a viewer who presses
+ * Max while the poster shows gets the identical array with NO second fetch
+ * (H2, AC3). Issued through fetchAndDecodeChunk exactly like the Max path: it
+ * never enters playbackBufferEpic's fill queue, so it can never take a
+ * pre-roll slot or delay it (AC2).
+ *
+ * Dispatches the layer merge DIRECTLY here rather than relying only on
+ * playbackSyncLayerEpic's trigger list (S2/R4): on a FRESH run nothing has
+ * synced yet (lastSyncedTimestep has no entry for this runId), so that
+ * epic's own baseProps-only fast path would not apply and the frame
+ * Promise.all path would wait for chunk 0 to land — defeating the point of a
+ * poster shown WHILE the pre-roll buffers. playbackSyncLayerEpic's baseProps
+ * (also amended by this task) keep re-asserting it on every later trigger
+ * for as long as `posterEnvelope` is set and status stays BUFFERING, so this
+ * merge only has to land it once.
+ *
+ * Never throws into the stream — a poster is optional (R3): a failed or
+ * unavailable fetch resolves to nothing, exactly like a Max-path failure
+ * degrades to "no envelope drawn" rather than an error.
+ */
+export function playbackPosterEpic(action$, store) {
+    return action$.ofType(PLAYBACK_MANIFEST_LOADED).mergeMap(() => {
+        const pb = store.getState().anugaPlayback;
+        if (!pb || !pb.runId || !pb.layerId || !hasEnvelopeForQuantity(pb.envelopeQuantities, 'depth')) {
+            return Rx.Observable.empty();
+        }
+        const fetcher = fetcherRegistry.get(pb.runId);
+        if (!fetcher) {
+            return Rx.Observable.empty();
+        }
+        const runId = pb.runId;
+        const layerId = pb.layerId;
+        return Rx.Observable.fromPromise(
+            loadPlaybackEnvelope(fetcher, 'depth').catch(() => null)
+        ).mergeMap((data) => {
+            if (!data) {
+                return Rx.Observable.empty();
+            }
+            const now = store.getState().anugaPlayback || {};
+            // Stale-response guard, same idiom as PLAYBACK_ENVELOPE_LOADED's:
+            // a run switch mid-fetch must not paint the OLD run's poster
+            // onto the NEW run's layer — the reducer's own runId guard on
+            // PLAYBACK_POSTER_LOADED (A5) protects STATE, not this direct
+            // layer merge.
+            if (now.runId !== runId) {
+                return Rx.Observable.empty();
+            }
+            // A5/R2 — a poster that resolves AFTER this SAME run has already
+            // left the mesh/buffering phase (READY/PLAYING/ERROR/FALLBACK)
+            // must not paint over real frames or a terminal state.
+            if (now.status !== PLAYBACK_STATUS.LOADING_MESH && now.status !== PLAYBACK_STATUS.BUFFERING) {
+                return Rx.Observable.empty();
+            }
+            const context = { elevationMin: now.elevationMin, elevationMax: now.elevationMax };
+            return Rx.Observable.of(
+                playbackPosterLoaded(runId, data),
+                mergeOptionsById(layerId, {
+                    mesh: getLayerMesh(now),
+                    colorMode: 'depth',
+                    colorMax: colorMaxForQuantity('depth', now.quantization, context),
+                    colorMin: colorMinForQuantity('depth', context),
+                    envelopeMode: true,
+                    envelopeData: data
+                })
+            );
+        });
+    });
+}
+
 export function playbackSyncLayerEpic(action$, store) {
     const trigger$ = action$.ofType(
         PLAYBACK_MANIFEST_LOADED, PLAYBACK_TICK, PLAYBACK_SEEK, PLAYBACK_CHUNKS_BUFFERED, PLAYBACK_SET_QUANTITY,
@@ -1270,7 +1357,15 @@ export function playbackSyncLayerEpic(action$, store) {
         // own trigger for the SAME reason SET_WIREFRAME is: flipping either
         // while PAUSED has no other action to ride to the layer.
         PLAYBACK_SET_ENVELOPE_MODE,
-        PLAYBACK_ENVELOPE_LOADED
+        PLAYBACK_ENVELOPE_LOADED,
+        // TASK-3087 (R4) — belt-and-braces: playbackPosterEpic already merges
+        // the poster onto the layer directly (a FRESH run has no
+        // lastSyncedTimestep entry yet, so the baseProps-only fast path below
+        // would not apply on the very first landing), but listing it here too
+        // means any later re-render of THIS epic while still buffering keeps
+        // re-asserting the same envelopeMode/envelopeData from baseProps
+        // rather than depending solely on the one-shot direct dispatch.
+        PLAYBACK_POSTER_LOADED
     );
     return trigger$.switchMap(() => {
         const pb = store.getState().anugaPlayback;
@@ -1345,8 +1440,14 @@ export function playbackSyncLayerEpic(action$, store) {
             // asserted-every-sync layer properties, same class as
             // wireframe/opacity above (so a bar remount/unmount can never
             // desync them from controller state).
-            envelopeMode: !!pb.envelopeMode,
-            envelopeData: pb.envelopeData || null
+            // TASK-3087 (R4/S3) — while BUFFERING and no real Max toggle is
+            // on, fall back to the peak-envelope POSTER (pb.posterEnvelope)
+            // so a later sync trigger (e.g. another PLAYBACK_CHUNKS_BUFFERED
+            // as more pre-roll chunks land) does not overwrite the poster
+            // with envelopeMode:false before the window is ready. The real
+            // Max toggle always wins when it is on.
+            envelopeMode: !!pb.envelopeMode || (pb.status === PLAYBACK_STATUS.BUFFERING && !!pb.posterEnvelope),
+            envelopeData: pb.envelopeData || (pb.status === PLAYBACK_STATUS.BUFFERING ? pb.posterEnvelope : null)
         };
         if (lastSyncedTimestep.get(pb.runId) === pb.currentTimestep) {
             return Rx.Observable.of(mergeOptionsById(pb.layerId, baseProps));

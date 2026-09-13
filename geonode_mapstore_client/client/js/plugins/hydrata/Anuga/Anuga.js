@@ -26,7 +26,10 @@ import {
     // TASK-2752 (W8.2, epic 2706) — fetches the temporal-max envelope for
     // the active quantity when the Max toggle turns on (or the operator
     // switches to a different envelope-having quantity while it is on).
-    playbackEnvelopeFetchEpic
+    playbackEnvelopeFetchEpic,
+    // TASK-3087 (W2.3, epic 3082) — the peak-envelope poster shown while the
+    // pre-roll buffers.
+    playbackPosterEpic
 } from './playback/epics/playbackEpics';
 import anugaContainer from "./components/anugaContainer";
 import {
@@ -407,6 +410,9 @@ export default createPlugin('Anuga', {
         // overlay never follow the user to the next map.
         playbackResetOnMapSwitchEpic,
         // TASK-2752 (W8.2, epic 2706) — the Max envelope fetch.
-        playbackEnvelopeFetchEpic
+        playbackEnvelopeFetchEpic,
+        // TASK-3087 (W2.3, epic 3082) — the peak-envelope poster while the
+        // pre-roll buffers.
+        playbackPosterEpic
     }
 });

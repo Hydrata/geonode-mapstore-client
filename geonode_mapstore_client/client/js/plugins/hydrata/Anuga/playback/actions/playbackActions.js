@@ -88,6 +88,13 @@ export const PLAYBACK_SET_COLOR_FLOOR = 'PLAYBACK:SET_COLOR_FLOOR';
 // TASK-2752 (W8.2, epic 2706) — the temporal-max envelope (Max toggle).
 export const PLAYBACK_SET_ENVELOPE_MODE = 'PLAYBACK:SET_ENVELOPE_MODE';
 export const PLAYBACK_ENVELOPE_LOADED = 'PLAYBACK:ENVELOPE_LOADED';
+// TASK-3087 (W2.3, epic 3082) — the peak-envelope POSTER shown while the
+// pre-roll buffers. Distinct from PLAYBACK_ENVELOPE_LOADED/envelopeData
+// above (TASK-2752's Max-toggle concept, a user action): this one is fired
+// automatically, once per run, by playbackPosterEpic straight off
+// PLAYBACK_MANIFEST_LOADED — do not collide the two state keys (TASK-2986
+// already did that once with fallbackLayerShown, see playbackController.js).
+export const PLAYBACK_POSTER_LOADED = 'PLAYBACK:POSTER_LOADED';
 
 /**
  * Start (or restart) a playback controller for one run. `layerId` is the
@@ -353,4 +360,16 @@ export function playbackSetEnvelopeMode(enabled) {
  */
 export function playbackEnvelopeLoaded(runId, quantity, data) {
     return { type: PLAYBACK_ENVELOPE_LOADED, runId, quantity, data };
+}
+
+/**
+ * TASK-3087 (W2.3, epic 3082) — playbackPosterEpic's depth_max fetch landed.
+ * `runId` is the STALE-RESPONSE guard (same idiom as playbackEnvelopeLoaded):
+ * a poster for a run the operator has since left/switched away from must not
+ * be written into the new run's state. `data` is a Float32Array(nNode) of
+ * peak depth in physical units, never null (a null/failed fetch dispatches
+ * nothing — see playbackPosterEpic — a poster is optional).
+ */
+export function playbackPosterLoaded(runId, data) {
+    return { type: PLAYBACK_POSTER_LOADED, runId, data };
 }

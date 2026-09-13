@@ -67,7 +67,9 @@ import {
     playbackFallback,
     // TASK-3081
     playbackChunkBufferError,
-    playbackReset
+    playbackReset,
+    // TASK-3087 (W2.3, epic 3082) — the peak-envelope poster.
+    playbackPosterLoaded
 } from '../actions/playbackActions';
 
 const TIME = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360]; // 13 steps, matches fixturePlaybackStore
@@ -1208,6 +1210,60 @@ describe('playbackController', () => {
                 const withMaxOn = { ...bufferedState({ envelopeQuantities: ['depth'], quantity: 'depth' }), status: PLAYBACK_STATUS.PLAYING, envelopeMode: true };
                 expect(reduce(withMaxOn, playbackTick(Date.now() + 1000))).toBe(withMaxOn);
             });
+        });
+    });
+
+    describe('peak-envelope poster (TASK-3087, W2.3 epic 3082)', () => {
+        it('the poster clears when playback becomes ready and never survives a run switch', () => {
+            const poster = new Float32Array([1, 2, 3]);
+            // POSTER_LOADED lands while BUFFERING (loadedState's own status).
+            const loaded = reduce(loadedState({ envelopeQuantities: ['depth'] }), playbackPosterLoaded(7, poster));
+            expect(loaded.posterEnvelope).toEqual(poster);
+
+            // CHUNKS_BUFFERED-to-READY (both fixture chunks, per bufferedState)
+            // clears it at the SAME site loadProgress is nulled.
+            const ready = reduce(loaded, playbackChunksBuffered([0, 1]));
+            expect(ready.status).toBe(PLAYBACK_STATUS.READY);
+            expect(ready.posterEnvelope).toBe(null);
+
+            // A run switch (PLAYBACK_INIT of a DIFFERENT run) drops it too —
+            // createInitialPlaybackState's own posterEnvelope: null, for free.
+            const switched = reduce(loaded, playbackInit(8, 'layer-2'));
+            expect(switched.posterEnvelope).toBe(null);
+            expect(switched.runId).toBe(8);
+
+            // A stale-runId POSTER_LOADED is ignored outright — same state
+            // reference back.
+            const stale = reduce(loadedState({ envelopeQuantities: ['depth'] }), playbackPosterLoaded(999, poster));
+            expect(stale.posterEnvelope).toBe(null);
+        });
+
+        it('is also cleared on MANIFEST_FAILED, FALLBACK and the bounded pre-roll CHUNK_BUFFER_ERROR exit (AC3: "ERROR" has no qualifier)', () => {
+            const withPoster = reduce(loadedState({ envelopeQuantities: ['depth'] }), playbackPosterLoaded(7, new Float32Array([1])));
+            expect(withPoster.posterEnvelope).toNotBe(null);
+
+            const failed = reduce(withPoster, playbackManifestFailed(7, 'boom'));
+            expect(failed.status).toBe(PLAYBACK_STATUS.ERROR);
+            expect(failed.posterEnvelope).toBe(null);
+
+            const fellBack = reduce(withPoster, playbackFallback({ runId: 7 }));
+            expect(fellBack.status).toBe(PLAYBACK_STATUS.FALLBACK);
+            expect(fellBack.posterEnvelope).toBe(null);
+
+            // The BUFFERING + floor-window CHUNK_BUFFER_ERROR bounded exit —
+            // the second ERROR-producing arm the red-team's S3/A4 flags as
+            // missed by a naive read of the loadProgress-nulling sites alone.
+            const chunkError = reduce(withPoster, playbackChunkBufferError(0, 'stalled', 7));
+            expect(chunkError.status).toBe(PLAYBACK_STATUS.ERROR);
+            expect(chunkError.posterEnvelope).toBe(null);
+        });
+
+        it('a late POSTER_LOADED arriving after the SAME run already left BUFFERING/LOADING_MESH is dropped (R2)', () => {
+            const ready = { ...bufferedState({ envelopeQuantities: ['depth'] }) };
+            expect(ready.status).toBe(PLAYBACK_STATUS.READY);
+            const late = reduce(ready, playbackPosterLoaded(ready.runId, new Float32Array([9])));
+            expect(late.posterEnvelope).toBe(null);
+            expect(late).toBe(ready);
         });
     });
 
