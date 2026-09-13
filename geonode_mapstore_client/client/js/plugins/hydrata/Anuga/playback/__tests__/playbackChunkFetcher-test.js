@@ -1182,6 +1182,78 @@ describe('playbackChunkFetcher — TASK-3084 resume a crawling/stalled body', ()
  * RE-PRIORITISATION on a SEEK, and playhead-distance EVICTION.
  * ===========================================================================
  */
+/*
+ * ===========================================================================
+ * TASK-3086 (W2.2, epic 3082) — the onBytes seam.
+ *
+ * D5: a line that moves on every read is what tells a stranger the app is
+ * alive. Before this task `onProgress` fired ONCE per completed object
+ * (TASK-2744 AC18's `{key, bytes}` contract); this seam fires on EVERY
+ * stream read, with the running `received` total and the object's
+ * Content-Length, so the epic can aggregate a byte-true progress line
+ * instead of a per-object counter. Reuses the H6 idiom already proven twice
+ * in this file (TASK-3079/TASK-3084 above): a hand-built ReadableStream with
+ * repeated `controller.enqueue()` calls, real timers, `_fetchRawBytes`
+ * called directly.
+ * ===========================================================================
+ */
+describe('playbackChunkFetcher — TASK-3086 the onBytes seam', () => {
+    it('onBytes fires on every stream read with the running total and the Content-Length', (done) => {
+        const KEY = 'depth/c/0/0';
+        const TOTAL = 30;
+        // Four reads landing at these cumulative byte counts.
+        const cumulative = [3, 10, 17, 30];
+        const fetchImpl = () => {
+            const stream = new ReadableStream({
+                start(controller) {
+                    let prev = 0;
+                    cumulative.forEach((cum) => {
+                        controller.enqueue(new Uint8Array(cum - prev));
+                        prev = cum;
+                    });
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 200,
+                headers: { 'Content-Length': String(TOTAL) }
+            }));
+        };
+        const onBytesCalls = [];
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST,
+            fetchImpl,
+            // `done: true` is the SEPARATE, once-per-object AC18 completion
+            // call (TASK-2744) — this spec is about the every-read seam, so
+            // it is filtered out here rather than conflated with it.
+            onProgress: (info) => {
+                if (!info.done) {
+                    onBytesCalls.push(info);
+                }
+            }
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(buffer.byteLength).toBe(TOTAL);
+                // At least one call per enqueued chunk (a reader-done call
+                // with no new bytes is also permitted, and does land in
+                // practice — see the fetcher's stream-loop comment).
+                expect(onBytesCalls.length >= cumulative.length).toBe(true);
+                let prevReceived = 0;
+                onBytesCalls.forEach((call) => {
+                    expect(call.total).toBe(TOTAL);
+                    expect(call.received >= prevReceived).toBe(true);
+                    prevReceived = call.received;
+                });
+                expect(onBytesCalls[onBytesCalls.length - 1].received).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+});
+
 describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
     const QUANTITIES = QUANTITY_ARRAYS;
     const CHUNK_BYTES = 1024;

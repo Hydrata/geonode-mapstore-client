@@ -49,6 +49,7 @@ import {
     playbackManifestLoaded,
     playbackManifestFailed,
     playbackManifestFetched,
+    playbackLoadProgress,
     playbackChunksBuffered,
     playbackPlay,
     playbackPause,
@@ -1551,6 +1552,62 @@ describe('playbackController', () => {
                     chunkLengthT: 10, totalChunks: 2, meshBounds3857: BOUNDS
                 }));
             expect(reduce(first, playbackReset(7, 'layer-1')).meshBounds3857).toBe(null);
+        });
+    });
+
+    /*
+     * TASK-3086 (W2.2, epic 3082) — one byte-true progress line spanning the
+     * mesh phase AND the pre-roll. Amendment A2 / ruling E1's own gate: a
+     * LOAD_PROGRESS dispatched AFTER MANIFEST_LOADED (not merely right after
+     * MANIFEST_FETCHED) proves the channel survives the mesh -> pre-roll
+     * phase boundary — playbackInitEpic's load$ Observable completes right
+     * after MANIFEST_LOADED, and the reducer has no way to know WHICH
+     * Observable a dispatched action travelled through, so this is a pure
+     * reducer-level proof of the CONTRACT the epic's channel has to honour,
+     * not of the channel itself (the epic's own wiring is exercised live by
+     * the W2 gate).
+     */
+    describe('load progress: bytesTotal + surviving the pre-roll (TASK-3086, W2.2, epic 3082)', () => {
+        it('load progress carries bytesTotal and keeps updating through the pre-roll', () => {
+            // MANIFEST_LOADED itself seeds a FRESH pre-roll reading (R5)
+            // rather than nulling loadProgress — the fill is about to start
+            // on the SAME fetcher (fetcherRegistry), and AC3 requires the
+            // line to keep updating through it. objectCount is the SAME
+            // floorWindowFor(...).length x QUANTITY_ARRAYS.length the
+            // BUFFERING -> READY gate below uses: 2 floor-window chunks x 3
+            // quantity arrays = 6, on this file's TIME/chunkLengthT/
+            // totalChunks fixture.
+            const afterManifestLoaded = loadedState();
+            expect(afterManifestLoaded.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(afterManifestLoaded.loadProgress).toEqual({
+                objectsLoaded: 0, objectCount: 6, bytesLoaded: 0, bytesTotal: null, phase: 'preroll'
+            });
+
+            // A LOAD_PROGRESS AFTER MANIFEST_LOADED — the phase-boundary
+            // proof above.
+            const midPreroll = reduce(afterManifestLoaded, playbackLoadProgress(7, {
+                objectsLoaded: 3, objectCount: 6, bytesLoaded: 12345, bytesTotal: 98765, phase: 'preroll'
+            }));
+            expect(midPreroll.loadProgress).toEqual({
+                objectsLoaded: 3, objectCount: 6, bytesLoaded: 12345, bytesTotal: 98765, phase: 'preroll'
+            });
+            // KEEPS updating — a second reading later in the same phase.
+            const laterPreroll = reduce(midPreroll, playbackLoadProgress(7, {
+                objectsLoaded: 5, objectCount: 6, bytesLoaded: 54321, bytesTotal: 98765, phase: 'preroll'
+            }));
+            expect(laterPreroll.loadProgress.bytesLoaded).toBe(54321);
+            expect(laterPreroll.loadProgress.bytesTotal).toBe(98765);
+            expect(laterPreroll.loadProgress.phase).toBe('preroll');
+
+            // A stale run's own LOAD_PROGRESS is dropped, exactly like every
+            // sibling action on this reducer.
+            const stale = reduce(laterPreroll, playbackLoadProgress(99, { objectsLoaded: 1, objectCount: 1, bytesLoaded: 1 }));
+            expect(stale.loadProgress).toBe(laterPreroll.loadProgress);
+
+            // The FIRST READY (the whole floor window landing) clears it.
+            const ready = reduce(laterPreroll, playbackChunksBuffered([0, 1]));
+            expect(ready.status).toBe(PLAYBACK_STATUS.READY);
+            expect(ready.loadProgress).toBe(null);
         });
     });
 });

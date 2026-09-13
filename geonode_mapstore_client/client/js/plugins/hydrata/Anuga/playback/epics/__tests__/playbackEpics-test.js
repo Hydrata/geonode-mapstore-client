@@ -2720,32 +2720,51 @@ describe('playbackEpics', () => {
             subject.next(playbackInit(51, 'layer-51', MANIFEST_URL));
         });
 
-        it('emits determinate per-object progress during the mesh phase', (done) => {
+        // TASK-3086 (W2.2, epic 3082) — REWRITTEN. Two design changes this
+        // spec now proves: (1) PLAYBACK_LOAD_PROGRESS no longer travels
+        // through playbackInitEpic's own `load$` (Amendment A2/E1 — that
+        // Observable completes at MANIFEST_LOADED, and RxJS silently drops a
+        // `next()` sent to a completed Observer, which would have swallowed
+        // every pre-roll reading) but through a persistent channel merged
+        // into playbackBufferEpic's own output — so this spec subscribes to
+        // BOTH epics fed the SAME action$, exactly as the real store's
+        // combineEpics does; (2) the reading is now aggregate BYTES per
+        // dispatch (throttled, at most 4/s — R3), not one dispatch per
+        // completed object, so `objectsLoaded` no longer climbs by exactly
+        // one on every single dispatch.
+        it('emits determinate progress during the mesh phase', (done) => {
             const restore = stubGlobalFetch(fixtureFetchHandler);
             const store = makeStore(createInitialPlaybackState());
             const { subject, action$ } = makeActionsSubject();
             const seen = [];
-            playbackInitEpic(action$, store).subscribe((a) => {
-                seen.push(a);
-                if (a.type === PLAYBACK_MANIFEST_LOADED) {
-                    restore();
-                    try {
-                        const progress = seen.filter((x) => x.type === PLAYBACK_LOAD_PROGRESS);
-                        // RED on HEAD: the whole load was ONE promise, so this
-                        // list was empty and nothing moved for the duration.
-                        expect(progress.length > 0).toBe(true);
-                        // monotonic, and it reports real bytes
-                        progress.forEach((pgr, i) => {
-                            expect(pgr.objectsLoaded).toBe(i + 1);
-                            expect(pgr.objectCount > 0).toBe(true);
-                        });
-                        expect(progress[progress.length - 1].bytesLoaded > 0).toBe(true);
-                        done();
-                    } catch (e) {
-                        done(e);
+            Rx.Observable.merge(playbackInitEpic(action$, store), playbackBufferEpic(action$, store))
+                .subscribe((a) => {
+                    seen.push(a);
+                    if (a.type === PLAYBACK_MANIFEST_LOADED) {
+                        restore();
+                        try {
+                            const progress = seen.filter((x) => x.type === PLAYBACK_LOAD_PROGRESS);
+                            // RED on HEAD: the whole load was ONE promise, so
+                            // this list was empty and nothing moved for the
+                            // duration.
+                            expect(progress.length > 0).toBe(true);
+                            progress.forEach((pgr) => {
+                                expect(pgr.phase).toBe('mesh');
+                                expect(pgr.objectCount > 0).toBe(true);
+                                expect(pgr.bytesLoaded >= 0).toBe(true);
+                            });
+                            // Monotone — never decreases, mesh phase or not.
+                            for (let i = 1; i < progress.length; i++) {
+                                expect(progress[i].bytesLoaded >= progress[i - 1].bytesLoaded).toBe(true);
+                                expect(progress[i].objectsLoaded >= progress[i - 1].objectsLoaded).toBe(true);
+                            }
+                            expect(progress[progress.length - 1].bytesLoaded > 0).toBe(true);
+                            done();
+                        } catch (e) {
+                            done(e);
+                        }
                     }
-                }
-            }, done);
+                }, done);
             subject.next(playbackInit(52, 'layer-52', MANIFEST_URL));
         });
 
@@ -2763,6 +2782,34 @@ describe('playbackEpics', () => {
             expect(countMeshObjects(noDt)).toBe(7);
             // an unrecognised manifest still gets an honest count, not 0
             expect(countMeshObjects({ chunk_urls: {} })).toBe(7);
+        });
+
+        // TASK-3086 (W2.2, epic 3082) — every store since the 1-D layout
+        // writes 'face_node_connectivity/c/0/0' (the run-1425 manifest
+        // shape), not 'face_node_connectivity/c/0'. Before this fix the
+        // filter only ever matched the 1-D key, so a real (2-D) manifest
+        // undercounted by one — 7 objects announced for the 8 the mesh phase
+        // actually fetches, e.g. the bar reading "8/7".
+        it('countMeshObjects counts the two-dimensional face_node_connectivity chunk key', () => {
+            const base = {
+                'node_x/c/0': 'u', 'node_y/c/0': 'u', 'elevation/c/0': 'u', 'friction/c/0': 'u',
+                'inradius/c/0': 'u', 'time/c/0': 'u'
+            };
+            const twoDWithDt = { chunk_urls: { ...base, 'face_node_connectivity/c/0/0': 'u', 'dt_ms/c/0': 'u' } };
+            expect(countMeshObjects(twoDWithDt)).toBe(8);
+            const twoDNoDt = { chunk_urls: { ...base, 'face_node_connectivity/c/0/0': 'u' } };
+            expect(countMeshObjects(twoDNoDt)).toBe(7);
+            // The 1-D legacy key (older stores) still counts, exactly as the
+            // unmodified spec above already pins — restated here so a single
+            // spec documents both shapes count, and never both AT ONCE.
+            const oneDWithDt = { chunk_urls: { ...base, 'face_node_connectivity/c/0': 'u', 'dt_ms/c/0': 'u' } };
+            expect(countMeshObjects(oneDWithDt)).toBe(8);
+            // A manifest that (pathologically) offered BOTH shapes still
+            // counts face_node_connectivity exactly once.
+            const both = { chunk_urls: {
+                ...base, 'face_node_connectivity/c/0/0': 'u', 'face_node_connectivity/c/0': 'u', 'dt_ms/c/0': 'u'
+            } };
+            expect(countMeshObjects(both)).toBe(8);
         });
     });
 

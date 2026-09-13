@@ -40,6 +40,8 @@ import EditableCeiling from './EditableCeiling';
 // SAME helper the Results menu highlights its row with.
 import { getScenariosArray } from '../../selectorsAnuga';
 import { findLoadedScenario } from '../loadedScenario';
+// TASK-3086 (W2.2) — the pure ETA helper, kept out of the reducer (R3).
+import { computeLoadEtaSeconds } from '../playbackProgressEta';
 
 /**
  * TASK-2726 — maxZoom hint for "zoom to results". A results extent is a whole
@@ -913,8 +915,55 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
      * case. It returns null when there is nothing to say, so the toast is
      * absent — not blank — in the common case.
      */
+    /**
+     * TASK-3086 (W2.2) — the one-line "Loading results · X of Y MiB · about
+     * N s" readout, plus the ETA sample bookkeeping it needs.
+     *
+     * The reducer stores ONLY `{objectsLoaded, objectCount, bytesLoaded,
+     * bytesTotal, phase}` — no timestamp, no history (R3: a wall-clock
+     * measurement has no business in a pure state machine). This component
+     * is the one non-pure place that keeps a short sample series ACROSS
+     * renders (an instance field, lazily created — this class has no
+     * constructor of its own, and every karma spec here already re-renders
+     * the SAME mounted instance via repeated `ReactDOM.render` calls, so an
+     * instance field survives exactly the update sequence a real 4x/s
+     * progress dispatch produces). Reset whenever the run or the PHASE
+     * changes — a mesh-phase rate has nothing to say about the pre-roll's.
+     */
+    formatLoadProgressLine(playback, progress) {
+        const key = `${playback.runId}:${progress.phase}`;
+        if (this._loadEtaKey !== key) {
+            this._loadEtaKey = key;
+            this._loadEtaSamples = [];
+        }
+        this._loadEtaSamples = this._loadEtaSamples || [];
+        const samples = this._loadEtaSamples;
+        const lastSample = samples[samples.length - 1];
+        if (!lastSample || lastSample.bytesLoaded !== progress.bytesLoaded) {
+            samples.push({ t: Date.now(), bytesLoaded: progress.bytesLoaded });
+        }
+        const hasTotal = progress.bytesTotal !== null && progress.bytesTotal !== undefined;
+        const remaining = hasTotal ? Math.max(progress.bytesTotal - progress.bytesLoaded, 0) : null;
+        const etaSeconds = computeLoadEtaSeconds(samples, remaining);
+        const prefix = this.tr('hydrata.playback.loadingResults', 'Loading results');
+        const bytesPart = hasTotal
+            ? `${formatBytes(progress.bytesLoaded)} of ${formatBytes(progress.bytesTotal)}`
+            : formatBytes(progress.bytesLoaded);
+        const etaPart = (etaSeconds !== null && etaSeconds !== undefined)
+            ? ` · ${this.tr('hydrata.playback.loadingEta', 'about {s} s').replace('{s}', String(Math.max(0, Math.round(etaSeconds))))}`
+            : '';
+        return `${prefix} · ${bytesPart}${etaPart}`;
+    }
+
     renderToast(playback, isBuffering, statusMsgId) {
         const progress = playback.loadProgress;
+        if (!progress) {
+            // No phase in flight — the next one (a new run, or a new phase
+            // of this one) starts its OWN sample series, never inherits a
+            // stale rate from whatever finished last.
+            this._loadEtaSamples = [];
+            this._loadEtaKey = null;
+        }
         const showDegraded = !!playback.degraded && !playback.degradedDismissed;
         // TASK-3081 — `error` speaks too. STATUS_MESSAGE_ID[ERROR] existed and
         // was rendered nowhere: isBuffering excludes ERROR, and on the
@@ -944,13 +993,14 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                         {statusMsgId ? <Message msgId={statusMsgId} /> : null}
                     </span>
                 ) : null}
-                {/* TASK-2744 AC18 — determinate mesh-phase progress. The ~100 s
-                    after the manifest resolves is a multi-hundred-megabyte
-                    download; it had no progress bar, byte counter or ETA, only
-                    a static label naming the wrong thing. */}
+                {/* TASK-2744 AC18 — determinate load progress, from the
+                    manifest response through the mesh download AND the
+                    pre-roll fill (TASK-3086, W2.2): one byte-true line, with
+                    an ETA once a rate has actually been measured, in place
+                    of the old per-object counter. */}
                 {progress ? (
                     <span className="sv-playback-load-progress" data-testid="anuga-playback-load-progress">
-                        {`${progress.objectsLoaded}/${progress.objectCount} · ${formatBytes(progress.bytesLoaded)}`}
+                        {this.formatLoadProgressLine(playback, progress)}
                     </span>
                 ) : null}
                 {showDegraded ? (
@@ -1377,24 +1427,29 @@ export class AnugaPlaybackControlBarComponent extends React.Component {
                             the stylesheet saying so. U+25BA/U+275A are
                             text-default and take the CSS colour. */}
                         {isPlaying ? PAUSE_GLYPH : PLAY_GLYPH}
-                        {/* TASK-2988 AC2 — PRE-ROLL PROGRESS, ON THE BUTTON THE
-                            VIEWER IS WAITING TO PRESS. TASK-2987 made Play wait
-                            for a three-chunk floor window instead of one, which
-                            is a longer wait with nothing to look at unless it is
-                            reported. ALWAYS MOUNTED and `hidden` when there is
-                            nothing to say: the transport row's child list must
-                            be identical buffering and ready (PlaybackBarLayout's
-                            own AC6 — status must never move a control), and it
-                            is absolutely positioned so it cannot widen the
-                            button either. */}
+                        {/* TASK-2988 AC2 — originally the pre-roll PERCENTAGE, on
+                            the button the viewer is waiting to press. TASK-3086
+                            (W2.2) RETIRES the visible text: the byte-true toast
+                            line above now carries this same information (as
+                            bytes, not a %), and showing both invited them to
+                            disagree the moment the two update on different
+                            ticks. The element/testid/hidden-gate all STAY —
+                            `hidden`/`aria-hidden` still key on `preRoll ===
+                            null` exactly as before, so a screen reader / a
+                            future badge has an unchanged mount point — only
+                            its content is now empty. ALWAYS MOUNTED and
+                            `hidden` when there is nothing to say: the
+                            transport row's child list must be identical
+                            buffering and ready (PlaybackBarLayout's own AC6 —
+                            status must never move a control), and it is
+                            absolutely positioned so it cannot widen the button
+                            either. */}
                         <span
                             className="sv-playback-preroll"
                             data-testid="anuga-playback-preroll"
                             hidden={preRoll === null}
                             aria-hidden={preRoll === null}
-                        >
-                            {preRoll === null ? null : `${preRoll}%`}
-                        </span>
+                        />
                     </button>
 
                     {/* TASK-2744 AC9 — the scrubber must show what is BUFFERED.

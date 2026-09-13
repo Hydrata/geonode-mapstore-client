@@ -124,9 +124,21 @@ export function playbackManifestFetched(runId, objectCount) {
     return { type: PLAYBACK_MANIFEST_FETCHED, runId, objectCount };
 }
 
-/** TASK-2744 AC18 — one completed store object during the mesh phase. */
-export function playbackLoadProgress(runId, { objectsLoaded, objectCount, bytesLoaded }) {
-    return { type: PLAYBACK_LOAD_PROGRESS, runId, objectsLoaded, objectCount, bytesLoaded };
+/**
+ * TASK-2744 AC18 — one progress reading during the mesh phase.
+ *
+ * TASK-3086 (W2.2, epic 3082) adds `bytesTotal` (the phase's aggregate
+ * Content-Length once every key has reported one, else null — a guessed
+ * total is worse than none, D5) and `phase` ('mesh' | 'preroll'). This is
+ * the SOLE producer of PLAYBACK_LOAD_PROGRESS (no other call site builds
+ * this action), so a caller passing either field through an action object
+ * built by hand rather than through this creator would previously have had
+ * it silently dropped here — both are now named in the destructure and the
+ * returned action, additively (objectsLoaded/objectCount/bytesLoaded keep
+ * their exact original meaning and shape).
+ */
+export function playbackLoadProgress(runId, { objectsLoaded, objectCount, bytesLoaded, bytesTotal, phase }) {
+    return { type: PLAYBACK_LOAD_PROGRESS, runId, objectsLoaded, objectCount, bytesLoaded, bytesTotal, phase };
 }
 
 export function playbackManifestFailed(runId, error) {

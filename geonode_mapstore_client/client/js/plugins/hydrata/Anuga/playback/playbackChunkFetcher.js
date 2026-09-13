@@ -380,12 +380,20 @@ function concatChunks(chunks, total) {
  *   called once per COMPLETED 2xx body (this attempt's own bytes/ms).
  * @param {(info: {label: string, received: number, total: number|null, rateBps: number, floorBps: number, kind: string}) => void} [guard.onResume]
  *   called once per resume, BEFORE the resumed fetch is issued.
+ * @param {(info: {received: number, total: number|null}) => void} [guard.onBytes]
+ *   TASK-3086 (W2.2) — fires on EVERY stream read (no throttle here — the
+ *   throttle, if any, belongs to the caller), with the running total received
+ *   ACROSS THE WHOLE REQUEST (resumes included — `total` here is the local
+ *   `total` byte counter, which `carry` threads across a resume, not a
+ *   per-attempt count) and the object's total size once known (Content-Length
+ *   on a 200, or Content-Range's `/<size>` on a 206). Never throws into the
+ *   read loop.
  * @returns {Promise<{response: Response, buffer?: ArrayBuffer}>}
  */
 function fetchWithStallGuard(fetchImpl, url, init, {
     headersMs, stallMs, maxAttempts, label, isDisposed, register, unregister,
     rateWindowMs, minRateBps, rateFloorFraction, resumeMinRemainingBytes, maxResumes,
-    medianRateBps, recordRate, onResume
+    medianRateBps, recordRate, onResume, onBytes
 }) {
     const attempts = maxAttempts > 0 ? Math.floor(maxAttempts) : 1;
     const resumesAllowed = maxResumes > 0 ? Math.floor(maxResumes) : 0;
@@ -654,6 +662,13 @@ function fetchWithStallGuard(fetchImpl, url, init, {
                         if (recordRate) {
                             recordRate({ bytes: total - bytesAtStart, ms: Date.now() - bodyStart });
                         }
+                        if (onBytes) {
+                            // TASK-3086 — the last read of the body: report it
+                            // too, so a caller watching `received` sees the
+                            // final byte land rather than stopping one read
+                            // short of the object's own total.
+                            onBytes({ received: total, total: objectSize });
+                        }
                         resolve({ response, buffer: concatChunks(chunks, total) });
                         return;
                     }
@@ -661,6 +676,9 @@ function fetchWithStallGuard(fetchImpl, url, init, {
                         chunks.push(value);
                         total += value.byteLength;
                         arm(stallMs);
+                        if (onBytes) {
+                            onBytes({ received: total, total: objectSize });
+                        }
                     }
                     pump();
                 }, (error) => {
@@ -1068,6 +1086,25 @@ export class PlaybackChunkFetcher {
      * rate sample), so it reports the stall budget it fired after instead of
      * a rate/floor pair.
      */
+    /**
+     * TASK-3086 (W2.2) — forward one stream read to the constructor's
+     * `onProgress`, tagged `done: false`. Fires on EVERY read of EVERY
+     * object this fetcher fetches (mesh AND pre-roll AND later fill — R6:
+     * one seam, because everything goes through `_fetchRawBytes`); the epic
+     * decides which keys/phase count. Never throws into the fetch path — a
+     * reporting failure must not fail the load it only describes (mirrors
+     * the completion call's own swallow below).
+     */
+    _onBytes(relativeKey, { received, total }) {
+        if (this.onProgress) {
+            try {
+                this.onProgress({ key: relativeKey, received, total, done: false });
+            } catch (e) {
+                // deliberately swallowed — see the constructor note
+            }
+        }
+    }
+
     _onResume({ label, received, total, rateBps, floorBps, kind }) {
         const totalStr = total !== null && total !== undefined ? total : '?';
         if (kind === 'silence') {
@@ -1106,7 +1143,8 @@ export class PlaybackChunkFetcher {
             maxResumes: this.maxResumes,
             medianRateBps: () => this._medianRateBps(),
             recordRate: (sample) => this._recordRate(sample),
-            onResume: (info) => this._onResume(info)
+            onResume: (info) => this._onResume(info),
+            onBytes: (info) => this._onBytes(relativeKey, info)
         });
         if (response.status === 403) {
             if (!allowRefresh || !this.refreshManifest) {
@@ -1118,11 +1156,15 @@ export class PlaybackChunkFetcher {
         if (!response.ok && response.status !== 206) {
             throw new Error(`playbackChunkFetcher: fetch of '${relativeKey}' failed with status ${response.status}`);
         }
-        // `buffer` is the whole streamed body; onProgress keeps its contract
-        // of firing ONCE per COMPLETED object (the streaming read is internal).
+        // `buffer` is the whole streamed body; onProgress keeps its
+        // TASK-2744 AC18 contract of firing once per COMPLETED object
+        // (`{key, bytes}` — additive fields only, never removed: TASK-3086
+        // adds `done: true` + `received` so a caller that aggregates by
+        // `received`/`done` sees this as the object's LAST byte, not a
+        // separate event).
         if (this.onProgress) {
             try {
-                this.onProgress({ key: relativeKey, bytes: buffer.byteLength });
+                this.onProgress({ key: relativeKey, bytes: buffer.byteLength, done: true, received: buffer.byteLength });
             } catch (e) {
                 // deliberately swallowed — see the constructor note
             }

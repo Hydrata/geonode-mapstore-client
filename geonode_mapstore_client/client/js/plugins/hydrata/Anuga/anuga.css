@@ -3556,7 +3556,11 @@ span.sv-scenario-run-price--short {
     height: 4px;
     border-radius: 2px;
     background: var(--sv-accent-blue, #5bc0ff);
-    opacity: 0.45;
+    /* TASK-3086 (W2.2, epic 3082) — 0.45 read as barely-there against the
+       track; the buffered segments are the ONE visual confirmation of what
+       has actually landed, so they need to read as clearly as the badges
+       above. */
+    opacity: 0.85;
     pointer-events: none;
     z-index: 0;
 }

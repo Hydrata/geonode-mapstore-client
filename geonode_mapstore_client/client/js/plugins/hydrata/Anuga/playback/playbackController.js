@@ -30,7 +30,7 @@
  */
 import { computeMixFactor } from './playbackMeshGeometry';
 import { availableQuantityIds, availableEnvelopeQuantityIds, QUANTITY_META } from './playbackDerivedQuantities';
-import { isUsableChunkLength } from './playbackChunkShape';
+import { isUsableChunkLength, QUANTITY_ARRAYS } from './playbackChunkShape';
 // TASK-2744 AC11 — the overlay knobs' defaults, now that they are controller
 // state rather than the control bar's component-local state.
 import { DEFAULT_ARROW_DENSITY_PX, DEFAULT_ARROW_SCALE } from './playbackFlowViz';
@@ -916,7 +916,10 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         return {
             ...state,
             status: PLAYBACK_STATUS.LOADING_MESH,
-            loadProgress: { objectsLoaded: 0, objectCount: action.objectCount || 0, bytesLoaded: 0 }
+            // TASK-3086 — bytesTotal/phase join objectsLoaded/objectCount/
+            // bytesLoaded as the full loadProgress shape from the moment the
+            // mesh phase starts; both null/'mesh' until the first byte lands.
+            loadProgress: { objectsLoaded: 0, objectCount: action.objectCount || 0, bytesLoaded: 0, bytesTotal: null, phase: 'mesh' }
         };
     }
     case PLAYBACK_LOAD_PROGRESS: {
@@ -928,7 +931,13 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             loadProgress: {
                 objectsLoaded: action.objectsLoaded,
                 objectCount: action.objectCount,
-                bytesLoaded: action.bytesLoaded
+                bytesLoaded: action.bytesLoaded,
+                // TASK-3086 — additive: bytesTotal is null until every key of
+                // the CURRENT phase has reported a header (the epic's own
+                // aggregator, never guessed here), and phase is 'mesh' or
+                // 'preroll'.
+                bytesTotal: action.bytesTotal !== undefined ? action.bytesTotal : null,
+                phase: action.phase || state.loadProgress && state.loadProgress.phase || null
             }
         };
     }
@@ -946,6 +955,17 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // filters the picker; this keeps state itself consistent even for a
         // caller that dispatches SET_QUANTITY before the picker re-renders).
         const quantity = (state.quantity === 'courant' && !hasDt) ? 'depth' : state.quantity;
+        // TASK-3086 (R4/R5) — the pre-roll phase's FIXED object count: the
+        // SAME floorWindowFor the BUFFERING -> READY gate below uses (so
+        // "how many objects the pre-roll needs" and "is the pre-roll window
+        // resident" can never disagree), times QUANTITY_ARRAYS. Computed
+        // from the fields THIS action just supplied, not from `state`,
+        // because they are what floorWindowFor needs and `state`'s are
+        // about to be replaced by them anyway.
+        const preRollObjectCount = floorWindowFor(
+            { nTime: action.nTime, chunkLengthT: action.chunkLengthT || null, totalChunks: action.totalChunks },
+            0
+        ).length * QUANTITY_ARRAYS.length;
         return {
             ...state,
             manifest: action.manifest,
@@ -997,8 +1017,13 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             elevationMax: action.mesh ? action.mesh.elevationMax || 0 : state.elevationMax,
             quantity,
             status: PLAYBACK_STATUS.BUFFERING,
-            // TASK-2744 AC18 — the mesh phase is over; stop reporting it.
-            loadProgress: null,
+            // TASK-2744 AC18 — the mesh phase is over. TASK-3086 (R5):
+            // do NOT null this — the pre-roll fill is about to start (the
+            // SAME fetcher, via playbackBufferEpic) and AC3 requires the
+            // line to keep updating through it. Reset to a fresh pre-roll
+            // reading instead; cleared (null) only at the first READY/
+            // PLAYING below, or on ERROR/FALLBACK/RESET.
+            loadProgress: { objectsLoaded: 0, objectCount: preRollObjectCount, bytesLoaded: 0, bytesTotal: null, phase: 'preroll' },
             // TASK-2987 — a new store paces from scratch; carrying the previous
             // run's number over would render a "paced" badge for a link that
             // has not been asked for anything yet.
@@ -1013,6 +1038,11 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         if (action.runId !== state.runId) {
             return state;
         }
+        // NOT nulling loadProgress here, deliberately: TASK-3081's own design
+        // (AnugaPlaybackControlBar-test.js's "stale loadProgress" spec) is
+        // that a mesh-phase failure leaves the progress line in place BESIDE
+        // the error message — "the message must be there beside it", not
+        // replacing it. TASK-3086 keeps that untouched.
         return { ...state, status: PLAYBACK_STATUS.ERROR, error: action.error || 'manifest load failed' };
     }
     case PLAYBACK_FALLBACK: {
@@ -1058,7 +1088,10 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             budgetSource: action.budgetSource || null,
             floorWindowPlanPeakBytes: action.floorWindowPlanPeakBytes !== undefined
                 ? action.floorWindowPlanPeakBytes : null,
-            fallbackLayerShown: action.fallbackLayerShown || null
+            fallbackLayerShown: action.fallbackLayerShown || null,
+            // TASK-3086 (R5) — 'fallback' is terminal and nothing was
+            // downloaded (AC5 above); no phase is in flight to report.
+            loadProgress: null
         };
     }
     case PLAYBACK_CHUNKS_BUFFERED: {
@@ -1082,6 +1115,11 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // — not recovering, not pausing, not finishing the run cleanly.
         let stallCount = state.stallCount;
         let degraded = state.degraded;
+        // TASK-3086 (R5) — cleared (null) on the FIRST READY/PLAYING below.
+        // Idempotent past that point: a later SEEKING/STALLED recovery also
+        // runs through this same flip, and loadProgress is already null by
+        // then (nothing between here and there sets it).
+        let loadProgress = state.loadProgress;
         // TASK-2987 AC(a) — PRE-ROLL. The initial buffer now clears at the FLOOR
         // WINDOW (3 chunks), not at the one or two frame0/frame1 needs: starting
         // on the minimum is what left the playhead one chunk from the buffered
@@ -1105,6 +1143,7 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             stalledSinceMs = null;
             stallCount = 0;
             degraded = false;
+            loadProgress = null;
         }
         // TASK-2987 AC(d) — the landing itself moves the runway, so the pacing
         // is recomputed here rather than waiting up to TICK_INTERVAL_MS for the
@@ -1124,7 +1163,7 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             effectiveSpeed = state.speed;
         }
         return { ...state, bufferedChunks, status, pendingPlay, stalledSinceMs, stallCount, degraded,
-            effectiveSpeed, lastPaceMs };
+            effectiveSpeed, lastPaceMs, loadProgress };
     }
     case PLAYBACK_CHUNK_BUFFER_ERROR: {
         // TASK-3081 — STALE-RUN GUARD (sibling idiom, `undefined` keeps a
@@ -1154,6 +1193,11 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // (it re-derives the window and refills only the gap).
         if (state.status === PLAYBACK_STATUS.BUFFERING
             && floorWindowFor(state, state.currentTimestep).indexOf(action.chunkIndex) !== -1) {
+            // loadProgress deliberately NOT nulled — same TASK-3081 posture
+            // as PLAYBACK_MANIFEST_FAILED above: a frozen pre-roll reading
+            // beside the error message is diagnostic, not misleading (it is
+            // never updated again once `error`, so it cannot lie about an
+            // ongoing download).
             return { ...state, status: PLAYBACK_STATUS.ERROR, error: action.error || state.error,
                 pendingPlay: false, effectiveSpeed: null, lastPaceMs: null };
         }
