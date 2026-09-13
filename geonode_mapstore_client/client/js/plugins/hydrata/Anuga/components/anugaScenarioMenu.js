@@ -61,7 +61,7 @@ import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 // TASK-2684 (W6.75.2, epic 2618) — Results-row selection dispatches playback
 // activation directly (replaces the old per-quantity changeLayerProperties
 // visibility toggle this file used to dispatch here).
-import {playbackInit} from '../playback/actions/playbackActions';
+import {playbackInit, playbackPlay} from '../playback/actions/playbackActions';
 import { findLoadedScenario } from '../playback/loadedScenario';
 import {
     validateScenario, findScenarioStatus, IN_FLIGHT_STATUSES, RUN_FAILURE_STATES,
@@ -289,6 +289,10 @@ const resultsMenuMapDispatchToProps = (dispatch) => ({
         }
         const run = scenario.latest_complete_run;
         dispatch(playbackInit(String(run.id), ANUGA_RESULTS_PLAYBACK_LAYER_ID, buildPlaybackManifestUrl(run.id)));
+        // TASK-3085 (AC2) — the run starts on its own when the pre-roll
+        // lands, no second click: `autoplay: true` also arms
+        // playbackController's loop-until-touched (AC4).
+        dispatch(playbackPlay({autoplay: true}));
         // Focus fully moves to the player: close Scenarios if it was open
         // (same action handleViewResults dispatches for the other entry
         // point into this — TASK-2684). No setOpenMenuGroupId('Results')
@@ -2114,6 +2118,9 @@ const mapDispatchToProps = (dispatch) => ({
         }
         const run = scenario.latest_complete_run;
         dispatch(playbackInit(String(run.id), ANUGA_RESULTS_PLAYBACK_LAYER_ID, buildPlaybackManifestUrl(run.id)));
+        // TASK-3085 (AC2) — same autoplay + loop-until-touched as the
+        // Results-row's onSelectScenario twin above.
+        dispatch(playbackPlay({autoplay: true}));
     },
     // TASK-2420 — over-balance estimate badge -> Account panel, Billing tab.
     onOpenAccountBilling: () => {

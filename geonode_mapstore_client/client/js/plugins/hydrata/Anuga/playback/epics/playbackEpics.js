@@ -1025,10 +1025,27 @@ export function playbackEnvelopeFetchEpic(action$, store) {
  * TICK_INTERVAL_MS. Stops on PAUSE/RESET; PLAY again restarts it (a fresh
  * `switchMap` emission cancels any still-running previous interval, so two
  * overlapping intervals can never coexist).
+ *
+ * TASK-3085 (AC4b) — the interval itself still STARTS on PLAY regardless of
+ * status (the shipped pendingPlay path during LOADING_MANIFEST/LOADING_MESH/
+ * BUFFERING depends on that), but the `.filter` below keeps it from actually
+ * emitting a TICK while the run is loading or buffering: playbackBufferEpic
+ * and playbackSyncLayerEpic both trigger on every TICK as `switchMap`s, so an
+ * unfiltered interval would tear down and re-subscribe the fill merge and the
+ * 20 Hz frame Promise.all for the whole pre-roll. `!store` emits unfiltered —
+ * the existing 'emits TICK actions on an interval after PLAY and stops on
+ * PAUSE' spec calls this epic with no store argument at all.
  */
-export function playbackTickEpic(action$) {
+export function playbackTickEpic(action$, store) {
     return action$.ofType(PLAYBACK_PLAY).switchMap(() =>
         Rx.Observable.interval(TICK_INTERVAL_MS)
+            .filter(() => {
+                if (!store) {
+                    return true;
+                }
+                const s = store.getState().anugaPlayback;
+                return !!s && (s.status === PLAYBACK_STATUS.PLAYING || s.status === PLAYBACK_STATUS.STALLED);
+            })
             .map(() => playbackTick(Date.now()))
             .takeUntil(action$.ofType(PLAYBACK_PAUSE, PLAYBACK_RESET))
     );

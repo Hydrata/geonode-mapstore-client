@@ -43,7 +43,7 @@ import {
     AnugaResultsMenu, AnugaResultsMenuClass,
     buildPlaybackManifestUrl, scenarioHasActivatablePlayback, ANUGA_RESULTS_PLAYBACK_LAYER_ID
 } from '../anugaScenarioMenu';
-import { PLAYBACK_INIT } from '../../playback/actions/playbackActions';
+import { PLAYBACK_INIT, PLAYBACK_PLAY } from '../../playback/actions/playbackActions';
 import { findLoadedScenario } from '../../playback/loadedScenario';
 // TASK-2194 (review fix) — real reducer tree + action creators for the
 // session compute-target integration block (drives the REAL store paths the
@@ -448,6 +448,29 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             expect(initAction.runId).toBe('501');
             expect(initAction.layerId).toBe(ANUGA_RESULTS_PLAYBACK_LAYER_ID);
             expect(initAction.manifestUrl).toBe(buildPlaybackManifestUrl(501));
+        });
+
+        // TASK-3085 (AC2/A4) — the SECOND entry point into playback activation
+        // (onViewResults, M:~2116) had zero coverage of its own PLAY dispatch:
+        // the pinned karma title above only exercises the Results-row twin.
+        // Same assertion shape as that pinned spec, against this entry point.
+        it('clicking View Results also dispatches playbackPlay immediately after playbackInit, with autoplay', () => {
+            const s1 = makeScenario(21, 'Baseline', {
+                latest_complete_run: {id: 501, status: 'complete', has_playback_store: true}
+            });
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            container.querySelector('.sv-anuga-btn-view-results').click();
+            const actions = store.__actions();
+            const initIndex = actions.findIndex(a => a.type === PLAYBACK_INIT);
+            const playIndex = actions.findIndex(a => a.type === PLAYBACK_PLAY);
+            expect(initIndex).toNotBe(-1);
+            expect(playIndex).toNotBe(-1);
+            expect(playIndex).toBe(initIndex + 1);
+            expect(actions[playIndex].autoplay).toBe(true);
         });
 
         it('clicking View Results is a no-op (pre-authorized tradeoff) when the complete run has no playback store', () => {
@@ -876,6 +899,27 @@ describe('AnugaResultsMenu (connected)', () => {
         const initAction = store.__actions().find(a => a.type === PLAYBACK_INIT);
         expect(initAction.runId).toBe('502');
         expect(initAction.layerId).toBe(ANUGA_RESULTS_PLAYBACK_LAYER_ID); // SAME id as scenario 1's — replaces in place
+    });
+
+    // TASK-3085 (W2.1, epic 3082, AC1/AC2) — the row must not require a
+    // second click to start playing: PLAY is dispatched immediately after
+    // INIT, flagged `autoplay: true` so playbackController arms
+    // loop-until-touched (AC4) the instant the pre-roll window lands.
+    it('the Results row dispatches playbackInit then playbackPlay so the run starts on its own when the pre-roll lands', () => {
+        const s1 = makeScenario(21, 'Baseline', {latest_complete_run: {id: 501, has_playback_store: true}});
+        const store = makeStore({scenariosArr: [s1]});
+        ReactDOM.render(
+            <Provider store={store}><AnugaResultsMenu /></Provider>,
+            container
+        );
+        container.querySelector('.sv-anuga-results-row').click();
+        const actions = store.__actions();
+        const initIndex = actions.findIndex(a => a.type === PLAYBACK_INIT);
+        const playIndex = actions.findIndex(a => a.type === PLAYBACK_PLAY);
+        expect(initIndex).toNotBe(-1);
+        expect(playIndex).toNotBe(-1);
+        expect(playIndex).toBe(initIndex + 1); // PLAY immediately follows INIT
+        expect(actions[playIndex].autoplay).toBe(true);
     });
 
     it('clicking a non-actionable row is impossible — the row is simply absent', () => {

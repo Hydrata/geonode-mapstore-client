@@ -400,7 +400,14 @@ export function createInitialPlaybackState() {
         // applicable.
         envelopeQuantities: [],
         envelopeMode: false,
-        envelopeData: null
+        envelopeData: null,
+        // TASK-3085 (W2.1, epic 3082) — set true by a Results-row PLAY
+        // (playbackPlay({autoplay: true})); while set, the TICK case's
+        // end-of-timeline branch rewinds and keeps playing instead of
+        // pausing. Cleared by any user transport action (a plain PLAY,
+        // PAUSE, SEEK, SET_SPEED, SET_QUANTITY, SET_ENVELOPE_MODE) and, for
+        // free, by RESET/INIT spreading this function's own return value.
+        autoplayLoop: false
     };
 }
 
@@ -1168,6 +1175,16 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         if (state.status === PLAYBACK_STATUS.PLAYING) {
             return state;
         }
+        // TASK-3085 (AC3) — PLAY arriving while the manifest or mesh is still
+        // loading must NOT relabel the status: the old fallthrough below
+        // dropped it to BUFFERING, which hid the mesh-load progress until
+        // MANIFEST_FETCHED overwrote it back ~1s later. Record pendingPlay
+        // only; CHUNKS_BUFFERED/MANIFEST_FETCHED already carry pendingPlay
+        // through untouched (both spread state), so the row's PLAY still
+        // lands in PLAYING the moment the pre-roll window is resident.
+        if (state.status === PLAYBACK_STATUS.LOADING_MANIFEST || state.status === PLAYBACK_STATUS.LOADING_MESH) {
+            return { ...state, pendingPlay: true, autoplayLoop: state.autoplayLoop || !!action.autoplay };
+        }
         // TASK-2685 (W6.75.3, epic 2618) — Play at end-of-timeline is dead:
         // PAUSED is the DEDICATED "reached the end" status (see
         // createInitialPlaybackState's comment; a mid-timeline user pause
@@ -1192,23 +1209,27 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             return { ...base, status: PLAYBACK_STATUS.PLAYING, pendingPlay: false, lastTickMs: null,
                 // The ceiling until the first tick measures a runway. Never
                 // null while PLAYING: the bar reads `effectiveSpeed < speed`.
-                effectiveSpeed: base.speed, lastPaceMs: null };
+                effectiveSpeed: base.speed, lastPaceMs: null,
+                // TASK-3085 — a plain user PLAY (autoplay undefined) clears
+                // the loop flag; the Results row's PLAY sets it.
+                autoplayLoop: !!action.autoplay };
         }
         return {
             ...base,
             status: base.status === PLAYBACK_STATUS.SEEKING ? base.status : PLAYBACK_STATUS.BUFFERING,
             pendingPlay: true,
             effectiveSpeed: null,
-            lastPaceMs: null
+            lastPaceMs: null,
+            autoplayLoop: !!action.autoplay
         };
     }
     case PLAYBACK_PAUSE: {
         if (state.status === PLAYBACK_STATUS.PLAYING) {
             return { ...state, status: PLAYBACK_STATUS.READY, pendingPlay: false, lastTickMs: null,
-                effectiveSpeed: null, lastPaceMs: null };
+                effectiveSpeed: null, lastPaceMs: null, autoplayLoop: false };
         }
         // Cancels a pending auto-play (e.g. paused while still buffering).
-        return { ...state, pendingPlay: false };
+        return { ...state, pendingPlay: false, autoplayLoop: false };
     }
     case PLAYBACK_SEEK: {
         // TASK-2986 — 'fallback' is TERMINAL for the run. There is no store in
@@ -1233,12 +1254,12 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             effectiveSpeed: null, lastPaceMs: null };
         if (isCurrentWindowBuffered(seeked)) {
             return { ...seeked, status: wasPlaying ? PLAYBACK_STATUS.PLAYING : PLAYBACK_STATUS.READY, pendingPlay: false,
-                effectiveSpeed: wasPlaying ? state.speed : null };
+                effectiveSpeed: wasPlaying ? state.speed : null, autoplayLoop: false };
         }
         // AC: "scrub shows buffering feedback" — a DISTINCT status from the
         // generic initial 'buffering' so the UI can label it "buffering
         // scrub target" rather than "loading".
-        return { ...seeked, status: PLAYBACK_STATUS.SEEKING, pendingPlay: wasPlaying };
+        return { ...seeked, status: PLAYBACK_STATUS.SEEKING, pendingPlay: wasPlaying, autoplayLoop: false };
     }
     case PLAYBACK_TICK: {
         // Ticks are meaningful while actively playing AND while stalled (the
@@ -1312,6 +1333,36 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         }
         const atEnd = state.time && playheadSeconds >= state.time[state.time.length - 1];
         if (atEnd) {
+            // TASK-3085 (AC4) — an autoplayed run loops until the viewer
+            // touches the transport instead of pausing at the end. Rewind to
+            // the first frame and either resume PLAYING immediately (the
+            // pre-roll window is still resident) or re-enter the SAME
+            // buffer-then-play gate a cold start uses (C:1088-1098 above),
+            // rather than a separate rewind-only path.
+            if (state.autoplayLoop) {
+                const rewound = { ...candidate, currentTimestep: 0, playheadSeconds: state.time[0], mixT: 0 };
+                if (isFloorWindowResident(rewound)) {
+                    return { ...rewound, status: PLAYBACK_STATUS.PLAYING, lastTickMs: nowMs, lastPaceMs: null,
+                        effectiveSpeed: rewound.speed };
+                }
+                return {
+                    ...rewound,
+                    status: PLAYBACK_STATUS.BUFFERING,
+                    pendingPlay: true,
+                    effectiveSpeed: null,
+                    lastPaceMs: null,
+                    // AC4 — "no stallCount, no degraded": a loop rewind onto
+                    // an evicted pre-roll re-buffers, it does not stall. This
+                    // is a THIRD site (besides createInitialPlaybackState and
+                    // the CHUNKS_BUFFERED recovery fix, TASK-2987) that
+                    // force-clears `degraded` — deliberate and AC-mandated;
+                    // do not "simplify" it back out believing degraded has a
+                    // single reset site.
+                    stallCount: 0,
+                    stalledSinceMs: null,
+                    degraded: false
+                };
+            }
             // Nothing is advancing any more, so there is no effective speed to
             // report (the same "null when not playing" rule PAUSE follows).
             return { ...candidate, status: PLAYBACK_STATUS.PAUSED, pendingPlay: false,
@@ -1328,7 +1379,7 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         const ratio = (state.effectiveSpeed === null || state.effectiveSpeed === undefined || !(state.speed > 0))
             ? null
             : state.effectiveSpeed / state.speed;
-        return { ...state, speed, effectiveSpeed: ratio === null ? state.effectiveSpeed : speed * ratio };
+        return { ...state, speed, effectiveSpeed: ratio === null ? state.effectiveSpeed : speed * ratio, autoplayLoop: false };
     }
     case PLAYBACK_SET_QUANTITY: {
         // AC: "controller state survives quantity switching" — depth and
@@ -1355,7 +1406,7 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
         // quantity) so the sync epic re-fetches the new one rather than
         // drawing stale numbers under the new label for one frame.
         const envelopeMode = state.envelopeMode && hasEnvelopeForQuantity(state.envelopeQuantities, quantity);
-        return { ...state, quantity, envelopeMode, envelopeData: null };
+        return { ...state, quantity, envelopeMode, envelopeData: null, autoplayLoop: false };
     }
     case PLAYBACK_SET_IDENTIFY_ARMED: {
         return { ...state, identifyArmed: !!action.armed, identifyResult: action.armed ? state.identifyResult : null };
@@ -1443,7 +1494,8 @@ export function playbackControllerReducer(state = createInitialPlaybackState(), 
             // over the entire Max-on dwell and catapult the playhead.
             // Cleared in BOTH directions: the next tick then seeds from its
             // own nowMs (same null-seed the TICK case already handles).
-            lastTickMs: null
+            lastTickMs: null,
+            autoplayLoop: false
         };
     }
     // TASK-2752 — the epic's fetch landed. Stale-response guarded on BOTH

@@ -48,6 +48,7 @@ import {
     playbackInit,
     playbackManifestLoaded,
     playbackManifestFailed,
+    playbackManifestFetched,
     playbackChunksBuffered,
     playbackPlay,
     playbackPause,
@@ -574,6 +575,109 @@ describe('playbackController', () => {
             const resumed = reduce(paused, playbackPlay());
             expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
             expect(resumed.currentTimestep).toBe(5); // unchanged — no rewind
+        });
+    });
+
+    /*
+     * TASK-3085 (W2.1, epic 3082) — autoplay from the Results row + loop
+     * until the viewer touches the transport. Three concerns: PLAY arriving
+     * while still loading must not relabel the status (AC3), an autoplayed
+     * run loops at the end instead of pausing (AC4), and a loop rewind onto
+     * an evicted pre-roll re-buffers WITHOUT counting a stall (AC4).
+     */
+    describe('autoplay + loop-until-touched (TASK-3085)', () => {
+        it('PLAYBACK_PLAY while the manifest or mesh is loading records pendingPlay without relabelling the status', () => {
+            const loadingManifest = reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1'));
+            expect(loadingManifest.status).toBe(PLAYBACK_STATUS.LOADING_MANIFEST);
+            const playedDuringManifest = reduce(loadingManifest, playbackPlay({ autoplay: true }));
+            // Status and loadProgress untouched — the old code dropped this
+            // to BUFFERING, hiding the mesh-load progress bar for ~1s until
+            // MANIFEST_FETCHED overwrote it back.
+            expect(playedDuringManifest.status).toBe(PLAYBACK_STATUS.LOADING_MANIFEST);
+            expect(playedDuringManifest.loadProgress).toBe(loadingManifest.loadProgress);
+            expect(playedDuringManifest.pendingPlay).toBe(true);
+            expect(playedDuringManifest.autoplayLoop).toBe(true);
+
+            const loadingMesh = reduce(loadingManifest, playbackManifestFetched(7, 4));
+            expect(loadingMesh.status).toBe(PLAYBACK_STATUS.LOADING_MESH);
+            const playedDuringMesh = reduce(loadingMesh, playbackPlay({ autoplay: true }));
+            expect(playedDuringMesh.status).toBe(PLAYBACK_STATUS.LOADING_MESH);
+            expect(playedDuringMesh.loadProgress).toBe(loadingMesh.loadProgress); // untouched (same reference)
+            expect(playedDuringMesh.pendingPlay).toBe(true);
+            expect(playedDuringMesh.autoplayLoop).toBe(true);
+
+            // AC3's OTHER half — BUFFERING behaviour is unchanged. A store
+            // with NOTHING buffered yet (loadedState(), no CHUNKS_BUFFERED)
+            // still relabels to BUFFERING + pendingPlay exactly as before.
+            const stillBuffering = reduce(loadedState(), playbackPlay({ autoplay: true }));
+            expect(stillBuffering.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(stillBuffering.pendingPlay).toBe(true);
+            // And a fully pre-rolled store (both chunks resident) still
+            // enters PLAYING immediately, unaffected by the new branch above.
+            const resident = reduce(bufferedState(), playbackPlay({ autoplay: true }));
+            expect(resident.status).toBe(PLAYBACK_STATUS.PLAYING);
+        });
+
+        it('an autoplayed run loops at the end of the timeline until the viewer touches the transport', () => {
+            const playing = { ...reduce(bufferedState(), playbackPlay({ autoplay: true })), lastTickMs: 0 };
+            expect(playing.autoplayLoop).toBe(true);
+
+            const looped = reduce(playing, playbackTick(1000000)); // way past t=360
+            expect(looped.status).toBe(PLAYBACK_STATUS.PLAYING); // loops instead of pausing
+            expect(looped.currentTimestep).toBe(0);
+            expect(looped.playheadSeconds).toBe(TIME[0]);
+            expect(looped.mixT).toBe(0);
+
+            // The viewer touches the transport (Pause) — the flag clears.
+            const paused = reduce(looped, playbackPause());
+            expect(paused.autoplayLoop).toBe(false);
+
+            // Play again WITHOUT the flag (the user pressing Play): the
+            // shipped PAUSED end-of-timeline behaviour returns, no more loop.
+            const replayed = { ...reduce(paused, playbackPlay()), lastTickMs: 0 };
+            expect(replayed.autoplayLoop).toBe(false);
+            const rePaused = reduce(replayed, playbackTick(1000000));
+            expect(rePaused.status).toBe(PLAYBACK_STATUS.PAUSED);
+        });
+
+        it('a looped rewind onto an evicted pre-roll re-buffers without counting a stall', () => {
+            // Only chunk 1 (the tail) is resident — chunk 0 (the pre-roll)
+            // has been evicted, as a real fill queue's LRU would do deep
+            // into a loop's second or third pass. Stale stall bookkeeping
+            // from an earlier, unrelated stall episode is seeded here
+            // specifically to prove this path clears it.
+            const nearEnd = playingWithChunks([1], {
+                autoplayLoop: true,
+                currentTimestep: TIME.length - 1,
+                playheadSeconds: TIME[TIME.length - 1],
+                stallCount: 3,
+                degraded: true,
+                stalledSinceMs: 12345
+            });
+            const looped = reduce(nearEnd, playbackTick(nearEnd.lastTickMs + 50));
+            expect(looped.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(looped.pendingPlay).toBe(true);
+            expect(looped.currentTimestep).toBe(0);
+            expect(looped.stallCount).toBe(0);
+            expect(looped.stalledSinceMs).toBe(null);
+            expect(looped.degraded).toBe(false);
+
+            // And the shipped gate re-enters PLAYING once the pre-roll is
+            // back (same C:1088-1098 path a cold start uses).
+            const resumed = reduce(looped, playbackChunksBuffered([0, 1]));
+            expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(resumed.currentTimestep).toBe(0);
+        });
+
+        it('RESET clears autoplayLoop; a plain user PLAY, SEEK, SET_SPEED, SET_QUANTITY and SET_ENVELOPE_MODE all clear it too', () => {
+            const looping = bufferedState({ autoplayLoop: true, status: PLAYBACK_STATUS.PLAYING });
+            expect(reduce(looping, playbackReset()).autoplayLoop).toBe(false);
+            expect(reduce({ ...looping, status: PLAYBACK_STATUS.READY }, playbackPlay()).autoplayLoop).toBe(false);
+            expect(reduce(looping, playbackSeek(3)).autoplayLoop).toBe(false);
+            expect(reduce(looping, playbackSetSpeed(2)).autoplayLoop).toBe(false);
+            expect(reduce(looping, playbackSetQuantity('speed')).autoplayLoop).toBe(false);
+            const withEnvelope = bufferedState({ autoplayLoop: true, envelopeQuantities: ['depth'], quantity: 'depth' });
+            expect(reduce(withEnvelope, playbackSetEnvelopeMode(true)).autoplayLoop).toBe(false);
         });
     });
 

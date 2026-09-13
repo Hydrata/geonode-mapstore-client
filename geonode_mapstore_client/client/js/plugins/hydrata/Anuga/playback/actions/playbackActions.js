@@ -195,8 +195,16 @@ export function playbackChunkBufferError(chunkIndex, error, runId) {
     return { type: PLAYBACK_CHUNK_BUFFER_ERROR, chunkIndex, error, runId };
 }
 
-export function playbackPlay() {
-    return { type: PLAYBACK_PLAY };
+/**
+ * TASK-3085 (W2.1, epic 3082) — `options.autoplay` marks a PLAY dispatched by
+ * the Results row (not the user pressing the transport's Play button), which
+ * the controller uses to arm `autoplayLoop` (loop-until-touched). A hand-built
+ * `{type: PLAYBACK_PLAY}` — the sibling idiom every existing caller/spec
+ * uses — still works: `autoplay` is undefined there, so `!!undefined` is
+ * `false`, identical to calling `playbackPlay()` with no options.
+ */
+export function playbackPlay(options) {
+    return { type: PLAYBACK_PLAY, autoplay: !!(options && options.autoplay) };
 }
 
 export function playbackPause() {

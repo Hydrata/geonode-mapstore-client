@@ -74,6 +74,7 @@ import {
     playbackPlay,
     playbackPause,
     playbackTick,
+    PLAYBACK_TICK,
     PLAYBACK_MANIFEST_LOADED,
     PLAYBACK_MANIFEST_FETCHED,
     PLAYBACK_LOAD_PROGRESS,
@@ -1499,6 +1500,32 @@ describe('playbackEpics', () => {
                 subject.next(playbackPause());
                 setTimeout(() => {
                     expect(ticks.length).toBe(countAtPause); // no further ticks after PAUSE
+                    sub.unsubscribe();
+                    done();
+                }, TICK_INTERVAL_MS * 3);
+            }, TICK_INTERVAL_MS * 3);
+        });
+
+        // TASK-3085 (AC4b) — the interval STARTS on PLAY regardless of status
+        // (the shipped pendingPlay path during loading/buffering needs that),
+        // but must not actually EMIT a tick while the run is still loading or
+        // buffering: playbackBufferEpic/playbackSyncLayerEpic both re-subscribe
+        // their switchMaps on every TICK, so an unfiltered interval would tear
+        // down and rebuild the fill merge + 20 Hz frame Promise.all all through
+        // the pre-roll.
+        it('ticks are not emitted while the run is loading or buffering', (done) => {
+            const state = { anugaPlayback: { ...createInitialPlaybackState(), status: PLAYBACK_STATUS.BUFFERING } };
+            const store = { getState: () => state };
+            const { subject, action$ } = makeActionsSubject();
+            const ticks = [];
+            const sub = playbackTickEpic(action$, store).subscribe((a) => ticks.push(a));
+            subject.next(playbackPlay());
+            setTimeout(() => {
+                expect(ticks.length).toBe(0); // BUFFERING — nothing emitted in 3 intervals
+                state.anugaPlayback = { ...state.anugaPlayback, status: PLAYBACK_STATUS.PLAYING };
+                setTimeout(() => {
+                    expect(ticks.length).toBeGreaterThan(0); // flipped to PLAYING — ticks resume
+                    ticks.forEach((a) => expect(a.type).toBe(PLAYBACK_TICK));
                     sub.unsubscribe();
                     done();
                 }, TICK_INTERVAL_MS * 3);
