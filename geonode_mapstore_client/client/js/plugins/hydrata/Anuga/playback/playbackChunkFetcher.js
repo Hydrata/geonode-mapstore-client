@@ -606,6 +606,17 @@ function fetchWithStallGuard(fetchImpl, url, init, {
                     if (!(windowSeconds > 0)) {
                         return;
                     }
+                    if (windowBytes <= 0) {
+                        // TASK-3084 (verifier fix D1) — a window with ZERO
+                        // bytes is either a connection that has not sent its
+                        // first byte yet (time-to-first-byte, not a crawl) or
+                        // a genuine in-body stall, which the SILENCE trigger
+                        // (arm(stallMs) above) already owns. The RATE trigger
+                        // only ever applies to a body that is still moving —
+                        // a rateBps of exactly 0 is never a "far below the
+                        // floor" measurement, it is an absence of one.
+                        return;
+                    }
                     const rateBps = windowBytes / windowSeconds;
                     const median = typeof medianRateBps === 'function' ? medianRateBps() : null;
                     const relativeFloor = median > 0 ? floorFraction * median : 0;

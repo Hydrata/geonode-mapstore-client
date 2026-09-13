@@ -22,7 +22,9 @@ import expect from 'expect';
 import {
     PlaybackChunkFetcher, fetchPlaybackManifest, planWindow, farthestBehind,
     MAX_CONCURRENT_FILL_CHUNKS,
-    PLAYBACK_FETCH_HEADERS_MS, PLAYBACK_FETCH_STALL_MS, PLAYBACK_FETCH_MAX_ATTEMPTS
+    PLAYBACK_FETCH_HEADERS_MS, PLAYBACK_FETCH_STALL_MS, PLAYBACK_FETCH_MAX_ATTEMPTS,
+    PLAYBACK_FETCH_RATE_WINDOW_MS, PLAYBACK_FETCH_MIN_RATE_BPS, PLAYBACK_FETCH_RATE_FLOOR_FRACTION,
+    PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES, PLAYBACK_FETCH_MAX_RESUMES
 } from '../playbackChunkFetcher';
 import { QUANTITY_ARRAYS } from '../playbackChunkShape';
 import { PlaybackChunkCache } from '../playbackChunkCache';
@@ -714,17 +716,38 @@ describe('playbackChunkFetcher — TASK-3079 the fetch stall guard', () => {
         expect(PLAYBACK_FETCH_HEADERS_MS).toBe(60000);
         expect(PLAYBACK_FETCH_STALL_MS).toBe(15000);
         expect(PLAYBACK_FETCH_MAX_ATTEMPTS).toBe(3);
+        // TASK-3084 (verifier fix D2) — the five resume budgets are exported
+        // with their documented default values and are settable per fetcher
+        // through the constructor exactly like headersMs/stallMs/maxAttempts
+        // above.
+        expect(PLAYBACK_FETCH_RATE_WINDOW_MS).toBe(5000);
+        expect(PLAYBACK_FETCH_MIN_RATE_BPS).toBe(32768);
+        expect(PLAYBACK_FETCH_RATE_FLOOR_FRACTION).toBe(1 / 8);
+        expect(PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES).toBe(262144);
+        expect(PLAYBACK_FETCH_MAX_RESUMES).toBe(3);
         const fetcher = new PlaybackChunkFetcher({
             manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch(),
-            headersMs: 1234, stallMs: 567, maxAttempts: 8
+            headersMs: 1234, stallMs: 567, maxAttempts: 8,
+            rateWindowMs: 111, minRateBps: 222, rateFloorFraction: 0.25,
+            resumeMinRemainingBytes: 333, maxResumes: 9
         });
         expect(fetcher.headersMs).toBe(1234);
         expect(fetcher.stallMs).toBe(567);
         expect(fetcher.maxAttempts).toBe(8);
+        expect(fetcher.rateWindowMs).toBe(111);
+        expect(fetcher.minRateBps).toBe(222);
+        expect(fetcher.rateFloorFraction).toBe(0.25);
+        expect(fetcher.resumeMinRemainingBytes).toBe(333);
+        expect(fetcher.maxResumes).toBe(9);
         const defaults = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch() });
         expect(defaults.headersMs).toBe(PLAYBACK_FETCH_HEADERS_MS);
         expect(defaults.stallMs).toBe(PLAYBACK_FETCH_STALL_MS);
         expect(defaults.maxAttempts).toBe(PLAYBACK_FETCH_MAX_ATTEMPTS);
+        expect(defaults.rateWindowMs).toBe(PLAYBACK_FETCH_RATE_WINDOW_MS);
+        expect(defaults.minRateBps).toBe(PLAYBACK_FETCH_MIN_RATE_BPS);
+        expect(defaults.rateFloorFraction).toBe(PLAYBACK_FETCH_RATE_FLOOR_FRACTION);
+        expect(defaults.resumeMinRemainingBytes).toBe(PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES);
+        expect(defaults.maxResumes).toBe(PLAYBACK_FETCH_MAX_RESUMES);
     });
 
     it('aborts a fetch whose body stops moving for stallMs, retries it, and rejects with a stall error after maxAttempts', (done) => {
