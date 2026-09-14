@@ -252,6 +252,45 @@ export const PACE_EMA_FRACTION = 0.7;
  */
 export const PACE_TICK_SAFETY = 0.5;
 
+/**
+ * Default colour-scale bounds, per quantity (operator-set 2026-09-14). Seeded
+ * into the two per-quantity override maps by createInitialPlaybackState, so a
+ * fresh run opens on a display range tuned for the depths and speeds a flood
+ * study actually reads rather than on the store's own valid_max (16.9 m on
+ * run 1328, which put every street depth in the same colour band) or on a
+ * ramp's engineering cap (shear's 500 Pa).
+ *
+ * They ARE overrides, deliberately: every downstream decision — the stretched
+ * LUT (isRampNormalized), the legend labels, the floor predicate, the reset
+ * affordances — already keys on the override maps, so nothing else has to
+ * learn a second notion of "default". Reset on a bound restores the store-
+ * derived value (the ceiling) or removes the bound (the floor), exactly as
+ * before; PLAYBACK_RESET restores THESE. Quantities absent here (froude,
+ * courant, stage, hazard) keep their fixed / per-run caps and carry no floor.
+ * Units are the quantity's own: m, m/s, m²/s, Pa.
+ *
+ * Because a default IS an override, every seeded ramp is STRETCHED to its
+ * ceiling (playbackColormap.isRampNormalized). For depth and speed the
+ * ceiling equals the SLD's own cap (DEPTH_SLD_MAX / VELOCITY_SLD_MAX, both 6),
+ * so the stretch is the identity and a fresh run still colours a value
+ * ABOVE THE FLOOR exactly as GeoServer's `*_max` raster does (below it the
+ * raster paints, the playback hides) — playbackColormap-test pins that
+ * equality. dIV (2 vs the SLD's 20) and shear (10 vs the ramp's 500)
+ * are genuinely stretched, 10× and 50×: on a fresh run THEIR colours do not
+ * match the raster, by choice — the whole spectrum is spent on the range
+ * that matters.
+ *
+ * Frozen, and COPIED into the state: freezing means a stray in-place edit of
+ * the constant throws rather than silently retuning every later run, and the
+ * copy keeps the state a plain object. That second half is load-bearing for
+ * the specs — `is-equal` ≥ 1.6 (which gmc CI resolves; the workstation has
+ * 1.5.5) reports a frozen object as NOT equal to a plain one ("integrity
+ * levels differ"), so never hand these constants to `toEqual` directly —
+ * compare `{ ...DEFAULT_COLOR_MAX_OVERRIDE }`. Bit me on PR #69, 2026-09-14.
+ */
+export const DEFAULT_COLOR_MAX_OVERRIDE = Object.freeze({ depth: 6, speed: 6, div: 2, shear: 10 });
+export const DEFAULT_COLOR_FLOOR_OVERRIDE = Object.freeze({ depth: 0.1, speed: 0.5, div: 0.01, shear: 1 });
+
 export function createInitialPlaybackState() {
     return {
         layerId: null,
@@ -370,13 +409,14 @@ export function createInitialPlaybackState() {
         // TASK-2788 — alpha of the dry-ground sheet ONLY; see the constant.
         backgroundOpacity: DEFAULT_PLAYBACK_BACKGROUND_OPACITY,
         // TASK-2744 AC4 — per-quantity operator override of the colour ramp's
-        // upper bound; {} means "use the store-derived maximum for every
-        // quantity". Keyed by quantity so metres never leak onto m/s.
-        colorMaxOverride: {},
-        // TASK-3076 — the ceiling's pair: per-quantity colour-scale FLOOR, {}
-        // means "no floor anywhere". Stored as typed; isColorFloorActive
-        // decides whether it takes effect. Session-only, like the ceiling.
-        colorFloorOverride: {},
+        // upper bound; an absent key means "use the store-derived maximum for
+        // that quantity". Keyed by quantity so metres never leak onto m/s.
+        colorMaxOverride: { ...DEFAULT_COLOR_MAX_OVERRIDE },
+        // TASK-3076 — the ceiling's pair: per-quantity colour-scale FLOOR, an
+        // absent key means "no floor for that quantity". Stored as typed;
+        // isColorFloorActive decides whether it takes effect. Session-only,
+        // like the ceiling.
+        colorFloorOverride: { ...DEFAULT_COLOR_FLOOR_OVERRIDE },
         // TASK-2744 AC11 — the flow-viz / particle overlay knobs, promoted out
         // of the bar's component-local state for the same reason wireframe was
         // (TASK-2656d): the bar is UNMOUNTED whenever the SimpleView menu
@@ -663,9 +703,11 @@ export function colorMaxForQuantity(quantity, quantization, context = {}) {
     // the renderer uniform (playbackEpics' baseProps) and the legend
     // (PlaybackLegend's own call) can never disagree about the active range.
     //
-    // The default for `depth` is the store's `valid_max` — 16.86 m on run
-    // 1328 — which squeezes every urban street depth (0.1-1.0 m) into the
-    // bottom 6% of the ramp, i.e. into one indistinguishable colour band.
+    // The store-derived fallback for `depth` is its `valid_max` — 16.86 m on
+    // run 1328 — which squeezes every urban street depth (0.1-1.0 m) into the
+    // bottom 6% of the ramp, i.e. into one indistinguishable colour band. A
+    // fresh run never shows it since 2026-09-14 (DEFAULT_COLOR_MAX_OVERRIDE
+    // seeds a 6 m ceiling); the ceiling's reset glyph reaches it.
     if (isColorMaxOverridden(quantity, context)) {
         return Number(context.colorMaxOverride);
     }

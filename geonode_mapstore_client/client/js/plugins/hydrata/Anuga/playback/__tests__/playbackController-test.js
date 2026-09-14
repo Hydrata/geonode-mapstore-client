@@ -27,6 +27,8 @@ import {
     isColorMaxOverridden,
     isColorFloorActive,
     colorMinForQuantity,
+    DEFAULT_COLOR_MAX_OVERRIDE,
+    DEFAULT_COLOR_FLOOR_OVERRIDE,
     clampOpacity,
     DEFAULT_PLAYBACK_OPACITY,
     MAX_SPEED,
@@ -86,6 +88,13 @@ function loadedState(overrides = {}, mesh = null) {
 function bufferedState(overrides = {}) {
     const s = loadedState(overrides);
     return reduce(s, playbackChunksBuffered([0, 1]));
+}
+
+// A state with NO colour-scale bounds set. Since 2026-09-14 the initial state
+// seeds DEFAULT_COLOR_MAX_OVERRIDE / DEFAULT_COLOR_FLOOR_OVERRIDE, so a spec
+// about the store-derived reading, or about setting a first bound, starts here.
+function unseeded(state = createInitialPlaybackState()) {
+    return { ...state, colorMaxOverride: {}, colorFloorOverride: {} };
 }
 
 /*
@@ -1345,7 +1354,7 @@ describe('playbackController', () => {
 
         it('AC4 — SET_COLOR_MAX is per-quantity, and a null value CLEARS the override', () => {
             const quantization = { depth: { valid_max: 16.862720489501953 } };
-            const base = createInitialPlaybackState();
+            const base = unseeded();
             // RED: the derived maximum is the store's valid_max
             expect(colorMaxForQuantity('depth', quantization)).toBe(16.862720489501953);
 
@@ -1358,6 +1367,30 @@ describe('playbackController', () => {
             const cleared = reduce(set, { type: 'PLAYBACK:SET_COLOR_MAX', quantity: 'depth', value: null });
             expect(cleared.colorMaxOverride.depth).toBe(undefined);
             expect(colorMaxForQuantity('depth', quantization, { colorMaxOverride: cleared.colorMaxOverride.depth })).toBe(16.862720489501953);
+        });
+
+        // 2026-09-14 — see DEFAULT_COLOR_MAX_OVERRIDE's docblock for why the
+        // defaults are ordinary overrides. The literals are pinned here, once,
+        // read off the state's PLAIN copies — the constants are frozen, and
+        // is-equal ≥ 1.6 (CI) calls frozen-vs-plain unequal, so they never
+        // meet toEqual directly (compare a spread copy instead).
+        it('2026-09-14 — the initial state seeds the default ceilings and floors per quantity', () => {
+            const init = createInitialPlaybackState();
+            expect(init.colorMaxOverride).toEqual({ depth: 6, speed: 6, div: 2, shear: 10 });
+            expect(init.colorFloorOverride).toEqual({ depth: 0.1, speed: 0.5, div: 0.01, shear: 1 });
+            expect(init.colorMaxOverride).toEqual({ ...DEFAULT_COLOR_MAX_OVERRIDE });
+            expect(init.colorFloorOverride).toEqual({ ...DEFAULT_COLOR_FLOOR_OVERRIDE });
+            // the one DERIVED property of the chosen numbers: each default floor
+            // sits strictly inside its default ceiling, so it takes effect (a
+            // future shear floor of 20 under the 10 Pa ceiling turns this red)
+            const ctx = (q) => ({ colorMaxOverride: init.colorMaxOverride[q], colorFloorOverride: init.colorFloorOverride[q] });
+            Object.keys(DEFAULT_COLOR_FLOOR_OVERRIDE).forEach((q) => {
+                expect(colorMaxForQuantity(q, null, ctx(q))).toBe(DEFAULT_COLOR_MAX_OVERRIDE[q], q);
+                expect(isColorFloorActive(q, null, ctx(q))).toBe(true, q);
+            });
+            // PLAYBACK_RESET brings the defaults back after a bound was cleared
+            const cleared = reduce(init, { type: 'PLAYBACK:SET_COLOR_MAX', quantity: 'depth', value: null });
+            expect(reduce(cleared, { type: 'PLAYBACK:RESET' }).colorMaxOverride).toEqual({ ...DEFAULT_COLOR_MAX_OVERRIDE });
         });
 
         /*
@@ -1441,12 +1474,8 @@ describe('playbackController', () => {
      * TRUE for it) and the floor must sit strictly inside the display range.
      */
     describe('colour-scale floor — TASK-3076', () => {
-        it('AC3 — initial state carries an empty per-quantity colorFloorOverride map', () => {
-            expect(createInitialPlaybackState().colorFloorOverride).toEqual({});
-        });
-
         it('AC3 — SET_COLOR_FLOOR is per-quantity, and null / non-finite CLEARS that quantity only', () => {
-            const base = createInitialPlaybackState();
+            const base = unseeded();
             const depth = reduce(base, playbackSetColorFloor('depth', 0.1));
             expect(depth.colorFloorOverride).toEqual({ depth: 0.1 });
             const both = reduce(depth, playbackSetColorFloor('speed', 0.5));
@@ -1460,11 +1489,11 @@ describe('playbackController', () => {
             expect(reduce(base, playbackSetColorFloor('depth', '0.25')).colorFloorOverride).toEqual({ depth: 0.25 });
         });
 
-        it('AC3 — the floor survives PAUSE/PLAY and a quantity switch, and PLAYBACK_RESET clears it', () => {
-            const set = reduce(createInitialPlaybackState(), playbackSetColorFloor('depth', 0.1));
+        it('AC3 — the floor survives PAUSE/PLAY and a quantity switch, and PLAYBACK_RESET restores the defaults', () => {
+            const set = reduce(unseeded(), playbackSetColorFloor('depth', 0.1));
             expect(reduce(set, playbackPause()).colorFloorOverride).toEqual({ depth: 0.1 });
             expect(reduce(set, { type: 'PLAYBACK:SET_QUANTITY', quantity: 'speed' }).colorFloorOverride).toEqual({ depth: 0.1 });
-            expect(reduce(set, { type: 'PLAYBACK:RESET' }).colorFloorOverride).toEqual({});
+            expect(reduce(set, { type: 'PLAYBACK:RESET' }).colorFloorOverride).toEqual({ ...DEFAULT_COLOR_FLOOR_OVERRIDE });
         });
 
         it('AC4 — isColorFloorActive: non-discrete AND colorMin < floor < colorMax', () => {

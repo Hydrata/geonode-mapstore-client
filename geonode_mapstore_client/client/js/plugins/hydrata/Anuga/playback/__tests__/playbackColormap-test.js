@@ -31,6 +31,7 @@ import {
     formatRampValue
 } from '../playbackColormap';
 import { QUANTITY_IDS, AIDR_HAZARD_CLASS_COUNT } from '../playbackDerivedQuantities';
+import { DEFAULT_COLOR_MAX_OVERRIDE } from '../playbackController';
 import { MESH_FRAGMENT_SHADER } from '../playbackShaders';
 
 /*
@@ -259,6 +260,17 @@ describe('playbackColormap', () => {
             // change behaviour under this fix.
             const normalized = buildQuantityColormapLUT(DEPTH_SLD_STOPS, DEPTH_SLD_MAX, 256, { normalized: true });
             expect(Array.from(before)).toEqual(Array.from(normalized));
+        });
+
+        // 2026-09-14 — a fresh run is now OVERRIDDEN (stretched) for depth and
+        // speed by default, so GeoServer `*_max` colour parity for those two
+        // (above the default floor — below it playback hides what the raster
+        // paints) survives ONLY through the identity above: default ceiling
+        // === SLD cap. Pinned here so retuning either side is a deliberate
+        // act. dIV (2 vs 20) and shear (10 vs 500) are intentionally NOT tied.
+        it('keeps SLD parity on a fresh run: the default depth/speed ceilings equal the SLD caps', () => {
+            expect(DEFAULT_COLOR_MAX_OVERRIDE.depth).toBe(DEPTH_SLD_MAX);
+            expect(DEFAULT_COLOR_MAX_OVERRIDE.speed).toBe(VELOCITY_SLD_MAX);
         });
 
         /*

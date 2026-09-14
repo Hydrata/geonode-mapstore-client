@@ -100,7 +100,15 @@ import {
 import { SET_RESOURCE_ID } from '@js/actions/gnresource';
 import { INIT_ANUGA } from '../../../actionsAnuga';
 import { SHOW_NOTIFICATION } from '@mapstore/framework/actions/notifications';
-import { createInitialPlaybackState, playbackControllerReducer, PLAYBACK_STATUS } from '../../playbackController';
+import {
+    createInitialPlaybackState, playbackControllerReducer, PLAYBACK_STATUS,
+    DEFAULT_COLOR_MAX_OVERRIDE, DEFAULT_COLOR_FLOOR_OVERRIDE
+} from '../../playbackController';
+
+// No colour-scale bounds set. Since 2026-09-14 the initial state seeds
+// per-quantity defaults, so a spec about the store-derived ceiling or about
+// "no floor" asks for the unseeded state explicitly.
+const NO_DEFAULT_BOUNDS = { colorMaxOverride: {}, colorFloorOverride: {} };
 import { FIXTURE_STORE_FILES, FIXTURE_MANIFEST, FIXTURE_MESH, FIXTURE_PHYSICAL } from '../../__tests__/fixtures/fixturePlaybackStore';
 
 const MANIFEST_URL = '/api/v2/anuga/runs/1/playback-manifest/';
@@ -1660,7 +1668,8 @@ describe('playbackEpics', () => {
                 ...createInitialPlaybackState(),
                 runId: 9, layerId: 'layer-9', manifest: FIXTURE_MANIFEST, mesh,
                 nTime: FIXTURE_MESH.nTime, nNode: FIXTURE_MESH.nNode, chunkLengthT: 10,
-                currentTimestep: 2, quantity: 'speed', quantization: FIXTURE_MANIFEST.quantization
+                currentTimestep: 2, quantity: 'speed', quantization: FIXTURE_MANIFEST.quantization,
+                ...NO_DEFAULT_BOUNDS
             };
             const seen = [];
             const run = (pb, next) => {
@@ -1763,7 +1772,7 @@ describe('playbackEpics', () => {
             it('AC6 — with no floor, colorFloor is null and every EXISTING key is unchanged', (done) => {
                 const restore = stubGlobalFetch(fixtureFetchHandler);
                 fetcherRegistry.set(301, new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler }));
-                const pb = floorPb(301);
+                const pb = floorPb(301, NO_DEFAULT_BOUNDS);
                 const { subject, action$ } = makeActionsSubject();
                 playbackSyncLayerEpic(action$, makeStore(pb)).subscribe((a) => {
                     restore();
@@ -1781,6 +1790,32 @@ describe('playbackEpics', () => {
                         expect(a.options.envelopeMode).toBe(false);
                         expect(a.options.envelopeData).toBe(null);
                         expect(a.options.wetThreshold).toBe(pb.wetThreshold);
+                        done();
+                    } catch (e) {
+                        done(e);
+                    }
+                }, done);
+                subject.next(playbackTick(1));
+            });
+
+            /* 2026-09-14 — the seeded defaults reach the LAYER through the same
+               baseProps with nothing typed: depth draws stretched to 6 m with a
+               0.1 m floor (colorRescaled true, because a default IS an
+               override). The fixture's depth valid_max is 0.36 m — the ceiling
+               is a display choice, not a store fact, so 6 wins. */
+            it('2026-09-14 — a fresh state syncs the default depth ceiling and floor to the layer', (done) => {
+                const restore = stubGlobalFetch(fixtureFetchHandler);
+                fetcherRegistry.set(305, new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: fixtureFetchHandler }));
+                const pb = floorPb(305);
+                const { subject, action$ } = makeActionsSubject();
+                playbackSyncLayerEpic(action$, makeStore(pb)).subscribe((a) => {
+                    restore();
+                    try {
+                        expect(a.options.colorMode).toBe('depth');
+                        expect(a.options.colorMax).toBe(DEFAULT_COLOR_MAX_OVERRIDE.depth);
+                        expect(a.options.colorMin).toBe(0);
+                        expect(a.options.colorRescaled).toBe(true);
+                        expect(a.options.colorFloor).toBe(DEFAULT_COLOR_FLOOR_OVERRIDE.depth);
                         done();
                     } catch (e) {
                         done(e);
