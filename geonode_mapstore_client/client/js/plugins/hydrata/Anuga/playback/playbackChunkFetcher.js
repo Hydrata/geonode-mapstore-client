@@ -784,10 +784,11 @@ export class PlaybackChunkFetcher {
     /**
      * @param {object} options
      * @param {object} options.manifest initial manifest (chunk_urls/schema_metadata/quantization)
-     * @param {() => Promise<object>} [options.refreshManifest] called on a 403;
-     *   must resolve to a fresh manifest for the SAME run (new chunk_urls,
-     *   same relative keys). Required unless the caller never expects 403s
-     *   (e.g. same-origin dev fixtures with no expiry).
+     * @param {() => Promise<object>} [options.refreshManifest] called on a 403
+     *   (and, TASK-3098, on a TypeError rejection under a `delivery: 'cdn'`
+     *   manifest); must resolve to a fresh manifest for the SAME run (new
+     *   chunk_urls, same relative keys). Required unless the caller never
+     *   expects 403s (e.g. same-origin dev fixtures with no expiry).
      *   TASK-2754 (W0, epic 2981): invoked through the SINGLE-FLIGHT below,
      *   so concurrent 403s cost one call, not one call each.
      * @param {PlaybackChunkCache} [options.cache]
@@ -1139,6 +1140,28 @@ export class PlaybackChunkFetcher {
 
     async _fetchRawBytes(relativeKey, { allowRefresh = true } = {}) {
         const url = urlForRelativeKey(this.manifest, relativeKey);
+        // TASK-3098 (W1.3, epic 3090) — THE CREDENTIALS MODE IS DECIDED HERE,
+        // PER REQUEST, FROM THE MANIFEST THIS REQUEST IS ISSUED UNDER, and
+        // from nothing else: no domain, no flag, no constructor option. A
+        // `delivery: 'cdn'` manifest hands out edge urls
+        // (https://playback.hydrata.com/...) that CloudFront authorises by
+        // the HttpOnly signed-cookie triple the manifest endpoint set, and a
+        // cross-origin fetch only carries cookies under `credentials:
+        // 'include'`. Anything else — `'presign'`, or no `delivery` at all
+        // (every manifest cached or served before the epic) — is today's
+        // SigV4 url and the init stays exactly what it was (`undefined`, not
+        // `{}`), so the presign wire shape is byte-identical to before.
+        // `this.manifest` is REPLACED by the 403 path below and by
+        // setManifest(), so a refresh that returns the other scheme changes
+        // the very next request; nothing is frozen at construction — that is
+        // what makes a rollback, and a cookie expiry, both one refresh away.
+        // Decided ONCE into a local so the init and the rejection rule below
+        // judge the SAME manifest even if a concurrent refresh flips it while
+        // this request is in flight. The one init reaches every RESUMED
+        // attempt too: the guard spreads it into each attempt's own fetch
+        // init (`{ ...init, signal }`, plus `Range` on a resume).
+        const cdn = Boolean(this.manifest && this.manifest.delivery === 'cdn');
+        const init = cdn ? { credentials: 'include' } : undefined;
         // TASK-3079 — the guarded fetch resolves BEFORE draining the body on
         // any non-2xx FRESH attempt, so the two status guards below run
         // exactly as they did when this was a bare `await fetchImpl(url)`. A
@@ -1149,24 +1172,51 @@ export class PlaybackChunkFetcher {
         // honest worst case is 2 x maxAttempts header/restart attempts, each
         // of which may carry up to maxResumes resumes that keep their bytes
         // (no longer "each from byte 0").
-        const { response, buffer } = await fetchWithStallGuard(this.fetchImpl, url, undefined, {
-            headersMs: this.headersMs,
-            stallMs: this.stallMs,
-            maxAttempts: this.maxAttempts,
-            label: relativeKey,
-            isDisposed: () => this._disposed,
-            register: (controller) => this._controllers.add(controller),
-            unregister: (controller) => this._controllers.delete(controller),
-            rateWindowMs: this.rateWindowMs,
-            minRateBps: this.minRateBps,
-            rateFloorFraction: this.rateFloorFraction,
-            resumeMinRemainingBytes: this.resumeMinRemainingBytes,
-            maxResumes: this.maxResumes,
-            medianRateBps: () => this._medianRateBps(),
-            recordRate: (sample) => this._recordRate(sample),
-            onResume: (info) => this._onResume(info),
-            onBytes: (info) => this._onBytes(relativeKey, info)
-        });
+        let outcome;
+        try {
+            outcome = await fetchWithStallGuard(this.fetchImpl, url, init, {
+                headersMs: this.headersMs,
+                stallMs: this.stallMs,
+                maxAttempts: this.maxAttempts,
+                label: relativeKey,
+                isDisposed: () => this._disposed,
+                register: (controller) => this._controllers.add(controller),
+                unregister: (controller) => this._controllers.delete(controller),
+                rateWindowMs: this.rateWindowMs,
+                minRateBps: this.minRateBps,
+                rateFloorFraction: this.rateFloorFraction,
+                resumeMinRemainingBytes: this.resumeMinRemainingBytes,
+                maxResumes: this.maxResumes,
+                medianRateBps: () => this._medianRateBps(),
+                recordRate: (sample) => this._recordRate(sample),
+                onResume: (info) => this._onResume(info),
+                onBytes: (info) => this._onBytes(relativeKey, info)
+            });
+        } catch (error) {
+            // TASK-3098 — a cdn request that REJECTS with a TypeError takes the
+            // same single-flight refresh and the same one retry as a 403
+            // below. A CloudFront 403 WITHOUT CORS headers (W0 measured that
+            // the edge does send them on its own 403s, so this is belt and
+            // braces; it also covers a network-level failure) reaches the
+            // page as an opaque `TypeError: Failed to fetch`, never as a
+            // status. ONLY a TypeError: the guard's own `stalled` Error and
+            // the disposed-fetcher AbortError are not credential faults, and
+            // refreshing on them would spend `?refresh=1` (the most expensive
+            // endpoint in the application) plus a whole second attempt budget
+            // on every stall, and re-issue a download after releaseCaches().
+            // The `try` wraps ONLY the guarded fetch, never the recursive
+            // retry, so a second TypeError cannot reach a catch that still
+            // holds `allowRefresh: true`. A presign TypeError, a cdn one with
+            // nothing to refresh, or one on the single retry rethrows the
+            // ORIGINAL error untouched: the epic classifies a failure by
+            // `error.message`, so the message must stay byte-identical.
+            if (!cdn || !allowRefresh || !this.refreshManifest || !(error instanceof TypeError)) {
+                throw error;
+            }
+            this.manifest = await this._refreshManifestOnce();
+            return this._fetchRawBytes(relativeKey, { allowRefresh: false });
+        }
+        const { response, buffer } = outcome;
         if (response.status === 403) {
             if (!allowRefresh || !this.refreshManifest) {
                 throw new Error(`playbackChunkFetcher: 403 fetching '${relativeKey}' and no refreshManifest available to retry`);

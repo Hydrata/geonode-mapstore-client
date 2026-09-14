@@ -1819,3 +1819,403 @@ describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
         expect(rig.calls.length).toBe(Math.min(3, MAX_CONCURRENT_FILL_CHUNKS) * QUANTITIES.length);
     });
 });
+
+/*
+ * ===========================================================================
+ * TASK-3098 (W1.3, epic 3090) — the credentials mode follows the LIVE
+ * manifest's `delivery`, decided per request; a cdn TypeError takes the
+ * manifest-refresh path once.
+ *
+ * A `delivery: 'cdn'` manifest (W1.1) hands out playback.hydrata.com urls that
+ * CloudFront authorises by the HttpOnly signed-cookie triple the manifest
+ * endpoint set, and a cross-origin fetch only carries cookies under
+ * `credentials: 'include'`. `'presign'`, or no `delivery` at all (every
+ * manifest cached or served before the epic), is today's SigV4 url and its
+ * wire shape must stay byte-identical to before.
+ *
+ * ONE recorder for every spec here, and it stores the WHOLE init fetchImpl
+ * received (AC2). The recorders above capture `signal` (and `headers`) only,
+ * so on them "no credentials" is vacuously true at HEAD — a decoy. NOTE WHAT
+ * THE RECORDER SEES: fetchWithStallGuard spreads the fetcher's init into every
+ * attempt's own `{ ...init, signal }` (plus `Range` on a resume), so fetchImpl
+ * NEVER receives `undefined` — the presign pin is therefore "the init has no
+ * `credentials` key and exactly the keys it had before this task"
+ * (`['signal']`), which is what "byte-identical to today" means on the wire.
+ * ===========================================================================
+ */
+describe('playbackChunkFetcher — TASK-3098 credentials follow the live manifest\'s delivery', () => {
+    const KEY = 'depth/c/0/0';
+    const EDGE = 'https://playback.hydrata.com/playback/run-1/depth/c/0/0?versionId=v1';
+    const EDGE_FRESH = 'https://playback.hydrata.com/playback/run-1/depth/c/0/0?versionId=v2';
+    const PRESIGN = 'https://anuga-result-storage.s3.amazonaws.com/playback/run-1/depth/c/0/0?X-Amz-Signature=a';
+    const PRESIGN_FRESH = 'https://anuga-result-storage.s3.amazonaws.com/playback/run-1/depth/c/0/0?X-Amz-Signature=b';
+    const TOTAL = 40;
+
+    const cdnManifest = (url = EDGE) => ({ delivery: 'cdn', chunk_urls: { [KEY]: url } });
+    const presignManifest = (url = PRESIGN) => ({ delivery: 'presign', chunk_urls: { [KEY]: url } });
+    const bareManifest = (url = PRESIGN) => ({ chunk_urls: { [KEY]: url } });
+
+    /** THE ONE recorder (AC2): `{ url, init }`, the init verbatim. */
+    function recordInit(calls, respond) {
+        return (url, options) => {
+            calls.push({ url, init: options });
+            return respond(url, options, calls.length);
+        };
+    }
+
+    /** A 200 whose body lands whole and closes. */
+    function okBody(bytes = TOTAL) {
+        const stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(new Uint8Array(bytes));
+                controller.close();
+            }
+        });
+        return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Length': String(bytes) } }));
+    }
+
+    const forbidden = () => Promise.resolve(new Response(null, { status: 403 }));
+    // The shape an opaque CORS failure (a CloudFront 403 WITHOUT CORS headers
+    // after cookie expiry) or a network-level failure takes in the browser:
+    // `fetch` REJECTS with a TypeError, it never resolves a status.
+    const networkFailure = () => Promise.reject(new TypeError('Failed to fetch'));
+
+    /** The presign/absent pin: no `credentials` key, and exactly HEAD's keys. */
+    function expectNoCredentials(call) {
+        expect('init' in call && call.init !== undefined).toBe(true);
+        expect('credentials' in call.init).toBe(false);
+        expect(call.init.credentials).toBe(undefined);
+        expect(Object.keys(call.init)).toEqual(['signal']);
+        expect(call.init.signal instanceof AbortSignal).toBe(true);
+    }
+
+    it('a cdn manifest fetches chunks with credentials include', (done) => {
+        const calls = [];
+        const fetcher = new PlaybackChunkFetcher({ manifest: cdnManifest(), fetchImpl: recordInit(calls, () => okBody()) });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(buffer.byteLength).toBe(TOTAL);
+                expect(calls.length).toBe(1);
+                expect(calls[0].url).toBe(EDGE);
+                expect(calls[0].init.credentials).toBe('include');
+                // the guard's per-attempt signal is still there: the init is
+                // ADDED TO, never replaced.
+                expect(calls[0].init.signal instanceof AbortSignal).toBe(true);
+                expect(Object.keys(calls[0].init).sort()).toEqual(['credentials', 'signal']);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    it('a presign manifest passes no credentials option', (done) => {
+        const calls = [];
+        const fetcher = new PlaybackChunkFetcher({ manifest: presignManifest(), fetchImpl: recordInit(calls, () => okBody()) });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(buffer.byteLength).toBe(TOTAL);
+                expect(calls.length).toBe(1);
+                expect(calls[0].url).toBe(PRESIGN);
+                expectNoCredentials(calls[0]);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    it('an absent delivery is presign', (done) => {
+        const calls = [];
+        const fetcher = new PlaybackChunkFetcher({ manifest: bareManifest(), fetchImpl: recordInit(calls, () => okBody()) });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(buffer.byteLength).toBe(TOTAL);
+                expect(calls.length).toBe(1);
+                expect(calls[0].url).toBe(PRESIGN);
+                expectNoCredentials(calls[0]);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    it('a resumed request keeps the credentials mode of the live manifest', (done) => {
+        // The TASK-3084 silence-resume idiom above: HEAD bytes then silence,
+        // the resume answers 206 from the received offset. "The live manifest"
+        // is the one the request was ISSUED under — the guard spreads the
+        // fetcher's init once into every attempt of one request.
+        const calls = [];
+        const HEAD = 16;
+        const fetchImpl = recordInit(calls, (url, options, n) => {
+            if (n === 1) {
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(HEAD));
+                        // never closes, never sends more — silence.
+                    }
+                });
+                return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Length': String(TOTAL) } }));
+            }
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(TOTAL - HEAD));
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 206,
+                headers: { 'Content-Range': `bytes ${HEAD}-${TOTAL - 1}/${TOTAL}` }
+            }));
+        });
+        const fetcher = new PlaybackChunkFetcher({ manifest: cdnManifest(), fetchImpl, stallMs: 50 });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(buffer.byteLength).toBe(TOTAL);
+                expect(calls.length).toBe(2);
+                expect(calls[0].init.credentials).toBe('include');
+                expect(calls[1].init.headers.Range).toBe(`bytes=${HEAD}-`);
+                expect(calls[1].init.credentials).toBe('include');
+                // and ONLY Range: any preflight-triggering request header is a
+                // 403 at the edge (W0 D15), which is the whole reason If-Range
+                // is not here.
+                expect(Object.keys(calls[1].init.headers)).toEqual(['Range']);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    it('a refresh that flips delivery flips credentials on the next request', (done) => {
+        // cdn -> 403 -> the refreshed manifest is PRESIGN: the retry carries
+        // no credentials. Then setManifest() (the external-refresh seam) back
+        // to cdn: the next request carries them again. Nothing is frozen at
+        // construction — that is what makes a rollback one refresh away.
+        const calls = [];
+        let refreshCalls = 0;
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: cdnManifest(),
+            fetchImpl: recordInit(calls, (url) => (url === EDGE ? forbidden() : okBody())),
+            refreshManifest: () => {
+                refreshCalls++;
+                return Promise.resolve(presignManifest(PRESIGN_FRESH));
+            }
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            expect(buffer.byteLength).toBe(TOTAL);
+            expect(refreshCalls).toBe(1);
+            expect(calls.length).toBe(2);
+            expect(calls[0].url).toBe(EDGE);
+            expect(calls[0].init.credentials).toBe('include');
+            expect(calls[1].url).toBe(PRESIGN_FRESH);
+            expectNoCredentials(calls[1]);
+            expect(fetcher.manifest.delivery).toBe('presign');
+            fetcher.setManifest(cdnManifest(EDGE_FRESH));
+            return fetcher._fetchRawBytes(KEY);
+        }).then((buffer) => {
+            expect(buffer.byteLength).toBe(TOTAL);
+            expect(refreshCalls).toBe(1);
+            expect(calls.length).toBe(3);
+            expect(calls[2].url).toBe(EDGE_FRESH);
+            expect(calls[2].init.credentials).toBe('include');
+            done();
+        }).catch(done);
+    });
+
+    it('a cdn 403 takes the manifest-refresh path', (done) => {
+        // A CloudFront-generated 403 (expired/absent cookie) DOES carry the
+        // CORS headers (W0 D15), so the browser sees a real status and the
+        // existing 403 branch fires. Pinned HERE with the init on both sides:
+        // the first request AND the post-refresh retry are issued under
+        // `credentials: 'include'`, the retry re-deriving it from the
+        // REPLACED manifest.
+        const calls = [];
+        let refreshCalls = 0;
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: cdnManifest(),
+            fetchImpl: recordInit(calls, (url) => (url === EDGE ? forbidden() : okBody())),
+            refreshManifest: () => {
+                refreshCalls++;
+                return Promise.resolve(cdnManifest(EDGE_FRESH));
+            }
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            expect(buffer.byteLength).toBe(TOTAL);
+            expect(refreshCalls).toBe(1);
+            expect(calls.map((c) => c.url)).toEqual([EDGE, EDGE_FRESH]);
+            expect(calls[0].init.credentials).toBe('include');
+            expect(calls[1].init.credentials).toBe('include');
+            expect(fetcher.manifest.chunk_urls[KEY]).toBe(EDGE_FRESH);
+            done();
+        }).catch(done);
+    });
+
+    it('a cdn TypeError after the stall guard takes the refresh path once and a presign TypeError does not', (done) => {
+        // (i) cdn: the first url REJECTS with a TypeError — ONE refresh, ONE
+        // retry against the fresh url, under credentials include.
+        const cdnCalls = [];
+        let cdnRefreshes = 0;
+        const recovered = new PlaybackChunkFetcher({
+            manifest: cdnManifest(),
+            fetchImpl: recordInit(cdnCalls, (url) => (url === EDGE ? networkFailure() : okBody())),
+            refreshManifest: () => {
+                cdnRefreshes++;
+                return Promise.resolve(cdnManifest(EDGE_FRESH));
+            }
+        });
+        const recoveredDone = recovered._fetchRawBytes(KEY).then((buffer) => {
+            expect(buffer.byteLength).toBe(TOTAL);
+            expect(cdnRefreshes).toBe(1);
+            expect(cdnCalls.map((c) => c.url)).toEqual([EDGE, EDGE_FRESH]);
+            expect(cdnCalls[0].init.credentials).toBe('include');
+            expect(cdnCalls[1].init.credentials).toBe('include');
+        });
+
+        // (ii) cdn, and the fresh url ALSO rejects: exactly one refresh,
+        // exactly two requests, then the retry's own TypeError untouched —
+        // never a loop. THE BOUND LIVES IN THE FAKE (the TASK-3010 idiom):
+        // flipping the retry to `allowRefresh: true` must FAIL this, not hang
+        // the runner.
+        const boundedCalls = [];
+        let boundedRefreshes = 0;
+        const bounded = new PlaybackChunkFetcher({
+            manifest: cdnManifest(),
+            fetchImpl: recordInit(boundedCalls, () => networkFailure()),
+            refreshManifest: () => {
+                boundedRefreshes++;
+                if (boundedRefreshes > 3) {
+                    return Promise.reject(new Error(`refresh bound tripped at ${boundedRefreshes}`));
+                }
+                return Promise.resolve(cdnManifest(EDGE_FRESH));
+            }
+        });
+        const boundedDone = bounded._fetchRawBytes(KEY).then(
+            () => {
+                throw new Error('expected rejection');
+            },
+            (err) => {
+                expect(err instanceof TypeError).toBe(true);
+                expect(String(err.message)).toBe('Failed to fetch');
+                expect(boundedRefreshes).toBe(1);
+                expect(boundedCalls.map((c) => c.url)).toEqual([EDGE, EDGE_FRESH]);
+            }
+        );
+
+        // (iii) presign: the SAME TypeError rejects straight through — the
+        // very object, so its message is byte-identical (the epic classifies
+        // a failure by `error.message`) — with NO refresh and NO retry.
+        const presignCalls = [];
+        let presignRefreshes = 0;
+        const thrown = new TypeError('Failed to fetch');
+        const presign = new PlaybackChunkFetcher({
+            manifest: presignManifest(),
+            fetchImpl: recordInit(presignCalls, () => Promise.reject(thrown)),
+            refreshManifest: () => {
+                presignRefreshes++;
+                return Promise.resolve(presignManifest(PRESIGN_FRESH));
+            }
+        });
+        const presignDone = presign._fetchRawBytes(KEY).then(
+            () => {
+                throw new Error('expected rejection');
+            },
+            (err) => {
+                expect(err).toBe(thrown);
+                expect(presignRefreshes).toBe(0);
+                expect(presignCalls.length).toBe(1);
+                expectNoCredentials(presignCalls[0]);
+            }
+        );
+
+        // (iv) and an ABSENT delivery is presign here too.
+        const bareCalls = [];
+        let bareRefreshes = 0;
+        const bareThrown = new TypeError('Failed to fetch');
+        const bare = new PlaybackChunkFetcher({
+            manifest: bareManifest(),
+            fetchImpl: recordInit(bareCalls, () => Promise.reject(bareThrown)),
+            refreshManifest: () => {
+                bareRefreshes++;
+                return Promise.resolve(bareManifest(PRESIGN_FRESH));
+            }
+        });
+        const bareDone = bare._fetchRawBytes(KEY).then(
+            () => {
+                throw new Error('expected rejection');
+            },
+            (err) => {
+                expect(err).toBe(bareThrown);
+                expect(bareRefreshes).toBe(0);
+                expect(bareCalls.length).toBe(1);
+            }
+        );
+
+        Promise.all([recoveredDone, boundedDone, presignDone, bareDone]).then(() => done(), done);
+    });
+
+    it('a cdn stall Error and a disposed-fetcher AbortError reject WITHOUT a manifest refresh', (done) => {
+        // Neither is a credential fault, and the guard's other two rejections
+        // must not take the TypeError path: a refresh on a STALL would spend
+        // `?refresh=1` plus a whole second attempt budget on every stall (the
+        // TASK-2754 stampede shape), and a refresh after releaseCaches() would
+        // re-issue the very download the chip just stopped.
+        const stallCalls = [];
+        let stallRefreshes = 0;
+        const stalled = new PlaybackChunkFetcher({
+            manifest: cdnManifest(),
+            fetchImpl: recordInit(stallCalls, () => {
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(16));
+                        // then silence for ever
+                    }
+                });
+                return Promise.resolve(new Response(stream, { status: 200 }));
+            }),
+            refreshManifest: () => {
+                stallRefreshes++;
+                return Promise.resolve(cdnManifest(EDGE_FRESH));
+            },
+            stallMs: 30, maxAttempts: 1, maxResumes: 0
+        });
+        const stallDone = stalled._fetchRawBytes(KEY).then(
+            () => {
+                throw new Error('expected rejection');
+            },
+            (err) => {
+                expect(String(err.message)).toMatch(/stalled/);
+                expect(stallRefreshes).toBe(0);
+                expect(stallCalls.length).toBe(1);
+                expect(stallCalls[0].init.credentials).toBe('include');
+            }
+        );
+
+        const abortCalls = [];
+        let abortRefreshes = 0;
+        const disposed = new PlaybackChunkFetcher({
+            manifest: cdnManifest(),
+            fetchImpl: recordInit(abortCalls, () => new Promise(() => {})),
+            refreshManifest: () => {
+                abortRefreshes++;
+                return Promise.resolve(cdnManifest(EDGE_FRESH));
+            },
+            stallMs: 10000
+        });
+        const abortDone = disposed._fetchRawBytes(KEY).then(
+            () => {
+                throw new Error('expected rejection');
+            },
+            (err) => {
+                expect(err.name).toBe('AbortError');
+                expect(abortRefreshes).toBe(0);
+                expect(abortCalls.length).toBe(1);
+                expect(abortCalls[0].init.signal.aborted).toBe(true);
+            }
+        );
+        disposed.releaseCaches();
+
+        Promise.all([stallDone, abortDone]).then(() => done(), done);
+    });
+});
