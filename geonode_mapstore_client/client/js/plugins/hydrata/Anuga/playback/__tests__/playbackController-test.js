@@ -48,6 +48,8 @@ import {
     playbackInit,
     playbackManifestLoaded,
     playbackManifestFailed,
+    playbackManifestFetched,
+    playbackLoadProgress,
     playbackChunksBuffered,
     playbackPlay,
     playbackPause,
@@ -65,7 +67,9 @@ import {
     playbackFallback,
     // TASK-3081
     playbackChunkBufferError,
-    playbackReset
+    playbackReset,
+    // TASK-3087 (W2.3, epic 3082) — the peak-envelope poster.
+    playbackPosterLoaded
 } from '../actions/playbackActions';
 
 const TIME = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360]; // 13 steps, matches fixturePlaybackStore
@@ -574,6 +578,109 @@ describe('playbackController', () => {
             const resumed = reduce(paused, playbackPlay());
             expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
             expect(resumed.currentTimestep).toBe(5); // unchanged — no rewind
+        });
+    });
+
+    /*
+     * TASK-3085 (W2.1, epic 3082) — autoplay from the Results row + loop
+     * until the viewer touches the transport. Three concerns: PLAY arriving
+     * while still loading must not relabel the status (AC3), an autoplayed
+     * run loops at the end instead of pausing (AC4), and a loop rewind onto
+     * an evicted pre-roll re-buffers WITHOUT counting a stall (AC4).
+     */
+    describe('autoplay + loop-until-touched (TASK-3085)', () => {
+        it('PLAYBACK_PLAY while the manifest or mesh is loading records pendingPlay without relabelling the status', () => {
+            const loadingManifest = reduce(createInitialPlaybackState(), playbackInit(7, 'layer-1'));
+            expect(loadingManifest.status).toBe(PLAYBACK_STATUS.LOADING_MANIFEST);
+            const playedDuringManifest = reduce(loadingManifest, playbackPlay({ autoplay: true }));
+            // Status and loadProgress untouched — the old code dropped this
+            // to BUFFERING, hiding the mesh-load progress bar for ~1s until
+            // MANIFEST_FETCHED overwrote it back.
+            expect(playedDuringManifest.status).toBe(PLAYBACK_STATUS.LOADING_MANIFEST);
+            expect(playedDuringManifest.loadProgress).toBe(loadingManifest.loadProgress);
+            expect(playedDuringManifest.pendingPlay).toBe(true);
+            expect(playedDuringManifest.autoplayLoop).toBe(true);
+
+            const loadingMesh = reduce(loadingManifest, playbackManifestFetched(7, 4));
+            expect(loadingMesh.status).toBe(PLAYBACK_STATUS.LOADING_MESH);
+            const playedDuringMesh = reduce(loadingMesh, playbackPlay({ autoplay: true }));
+            expect(playedDuringMesh.status).toBe(PLAYBACK_STATUS.LOADING_MESH);
+            expect(playedDuringMesh.loadProgress).toBe(loadingMesh.loadProgress); // untouched (same reference)
+            expect(playedDuringMesh.pendingPlay).toBe(true);
+            expect(playedDuringMesh.autoplayLoop).toBe(true);
+
+            // AC3's OTHER half — BUFFERING behaviour is unchanged. A store
+            // with NOTHING buffered yet (loadedState(), no CHUNKS_BUFFERED)
+            // still relabels to BUFFERING + pendingPlay exactly as before.
+            const stillBuffering = reduce(loadedState(), playbackPlay({ autoplay: true }));
+            expect(stillBuffering.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(stillBuffering.pendingPlay).toBe(true);
+            // And a fully pre-rolled store (both chunks resident) still
+            // enters PLAYING immediately, unaffected by the new branch above.
+            const resident = reduce(bufferedState(), playbackPlay({ autoplay: true }));
+            expect(resident.status).toBe(PLAYBACK_STATUS.PLAYING);
+        });
+
+        it('an autoplayed run loops at the end of the timeline until the viewer touches the transport', () => {
+            const playing = { ...reduce(bufferedState(), playbackPlay({ autoplay: true })), lastTickMs: 0 };
+            expect(playing.autoplayLoop).toBe(true);
+
+            const looped = reduce(playing, playbackTick(1000000)); // way past t=360
+            expect(looped.status).toBe(PLAYBACK_STATUS.PLAYING); // loops instead of pausing
+            expect(looped.currentTimestep).toBe(0);
+            expect(looped.playheadSeconds).toBe(TIME[0]);
+            expect(looped.mixT).toBe(0);
+
+            // The viewer touches the transport (Pause) — the flag clears.
+            const paused = reduce(looped, playbackPause());
+            expect(paused.autoplayLoop).toBe(false);
+
+            // Play again WITHOUT the flag (the user pressing Play): the
+            // shipped PAUSED end-of-timeline behaviour returns, no more loop.
+            const replayed = { ...reduce(paused, playbackPlay()), lastTickMs: 0 };
+            expect(replayed.autoplayLoop).toBe(false);
+            const rePaused = reduce(replayed, playbackTick(1000000));
+            expect(rePaused.status).toBe(PLAYBACK_STATUS.PAUSED);
+        });
+
+        it('a looped rewind onto an evicted pre-roll re-buffers without counting a stall', () => {
+            // Only chunk 1 (the tail) is resident — chunk 0 (the pre-roll)
+            // has been evicted, as a real fill queue's LRU would do deep
+            // into a loop's second or third pass. Stale stall bookkeeping
+            // from an earlier, unrelated stall episode is seeded here
+            // specifically to prove this path clears it.
+            const nearEnd = playingWithChunks([1], {
+                autoplayLoop: true,
+                currentTimestep: TIME.length - 1,
+                playheadSeconds: TIME[TIME.length - 1],
+                stallCount: 3,
+                degraded: true,
+                stalledSinceMs: 12345
+            });
+            const looped = reduce(nearEnd, playbackTick(nearEnd.lastTickMs + 50));
+            expect(looped.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(looped.pendingPlay).toBe(true);
+            expect(looped.currentTimestep).toBe(0);
+            expect(looped.stallCount).toBe(0);
+            expect(looped.stalledSinceMs).toBe(null);
+            expect(looped.degraded).toBe(false);
+
+            // And the shipped gate re-enters PLAYING once the pre-roll is
+            // back (same C:1088-1098 path a cold start uses).
+            const resumed = reduce(looped, playbackChunksBuffered([0, 1]));
+            expect(resumed.status).toBe(PLAYBACK_STATUS.PLAYING);
+            expect(resumed.currentTimestep).toBe(0);
+        });
+
+        it('RESET clears autoplayLoop; a plain user PLAY, SEEK, SET_SPEED, SET_QUANTITY and SET_ENVELOPE_MODE all clear it too', () => {
+            const looping = bufferedState({ autoplayLoop: true, status: PLAYBACK_STATUS.PLAYING });
+            expect(reduce(looping, playbackReset()).autoplayLoop).toBe(false);
+            expect(reduce({ ...looping, status: PLAYBACK_STATUS.READY }, playbackPlay()).autoplayLoop).toBe(false);
+            expect(reduce(looping, playbackSeek(3)).autoplayLoop).toBe(false);
+            expect(reduce(looping, playbackSetSpeed(2)).autoplayLoop).toBe(false);
+            expect(reduce(looping, playbackSetQuantity('speed')).autoplayLoop).toBe(false);
+            const withEnvelope = bufferedState({ autoplayLoop: true, envelopeQuantities: ['depth'], quantity: 'depth' });
+            expect(reduce(withEnvelope, playbackSetEnvelopeMode(true)).autoplayLoop).toBe(false);
         });
     });
 
@@ -1106,6 +1213,60 @@ describe('playbackController', () => {
         });
     });
 
+    describe('peak-envelope poster (TASK-3087, W2.3 epic 3082)', () => {
+        it('the poster clears when playback becomes ready and never survives a run switch', () => {
+            const poster = new Float32Array([1, 2, 3]);
+            // POSTER_LOADED lands while BUFFERING (loadedState's own status).
+            const loaded = reduce(loadedState({ envelopeQuantities: ['depth'] }), playbackPosterLoaded(7, poster));
+            expect(loaded.posterEnvelope).toEqual(poster);
+
+            // CHUNKS_BUFFERED-to-READY (both fixture chunks, per bufferedState)
+            // clears it at the SAME site loadProgress is nulled.
+            const ready = reduce(loaded, playbackChunksBuffered([0, 1]));
+            expect(ready.status).toBe(PLAYBACK_STATUS.READY);
+            expect(ready.posterEnvelope).toBe(null);
+
+            // A run switch (PLAYBACK_INIT of a DIFFERENT run) drops it too —
+            // createInitialPlaybackState's own posterEnvelope: null, for free.
+            const switched = reduce(loaded, playbackInit(8, 'layer-2'));
+            expect(switched.posterEnvelope).toBe(null);
+            expect(switched.runId).toBe(8);
+
+            // A stale-runId POSTER_LOADED is ignored outright — same state
+            // reference back.
+            const stale = reduce(loadedState({ envelopeQuantities: ['depth'] }), playbackPosterLoaded(999, poster));
+            expect(stale.posterEnvelope).toBe(null);
+        });
+
+        it('is also cleared on MANIFEST_FAILED, FALLBACK and the bounded pre-roll CHUNK_BUFFER_ERROR exit (AC3: "ERROR" has no qualifier)', () => {
+            const withPoster = reduce(loadedState({ envelopeQuantities: ['depth'] }), playbackPosterLoaded(7, new Float32Array([1])));
+            expect(withPoster.posterEnvelope).toNotBe(null);
+
+            const failed = reduce(withPoster, playbackManifestFailed(7, 'boom'));
+            expect(failed.status).toBe(PLAYBACK_STATUS.ERROR);
+            expect(failed.posterEnvelope).toBe(null);
+
+            const fellBack = reduce(withPoster, playbackFallback({ runId: 7 }));
+            expect(fellBack.status).toBe(PLAYBACK_STATUS.FALLBACK);
+            expect(fellBack.posterEnvelope).toBe(null);
+
+            // The BUFFERING + floor-window CHUNK_BUFFER_ERROR bounded exit —
+            // the second ERROR-producing arm the red-team's S3/A4 flags as
+            // missed by a naive read of the loadProgress-nulling sites alone.
+            const chunkError = reduce(withPoster, playbackChunkBufferError(0, 'stalled', 7));
+            expect(chunkError.status).toBe(PLAYBACK_STATUS.ERROR);
+            expect(chunkError.posterEnvelope).toBe(null);
+        });
+
+        it('a late POSTER_LOADED arriving after the SAME run already left BUFFERING/LOADING_MESH is dropped (R2)', () => {
+            const ready = { ...bufferedState({ envelopeQuantities: ['depth'] }) };
+            expect(ready.status).toBe(PLAYBACK_STATUS.READY);
+            const late = reduce(ready, playbackPosterLoaded(ready.runId, new Float32Array([9])));
+            expect(late.posterEnvelope).toBe(null);
+            expect(late).toBe(ready);
+        });
+    });
+
     describe('identify + legend UI flags (TASK-2628)', () => {
         it('arming identify clears any stale result; disarming also clears it', () => {
             const armed = reduce(bufferedState(), playbackSetIdentifyArmed(true));
@@ -1447,6 +1608,62 @@ describe('playbackController', () => {
                     chunkLengthT: 10, totalChunks: 2, meshBounds3857: BOUNDS
                 }));
             expect(reduce(first, playbackReset(7, 'layer-1')).meshBounds3857).toBe(null);
+        });
+    });
+
+    /*
+     * TASK-3086 (W2.2, epic 3082) — one byte-true progress line spanning the
+     * mesh phase AND the pre-roll. Amendment A2 / ruling E1's own gate: a
+     * LOAD_PROGRESS dispatched AFTER MANIFEST_LOADED (not merely right after
+     * MANIFEST_FETCHED) proves the channel survives the mesh -> pre-roll
+     * phase boundary — playbackInitEpic's load$ Observable completes right
+     * after MANIFEST_LOADED, and the reducer has no way to know WHICH
+     * Observable a dispatched action travelled through, so this is a pure
+     * reducer-level proof of the CONTRACT the epic's channel has to honour,
+     * not of the channel itself (the epic's own wiring is exercised live by
+     * the W2 gate).
+     */
+    describe('load progress: bytesTotal + surviving the pre-roll (TASK-3086, W2.2, epic 3082)', () => {
+        it('load progress carries bytesTotal and keeps updating through the pre-roll', () => {
+            // MANIFEST_LOADED itself seeds a FRESH pre-roll reading (R5)
+            // rather than nulling loadProgress — the fill is about to start
+            // on the SAME fetcher (fetcherRegistry), and AC3 requires the
+            // line to keep updating through it. objectCount is the SAME
+            // floorWindowFor(...).length x QUANTITY_ARRAYS.length the
+            // BUFFERING -> READY gate below uses: 2 floor-window chunks x 3
+            // quantity arrays = 6, on this file's TIME/chunkLengthT/
+            // totalChunks fixture.
+            const afterManifestLoaded = loadedState();
+            expect(afterManifestLoaded.status).toBe(PLAYBACK_STATUS.BUFFERING);
+            expect(afterManifestLoaded.loadProgress).toEqual({
+                objectsLoaded: 0, objectCount: 6, bytesLoaded: 0, bytesTotal: null, phase: 'preroll'
+            });
+
+            // A LOAD_PROGRESS AFTER MANIFEST_LOADED — the phase-boundary
+            // proof above.
+            const midPreroll = reduce(afterManifestLoaded, playbackLoadProgress(7, {
+                objectsLoaded: 3, objectCount: 6, bytesLoaded: 12345, bytesTotal: 98765, phase: 'preroll'
+            }));
+            expect(midPreroll.loadProgress).toEqual({
+                objectsLoaded: 3, objectCount: 6, bytesLoaded: 12345, bytesTotal: 98765, phase: 'preroll'
+            });
+            // KEEPS updating — a second reading later in the same phase.
+            const laterPreroll = reduce(midPreroll, playbackLoadProgress(7, {
+                objectsLoaded: 5, objectCount: 6, bytesLoaded: 54321, bytesTotal: 98765, phase: 'preroll'
+            }));
+            expect(laterPreroll.loadProgress.bytesLoaded).toBe(54321);
+            expect(laterPreroll.loadProgress.bytesTotal).toBe(98765);
+            expect(laterPreroll.loadProgress.phase).toBe('preroll');
+
+            // A stale run's own LOAD_PROGRESS is dropped, exactly like every
+            // sibling action on this reducer.
+            const stale = reduce(laterPreroll, playbackLoadProgress(99, { objectsLoaded: 1, objectCount: 1, bytesLoaded: 1 }));
+            expect(stale.loadProgress).toBe(laterPreroll.loadProgress);
+
+            // The FIRST READY (the whole floor window landing) clears it.
+            const ready = reduce(laterPreroll, playbackChunksBuffered([0, 1]));
+            expect(ready.status).toBe(PLAYBACK_STATUS.READY);
+            expect(ready.loadProgress).toBe(null);
         });
     });
 });

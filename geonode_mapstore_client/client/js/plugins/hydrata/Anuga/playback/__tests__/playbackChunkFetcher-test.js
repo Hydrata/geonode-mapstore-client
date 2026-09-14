@@ -22,7 +22,9 @@ import expect from 'expect';
 import {
     PlaybackChunkFetcher, fetchPlaybackManifest, planWindow, farthestBehind,
     MAX_CONCURRENT_FILL_CHUNKS,
-    PLAYBACK_FETCH_HEADERS_MS, PLAYBACK_FETCH_STALL_MS, PLAYBACK_FETCH_MAX_ATTEMPTS
+    PLAYBACK_FETCH_HEADERS_MS, PLAYBACK_FETCH_STALL_MS, PLAYBACK_FETCH_MAX_ATTEMPTS,
+    PLAYBACK_FETCH_RATE_WINDOW_MS, PLAYBACK_FETCH_MIN_RATE_BPS, PLAYBACK_FETCH_RATE_FLOOR_FRACTION,
+    PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES, PLAYBACK_FETCH_MAX_RESUMES
 } from '../playbackChunkFetcher';
 import { QUANTITY_ARRAYS } from '../playbackChunkShape';
 import { PlaybackChunkCache } from '../playbackChunkCache';
@@ -714,23 +716,51 @@ describe('playbackChunkFetcher — TASK-3079 the fetch stall guard', () => {
         expect(PLAYBACK_FETCH_HEADERS_MS).toBe(60000);
         expect(PLAYBACK_FETCH_STALL_MS).toBe(15000);
         expect(PLAYBACK_FETCH_MAX_ATTEMPTS).toBe(3);
+        // TASK-3084 (verifier fix D2) — the five resume budgets are exported
+        // with their documented default values and are settable per fetcher
+        // through the constructor exactly like headersMs/stallMs/maxAttempts
+        // above.
+        expect(PLAYBACK_FETCH_RATE_WINDOW_MS).toBe(5000);
+        expect(PLAYBACK_FETCH_MIN_RATE_BPS).toBe(32768);
+        expect(PLAYBACK_FETCH_RATE_FLOOR_FRACTION).toBe(1 / 8);
+        expect(PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES).toBe(262144);
+        expect(PLAYBACK_FETCH_MAX_RESUMES).toBe(3);
         const fetcher = new PlaybackChunkFetcher({
             manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch(),
-            headersMs: 1234, stallMs: 567, maxAttempts: 8
+            headersMs: 1234, stallMs: 567, maxAttempts: 8,
+            rateWindowMs: 111, minRateBps: 222, rateFloorFraction: 0.25,
+            resumeMinRemainingBytes: 333, maxResumes: 9
         });
         expect(fetcher.headersMs).toBe(1234);
         expect(fetcher.stallMs).toBe(567);
         expect(fetcher.maxAttempts).toBe(8);
+        expect(fetcher.rateWindowMs).toBe(111);
+        expect(fetcher.minRateBps).toBe(222);
+        expect(fetcher.rateFloorFraction).toBe(0.25);
+        expect(fetcher.resumeMinRemainingBytes).toBe(333);
+        expect(fetcher.maxResumes).toBe(9);
         const defaults = new PlaybackChunkFetcher({ manifest: FIXTURE_MANIFEST, fetchImpl: makeFixtureFetch() });
         expect(defaults.headersMs).toBe(PLAYBACK_FETCH_HEADERS_MS);
         expect(defaults.stallMs).toBe(PLAYBACK_FETCH_STALL_MS);
         expect(defaults.maxAttempts).toBe(PLAYBACK_FETCH_MAX_ATTEMPTS);
+        expect(defaults.rateWindowMs).toBe(PLAYBACK_FETCH_RATE_WINDOW_MS);
+        expect(defaults.minRateBps).toBe(PLAYBACK_FETCH_MIN_RATE_BPS);
+        expect(defaults.rateFloorFraction).toBe(PLAYBACK_FETCH_RATE_FLOOR_FRACTION);
+        expect(defaults.resumeMinRemainingBytes).toBe(PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES);
+        expect(defaults.maxResumes).toBe(PLAYBACK_FETCH_MAX_RESUMES);
     });
 
     it('aborts a fetch whose body stops moving for stallMs, retries it, and rejects with a stall error after maxAttempts', (done) => {
         const calls = [];
+        // TASK-3084 (red-team Amendment 1) — maxResumes: 0 pins this spec to
+        // the pre-TASK-3084 byte-0-restart path. stalledBodyFetch sends 16
+        // bytes then never closes and always answers 200 (never 206), so
+        // without this override the SILENCE trigger would resume (total > 0
+        // after the first read) into a mock that can never satisfy a
+        // resume's 206/Content-Range check — restarting this spec's assumed
+        // 3-restart shape into 6 calls with 2 non-aborted resumed sub-calls.
         const fetcher = new PlaybackChunkFetcher({
-            manifest: FIXTURE_MANIFEST, fetchImpl: stalledBodyFetch(calls), stallMs: 50, maxAttempts: 3
+            manifest: FIXTURE_MANIFEST, fetchImpl: stalledBodyFetch(calls), stallMs: 50, maxAttempts: 3, maxResumes: 0
         });
         const t0 = Date.now();
         fetcher.fetchAndDecodeChunk('node_x', [0], FLOAT32).then(
@@ -835,6 +865,425 @@ describe('playbackChunkFetcher — TASK-3079 the fetch stall guard', () => {
 
 /*
  * ===========================================================================
+ * TASK-3084 (epic 3082) — RESUME a crawling/stalled body instead of waiting
+ * on it or restarting it at byte 0.
+ *
+ * All four specs call `_fetchRawBytes` directly (the existing idiom above,
+ * e.g. 'releaseCaches() aborts every in-flight fetch...') so the assertions
+ * are about the raw resumed bytes, not decode. Real timings only — this
+ * karma has no sinon/fake timers.
+ * ===========================================================================
+ */
+describe('playbackChunkFetcher — TASK-3084 resume a crawling/stalled body', () => {
+    /** Parse the received offset out of a captured call's `Range` header. */
+    function receivedFromRange(call) {
+        const range = call && call.headers && call.headers.Range;
+        const match = range && /^bytes=(\d+)-$/.exec(range);
+        return match ? Number(match[1]) : null;
+    }
+
+    /** A body that enqueues `tickBytes` every `tickMs`, closing after `ticks`. */
+    function crawlFetch(tickBytes, tickMs, ticks) {
+        return (url, options) => {
+            const signal = options && options.signal;
+            let n = 0;
+            const stream = new ReadableStream({
+                start(controller) {
+                    const tick = () => {
+                        if (signal && signal.aborted) {
+                            return;
+                        }
+                        n += 1;
+                        controller.enqueue(new Uint8Array(tickBytes));
+                        if (n >= ticks) {
+                            controller.close();
+                            return;
+                        }
+                        setTimeout(tick, tickMs);
+                    };
+                    tick();
+                }
+            });
+            return Promise.resolve(new Response(stream, { status: 200 }));
+        };
+    }
+
+    it('resumes a crawling body with Range from the received offset instead of waiting on it', (done) => {
+        const calls = [];
+        const KEY = 'depth/c/0/0';
+        const TOTAL = 400;
+        const fetchImpl = (url, options) => {
+            const call = { url, headers: options && options.headers, signal: options && options.signal };
+            calls.push(call);
+            if (calls.length === 1) {
+                // Far below minRateBps: 5 bytes every 60 ms, never closes on
+                // its own — RESUMED, not waited on.
+                const stream = new ReadableStream({
+                    start(controller) {
+                        const tick = () => {
+                            if (call.signal && call.signal.aborted) {
+                                return;
+                            }
+                            controller.enqueue(new Uint8Array(5));
+                            setTimeout(tick, 60);
+                        };
+                        tick();
+                    }
+                });
+                return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Length': String(TOTAL) } }));
+            }
+            // The resume: answer 206 with the REST of the object, fast.
+            const received = receivedFromRange(call);
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(TOTAL - received));
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 206,
+                headers: { 'Content-Range': `bytes ${received}-${TOTAL - 1}/${TOTAL}` }
+            }));
+        };
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl,
+            rateWindowMs: 100, minRateBps: 1000, resumeMinRemainingBytes: 1, maxResumes: 3, stallMs: 5000
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(calls.length).toBe(2);
+                const received = receivedFromRange(calls[1]);
+                expect(received === null).toBe(false);
+                expect(received > 0).toBe(true);
+                expect(received < TOTAL).toBe(true);
+                expect(calls[0].signal.aborted).toBe(true);
+                expect(buffer.byteLength).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    it('a silence retry resumes from the received offset instead of restarting at byte 0', (done) => {
+        const calls = [];
+        const KEY = 'depth/c/1/0';
+        const HEAD = 16;
+        const REST = 40;
+        const TOTAL = HEAD + REST;
+        const fetchImpl = (url, options) => {
+            const call = { url, headers: options && options.headers, signal: options && options.signal };
+            calls.push(call);
+            if (calls.length === 1) {
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(HEAD));
+                        // never closes, never sends more — silence.
+                    }
+                });
+                return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Length': String(TOTAL) } }));
+            }
+            const received = receivedFromRange(call);
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(TOTAL - received));
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 206,
+                headers: { 'Content-Range': `bytes ${received}-${TOTAL - 1}/${TOTAL}` }
+            }));
+        };
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl, stallMs: 50
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(calls.length).toBe(2);
+                expect(calls[1].headers.Range).toBe(`bytes=${HEAD}-`);
+                expect(buffer.byteLength).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    it('does not resume a body that is merely as slow as its siblings and never issues more than three resumes', (done) => {
+        // HALF 1 — a genuine populated median (red-team Amendment 4), THEN
+        // two identical crawling siblings at that SAME per-tick rate: median
+        // == own rate, so rate < rateFloorFraction * median is false for
+        // either of them. Asserting on `_rateSamples` (not only on
+        // calls.length) is the point of Amendment 4: a no-op relative-floor
+        // implementation would leave the median null and pass this same
+        // calls.length assertion for the wrong reason.
+        const siblingCalls = [];
+        const fetcherA = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST,
+            fetchImpl: crawlFetch(5, 60, 5), // reference: 5B/60ms x 5 ticks (~240-300ms)
+            rateWindowMs: 100, minRateBps: 0, resumeMinRemainingBytes: 1, stallMs: 100000
+        });
+        const siblingsDone = fetcherA._fetchRawBytes('x_velocity/c/0/0').then((reference) => {
+            expect(reference.byteLength).toBe(25);
+            expect(fetcherA._rateSamples.length).toBe(1);
+            fetcherA.fetchImpl = (url, options) => {
+                siblingCalls.push({ url });
+                return crawlFetch(5, 60, 8)(url, options); // same per-tick rate, longer (~420-480ms)
+            };
+            return Promise.all([
+                fetcherA._fetchRawBytes('depth/c/0/0'),
+                fetcherA._fetchRawBytes('depth/c/1/0')
+            ]).then(([a, b]) => {
+                expect(a.byteLength).toBe(40);
+                expect(b.byteLength).toBe(40);
+                expect(siblingCalls.length).toBe(2); // ONE call each — no resume
+            });
+        });
+
+        // HALF 2 — THE CAP: a body that keeps crawling after every resume
+        // never issues more than maxResumes resumes — exactly 4 fetch calls
+        // (1 initial + 3 resumes) then a stall rejection, no 5th call. A
+        // fast qualifying reference is recorded FIRST so every resume here
+        // classifies 'relative' (the ABSOLUTE-ONLY rule permits only ONE
+        // 'absolute'-kind resume per request — see R4/H3).
+        const callsB = [];
+        const fetcherB = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST,
+            fetchImpl: (url, options) => {
+                callsB.push({ url, headers: options && options.headers });
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(2000));
+                        setTimeout(() => controller.close(), 5);
+                    }
+                });
+                return Promise.resolve(new Response(stream, { status: 200 }));
+            },
+            rateWindowMs: 100, minRateBps: 0, resumeMinRemainingBytes: 1, maxResumes: 3, stallMs: 60
+        });
+        const capDone = fetcherB._fetchRawBytes('y_velocity/c/0/0').then(() => {
+            expect(fetcherB._rateSamples.length).toBe(1);
+            fetcherB.fetchImpl = (url, options) => {
+                const call = { url, headers: options && options.headers, signal: options && options.signal };
+                callsB.push(call);
+                const received = receivedFromRange(call) || 0;
+                let n = 0;
+                const stream = new ReadableStream({
+                    start(controller) {
+                        const tick = () => {
+                            if (call.signal && call.signal.aborted) {
+                                return;
+                            }
+                            n += 1;
+                            controller.enqueue(new Uint8Array(1));
+                            if (n < 30) {
+                                setTimeout(tick, 20);
+                            }
+                            // after 30 ticks (~600 ms): silence for ever.
+                        };
+                        tick();
+                    }
+                });
+                if (call.headers && call.headers.Range) {
+                    return Promise.resolve(new Response(stream, {
+                        status: 206,
+                        headers: { 'Content-Range': `bytes ${received}-${received}/*` }
+                    }));
+                }
+                return Promise.resolve(new Response(stream, { status: 200 }));
+            };
+            return new Promise((resolve, reject) => {
+                fetcherB._fetchRawBytes('node_x/c/0').then(
+                    () => reject(new Error('expected a stall rejection')),
+                    (err) => {
+                        try {
+                            expect(callsB.length).toBe(1 + 4); // 1 reference + (1 initial + 3 resumes)
+                            expect(String(err.message)).toMatch(/stalled/);
+                            resolve();
+                        } catch (e) {
+                            reject(e);
+                        }
+                    }
+                );
+            });
+        });
+
+        Promise.all([siblingsDone, capDone]).then(() => done(), done);
+    });
+
+    it('a resumed response whose Content-Range does not start at the received offset is discarded and the fetch restarts from byte 0', (done) => {
+        const calls = [];
+        const KEY = 'node_y/c/0';
+        const TOTAL = 40;
+        const fetchImpl = (url, options) => {
+            const call = { url, headers: options && options.headers, signal: options && options.signal };
+            calls.push(call);
+            const n = calls.length;
+            if (n === 1) {
+                // 10 bytes then silence for ever -> a silence resume (call 2).
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(10));
+                    }
+                });
+                return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Length': String(TOTAL) } }));
+            }
+            if (n === 2) {
+                // BAD resume answer: Content-Range starts at 0, not at the
+                // carried offset -> discarded, restarts from byte 0 (call 3).
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(TOTAL));
+                        controller.close();
+                    }
+                });
+                return Promise.resolve(new Response(stream, {
+                    status: 206,
+                    headers: { 'Content-Range': `bytes 0-${TOTAL - 1}/${TOTAL}` }
+                }));
+            }
+            // n === 3: a fresh restart carries NO Range header.
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(TOTAL));
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Length': String(TOTAL) } }));
+        };
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl, stallMs: 50, maxAttempts: 3, maxResumes: 3
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(calls.length).toBe(3);
+                expect(!calls[2].headers || !calls[2].headers.Range).toBe(true);
+                expect(buffer.byteLength).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    /*
+     * TASK-3082 W2-gate fix (2026-09-14) — the resume was DEAD against every
+     * real S3 store. The bucket CORS rule (deploy: anuga-playback-cors.yml)
+     * whitelists exactly one request header, `Range`, and `If-Range` is not
+     * CORS-safelisted, so the resumed fetch forced a preflight that S3 answered
+     * 403 (AccessForbidden CORSResponse) and the browser surfaced as
+     * `TypeError: Failed to fetch` -> the whole load landed on `error`
+     * ("Playback store failed to load") the moment any crawl was detected —
+     * reproduced on localhost map 1461 / run 67147 against anuga-test-storage.
+     * The same-origin mirror the W1 gate ran through cannot see a CORS failure.
+     * The object-changed guard If-Range provided is kept CLIENT-SIDE: the
+     * resumed 206's ETag (exposed via the bucket's ExposeHeaders) must equal
+     * the ETag the first response carried, else the carry is discarded.
+     */
+    it('a resumed request carries only the CORS-safelisted Range header and never If-Range', (done) => {
+        const calls = [];
+        const KEY = 'node_y/c/0';
+        const TOTAL = 40;
+        const fetchImpl = (url, options) => {
+            const call = { url, headers: options && options.headers };
+            calls.push(call);
+            if (calls.length === 1) {
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(10));
+                    }
+                });
+                return Promise.resolve(new Response(stream, {
+                    status: 200, headers: { 'Content-Length': String(TOTAL), ETag: '"abc"' }
+                }));
+            }
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(TOTAL - 10));
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 206, headers: { 'Content-Range': `bytes 10-${TOTAL - 1}/${TOTAL}`, ETag: '"abc"' }
+            }));
+        };
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl, stallMs: 50, maxAttempts: 3, maxResumes: 3
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(calls.length).toBe(2);
+                expect(calls[1].headers.Range).toBe('bytes=10-');
+                expect(Object.keys(calls[1].headers).some((h) => h.toLowerCase() === 'if-range')).toBe(false);
+                expect(buffer.byteLength).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    it('a resumed 206 whose ETag differs from the first response is discarded and the fetch restarts from byte 0', (done) => {
+        const calls = [];
+        const KEY = 'node_y/c/0';
+        const TOTAL = 40;
+        const fetchImpl = (url, options) => {
+            const call = { url, headers: options && options.headers };
+            calls.push(call);
+            const n = calls.length;
+            if (n === 1) {
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(10));
+                    }
+                });
+                return Promise.resolve(new Response(stream, {
+                    status: 200, headers: { 'Content-Length': String(TOTAL), ETag: '"v1"' }
+                }));
+            }
+            if (n === 2) {
+                // Right offset, WRONG object: the store was rewritten between
+                // the two connections. Without If-Range on the wire this is
+                // exactly what S3 would answer; the client must refuse it.
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(TOTAL - 10));
+                        controller.close();
+                    }
+                });
+                return Promise.resolve(new Response(stream, {
+                    status: 206, headers: { 'Content-Range': `bytes 10-${TOTAL - 1}/${TOTAL}`, ETag: '"v2"' }
+                }));
+            }
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(TOTAL));
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 200, headers: { 'Content-Length': String(TOTAL), ETag: '"v2"' }
+            }));
+        };
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl, stallMs: 50, maxAttempts: 3, maxResumes: 3
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(calls.length).toBe(3);
+                expect(!calls[2].headers || !calls[2].headers.Range).toBe(true);
+                expect(buffer.byteLength).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+});
+
+/*
+ * ===========================================================================
  * TASK-2985 (W1.2, epic 2981) — THE FILL QUEUE.
  *
  * prefetchWindowByChunk fires every array of every window chunk at once (a
@@ -847,6 +1296,78 @@ describe('playbackChunkFetcher — TASK-3079 the fetch stall guard', () => {
  * RE-PRIORITISATION on a SEEK, and playhead-distance EVICTION.
  * ===========================================================================
  */
+/*
+ * ===========================================================================
+ * TASK-3086 (W2.2, epic 3082) — the onBytes seam.
+ *
+ * D5: a line that moves on every read is what tells a stranger the app is
+ * alive. Before this task `onProgress` fired ONCE per completed object
+ * (TASK-2744 AC18's `{key, bytes}` contract); this seam fires on EVERY
+ * stream read, with the running `received` total and the object's
+ * Content-Length, so the epic can aggregate a byte-true progress line
+ * instead of a per-object counter. Reuses the H6 idiom already proven twice
+ * in this file (TASK-3079/TASK-3084 above): a hand-built ReadableStream with
+ * repeated `controller.enqueue()` calls, real timers, `_fetchRawBytes`
+ * called directly.
+ * ===========================================================================
+ */
+describe('playbackChunkFetcher — TASK-3086 the onBytes seam', () => {
+    it('onBytes fires on every stream read with the running total and the Content-Length', (done) => {
+        const KEY = 'depth/c/0/0';
+        const TOTAL = 30;
+        // Four reads landing at these cumulative byte counts.
+        const cumulative = [3, 10, 17, 30];
+        const fetchImpl = () => {
+            const stream = new ReadableStream({
+                start(controller) {
+                    let prev = 0;
+                    cumulative.forEach((cum) => {
+                        controller.enqueue(new Uint8Array(cum - prev));
+                        prev = cum;
+                    });
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 200,
+                headers: { 'Content-Length': String(TOTAL) }
+            }));
+        };
+        const onBytesCalls = [];
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST,
+            fetchImpl,
+            // `done: true` is the SEPARATE, once-per-object AC18 completion
+            // call (TASK-2744) — this spec is about the every-read seam, so
+            // it is filtered out here rather than conflated with it.
+            onProgress: (info) => {
+                if (!info.done) {
+                    onBytesCalls.push(info);
+                }
+            }
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(buffer.byteLength).toBe(TOTAL);
+                // At least one call per enqueued chunk (a reader-done call
+                // with no new bytes is also permitted, and does land in
+                // practice — see the fetcher's stream-loop comment).
+                expect(onBytesCalls.length >= cumulative.length).toBe(true);
+                let prevReceived = 0;
+                onBytesCalls.forEach((call) => {
+                    expect(call.total).toBe(TOTAL);
+                    expect(call.received >= prevReceived).toBe(true);
+                    prevReceived = call.received;
+                });
+                expect(onBytesCalls[onBytesCalls.length - 1].received).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+});
+
 describe('playbackChunkFetcher — TASK-2985 the fill queue', () => {
     const QUANTITIES = QUANTITY_ARRAYS;
     const CHUNK_BYTES = 1024;

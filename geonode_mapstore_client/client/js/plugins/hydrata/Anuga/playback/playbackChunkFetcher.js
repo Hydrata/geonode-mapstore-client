@@ -94,6 +94,58 @@ export const PLAYBACK_FETCH_STALL_MS = 15000;
 export const PLAYBACK_FETCH_MAX_ATTEMPTS = 3;
 
 /**
+ * TASK-3084 (epic 3082) — RESUME budgets: a body that is still moving but far
+ * below the rate this fetcher is achieving elsewhere is aborted and RESUMED
+ * with `Range: bytes=<received>-` on a fresh connection, instead of waiting
+ * on it (or, for the pre-existing silence retry, restarting it at byte 0).
+ *
+ * MEASURED 2026-09-13 on prod map 6755 (anonymous stranger legs): a single
+ * connection crawling at 10-60 KB/s beside siblings landing at ~1 MB/s each,
+ * aggregate fill ~3.5 MB/s; one crawling object cost the mesh phase 183 of a
+ * 185 s load. A 15 s BODY-INACTIVITY budget (PLAYBACK_FETCH_STALL_MS) is
+ * unreachable by a stream that is merely slow, which is exactly why the
+ * inactivity guard alone cannot see this failure mode.
+ *
+ * RATE_WINDOW_MS: how often the achieved rate is sampled while a body
+ * streams (a SEPARATE timer from the stall guard's — see fetchWithStallGuard).
+ *
+ * MIN_RATE_BPS: the ABSOLUTE floor for a near-dead crawl, used before any
+ * median exists and never itself relaxed by the median. 32768 B/s (32 KB/s)
+ * sits below every measured healthy sibling and above the measured crawls.
+ *
+ * RATE_FLOOR_FRACTION: the RELATIVE floor, as a fraction of this fetcher's
+ * OWN median completed-request rate (see PlaybackChunkFetcher._medianRateBps).
+ * This is the PRIMARY trigger (epic intent: correctness over cleverness — a
+ * false resume on a uniformly slow link costs a reconnect, so the relative
+ * comparison, not an absolute number, decides for a link that is merely slow
+ * throughout). 1/8 of a healthy ~1 MB/s sibling is comfortably above the
+ * measured 10-60 KB/s crawls and comfortably below a merely-slow-but-uniform
+ * link (whose own rate becomes its own median).
+ *
+ * RESUME_MIN_REMAINING_BYTES: a resume is never worth the extra connection
+ * once fewer than this many bytes remain. ALSO the size floor for a
+ * completed request to count toward the median at all (see
+ * PlaybackChunkFetcher._recordRate) — the mesh phase completes friction
+ * (2,358 B), time (290 B) and dt_ms (327 B) FIRST, measured at 1-8 KB/s over
+ * ~300 ms; a median that counted them would read as "normal" in exactly the
+ * phase that lost 183 s, and depth/c/10/0's ~1.5 MiB dry tail would poison it
+ * the other way. 262144 (256 KiB) excludes the mesh scalars and keeps every
+ * measured quantity chunk.
+ *
+ * MAX_RESUMES: shared by BOTH triggers (silence and rate) on one request —
+ * distinct from PLAYBACK_FETCH_MAX_ATTEMPTS, which bounds only header-budget
+ * timeouts and bad-Content-Range restarts (see fetchWithStallGuard). An
+ * ABSOLUTE-kind trigger may fire only once per request (the ABSOLUTE-ONLY
+ * rule below); after that only a RELATIVE trigger, or a silence, may resume
+ * it again, up to this cap.
+ */
+export const PLAYBACK_FETCH_RATE_WINDOW_MS = 5000;
+export const PLAYBACK_FETCH_MIN_RATE_BPS = 32768;
+export const PLAYBACK_FETCH_RATE_FLOOR_FRACTION = 1 / 8;
+export const PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES = 262144;
+export const PLAYBACK_FETCH_MAX_RESUMES = 3;
+
+/**
  * TASK-2985 (W1.2, epic 2981) — how many CHUNKS the fill queue runs at once.
  * Three quantity arrays per chunk, so three chunks is nine concurrent requests.
  *
@@ -260,17 +312,37 @@ function concatChunks(chunks, total) {
  * `stalled` error at the end of the budget. Used by BOTH _fetchRawBytes and
  * fetchPlaybackManifest.
  *
- * Resolves `{ response }` IMMEDIATELY for any non-2xx status, WITHOUT
- * draining the body — the caller's status guards (403 -> manifest refresh,
- * `!ok && !== 206` -> throw) run before a single body byte is read, so a 403
- * on attempt N is a status outcome and never a stall. For a 2xx it streams
- * the body and resolves `{ response, buffer }`.
+ * Resolves `{ response }` IMMEDIATELY for any FRESH (non-resumed) attempt
+ * with a non-2xx status, WITHOUT draining the body — the caller's status
+ * guards (403 -> manifest refresh, `!ok && !== 206` -> throw) run before a
+ * single body byte is read, so a 403 on attempt N is a status outcome and
+ * never a stall. For a 2xx it streams the body and resolves
+ * `{ response, buffer }`.
+ *
+ * TASK-3084 — RESUME. A body that is moving but far below the rate this
+ * fetcher is achieving elsewhere (see the `rateWindowMs`/`minRateBps`/
+ * `rateFloorFraction` options and PLAYBACK_FETCH_RATE_* above) is aborted and
+ * re-issued as a RESUMED attempt carrying the bytes already received
+ * (`carry = {chunks, total, etag, resumes}`), sending `Range:
+ * bytes=<total>-`. The pre-existing silence (stall) retry resumes the same
+ * way once the body has at least one byte, instead of restarting at byte 0.
+ * A RESUMED attempt's response is inspected BEFORE it is ever resolved to the
+ * caller: only `status === 206` with a `Content-Range` starting at the
+ * carried `total` AND an ETag equal to the first response's is accepted;
+ * anything else (a 200, a 206 at the wrong offset, a 416, a different
+ * object) discards the carry and restarts the request from byte 0 as
+ * one more `maxAttempts` attempt — a resumed attempt therefore never
+ * resolves `{ response }` for a caller-visible non-2xx the way a fresh
+ * attempt does. A retry is either a plain restart (`attempt(n + 1, null)`,
+ * counted against `maxAttempts`) or a resume (`attempt(n, carry)`, counted
+ * against `maxResumes`, shared by the silence and rate triggers).
  *
  * THE GUARD SETTLES ITS OWN RACE. Nothing here waits for the stream to
  * notice the abort: the timer that fires is what settles the attempt (the
  * karma fixtures never react to `signal`, and a real fetch's AbortError then
- * arrives on an attempt that is already settled and is ignored). The retry
- * is recursive (`attempt(n + 1)`) rather than a loop over closures.
+ * arrives on an attempt that is already settled and is ignored). A restart
+ * is recursive (`attempt(n + 1, null)`); a resume recurses on the SAME `n`
+ * (`attempt(n, carry)`) so it never spends a `maxAttempts` attempt.
  *
  * An abort that is NOT ours — i.e. releaseCaches() aborting the controller
  * while `isDisposed()` reads true — rejects immediately with an AbortError
@@ -292,10 +364,43 @@ function concatChunks(chunks, total) {
  * @param {() => boolean} [guard.isDisposed]
  * @param {(c: AbortController) => void} [guard.register]
  * @param {(c: AbortController) => void} [guard.unregister]
+ * @param {number} [guard.rateWindowMs] TASK-3084 — how often the achieved
+ *   rate is sampled while a body streams; no rate check runs when this or
+ *   `maxResumes` is falsy/0 (the pure inactivity guard, unchanged).
+ * @param {number} [guard.minRateBps] the ABSOLUTE rate floor.
+ * @param {number} [guard.rateFloorFraction] the RELATIVE floor, as a
+ *   fraction of `medianRateBps()`.
+ * @param {number} [guard.resumeMinRemainingBytes] skip a rate/silence resume
+ *   once fewer than this many bytes remain (object size unknown => never
+ *   skipped on this account).
+ * @param {number} [guard.maxResumes] shared cap on BOTH triggers, for one
+ *   request — distinct from `maxAttempts`.
+ * @param {() => number|null} [guard.medianRateBps] the fetcher's median
+ *   completed-request rate, or null until one qualifying completion exists.
+ * @param {(sample: {bytes: number, ms: number}) => void} [guard.recordRate]
+ *   called once per COMPLETED 2xx body (this attempt's own bytes/ms).
+ * @param {(info: {label: string, received: number, total: number|null, rateBps: number, floorBps: number, kind: string}) => void} [guard.onResume]
+ *   called once per resume, BEFORE the resumed fetch is issued.
+ * @param {(info: {received: number, total: number|null}) => void} [guard.onBytes]
+ *   TASK-3086 (W2.2) — fires on EVERY stream read (no throttle here — the
+ *   throttle, if any, belongs to the caller), with the running total received
+ *   ACROSS THE WHOLE REQUEST (resumes included — `total` here is the local
+ *   `total` byte counter, which `carry` threads across a resume, not a
+ *   per-attempt count) and the object's total size once known (Content-Length
+ *   on a 200, or Content-Range's `/<size>` on a 206). Never throws into the
+ *   read loop.
  * @returns {Promise<{response: Response, buffer?: ArrayBuffer}>}
  */
-function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAttempts, label, isDisposed, register, unregister }) {
+function fetchWithStallGuard(fetchImpl, url, init, {
+    headersMs, stallMs, maxAttempts, label, isDisposed, register, unregister,
+    rateWindowMs, minRateBps, rateFloorFraction, resumeMinRemainingBytes, maxResumes,
+    medianRateBps, recordRate, onResume, onBytes
+}) {
     const attempts = maxAttempts > 0 ? Math.floor(maxAttempts) : 1;
+    const resumesAllowed = maxResumes > 0 ? Math.floor(maxResumes) : 0;
+    const floorFraction = rateFloorFraction > 0 ? rateFloorFraction : 0;
+    const absoluteFloor = minRateBps > 0 ? minRateBps : 0;
+    const minRemaining = resumeMinRemainingBytes > 0 ? resumeMinRemainingBytes : 0;
     const disposed = () => Boolean(isDisposed && isDisposed());
     const stallError = () => new Error(
         `playbackChunkFetcher: stalled fetching '${label}' — no bytes for ${stallMs} ms (or no headers for ${headersMs} ms) on ${attempts} attempts`
@@ -306,24 +411,40 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
         return error;
     };
 
-    const attempt = (n) => new Promise((resolve, reject) => {
+    // TASK-3084 — CONTENT-RANGE PARSER for a resumed attempt's response.
+    const CONTENT_RANGE_RE = /^bytes (\d+)-(\d+)\/(\d+|\*)$/;
+
+    const attempt = (n, carry) => new Promise((resolve, reject) => {
         const controller = new AbortController();
         const { signal } = controller;
         let settled = false;
         let timer = null;
         let timedOut = false;
+        let resuming = false;
+        let rateTimer = null;
         const clearTimer = () => {
             if (timer !== null) {
                 clearTimeout(timer);
                 timer = null;
             }
         };
+        const clearRateTimer = () => {
+            if (rateTimer !== null) {
+                clearInterval(rateTimer);
+                rateTimer = null;
+            }
+        };
         let onAbort = null;
-        // Retire this attempt: stop its timer, forget its controller. Called
-        // exactly once per attempt, whichever way it ends.
+        // Retire this attempt: stop BOTH its timers, forget its controller.
+        // Called exactly once per attempt, whichever way it ends. Two
+        // independent timer mechanisms coexist here (TASK-3084) — the
+        // headers/stall budget (`timer`, via arm()/clearTimer()) and the
+        // rate-check interval (`rateTimer`) — kept as distinct variables
+        // with distinct clears so one can never silently cancel the other.
         const retire = () => {
             settled = true;
             clearTimer();
+            clearRateTimer();
             signal.removeEventListener('abort', onAbort);
             if (unregister) {
                 unregister(controller);
@@ -337,6 +458,19 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
                 controller.abort();
             }, ms);
         };
+
+        // TASK-3084 — resume bookkeeping. `carry` is null on a fresh start
+        // (byte 0) and `{chunks, total, etag, resumes, objectSize}` on a
+        // resumed attempt (same `n` as the attempt that aborted it — a
+        // resume never spends a `maxAttempts` attempt). `chunks` is the SAME
+        // array reference threaded through every resume of one request, so
+        // bytes accumulate across connections.
+        const chunks = carry ? carry.chunks : [];
+        let total = carry ? carry.total : 0;
+        let etag = carry ? carry.etag : null;
+        const resumesSoFar = carry ? carry.resumes : 0;
+        let objectSize = carry && carry.objectSize !== null && carry.objectSize !== undefined ? carry.objectSize : null;
+
         onAbort = () => {
             if (settled) {
                 return;
@@ -347,11 +481,40 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
                 reject(abortError());
                 return;
             }
-            if (timedOut && n < attempts) {
-                attempt(n + 1).then(resolve, reject);
+            if (resuming) {
+                // A RATE trigger armed this abort itself (see the rate-check
+                // interval below) — always resumes, never restarts.
+                attempt(n, { chunks, total, etag, resumes: resumesSoFar + 1, objectSize }).then(resolve, reject);
                 return;
             }
-            reject(timedOut ? stallError() : abortError());
+            if (timedOut) {
+                if (total > 0 && resumesAllowed > 0 && resumesSoFar < resumesAllowed) {
+                    // TASK-3084 (Amendment 1 / R4a) — SILENCE now resumes,
+                    // carrying the bytes already received, instead of
+                    // restarting at byte 0. A silence with total === 0
+                    // (headers arrived, no body byte yet) falls through to
+                    // the original restart-from-scratch path below.
+                    if (onResume) {
+                        onResume({ label, received: total, total: objectSize, rateBps: 0, floorBps: 0, kind: 'silence' });
+                    }
+                    attempt(n, { chunks, total, etag, resumes: resumesSoFar + 1, objectSize }).then(resolve, reject);
+                    return;
+                }
+                if (total > 0 && resumesAllowed > 0) {
+                    // Resumes exhausted on a body that HAS bytes — the epic's
+                    // "no byte is re-downloaded" bound: reject, never a
+                    // byte-0 restart (Amendment 1 / R4a).
+                    reject(stallError());
+                    return;
+                }
+                if (n < attempts) {
+                    attempt(n + 1, null).then(resolve, reject);
+                    return;
+                }
+                reject(stallError());
+                return;
+            }
+            reject(abortError());
         };
         signal.addEventListener('abort', onAbort);
         if (register) {
@@ -363,19 +526,83 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
                 return;
             }
             clearTimer();
-            if (!response.ok) {
-                retire();
-                resolve({ response });
-                return;
+
+            if (carry) {
+                // TASK-3084 (R3) — a resumed attempt is inspected BEFORE it
+                // is ever resolved to the caller: only a 206 whose
+                // Content-Range starts at the carried `total` is accepted.
+                // Anything else (a 200 because Range was ignored, a 206 at a
+                // different offset, a 416) discards the carry and restarts
+                // from byte 0 — that restart counts against `maxAttempts`
+                // (Amendment 2 / E3: bounded exactly like onAbort's own
+                // `n < attempts` guard, so an always-non-206 responder cannot
+                // recurse past the ceiling).
+                //
+                // TASK-3082 W2-gate fix (2026-09-14) — the OBJECT-CHANGED guard
+                // lives HERE, on the response, not on the wire. The spec's
+                // `If-Range: <etag>` request header is not CORS-safelisted, so
+                // it forced a preflight; the playback buckets' CORS rule
+                // (deploy: aws-lifecycle/anuga-playback-cors.yml) whitelists
+                // `Range` alone, S3 answered the preflight 403
+                // (AccessForbidden CORSResponse) and the browser surfaced
+                // `TypeError: Failed to fetch` — every resume against a real
+                // store killed the whole load ("Playback store failed to
+                // load"; reproduced on map 1461 / run 67147 against
+                // anuga-test-storage). The same-origin mirror the W1 gate ran
+                // through cannot see a CORS failure. So: send only `Range`
+                // (safelisted, no preflight) and compare the 206's ETag —
+                // exposed by the bucket's ExposeHeaders — against the ETag the
+                // first response carried; a mismatch is the "object rewritten
+                // between connections" case If-Range would have answered with
+                // a 200, and takes the same discard-and-restart exit.
+                const contentRange = response.headers && response.headers.get('content-range');
+                const match = contentRange && CONTENT_RANGE_RE.exec(contentRange);
+                const resumedEtag = response.headers && response.headers.get('etag');
+                const sameObject = !etag || !resumedEtag || resumedEtag === etag;
+                const validResume = response.status === 206 && match && Number(match[1]) === total && sameObject;
+                if (!validResume) {
+                    retire();
+                    if (n < attempts) {
+                        attempt(n + 1, null).then(resolve, reject);
+                    } else {
+                        reject(stallError());
+                    }
+                    return;
+                }
+                if (match[3] !== '*') {
+                    objectSize = Number(match[3]);
+                }
+            } else {
+                if (!response.ok) {
+                    retire();
+                    resolve({ response });
+                    return;
+                }
+                const contentLength = response.headers && response.headers.get('content-length');
+                if (contentLength !== null && contentLength !== undefined && contentLength !== '') {
+                    objectSize = Number(contentLength);
+                }
+                const etagHeader = response.headers && response.headers.get('etag');
+                if (etagHeader) {
+                    etag = etagHeader;
+                }
             }
+
             const body = response.body;
             if (!body || typeof body.getReader !== 'function') {
                 // A non-streaming Response (the spec's `new Response(null)`,
                 // or a duck-typed fake): nothing to watch, drain it whole.
+                const bodyStart = Date.now();
                 Promise.resolve(response.arrayBuffer()).then((buffer) => {
                     if (!settled) {
                         retire();
-                        resolve({ response, buffer });
+                        const whole = carry
+                            ? concatChunks(chunks.concat([new Uint8Array(buffer)]), total + buffer.byteLength)
+                            : buffer;
+                        if (recordRate) {
+                            recordRate({ bytes: buffer.byteLength, ms: Date.now() - bodyStart });
+                        }
+                        resolve({ response, buffer: whole });
                     }
                 }, (error) => {
                     if (!settled) {
@@ -386,9 +613,66 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
                 return;
             }
             const reader = body.getReader();
-            const chunks = [];
-            let total = 0;
+            const bodyStart = Date.now();
+            const bytesAtStart = total;
+            let rateWindowStartTotal = total;
+            let rateWindowStartTime = Date.now();
             arm(stallMs);
+            if (resumesAllowed > 0 && rateWindowMs > 0) {
+                // TASK-3084 (R4b) — the RATE trigger: a SEPARATE, re-armed
+                // interval from the stall guard's own `timer`/arm() above
+                // (see retire()/clearRateTimer()). Sampled every
+                // `rateWindowMs`; never itself drains or waits on the body.
+                rateTimer = setInterval(() => {
+                    if (settled) {
+                        return;
+                    }
+                    const now = Date.now();
+                    const windowSeconds = (now - rateWindowStartTime) / 1000;
+                    const windowBytes = total - rateWindowStartTotal;
+                    rateWindowStartTotal = total;
+                    rateWindowStartTime = now;
+                    if (!(windowSeconds > 0)) {
+                        return;
+                    }
+                    if (windowBytes <= 0) {
+                        // TASK-3084 (verifier fix D1) — a window with ZERO
+                        // bytes is either a connection that has not sent its
+                        // first byte yet (time-to-first-byte, not a crawl) or
+                        // a genuine in-body stall, which the SILENCE trigger
+                        // (arm(stallMs) above) already owns. The RATE trigger
+                        // only ever applies to a body that is still moving —
+                        // a rateBps of exactly 0 is never a "far below the
+                        // floor" measurement, it is an absence of one.
+                        return;
+                    }
+                    const rateBps = windowBytes / windowSeconds;
+                    const median = typeof medianRateBps === 'function' ? medianRateBps() : null;
+                    const relativeFloor = median > 0 ? floorFraction * median : 0;
+                    const floorBps = Math.max(absoluteFloor, relativeFloor);
+                    const kind = relativeFloor > absoluteFloor ? 'relative' : 'absolute';
+                    if (kind === 'absolute' && resumesSoFar > 0) {
+                        // ABSOLUTE-ONLY rule (epic AC2) — one absolute-kind
+                        // resume per request; a uniformly slow link is left
+                        // alone after its one reconnect.
+                        return;
+                    }
+                    if (resumesSoFar >= resumesAllowed) {
+                        return;
+                    }
+                    const remaining = objectSize !== null && objectSize !== undefined ? objectSize - total : null;
+                    if (remaining !== null && remaining !== undefined && remaining < minRemaining) {
+                        return;
+                    }
+                    if (rateBps < floorBps) {
+                        resuming = true;
+                        if (onResume) {
+                            onResume({ label, received: total, total: objectSize, rateBps, floorBps, kind });
+                        }
+                        controller.abort();
+                    }
+                }, rateWindowMs);
+            }
             const pump = () => {
                 reader.read().then(({ done, value }) => {
                     if (settled) {
@@ -396,6 +680,16 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
                     }
                     if (done) {
                         retire();
+                        if (recordRate) {
+                            recordRate({ bytes: total - bytesAtStart, ms: Date.now() - bodyStart });
+                        }
+                        if (onBytes) {
+                            // TASK-3086 — the last read of the body: report it
+                            // too, so a caller watching `received` sees the
+                            // final byte land rather than stopping one read
+                            // short of the object's own total.
+                            onBytes({ received: total, total: objectSize });
+                        }
                         resolve({ response, buffer: concatChunks(chunks, total) });
                         return;
                     }
@@ -403,6 +697,9 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
                         chunks.push(value);
                         total += value.byteLength;
                         arm(stallMs);
+                        if (onBytes) {
+                            onBytes({ received: total, total: objectSize });
+                        }
                     }
                     pump();
                 }, (error) => {
@@ -427,7 +724,10 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
         arm(headersMs);
         let pending;
         try {
-            pending = fetchImpl(url, { ...init, signal });
+            const fetchInit = carry
+                ? { ...init, headers: { ...(init && init.headers), Range: `bytes=${total}-` }, priority: 'high', signal }
+                : { ...init, signal };
+            pending = fetchImpl(url, fetchInit);
         } catch (error) {
             onFetchError(error);
             return;
@@ -435,7 +735,7 @@ function fetchWithStallGuard(fetchImpl, url, init, { headersMs, stallMs, maxAtte
         Promise.resolve(pending).then(onResponse, onFetchError);
     });
 
-    return attempt(1);
+    return attempt(1, null);
 }
 
 /**
@@ -506,12 +806,24 @@ export class PlaybackChunkFetcher {
      * @param {number} [options.stallMs]   of the three stall-guard budgets
      * @param {number} [options.maxAttempts] (see PLAYBACK_FETCH_*); the
      *   production epic passes none and takes the module constants.
+     * @param {number} [options.rateWindowMs] TASK-3084 — per-fetcher
+     * @param {number} [options.minRateBps]   overrides of the RESUME
+     * @param {number} [options.rateFloorFraction] budgets (see the
+     * @param {number} [options.resumeMinRemainingBytes] PLAYBACK_FETCH_RATE_*
+     * @param {number} [options.maxResumes] / PLAYBACK_FETCH_MAX_RESUMES
+     *   docblock); the production epic passes none and takes the module
+     *   constants.
      */
     constructor({
         manifest, refreshManifest, cache, memoryPlan, decodeImpl, fetchImpl = defaultFetch, onProgress,
         headersMs = PLAYBACK_FETCH_HEADERS_MS,
         stallMs = PLAYBACK_FETCH_STALL_MS,
-        maxAttempts = PLAYBACK_FETCH_MAX_ATTEMPTS
+        maxAttempts = PLAYBACK_FETCH_MAX_ATTEMPTS,
+        rateWindowMs = PLAYBACK_FETCH_RATE_WINDOW_MS,
+        minRateBps = PLAYBACK_FETCH_MIN_RATE_BPS,
+        rateFloorFraction = PLAYBACK_FETCH_RATE_FLOOR_FRACTION,
+        resumeMinRemainingBytes = PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES,
+        maxResumes = PLAYBACK_FETCH_MAX_RESUMES
     } = {}) {
         if (!manifest) {
             throw new Error('PlaybackChunkFetcher: manifest is required');
@@ -530,6 +842,18 @@ export class PlaybackChunkFetcher {
         this.headersMs = headersMs;
         this.stallMs = stallMs;
         this.maxAttempts = maxAttempts;
+        // TASK-3084 — the RESUME budgets (see PLAYBACK_FETCH_RATE_* above)
+        // and this fetcher's own record of completed-request rates, used to
+        // compute the RELATIVE floor. Only completions of size >=
+        // resumeMinRemainingBytes qualify (see _recordRate) — a handful of
+        // entries at most, so the median is computed on demand from a sorted
+        // copy rather than maintained incrementally.
+        this.rateWindowMs = rateWindowMs;
+        this.minRateBps = minRateBps;
+        this.rateFloorFraction = rateFloorFraction;
+        this.resumeMinRemainingBytes = resumeMinRemainingBytes;
+        this.maxResumes = maxResumes;
+        this._rateSamples = [];
         this._controllers = new Set();
         // TASK-2744 (AC18, epic 2706) — optional `({key, bytes}) => void`,
         // invoked once per completed object at the single byte choke point
@@ -752,14 +1076,79 @@ export class PlaybackChunkFetcher {
         return inFlight;
     }
 
+    /**
+     * TASK-3084 — record ONE completed request's achieved rate, for the
+     * RELATIVE resume floor's median. Only completions of size >=
+     * resumeMinRemainingBytes qualify (see PLAYBACK_FETCH_RESUME_MIN_REMAINING_BYTES's
+     * docblock for why: the mesh phase's scalar arrays complete first, at
+     * 1-8 KB/s over ~300 ms, and a median that counted them would never fire
+     * 1/8x in exactly the phase that lost 183 s).
+     * @param {{bytes: number, ms: number}} sample
+     */
+    _recordRate({ bytes, ms }) {
+        if (bytes >= this.resumeMinRemainingBytes && ms > 0) {
+            this._rateSamples.push({ bytes, ms });
+        }
+    }
+
+    /** The median of this fetcher's qualifying completed-request rates, or null until one exists. */
+    _medianRateBps() {
+        if (!this._rateSamples.length) {
+            return null;
+        }
+        const rates = this._rateSamples.map((s) => s.bytes / (s.ms / 1000)).sort((a, b) => a - b);
+        const mid = Math.floor(rates.length / 2);
+        return rates.length % 2 ? rates[mid] : (rates[mid - 1] + rates[mid]) / 2;
+    }
+
+    /**
+     * TASK-3084 (AC4) — the ONE console.info per resume. `kind` 'silence'
+     * carries no measured rate (the guard aborted on inactivity, not on a
+     * rate sample), so it reports the stall budget it fired after instead of
+     * a rate/floor pair.
+     */
+    /**
+     * TASK-3086 (W2.2) — forward one stream read to the constructor's
+     * `onProgress`, tagged `done: false`. Fires on EVERY read of EVERY
+     * object this fetcher fetches (mesh AND pre-roll AND later fill — R6:
+     * one seam, because everything goes through `_fetchRawBytes`); the epic
+     * decides which keys/phase count. Never throws into the fetch path — a
+     * reporting failure must not fail the load it only describes (mirrors
+     * the completion call's own swallow below).
+     */
+    _onBytes(relativeKey, { received, total }) {
+        if (this.onProgress) {
+            try {
+                this.onProgress({ key: relativeKey, received, total, done: false });
+            } catch (e) {
+                // deliberately swallowed — see the constructor note
+            }
+        }
+    }
+
+    _onResume({ label, received, total, rateBps, floorBps, kind }) {
+        const totalStr = total !== null && total !== undefined ? total : '?';
+        if (kind === 'silence') {
+            // eslint-disable-next-line no-console
+            console.info(`[playback] resume '${label}' at ${received}/${totalStr} B — 0 B/s under floor — (silence after ${this.stallMs} ms)`);
+            return;
+        }
+        // eslint-disable-next-line no-console
+        console.info(`[playback] resume '${label}' at ${received}/${totalStr} B — ${Math.round(rateBps)} B/s under floor ${Math.round(floorBps)} B/s (${kind})`);
+    }
+
     async _fetchRawBytes(relativeKey, { allowRefresh = true } = {}) {
         const url = urlForRelativeKey(this.manifest, relativeKey);
         // TASK-3079 — the guarded fetch resolves BEFORE draining the body on
-        // any non-2xx, so the two status guards below run exactly as they did
-        // when this was a bare `await fetchImpl(url)`. A stall retry never
-        // spends the single `allowRefresh: false` retry, and the post-refresh
-        // recursive call gets a fresh attempt budget of its own (so the honest
-        // worst case is 2 x maxAttempts attempts, each from byte 0).
+        // any non-2xx FRESH attempt, so the two status guards below run
+        // exactly as they did when this was a bare `await fetchImpl(url)`. A
+        // stall retry never spends the single `allowRefresh: false` retry,
+        // and the post-refresh recursive call gets a fresh attempt budget of
+        // its own. TASK-3084 — a stall or a slow-relative-to-its-siblings
+        // body now RESUMES (keeping its bytes) instead of restarting, so the
+        // honest worst case is 2 x maxAttempts header/restart attempts, each
+        // of which may carry up to maxResumes resumes that keep their bytes
+        // (no longer "each from byte 0").
         const { response, buffer } = await fetchWithStallGuard(this.fetchImpl, url, undefined, {
             headersMs: this.headersMs,
             stallMs: this.stallMs,
@@ -767,7 +1156,16 @@ export class PlaybackChunkFetcher {
             label: relativeKey,
             isDisposed: () => this._disposed,
             register: (controller) => this._controllers.add(controller),
-            unregister: (controller) => this._controllers.delete(controller)
+            unregister: (controller) => this._controllers.delete(controller),
+            rateWindowMs: this.rateWindowMs,
+            minRateBps: this.minRateBps,
+            rateFloorFraction: this.rateFloorFraction,
+            resumeMinRemainingBytes: this.resumeMinRemainingBytes,
+            maxResumes: this.maxResumes,
+            medianRateBps: () => this._medianRateBps(),
+            recordRate: (sample) => this._recordRate(sample),
+            onResume: (info) => this._onResume(info),
+            onBytes: (info) => this._onBytes(relativeKey, info)
         });
         if (response.status === 403) {
             if (!allowRefresh || !this.refreshManifest) {
@@ -779,11 +1177,15 @@ export class PlaybackChunkFetcher {
         if (!response.ok && response.status !== 206) {
             throw new Error(`playbackChunkFetcher: fetch of '${relativeKey}' failed with status ${response.status}`);
         }
-        // `buffer` is the whole streamed body; onProgress keeps its contract
-        // of firing ONCE per COMPLETED object (the streaming read is internal).
+        // `buffer` is the whole streamed body; onProgress keeps its
+        // TASK-2744 AC18 contract of firing once per COMPLETED object
+        // (`{key, bytes}` — additive fields only, never removed: TASK-3086
+        // adds `done: true` + `received` so a caller that aggregates by
+        // `received`/`done` sees this as the object's LAST byte, not a
+        // separate event).
         if (this.onProgress) {
             try {
-                this.onProgress({ key: relativeKey, bytes: buffer.byteLength });
+                this.onProgress({ key: relativeKey, bytes: buffer.byteLength, done: true, received: buffer.byteLength });
             } catch (e) {
                 // deliberately swallowed — see the constructor note
             }

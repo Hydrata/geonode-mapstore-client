@@ -88,6 +88,13 @@ export const PLAYBACK_SET_COLOR_FLOOR = 'PLAYBACK:SET_COLOR_FLOOR';
 // TASK-2752 (W8.2, epic 2706) — the temporal-max envelope (Max toggle).
 export const PLAYBACK_SET_ENVELOPE_MODE = 'PLAYBACK:SET_ENVELOPE_MODE';
 export const PLAYBACK_ENVELOPE_LOADED = 'PLAYBACK:ENVELOPE_LOADED';
+// TASK-3087 (W2.3, epic 3082) — the peak-envelope POSTER shown while the
+// pre-roll buffers. Distinct from PLAYBACK_ENVELOPE_LOADED/envelopeData
+// above (TASK-2752's Max-toggle concept, a user action): this one is fired
+// automatically, once per run, by playbackPosterEpic straight off
+// PLAYBACK_MANIFEST_LOADED — do not collide the two state keys (TASK-2986
+// already did that once with fallbackLayerShown, see playbackController.js).
+export const PLAYBACK_POSTER_LOADED = 'PLAYBACK:POSTER_LOADED';
 
 /**
  * Start (or restart) a playback controller for one run. `layerId` is the
@@ -124,9 +131,21 @@ export function playbackManifestFetched(runId, objectCount) {
     return { type: PLAYBACK_MANIFEST_FETCHED, runId, objectCount };
 }
 
-/** TASK-2744 AC18 — one completed store object during the mesh phase. */
-export function playbackLoadProgress(runId, { objectsLoaded, objectCount, bytesLoaded }) {
-    return { type: PLAYBACK_LOAD_PROGRESS, runId, objectsLoaded, objectCount, bytesLoaded };
+/**
+ * TASK-2744 AC18 — one progress reading during the mesh phase.
+ *
+ * TASK-3086 (W2.2, epic 3082) adds `bytesTotal` (the phase's aggregate
+ * Content-Length once every key has reported one, else null — a guessed
+ * total is worse than none, D5) and `phase` ('mesh' | 'preroll'). This is
+ * the SOLE producer of PLAYBACK_LOAD_PROGRESS (no other call site builds
+ * this action), so a caller passing either field through an action object
+ * built by hand rather than through this creator would previously have had
+ * it silently dropped here — both are now named in the destructure and the
+ * returned action, additively (objectsLoaded/objectCount/bytesLoaded keep
+ * their exact original meaning and shape).
+ */
+export function playbackLoadProgress(runId, { objectsLoaded, objectCount, bytesLoaded, bytesTotal, phase }) {
+    return { type: PLAYBACK_LOAD_PROGRESS, runId, objectsLoaded, objectCount, bytesLoaded, bytesTotal, phase };
 }
 
 export function playbackManifestFailed(runId, error) {
@@ -195,8 +214,16 @@ export function playbackChunkBufferError(chunkIndex, error, runId) {
     return { type: PLAYBACK_CHUNK_BUFFER_ERROR, chunkIndex, error, runId };
 }
 
-export function playbackPlay() {
-    return { type: PLAYBACK_PLAY };
+/**
+ * TASK-3085 (W2.1, epic 3082) — `options.autoplay` marks a PLAY dispatched by
+ * the Results row (not the user pressing the transport's Play button), which
+ * the controller uses to arm `autoplayLoop` (loop-until-touched). A hand-built
+ * `{type: PLAYBACK_PLAY}` — the sibling idiom every existing caller/spec
+ * uses — still works: `autoplay` is undefined there, so `!!undefined` is
+ * `false`, identical to calling `playbackPlay()` with no options.
+ */
+export function playbackPlay(options) {
+    return { type: PLAYBACK_PLAY, autoplay: !!(options && options.autoplay) };
 }
 
 export function playbackPause() {
@@ -333,4 +360,16 @@ export function playbackSetEnvelopeMode(enabled) {
  */
 export function playbackEnvelopeLoaded(runId, quantity, data) {
     return { type: PLAYBACK_ENVELOPE_LOADED, runId, quantity, data };
+}
+
+/**
+ * TASK-3087 (W2.3, epic 3082) — playbackPosterEpic's depth_max fetch landed.
+ * `runId` is the STALE-RESPONSE guard (same idiom as playbackEnvelopeLoaded):
+ * a poster for a run the operator has since left/switched away from must not
+ * be written into the new run's state. `data` is a Float32Array(nNode) of
+ * peak depth in physical units, never null (a null/failed fetch dispatches
+ * nothing — see playbackPosterEpic — a poster is optional).
+ */
+export function playbackPosterLoaded(runId, data) {
+    return { type: PLAYBACK_POSTER_LOADED, runId, data };
 }

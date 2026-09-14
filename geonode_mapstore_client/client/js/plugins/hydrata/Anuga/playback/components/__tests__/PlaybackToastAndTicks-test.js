@@ -117,13 +117,56 @@ describe('Playback status toast + scrubber tick axis', () => {
         });
 
         it('carries the mesh-phase progress readout', () => {
+            // TASK-3086 (W2.2) — rewritten: the per-object "3/7" counter is
+            // retired (AC3), replaced by a byte-true "Loading results · X
+            // [of Y] [· about N s]" line (`bytesTotal: null` here — no Y
+            // segment yet, and no ETA before 3 s of samples either).
             render({ playback: readyState({
                 status: PLAYBACK_STATUS.LOADING_MESH,
-                loadProgress: { objectsLoaded: 3, objectCount: 7, bytesLoaded: 1048576 }
+                loadProgress: { objectsLoaded: 3, objectCount: 7, bytesLoaded: 1048576, bytesTotal: null, phase: 'mesh' }
             }) });
             const line = q('anuga-playback-load-progress', q('anuga-playback-toast'));
             expect(line).toBeTruthy();
-            expect(line.textContent).toContain('3/7');
+            expect(line.textContent).toContain('1.0 MiB');
+            expect(line.textContent).toNotContain('3/7');
+            expect(line.textContent).toNotContain(' of ');
+            expect(line.textContent).toNotContain('about');
+        });
+
+        /*
+         * TASK-3086 (W2.2, epic 3082) — AC3's other two clauses: the ' of '
+         * segment appears once bytesTotal is known, and the ETA segment
+         * appears only after >= 3 s of measured rate, never before (H9/R3).
+         * Real timers only (this karma has no sinon/fake timers) — the
+         * `this.timeout` override is the SAME idiom playbackPerfSmoke-test.js
+         * already uses for a spec that needs more real wall time than
+         * mocha's 2000 ms default.
+         */
+        it('the progress line shows bytes of total and an ETA only after a measured rate', function(done) {
+            this.timeout(8000);
+            const stateWith = (objectsLoaded, bytesLoaded) => readyState({
+                status: PLAYBACK_STATUS.LOADING_MESH,
+                loadProgress: { objectsLoaded, objectCount: 7, bytesLoaded, bytesTotal: 1000000, phase: 'mesh' }
+            });
+            render({ playback: stateWith(0, 0) });
+            let line = q('anuga-playback-load-progress', q('anuga-playback-toast'));
+            expect(line.textContent).toContain('of');
+            // bytesTotal known from the very first reading, but no rate has
+            // been measured yet — no ETA segment at all (never a placeholder
+            // like '—' in the DOM).
+            expect(line.textContent).toNotContain('about');
+
+            setTimeout(() => {
+                render({ playback: stateWith(2, 300000) });
+                setTimeout(() => {
+                    render({ playback: stateWith(4, 600000) });
+                    line = q('anuga-playback-load-progress', q('anuga-playback-toast'));
+                    // >= 3 s have now elapsed since the first reading, and the
+                    // bytes moved on every one of them — an ETA renders.
+                    expect(line.textContent).toContain('about');
+                    done();
+                }, 1700);
+            }, 1700);
         });
 
         it('is announced politely rather than as an alert', () => {

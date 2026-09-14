@@ -199,15 +199,20 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             }) });
             const badge = container.querySelector('[data-testid="anuga-playback-preroll"]');
             expect(badge.hidden).toBe(false);
-            expect(badge.textContent).toBe('67%');
-            // ...and the accessible name carries it too.
+            // TASK-3086 (W2.2) — the badge's own VISIBLE text is retired: the
+            // percentage now lives, as bytes, in the one load-progress line
+            // (AC3's "the ... 9 px badge text are gone"). The element and its
+            // hidden gate are UNCHANGED — only its content is now empty.
+            expect(badge.textContent).toBe('');
+            // ...and the accessible name (a SEPARATE mechanism — the button's
+            // own tooltip, playPauseLabel) still carries it.
             expect(container.querySelector('[data-testid="anuga-playback-playpause"]')
                 .getAttribute('aria-label')).toContain('67');
 
             render({ playback: playing({
                 status: PLAYBACK_STATUS.BUFFERING, bufferedChunks: [0, 1, 2], currentTimestep: 0
             }) });
-            expect(container.querySelector('[data-testid="anuga-playback-preroll"]').textContent).toBe('100%');
+            expect(container.querySelector('[data-testid="anuga-playback-preroll"]').textContent).toBe('');
 
             [PLAYBACK_STATUS.READY, PLAYBACK_STATUS.PLAYING, PLAYBACK_STATUS.SEEKING, PLAYBACK_STATUS.STALLED]
                 .forEach((status) => {

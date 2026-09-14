@@ -124,10 +124,22 @@ import {
     colorMinForQuantity,
     isColorMaxOverridden,
     isColorFloorActive,
+    // TASK-3087 — the ONE predicate the poster epic, the reducer's poster
+    // guard and the Max toggle all share for "does this store have one".
+    hasEnvelopeForQuantity,
+    // TASK-3087 (phase-1.7 sweep) — the ONE predicate for "still in the
+    // poster's eligible window", shared with the reducer's own guard.
+    isPosterEligibleStatus,
     DEFAULT_PLAYBACK_OPACITY,
     DEFAULT_PLAYBACK_BACKGROUND_OPACITY,
     // TASK-3078 — playbackResetOnMapSwitchEpic's "is a run loaded" read.
-    PLAYBACK_STATUS
+    PLAYBACK_STATUS,
+    // TASK-3086 — the pre-roll phase's FIXED key set is this same window,
+    // computed once at MANIFEST_LOADED (R4): reusing the controller's own
+    // export is what keeps the aggregator's 9 keys and the reducer's
+    // BUFFERING->READY gate (isFloorWindowResident, same function) unable
+    // to disagree about what "the pre-roll window" means.
+    floorWindowFor
 } from '../playbackController';
 import { mixDtSeconds } from '../playbackDerivedQuantities';
 import {
@@ -161,7 +173,10 @@ import {
     playbackSetEnvelopeMode,
     playbackFallback,
     // TASK-3078 — dispatched by playbackResetOnMapSwitchEpic.
-    playbackReset
+    playbackReset,
+    // TASK-3087 (W2.3, epic 3082) — the peak-envelope poster.
+    PLAYBACK_POSTER_LOADED,
+    playbackPosterLoaded
 } from '../actions/playbackActions';
 import { show } from '@mapstore/framework/actions/notifications';
 // TASK-3078 — "the map changed" is `gnresource.id` moving (the same action
@@ -178,6 +193,14 @@ import { INIT_ANUGA } from '../../actionsAnuga';
 // re-samples the sim-time playhead; the GPU still draws every rAF the
 // browser gives it via the layer's own `render(frameState)` hook.
 export const TICK_INTERVAL_MS = 50;
+// TASK-3086 (W2.2, R3) — "at most 4 dispatches/s" for PLAYBACK_LOAD_PROGRESS.
+// A LEADING-edge throttle: any onProgress call within this many ms of the
+// last dispatch is folded into the byKey map (never lost) but does not
+// itself dispatch — the NEXT call past the window does, carrying every byte
+// accumulated meanwhile, and a key's own completion always forces a flush
+// (see flushProgress's `force` param) so the line still lands on every
+// object boundary and on 100% of its own phase, never only every 250 ms.
+export const PLAYBACK_LOAD_PROGRESS_THROTTLE_MS = 250;
 // The time-chunk length is NOT a constant here any more (TASK-2724, epic
 // 2706) — it is read per store from its own chunk_grid, see playbackChunkShape.
 // Neither is the buffer window (TASK-2708) — it comes from the store's own
@@ -189,6 +212,29 @@ export const TICK_INTERVAL_MS = 50;
 // The `owner` every playback overlay is registered under, so a teardown can
 // remove the whole group without knowing individual layer ids.
 export const PLAYBACK_LAYER_OWNER = 'anuga-playback';
+
+// TASK-3086 (W2.2) — the channel PLAYBACK_LOAD_PROGRESS travels through for
+// the pre-roll/fill phase.
+//
+// playbackInitEpic's own `load$` (below) calls `observer.complete()` the
+// instant `runLoad` resolves — i.e. right after it emits
+// PLAYBACK_MANIFEST_LOADED — and RxJS silently drops any `next()` a
+// completed Observer is handed afterwards. The pre-roll/fill bytes this task
+// reports are produced LATER: `playbackBufferEpic` reuses the SAME fetcher
+// (via `fetcherRegistry`) once BUFFERING starts, so an `onProgress` call
+// during BUFFERING that still tried to route through `load$`'s own `emit`
+// would be silently swallowed — exactly the gap AC3's "keeps updating
+// through the pre-roll" and the W2 gate's >=5 text changes need closed.
+//
+// A plain Subject has no "complete" of its own here: it lives for the app's
+// life, so `runLoad`'s `onProgress` closure (built once per run, threaded
+// into the fetcher's constructor, called for every mesh AND pre-roll byte —
+// R6) can `.next()` an action through it at ANY point in the run, before or
+// after MANIFEST_LOADED, and `playbackBufferEpic`'s own perpetually-
+// subscribed output (merged with this, below) delivers it to the store.
+// Actions still carry `runId`; a stale run's actions are dropped by the
+// reducer's own runId guard exactly like any other playback action.
+const loadProgressSubject = new Rx.Subject();
 
 // runId -> PlaybackChunkFetcher. Exported so a test (or a future "switch
 // run" cleanup path) can inspect/clear it without reaching into closures.
@@ -403,18 +449,43 @@ export function warnIfOverBudget(runId, plan) {
  */
 const MESH_PHASE_KEYS = [
     'node_x/c/0', 'node_y/c/0', 'elevation/c/0', 'friction/c/0',
-    'inradius/c/0', 'face_node_connectivity/c/0', 'time/c/0'
+    'inradius/c/0', 'time/c/0'
 ];
+// TASK-3086 — face_node_connectivity ships as ONE of these two shapes
+// depending on the exporter version: an older 1-D store writes
+// 'face_node_connectivity/c/0', every store since writes the 2-D
+// 'face_node_connectivity/c/0/0' (the 12x-larger triangle table needs a
+// second chunk dimension). Count whichever the manifest actually offers,
+// and never both — a single store cannot ship both shapes for one array.
+const FACE_NODE_CONNECTIVITY_KEYS = ['face_node_connectivity/c/0/0', 'face_node_connectivity/c/0'];
+
+/**
+ * The exact mesh-phase object keys THIS manifest will fetch (TASK-2744
+ * AC18, TASK-3086). `countMeshObjects` below and the load-progress
+ * aggregator in `playbackInitEpic` both derive from this ONE list, so the
+ * announced total and the keys actually being watched for bytes can never
+ * disagree.
+ */
+function meshPhaseKeysFor(manifest) {
+    const urls = (manifest && manifest.chunk_urls) || {};
+    const matchedBase = MESH_PHASE_KEYS.filter((k) => urls[k] !== undefined);
+    const faceKey = FACE_NODE_CONNECTIVITY_KEYS.find((k) => urls[k] !== undefined);
+    if (!matchedBase.length && !faceKey) {
+        // A manifest whose key shape we do not recognise still gets an
+        // honest, non-zero key set rather than an empty one, which would
+        // render "0 of 0" — the original TASK-2744 AC18 fallback, restated
+        // here so it can never drift from the count it backs.
+        return MESH_PHASE_KEYS.concat(FACE_NODE_CONNECTIVITY_KEYS[1]);
+    }
+    const keys = matchedBase.concat(faceKey ? [faceKey] : []);
+    if (urls['dt_ms/c/0'] !== undefined) {
+        keys.push('dt_ms/c/0');
+    }
+    return keys;
+}
 
 export function countMeshObjects(manifest) {
-    const urls = (manifest && manifest.chunk_urls) || {};
-    let n = MESH_PHASE_KEYS.filter((k) => urls[k] !== undefined).length;
-    if (urls['dt_ms/c/0'] !== undefined) {
-        n += 1;
-    }
-    // A manifest whose key shape we do not recognise still gets an honest
-    // count rather than 0, which would render "3 of 0".
-    return n || MESH_PHASE_KEYS.length;
+    return meshPhaseKeysFor(manifest).length;
 }
 
 /**
@@ -557,14 +628,94 @@ export function playbackInitEpic(action$, store) {
             const manifest = await fetchPlaybackManifest(manifestUrl);
             // The manifest RESPONSE is in. Everything from here is the mesh
             // download + unpack, and it must not keep wearing that label.
-            const meshObjectCount = countMeshObjects(manifest);
+            const meshKeys = meshPhaseKeysFor(manifest);
+            const meshObjectCount = meshKeys.length;
             emit(playbackManifestFetched(runId, meshObjectCount));
-            let objectsLoaded = 0;
-            let bytesLoaded = 0;
-            const onProgress = ({ bytes }) => {
-                objectsLoaded += 1;
-                bytesLoaded += bytes || 0;
-                emit(playbackLoadProgress(runId, { objectsLoaded, objectCount: meshObjectCount, bytesLoaded }));
+            // TASK-3086 (W2.2) — ONE byte-true progress line, fed by the
+            // SAME `onProgress` closure across BOTH phases this run will
+            // ever report (R6: every byte, mesh or pre-roll, passes through
+            // PlaybackChunkFetcher._fetchRawBytes, which is the ONE place
+            // `onProgress` is called). `progress` is reassigned wholesale at
+            // the mesh -> pre-roll boundary below rather than mutated field
+            // by field, so the boundary can never leave a stale `keys` Set
+            // paired with a fresh `byKey` map or vice versa.
+            //
+            // `keys` is a per-phase ALLOWLIST — a later fill fetch (chunks
+            // beyond the fixed pre-roll window, queued as buffer slots free)
+            // also calls this SAME closure, and MUST be silently ignored, or
+            // the reported total would climb past the pre-roll's own total
+            // the moment ordinary playback buffering starts (D5 forbids the
+            // total moving once set). `closed` latches once every key in the
+            // CURRENT phase has reported its completion, so a key from a
+            // finished phase being re-fetched later (an evicted pre-roll
+            // chunk, refilled during ordinary playback) can never resurrect
+            // a progress line the reducer has already retired at READY.
+            let progress = {
+                phase: 'mesh',
+                keys: new Set(meshKeys),
+                byKey: new Map(),
+                frozenBytesTotal: null,
+                closed: false,
+                lastDispatchAt: 0
+            };
+            const flushProgress = (force) => {
+                if (progress.closed) {
+                    return;
+                }
+                const now = Date.now();
+                // At most 4 dispatches/s (R3) — EXCEPT a forced flush (a key
+                // just completed, or the phase just finished), which always
+                // goes out so the line never freezes mid-throttle-window and
+                // always reaches 100% of its own phase.
+                if (!force && now - progress.lastDispatchAt < PLAYBACK_LOAD_PROGRESS_THROTTLE_MS) {
+                    return;
+                }
+                progress.lastDispatchAt = now;
+                let bytesLoaded = 0;
+                let objectsLoaded = 0;
+                let everyTotalKnown = progress.byKey.size === progress.keys.size;
+                progress.byKey.forEach((entry) => {
+                    bytesLoaded += entry.received || 0;
+                    if (entry.done) {
+                        objectsLoaded += 1;
+                    }
+                    if (entry.total === null || entry.total === undefined) {
+                        everyTotalKnown = false;
+                    }
+                });
+                // R4 — "once set it never changes for the phase": computed
+                // exactly ONCE, the first flush after every key has reported
+                // a header, and never recomputed after that.
+                if (progress.frozenBytesTotal === null && everyTotalKnown) {
+                    let sum = 0;
+                    progress.byKey.forEach((entry) => { sum += entry.total || 0; });
+                    progress.frozenBytesTotal = sum;
+                }
+                loadProgressSubject.next(playbackLoadProgress(runId, {
+                    objectsLoaded,
+                    objectCount: progress.keys.size,
+                    bytesLoaded,
+                    bytesTotal: progress.frozenBytesTotal,
+                    phase: progress.phase
+                }));
+                if (objectsLoaded >= progress.keys.size) {
+                    progress.closed = true;
+                }
+            };
+            const onProgress = (info) => {
+                if (progress.closed || !info || !progress.keys.has(info.key)) {
+                    // Not one of this phase's keys (a later fill chunk during
+                    // the pre-roll phase, or anything after the phase's own
+                    // keys are all in) — silently ignored, per R4/D5.
+                    return;
+                }
+                const prior = progress.byKey.get(info.key) || { received: 0, total: null, done: false };
+                progress.byKey.set(info.key, {
+                    received: info.received !== undefined && info.received !== null ? info.received : prior.received,
+                    total: info.total !== undefined && info.total !== null ? info.total : prior.total,
+                    done: prior.done || !!info.done
+                });
+                flushProgress(!!info.done);
             };
             // TASK-2724 — the store's OWN time-chunk length, before a single
             // byte of mesh is downloaded. Throws (-> MANIFEST_FAILED, with the
@@ -785,6 +936,29 @@ export function playbackInitEpic(action$, store) {
             // unusable, which the control renders as DISABLED, never as a
             // button that silently does nothing.
             const meshBounds3857 = reprojectMeshBounds(mesh.nodeX, mesh.nodeY, mesh);
+            // TASK-3086 (R4) — the pre-roll phase's key set is FIXED here,
+            // BEFORE PLAYBACK_MANIFEST_LOADED is emitted: `floorWindowFor`
+            // (the SAME function the reducer's own BUFFERING -> READY gate
+            // uses) x `QUANTITY_ARRAYS`. `playbackBufferEpic` cannot start
+            // fetching pre-roll chunks until AFTER the action below reaches
+            // the store, so replacing `progress` here — swapping the whole
+            // mesh-phase aggregator out for a fresh pre-roll one — can never
+            // race a fetch it has not yet seen.
+            const preRollChunkIndices = floorWindowFor({ nTime, chunkLengthT, totalChunks }, 0);
+            const preRollKeys = [];
+            preRollChunkIndices.forEach((chunkIndex) => {
+                QUANTITY_ARRAYS.forEach((name) => {
+                    preRollKeys.push(`${name}/c/${chunkIndex}/0`);
+                });
+            });
+            progress = {
+                phase: 'preroll',
+                keys: new Set(preRollKeys),
+                byKey: new Map(),
+                frozenBytesTotal: null,
+                closed: false,
+                lastDispatchAt: 0
+            };
             emit(playbackManifestLoaded({
                 runId, manifest, mesh, time, dtMs, quantization: manifest.quantization,
                 nTime, nNode, chunkLengthT, totalChunks, memoryPlan, meshBounds3857
@@ -838,7 +1012,17 @@ export function playbackBufferEpic(action$, store) {
     const trigger$ = action$.ofType(
         PLAYBACK_MANIFEST_LOADED, PLAYBACK_PLAY, PLAYBACK_SEEK, PLAYBACK_TICK, PLAYBACK_CHUNKS_BUFFERED
     );
-    return trigger$.switchMap(() => {
+    // TASK-3086 (Amendment A2/E1) — `loadProgressSubject` is merged at THIS
+    // outer level, never inside the `switchMap` below: `trigger$` includes
+    // PLAYBACK_TICK, so the switchMap's inner Observable is torn down and
+    // re-subscribed on every tick, and a progress dispatch racing that
+    // teardown would be lost exactly like it is lost past `load$`'s own
+    // `observer.complete()`. Merged out here, `loadProgressSubject`'s
+    // emissions ride this epic's OWN subscription, which — like every
+    // redux-observable epic — is opened once at store creation and never
+    // torn down, so a `.next()` from `runLoad`'s `onProgress` closure always
+    // reaches the store, in the mesh phase or the pre-roll alike.
+    return Rx.Observable.merge(loadProgressSubject, trigger$.switchMap(() => {
         const pb = store.getState().anugaPlayback;
         if (!pb || !pb.runId || !pb.manifest || !pb.totalChunks) {
             return Rx.Observable.empty();
@@ -956,7 +1140,7 @@ export function playbackBufferEpic(action$, store) {
             )));
             return actions.length ? Rx.Observable.of(...actions) : Rx.Observable.empty();
         });
-    });
+    }));
 }
 
 /**
@@ -1025,10 +1209,27 @@ export function playbackEnvelopeFetchEpic(action$, store) {
  * TICK_INTERVAL_MS. Stops on PAUSE/RESET; PLAY again restarts it (a fresh
  * `switchMap` emission cancels any still-running previous interval, so two
  * overlapping intervals can never coexist).
+ *
+ * TASK-3085 (AC4b) — the interval itself still STARTS on PLAY regardless of
+ * status (the shipped pendingPlay path during LOADING_MANIFEST/LOADING_MESH/
+ * BUFFERING depends on that), but the `.filter` below keeps it from actually
+ * emitting a TICK while the run is loading or buffering: playbackBufferEpic
+ * and playbackSyncLayerEpic both trigger on every TICK as `switchMap`s, so an
+ * unfiltered interval would tear down and re-subscribe the fill merge and the
+ * 20 Hz frame Promise.all for the whole pre-roll. `!store` emits unfiltered —
+ * the existing 'emits TICK actions on an interval after PLAY and stops on
+ * PAUSE' spec calls this epic with no store argument at all.
  */
-export function playbackTickEpic(action$) {
+export function playbackTickEpic(action$, store) {
     return action$.ofType(PLAYBACK_PLAY).switchMap(() =>
         Rx.Observable.interval(TICK_INTERVAL_MS)
+            .filter(() => {
+                if (!store) {
+                    return true;
+                }
+                const s = store.getState().anugaPlayback;
+                return !!s && (s.status === PLAYBACK_STATUS.PLAYING || s.status === PLAYBACK_STATUS.STALLED);
+            })
             .map(() => playbackTick(Date.now()))
             .takeUntil(action$.ofType(PLAYBACK_PAUSE, PLAYBACK_RESET))
     );
@@ -1055,6 +1256,92 @@ function getLayerMesh(pb) {
     return layerMesh;
 }
 
+/**
+ * TASK-3087 (W2.3, epic 3082, D6) — the peak-envelope POSTER: while the
+ * pre-roll buffers, draw the run's peak depth (depth_max, ~0.8 MiB) on the
+ * playback layer instead of a blank/near-dry frame 0 — "the single most
+ * informative picture the store has, and it is almost free".
+ *
+ * Fires once per run on PLAYBACK_MANIFEST_LOADED (whose reducer case has
+ * already populated envelopeQuantities/mesh/layerId in state by the time this
+ * epic reads it), gated on the store actually declaring a depth envelope
+ * (hasEnvelopeForQuantity) — a store with none dispatches nothing (AC1/AC2).
+ *
+ * SAME call the Max toggle uses — loadPlaybackEnvelope(fetcher, 'depth'),
+ * cached by the fetcher's own `_staticArrays` map — so a viewer who presses
+ * Max while the poster shows gets the identical array with NO second fetch
+ * (H2, AC3). Issued through fetchAndDecodeChunk exactly like the Max path: it
+ * never enters playbackBufferEpic's fill queue, so it can never take a
+ * pre-roll slot or delay it (AC2).
+ *
+ * Dispatches the layer merge DIRECTLY here rather than relying only on
+ * playbackSyncLayerEpic's trigger list (S2/R4): on a FRESH run nothing has
+ * synced yet (lastSyncedTimestep has no entry for this runId), so that
+ * epic's own baseProps-only fast path would not apply and the frame
+ * Promise.all path would wait for chunk 0 to land — defeating the point of a
+ * poster shown WHILE the pre-roll buffers. playbackSyncLayerEpic's baseProps
+ * (also amended by this task) keep re-asserting it on every later trigger
+ * for as long as `posterEnvelope` is set and status stays BUFFERING, so this
+ * merge only has to land it once.
+ *
+ * Never throws into the stream — a poster is optional (R3): a failed or
+ * unavailable fetch resolves to nothing, exactly like a Max-path failure
+ * degrades to "no envelope drawn" rather than an error.
+ */
+// TASK-3087 (phase-1.7 sweep) — the ONE quantity id this poster ever
+// fetches/draws, named once so a future rename cannot update four of the
+// five occurrences below and miss the fifth.
+const POSTER_QUANTITY = 'depth';
+
+export function playbackPosterEpic(action$, store) {
+    return action$.ofType(PLAYBACK_MANIFEST_LOADED).mergeMap(() => {
+        const pb = store.getState().anugaPlayback;
+        if (!pb || !pb.runId || !pb.layerId || !hasEnvelopeForQuantity(pb.envelopeQuantities, POSTER_QUANTITY)) {
+            return Rx.Observable.empty();
+        }
+        const fetcher = fetcherRegistry.get(pb.runId);
+        if (!fetcher) {
+            return Rx.Observable.empty();
+        }
+        const runId = pb.runId;
+        const layerId = pb.layerId;
+        return Rx.Observable.fromPromise(
+            loadPlaybackEnvelope(fetcher, POSTER_QUANTITY).catch(() => null)
+        ).mergeMap((data) => {
+            if (!data) {
+                return Rx.Observable.empty();
+            }
+            const now = store.getState().anugaPlayback || {};
+            // Stale-response guard, same idiom as PLAYBACK_ENVELOPE_LOADED's:
+            // a run switch mid-fetch must not paint the OLD run's poster
+            // onto the NEW run's layer — the reducer's own runId guard on
+            // PLAYBACK_POSTER_LOADED (A5) protects STATE, not this direct
+            // layer merge.
+            if (now.runId !== runId) {
+                return Rx.Observable.empty();
+            }
+            // A5/R2 — a poster that resolves AFTER this SAME run has already
+            // left the mesh/buffering phase (READY/PLAYING/ERROR/FALLBACK)
+            // must not paint over real frames or a terminal state.
+            if (!isPosterEligibleStatus(now.status)) {
+                return Rx.Observable.empty();
+            }
+            const context = { elevationMin: now.elevationMin, elevationMax: now.elevationMax };
+            return Rx.Observable.of(
+                playbackPosterLoaded(runId, data),
+                mergeOptionsById(layerId, {
+                    mesh: getLayerMesh(now),
+                    colorMode: POSTER_QUANTITY,
+                    colorMax: colorMaxForQuantity(POSTER_QUANTITY, now.quantization, context),
+                    colorMin: colorMinForQuantity(POSTER_QUANTITY, context),
+                    envelopeMode: true,
+                    envelopeData: data
+                })
+            );
+        });
+    });
+}
+
 export function playbackSyncLayerEpic(action$, store) {
     const trigger$ = action$.ofType(
         PLAYBACK_MANIFEST_LOADED, PLAYBACK_TICK, PLAYBACK_SEEK, PLAYBACK_CHUNKS_BUFFERED, PLAYBACK_SET_QUANTITY,
@@ -1078,7 +1365,15 @@ export function playbackSyncLayerEpic(action$, store) {
         // own trigger for the SAME reason SET_WIREFRAME is: flipping either
         // while PAUSED has no other action to ride to the layer.
         PLAYBACK_SET_ENVELOPE_MODE,
-        PLAYBACK_ENVELOPE_LOADED
+        PLAYBACK_ENVELOPE_LOADED,
+        // TASK-3087 (R4) — belt-and-braces: playbackPosterEpic already merges
+        // the poster onto the layer directly (a FRESH run has no
+        // lastSyncedTimestep entry yet, so the baseProps-only fast path below
+        // would not apply on the very first landing), but listing it here too
+        // means any later re-render of THIS epic while still buffering keeps
+        // re-asserting the same envelopeMode/envelopeData from baseProps
+        // rather than depending solely on the one-shot direct dispatch.
+        PLAYBACK_POSTER_LOADED
     );
     return trigger$.switchMap(() => {
         const pb = store.getState().anugaPlayback;
@@ -1153,8 +1448,14 @@ export function playbackSyncLayerEpic(action$, store) {
             // asserted-every-sync layer properties, same class as
             // wireframe/opacity above (so a bar remount/unmount can never
             // desync them from controller state).
-            envelopeMode: !!pb.envelopeMode,
-            envelopeData: pb.envelopeData || null
+            // TASK-3087 (R4/S3) — while BUFFERING and no real Max toggle is
+            // on, fall back to the peak-envelope POSTER (pb.posterEnvelope)
+            // so a later sync trigger (e.g. another PLAYBACK_CHUNKS_BUFFERED
+            // as more pre-roll chunks land) does not overwrite the poster
+            // with envelopeMode:false before the window is ready. The real
+            // Max toggle always wins when it is on.
+            envelopeMode: !!pb.envelopeMode || (pb.status === PLAYBACK_STATUS.BUFFERING && !!pb.posterEnvelope),
+            envelopeData: pb.envelopeData || (pb.status === PLAYBACK_STATUS.BUFFERING ? pb.posterEnvelope : null)
         };
         if (lastSyncedTimestep.get(pb.runId) === pb.currentTimestep) {
             return Rx.Observable.of(mergeOptionsById(pb.layerId, baseProps));
