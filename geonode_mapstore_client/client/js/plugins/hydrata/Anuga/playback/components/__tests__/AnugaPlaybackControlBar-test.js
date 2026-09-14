@@ -432,6 +432,10 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         }
 
         const CLOSE_LABEL = 'Close — unload this run and free its memory';
+        // No colour-scale bounds set. Since 2026-09-14 the initial state seeds
+        // per-quantity defaults (DEFAULT_COLOR_MAX_OVERRIDE / _FLOOR_OVERRIDE),
+        // so a spec about the store-derived reading asks for it explicitly.
+        const NO_DEFAULT_BOUNDS = { colorMaxOverride: {}, colorFloorOverride: {} };
         // TRUE when nothing on the card is an Unload button: no testid ending
         // in `-unload`, and no <button> whose text (the msgId, in this
         // context-less rig) says unload.
@@ -515,7 +519,7 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
         it('AC4 — the colour-scale ceiling is settable and shows the effective value', () => {
             const onSetColorMax = expect.createSpy();
             const quantization = { depth: { valid_max: 16.862720489501953 } };
-            render({ playback: loadedState({ quantity: 'depth', quantization }), onSetColorMax });
+            render({ playback: loadedState({ quantity: 'depth', quantization, ...NO_DEFAULT_BOUNDS }), onSetColorMax });
             const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth"]');
             expect(chip).toBeTruthy();
             // This is the store's valid_max — every urban depth lands in the
@@ -536,6 +540,36 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
             const chip = container.querySelector('[data-testid="anuga-playback-ceiling-depth"]');
             expect(chip.textContent).toInclude('1.5');
             expect(chip.textContent).toNotInclude('16.9');
+        });
+
+        /* 2026-09-14 — a FRESH state (nothing typed) reads the defaults AS
+           overrides — highlighted, reset glyph present, so the store's own
+           16.9 m is one click away. Froude and Courant rows are untouched. */
+        it('2026-09-14 — a fresh state shows the default floor…ceiling per quantity, with resets', () => {
+            // hasDt: true so the Courant row is present to be checked
+            render({ playback: loadedState({ quantity: 'depth', quantization: { depth: { valid_max: 16.862720489501953 } }, hasDt: true }) });
+            const chip = (id) => container.querySelector(`[data-testid="anuga-playback-ceiling-${id}"]`);
+            const text = (id) => chip(id).textContent;
+            const reset = (id) => container.querySelector(`[data-testid="anuga-playback-ceiling-${id}-reset"]`);
+            [
+                ['depth', '≥ 0.1 m', '≤ 6 m'],
+                ['speed', '≥ 0.5 m/s', '≤ 6 m/s'],
+                ['div', '≥ 0.01 m²/s', '≤ 2 m²/s'],
+                ['shear', '≥ 1 Pa', '≤ 10 Pa']
+            ].forEach(([q, floor, ceiling]) => {
+                expect(text(`${q}-floor`)).toBe(floor);
+                expect(text(q)).toBe(ceiling);
+                expect(chip(`${q}-floor`).className).toInclude('is-override');
+                expect(chip(q).className).toInclude('is-override');
+                expect(reset(`${q}-floor`)).toBeTruthy();
+                expect(reset(q)).toBeTruthy();
+            });
+            [['froude', '≤ 3'], ['courant', '≤ 4']].forEach(([q, ceiling]) => {
+                expect(text(`${q}-floor`)).toBe('≥ —');
+                expect(text(q)).toBe(ceiling);
+                expect(reset(`${q}-floor`)).toBe(null);
+                expect(reset(q)).toBe(null);
+            });
         });
 
         /* TASK-3076 AC7/AC8 — the FLOOR beside the ceiling in the drawer's
@@ -569,7 +603,8 @@ describe('AnugaPlaybackControlBar — TASK-2627', () => {
 
             it('is per-quantity: a stored shear floor leaves depth\'s row unset', () => {
                 const quantization = { depth: { valid_max: 16.862720489501953 } };
-                render({ playback: loadedState({ quantity: 'depth', quantization, colorFloorOverride: { shear: 50 } }) });
+                // under the seeded 10 Pa shear ceiling a 50 Pa floor would be inert
+                render({ playback: loadedState({ quantity: 'depth', quantization, ...NO_DEFAULT_BOUNDS, colorFloorOverride: { shear: 50 } }) });
                 expect(container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor"]').textContent).toBe('≥ 50 Pa');
                 expect(container.querySelector('[data-testid="anuga-playback-ceiling-shear-floor"]').className).toInclude('is-override');
                 expect(container.querySelector('[data-testid="anuga-playback-ceiling-depth-floor"]').textContent).toBe('≥ —');

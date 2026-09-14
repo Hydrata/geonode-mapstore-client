@@ -385,7 +385,12 @@ export const QUANTITY_RAMPS = Object.freeze({
  * Absolute otherwise, and that default is load-bearing: depth/speed/div
  * mirror real SLDs, so with no override a given physical value keeps exactly
  * the colour GeoServer gives it in the `*_max` raster of the same run.
- * Normalizing unconditionally would silently break that agreement.
+ * Normalizing unconditionally would silently break that agreement. NOTE that
+ * since 2026-09-14 a fresh run IS overridden for depth/speed/div/shear
+ * (playbackController.DEFAULT_COLOR_MAX_OVERRIDE): depth and speed keep the
+ * agreement — above their default FLOOR, which hides what the raster paints —
+ * only because their default ceiling equals the SLD cap (an identity
+ * stretch); dIV and shear are stretched by design.
  *
  * @param {string} quantityId
  * @param {boolean} [ceilingOverridden] the reader has set an EFFECTIVE ceiling
