@@ -328,8 +328,9 @@ function concatChunks(chunks, total) {
  * way once the body has at least one byte, instead of restarting at byte 0.
  * A RESUMED attempt's response is inspected BEFORE it is ever resolved to the
  * caller: only `status === 206` with a `Content-Range` starting at the
- * carried `total` is accepted; anything else (a 200, a 206 at the wrong
- * offset, a 416) discards the carry and restarts the request from byte 0 as
+ * carried `total` AND an ETag equal to the first response's is accepted;
+ * anything else (a 200, a 206 at the wrong offset, a 416, a different
+ * object) discards the carry and restarts the request from byte 0 as
  * one more `maxAttempts` attempt — a resumed attempt therefore never
  * resolves `{ response }` for a caller-visible non-2xx the way a fresh
  * attempt does. A retry is either a plain restart (`attempt(n + 1, null)`,
@@ -530,15 +531,35 @@ function fetchWithStallGuard(fetchImpl, url, init, {
                 // TASK-3084 (R3) — a resumed attempt is inspected BEFORE it
                 // is ever resolved to the caller: only a 206 whose
                 // Content-Range starts at the carried `total` is accepted.
-                // Anything else (a 200 because If-Range mismatched or Range
-                // was ignored, a 206 at a different offset, a 416) discards
-                // the carry and restarts from byte 0 — that restart counts
-                // against `maxAttempts` (Amendment 2 / E3: bounded exactly
-                // like onAbort's own `n < attempts` guard, so an
-                // always-non-206 responder cannot recurse past the ceiling).
+                // Anything else (a 200 because Range was ignored, a 206 at a
+                // different offset, a 416) discards the carry and restarts
+                // from byte 0 — that restart counts against `maxAttempts`
+                // (Amendment 2 / E3: bounded exactly like onAbort's own
+                // `n < attempts` guard, so an always-non-206 responder cannot
+                // recurse past the ceiling).
+                //
+                // TASK-3082 W2-gate fix (2026-09-14) — the OBJECT-CHANGED guard
+                // lives HERE, on the response, not on the wire. The spec's
+                // `If-Range: <etag>` request header is not CORS-safelisted, so
+                // it forced a preflight; the playback buckets' CORS rule
+                // (deploy: aws-lifecycle/anuga-playback-cors.yml) whitelists
+                // `Range` alone, S3 answered the preflight 403
+                // (AccessForbidden CORSResponse) and the browser surfaced
+                // `TypeError: Failed to fetch` — every resume against a real
+                // store killed the whole load ("Playback store failed to
+                // load"; reproduced on map 1461 / run 67147 against
+                // anuga-test-storage). The same-origin mirror the W1 gate ran
+                // through cannot see a CORS failure. So: send only `Range`
+                // (safelisted, no preflight) and compare the 206's ETag —
+                // exposed by the bucket's ExposeHeaders — against the ETag the
+                // first response carried; a mismatch is the "object rewritten
+                // between connections" case If-Range would have answered with
+                // a 200, and takes the same discard-and-restart exit.
                 const contentRange = response.headers && response.headers.get('content-range');
                 const match = contentRange && CONTENT_RANGE_RE.exec(contentRange);
-                const validResume = response.status === 206 && match && Number(match[1]) === total;
+                const resumedEtag = response.headers && response.headers.get('etag');
+                const sameObject = !etag || !resumedEtag || resumedEtag === etag;
+                const validResume = response.status === 206 && match && Number(match[1]) === total && sameObject;
                 if (!validResume) {
                     retire();
                     if (n < attempts) {
@@ -704,7 +725,7 @@ function fetchWithStallGuard(fetchImpl, url, init, {
         let pending;
         try {
             const fetchInit = carry
-                ? { ...init, headers: { ...(init && init.headers), Range: `bytes=${total}-`, ...(etag ? { 'If-Range': etag } : {}) }, priority: 'high', signal }
+                ? { ...init, headers: { ...(init && init.headers), Range: `bytes=${total}-` }, priority: 'high', signal }
                 : { ...init, signal };
             pending = fetchImpl(url, fetchInit);
         } catch (error) {

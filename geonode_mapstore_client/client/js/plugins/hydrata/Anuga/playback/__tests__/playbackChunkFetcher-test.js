@@ -1166,6 +1166,120 @@ describe('playbackChunkFetcher — TASK-3084 resume a crawling/stalled body', ()
             }
         }, done);
     });
+
+    /*
+     * TASK-3082 W2-gate fix (2026-09-14) — the resume was DEAD against every
+     * real S3 store. The bucket CORS rule (deploy: anuga-playback-cors.yml)
+     * whitelists exactly one request header, `Range`, and `If-Range` is not
+     * CORS-safelisted, so the resumed fetch forced a preflight that S3 answered
+     * 403 (AccessForbidden CORSResponse) and the browser surfaced as
+     * `TypeError: Failed to fetch` -> the whole load landed on `error`
+     * ("Playback store failed to load") the moment any crawl was detected —
+     * reproduced on localhost map 1461 / run 67147 against anuga-test-storage.
+     * The same-origin mirror the W1 gate ran through cannot see a CORS failure.
+     * The object-changed guard If-Range provided is kept CLIENT-SIDE: the
+     * resumed 206's ETag (exposed via the bucket's ExposeHeaders) must equal
+     * the ETag the first response carried, else the carry is discarded.
+     */
+    it('a resumed request carries only the CORS-safelisted Range header and never If-Range', (done) => {
+        const calls = [];
+        const KEY = 'node_y/c/0';
+        const TOTAL = 40;
+        const fetchImpl = (url, options) => {
+            const call = { url, headers: options && options.headers };
+            calls.push(call);
+            if (calls.length === 1) {
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(10));
+                    }
+                });
+                return Promise.resolve(new Response(stream, {
+                    status: 200, headers: { 'Content-Length': String(TOTAL), ETag: '"abc"' }
+                }));
+            }
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(TOTAL - 10));
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 206, headers: { 'Content-Range': `bytes 10-${TOTAL - 1}/${TOTAL}`, ETag: '"abc"' }
+            }));
+        };
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl, stallMs: 50, maxAttempts: 3, maxResumes: 3
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(calls.length).toBe(2);
+                expect(calls[1].headers.Range).toBe('bytes=10-');
+                expect(Object.keys(calls[1].headers).some((h) => h.toLowerCase() === 'if-range')).toBe(false);
+                expect(buffer.byteLength).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
+
+    it('a resumed 206 whose ETag differs from the first response is discarded and the fetch restarts from byte 0', (done) => {
+        const calls = [];
+        const KEY = 'node_y/c/0';
+        const TOTAL = 40;
+        const fetchImpl = (url, options) => {
+            const call = { url, headers: options && options.headers };
+            calls.push(call);
+            const n = calls.length;
+            if (n === 1) {
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(10));
+                    }
+                });
+                return Promise.resolve(new Response(stream, {
+                    status: 200, headers: { 'Content-Length': String(TOTAL), ETag: '"v1"' }
+                }));
+            }
+            if (n === 2) {
+                // Right offset, WRONG object: the store was rewritten between
+                // the two connections. Without If-Range on the wire this is
+                // exactly what S3 would answer; the client must refuse it.
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(TOTAL - 10));
+                        controller.close();
+                    }
+                });
+                return Promise.resolve(new Response(stream, {
+                    status: 206, headers: { 'Content-Range': `bytes 10-${TOTAL - 1}/${TOTAL}`, ETag: '"v2"' }
+                }));
+            }
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new Uint8Array(TOTAL));
+                    controller.close();
+                }
+            });
+            return Promise.resolve(new Response(stream, {
+                status: 200, headers: { 'Content-Length': String(TOTAL), ETag: '"v2"' }
+            }));
+        };
+        const fetcher = new PlaybackChunkFetcher({
+            manifest: FIXTURE_MANIFEST, fetchImpl, stallMs: 50, maxAttempts: 3, maxResumes: 3
+        });
+        fetcher._fetchRawBytes(KEY).then((buffer) => {
+            try {
+                expect(calls.length).toBe(3);
+                expect(!calls[2].headers || !calls[2].headers.Range).toBe(true);
+                expect(buffer.byteLength).toBe(TOTAL);
+                done();
+            } catch (e) {
+                done(e);
+            }
+        }, done);
+    });
 });
 
 /*
