@@ -280,9 +280,13 @@ export const PACE_TICK_SAFETY = 0.5;
  * match the raster, by choice — the whole spectrum is spent on the range
  * that matters.
  *
- * Frozen, and handed to the state by reference: the reducer copies-on-write
- * (SET_COLOR_MAX / SET_COLOR_FLOOR), so a stray in-place edit would throw
- * here rather than silently retune every later run.
+ * Frozen, and COPIED into the state: freezing means a stray in-place edit of
+ * the constant throws rather than silently retuning every later run, and the
+ * copy keeps the state a plain object. That second half is load-bearing for
+ * the specs — `is-equal` ≥ 1.6 (which gmc CI resolves; the workstation has
+ * 1.5.5) reports a frozen object as NOT equal to a plain one ("integrity
+ * levels differ"), so never hand these constants to `toEqual` directly —
+ * compare `{ ...DEFAULT_COLOR_MAX_OVERRIDE }`. Bit me on PR #69, 2026-09-14.
  */
 export const DEFAULT_COLOR_MAX_OVERRIDE = Object.freeze({ depth: 6, speed: 6, div: 2, shear: 10 });
 export const DEFAULT_COLOR_FLOOR_OVERRIDE = Object.freeze({ depth: 0.1, speed: 0.5, div: 0.01, shear: 1 });
@@ -407,12 +411,12 @@ export function createInitialPlaybackState() {
         // TASK-2744 AC4 — per-quantity operator override of the colour ramp's
         // upper bound; an absent key means "use the store-derived maximum for
         // that quantity". Keyed by quantity so metres never leak onto m/s.
-        colorMaxOverride: DEFAULT_COLOR_MAX_OVERRIDE,
+        colorMaxOverride: { ...DEFAULT_COLOR_MAX_OVERRIDE },
         // TASK-3076 — the ceiling's pair: per-quantity colour-scale FLOOR, an
         // absent key means "no floor for that quantity". Stored as typed;
         // isColorFloorActive decides whether it takes effect. Session-only,
         // like the ceiling.
-        colorFloorOverride: DEFAULT_COLOR_FLOOR_OVERRIDE,
+        colorFloorOverride: { ...DEFAULT_COLOR_FLOOR_OVERRIDE },
         // TASK-2744 AC11 — the flow-viz / particle overlay knobs, promoted out
         // of the bar's component-local state for the same reason wireframe was
         // (TASK-2656d): the bar is UNMOUNTED whenever the SimpleView menu
